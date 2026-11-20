@@ -4,29 +4,11 @@
   "findings": [
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/3_Game/Atmosphere/c2_AtmosConfig.c",
-      "line": 43,
-      "symbol": "HCc2SeasonTuning.HCLoad",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWeatherDaysModule.OnTick -> ChernarusPlusData.HCTickWeatherDays -> HCWeatherDays.HCSeasonFog -> HCSeasonVisualPolicy.HCFog -> HCc2SeasonTuning.HCGet -> HCc2SeasonTuning.HCLoad",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/3_Game/Atmosphere/c2_AtmosConfig.c",
-      "line": 250,
-      "symbol": "HCc2PresentationConfig.HCLoad",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCEnvSound.Update -> HCc2PresentationConfig.HCGet -> HCc2PresentationConfig.HCLoad",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
       "line": 21,
       "symbol": "HCGroupIO.HCReadRaw",
       "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
+      "message": "OpenFile reachable via HCSettlementDecay.OnTick -> HCSettlementDecay.Initialize -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
       "native": false
     },
     {
@@ -35,7 +17,7 @@
       "line": 23,
       "symbol": "HCGroupIO.HCReadRaw",
       "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
+      "message": "ReadFile reachable via HCSettlementDecay.OnTick -> HCSettlementDecay.Initialize -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
       "native": false
     },
     {
@@ -67,56 +49,11 @@
     },
     {
       "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
-      "line": 79,
-      "symbol": "HCJsonFields.KeyMatchesAt",
-      "key": "key.Get#1",
-      "message": "key.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
-      "line": 85,
-      "symbol": "HCJsonFields.KeyMatchesAt",
-      "key": "key.Get#2",
-      "message": "key.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/3_Game/World/HCAILimits.c",
       "line": 142,
       "symbol": "HCAILimits.GroupSize",
       "key": "rowId.Get#1",
       "message": "rowId.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
-      "line": 38,
-      "symbol": "HCWorldRuntimeConfig.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSaveScheduler.OnTick -> HCWorldRuntimeConfig.HCGet",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
-      "line": 776,
-      "symbol": "HCWorldData.InsertNote",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
-      "line": 791,
-      "symbol": "HCWorldData.InsertCamp",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
       "native": false
     },
     {
@@ -135,15 +72,6 @@
       "symbol": "HCSearchRefreshModule.HCAdminDue",
       "key": "m_Store.Save#1",
       "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c",
-      "line": 184,
-      "symbol": "HCAdminLootMap.HCAckInt",
-      "key": "notice.Get#1",
-      "message": "notice.Get scans a string with no recognized small bound inside a loop",
       "native": false
     },
     {
@@ -192,33 +120,6 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminSnapshotWire.c",
-      "line": 177,
-      "symbol": "HCAdminSnapshotWire.HCBuild",
-      "key": "unsent.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminSnapshotWire.c",
-      "line": 192,
-      "symbol": "HCAdminSnapshotWire.HCBuild",
-      "key": "unsent.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminSnapshotWire.c",
-      "line": 258,
-      "symbol": "HCAdminSnapshotWire.HCBuild",
-      "key": "document.layerStats.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
       "line": 425,
@@ -239,46 +140,10 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c",
-      "line": 53,
-      "symbol": "HCHearthConfig.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c",
       "line": 114,
       "symbol": "HCHearthFires.HCEnabled",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCSignsOfLife.SelectHouses -> HCSignsOfLife.IsLit -> HCHearthFires.HCHasBurning -> HCHearthFires.HCEnabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCSignsOfLife.c",
-      "line": 24,
-      "symbol": "HCSignsConfig.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCSignsConfig.HCGet",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCBaseRaid.c",
-      "line": 89,
-      "symbol": "HCBaseRaid.HCEnabled",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIBaseRaid.HCStep -> HCBaseRaid.HCEnabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
-      "line": 100,
-      "symbol": "HCGCCampGroupConfig.Get",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCCampModule.OnTick -> HCGCCampGroupConfig.Get",
       "native": false
     },
     {
@@ -288,285 +153,6 @@
       "symbol": "HCCampModule.Commit",
       "key": "HCCampStore.Save#1",
       "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampProbes.c",
-      "line": 15,
-      "symbol": "HCCampProbes.HCEnabled",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCCampModule.HCStepClaim -> HCCampProbes.HCEnabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampProbes.c",
-      "line": 51,
-      "symbol": "HCCampProbes.HCVisitorsEnabled",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCAdminVisitorParty.HCVisitStep -> HCCampProbes.HCVisitorsEnabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
-      "line": 101,
-      "symbol": "HCCampRespawnModule.HCValid",
-      "key": "accounts.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
-      "line": 131,
-      "symbol": "HCCampRespawnModule.HCChoose",
-      "key": "m_State.Uses.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 115,
-      "symbol": "HCCampStore.HCClaimsValid",
-      "key": "data.Claims.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 132,
-      "symbol": "HCCampStore.Valid",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 141,
-      "symbol": "HCCampStore.Valid",
-      "key": "groups.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 141,
-      "symbol": "HCCampStore.Valid",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 150,
-      "symbol": "HCCampStore.Valid",
-      "key": "data.TheftRows.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampStore.c",
-      "line": 159,
-      "symbol": "HCCampStore.Valid",
-      "key": "ids.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampTheft.c",
-      "line": 100,
-      "symbol": "HCCampTheft.HCEnabled",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCCampModule.HCStepEncounter -> HCCampModule.StepCamp -> HCCampTheft.Step -> HCCampTheft.HCEnabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 198,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 198,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 199,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 199,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#4",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 200,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#5",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 200,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#6",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 201,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#7",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 201,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostMaxTicks.Get#8",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 212,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostPicked.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 258,
-      "symbol": "HCPerfSampler.EmitCosts",
-      "key": "m_CostPicked.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 381,
-      "symbol": "HCPerfSampler.FillSorted",
-      "key": "source.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 456,
-      "symbol": "HCPerfSampler.EmitWindow",
-      "key": "m_Works.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 471,
-      "symbol": "HCPerfSampler.EmitWindow",
-      "key": "m_SortedModuleNames.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 472,
-      "symbol": "HCPerfSampler.EmitWindow",
-      "key": "m_ModuleNames.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c",
-      "line": 473,
-      "symbol": "HCPerfSampler.EmitWindow",
-      "key": "m_ModuleMaxTicks.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
-      "line": 233,
-      "symbol": "HCPersistenceDisposition.HCPruneArchives",
-      "key": "newest.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
-      "line": 233,
-      "symbol": "HCPersistenceDisposition.HCPruneArchives",
-      "key": "newest.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
-      "line": 236,
-      "symbol": "HCPersistenceDisposition.HCPruneArchives",
-      "key": "newest.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
-      "line": 247,
-      "symbol": "HCPersistenceDisposition.HCPruneArchives",
-      "key": "newest.Get#4",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
-      "line": 247,
-      "symbol": "HCPersistenceDisposition.HCPruneArchives",
-      "key": "newest.Get#5",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -615,33 +201,6 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
-      "line": 62,
-      "symbol": "HCProfileDefaults.PrepareParents",
-      "key": "relative.Get#1",
-      "message": "relative.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
-      "line": 64,
-      "symbol": "HCProfileDefaults.PrepareParents",
-      "key": "relative.Substring#1",
-      "message": "relative.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
-      "line": 265,
-      "symbol": "HCItemCompatibilityAudit.SafeRunId",
-      "key": "runId.Get#1",
-      "message": "runId.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
       "line": 365,
@@ -678,129 +237,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigration.c",
-      "line": 84,
-      "symbol": "HCEcologyMigration.SubmitCohort",
-      "key": "actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P008",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigration.c",
       "line": 139,
       "symbol": "HCEcologyMigration.Persist",
       "key": "m_Store.Save#1",
       "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 29,
-      "symbol": "HCEcologyMigrationQualification.LocalAcceptanceOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigrationQualification.Admitted -> HCEcologyMigrationQualification.LocalAcceptanceOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 82,
-      "symbol": "HCEcologyMigrationNative.Unobserved",
-      "key": "members.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 93,
-      "symbol": "HCEcologyMigrationNative.Unobserved",
-      "key": "observers.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 99,
-      "symbol": "HCEcologyMigrationNative.Unobserved",
-      "key": "members.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 168,
-      "symbol": "HCEcologyMigrationNative.Owns",
-      "key": "members.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 173,
-      "symbol": "HCEcologyMigrationNative.Owns",
-      "key": "members.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
-      "line": 189,
-      "symbol": "HCEcologyMigrationNative.Choose",
-      "key": "members.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationRules.c",
-      "line": 40,
-      "symbol": "HCEcologyMigrationRules.JournalValid",
-      "key": "state.Schedules.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationRules.c",
-      "line": 45,
-      "symbol": "HCEcologyMigrationRules.JournalValid",
-      "key": "state.Schedules.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationRules.c",
-      "line": 59,
-      "symbol": "HCEcologyMigrationRules.Find",
-      "key": "state.Schedules.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationRules.c",
-      "line": 74,
-      "symbol": "HCEcologyMigrationRules.CapacityAvailable",
-      "key": "state.Schedules.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationRules.c",
-      "line": 107,
-      "symbol": "HCEcologyMigrationRules.RecoverPending",
-      "key": "state.Schedules.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -813,101 +255,11 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
-      "line": 111,
-      "symbol": "HCEcologyNative.HCHabitatCount",
-      "key": "text.IndexOfFrom#1",
-      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
-      "line": 137,
-      "symbol": "HCEcologyNative.HCHabitatKey",
-      "key": "text.Substring#1",
-      "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
-      "line": 143,
-      "symbol": "HCEcologyNative.HCHabitatKey",
-      "key": "text.Substring#2",
-      "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
-      "line": 148,
-      "symbol": "HCEcologyNative.HCHabitatKey",
-      "key": "text.IndexOfFrom#1",
-      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 99,
-      "symbol": "HCEcologyRules.PolicyValid",
-      "key": "policy.RouteHints.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
       "line": 105,
       "symbol": "HCEcologyRules.PolicyValid",
       "key": "policy.RouteHints.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 107,
-      "symbol": "HCEcologyRules.PolicyValid",
-      "key": "policy.RouteHints.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 107,
-      "symbol": "HCEcologyRules.PolicyValid",
-      "key": "policy.RouteHints.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 135,
-      "symbol": "HCEcologyRules.ActorDataValid",
-      "key": "actor.EligibleResources.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 165,
-      "symbol": "HCEcologyRules.ZoneDataValid",
-      "key": "zone.EligibleSpecies.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 191,
-      "symbol": "HCEcologyRules.StateDataValid",
-      "key": "state.Assignments.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -923,63 +275,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 203,
-      "symbol": "HCEcologyRules.StateDataValid",
-      "key": "state.Assignments.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 203,
-      "symbol": "HCEcologyRules.StateDataValid",
-      "key": "state.Assignments.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 239,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
       "line": 245,
       "symbol": "HCEcologyRules.BatchValid",
       "key": "batch.Actors.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 247,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Actors.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 247,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Actors.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 258,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Zones.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -995,180 +293,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 266,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Zones.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 266,
-      "symbol": "HCEcologyRules.BatchValid",
-      "key": "batch.Zones.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 300,
-      "symbol": "HCEcologyRules.FindAssignment",
-      "key": "state.Assignments.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 302,
-      "symbol": "HCEcologyRules.FindAssignment",
-      "key": "state.Assignments.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 314,
-      "symbol": "HCEcologyRules.SelectedActor",
-      "key": "directives.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 328,
-      "symbol": "HCEcologyRules.SelectedZone",
-      "key": "directives.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 382,
-      "symbol": "HCEcologyRules.ActiveHint",
-      "key": "policy.RouteHints.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 441,
-      "symbol": "HCEcologyRules.Schedule",
-      "key": "batch.Actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 451,
-      "symbol": "HCEcologyRules.Schedule",
-      "key": "batch.Zones.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 631,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "directives.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 636,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "receipts.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
       "line": 673,
       "symbol": "HCEcologyRules.Commit",
       "key": "directives.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 675,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "directives.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 675,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "directives.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 675,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "directives.Get#4",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 694,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "receipts.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 699,
-      "symbol": "HCEcologyRules.Commit",
-      "key": "directives.Get#5",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 745,
-      "symbol": "HCEcologyRules.Reconcile",
-      "key": "receipts.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 770,
-      "symbol": "HCEcologyRules.Reconcile",
-      "key": "receipts.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 790,
-      "symbol": "HCEcologyRules.Reconcile",
-      "key": "state.Assignments.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -1182,84 +309,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
-      "line": 795,
-      "symbol": "HCEcologyRules.Reconcile",
-      "key": "receipts.Get#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 184,
-      "symbol": "HCEcologyRuntime.RemoveFrom",
-      "key": "entries.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 199,
-      "symbol": "HCEcologyRuntime.ForgetIntents",
-      "key": "m_Intents.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 452,
-      "symbol": "HCEcologyRuntime.StageSample",
-      "key": "m_Actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 469,
-      "symbol": "HCEcologyRuntime.StageSample",
-      "key": "m_Resources.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 598,
-      "symbol": "HCEcologyRuntime.ProbeCohort",
-      "key": "m_Actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "line": 599,
-      "symbol": "HCEcologyRuntime.ProbeCohort",
-      "key": "m_Resources.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P008",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
       "line": 715,
       "symbol": "HCEcologyRuntime.HCWriteCheckpoint",
       "key": "m_Store.Save#1",
       "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeRules.c",
-      "line": 158,
-      "symbol": "HCEcologyRuntimeRules.Capacity",
-      "key": "intents.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -1372,42 +427,6 @@
     },
     {
       "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
-      "line": 280,
-      "symbol": "HCWildlifeObservation.HCRemove",
-      "key": "m_Bindings.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
-      "line": 280,
-      "symbol": "HCWildlifeObservation.HCRemove",
-      "key": "m_Bindings.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
-      "line": 292,
-      "symbol": "HCWildlifeObservation.HCNear",
-      "key": "players.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
-      "line": 354,
-      "symbol": "HCWildlifeObservation.HCSample",
-      "key": "m_Bindings.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
       "line": 165,
       "symbol": "HCWildlifeProviders.HCValid",
@@ -1426,26 +445,8 @@
     },
     {
       "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
-      "line": 437,
-      "symbol": "HCWildlifeProviders.HCEcosystemStep",
-      "key": "facts.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
-      "line": 149,
-      "symbol": "HCWildlifeScenes.HCValid",
-      "key": "spent.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
-      "line": 160,
+      "line": 161,
       "symbol": "HCWildlifeScenes.HCValid",
       "key": "stories.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1454,7 +455,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
-      "line": 162,
+      "line": 163,
       "symbol": "HCWildlifeScenes.HCValid",
       "key": "identities.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1463,18 +464,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
-      "line": 167,
-      "symbol": "HCWildlifeScenes.HCValid",
-      "key": "bodies.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
       "line": 168,
       "symbol": "HCWildlifeScenes.HCValid",
-      "key": "spent.Find#2",
+      "key": "bodies.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -1484,15 +476,6 @@
       "line": 73,
       "symbol": "HCWildlifeRoutes.HCConfigValid",
       "key": "keys.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/auditwild_Ecosystem.c",
-      "line": 138,
-      "symbol": "HCWildlifeInteractions.HCSweep",
-      "key": "m_Contacts.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -1625,7 +608,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 454,
+      "line": 472,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -1634,28 +617,10 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 472,
+      "line": 477,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "Print#2",
       "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 477,
-      "symbol": "HCEventModule.RefreshRoster",
-      "key": "Print#3",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventQualification.c",
-      "line": 13,
-      "symbol": "HCEventQualification.LocalAcceptanceOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventRoster.Build -> HCEventQualification.Admitted -> HCEventQualification.LocalAcceptanceOptIn",
       "native": false
     },
     {
@@ -1665,15 +630,6 @@
       "symbol": "HCEventReviewedSites.Merge",
       "key": "settings.Sites.loop#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
-      "line": 258,
-      "symbol": "HCEventCacheSpawner.HCPhysicalEnabled",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventWorldBinding.Bind -> HCEventWorldBinding.BindCandidate -> HCEventWorldBinding.BindCache -> HCEventCacheSpawner.Create -> HCEventCacheSpawner.Spawn -> HCEventCacheSpawner.HCPhysicalEnabled",
       "native": false
     },
     {
@@ -1688,7 +644,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRuntime.c",
-      "line": 220,
+      "line": 227,
       "symbol": "HCEventRuntime.Retain",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -1704,15 +660,6 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventSitesGate.c",
-      "line": 14,
-      "symbol": "HCEventSitesGate.LocalAcceptanceOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventRoster.Build -> HCEventSitesGate.Admitted -> HCEventSitesGate.LocalAcceptanceOptIn",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventWorldBinding.c",
       "line": 50,
@@ -1722,18 +669,9 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 61,
-      "symbol": "HCNativeIncidentSource.HCReady",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCNativeIncidentLease.HCStep -> HCNativeIncidentLease.HCPresent -> HCNativeIncidentSource.HCReady",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 165,
+      "line": 173,
       "symbol": "HCNativeIncidentLease.HCValid",
       "key": "identities.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1742,7 +680,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 172,
+      "line": 180,
       "symbol": "HCNativeIncidentLease.HCValid",
       "key": "stockSeen.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1751,7 +689,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 179,
+      "line": 187,
       "symbol": "HCNativeIncidentLease.HCValid",
       "key": "issuedSeen.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1760,7 +698,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 179,
+      "line": 187,
       "symbol": "HCNativeIncidentLease.HCValid",
       "key": "stockSeen.Find#2",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1769,7 +707,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 306,
+      "line": 314,
       "symbol": "HCNativeIncidentLease.HCBorrow",
       "key": "row.StockIds.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1821,81 +759,9 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c",
-      "line": 40,
-      "symbol": "HCW38SituationPolicy.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCW38SituationPolicy.HCGet",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
-      "line": 103,
-      "symbol": "HCForageConfig.Get",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCForageModule.OnTick -> HCForageModule.HCPosition -> HCForageConfig.Get",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 93,
-      "symbol": "HCDeathPins.HCReadState",
-      "key": "oldId.IndexOf#1",
-      "message": "oldId.IndexOf scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 95,
-      "symbol": "HCDeathPins.HCReadState",
-      "key": "oldId.Substring#1",
-      "message": "oldId.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 137,
-      "symbol": "HCDeathPins.HCValidState",
-      "key": "seen.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 138,
-      "symbol": "HCDeathPins.HCValidState",
-      "key": "pinIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 151,
-      "symbol": "HCDeathPins.HCPrune",
-      "key": "m_State.Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 175,
-      "symbol": "HCDeathPins.HCInvalidate",
-      "key": "m_State.Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
-      "line": 247,
+      "line": 249,
       "symbol": "HCDeathPins.HCCollect",
       "key": "group.Members.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1948,145 +814,10 @@
     },
     {
       "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
-      "line": 31,
-      "symbol": "HCGroupPlaces.Load",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
-      "line": 62,
-      "symbol": "HCGroupPlaces.NativeNames",
-      "key": "coords.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
-      "line": 62,
-      "symbol": "HCGroupPlaces.NativeNames",
-      "key": "coords.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
-      "line": 88,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "pinIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 205,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "seenIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 214,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "seenMembers.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 223,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "seenOfficers.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 247,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "seenIds.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 256,
-      "symbol": "HCGroupRules.StateValid",
-      "key": "seenIds.Find#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
       "line": 351,
       "symbol": "HCGroupRules.Apply",
       "key": "state.Invitations.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 634,
-      "symbol": "HCGroupRules.ExplorersValid",
-      "key": "accounts.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 642,
-      "symbol": "HCGroupRules.ExplorersValid",
-      "key": "places.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 650,
-      "symbol": "HCGroupRules.ExplorersValid",
-      "key": "places.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 718,
-      "symbol": "HCGroupRules.KnownPlaces",
-      "key": "group.Members.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 727,
-      "symbol": "HCGroupRules.KnownPlaces",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
-      "line": 836,
-      "symbol": "HCGroupRules.DropInvites",
-      "key": "state.Invitations.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -2102,45 +833,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
-      "line": 572,
-      "symbol": "HCGroupService.BeginVisibilityTick",
-      "key": "m_LOSCache.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
-      "line": 589,
-      "symbol": "HCGroupService.SendRound",
-      "key": "m_Peers.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
       "line": 620,
       "symbol": "HCGroupService.Discover",
       "key": "m_PendingVisits.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
-      "line": 674,
-      "symbol": "HCGroupService.EvictExplorers",
-      "key": "candidate.Explorers.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
-      "line": 802,
-      "symbol": "HCGroupService.Tick",
-      "key": "m_State.Invitations.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -2210,36 +905,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
-      "line": 106,
-      "symbol": "HCTeamPingModule.HCReceive",
-      "key": "m_Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
       "line": 150,
       "symbol": "HCTeamPingModule.HCCollect",
       "key": "group.Members.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
-      "line": 173,
-      "symbol": "HCTeamPingModule.HCInvalidate",
-      "key": "m_Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
-      "line": 193,
-      "symbol": "HCTeamPingModule.HCForget",
-      "key": "m_Rows.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -2388,54 +1056,9 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 514,
-      "symbol": "HCInfectedRoomCatalog.ProductionToken",
-      "key": "value.Get#1",
-      "message": "value.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 583,
-      "symbol": "HCInfectedRoomCatalog.ValidateProductionCoverage",
-      "key": "known.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 597,
-      "symbol": "HCInfectedRoomCatalog.ValidateProductionCoverage",
-      "key": "known.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 620,
-      "symbol": "HCInfectedRoomCatalog.ValidateProductionCoverage",
-      "key": "usedClasses.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 625,
-      "symbol": "HCInfectedRoomCatalog.ValidateProductionCoverage",
-      "key": "usedClasses.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 643,
+      "line": 645,
       "symbol": "HCInfectedRoomCatalog.ValidateProductionHouse",
       "key": "usedIds.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -2444,25 +1067,16 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 678,
+      "line": 680,
       "symbol": "HCInfectedRoomCatalog.ProductionBuildLabel",
       "key": "value.Get#1",
       "message": "value.Get scans a string with no recognized small bound inside a loop",
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 763,
-      "symbol": "HCInfectedRoomCatalog.BindProduction",
-      "key": "staged.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 823,
+      "line": 824,
       "symbol": "HCInfectedRoomCatalog.ProductionJsonText",
       "key": "content.Substring#1",
       "message": "content.Substring scans a string with no recognized small bound inside a loop",
@@ -2471,7 +1085,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 1217,
+      "line": 1218,
       "symbol": "HCInfectedRoomCatalog.TemplateGeometry",
       "key": "usedIds.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -2480,7 +1094,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 1441,
+      "line": 1442,
       "symbol": "HCInfectedRoomCatalog.ResolveLegacyConflicts",
       "key": "claimed.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -2489,46 +1103,10 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
-      "line": 1585,
+      "line": 1586,
       "symbol": "HCInfectedRoomCatalog.OrderBindings",
       "key": "used.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "line": 155,
-      "symbol": "HCInfectedQualification.NativePackRoutesOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Move -> HCInfectedQualification.NativePackRoutesAdmitted -> HCInfectedQualification.NativePackRoutesOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "line": 182,
-      "symbol": "HCInfectedQualification.InvestigationOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Choose -> HCInfectedQualification.InvestigationAdmitted -> HCInfectedQualification.InvestigationOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "line": 209,
-      "symbol": "HCInfectedQualification.SupplementaryChainsOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Choose -> HCInfectedQualification.SupplementaryChainsAdmitted -> HCInfectedQualification.SupplementaryChainsOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "line": 263,
-      "symbol": "HCInfectedQualification.HordeStimulusRoutesOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Move -> HCInfectedQualification.HordeStimulusRoutesAdmitted -> HCInfectedQualification.HordeStimulusRoutesOptIn",
       "native": false
     },
     {
@@ -2568,42 +1146,6 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
-      "line": 252,
-      "symbol": "HCInfectedReachModule.Admit",
-      "key": "m_States.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
-      "line": 290,
-      "symbol": "HCInfectedReachModule.OnTick",
-      "key": "m_States.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVariety.c",
-      "line": 298,
-      "symbol": "HCInfectedVariety.HCNearestCandidate",
-      "key": "s_Tried.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVariety.c",
-      "line": 298,
-      "symbol": "HCInfectedVariety.HCNearestCandidate",
-      "key": "s_Used.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P006",
       "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVariety.c",
       "line": 326,
@@ -2640,15 +1182,6 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyRoutes.c",
-      "line": 319,
-      "symbol": "HCInfectedModule.HCVarietyRouteRoster",
-      "key": "visited.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCPostureAdmission.c",
       "line": 148,
@@ -2658,18 +1191,9 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
-      "line": 144,
-      "symbol": "HCCellarSampler.HCStart",
-      "key": "definition.BuildingClass.IndexOf#1",
-      "message": "definition.BuildingClass.IndexOf scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
-      "line": 453,
+      "line": 455,
       "symbol": "HCCellarSampler.OnTick",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCCellarSampler.OnTick",
@@ -2691,15 +1215,6 @@
       "symbol": "HCInteriorMeasuredCatalog.MeasuredRead",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorCatalog.GetFor -> HCInteriorMeasuredCatalog.MeasuredEnsureLoaded -> HCInteriorMeasuredCatalog.MeasuredRead",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
-      "line": 152,
-      "symbol": "HCInteriorMeasuredCatalog.MeasuredText",
-      "key": "value.Get#1",
-      "message": "value.Get scans a string with no recognized small bound inside a loop",
       "native": false
     },
     {
@@ -2727,15 +1242,6 @@
       "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
       "key": "value.Get#2",
       "message": "value.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
-      "line": 245,
-      "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
-      "key": "stem.Substring#1",
-      "message": "stem.Substring scans a string with no recognized small bound inside a loop",
       "native": false
     },
     {
@@ -2919,15 +1425,6 @@
       "native": false
     },
     {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "line": 422,
-      "symbol": "HCInteriorsModule.PlaceCandidate",
-      "key": "Print#2",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
       "line": 155,
@@ -2943,15 +1440,6 @@
       "symbol": "HCInteriorPackIndex.HCRead",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRead",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c",
-      "line": 131,
-      "symbol": "HCInteriorRules.PlacementOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorRules.PlacementAdmitted -> HCInteriorRules.PlacementOptIn",
       "native": false
     },
     {
@@ -3020,60 +1508,6 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 554,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "runs.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 574,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "roomIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 607,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "keepKeys.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 625,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "propIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 650,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "siteIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 659,
-      "symbol": "HCInteriorTemplates.TemplateValid",
-      "key": "pointIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
       "line": 698,
       "symbol": "HCInteriorTemplates.HCFurnishRowValid",
       "key": "ids.Find#1",
@@ -3096,51 +1530,6 @@
       "symbol": "HCInteriorTemplates.LegacyConflict",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorsModule.HCPackAdvance -> HCInteriorTemplates.HCLoadStep -> HCInteriorTemplates.LegacyConflict",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 873,
-      "symbol": "HCInteriorTemplates.HCLoadStep",
-      "key": "s_Job.PendingClasses.Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 924,
-      "symbol": "HCInteriorTemplates.HCLoadStep",
-      "key": "s_Job.PendingGroups.Groups.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 991,
-      "symbol": "HCInteriorTemplates.HCLoadStep",
-      "key": "s_Job.PendingFurnish.Rows.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 1016,
-      "symbol": "HCInteriorTemplates.HCLoadStep",
-      "key": "s_Classes.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
-      "line": 1039,
-      "symbol": "HCInteriorTemplates.HCLoadStep",
-      "key": "s_Furnish.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -3171,84 +1560,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 520,
-      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
-      "key": "census.Counts.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 520,
-      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
-      "key": "census.Patterns.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 520,
-      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
-      "key": "found.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
       "line": 557,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "text.Substring#1",
       "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 562,
-      "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "census.Patterns.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 562,
-      "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "found.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 584,
-      "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "found.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 585,
-      "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "census.Counts.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 588,
-      "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "census.Patterns.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -3261,153 +1578,18 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
-      "line": 25,
-      "symbol": "HCLeadPolicy.SoloGroup",
-      "key": "identityId.Substring#1",
-      "message": "identityId.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
-      "line": 280,
-      "symbol": "HCLeadModule.OnTick",
-      "key": "m_Catalog.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P008",
       "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
-      "line": 296,
-      "symbol": "HCLeadModule.OnTick",
-      "key": "m_Store.Save#1",
-      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
-      "line": 300,
-      "symbol": "HCLeadModule.OnTick",
-      "key": "groups.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P008",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
-      "line": 382,
+      "line": 391,
       "symbol": "HCLeadModule.ReceiveResult",
       "key": "m_Store.Save#1",
       "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 191,
-      "symbol": "HCLeadStore.HCTraceValid",
-      "key": "facts.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 195,
-      "symbol": "HCLeadStore.HCTraceValid",
-      "key": "entities.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 200,
-      "symbol": "HCLeadStore.HCTraceValid",
-      "key": "entities.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 216,
-      "symbol": "HCLeadStore.Valid",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 219,
-      "symbol": "HCLeadStore.Valid",
-      "key": "value.Leads.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 230,
-      "symbol": "HCLeadStore.Valid",
-      "key": "ids.Find#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 230,
-      "symbol": "HCLeadStore.Valid",
-      "key": "scenes.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 235,
-      "symbol": "HCLeadStore.Valid",
-      "key": "value.Traces.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 251,
-      "symbol": "HCLeadStore.Valid",
-      "key": "value.Traces.loop#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 257,
-      "symbol": "HCLeadStore.Valid",
-      "key": "ids.Find#3",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 263,
-      "symbol": "HCLeadStore.Valid",
-      "key": "factions.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
-      "line": 386,
+      "line": 397,
       "symbol": "HCLeadStore.HCCheckpointStep",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCLeadSaveJob.HCStep -> HCLeadStore.HCCheckpointStep",
@@ -3432,48 +1614,12 @@
       "native": false
     },
     {
-      "rule": "HC-P008",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
-      "line": 224,
-      "symbol": "HCNoteLedger.Create",
-      "key": "m_Store.Save#2",
-      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P008",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
-      "line": 233,
-      "symbol": "HCNoteLedger.Create",
-      "key": "m_Store.Save#3",
-      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
-      "rule": "HC-P008",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
-      "line": 242,
-      "symbol": "HCNoteLedger.Create",
-      "key": "m_Store.Save#4",
-      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c",
       "line": 27,
       "symbol": "HCRadioDefaults.HCQualifyChannels",
       "key": "seen.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c",
-      "line": 104,
-      "symbol": "HCRadioDefaults.Get",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCRadioDefaults.Tuned -> HCRadioDefaults.Get",
       "native": false
     },
     {
@@ -3500,7 +1646,7 @@
       "line": 76,
       "symbol": "HCSearchHouseJournal.SupplyKnown",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.SupplyKnown",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.Prepare -> HCSearchHouses.Bind -> HCSearchHouseJournal.SupplyKnown",
       "native": false
     },
     {
@@ -3518,7 +1664,7 @@
       "line": 137,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3527,7 +1673,7 @@
       "line": 139,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#2",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3536,7 +1682,7 @@
       "line": 141,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#3",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3545,7 +1691,7 @@
       "line": 144,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#4",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3554,7 +1700,7 @@
       "line": 145,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#5",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3563,7 +1709,7 @@
       "line": 146,
       "symbol": "HCSearchHouseJournal.Open",
       "key": "FileExist#6",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
       "native": false
     },
     {
@@ -3572,7 +1718,7 @@
       "line": 201,
       "symbol": "HCSearchHouseJournal.Recover",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
       "native": false
     },
     {
@@ -3581,7 +1727,7 @@
       "line": 202,
       "symbol": "HCSearchHouseJournal.Recover",
       "key": "FileExist#2",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
       "native": false
     },
     {
@@ -3590,7 +1736,7 @@
       "line": 203,
       "symbol": "HCSearchHouseJournal.Recover",
       "key": "FileExist#3",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
       "native": false
     },
     {
@@ -3617,7 +1763,7 @@
       "line": 312,
       "symbol": "HCSearchHouseJournal.Restore",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
       "native": false
     },
     {
@@ -3626,7 +1772,7 @@
       "line": 316,
       "symbol": "HCSearchHouseJournal.Restore",
       "key": "FileExist#2",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
       "native": false
     },
     {
@@ -3635,7 +1781,7 @@
       "line": 318,
       "symbol": "HCSearchHouseJournal.Restore",
       "key": "FileExist#3",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
       "native": false
     },
     {
@@ -3644,7 +1790,7 @@
       "line": 318,
       "symbol": "HCSearchHouseJournal.Restore",
       "key": "FileExist#4",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
       "native": false
     },
     {
@@ -3653,25 +1799,7 @@
       "line": 319,
       "symbol": "HCSearchHouseJournal.Restore",
       "key": "FileExist#5",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "line": 348,
-      "symbol": "HCSearchHouseJournal.Restore",
-      "key": "settledSites.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "line": 366,
-      "symbol": "HCSearchHouseJournal.Restore",
-      "key": "m_ReleasedSites.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
       "native": false
     },
     {
@@ -3684,39 +1812,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchNativeSupply.c",
-      "line": 258,
-      "symbol": "HCSearchSupplyRegistry.ForgetHandles",
-      "key": "s_Registered.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 57,
-      "symbol": "HCSearchLimits.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSearchRefreshModule.OnTick -> HCSearchLimits.HCGet",
-      "native": false
-    },
-    {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
       "line": 195,
       "symbol": "HCSearchRetirementPolicy.Fingerprint",
       "key": "supplyId.Get#1",
       "message": "supplyId.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 261,
-      "symbol": "HCSearchRetirementStore.Open",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.PruneLegacyTombstones -> HCSearchHouseJournal.EnsureRetirement -> HCSearchRetirementStore.Open",
       "native": false
     },
     {
@@ -3838,38 +1939,11 @@
     },
     {
       "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 932,
-      "symbol": "HCSearchBinding.BuildInputs",
-      "key": "siteRows.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRules.c",
-      "line": 10,
-      "symbol": "HCSearchRules.TextValid",
-      "key": "value.Get#1",
-      "message": "value.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
       "line": 250,
       "symbol": "HCSearchSupplyProvider.Discover",
       "key": "candidates.loop#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
-      "line": 25,
-      "symbol": "HCProgressionConfig.Get",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCProgressionModule.OnTick -> HCProgressionConfig.Get",
       "native": false
     },
     {
@@ -3992,217 +2066,10 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 334,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#1",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 334,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#2",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 334,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#3",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 334,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#4",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 336,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#5",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 339,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#6",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 339,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#7",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 339,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#8",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 339,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Get#9",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 341,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Substring#1",
-      "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 343,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.Substring#2",
-      "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 346,
-      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
-      "key": "text.IndexOfFrom#1",
-      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 364,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#1",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 367,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#2",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 369,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#3",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 372,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#4",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 377,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#5",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 377,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#6",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 377,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#7",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 377,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#8",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 378,
-      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
-      "key": "text.Get#9",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
-      "line": 404,
+      "line": 422,
       "symbol": "HCTapedPackMounts.DateNumber",
       "key": "date.Get#1",
       "message": "date.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
-      "line": 359,
-      "symbol": "HCShelterModule.HCNextRingCandidate",
-      "key": "m_RingRises.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c",
-      "line": 34,
-      "symbol": "HCVehicleFlipConfig.Get",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCVehicleFlipModule.OnTick -> HCVehicleFlipConfig.Get",
       "native": false
     },
     {
@@ -4215,29 +2082,11 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 50,
-      "symbol": "HCAtmosphereQualification.LocalOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.LocalOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 83,
-      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#1",
-      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
       "line": 87,
       "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#2",
+      "key": "tag.Substring#1",
       "message": "tag.Substring scans a string with no recognized small bound inside a loop",
       "native": false
     },
@@ -4253,36 +2102,9 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 102,
-      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#3",
-      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
       "line": 107,
       "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#4",
-      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 113,
-      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#5",
-      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 115,
-      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#6",
+      "key": "tag.Substring#2",
       "message": "tag.Substring scans a string with no recognized small bound inside a loop",
       "native": false
     },
@@ -4291,7 +2113,7 @@
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
       "line": 119,
       "symbol": "HCAtmosphereQualification.HCXmlAttribute",
-      "key": "tag.Substring#7",
+      "key": "tag.Substring#3",
       "message": "tag.Substring scans a string with no recognized small bound inside a loop",
       "native": false
     },
@@ -4388,15 +2210,6 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 184,
-      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
-      "key": "rest.Substring#1",
-      "message": "rest.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
       "line": 187,
       "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
       "key": "rest.IndexOf#7",
@@ -4408,44 +2221,8 @@
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
       "line": 190,
       "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
-      "key": "rest.Substring#2",
+      "key": "rest.Substring#1",
       "message": "rest.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 208,
-      "symbol": "HCAtmosphereQualification.DelegatedWeather",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 211,
-      "symbol": "HCAtmosphereQualification.DelegatedWeather",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
-      "line": 219,
-      "symbol": "HCAtmosphereQualification.DelegatedWeather",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherConfig.c",
-      "line": 68,
-      "symbol": "HCWeatherConfig.HCLoad",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWeatherDaysModule.OnTick -> ChernarusPlusData.HCTickWeatherDays -> HCAtmospherePolicy.IsNight -> HCWeatherConfig.HCGet -> HCWeatherConfig.HCLoad",
       "native": false
     },
     {
@@ -4503,15 +2280,6 @@
       "native": false
     },
     {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
-      "line": 756,
-      "symbol": "HCWorldModule.HCConflictPressure",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
       "line": 752,
@@ -4531,20 +2299,11 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c",
-      "line": 55,
-      "symbol": "HCPerfConfig.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCDebugSnapshotModule.OnTick -> HCPerfConfig.HCGet",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
       "line": 94,
       "symbol": "HCCacheMoveJournal.Open",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCCacheMoveJournal.Open",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.EnsureJournal -> HCSearchHouses.OpenJournal -> HCCacheMoveJournal.Open",
       "native": false
     },
     {
@@ -4566,21 +2325,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCTerritoryOutcomes.c",
-      "line": 232,
-      "symbol": "HCConflictQuota.HCValid",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
       "line": 343,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4589,7 +2339,7 @@
       "line": 358,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "OpenFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4598,7 +2348,7 @@
       "line": 361,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "FPrint#1",
-      "message": "FPrint reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "FPrint reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4607,7 +2357,7 @@
       "line": 375,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "FileExist#2",
-      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4616,7 +2366,7 @@
       "line": 377,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "DeleteFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4625,7 +2375,7 @@
       "line": 377,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "FileExist#3",
-      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4634,7 +2384,7 @@
       "line": 378,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "CopyFile#1",
-      "message": "CopyFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "CopyFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4643,7 +2393,7 @@
       "line": 384,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "DeleteFile#2",
-      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "DeleteFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4652,7 +2402,7 @@
       "line": 384,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "FileExist#4",
-      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4661,7 +2411,7 @@
       "line": 385,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "CopyFile#2",
-      "message": "CopyFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "message": "CopyFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4670,16 +2420,7 @@
       "line": 395,
       "symbol": "HCStagedSaveImage.HCStepImage",
       "key": "DeleteFile#3",
-      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
-      "line": 175,
-      "symbol": "HCWorldIncidentPolicy.HCGet",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCEcosystemStep -> HCWorldIncidents.HCPublish -> HCWorldIncidents.HCAdd -> HCWorldIncidentPolicy.HCGet",
+      "message": "DeleteFile reachable via HCRadioChatter.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
       "native": false
     },
     {
@@ -4710,18 +2451,9 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 293,
-      "symbol": "HCWorldMaterializer.HCValidCustody",
-      "key": "data.Rows.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 324,
+      "line": 326,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4730,7 +2462,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 326,
+      "line": 328,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#2",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4739,7 +2471,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 332,
+      "line": 334,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4748,7 +2480,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 332,
+      "line": 334,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#3",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4757,7 +2489,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 333,
+      "line": 335,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "CopyFile#1",
       "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4766,7 +2498,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 335,
+      "line": 337,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "DeleteFile#2",
       "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4775,7 +2507,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 335,
+      "line": 337,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#4",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4784,7 +2516,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 336,
+      "line": 338,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "CopyFile#2",
       "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4793,7 +2525,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 337,
+      "line": 339,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "DeleteFile#3",
       "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
@@ -4802,16 +2534,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 369,
-      "symbol": "HCWorldMaterializer.HCCustodyDebt",
-      "key": "m_Active.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 695,
+      "line": 697,
       "symbol": "HCWorldMaterializer.InterestRing",
       "key": "m_Active.loop#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -4928,7 +2651,7 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 96,
+      "line": 98,
       "symbol": "HCWorldStore.KeysAllowed",
       "key": "text.Substring#1",
       "message": "text.Substring scans a string with no recognized small bound inside a loop",
@@ -4937,7 +2660,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 291,
+      "line": 293,
       "symbol": "HCWorldStore.SaveStep",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCWorldModule.HCStepRoutine -> HCWorldStore.SaveStep",
@@ -4953,30 +2676,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Houses.c",
-      "line": 211,
-      "symbol": "HCPickRunner.HCNearest",
-      "key": "Visited.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Policy.c",
       "line": 19,
       "symbol": "HCPickPolicy.Enabled",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickPolicy.Enabled",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Policy.c",
-      "line": 125,
-      "symbol": "HCPickPolicy.RunRefusal",
-      "key": "survey.Routes.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -5030,132 +2735,6 @@
       "line": 84,
       "symbol": "HCSignsOfLifeSnapshotClient.HCReceiveHoldouts",
       "key": "positions.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c",
-      "line": 224,
-      "symbol": "HCSignsOfLifeClient.Reconcile",
-      "key": "wanted.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
-      "line": 342,
-      "symbol": "HCGroupClient.ContentsValid",
-      "key": "memberIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
-      "line": 356,
-      "symbol": "HCGroupClient.ContentsValid",
-      "key": "candidateIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
-      "line": 365,
-      "symbol": "HCGroupClient.ContentsValid",
-      "key": "markerIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
-      "line": 386,
-      "symbol": "HCGroupClient.ContentsValid",
-      "key": "inviteIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapLayers.c",
-      "line": 215,
-      "symbol": "HCGroupMapLayers.Draw",
-      "key": "mHCPool.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 35,
-      "symbol": "HCGroupWorldIcons.HideUnused",
-      "key": "mHCPool.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 134,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCStyled.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 136,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCImages.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 136,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCLabels.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 137,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCImages.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 140,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCNames.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 140,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCTexted.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
-      "line": 142,
-      "symbol": "HCGroupWorldIcons.Update",
-      "key": "mHCLabels.Get#2",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -5277,36 +2856,9 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 78,
-      "symbol": "HCW38SituationRuntime.HCReady",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCReady -> HCW38SituationRuntime.HCReady",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 137,
-      "symbol": "HCW38SituationRuntime.HCProfileOn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCSelect -> HCW38SituationRuntime.HCSelect -> HCW38SituationRuntime.HCProfileOn",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 138,
-      "symbol": "HCW38SituationRuntime.HCProfileOn",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCSelect -> HCW38SituationRuntime.HCSelect -> HCW38SituationRuntime.HCProfileOn",
-      "native": false
-    },
-    {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 173,
+      "line": 190,
       "symbol": "HCW38SituationRuntime.HCSelect",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5315,7 +2867,7 @@
     {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 216,
+      "line": 233,
       "symbol": "HCW38SituationRuntime.HCTarget",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5324,7 +2876,7 @@
     {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 266,
+      "line": 283,
       "symbol": "HCW38SituationRuntime.HCWreckNear",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5333,25 +2885,16 @@
     {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 273,
+      "line": 290,
       "symbol": "HCW38SituationRuntime.HCWreckNear",
       "key": "HC_WORK_SITUATIONS#2",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 327,
-      "symbol": "HCW38SituationRuntime.HCSignals",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCBegin -> HCW38SituationRuntime.HCBegin -> HCW38SituationRuntime.HCSignals",
-      "native": false
-    },
-    {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 333,
+      "line": 351,
       "symbol": "HCW38SituationRuntime.HCSignals",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5360,7 +2903,7 @@
     {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
-      "line": 403,
+      "line": 421,
       "symbol": "HCW38SituationRuntime.HCThreaten",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5391,15 +2934,6 @@
       "symbol": "HCXAICaravanRoads.HCLine",
       "key": "FGets#1",
       "message": "FGets reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadNode -> HCXAICaravanRoads.HCLine",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 79,
-      "symbol": "HCXAICaravanRoads.HCLoad",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCXAICaravanRoads.HCOpen -> HCXAICaravanRoads.HCLoad",
       "native": false
     },
     {
@@ -5457,168 +2991,6 @@
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
-      "line": 342,
-      "symbol": "HCXAIFormationRules.IsRoadSurface",
-      "key": "surface.IndexOf#1",
-      "message": "surface.IndexOf scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerSeed.c",
-      "line": 56,
-      "symbol": "HCWorldModule.HCSeedPickerParties",
-      "key": "m_Data.Parties.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerSeed.c",
-      "line": 63,
-      "symbol": "HCWorldModule.HCSeedPickerParties",
-      "key": "policy.Sites.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIQualification.c",
-      "line": 33,
-      "symbol": "HCXAIQualification.LocalAcceptanceOptIn",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIAdapter.Prerequisites -> HCXAIQualification.Admitted -> HCXAIQualification.LocalAcceptanceOptIn",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRespawnDefaults.c",
-      "line": 80,
-      "symbol": "HCXAIRespawnDefaults.HCOlderSchema",
-      "key": "shippedSchema.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRespawnDefaults.c",
-      "line": 115,
-      "symbol": "HCXAIRespawnDefaults.HCOlderLocalities",
-      "key": "match.SiteIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 254,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#1",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 259,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#2",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 261,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#3",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 265,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#4",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 265,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#5",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 265,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#6",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 265,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#7",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 266,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Get#8",
-      "message": "text.Get scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
-      "line": 274,
-      "symbol": "HCXAIRoleJson.HCArray",
-      "key": "text.Substring#1",
-      "message": "text.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteRules.c",
-      "line": 91,
-      "symbol": "HCXAISiteRules.HCLocalityProblem",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteRules.c",
-      "line": 98,
-      "symbol": "HCXAISiteRules.HCLocalityProblem",
-      "key": "sites.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 349,
-      "symbol": "HCXAILocalitySave.HCRestore",
-      "key": "ids.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
       "line": 362,
@@ -5673,18 +3045,9 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 602,
-      "symbol": "HCXAISiteDirector.HCReconcileLocalitySites",
-      "key": "m_Localities.Localities.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P005",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 786,
+      "line": 801,
       "symbol": "HCXAISiteDirector.HCStepLocalities",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -5693,7 +3056,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 855,
+      "line": 870,
       "symbol": "HCXAISiteDirector.AdmitTransient",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCXMaterializerBridge.Offer -> HCXAISiteDirector.AdmitTransient",
@@ -5702,34 +3065,16 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1137,
+      "line": 1169,
       "symbol": "HCXAISiteDirector.Observe",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe",
       "native": false
     },
     {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1163,
-      "symbol": "HCXAISiteDirector.Reconcile",
-      "key": "groupName.Substring#1",
-      "message": "groupName.Substring scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1772,
-      "symbol": "HCXAISiteDirector.StepDiagnostic",
-      "key": "done.Contains#1",
-      "message": "done.Contains scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
       "rule": "HC-P005",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1774,
+      "line": 1808,
       "symbol": "HCXAISiteDirector.StepDiagnostic",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -5738,34 +3083,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1992,
-      "symbol": "HCXAISiteDirector.HCStepRespawns",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2013,
-      "symbol": "HCXAISiteDirector.HCRefreshDepleted",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns -> HCXAISiteDirector.HCRefreshDepleted",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2048,
-      "symbol": "HCXAISiteDirector.RaidLocked",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIRoleActivities.OnTick -> HCXAIRoleActivities.HCStart -> HCXAISiteDirector.HCParty -> HCXAISiteDirector.RaidLocked",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2232,
+      "line": 2266,
       "symbol": "HCXAISiteDirector.SaveCaches",
       "key": "JsonFileLoader.SaveFile#1",
       "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches",
@@ -5774,16 +3092,16 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2239,
+      "line": 2279,
       "symbol": "HCXAISiteDirector.SaveRoutes",
       "key": "JsonFileLoader.SaveFile#1",
-      "message": "JsonFileLoader.SaveFile reachable via HCXAISiteDirector.HCStepLocalities -> HCXAISiteDirector.SaveRoutes",
+      "message": "JsonFileLoader.SaveFile reachable via HCSaveJob.HCStep -> HCXAIRouteSave.HCWrite -> HCXAISiteDirector.SaveRoutes",
       "native": false
     },
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2293,
+      "line": 2333,
       "symbol": "HCXAISiteDirector.LoadRoutes",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadRoutes",
@@ -5792,7 +3110,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2303,
+      "line": 2343,
       "symbol": "HCXAISiteDirector.LoadCaches",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadCaches",
@@ -5801,7 +3119,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2314,
+      "line": 2354,
       "symbol": "HCXAISiteDirector.LoadOwned",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe -> HCXAISiteDirector.Reconcile -> HCXAISiteDirector.LoadOwned",
@@ -5889,69 +3207,6 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 396,
-      "symbol": "HCXAITactics.Backoff",
-      "key": "s_Backoff.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 450,
-      "symbol": "HCXAITactics.Track",
-      "key": "s_Groups.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 496,
-      "symbol": "HCXAITactics.FireCount",
-      "key": "rec.Fire.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 523,
-      "symbol": "HCXAITactics.Perceive",
-      "key": "targets.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 708,
-      "symbol": "HCXAITactics.StepPending",
-      "key": "s_Pending.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 759,
-      "symbol": "HCXAITactics.StepPending",
-      "key": "action.Contains#1",
-      "message": "action.Contains scans a string with no recognized small bound inside a loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 776,
-      "symbol": "HCXAITactics.PollActors",
-      "key": "all.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIThrowables.c",
       "line": 82,
@@ -5961,39 +3216,12 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c",
-      "line": 406,
-      "symbol": "HCXAITradeProducer.HCLoad",
-      "key": "keys.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c",
-      "line": 453,
-      "symbol": "HCXAITradeProducer.HCRecoverJourneys",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
-      "native": false
-    },
-    {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c",
-      "line": 535,
+      "line": 539,
       "symbol": "HCXAITradeProducer.HCCandidate",
       "key": "HC_WORK_TRADE#1",
       "message": "slot HC_WORK_TRADE shared by HCXTradeInventoryScan and HCXAITradeProducer; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXBetrayalStore.c",
-      "line": 95,
-      "symbol": "HCXBetrayalStore.Validate",
-      "key": "m_Data.Rows.loop#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -6012,96 +3240,6 @@
       "symbol": "HCXConvoyRun.HCSeek",
       "key": "HC_WORK_SITUATIONS#1",
       "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCXConvoyRun; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 81,
-      "symbol": "HCXGrudge.ActorSlot",
-      "key": "Actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 182,
-      "symbol": "HCXDefence.Find",
-      "key": "s_Grudges.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 374,
-      "symbol": "HCXDefence.InfectedNear",
-      "key": "s_DeathAt.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 374,
-      "symbol": "HCXDefence.InfectedNear",
-      "key": "s_DeathPos.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 381,
-      "symbol": "HCXDefence.InfectedNear",
-      "key": "objects.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 413,
-      "symbol": "HCXDefence.Gate",
-      "key": "s_Gates.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 420,
-      "symbol": "HCXDefence.Gate",
-      "key": "s_Gates.Get#2",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 510,
-      "symbol": "HCXDefence.OnShot",
-      "key": "actors.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 513,
-      "symbol": "HCXDefence.OnShot",
-      "key": "provoked.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "line": 585,
-      "symbol": "HCXDefence.Tick",
-      "key": "s_Grudges.Get#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
     {
@@ -6134,15 +3272,6 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 283,
-      "symbol": "HCGapcodeRoutesCatalog.HCResolve",
-      "key": "seen.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
       "line": 291,
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "node.Links.Find#1",
@@ -6156,24 +3285,6 @@
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "previous.Links.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 302,
-      "symbol": "HCGapcodeRoutesCatalog.HCResolve",
-      "key": "locality.SiteIds.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P005",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 352,
-      "symbol": "HCGapcodeRoutesCatalog.HCStep",
-      "key": "Print#1",
-      "message": "per-item Print on a tick path; latch or summarize",
       "native": false
     }
   ]
