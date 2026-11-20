@@ -6,7 +6,7 @@
 class HCXAIFortificationState
 {
     int Version = 1;
-    string World;
+    string WorldName;
     ref array<string> Reserved = new array<string>;
 }
 class HCXAIFortificationSite
@@ -50,13 +50,13 @@ class HCXAIFortification
     void Load()
     {
         m_State = new HCXAIFortificationState;
-        m_State.World = GetGame().GetWorldName();
+        m_State.WorldName = GetGame().GetWorldName();
         if (!HCV2ThreatStore<HCXAIFortificationState>.CanOpen(STORE)) { m_Fault = true; }
         else if (FileExist(STORE))
         {
             if (!HCV2ThreatStore<HCXAIFortificationState>.Load(STORE, 32768, m_State)) { m_Fault = true; }
         }
-        if (!m_State || m_State.Version != 1 || m_State.World != GetGame().GetWorldName() || !m_State.Reserved || m_State.Reserved.Count() > GLOBAL_CAP) { m_Fault = true; }
+        if (!m_State || m_State.Version != 1 || m_State.WorldName != GetGame().GetWorldName() || !m_State.Reserved || m_State.Reserved.Count() > GLOBAL_CAP) { m_Fault = true; }
         if (!m_Fault)
         {
             map<string, bool> unique = new map<string, bool>;
