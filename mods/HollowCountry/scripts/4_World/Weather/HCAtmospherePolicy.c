@@ -135,6 +135,21 @@ class HCAtmospherePolicy
         return (HCWeatherConfig.HCGet().DistanceBase + HCWeatherConfig.HCGet().DistanceMorningLift * HCAtmospherePolicy.MorningWeight(daytime) + HCWeatherConfig.HCGet().DistanceCloudLift * cloud) * damping;
     }
 
+    // Volumetric fog writes. Only distance density follows the fog strength.
+    // Height density stays in the vanilla 0.8..1 band (ChernarusPlus.c:477,
+    // :502, :508); at 0 the fog no longer thins with altitude and fills hilltops.
+    static float VolDistanceDensity(float density, float strength)
+    {
+        return Math.Clamp(Math.Max(HCWeatherConfig.HCGet().DistanceBase, density * strength), 0, 1);
+    }
+
+    static float VolHeightDensity(float cloud)
+    {
+        if (!HCAtmospherePolicy.Finite(cloud) || cloud < 0 || cloud > 1)
+            cloud = 0;
+        return Math.Lerp(0.9, 1.0, cloud);
+    }
+
     static float HeightBias(float daytime)
     {
         return HCWeatherConfig.HCGet().HeightBase + HCWeatherConfig.HCGet().HeightMorningLift * HCAtmospherePolicy.MorningWeight(daytime);

@@ -471,8 +471,8 @@ modded class ChernarusPlusData
         // Weather.c:360/:370 density percentages; ChernarusPlus.c:468 couples
         // both components to weather. No negative extra term or fixed haze floor.
         float density = HCAtmospherePolicy.DistanceDensity(hour, lerpValue, windMagnitude);
-        m_Weather.SetDynVolFogDistanceDensity(Math.Clamp(density * strength, 0, 1), transition);
-        m_Weather.SetDynVolFogHeightDensity(0.35 * strength, transition);
+        m_Weather.SetDynVolFogDistanceDensity(HCAtmospherePolicy.VolDistanceDensity(density, strength), transition);
+        m_Weather.SetDynVolFogHeightDensity(HCAtmospherePolicy.VolHeightDensity(lerpValue), transition);
         m_Weather.SetDynVolFogHeightBias(HCAtmospherePolicy.HeightBias(hour), transition);
     }
 }

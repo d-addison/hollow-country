@@ -192,9 +192,9 @@ modded class ChernarusPlusData
         float fog = HCAtmospherePolicy.FogTarget(daytime, HCAtmospherePolicy.FogDay(), lerpValue, windMagnitude);
         float strength = HCAtmospherePolicy.FogStrength(fog);
         // Weather.c:360/:370 ranges are 0..1; vanilla ChernarusPlus.c:468
-        // couples both densities to weather. Clear days now have zero density.
-        m_Weather.SetDynVolFogDistanceDensity(Math.Clamp(HCAtmospherePolicy.DistanceDensity(daytime, lerpValue, windMagnitude) * strength, 0, 1), transition);
-        m_Weather.SetDynVolFogHeightDensity(0.35 * strength, transition);
+        // couples distance density to weather; height density keeps the vanilla band.
+        m_Weather.SetDynVolFogDistanceDensity(HCAtmospherePolicy.VolDistanceDensity(HCAtmospherePolicy.DistanceDensity(daytime, lerpValue, windMagnitude), strength), transition);
+        m_Weather.SetDynVolFogHeightDensity(HCAtmospherePolicy.VolHeightDensity(lerpValue), transition);
         m_Weather.SetDynVolFogHeightBias(HCAtmospherePolicy.HeightBias(daytime), transition);
     }
 }
