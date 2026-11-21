@@ -183,7 +183,8 @@ class HCEventWorldBinding
     static bool BindFailed(HCEventMission mission)
     {
         string reason = s_FailReason;
-        s_FailReason = "";
+        // BindCandidate resets this at entry. Keep the result through the caller's
+        // retry accounting: logging must not erase a waiting-for-player refusal.
         if (reason == "") { return false; }
         if (!s_BindReported)
         {
@@ -284,6 +285,7 @@ class HCEventWorldBinding
     {
         return s_FailReason == "police_waiting_for_player";
     }
+    static string BindReason() { return s_FailReason; }
     // Native: 3_Game/Global/Game.c:945 GetPlayers; Entities/Object.c:287/517
     // GetPosition/IsAlive. Inspect at most 64 connected players, never world actors.
     // 200 m is an activation opportunity, not a guarantee CE has spawned infected.

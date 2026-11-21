@@ -567,7 +567,7 @@ class HCEventModule : HCModule
                     // unavailable target; after six failures keep the slow timer alive.
                     if (!remembered && m_PoliceRetryAttempts[retrySlot] == 6)
                     {
-                        Print("[HC Events] police binding slow retry; " + mission.Id + "; attempts=6; retryable=1 runtime=PENDING");
+                        Print("[HC Events] police binding slow retry; " + mission.Id + "; attempts=6; reason=" + HCEventWorldBinding.BindReason() + "; retryable=1 runtime=PENDING");
                         return;
                     }
                     return;
