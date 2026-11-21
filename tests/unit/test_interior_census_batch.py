@@ -11,7 +11,7 @@ from unittest.mock import patch
 from tests.legacy.test_ce_probe import make_source_runtime, SYNTH_BE_SHA
 from tools.package import new_buildings
 from tools.setup import interior_census_batch as batch, interior_census_support as support
-from tools.setup import interior_sampler as sampler, probe_runtime as runtime
+from tools.setup import ce_probe, interior_sampler as sampler, probe_runtime as runtime
 
 
 class BatchTests(unittest.TestCase):
@@ -67,12 +67,13 @@ class BatchTests(unittest.TestCase):
 
     def test_issue_preset_stages_packaged_treatment_with_all_requested_classes(self):
         preset = support.ISSUES[317]
-        names = sorted(set(preset['census'] + preset['treatment']) |
+        treatment_classes = support.treatment_classes()
+        names = sorted(set(preset['census'] + treatment_classes) |
                        {name for name, role in sampler.SAMPLE_CLASSES if role == 'calibration'})
         placements = {name: [(i, 0, i)] for i, name in enumerate(names)}
         pos = ('<map>' + ''.join('<group name="%s" pos="%s 0 %s"/>' % (n, i, i)
-                                 for i, n in enumerate(preset['treatment'])) + '</map>').encode()
-        proto = ('<prototype>' + ''.join('<group name="%s"/>' % n for n in preset['treatment']) + '</prototype>').encode()
+                                 for i, n in enumerate(treatment_classes)) + '</map>').encode()
+        proto = ('<prototype>' + ''.join('<group name="%s"/>' % n for n in treatment_classes) + '</prototype>').encode()
         replacements = {'mapgroupproto.xml': proto, 'mapgrouppos.xml': pos}
         with patch.object(support, 'world_placements', return_value=(names, placements, {})), \
              patch.object(support, 'treatment_files', return_value=(replacements, {'commit': 'synthetic'})), \
@@ -81,15 +82,63 @@ class BatchTests(unittest.TestCase):
             plan = batch.prepare(issue=317)
         self.assertEqual(len(plan['runs']) + 1, stage.call_count)
         treatment_call = stage.call_args_list[-1]
-        self.assertEqual(set(preset['treatment']), {t['class'] for t in treatment_call.args[1]})
+        self.assertEqual(set(treatment_classes), {t['class'] for t in treatment_call.args[1]})
         self.assertEqual(replacements, treatment_call.kwargs['replacements'])
         receipt = json.loads((self.root / 'interior-batch-317/evidence.json').read_bytes())
         self.assertEqual('synthetic', receipt['treatment']['commit'])
+        sampling = receipt['treatment']['sampling']
+        self.assertEqual(3, sampling['per_class'])
+        self.assertEqual(set(treatment_classes), set(sampling['shortfalls']))
+        self.assertEqual(len(treatment_classes), sampling['target_count'])
+        for name in treatment_classes:
+            self.assertEqual({'available': 1, 'selected': 1}, sampling['classes'][name])
+        launcher = self.root / 'interior-batch-317/Start-CEProbeServer.ps1'
+        self.assertEqual(Path(batch.__file__).with_name('Start-CEProbeServer.ps1').read_bytes(),
+                         launcher.read_bytes())
+        runner = launcher.with_name('Run-Census.ps1').read_text()
+        self.assertIn("& $launcher -Kind 'ce-probe' -Runtime '", runner)
+        self.assertIn('ce-probe-317-treatment', runner)
+
+    def test_issue_staging_samples_shipped_positions_with_requested_option(self):
+        groups = new_buildings.parse(new_buildings.shipped())['groups']
+        names = tuple(sorted(groups))
+        positions = {name: [tuple(row[:3]) for row in groups[name]['positions']] for name in names}
+        pos = ('<map>' + ''.join('<group name="%s" pos="%s %s %s"/>' % (name, *point)
+                                 for name, rows in positions.items() for point in rows) + '</map>').encode()
+        proto = ('<prototype>' + ''.join('<group name="%s"/>' % n for n in names) + '</prototype>').encode()
+        replacements = {'mapgroupproto.xml': proto, 'mapgrouppos.xml': pos}
+        for per_class in (3, sampler.MAX_PER_CLASS):
+            with self.subTest(per_class=per_class), \
+                 patch.object(support, 'world_placements', return_value=(list(names), positions, {})), \
+                 patch.object(support, 'treatment_files', return_value=(replacements, {'commit': 'synthetic'})), \
+                 patch.object(support, 'stage_observation', side_effect=lambda *a, **kw:
+                              self.fake_stage(run=kw['run']) if 'run' in kw else {}) as stage:
+                batch.prepare(issue=317, tag='sample-%d' % per_class, treatment_per_class=per_class)
+            expected, sampling = support.treatment_targets(positions, names, per_class)
+            self.assertEqual(expected, stage.call_args.args[1])
+            self.assertEqual(sampling, stage.call_args.kwargs['treatment']['sampling'])
+            self.assertEqual(sum(min(per_class, len(rows)) for rows in positions.values()), len(expected))
+
+    def test_treatment_capacity_refusal_is_actionable_and_creates_nothing(self):
+        names = support.treatment_classes()
+        placements = {name: [(i, 0, i)] for i, name in enumerate(names)}
+        before = set(self.root.iterdir())
+        with patch.object(support, 'world_placements', return_value=(list(names), placements, {})), \
+             patch.object(support, 'treatment_files', return_value=({'mapgrouppos.xml': b'pos', 'mapgroupproto.xml': b'proto'}, {'commit': 'synthetic'})), \
+             patch.object(batch.templates, 'parse_proto', return_value=dict.fromkeys(names)), \
+             patch.object(sampler.placements_tool, 'parse_placements', return_value=placements), \
+             patch.object(ce_probe, 'HARD_CAP', len(names) - 1), \
+             redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(1, batch.main(['--issue', '317', '--tag', '321-r1']))
+        self.assertIn('lower --treatment-per-class', stderr.getvalue())
+        self.assertEqual(before, set(self.root.iterdir()))
 
     def test_bad_inputs_and_read_only_mount_create_nothing(self):
         before = set(self.root.iterdir())
         for kwargs in ({'classes': ['A']}, {'classes': ['A', 'A'], 'tag': 'x'},
-                       {'issue': 317, 'classes': ['A']}, {'tag': '../escape'}, {'run_size': 65}):
+                       {'issue': 317, 'classes': ['A']}, {'tag': '../escape'}, {'run_size': 65},
+                       {'treatment_per_class': 0}, {'treatment_per_class': sampler.MAX_PER_CLASS + 1},
+                       {'treatment_per_class': True}, {'treatment_per_class': 1.5}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 batch.prepare(**kwargs)
         with patch.object(batch.os, 'statvfs', return_value=SimpleNamespace(f_flag=batch.os.ST_RDONLY)), \
@@ -118,6 +167,40 @@ class BatchTests(unittest.TestCase):
 
 
 class SupportTests(unittest.TestCase):
+    def test_treatment_classes_and_sampling_follow_shipped_groups(self):
+        groups = new_buildings.parse(new_buildings.shipped())['groups']
+        self.assertEqual(tuple(sorted(groups)), support.treatment_classes())
+        placements = {name: [tuple(row[:3]) for row in spec['positions']] for name, spec in groups.items()}
+        for per_class in (1, 3, sampler.MAX_PER_CLASS):
+            with self.subTest(per_class=per_class):
+                targets, record = support.treatment_targets(placements, support.treatment_classes(), per_class)
+                expected = sum(min(per_class, len(rows)) for rows in placements.values())
+                self.assertEqual(expected, len(targets))
+                self.assertEqual(expected, record['target_count'])
+                self.assertEqual(set(groups), {target['class'] for target in targets})
+                for name, rows in placements.items():
+                    selected = [t['pos'] for t in targets if t['class'] == name]
+                    self.assertEqual([list(p) for p in ce_probe.select_placements(rows, per_class)], selected)
+                    self.assertEqual({'available': len(rows), 'selected': min(per_class, len(rows))},
+                                     record['classes'][name])
+                self.assertEqual(sorted(n for n, rows in placements.items() if len(rows) < per_class),
+                                 record['shortfalls'])
+
+    def test_treatment_never_drops_missing_groups_or_overflow(self):
+        per_class = sampler.MAX_PER_CLASS
+        names = tuple('Synthetic%d' % i for i in range(ce_probe.HARD_CAP // per_class + 1))
+        positions = {name: [(i, 0, i) for i in range(per_class)] for name in names}
+        with self.assertRaisesRegex(support.TreatmentCapacityError, 'lower --treatment-per-class'):
+            support.treatment_targets(positions, names, per_class)
+        positions.pop(names[-1])
+        with self.assertRaisesRegex(ValueError, 'lacks requested placements'):
+            support.treatment_targets(positions, names, 1)
+        for value in (0, True, 1.5, sampler.MAX_PER_CLASS + 1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                support.treatment_targets(positions, names, value)
+        with patch.object(new_buildings, 'shipped', return_value=None), self.assertRaises(ValueError):
+            support.treatment_classes()
+
     def test_world_selection_adds_ungrouped_wrecks_and_resolves_config_spelling(self):
         names = list(support.ISSUES[317]['census'])
         extra = 'Land_Wreck_Synthetic'
@@ -184,7 +267,7 @@ class SupportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary)
             source = make_source_runtime(parent / 'source')
-            name = support.ISSUES[317]['treatment'][0]
+            name = support.treatment_classes()[0]
             replacements = {
                 'mapgrouppos.xml': ('<map><group name="%s" pos="1 2 3"/></map>' % name).encode(),
                 'mapgroupproto.xml': ('<prototype><group name="%s"/></prototype>' % name).encode(),

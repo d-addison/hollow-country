@@ -26,9 +26,11 @@ from tools.setup import interior_census_support as support
 LEGACY_RUN_TARGET_COUNTS = (64, 64, 64, 64, 7)
 
 
-def prepare(wait_minutes=30, *, issue=None, classes=None, tag=None, run_size=64):
+def prepare(wait_minutes=30, *, issue=None, classes=None, tag=None, run_size=64, treatment_per_class=3):
     if not 5 <= wait_minutes <= 120:
         raise ValueError("wait minutes must be 5..120")
+    if type(treatment_per_class) is not int or not 1 <= treatment_per_class <= sampler.MAX_PER_CLASS:
+        raise ValueError(f"treatment per class must be 1..{sampler.MAX_PER_CLASS}")
     if issue is not None and classes is not None:
         raise ValueError("choose an issue or explicit classes")
     issue = 227 if issue is None and classes is None else issue
@@ -65,7 +67,8 @@ def prepare(wait_minutes=30, *, issue=None, classes=None, tag=None, run_size=64)
         requested = list(preset.get("census", classes or ()))
         if preset.get("calibration"):
             requested.extend(name for name, role in sampler.SAMPLE_CLASSES if role == "calibration")
-        all_requested = sorted(set(requested + list(preset.get("treatment", ()))))
+        treatment_classes = support.treatment_classes() if preset.get("treatment") else ()
+        all_requested = sorted(set(requested + list(treatment_classes)))
         names, placements, evidence = support.world_placements(
             source["held"]["mapgrouppos.xml"], stock_classes, all_requested,
             include_wrecks=preset.get("ungrouped_wrecks", False))
@@ -88,13 +91,12 @@ def prepare(wait_minutes=30, *, issue=None, classes=None, tag=None, run_size=64)
         raise ValueError("pinned native scripts cache required for hook lint")
     if treatment_destination:
         replacements, treatment = support.treatment_files(source)
-        treatment_classes = support.ISSUES[issue]["treatment"]
         treatment_positions = sampler.placements_tool.parse_placements(replacements["mapgrouppos.xml"])
         proto_classes = templates.parse_proto(replacements["mapgroupproto.xml"])
         if any(name not in proto_classes or not treatment_positions.get(name) for name in treatment_classes):
             raise ValueError("packaged treatment lacks requested groups or placements")
-        targets = sampler.placements_tool.build_targets(
-            treatment_positions, classes=tuple((name, "treatment") for name in treatment_classes), per_class=1)
+        targets, sampling = support.treatment_targets(treatment_positions, treatment_classes, treatment_per_class)
+        treatment["sampling"] = sampling
     batch.mkdir()
     with (batch / "classes.json").open("x", encoding="ascii") as handle:
         json.dump(classes, handle, indent=2)
@@ -144,9 +146,16 @@ def main(argv=None):
     selection.add_argument("--classes", nargs="+", help="explicit canonical config class names; requires --tag")
     parser.add_argument("--tag", help="fresh destination suffix; defaults to issue number")
     parser.add_argument("--run-size", type=int, default=64, help="at most 64 targets per native run")
+    parser.add_argument("--treatment-per-class", type=int, default=3,
+                        help=f"treatment placements per class (1..{sampler.MAX_PER_CLASS}; default 3); "
+                             "use all available when fewer exist; refuse above the CE probe target cap")
     args = parser.parse_args(argv)
     try:
-        prepare(args.wait_minutes, issue=args.issue, classes=args.classes, tag=args.tag, run_size=args.run_size)
+        prepare(args.wait_minutes, issue=args.issue, classes=args.classes, tag=args.tag, run_size=args.run_size,
+                treatment_per_class=args.treatment_per_class)
+    except support.TreatmentCapacityError as error:
+        print(f"interior_census_batch: {error}. No process was launched.", file=sys.stderr)
+        return 1
     except (OSError, ValueError) as error:
         # Do not include operator home paths or source configuration in errors.
         reason = "read-only host mount" if isinstance(error, OSError) and error.errno == errno.EROFS else type(error).__name__

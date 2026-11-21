@@ -14,15 +14,49 @@ ISSUES = {
     317: {
         "census": ("Land_Misc_Toilet_Mobile", "Land_CementWorks_MillA", "Land_Castle_Donjon",
                    "Land_Wreck_C130J_2", "Land_Office_Municipal1", "Land_Wreck_Harverster"),
-        "treatment": ("Land_Mil_Tower_Small", "Land_Church2_1", "Land_Cementworks_Conveyorhall",
-                      "Land_CementWorks_SiloBig1B", "Land_Office_Municipal1",
-                      "Land_Wreck_Uaz", "Land_Wreck_Tractor", "Land_Wreck_Trailer_Closed"),
+        "treatment": True,
         "ungrouped_wrecks": True,
         "calibration": True,
     },
 }
 ADDONS = Path("/mnt/d/SteamLibrary/steamapps/common/DayZServer/addons")
 REPO = Path(__file__).resolve().parents[2]
+
+
+class TreatmentCapacityError(ValueError):
+    """Safe, actionable refusal before any runtime is written."""
+
+
+def treatment_classes():
+    """Read the shipped layer through the packaging reader; never keep a class list."""
+    data = new_buildings.shipped(REPO)
+    if data is None:
+        raise ValueError("shipped new-buildings layer required for treatment")
+    names = tuple(sorted(new_buildings.parse(data)["groups"]))
+    if not names:
+        raise ValueError("shipped new-buildings layer has no treatment groups")
+    return names
+
+
+def treatment_targets(placements, classes, per_class):
+    """Sample every group, retaining shortfalls and refusing probe overflow."""
+    if type(per_class) is not int or not 1 <= per_class <= sampler.MAX_PER_CLASS:
+        raise ValueError(f"treatment per class must be 1..{sampler.MAX_PER_CLASS}")
+    sampling = {name: {"available": len(placements.get(name, ())),
+                       "selected": min(per_class, len(placements.get(name, ())))}
+                for name in classes}
+    if any(not row["available"] for row in sampling.values()):
+        raise ValueError("packaged treatment lacks requested placements")
+    total = sum(row["selected"] for row in sampling.values())
+    if total > ce_probe.HARD_CAP:
+        raise TreatmentCapacityError(
+            f"treatment needs {total} targets; CE probe maximum is {ce_probe.HARD_CAP}; "
+            "lower --treatment-per-class or split the treatment into separate staged runs; "
+            "no classes were dropped and no runtimes were written")
+    targets = ce_probe.build_targets(placements, classes=tuple((name, "treatment") for name in classes),
+                                     per_class=per_class, hard_cap=ce_probe.HARD_CAP)
+    return targets, {"per_class": per_class, "classes": sampling, "target_count": total,
+                     "shortfalls": [name for name, row in sampling.items() if row["selected"] < per_class]}
 
 
 def world_placements(stock_pos, stock_classes, requested, *, include_wrecks=False):
