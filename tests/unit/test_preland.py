@@ -22,6 +22,13 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(0, code)
         self.assertEqual([*preland.CHECKS, 'wb_compile'], [m.rsplit('.', 1)[1] for m, _ in calls])
         self.assertEqual(['--native-scripts', str(preland.NATIVE)], calls[0][1])
+        self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
+
+    def test_regeneration_is_required_and_propagates_failure(self):
+        self.assertEqual(1, self.invoke(missing={'regenerate_all'})[0])
+        code, calls, _ = self.invoke(codes={'regenerate_all': 1})
+        self.assertEqual(1, code)
+        self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
 
     def test_failures_do_not_short_circuit_and_skips_are_incomplete(self):
         code, calls, output = self.invoke(codes={'enforce_lint': 1, 'cfgconvert_check': 3})
@@ -46,9 +53,11 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual([], by_name['enforce_perf'], 'perf ratchet needs a full-project run')
         self.assertEqual(paths, by_name['cfgconvert_check'])
         self.assertEqual([], by_name['layout_lint'])
+        self.assertEqual(['--check'], by_name['regenerate_all'])
         with patch.object(preland, 'changed_files', return_value=[]):
             _, calls, _ = self.invoke(['--changed', 'HEAD'])
         self.assertIn('tools.validate.enforce_perf', [m for m, _ in calls])
+        self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
 
     def test_changed_query_keeps_deleted_includes_without_git_mutation(self):
         import subprocess

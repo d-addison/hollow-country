@@ -1,0 +1,145 @@
+"""Read-only aggregate of existing generated-artefact checks; never regenerates."""
+import argparse
+from dataclasses import dataclass
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+from tools.release.rpt_summary import filtered
+from tools.release.ship_inputs import ADDONS
+
+ROOT = Path(__file__).resolve().parents[2]
+WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
+LOOT_OUTPUT = 'mission/hollow-country/loot-points/additions-interiors.json'
+# Historical inputs documented in docs/LOOT_POINTS.md, Reproduction and validation.
+LOOT_REVISIONS = (('prior', '335915c6'), ('candidate', 'fa0c2ac8'))
+
+
+@dataclass(frozen=True)
+class Generator:
+    name: str
+    arguments: tuple[str, ...]
+    inputs: tuple[str, ...] = ()
+    success: str = 'existing offline check passed'
+
+
+# All check-capable generators live here, including positional check subcommands.
+GENERATORS = (
+    Generator('admin_world_catalog', ('--check',)),
+    Generator('military_loot', ('--check',)),
+    Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
+              ('addons', 'inventory_stack')),
+    Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
+              'generation validation passed; CLI does not compare committed bytes'),
+    Generator('loot_point_preserve', ('--check', '--prior', '{prior}', '--candidate', '{candidate}',
+                                     '--out', LOOT_OUTPUT)),
+    Generator('snafu_optional', ('generate', '--check', '--source', '{source}', '--report', '{snafu_report}'),
+              ('source', 'snafu_report'), 'generation validation passed; CLI does not compare committed bytes'),
+    Generator('tactical_flava_optional', ('generate', '--check', '--source', '{source}', '--report', '{tactical_flava_report}'),
+              ('source', 'tactical_flava_report'), 'generation validation passed; CLI does not compare committed bytes'),
+    Generator('gui_icons', ('check',)),
+    Generator('new_buildings', ('check', '--mission', '{source}'), ('source',),
+              'shipped layer dry-run passed; CLI does not regenerate geometry'),
+)
+# The aggregate has --check but is an orchestrator, not a generator. Never recurse.
+EXCLUDED_CHECK_MODULES = {'regenerate_all': 'aggregate orchestrator; would recursively invoke itself'}
+
+
+def diagnostic(result):
+    """One bounded, privacy-filtered reason, never raw child output."""
+    lines = (result.stderr + '\n' + result.stdout).splitlines()
+    for line in reversed(lines):
+        safe = filtered(line)
+        if safe and safe.strip():
+            return safe.strip()[:300]
+    return 'no publishable diagnostic'
+
+
+def missing_inputs(generator, values):
+    for name in generator.inputs:
+        if name == 'inventory_stack':
+            # Match the generator's declared provider selection and folder aliases.
+            from tools.package import inventory_sizes, inventory_sources
+            rules = json.loads((ROOT / 'config/inventory-sizes.json').read_bytes())
+            active = inventory_sizes.declared_sources(rules, ROOT / 'tools/setup/workshop_mods.json')
+            for folder in sorted(active - {'vanilla'}):
+                path = values['workshop'] / inventory_sources.WORKSHOP_FOLDERS.get(folder, folder) / 'addons'
+                if not path.is_dir():
+                    return 'installed inventory provider Addons directory unavailable'
+        else:
+            path = values[name]
+            is_file = name.endswith('_report')
+            if path is None or not (path.is_file() if is_file else path.is_dir()):
+                return f'required {name.replace("_", " ")} {"file" if is_file else "directory"} unavailable'
+    return None
+
+
+def check_generator(generator, values, timeout):
+    missing = missing_inputs(generator, values)
+    if missing:
+        return 'SKIP', missing
+    # Only materialize historical *inputs*. No generator output is ever written.
+    with tempfile.TemporaryDirectory(prefix='hc-regenerate-check-') as scratch:
+        arguments = dict(values)
+        if generator.name == 'loot_point_preserve':
+            for name, revision in LOOT_REVISIONS:
+                result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
+                                        capture_output=True, text=True, errors='replace', timeout=timeout)
+                if result.returncode:
+                    return 'FAIL', f'historical {name} input unavailable: ' + diagnostic(result)
+                path = Path(scratch) / (name + '.json')
+                path.write_text(result.stdout)
+                arguments[name] = path
+        command = [sys.executable, '-B', '-m', 'tools.package.' + generator.name,
+                   *(arg.format_map(arguments) for arg in generator.arguments)]
+        result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                                errors='replace', timeout=timeout)
+    if result.returncode:
+        return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
+    return 'PASS', generator.success
+
+
+def positive_timeout(value):
+    seconds = int(value)
+    if seconds <= 0:
+        raise argparse.ArgumentTypeError('timeout must be positive seconds')
+    return seconds
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='read-only checks (the default)')
+    parser.add_argument('--require-installed', action='store_true', help='fail if any required input is skipped')
+    parser.add_argument('--addons', type=Path, default=ADDONS)
+    parser.add_argument('--workshop', type=Path, default=WORKSHOP, help='inventory provider Workshop root')
+    parser.add_argument('--source', type=Path, help='pristine stock mission; default: sibling of Addons under mpmissions/dayzOffline.chernarusplus')
+    parser.add_argument('--snafu-report', type=Path, help='existing external verification report')
+    parser.add_argument('--tactical-flava-report', type=Path, help='existing external verification report')
+    parser.add_argument('--timeout', type=positive_timeout, default=60, help='seconds per child (default: 60)')
+    args = parser.parse_args(argv)
+    values = {name: path.expanduser().resolve() if path is not None else None
+              for name, path in vars(args).items() if name in
+              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report'}}
+    if values['source'] is None:
+        values['source'] = values['addons'].parent / 'mpmissions/dayzOffline.chernarusplus'
+    counts = {'PASS': 0, 'FAIL': 0, 'SKIP': 0}
+    for generator in GENERATORS:
+        try:
+            status, reason = check_generator(generator, values, args.timeout)
+        except subprocess.TimeoutExpired:
+            status, reason = 'FAIL', 'child timed out'
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            status, reason = 'FAIL', 'check unavailable: ' + diagnostic(
+                subprocess.CompletedProcess([], 1, '', str(exc)))
+        counts[status] += 1
+        print(f'{status} {generator.name} {reason}', flush=True)
+    failed = counts['FAIL'] > 0 or (args.require_installed and counts['SKIP'] > 0)
+    print(f'regenerate_all: {"fail" if failed else "pass"} '
+          f'checked={counts["PASS"] + counts["FAIL"]} failed={counts["FAIL"]} skipped={counts["SKIP"]}')
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
