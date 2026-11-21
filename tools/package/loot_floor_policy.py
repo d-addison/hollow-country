@@ -547,10 +547,11 @@ def rebalance_proto(data, rows_by_file, policy):
             slots = min(c['lootmax'], len(c['ys']), group_max)
             estimates = {name: slots * table[name][3] / before for name in displaced}
             estimate = sum(estimates.values())
-            # Added clothing floors must retain a usable slot even when rounded
-            # equipment demand would otherwise drain their entire small budget.
-            reserve = int(c['name'] in policy['extra_floor_container_names']
-                          and bool(c['cats'] & set(policy['floor_categories'])) and bool(c['ys']))
+            # Every added floor with points keeps a usable slot even when rounded
+            # displaced demand would otherwise drain its entire small budget; #274
+            # floors carry their building's own story, not only clothing, and an
+            # inert receiver is refused by finish_receivers.
+            reserve = int(c['name'] in policy['extra_floor_container_names'] and bool(c['ys']))
             need = min(max(0, c['lootmax'] - reserve), slots, int(math.floor(estimate + 0.5)))
             allocation = {name: estimates[name] * need / estimate if reserve and estimate else estimates[name]
                           for name in displaced}
