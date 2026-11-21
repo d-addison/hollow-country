@@ -183,6 +183,28 @@ def _read(root, relative, expected):
             os.close(descriptor)
 
 
+# Original generated GUI icons are the only admitted binaries: each path must sit in
+# one of these two folders and match a SHA-256 pinned in the provenance manifest
+# written by tools.package.gui_icons. Anything else binary stays refused.
+_ICON_MANIFEST = "art/gui-icons/manifest.json"
+_ICON_PATHS = re.compile(r"(?:art/gui-icons/[a-z_]+\.png|mods/HollowCountry/gui/icons/map/[a-z_]+\.paa)")
+
+
+def _pinned_icons(root):
+    """Return {relative: sha256} from the icon manifest, or {} if absent/invalid."""
+    try:
+        data = json.loads((Path(root) / _ICON_MANIFEST).read_text(encoding="utf-8"))
+        pinned = {}
+        for entry in data["icons"].values():
+            for key in ("source", "paa"):
+                path, digest = entry[key], entry[key + "_sha256"]
+                if _ICON_PATHS.fullmatch(path) and re.fullmatch(r"[0-9a-f]{64}", digest):
+                    pinned[path] = digest
+        return pinned
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
 def _restricted(relative):
     path = PurePosixPath(relative.lower())
     return (path.suffix in _PRIVATE_SUFFIXES
@@ -259,11 +281,12 @@ def check_repository(root=ROOT):
         error("entry_limit")
         return report()
     total = 0
+    pinned = _pinned_icons(root)
     for relative in candidates:
         if _SECRET.search(relative):
             error("credential_path", relative)
             continue
-        if _restricted(relative):
+        if _restricted(relative) and relative not in pinned:
             error("restricted_path", relative)
             continue
         if (PurePosixPath(relative.lower()).name in _DUMP_NAMES
@@ -298,6 +321,14 @@ def check_repository(root=ROOT):
             data = _read(root, relative, info)
         except (OSError, ValueError):
             error("unsafe_file", relative)
+            continue
+        if relative in pinned:
+            digest = hashlib.sha256(data).hexdigest()
+            if digest != pinned[relative]:
+                error("pinned_binary_mismatch", relative)
+            else:
+                inventory.append({"path": relative, "kind": "pinned-icon",
+                                  "bytes": len(data), "sha256": digest})
             continue
         try:
             if data.startswith((b"\xff\xfe", b"\xfe\xff")):
