@@ -22,6 +22,19 @@ The lead can explicitly stage and launch that plan:
 python3 -B -m tools.setup.diag_session --launch --tag edit-001
 ```
 
+DayZDiag compiles more strictly than retail. As of 2026-11-21 the Tactical Flava
+Workshop script `TF_ActionFlipOptic.c` fails Diag with "Missing function scope"
+because it uses a body-less `override typename GetInputType() return ...;`.
+We never patch third-party code, so leave that optional pack out of a Diag session:
+
+```sh
+python3 -B -m tools.setup.diag_session --launch --tag edit-002 --without @TacticalFlava
+```
+
+Only the optional weapon packs (`@TacticalFlava`, `@SnafuWeapons`) can be left out.
+The session receipt records them under `without`. Retail boots (checkstart) still
+load every dependency.
+
 The fixed destination is `D:\HollowCountryLocal\diag-edit-001`. Choose a new tag
 for each launch; an existing destination, including a failed partial stage, is
 never reused. Tags cannot contain paths. There is no runtime-directory override.

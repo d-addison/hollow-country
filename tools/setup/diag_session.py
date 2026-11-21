@@ -27,6 +27,12 @@ MISSION = 'dayzOffline.chernarusplus'
 MARKER = 'diag-session.json'
 ASSET_DIRS = ('Addons', 'dta', 'bliss', 'enoch', 'sakhal', 'nasdara',
               'MainMenu.ChernarusPlus', 'MainMenu.Enoch')
+# Optional weapon packs that the retail compiler accepts but DayZDiag refuses
+# (observed 2026-11-21: a body-less `override typename GetInputType() return X;` in a
+# third-party optic action fails with "Missing function scope"). We never patch
+# third-party code, so a Diag session may drop these optional packs; HollowCountry
+# keeps them out of requiredAddons and its optional overlays are guarded.
+DIAG_OPTIONAL = frozenset({'@TacticalFlava', '@SnafuWeapons'})
 SOURCE_SUFFIXES = {'.c', '.cpp', '.xml', '.json', '.layout', '.edds', '.paa',
                    '.rvmat', '.p3d', '.ogg', '.wav', '.imageset', '.html', '.csv', '.txt'}
 
@@ -87,6 +93,7 @@ class Plan:
     assets: list
     dlls: list
     port: int
+    without: tuple = ()
 
     def mods(self, side):
         return [windows(self.runtime / item['folder']) if item['publish'] else
@@ -146,7 +153,7 @@ def process_guard():
 
 
 def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP,
-              parent=RUNTIME_PARENT, port=2402):
+              parent=RUNTIME_PARENT, port=2402, without=()):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,39}', tag) or re.search(r'\d{17}', tag):
         raise Refused('tag must be 1..40 letters/digits/underscore/hyphen; no identifiers')
     if not 1024 <= port <= 65531:
@@ -161,10 +168,16 @@ def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP
     stock = plain(server / 'mpmissions' / MISSION)
     if not (stock / 'init.c').is_file():
         raise Refused('installed stock Chernarus mission missing')
+    without = tuple(sorted(set(without)))
+    for folder in without:
+        if folder not in DIAG_OPTIONAL:
+            raise Refused('only optional weapon packs may be left out: ' + ', '.join(sorted(DIAG_OPTIONAL)))
     manifest = workshop_sync.load_manifest()
     items, sources = [], {}
     for row in manifest['mods']:
         item = dict(row)
+        if item['folder'] in without:
+            continue
         if item['publish']:
             prefix = item['folder'][1:]
             addon = repo / 'mods' / prefix
@@ -179,7 +192,7 @@ def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP
     if 'Addons' not in assets or 'dta' not in assets:
         raise Refused('installed engine Addons/dta missing')
     dlls = [plain(path) for path in sorted(client.glob('*.dll'))]
-    return Plan(runtime, repo, client, stock, items, sources, assets, dlls, port)
+    return Plan(runtime, repo, client, stock, items, sources, assets, dlls, port, without)
 
 
 def guard_idle(runtime):
@@ -236,7 +249,8 @@ def stage(plan):
     for rel, source in repo_profile_sources().items():
         data = source if isinstance(source, bytes) else plain(source).read_bytes()
         write_new(plan.runtime / 'profiles/server' / rel, data)
-    receipt = {'schema': 1, 'tag': plan.runtime.name, 'configs': {}, 'files': {}}
+    receipt = {'schema': 1, 'tag': plan.runtime.name, 'configs': {}, 'files': {},
+               'without': list(plan.without)}
     for prefix, files in plan.sources.items():
         for rel, path in files.items():
             write_new(plan.runtime / prefix / rel, path.read_bytes())
@@ -307,13 +321,18 @@ def main(argv=None):
     mode.add_argument('--refresh', action='store_true', help='refresh loose sources in an existing session')
     mode.add_argument('--log', type=Path, help='print only privacy-filtered HC/script error lines; no staging')
     parser.add_argument('--port', type=int, default=2402)
+    parser.add_argument('--without', action='append', default=[], metavar='FOLDER',
+                        help='leave out an optional weapon pack that DayZDiag cannot compile '
+                             '(' + ', '.join(sorted(DIAG_OPTIONAL)) + ')')
     args = parser.parse_args(argv)
     try:
         if args.log:
             for line in log_lines(args.log):
                 print(line)
             return 0
-        plan = make_plan(args.tag, port=args.port)
+        plan = make_plan(args.tag, port=args.port, without=args.without)
+        if plan.without:
+            print('Diag session leaves out optional packs: ' + ', '.join(plan.without))
         if args.refresh:
             refresh(plan)
             print('Loose sources refreshed; reload scripts/reopen resources as appropriate.')

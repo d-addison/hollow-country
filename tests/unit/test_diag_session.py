@@ -98,6 +98,20 @@ class DiagSessionTests(unittest.TestCase):
         self.assertNotIn('Stop-Process', script)
         self.assertIn('-ip=127.0.0.1', script)
 
+    def test_without_drops_only_optional_packs(self):
+        optional = sorted(diag.DIAG_OPTIONAL)[0]
+        self.rows.insert(0, dict(folder=optional, publish=False, id='44', side='client', rank=0))
+        self.put(self.workshop / '44/addons/pack.pbo', b'optional')
+        self.assertIn(diag.windows(self.workshop / '44'), ';'.join(self.plan().mods('client')))
+        plan = self.plan(without=[optional])
+        self.assertEqual(plan.without, (optional,))
+        self.assertNotIn(diag.windows(self.workshop / '44'), ';'.join(plan.mods('client')))
+        self.assertIn(diag.windows(self.workshop / '42'), ';'.join(plan.mods('client')))
+        required = next(row['folder'] for row in self.rows if row['folder'] not in diag.DIAG_OPTIONAL)
+        with self.assertRaisesRegex(diag.Refused, 'optional weapon packs'):
+            self.plan(without=[required])
+        self.assertFalse(self.parent.exists())
+
     def test_missing_dependency_refused_without_output_directory(self):
         (self.workshop / '42/addons').rename(self.workshop / '42/not-addons')
         with self.assertRaisesRegex(diag.Refused, 'dependency missing'):
