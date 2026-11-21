@@ -57,6 +57,8 @@ RULES = {
     'HC-E015': 'unsupported map key or set element type (use int/string/typename/class types)',
     'HC-E016': 'FileHandle/FindFileHandle compared with null (use truthiness)',
     'HC-E017': 'vanilla storage override without an explicit migration-plan allowlist entry',
+    'HC-E018': 'variable name shadows a type visible in this script module',
+    'HC-E019': 'member declared only by a later file in the same modded-class chain',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -137,11 +139,31 @@ class Project:
                 self.typedefs[name] = target
                 self.types.setdefault(name, set()).add(source.layer)
         self.native_names = set().union(*self.native.values()) if self.native else set()
+        self._visible_types = {}
+        self._field_names = {}
         self.methods = {}
         for definitions in self.links.values():
             for definition in definitions:
                 for method in definition.methods:
                     self.methods.setdefault(method.name, []).append(method)
+
+    def visible_types(self, layer):
+        if layer not in self._visible_types:
+            names = {name for name, layers in self.types.items()
+                     if any(index is not None and (layer is None or index <= layer) for index in layers)}
+            for index, native in self.native.items():
+                if layer is None or index <= layer:
+                    names.update(native)
+            names.update(name for name in PINNED_TYPES
+                         if layer is None or PINNED_LAYERS.get(name, 0) <= layer)
+            self._visible_types[layer] = names
+        return self._visible_types[layer]
+
+    def field_names(self, definition):
+        key = id(definition)
+        if key not in self._field_names:
+            self._field_names[key] = set(_handle_nonlocals(definition.source, definition))
+        return self._field_names[key]
 
     def declaring_layers(self, name, source):
         """Original bodies only; a modded link never declares a new type.
@@ -447,6 +469,15 @@ def _grouped_declarators(code, position, end):
     while position < end:
         while position < end and code[position].isspace():
             position += 1
+        # Fixed-size arrays can also participate in grouped declarations.
+        while position < end and code[position] == '[':
+            depth = 1
+            position += 1
+            while position < end and depth:
+                depth += (code[position] == '[') - (code[position] == ']')
+                position += 1
+            while position < end and code[position].isspace():
+                position += 1
         if position < end and code[position] == '=':
             position += 1
             stack = []
@@ -459,7 +490,7 @@ def _grouped_declarators(code, position, end):
                 elif not stack and ch in ',;)]}':
                     break
                 position += 1
-        following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=])', code[position:end])
+        following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=\[])', code[position:end])
         if not following:
             return
         yield following[1], position + following.start(1)
@@ -845,6 +876,128 @@ def rule_type_named_methods(project, source):
                            native=not authored and name not in PINNED_TYPES)
 
 
+_VARIABLE_DECLARATION = re.compile(
+    r'(?:^|[;{}(,:])\s*(?:(?:ref|autoptr|static|protected|private|const|out|inout|owned|notnull)\s+)*'
+    r'(?P<type>[A-Za-z_]\w*(?:\s*<[^;(){}=]+>)?)\s+'
+    r'(?P<name>[A-Za-z_]\w*)\s*(?=[=;\[,:)])', re.M)
+
+
+def rule_type_named_variables(project, source):
+    """#306: Slot (World) and World (Game) are legal types, illegal binding names.
+
+    Scan declaration boundaries, including prototypes and loop headers. Do not
+    treat return expressions, member accesses, comments or strings as bindings.
+    The native census includes typedefs/enums as well as class names.
+    """
+    visible = project.visible_types(source.layer)
+    seen = set()
+    for match in _VARIABLE_DECLARATION.finditer(source.code):
+        if match['type'] in _KEYWORDS - es.PRIMITIVES - {'array', 'map', 'set'}:
+            continue
+        declarations = [(match['name'], match.start('name'))]
+        declarations.extend(_grouped_declarators(source.code, match.end('name'), len(source.code)))
+        for name, offset in declarations:
+            if name not in visible or offset in seen:
+                continue
+            seen.add(offset)
+            owner = next((c.name for c in source.classes if c.body_start < offset < c.body_end), '<file>')
+            authored = name in project.types and any(
+                layer is not None and (source.layer is None or layer <= source.layer)
+                for layer in project.types[name])
+            yield _finding('HC-E018', source, offset, f'{owner}.{name}',
+                           f'{name}: {RULES["HC-E018"]}; rename the binding',
+                           native=not authored and name not in PINNED_TYPES)
+
+
+def _script_file_order(source):
+    # mod_sources and the native d4a956d2 rename use the full script-relative
+    # path, case-insensitively, rather than basename or caller input order.
+    parts = source.path.parts
+    path = '/'.join(parts[parts.index('scripts') + 1:]) if 'scripts' in parts else source.rel
+    return path.lower(), path
+
+
+def rule_modded_field_order(project, source):
+    """#306/d4a956d2: earlier same-addon/module layers cannot see later fields.
+
+    An ordinary base, ancestor, native declaration or earlier layer with the
+    same field prevents this diagnostic. Other addons are outside this rule's
+    ordering contract. Explicit this/super accesses must not bind to locals.
+    """
+    for definition in source.classes:
+        if not definition.modded:
+            continue
+        links = project.links[definition.name]
+        chain = sorted((d for d in links if d.modded
+                        and d.source.layer == source.layer
+                        and _mod_name(d.source) == _mod_name(source)),
+                       key=lambda d: (_script_file_order(d.source), d.offset))
+        index = next(i for i, d in enumerate(chain) if d is definition)
+        later = {name: d.source.rel for d in reversed(chain[index + 1:])
+                 for name in project.field_names(d)}
+        if not later:
+            continue
+        earlier = {id(d) for d in chain[:index + 1]}
+        known = {name for d in links if not d.modded or id(d) in earlier
+                 or (d.source.layer is not None and source.layer is not None and d.source.layer < source.layer)
+                 or _mod_name(d.source) != _mod_name(source) for name in project.field_names(d)}
+        # Native parents may have no authored body. Follow both native and
+        # authored ancestry, with a cycle guard, without merging higher layers.
+        pending, visited = [definition.name], set()
+        while pending:
+            name = pending.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+            if name != definition.name:
+                known.update(project.receiver_members(name, source.layer)[1])
+                for parent in project.links.get(name, ()):
+                    if source.layer is None or parent.source.layer is None or parent.source.layer <= source.layer:
+                        known.update(project.field_names(parent))
+            for body in project.symbols.get(name, ()):
+                if source.layer is None or body['layer'] <= source.layer:
+                    known.update(body['fields'])
+                    if body['parent']:
+                        pending.append(body['parent'])
+            pending.extend(d.base for d in project.links.get(name, ()) if d.base)
+        later = {name: path for name, path in later.items() if name not in known}
+        if not later:
+            continue
+        pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, sorted(later))) + r')\b')
+        # Inspect all field initializers, including grouped declarations that
+        # do not have individual Field records in the structural model.
+        regions, position = [], definition.body_start + 1
+        bodies = {m.offset: m.body_end + 1 for m in definition.methods}
+        for signature in source.class_signatures(definition):
+            stop = source.header_start(signature)
+            regions.append((position, source.code[position:stop], None))
+            position = bodies.get(signature.offset, signature.end)
+        regions.append((position, source.code[position:definition.body_end], None))
+        regions.extend((m.body_start, source.body(m), m) for m in definition.methods)
+        for start, body, method in regions:
+            matches = list(pattern.finditer(body))
+            if not matches:
+                continue
+            locals_ = _handle_locals(source, method) if method else []
+            parameters = {n for _, n, _ in method.parameters()} if method else set()
+            for match in matches:
+                name, offset = match[0], start + match.start()
+                prefix = body[:match.start()]
+                dotted = re.search(r'\.\s*$', prefix)
+                if dotted:
+                    receiver = re.search(r'(?<![\w.])(?:this|super|' + re.escape(definition.name)
+                                         + r')\s*\.\s*$', prefix)
+                    if not receiver or re.search(r'\.\s*$', prefix[:receiver.start()]):
+                        continue
+                elif name in parameters or any(n == name and begin <= offset < end
+                                                for n, _, begin, end in locals_):
+                    continue
+                yield _finding('HC-E019', source, offset,
+                               _symbol(method) if method else f'{definition.name}.{name}',
+                               f'{name} is declared only by later modded {definition.name} file '
+                               f'{later[name]}; load its declaring layer first')
+
+
 
 # ---------------------------------------------------------------- log lines
 
@@ -1072,6 +1225,7 @@ def rule_predicted_actions(project, source):
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
+             rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
