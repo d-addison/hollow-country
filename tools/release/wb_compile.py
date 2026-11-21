@@ -246,7 +246,8 @@ def probe_class(scripts, module):
 
 def tool_mod(tree, mods):
     """Plugin plus per-module probes that only compile if our classes loaded."""
-    files = {'plugins/HC_CompileCheck.c': (tree / 'tools/workbench/HC_CompileCheck.c').read_bytes()}
+    # The plugin is part of the driver: archived commits (wb_calibrate) predate it.
+    files = {'plugins/HC_CompileCheck.c': (REPO / 'tools/workbench/HC_CompileCheck.c').read_bytes()}
     defs, probes = ['class workbenchScriptModule { value = ""; files[] = {"%s/plugins"}; };' % TOOL], []
     names = {'3_Game': 'gameScriptModule', '4_World': 'worldScriptModule', '5_Mission': 'missionScriptModule'}
     for module in MODULES:
