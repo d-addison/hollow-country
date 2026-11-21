@@ -584,6 +584,7 @@ class HCGroupService
         // Authenticated action durability barrier; routine discovery never calls it.
         if (!m_Store.Save(candidate)) { return HCGroupCode.STORAGE; }
         m_State = candidate;
+        HCModuleReadiness.HCUse("Groups", "group_mutated");
         return HCGroupCode.OK;
     }
 

@@ -500,6 +500,7 @@ class HCRadioChatter : HCModule
         float receiveFrequency = HCRadioDefaults.Tuned(m_Channel.Frequency);
         NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, 12, "Radio " + receiveFrequency.ToString() + " MHz", m_Text);
         m_Activity.HCHit("delivered");
+        HCModuleReadiness.HCUse("Radio", "report_delivered");
         m_Recipients = m_Recipients + 1;
         Print("[HC Plan] HC-20 radio=environmental morse=folded reports=" + m_Reports.ToString() + " state=ready recipients=" + m_Recipients.ToString() + " runtime=PENDING");
     }

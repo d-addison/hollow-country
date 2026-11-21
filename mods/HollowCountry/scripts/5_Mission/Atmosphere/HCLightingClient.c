@@ -173,6 +173,7 @@ class HCLightingClient
         if (m_HCWeight > 0 || m_HCOwnsSlot)
         {
             GetGame().GetWorld().SetUserLightingLerp(m_HCWeight);
+            if (!m_HCOwnsSlot && m_HCWeight > 0) { HCModuleReadiness.HCUse("Lighting", "blend_applied"); }
             m_HCOwnsSlot = m_HCWeight > 0;
         }
         string applied = m_HCLoaded;

@@ -418,6 +418,7 @@ class HCWorldIncidents : HCModule
             row.Anchored = true;
         }
         m_Rows.Insert(row);
+        HCModuleReadiness.HCUse("WorldIncidents", "incident_recorded");
         HCRadio(row);
         return row.Id;
     }

@@ -25,6 +25,7 @@ modded class MissionServer
     override void OnMissionFinish()
     {
         HCServer.Get().Stop();
+        HCModuleReadiness.HCUseShutdown();
         super.OnMissionFinish();
     }
 }

@@ -284,6 +284,7 @@ class HCInfectedMemory
         cell.Value = Math.Clamp(Decayed(cell.Value, nowUtc - cell.UpdatedUtc) + HCInfectedTuning.Get().Memory.LoudnessGain * loudness, 0, 1);
         cell.UpdatedUtc = nowUtc;
         m_Activity.Add("heat_writes");
+        HCModuleReadiness.HCUse("InfectedMemory", "heat_recorded");
         m_Dirty = true;
     }
 

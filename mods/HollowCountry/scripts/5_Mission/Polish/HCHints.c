@@ -256,6 +256,7 @@ class HCHints
             {
                 NotificationSystem.AddNotificationExtended(14, "Hollow Country", m_Notification);
                 m_Shown++;
+                HCModuleReadiness.HCUse("Polish", "hint_shown");
             }
             m_Notification = "";
         }

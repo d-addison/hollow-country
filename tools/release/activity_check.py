@@ -1,7 +1,8 @@
 """Streaming activity audit; readiness and runtime acceptance remain separate.
 
 python3 -B -m tools.release.activity_check server.RPT [--client-rpt client.RPT] [--json]
-Exit 0: ACTIVE/WAITING only; 8: activity findings; 6: input error.
+Exit 0: ACTIVE/WAITING only (legacy), ACTIVE/WAIVED (release); 8: activity findings; 6: input error.
+--release audits registered cumulative [HC Use] counters after the scenario window.
 """
 import argparse
 from collections import Counter
@@ -24,6 +25,90 @@ PLAYER_COUNT = re.compile(r'\[HC InfectedLOD\] stats .*\bplayers=(\d+)\b|\[HC Ex
 PLAYER_EVENT = re.compile(r'\bplayer\b', re.I)
 LEAVE = re.compile(r'\bdisconnected\b|\bkicked\b|\bbanned\b|\bhas left\b', re.I)
 JOIN = re.compile(r'\bconnected\b|\bhas joined\b', re.I)
+
+
+# Waivers are deliberately explicit and empty until an owner accepts a reason.
+# Key: (module, feature); value: reason why the scenario cannot exercise it.
+# A waiver remains visible as WAIVED and never counts as ACTIVE.
+RELEASE_WAIVERS = {}
+USE_LINE = re.compile(r'\[HC Use\] module=([A-Za-z0-9_.-]{1,64}) '
+                      r'feature=([A-Za-z0-9_.-]{1,64}) count=([0-9]{1,10})(?=\s|$)')
+RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED')
+
+
+class UseActivity:
+    """Cumulative maxima, bounded across both peers; zero lines register features.
+
+    Readiness determines enabled modules on the server only. Registration and
+    first use may precede readiness. Repeated summaries must never be summed.
+    The caller runs this audit at the end of the release scenario window.
+    """
+    def __init__(self):
+        self.modules = {}
+        self.counts = {}
+
+    def observe(self, raw, *, client=False):
+        safe = filtered(raw)
+        if not safe:
+            return
+        ready = READY_MODULE.search(safe)
+        if ready and not client:
+            if ready[1] not in self.modules and len(self.modules) >= 256:
+                raise ValueError('module limit')
+            self.modules[ready[1]] = ready[2] == 'true'
+        if '[HC Use]' not in safe:
+            return
+        match = USE_LINE.search(safe)
+        if not match:
+            raise ValueError('invalid use counter')
+        module, feature, value = match.groups()
+        count = int(value)
+        if count > 2147483647:
+            raise ValueError('use counter overflow')
+        key = (module, feature)
+        if key not in self.counts and len(self.counts) >= 512:
+            raise ValueError('feature limit')
+        self.counts[key] = max(self.counts.get(key, 0), count)
+
+    def result(self):
+        if not self.modules:
+            raise ValueError('no readiness markers')
+        features = []
+        for (module, feature), count in sorted(self.counts.items()):
+            # Server registration declares ClientUI, which has no HCModule slot.
+            # Other unknown/disabled module counters cannot establish admission.
+            if not self.modules.get(module, module == 'ClientUI'):
+                continue
+            reason = RELEASE_WAIVERS.get((module, feature)) if count == 0 else None
+            status = 'ACTIVE' if count else 'WAIVED' if reason else 'INERT'
+            features.append(dict(module=module, feature=feature, count=count,
+                                 status=status, reason=reason))
+        registered = {row['module'] for row in features}
+        # An enabled owner with no registration must fail closed, even if an
+        # older addon emits readiness but has not yet adopted the use API.
+        for module, enabled in sorted(self.modules.items()):
+            if enabled and module not in registered:
+                features.append(dict(module=module, feature='unregistered', count=0,
+                                     status='INERT', reason='no registered use counters'))
+        features.sort(key=lambda row: (row['module'], row['feature']))
+        totals = {status: 0 for status in RELEASE_STATUSES}
+        totals.update(Counter(row['status'] for row in features))
+        failures = totals['INERT']
+        return dict(features=features, totals=totals, count=failures,
+                    activity='inert' if failures else 'waived' if totals['WAIVED'] else 'ok',
+                    release=True, readiness_observed=True)
+
+
+def scan_release(path, *, client_rpt=None):
+    audit = UseActivity()
+    for raw in lines(path):
+        audit.observe(raw)
+    if client_rpt is not None:
+        for raw in lines(client_rpt):
+            audit.observe(raw, client=True)
+    result = audit.result()
+    result['client_rpt_observed'] = client_rpt is not None
+    return result
 
 
 def number(value):
@@ -256,6 +341,13 @@ def summary_line(result):
 
 
 def print_result(result):
+    if result.get('release'):
+        for row in result['features']:
+            reason = f" reason={row['reason']}" if row['reason'] else ''
+            print(f"{row['module']}/{row['feature']} {row['status']} count={row['count']}{reason}")
+        print('totals ' + ' '.join(f'{s}={result["totals"][s]}' for s in RELEASE_STATUSES))
+        print(summary_line(result))
+        return
     for row in result['features']:
         value = 'none' if row['value'] is None else f"{row['value']:g}"
         print(f"{row['module']}/{row['feature']} {row['status']} value={value} samples={row['samples']} "
@@ -276,10 +368,14 @@ def main(argv=None):
     parser.add_argument('rpt', type=Path)
     parser.add_argument('--client-rpt', type=Path)
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--release', action='store_true')
     parser.add_argument('--expectations', type=Path, default=DEFAULT_EXPECTATIONS)
     args = parser.parse_args(argv)
     try:
-        result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt)
+        if args.release:
+            result = scan_release(args.rpt, client_rpt=args.client_rpt)
+        else:
+            result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt)
     except (OSError, ValueError, TypeError, KeyError, re.error):
         # Never echo a private filename, malformed RPT text or regex exception.
         if args.json:

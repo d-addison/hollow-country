@@ -454,6 +454,7 @@ class HCInteriorsModule : HCModule
         }
         foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);
         HCInteriorPathgraph.Schedule(created);
+        if (created.Count() > 0) { HCModuleReadiness.HCUse("Interiors", "prop_placed"); }
         if (site && !FindSite(site.Target)) m_Sites.Insert(site);
     }
 
@@ -689,6 +690,7 @@ class HCInteriorsModule : HCModule
         if (result == 2)
         {
             data.m_Player.MessageStatus("Search complete.");
+            HCModuleReadiness.HCUse("Interiors", "search_completed");
         }
         else
         {

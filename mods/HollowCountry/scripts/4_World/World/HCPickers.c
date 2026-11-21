@@ -1073,6 +1073,7 @@ class HCPickers : HCModule
         bool left = m_Trip.HCLeave(identity, lease, sourceId, actorId, homeId, itemId);
         HCPublishReadiness();
         if (!left) { port.HCClear(); return "PICKER_LEAVE_REFUSED"; }
+        HCModuleReadiness.HCUse("Pickers", "trip_started");
         if (m_RunsOn)
         {
             string needLine = "[HC Pickers] run start party=" + identity.HCPartyId() + " route=" + identity.HCRouteId() + " stash=" + stash.ToString();

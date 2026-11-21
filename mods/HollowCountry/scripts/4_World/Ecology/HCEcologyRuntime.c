@@ -478,6 +478,7 @@ class HCEcologyRuntime
 				HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, actorBinding.LocalId, nowMs);
 				if (!observed) { continue; }
 				batch.Actors.Insert(observed);
+				HCModuleReadiness.HCUse("Ecology", "animal_observed");
 				vector point = actorBinding.Live.GetPosition();
 				bool pondHere = GetGame().SurfaceIsPond(point[0], point[2]);
 				if (pondHere && batch.Zones.Count() < m_Settings.MaxResources)

@@ -27,6 +27,7 @@ class HCCraftingGate
     {
         if (m_Crafted < 2147483647)
             m_Crafted++;
+            HCModuleReadiness.HCUse("Crafting", "recipe_completed");
     }
 }
 

@@ -212,6 +212,7 @@ class HCVehicleFlipModule : HCModule
         dBodyApplyImpulse(job.Vehicle, Vector(0, mass * HCVehicleFlipConfig.Get().LiftMassScale, 0));
         job.Pulses++;
         m_Activity.HCHit("pulses");
+        HCModuleReadiness.HCUse("VehicleFlip", "impulse_applied");
         Print("[HollowCountry] W5 vehicle-flip impulse pulse=" + job.Pulses.ToString());
         if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Activity.HCHit("finished"); m_Jobs.RemoveOrdered(m_Cursor); }
         else { m_Cursor++; }

@@ -526,7 +526,7 @@ class HCTradeTransaction
         {
             m_State.Phase = "rollback_pending";
             m_State.Transfer = "right_refused_before_mutation";
-            if (result == 2) { m_State.Phase = "complete"; m_State.Transfer = "reciprocal_confirmed"; }
+            if (result == 2) { m_State.Phase = "complete"; m_State.Transfer = "reciprocal_confirmed"; HCModuleReadiness.HCUse("AITrade", "trade_completed"); }
         }
         if (step == "rollback")
         {

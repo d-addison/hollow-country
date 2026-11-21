@@ -660,6 +660,7 @@ class HCInfectedReachModule : HCModule
         state.VaultSeen = false;
         m_VaultActive++;
         m_ClimbStarted++;
+        if (command) { HCModuleReadiness.HCUse("InfectedReach", "vault_started"); }
         m_ClimbTotal++;
         if (!command) { m_ClimbNoCommand++; }
         if (m_FirstClimb) { return; }
@@ -797,6 +798,7 @@ class HCInfectedReachModule : HCModule
             return;
         }
         m_Strikes++;
+        HCModuleReadiness.HCUse("InfectedReach", "strike_landed");
         if (!m_FirstStrike)
         {
             m_FirstStrike = true;
@@ -807,6 +809,7 @@ class HCInfectedReachModule : HCModule
     void CountBatter()
     {
         m_Batters++;
+        HCModuleReadiness.HCUse("InfectedReach", "vehicle_battered");
         if (!m_FirstBatter)
         {
             m_FirstBatter = true;

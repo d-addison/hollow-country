@@ -567,6 +567,7 @@ class HCInfectedDoorsModule : HCModule
         }
         building.PlayDoorSound(doorIndex);
         building.OpenDoor(doorIndex);
+        HCModuleReadiness.HCUse("InfectedDoors", "door_action");
         Noise(chosen, doorPos);
         string kindName = "common";
         if (HCInfectedDoorPolicy.Kind(true, false, chosen.IsZombieMilitary(), chosen.GetType()) == HCInfectedDoorPolicy.KIND_HEAVY) { kindName = "heavy"; }

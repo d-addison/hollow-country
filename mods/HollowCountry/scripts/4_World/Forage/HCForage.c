@@ -457,6 +457,7 @@ class HCForageModule : HCModule
         // pickup-relative cooldown update; crash can retain that older timer.
         // No item is reconstructed from a record, so this cannot clone a pickup.
         Print("[HC Forage] node released; refill delay=" + HCSurvivalPolicy.ForageDelay(familiarity).ToString());
+        HCModuleReadiness.HCUse("Forage", "item_picked");
     }
 
     protected vector HCPosition(int cellX, int cellZ, int slot)
@@ -717,6 +718,7 @@ class HCForageModule : HCModule
         selected.WasLive = true;
         selected.Item.SetLifetime(600);
         Print("[HC Forage] spawned type=" + type + " nodes=" + m_Nodes.Count().ToString());
+        HCModuleReadiness.HCUse("Forage", "item_spawned");
     }
 
     override void OnStop()

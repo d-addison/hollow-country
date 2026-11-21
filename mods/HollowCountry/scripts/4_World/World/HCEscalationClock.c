@@ -319,6 +319,7 @@ class HCEscalationClock : HCModule
         if (m_State.SavedUtc != m_NowUtc)
         {
             m_State.SavedUtc = m_NowUtc;
+            HCModuleReadiness.HCUse("Escalation", "state_advanced");
             m_SaveJob.HCDirty = true;
         }
         float infected = Pressure("infected");

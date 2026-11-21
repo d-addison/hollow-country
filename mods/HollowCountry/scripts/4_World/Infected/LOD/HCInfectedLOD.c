@@ -340,7 +340,9 @@ modded class HCInfectedModule
             }
             float nearest = HCInfectedLOD.NearestDistance(players, entity.GetPosition());
             actor.LODDistance = nearest;
+            int usePriorTier = actor.LODTier;
             actor.LODTier = HCLODPolicy.Tier(nearest, fullRange, idleRange);
+            if (actor.LODTier != usePriorTier) { HCModuleReadiness.HCUse("InfectedLOD", "tier_changed"); }
             actor.LODAt = now;
             // Prefer the farthest eligible actor in this bounded slice. Never
             // lose membership evidence, a route, live attention or a fresh hit.
@@ -880,6 +882,7 @@ class HCInfectedLODModule : HCModule
         lease.JourneyNode = journey.Node;
         m_Leases.Insert(lease);
         m_Materialized++;
+        HCModuleReadiness.HCUse("InfectedLOD", "herd_materialized");
     }
 
     // <=16 herds per minute; one head per RegrowSeconds while fully virtual.

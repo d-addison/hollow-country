@@ -118,7 +118,9 @@ class HCGradeSettingsClient
         m_WeatherRead = true;
         m_Fade = Math.Clamp(m_Fade + 0.25, 0.0, 1.0);
         HCGradePolicy.Evaluate(worldHour, m_Overcast, m_Fog, m_Rain, m_Percent * 0.01 * m_Fade, m_Parameters);
+        bool useWasRunning = m_Requester.IsRequesterRunning();
         m_Requester.Apply(m_Parameters);
+        if (!useWasRunning && m_Requester.IsRequesterRunning()) { HCModuleReadiness.HCUse("Grade", "grade_applied"); }
         Report();
     }
 

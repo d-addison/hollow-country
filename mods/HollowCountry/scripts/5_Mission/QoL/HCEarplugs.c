@@ -65,6 +65,7 @@ class HCEarplugs
         // Never cancel the native unconscious/death mute or its fade.
         if (!player || !player.IsAlive() || player.IsUnconscious()) { return false; }
         GetGame().GetSoundScene().SetSoundVolume(g_Game.m_volume_sound * s_Factors.Get(m_Level), fadeSeconds);
+        HCModuleReadiness.HCUse("ClientUI", "earplugs_applied");
         return true;
     }
 

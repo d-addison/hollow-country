@@ -103,6 +103,7 @@ class HCEnvSound
             {
                 m_AwaitingPlayback = false;
                 LogLayer("forest-wind");
+                HCModuleReadiness.HCUse("Polish", "sound_played");
             }
         }
         if (!CanPlay(now, m_NextLayer, m_Sound != null)) return;

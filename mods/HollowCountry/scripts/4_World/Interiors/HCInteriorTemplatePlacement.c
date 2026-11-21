@@ -395,6 +395,7 @@ class HCInteriorTemplatePlacement
             created.Insert(object);
             houseCount = houseCount + 1;
             s_Placed = s_Placed + 1;
+            HCModuleReadiness.HCUse("Interiors", "prop_placed");
         }
         mark = TickCount(0);
         Schedule(created);

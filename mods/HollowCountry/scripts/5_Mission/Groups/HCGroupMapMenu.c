@@ -474,6 +474,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     override void OnShow()
     {
         super.OnShow();
+        if (layoutRoot) { HCModuleReadiness.HCUse("Groups", "menu_open"); HCModuleReadiness.HCUse("ClientUI", "map_open"); }
         HCMenuInput.Lock();
         HCEventClient.Get().SetBrowsing(true);
     }

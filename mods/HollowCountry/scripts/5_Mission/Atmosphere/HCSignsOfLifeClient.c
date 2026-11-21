@@ -255,6 +255,9 @@ class HCSignsOfLifeClient
                 created.Buzz = SEffectManager.PlaySoundOnObject("Flies_SoundSet", source, 1.0, 0.0, true);
             }
             handles.Insert(created);
+            if (kind == 0) { HCModuleReadiness.HCUse("SignsOfLife", "light_observed"); }
+            if (kind == 1) { HCModuleReadiness.HCUse("SignsOfLife", "smoke_observed"); }
+            if (kind == 2) { HCModuleReadiness.HCUse("SignsOfLife", "flies_created"); }
         }
     }
 

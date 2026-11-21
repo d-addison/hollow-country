@@ -639,6 +639,7 @@ modded class HCNativeInfectedPack
             {
                 HCHordeRoutes.HCActivity().Add("legs_finished");
                 m_HCRouteNode++;
+                HCModuleReadiness.HCUse("HordeMigration", "route_advanced");
                 m_V2Segment = false;
                 if (m_HCRouteNode >= m_HCRoute.Nodes.Count()) { return V2End(now, 2); }
             }

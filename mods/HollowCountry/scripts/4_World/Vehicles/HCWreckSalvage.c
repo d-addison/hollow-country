@@ -678,6 +678,7 @@ class HCWreckSalvageModule : HCModule
             return;
         }
         m_Activity.HCHit("created");
+        HCModuleReadiness.HCUse("WreckSalvage", "part_created");
         if (partType == "MetalPlate") part.SetQuantity(1);
         HCSearchNoise.Emit(data.m_Player);
         Print("[HollowCountry] V2 wreck salvaged class=" + row.WreckClass + " part=" + partType + " left=" + row.Left.ToString());

@@ -321,6 +321,7 @@ class HCSearchBinding : HCModule
             return;
         }
         Print("[HC Search Binding] finite native supply bound; runtime acceptance PENDING");
+        HCModuleReadiness.HCUse("SearchBinding", "supply_bound");
         HCReached.Mark("search_binding.supply_bound");
         // Economy now owns the registry. Only its Stop may retire a bound plan.
         Finish("");

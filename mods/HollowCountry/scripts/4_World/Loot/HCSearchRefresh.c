@@ -837,6 +837,7 @@ class HCSearchRefreshModule : HCModule
                     m_Pending--;
                     if (m_Pending == 0) m_LastWaitSeconds = 0;
                     m_Activity.Add("refreshed");
+                    HCModuleReadiness.HCUse("LootRefresh", "timer_rearmed");
                     m_BatchChanged = true;
                 }
                 m_Next++;

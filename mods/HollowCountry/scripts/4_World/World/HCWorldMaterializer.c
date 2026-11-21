@@ -514,6 +514,7 @@ class HCWorldMaterializer : HCModule
             if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { Print("[HC AI] custody fold-back strength failed runtime=PENDING"); return; }
             m_Materialized++;
             m_Activity.HCHit("materialized");
+            HCModuleReadiness.HCUse("Materializer", "actors_materialized");
         }
         else { m_Traces++; m_Activity.HCHit("traces"); }
     }

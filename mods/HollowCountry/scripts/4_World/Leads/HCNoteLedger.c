@@ -330,6 +330,7 @@ class HCNoteLedger : HCModule
         {
             if (entry.Row.Id != paper.HCNoteId() || entry.Expires <= HCWorldClock.UTC()) { continue; }
             if (paper.GetWrittenNoteData().GetNoteText() != HCText(entry)) { return; }
+            HCModuleReadiness.HCUse("Notes", "note_read");
             HCLeadModule leads = HCLeadModule.Get();
             if (leads) { leads.ReceivePlayer(entry.Lead, player, "note"); }
             return;

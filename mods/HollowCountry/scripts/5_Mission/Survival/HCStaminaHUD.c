@@ -241,6 +241,7 @@ class HCStaminaHUD
         if (!mHCShownLogged)
         {
             mHCShownLogged = true;
+            HCModuleReadiness.HCUse("SurvivalAlignment", "stamina_hud_shown");
             Print("[HollowCountry] Stamina client HUD shown stamina_bar=1 weight_bar=1 runtime=PENDING");
         }
     }

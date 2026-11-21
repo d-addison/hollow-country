@@ -181,6 +181,7 @@ class HCDebugSnapshotModule : HCModule
         if (!m_Logged || now - m_LastLog >= 600)
         {
             Print("[HollowCountry] debug snapshot points=" + m_Snapshot.HCPointCount().ToString() + " routes=" + m_Snapshot.HCRouteCount().ToString() + " bytes=" + bytes.ToString());
+            HCModuleReadiness.HCUse("DebugSnapshot", "snapshot_saved");
             m_LastLog = now;
             m_Logged = true;
         }

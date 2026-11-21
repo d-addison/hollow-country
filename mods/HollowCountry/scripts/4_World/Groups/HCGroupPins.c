@@ -120,6 +120,7 @@ class HCGroupPins : HCModule
                 HCGroupPlace leadPin = HCGroupPinPolicy.LeadPin(row, leadNow);
                 if (!leadPin) { continue; }
                 output.Insert(leadPin);
+                HCModuleReadiness.HCUse("MapPins", "pins_published");
                 leadCount++;
             }
         }
@@ -133,7 +134,7 @@ class HCGroupPins : HCModule
             HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
             if (!placedShelter || !placedShelter.Placed) { continue; }
             HCGroupPlace trailPin = HCGroupPinPolicy.TrailPin(placedShelter);
-            if (trailPin && trails.Has(trailPin.Id)) { output.Insert(trailPin); }
+            if (trailPin && trails.Has(trailPin.Id)) { output.Insert(trailPin); HCModuleReadiness.HCUse("MapPins", "pins_published"); }
         }
     }
 

@@ -545,3 +545,64 @@ rollback and hashes, physical fit/navigation/audio/replication qualification and
 single-client cost measurement. Existing single-client acceptance remains pending; larger-load budgets stay provisional.
 Runtime checks pins/bindings/schema/read sizes; SHA-256 authenticity still belongs
 to the offline installer receipt. Nothing here enables production gameplay.
+
+
+## R1 registered use features
+
+| Module | Feature names |
+| --- | --- |
+| AITrade | `trade_completed` |
+| AdminMap | `request`, `window_open` |
+| BodyStories | `body_observed` |
+| CampRespawn | `respawn_reserved` |
+| Camps | `camp_recognised` |
+| CellarSampler | `class_measured` |
+| Cellars | `visual_applied` |
+| ClientUI | `earplugs_applied`, `inventory_open`, `map_open` |
+| Crafting | `recipe_completed` |
+| DeadDrops | `cache_bound` |
+| DebugSnapshot | `snapshot_saved` |
+| Ecology | `animal_observed` |
+| Escalation | `state_advanced` |
+| Events | `police_supply_bound` |
+| FactionConflict | `outcome_recorded` |
+| Forage | `item_picked`, `item_spawned` |
+| Grade | `grade_applied` |
+| Groups | `group_mutated`, `menu_open` |
+| Holdouts | `camp_committed` |
+| HordeMigration | `route_advanced` |
+| Infected | `actor_bound` |
+| InfectedDoors | `door_action` |
+| InfectedLOD | `herd_materialized`, `tier_changed` |
+| InfectedMemory | `heat_recorded` |
+| InfectedReach | `strike_landed`, `vault_started`, `vehicle_battered` |
+| InfectedVariety | `actor_woken` |
+| Interiors | `prop_placed`, `search_completed` |
+| Leads | `lead_received` |
+| Lighting | `blend_applied` |
+| LootRefresh | `timer_rearmed` |
+| MapPins | `pins_published` |
+| Materializer | `actors_materialized` |
+| Melee | `hit_processed` |
+| Notes | `note_read` |
+| OptionalPacks | `animal_seen`, `bicycle_seen` |
+| Pickers | `trip_started` |
+| Polish | `hint_shown`, `sound_played` |
+| Progression | `familiarity_gained` |
+| Radio | `report_delivered` |
+| Scenes | `scene_placed` |
+| SearchBinding | `supply_bound` |
+| SettlementDecay | `prop_placed` |
+| Shelters | `shelter_placed` |
+| SignsOfLife | `flies_created`, `light_observed`, `smoke_observed` |
+| SurvivalAlignment | `stamina_applied`, `stamina_hud_shown` |
+| TapedHelmetMounts | `light_mounted` |
+| TapedLight | `light_mounted` |
+| TapedPackMounts | `light_mounted` |
+| TeamPing | `ping_delivered` |
+| VehicleFlip | `impulse_applied` |
+| WeatherDays | `profile_applied` |
+| World | `row_simulated` |
+| WorldIncidents | `incident_recorded` |
+| WorldSaves | `stage_written` |
+| WreckSalvage | `part_created` |

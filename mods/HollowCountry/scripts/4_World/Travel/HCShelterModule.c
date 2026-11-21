@@ -731,6 +731,7 @@ class HCShelterModule : HCModule
         }
         m_Placed = m_Placed + 1;
         entry.Placed = true;
+        HCModuleReadiness.HCUse("Shelters", "shelter_placed");
         entry.PlacementAnchor = fireSpot;
         if (m_RingCandidate >= 0)
         {
@@ -949,6 +950,7 @@ class HCShelterModule : HCModule
         foreach (Object regionalProp : m_RegionalBatch) { m_Objects.Insert(regionalProp); }
         entry.PlacementAnchor = m_RegionalBatch.Get(0);
         entry.Placed = true;
+        HCModuleReadiness.HCUse("Shelters", "shelter_placed");
         m_Placed = m_Placed + 1;
         m_RegionalPlaced++;
         m_RegionalRemaining--;

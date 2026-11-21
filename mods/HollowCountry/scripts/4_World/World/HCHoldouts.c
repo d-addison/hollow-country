@@ -625,6 +625,7 @@ class HCHoldouts : HCModule
         m_CampCommitPending = false;
         if (m_CampFoundedPending) { m_FoundedWindow++; }
         m_CampFoundedPending = false;
+        HCModuleReadiness.HCUse("Holdouts", "camp_committed");
         HCLogCamp(row, "ready", "EAT_FIRE_REPAIR_UNPROVEN");
         return true;
     }

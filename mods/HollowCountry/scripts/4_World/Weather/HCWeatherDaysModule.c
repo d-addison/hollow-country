@@ -403,6 +403,7 @@ modded class ChernarusPlusData
             if (phase == "winter") { snowLimit = HCSeasonVisualPolicy.WINTER_SNOWFALL; }
             HCWriteSnowLimits(snowLimit);
             m_Weather.GetFog().Set(fog, 30.0, 0.0);
+            HCModuleReadiness.HCUse("WeatherDays", "profile_applied");
             if (changed || boundary || m_HCWeatherDaysSuspended)
             {
                 HCWeatherDaysForecast(EWeatherPhenomenon.OVERCAST);

@@ -138,6 +138,7 @@ class HCTeamPingModule : HCModule
         int recipients = service.HCPingDeliver(group, peer, label);
         HCReport("none", recipients);
         HCReached.Mark("team_ping.received");
+        if (recipients > 0) { HCModuleReadiness.HCUse("TeamPing", "ping_delivered"); }
         return HCGroupCode.OK;
     }
     void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)

@@ -370,6 +370,7 @@ class HCInfectedModule : HCModule
         actor.InitializeProfile(m_Config);
         if (slot < 0)
             m_Actors.Insert(actor);
+            HCModuleReadiness.HCUse("Infected", "actor_bound");
         else
         {
             if (m_Actors[slot].SearchPack)

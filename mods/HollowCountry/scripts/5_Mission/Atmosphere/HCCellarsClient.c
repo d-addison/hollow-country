@@ -86,6 +86,7 @@ class HCCellarsClient
         {
             GetGame().GetWorld().LoadUserLightingCfg("dz\\data\\lighting\\lighting_underground.txt", "Underground");
             m_Requester.Start();
+            HCModuleReadiness.HCUse("Cellars", "visual_applied");
             s_VisualActive = true;
         }
         m_Accommodation = Math.Lerp(m_Accommodation, target, 0.5);

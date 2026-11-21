@@ -727,6 +727,7 @@ modded class HCWorldModule
         if (winner == left.Id) { HCConflictPublish(left, right, place, cell); }
         if (winner == right.Id) { HCConflictPublish(right, left, place, cell); }
         Print("[HC Plan] HC-37 data_outcome place=" + place.Id + " winner=" + winner + " bodies=0 loot=0 runtime=PENDING");
+        HCModuleReadiness.HCUse("FactionConflict", "outcome_recorded");
     }
 
     protected void HCConflictPublish(HCWorldFaction winner, HCWorldFaction loser, HCWorldPlace place, string cell)

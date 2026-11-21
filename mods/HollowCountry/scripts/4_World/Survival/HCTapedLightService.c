@@ -412,6 +412,12 @@ class HCTapedLightService
         // Keep recovery nonterminal until custody release succeeds.
         if (!p.Release()) { return Quarantine(s, p, r); }
         if (!Stamp(p, r, finalPhase)) { return Quarantine(s, p, r); }
+        if (mounting)
+        {
+            HCModuleReadiness.HCUse("TapedLight", "light_mounted");
+            if (b.HostClass == "Mich2001Helmet") { HCModuleReadiness.HCUse("TapedHelmetMounts", "light_mounted"); }
+            if (b.PairId != "" || b.CrossSlot || b.HostClass == "TortillaBag") { HCModuleReadiness.HCUse("TapedPackMounts", "light_mounted"); }
+        }
         s.Busy = false;
         return HCTapedLightCode.OK;
     }

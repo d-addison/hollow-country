@@ -149,6 +149,7 @@ class HCCampRespawnModule : HCModule
         }
         Print("[HollowCountry] W5 camp-respawn reserved cooldown=1800 fresh-character-only=1");
         HCReached.Mark("camp_respawn.reserved");
+        HCModuleReadiness.HCUse("CampRespawn", "respawn_reserved");
         return true;
     }
     override void OnStop()

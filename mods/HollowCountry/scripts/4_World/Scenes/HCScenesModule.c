@@ -557,6 +557,7 @@ class HCScenesModule : HCModule
             lease.StoryPublished = true;
             m_Placed = m_Placed + lease.Objects.Count();
             m_Activity.HCHit("placed");
+            HCModuleReadiness.HCUse("Scenes", "scene_placed");
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
             PublishSceneStory(chain, HCSceneChains.HCPlanSite(plan));
             if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))

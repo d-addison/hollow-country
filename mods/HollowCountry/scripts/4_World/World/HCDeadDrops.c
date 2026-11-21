@@ -242,6 +242,7 @@ class HCDeadDrops : HCModule
         int priorPhase = row.Cache.Phase;
         string priorRef = row.Cache.EntityRef;
         m_Caches[index].LinkCache(row.Cache);
+        if (Cache(index)) { HCModuleReadiness.HCUse("DeadDrops", "cache_bound"); }
         if (row.Cache.Phase != priorPhase || row.Cache.EntityRef != priorRef) m_Dirty = true;
         if (!SaveChanged()) return;
         // HC-34: old house -> remote drop deposits bypassed a real survivor.

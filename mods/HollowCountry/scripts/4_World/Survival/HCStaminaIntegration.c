@@ -14,6 +14,7 @@ class HCStaminaIntegration
 
 modded class StaminaHandler
 {
+    protected bool m_HCUseStamina;
     override void RecalculateStaminaCap()
     {
         if (!HCStaminaIntegration.Enabled())
@@ -63,7 +64,13 @@ modded class StaminaHandler
             m_StaminaDelta = rate * HCStaminaIntegration.RecoveryScale();
         }
         // Native event costs and condition multipliers remain native-owned.
+        float useStaminaBefore = m_Stamina;
         super.ProcessStaminaChanges(deltaT, isServerOrSingleplayer);
         m_StaminaDelta = savedRate;
+        if (!m_HCUseStamina && m_Stamina != useStaminaBefore)
+        {
+            m_HCUseStamina = true;
+            HCModuleReadiness.HCUse("SurvivalAlignment", "stamina_applied");
+        }
     }
 }

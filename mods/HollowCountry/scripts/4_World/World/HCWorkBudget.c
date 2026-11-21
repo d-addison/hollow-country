@@ -291,6 +291,7 @@ class HCSaveScheduler : HCModule
             job.HCDirty = job.HCPendingCheckpoint();
             if (!job.HCDirty) { job.HCUrgent = false; }
             job.HCDue = now + config.SaveCoalesceSeconds;
+            HCModuleReadiness.HCUse("WorldSaves", "stage_written");
             if (m_StageMax > job.HCPeakTicks)
             {
                 job.HCPeakTicks = m_StageMax;

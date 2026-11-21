@@ -402,6 +402,7 @@ class HCSettlementDecay : HCModule
         HCGroundSnap.Snap(prop);
         m_Props.Insert(prop);
         m_Activity.HCHit("props");
+        HCModuleReadiness.HCUse("SettlementDecay", "prop_placed");
     }
 
     override void OnTick(float deltaTime)

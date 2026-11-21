@@ -242,6 +242,7 @@ class HCBodyStories : HCModule
         int revision = m_Store.HCRequestBarrier();
         if (revision < 0) { HCRefreshStatus(); return false; }
         m_Observed.Insert(corpse);
+        HCModuleReadiness.HCUse("BodyStories", "body_observed");
         m_ObservedIds.Insert(story.Id);
         m_ReceiptRevisions.Insert(revision);
         m_LastRefusal = "";

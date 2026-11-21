@@ -90,6 +90,7 @@ class HCMeleeLog
         if (!s_Counts.Find(name, total)) { return; }
         if (total < 2147483647) { total++; }
         s_Counts.Set(name, total);
+        if (name != "implausible") { HCModuleReadiness.HCUse("Melee", "hit_processed"); }
         if (total <= HCMeleeConfig.HCGet().LogLimit)
         {
             Print("[HC Melee] " + name + " count=" + total.ToString() + " " + detail);

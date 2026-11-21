@@ -118,6 +118,7 @@ class HCInfectedVarietyModule : HCModule
     {
         if (!VarietyActive()) { return; }
         s_Instance.m_Woken++;
+        HCModuleReadiness.HCUse("InfectedVariety", "actor_woken");
         s_Instance.m_WakeRevision++;
     }
 

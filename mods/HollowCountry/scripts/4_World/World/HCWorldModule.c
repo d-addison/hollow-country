@@ -199,6 +199,7 @@ class HCWorldModule : HCModule
             m_WorkLeft = m_WorkLeft - 1;
             int rowIndex = m_Cursor;
             HCReached.Mark("world.row");
+            HCModuleReadiness.HCUse("World", "row_simulated");
             m_Cursor++;
             if (rowIndex < factionRows)
             {

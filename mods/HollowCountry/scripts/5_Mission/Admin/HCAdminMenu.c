@@ -481,6 +481,7 @@ class HCAdminMenu : UIScriptedMenu
     override void OnShow()
     {
         super.OnShow();
+        if (layoutRoot) { HCModuleReadiness.HCUse("AdminMap", "window_open"); }
         HCMenuInput.Lock();
     }
 

@@ -430,6 +430,7 @@ class HCLeadModule : HCModule
         if (Receive(offer, groupId, source))
         {
             Print("[HollowCountry] V2 lead received source=" + source + " place=" + offer.TargetPlaceId);
+            HCModuleReadiness.HCUse("Leads", "lead_received");
         }
     }
 

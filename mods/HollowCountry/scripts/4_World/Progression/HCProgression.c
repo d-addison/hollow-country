@@ -481,6 +481,7 @@ class HCProgressionModule : HCModule
         {
             found.Forage = found.Forage + 1;
             m_ForageGains++;
+            HCModuleReadiness.HCUse("Progression", "familiarity_gained");
             // One award receipt per window; totals remain visible in the summary.
             if (m_ForageGains == 1) { Print("[HC Progression] forage familiarity=" + found.Forage.ToString() + " runtime=PENDING"); }
         }

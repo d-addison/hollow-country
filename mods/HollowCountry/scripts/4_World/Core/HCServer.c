@@ -92,7 +92,9 @@ class HCServer
             return;
         }
         m_SettingsRefusalLogged = false;
+        HCModuleReadiness.HCUseBegin();
         m_Settings = loaded;
+        HCModuleReadiness.HCRegisterModuleUses("ClientUI");
         m_Registry = new HCModuleRegistry();
         m_Registry.RegisterModules();
         // Named locals only: boot 040 and 041 showed the foreach over the
@@ -112,6 +114,7 @@ class HCServer
             // Exactly one lifecycle admission read; it may load local config.
             moduleEnabled = module.IsEnabled(m_Settings);
             sharedSaveOwnerName = module.GetName();
+            if (moduleEnabled) { HCModuleReadiness.HCRegisterModuleUses(sharedSaveOwnerName); }
             // Includes embedded persistence: Camps owns BuildingClaim;
             // WeatherDays starts VisualSeasons. Refuse before either start hook.
             dependsOnSharedSaves = sharedSaveOwnerName == "World" || sharedSaveOwnerName == "SettlementDecay" || sharedSaveOwnerName == "Escalation" || sharedSaveOwnerName == "Scenes";

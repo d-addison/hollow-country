@@ -431,6 +431,7 @@ class HCCellarSampler : HCModule
             }
             Print("[HC Plan] HC-31 task=" + summary.SurveyTask + " class=" + summary.BuildingClass + " state=" + summary.Disposition + " refused=" + summary.Reason + " runtime=PENDING");
             Print("[HC Cellars] measured class=" + summary.BuildingClass + " instances=" + summary.Instances.Count().ToString() + " box=" + summary.BoxMin.ToString() + ":" + summary.BoxMax.ToString());
+            if (summary.SampleCount > 0) { HCModuleReadiness.HCUse("CellarSampler", "class_measured"); }
             Print("[HC Cellars] score class=" + summary.BuildingClass + " confidence=" + summary.Confidence.ToString() + " samples=" + summary.SampleCount.ToString() + " stairs=" + summary.StairsMeasured.ToString());
             return;
         }

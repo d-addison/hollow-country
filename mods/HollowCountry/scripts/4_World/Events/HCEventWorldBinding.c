@@ -257,11 +257,13 @@ class HCEventWorldBinding
                 if (pending && observer.RegisterContainer(mission.Id, pending.DeliveryContainer))
                 {
                     Print("[HC Events] police supply bound; " + mission.Id + " runtime=PENDING");
+                    HCModuleReadiness.HCUse("Events", "police_supply_bound");
                     return true;
                 }
                 s_FailReason = "police_container_registration_refused";
                 return BindFailed(mission);
             }
+            if (current.Item || current.DeliveryContainer) { HCModuleReadiness.HCUse("Events", "police_supply_bound"); }
             return true;
         }
         HCEventTarget supply = HCEventCacheSpawner.CreatePolice(mission);
@@ -282,6 +284,7 @@ class HCEventWorldBinding
             return BindFailed(mission);
         }
         Print("[HC Events] police supply bound; " + mission.Id + " runtime=PENDING");
+        HCModuleReadiness.HCUse("Events", "police_supply_bound");
         return true;
     }
     static bool Bind(HCEventNativeObserver observer, HCEventMission mission)
