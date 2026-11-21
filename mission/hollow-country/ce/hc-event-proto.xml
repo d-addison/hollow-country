@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <prototype>
   <group name="StaticObj_Misc_SupplyBox2_DE" lootmax="3">
     <usage name="Military" />

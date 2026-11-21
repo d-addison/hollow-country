@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from tools.package import economy
+from tools.package import economy, xml_text
 
 SOURCE = Path(__file__).resolve().parents[2] / 'mission/hollow-country'
 MANAGED = 'hollow-country-events'
@@ -32,7 +32,7 @@ GROUP_POLICY = b'per-anchor-groups-v1\0'
 
 def _serialized(root):
     ET.indent(root, space='  ')
-    return ET.tostring(root, encoding='utf-8', xml_declaration=True) + b'\n'
+    return xml_text.document(root) + b'\n'
 
 
 def _key(pos):

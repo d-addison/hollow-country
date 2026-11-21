@@ -6,14 +6,15 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
-from tools.package import economy, firearms, loot_boost
+from tools.package import economy, firearms, loot_boost, military_loot
 from tests.slow.test_firearms_roster import entry, synthetic
 
 
 class FirearmFamilies(unittest.TestCase):
     def test_whole_family_supply_cannot_bypass_caps_or_native_routes(self):
         roster = json.loads(firearms.ROSTER_PATH.read_bytes())
-        entries = {e['class']: e for e in roster['entries']}
+        selected = firearms.selected_roster(roster)
+        entries = {e['class']: e for e in selected['entries']}
         survivors = set('AK101 AKS74U ASVAL Aug AugShort CZ550 CZ61 Crossbow_Autumn Crossbow_Black '
                         'Crossbow_Wood Deagle Deagle_Gold Derringer_Grey Engraved1911 FAL FAMAS '
                         'LongHorn M14 M4A1 M79 MKII Magnum_Gold PM73Rak PP19 R12 SSG82 SV98 Scout '
@@ -60,7 +61,7 @@ class FirearmFamilies(unittest.TestCase):
             self.assertEqual(report['runtime_acceptance'], 'pending')
             self.assertEqual(report['totals']['family_count'],
                              sum(f['kind'] == 'weapon' for f in roster['family_budgets']))
-            for e in roster['entries']:
+            for e in selected['entries']:
                 row = output[e['class'].lower()]
                 self.assertEqual(int(row.findtext('nominal')), e['set']['nominal'], e['class'])
                 self.assertEqual(int(row.findtext('min')), e['set']['min'], e['class'])
@@ -75,14 +76,19 @@ class FirearmFamilies(unittest.TestCase):
             tampered.find("type[@name='CZ527_Camo']/nominal").text = '10000'
             with self.assertRaisesRegex(ValueError, 'family budget'):
                 firearms.check_effective_support(source, {e.get('name'): e for e in stock},
-                                                 roster['entries'], tampered)
+                                                 selected['entries'], tampered)
             boosted, _ = loot_boost.scale_types(first['ce/types.xml'], 2, loot_boost._roster_names())
             self.assertEqual(ET.tostring(ET.fromstring(boosted)), ET.tostring(ET.fromstring(first['ce/types.xml'])))
-            for class_name in ('CZ527_Camo', 'MakarovPB', 'AmmoBox_556x45_20Rnd', 'Ammo_556x45Tracer'):
+            # Tamper rows outside the shared military allocation so release
+            # projection cannot restore them before family validation runs.
+            catalog = military_loot.catalog()
+            for kind in ('weapon', 'magazine', 'ammo'):
                 bypass = copy.deepcopy(roster)
-                target = next(e for e in bypass['entries'] if e['class'] == class_name)
-                target['set']['nominal'] += 10000
-                with self.subTest(bypass=class_name), self.assertRaisesRegex(ValueError, 'family budget'):
+                target = next(e for e in bypass['entries'] if e['kind'] == kind
+                              and not military_loot.budgeted(catalog[e['class']]))
+                cap = next(b for b in bypass['family_budgets'] if b['family'] == target['family'])
+                target['set']['nominal'] = cap['nominal'] + 1
+                with self.subTest(bypass=target['class']), self.assertRaisesRegex(ValueError, 'family budget'):
                     firearms.generate(source, bypass)
             # Carrier-only parts stay attached; integral optics/cylinders never become loose loot.
             self.assertNotIn('AugOptic', entries)
@@ -96,8 +102,10 @@ class FirearmFamilies(unittest.TestCase):
             self.assertFalse({e['class'].lower() for e in roster['entries'] if e.get('datamined')} & rows)
             # Missing off-roster support refuses; no newly invented magazine is substituted.
             bad = copy.deepcopy(roster)
-            next(e for e in bad['entries'] if e['class'] == 'Mag_AK101_30Rnd')['set'] = {'nominal': 0, 'min': 0}
-            with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine'):
+            magazine = next(m for e in bad['entries'] if e['kind'] == 'weapon' for m in e['magazines']
+                            if not military_loot.budgeted(catalog[m]))
+            next(e for e in bad['entries'] if e['class'] == magazine)['set'] = {'nominal': 0, 'min': 0}
+            with self.assertRaisesRegex(ValueError, 'HC_MILITARY_LOOT_RETENTION'):
                 firearms.generate(source, bad)
             # Future positive ammo rows cannot silently fall outside the reviewed policy.
             stock.append(ET.fromstring(entry('Ammo_FutureTracer', 5, 2, 100, 0, ['Town'], [])))

@@ -102,16 +102,26 @@ class TravelRoster(unittest.TestCase):
             bad = dict(policy, snake_cap=49)
             with self.assertRaisesRegex(ValueError, 'ambient.*cap'):
                 overlays.ambient_caps(bad)
-            # Authored native roster remains 25 variants / seven overrides; trucks
-            # are an explicit eighth family retaining native stock repair/spawn.
+            # Expansion additions extend native families; native trucks retain
+            # stock repair templates within the combined HC event override.
             report = travel.roster()
-            self.assertEqual(report['vehicle_families'], 8)
-            self.assertEqual(report['authored_variants'], 25)
-            self.assertEqual(report['families']['VehicleTruck01']['disposition'], 'native-stock')
-            self.assertEqual(len(report['families']['VehicleTruck01']['variants']), 3)
+            manifest = json.loads((travel.SOURCE / travel.EXPANSION_ROSTER).read_bytes())
+            families = {name: set(variants) for name, variants in travel.NATIVE_FAMILIES.items()}
+            for name, variants in manifest['families'].items():
+                families.setdefault(name, set()).update(variants)
+            self.assertEqual(report['vehicle_families'], len(families))
+            native_trucks = set(travel.NATIVE_FAMILIES['VehicleTruck01'])
+            self.assertEqual(report['authored_variants'],
+                             sum(len(v) for v in families.values()) - len(native_trucks))
+            for name, variants in families.items():
+                self.assertEqual(set(report['families'][name]['variants']), variants)
+            templates = ET.fromstring(travel.validate()['ce/travel-spawnabletypes.xml'])
+            self.assertFalse(native_trucks & {t.get('name') for t in templates})
             source = root / 'source'
             for name, data in travel.validate().items():
                 put(source, name, data)
+            put(source, travel.EXPANSION_ROSTER,
+                (travel.SOURCE / travel.EXPANSION_ROSTER).read_bytes())
             path = source / 'ce/travel-spawnabletypes.xml'
             data = path.read_bytes()
             path.write_bytes(data.replace(b'name="CivSedanWheel"', b'name="HatchbackWheel"', 1))
@@ -141,17 +151,10 @@ class TravelRosterReviewFollowUp(unittest.TestCase):
     def test_unreviewed_event_is_a_named_hc32_refusal(self):
         import xml.etree.ElementTree as ET
         from tools.package import travel
-        events = ET.fromstring('<events/>')
-        for name, family in travel.NATIVE_FAMILIES.items():
-            if name == 'VehicleTruck01':
-                continue
-            event = ET.SubElement(events, 'event', name=name)
-            children = ET.SubElement(event, 'children')
-            for child in family:
-                ET.SubElement(children, 'child', type=child)
+        events = ET.fromstring(travel.validate()['ce/events.xml'])
         # A stray (childless) HC event passes the ownership set but has no reviewed family.
         ET.SubElement(ET.SubElement(events, 'event', name='HCStrayEvent'), 'children')
-        with self.assertRaisesRegex(ValueError, 'HC-32 .*unreviewed event'):
+        with self.assertRaisesRegex(ValueError, 'HC-32 .*unreviewed.*event'):
             travel._roster(events, ET.fromstring('<spawnabletypes/>'))
 
     def test_vehicle_owner_policy_reads_only_bicycle_events(self):

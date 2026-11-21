@@ -128,14 +128,14 @@ from the offline pressure gate passing.
 <!-- HC21-GENERATED-BEGIN -->
 ## Current authored family policy
 
-Generated from `tools/package/firearms_roster.json`: 78 weapon classes, 53 weapon families, 50 magazine classes and 47 ammo sources (loose, boxed, tracer and specialist).
+Generated from `tools/package/firearms_roster.json`: 77 weapon classes, 53 weapon families, 49 magazine classes and 47 ammo sources (loose, boxed, tracer and specialist).
 
-Weapon nominal ceiling: **3894**; with datamined rows omitted: **2718**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
+Weapon nominal ceiling: **3684**; with datamined rows omitted: **2479**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
 
 | Family | Nominal / min cap | Explicit member shares (nominal / min) |
 | --- | --- | --- |
 | Mosin9130 | 465 / 366 | `Mosin9130` 135/105; `Mosin9130_Woodland` 60/51; `Mosin9130_Black` 135/105; `Mosin9130_Winter` 135/105 |
-| SKS | 228 / 162 | `SKS` 42/30; `SKS_Woodland` 18/12; `SKS_Black` 42/30; `SKS_Desert` 42/30; `SKS_Green` 42/30; `SKS_Winter` 42/30 |
+| SKS | 228 / 162 | `SKS` 4/2; `SKS_Woodland` 5/3; `SKS_Black` 1/1; `SKS_Desert` 5/3; `SKS_Green` 1/1; `SKS_Winter` 1/1 |
 | Izh18 | 150 / 141 | `Izh18` 150/141 |
 | Izh18Shotgun | 165 / 150 | `Izh18Shotgun` 165/150 |
 | Izh43Shotgun | 90 / 78 | `Izh43Shotgun` 90/78 |
@@ -146,35 +146,35 @@ Weapon nominal ceiling: **3894**; with datamined rows omitted: **2718**. These a
 | LeeEnfield | 36 / 24 | `LeeEnfield` 36/24 |
 | MP18 | 12 / 6 | `MP18` 12/6 |
 | Luger | 18 / 12 | `Luger` 18/12 |
-| SVD | 24 / 12 | `SVD_Wooden` 12/6; `SVD` 12/6 |
+| SVD | 24 / 12 | `SVD_Wooden` 1/1; `SVD` 1/1 |
 | Mp133Shotgun | 30 / 24 | `Mp133Shotgun` 30/24 |
 | Magnum | 78 / 63 | `Magnum` 75/60; `Magnum_Gold` 3/3 |
-| AKM | 9 / 6 | `AKM` 9/6 |
+| AKM | 9 / 6 | `AKM` 1/1 |
 | Colt1911 | 93 / 72 | `Colt1911` 78/66; `Engraved1911` 15/6 |
-| Makarov | 420 / 360 | `MakarovIJ70` 210/180; `MakarovPB` 210/180 |
+| Makarov | 210 / 180 | `MakarovIJ70` 210/180 |
 | P1 | 150 / 138 | `P1` 150/138 |
 | Glock19 | 120 / 105 | `Glock19` 120/105 |
 | FNX45 | 42 / 36 | `FNX45` 42/36 |
 | CZ75 | 60 / 54 | `CZ75` 60/54 |
 | Ruger1022 | 105 / 75 | `Ruger1022` 105/75 |
-| M16A2 | 12 / 6 | `M16A2` 12/6 |
-| AK74 | 18 / 12 | `AK74` 18/12 |
+| M16A2 | 12 / 6 | `M16A2` 1/1 |
+| AK74 | 18 / 12 | `AK74` 1/1 |
 | MP5K | 48 / 39 | `MP5K` 48/39 |
-| Saiga | 36 / 30 | `Saiga` 36/30 |
-| AK101 | 12 / 6 | `AK101` 12/6 |
-| AKS74U | 24 / 15 | `AKS74U` 24/15 |
-| ASVAL | 9 / 6 | `ASVAL` 9/6 |
+| Saiga | 36 / 30 | `Saiga` 5/3 |
+| AK101 | 12 / 6 | `AK101` 1/1 |
+| AKS74U | 24 / 15 | `AKS74U` 1/1 |
+| ASVAL | 9 / 6 | `ASVAL` 1/1 |
 | Aug | 3 / 3 | `Aug` 3/3 |
-| AugShort | 12 / 9 | `AugShort` 12/9 |
+| AugShort | 12 / 9 | `AugShort` 1/1 |
 | CZ550 | 42 / 36 | `CZ550` 42/36 |
 | CZ61 | 15 / 12 | `CZ61` 15/12 |
 | Crossbow | 39 / 21 | `Crossbow_Autumn` 15/9; `Crossbow_Black` 15/9; `Crossbow_Wood` 9/3 |
 | Deagle | 90 / 75 | `Deagle` 75/69; `Deagle_Gold` 15/6 |
 | Derringer_Grey | 60 / 45 | `Derringer_Grey` 60/45 |
 | FAL | 6 / 3 | `FAL` 6/3 |
-| FAMAS | 24 / 18 | `FAMAS` 24/18 |
+| FAMAS | 24 / 18 | `FAMAS` 5/3 |
 | LongHorn | 75 / 60 | `LongHorn` 75/60 |
-| M14 | 6 / 3 | `M14` 6/3 |
+| M14 | 6 / 3 | `M14` 1/1 |
 | M4A1 | 3 / 3 | `M4A1` 3/3 |
 | M79 | 9 / 3 | `M79` 9/3 |
 | MKII | 90 / 81 | `MKII` 90/81 |
@@ -182,11 +182,11 @@ Weapon nominal ceiling: **3894**; with datamined rows omitted: **2718**. These a
 | PP19 | 42 / 33 | `PP19` 42/33 |
 | R12 | 18 / 15 | `R12` 18/15 |
 | SSG82 | 36 / 30 | `SSG82` 36/30 |
-| SV98 | 6 / 3 | `SV98` 6/3 |
+| SV98 | 6 / 3 | `SV98` 1/1 |
 | Scout | 18 / 12 | `Scout` 3/3; `Scout_Chernarus` 15/9 |
 | UMP45 | 36 / 30 | `UMP45` 36/30 |
-| VSS | 18 / 12 | `VSS` 18/12 |
-| Vikhr | 12 / 6 | `Vikhr` 12/6 |
+| VSS | 18 / 12 | `VSS` 1/1 |
+| Vikhr | 12 / 6 | `Vikhr` 1/1 |
 
 ### Cartridge ceilings
 

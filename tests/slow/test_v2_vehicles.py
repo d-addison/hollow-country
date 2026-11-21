@@ -11,15 +11,18 @@ class TravelSmoke(unittest.TestCase):
     def test_travel_ce_ships_once_and_rolls_back_without_touching_stock(self):
         source = Path(__file__).resolve().parents[2] / 'mission/hollow-country'
         events = ET.parse(source / 'ce/events.xml').getroot()
-        cars = [e for e in events if e.get('name') not in ('VehicleBoat', 'VehicleMotorbike')]
-        self.assertEqual(sum(int(e.findtext('nominal')) for e in cars), 39)
-        for car in cars:
-            self.assertLessEqual(int(car.findtext('nominal')), 9)
-        self.assertEqual(events.find("event[@name='VehicleBoat']/nominal").text, '6')
-        self.assertEqual(len(events.find("event[@name='VehicleMotorbike']/children")), 7)
+        report = travel.roster(source)
+        self.assertEqual({e.get('name') for e in events}, set(report['families']))
+        for event in events:
+            self.assertEqual({c.get('type') for c in event.findall('children/child')},
+                             set(report['families'][event.get('name')]['variants']))
+            low, nominal, high = (int(event.findtext(n)) for n in ('min', 'nominal', 'max'))
+            self.assertLessEqual(low, nominal)
+            self.assertLessEqual(nominal, high)
         with tempfile.TemporaryDirectory(prefix='hc-synthetic-travel-') as tmp:
             mission = Path(tmp) / 'mission'
             mission.mkdir()
+            (mission / 'cfgeventspawns.xml').write_bytes(b'<eventposdef/>')
             # SYNTHETIC: an existing, unrelated CE declaration must survive.
             core = b'<economycore><ce folder="synthetic/ce"><file name="types.xml" type="types"/></ce></economycore>'
             (mission / 'cfgeconomycore.xml').write_bytes(core)
@@ -30,8 +33,11 @@ class TravelSmoke(unittest.TestCase):
             travel.install(source, mission)
             for name in travel.CE_FILES:
                 self.assertEqual((mission / travel.MANAGED / name).read_bytes(), (source / name).read_bytes())
-            with self.assertRaisesRegex(ValueError, 'already installed'):
-                travel.install(source, mission)
+            installed = {p.relative_to(mission): p.read_bytes()
+                         for p in mission.rglob('*') if p.is_file()}
+            self.assertTrue(travel.install(source, mission))
+            self.assertEqual({p.relative_to(mission): p.read_bytes()
+                              for p in mission.rglob('*') if p.is_file()}, installed)
             changed = mission / travel.MANAGED / 'ce/events.xml'
             original = changed.read_bytes()
             changed.write_bytes(b'<events/>')
@@ -40,4 +46,5 @@ class TravelSmoke(unittest.TestCase):
             changed.write_bytes(original)
             travel.rollback(mission)
             self.assertEqual((mission / 'cfgeconomycore.xml').read_bytes(), core)
+            self.assertEqual((mission / 'cfgeventspawns.xml').read_bytes(), b'<eventposdef/>')
             self.assertFalse((mission / travel.MANAGED).exists())
