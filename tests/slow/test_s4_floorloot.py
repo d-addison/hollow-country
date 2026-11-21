@@ -382,10 +382,12 @@ class CommittedPolicy(unittest.TestCase):
         self.assertTrue(self.doc['enabled'])
         self.assertEqual(self.doc['floor_categories'], ['clothes'])
         self.assertTrue(self.policy.floor_eligible('TShirt_Beige', 'clothes', self.doc))
-        self.assertEqual(self.doc['floor_classes'], ['Paper'])
+        # Owner 2026-11-20: big items can use the floor; shelf points cannot hold them.
+        self.assertIn('Paper', self.doc['floor_classes'])
         self.assertTrue(self.policy.floor_eligible('Paper', 'tools', self.doc))
-        self.assertFalse(self.policy.floor_eligible('Broom', 'tools', self.doc))
-        self.assertFalse(self.policy.floor_eligible('DrysackBag_Yellow', 'containers', self.doc))
+        for name, cat in (('Broom', 'tools'), ('DrysackBag_Yellow', 'containers'), ('Spotlight', 'tools'),
+                          ('Barrel_Blue', 'tools'), ('HatchbackWheel', 'tools'), ('MediumTent', 'containers')):
+            self.assertTrue(self.policy.floor_eligible(name, cat, self.doc), name)
         for name, cat in (('Hatchet', 'tools'), ('Flashlight', 'tools'), ('TunaCan', 'food'),
                           ('Matchbox', 'tools'), ('AmmoBox', 'containers'), ('Crowbar', 'tools')):
             self.assertFalse(self.policy.floor_eligible(name, cat, self.doc), name)
@@ -399,7 +401,8 @@ class CommittedPolicy(unittest.TestCase):
         self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 21 is withheld')
         for name in sorted(items.SUPPLY_UNVERIFIED_FLOOR):
             category = 'containers' if 'Bag' in name else 'clothes'
-            self.assertEqual(self.policy.floor_eligible(name, category, self.doc), category == 'clothes', name)
+            self.assertEqual(self.policy.floor_eligible(name, category, self.doc),
+                             category == 'clothes' or name in self.doc['floor_classes'], name)
 
     def test_listed_classes_are_plain_names_and_patterns_are_refused(self):
         for name in self.doc['floor_classes']:
