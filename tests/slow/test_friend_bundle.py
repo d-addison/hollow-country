@@ -185,7 +185,7 @@ class FriendBundleTests(unittest.TestCase):
         if self._testMethodName not in {
                 'test_profile_default_history_records_current_and_earlier_git_bytes',
                 'test_profile_history_refuses_shallow_clone_and_missing_git',
-                'test_profile_bytes_vs_repo_source_refuse_line_endings_label_other_drift',
+                'test_profile_bytes_vs_repo_source_normalize_line_endings',
                 'test_profile_content_drift_labels_history_best_effort',
                 'test_missing_git_build_refuses_without_traceback'}:
             history = unittest.mock.patch.object(fb, 'profile_history', return_value=set())
@@ -427,7 +427,7 @@ else:
         expected = fb.repo_profile_sources()
         self.assertEqual(got, sorted('profiles/' + rel for rel in expected))
         for rel, source in expected.items():
-            self.assertEqual((self.out / 'profiles' / rel).read_bytes(), source.read_bytes(), rel)
+            self.assertEqual((self.out / 'profiles' / rel).read_bytes(), fb.profile_bytes(source), rel)
         self.assertNotIn('profiles/HollowCountry/acceptance/events.disable', got)
         self.assertNotIn('profiles/HollowCountry/Events/state/commit-1.json', got)
 
@@ -699,7 +699,7 @@ else:
         self.assertNotIn('Traceback', text)
         self.assertFalse(self.out.exists())
 
-    def test_profile_bytes_vs_repo_source_refuse_line_endings_label_other_drift(self):
+    def test_profile_bytes_vs_repo_source_normalize_line_endings(self):
         import subprocess
         source = 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'
         current = (fb.lts.ROOT / source).read_bytes()
@@ -714,8 +714,9 @@ else:
         crlf = current.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
         put(self.profiles, rel, crlf)
         with unittest.mock.patch('subprocess.run', side_effect=git_result):
-            with self.assertRaisesRegex(fb.Refused, 'profile_line_endings_differ'):
-                fb.profile_defaults([(rel, self.profiles / rel)])
+            defaults = fb.profile_defaults([(rel, self.profiles / rel)])
+            self.assertEqual(defaults['profiles/' + rel]['sha256'],
+                             hashlib.sha256(fb.normalize_profile(current)).hexdigest())
         put(self.profiles, rel, current)
         with unittest.mock.patch('subprocess.run', side_effect=git_result):
             defaults = fb.profile_defaults([(rel, self.profiles / rel)])

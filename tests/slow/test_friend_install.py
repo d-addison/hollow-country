@@ -224,7 +224,18 @@ class InstallerCase(unittest.TestCase):
         make_content(self.content)
         self.overlay_calls = []
         self.map_calls = []
-        for patcher in (mock.patch.object(fi.tactical_flava_optional, 'apply_weapon_packs', return_value=[]),
+        # Overlay services have their own fixtures; this synthetic mission lacks their CE inputs.
+        for patcher in (mock.patch.object(fi, 'do_weapons', return_value='already-done'),
+                        mock.patch.object(fi.hc_events, 'install', return_value={}),
+                        mock.patch.object(fi.infected_variety, 'install',
+                                          side_effect=lambda mission, **kw: put(
+                                              mission, fi.infected_variety.MANAGED + '/receipt.json', '{}')),
+                        mock.patch.object(fi.infected_variety, 'check', return_value={}),
+                        mock.patch.object(fi.infected_variety, 'rollback',
+                                          side_effect=lambda mission: shutil.rmtree(
+                                              mission / fi.infected_variety.MANAGED, ignore_errors=True)),
+                        mock.patch.object(fi.tactical_flava_optional, 'check_weapon_packs', return_value=[]),
+                        mock.patch.object(fi.tactical_flava_optional, 'apply_weapon_packs', return_value=[]),
                         mock.patch.object(ws, 'server_running', return_value=False),
                         mock.patch.object(fi.overlays, 'main', side_effect=fake_overlay(self.overlay_calls)),
                         mock.patch.object(fi.map_overlay, 'main', side_effect=fake_map_overlay(self.map_calls))):
@@ -548,7 +559,7 @@ class ApplyTests(InstallerCase):
     def test_skip_names_leave_those_steps_alone(self):
         code, out, err = self.apply('--skip', 'workshop,overlay,overlays-map,cfg')
         self.assertEqual(code, 0, out + err)
-        for step in (3, 5, 6, 8):
+        for step in (3, 5, 6, 9):
             self.assertEqual(status_of(out, step), 'skipped', step)
         self.assertFalse((self.server / '@CF').exists())
         self.assertEqual((self.server / 'serverDZ.cfg').read_text(), SERVER_CFG)
@@ -1108,7 +1119,7 @@ class HoldoutProfileTests(InstallerCase):
         self.put_holdouts(self.LEGACY, companions=False)
         code, out, err = self.apply()
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(status_of(out, 7), 'done')
+        self.assertEqual(status_of(out, 8), 'done')
         receipt = json.loads((self.server / fi.RECEIPT).read_text())
         self.assertEqual(receipt['holdouts_moved'], [self.HOLDOUT])
         self.assertFalse((self.server / self.HOLDOUT).exists())
@@ -1131,7 +1142,7 @@ class HoldoutProfileTests(InstallerCase):
         before = snapshot(self.tmp)
         code, out, err = self.run_cli('--plan-only')
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(status_of(out, 7), 'already-done')
+        self.assertEqual(status_of(out, 8), 'already-done')
         self.assertEqual(self.apply()[0], 0)
         self.assertEqual(snapshot(self.tmp), before)
 
@@ -1178,7 +1189,7 @@ class HoldoutProfileTests(InstallerCase):
         rows = self.put_holdouts(self.LEGACY)
         code, out, err = self.apply('--skip', 'profiles')
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(status_of(out, 7), 'skipped')
+        self.assertEqual(status_of(out, 8), 'skipped')
         for rel, data in rows.items():
             self.assertEqual((self.server / rel).read_bytes(), data)
         # A skipped write step cannot hide incompatible state from --check.
@@ -1289,7 +1300,8 @@ class ProfileUpgradeTests(InstallerCase):
         self.assertEqual((self.server / rel).read_bytes(), current)
         edited = b'{"synthetic_operator_choice": false}'
         put(self.server, rel, edited)
-        other = 'profiles/ExpansionMod/Settings/AISettings.json'
+        # AISettings intentionally merges HC-owned fields; use an ordinary profile for preservation.
+        other = 'profiles/HollowCountry/Events/settings.json'
         put(self.server, other, edited)
         # Even without a receipt, --yes must preserve an unknown profile image.
         (self.server / fi.RECEIPT).unlink()

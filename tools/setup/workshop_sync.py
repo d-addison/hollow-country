@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import ntpath
 import re
 import shutil
 import stat
@@ -188,8 +189,51 @@ def find_item(item_id, dirs):
 
 
 # ---------------------------------------------------------------- server process detection
-def server_running():
+def _windows_server_running(server_root, executable='powershell'):
+    """Scope readable image paths; inaccessible images remain unknown (fail closed)."""
+    script = ("$ErrorActionPreference='Stop'; $p=@(Get-CimInstance Win32_Process "
+              "-Filter \"Name='DayZServer_x64.exe'\" | Select-Object ExecutablePath); "
+              "ConvertTo-Json -InputObject $p -Compress")
+    try:
+        done = subprocess.run([executable, '-NoProfile', '-NonInteractive', '-Command', script],
+                              capture_output=True, text=True, timeout=30)
+        rows = json.loads(done.stdout.lstrip('\ufeff')) if done.returncode == 0 else None
+        if not isinstance(rows, list):
+            raise ValueError('process paths unavailable')
+        root_text = str(server_root)
+        # WSL's conventional drive mounts name the same Windows install.
+        drive = re.match(r'^/mnt/([a-zA-Z])/(.*)$', root_text)
+        if drive:
+            root_text = drive.group(1) + ':\\' + drive.group(2).replace('/', '\\')
+        elif not ntpath.isabs(root_text):
+            root_text = os.path.abspath(root_text)
+        wanted = ntpath.normcase(ntpath.normpath(root_text))
+        unknown = False
+        for row in rows:
+            image = row.get('ExecutablePath') if isinstance(row, dict) else None
+            if not isinstance(image, str) or not image:
+                unknown = True
+            elif ntpath.normcase(ntpath.dirname(ntpath.normpath(image))) == wanted:
+                return True
+        return None if unknown else False
+    except (OSError, subprocess.SubprocessError, ValueError):
+        # tasklist cannot establish a process's install folder. A hit is unknown,
+        # rather than claiming an unrelated server belongs to this target.
+        try:
+            tasklist = 'tasklist.exe' if executable.endswith('.exe') else 'tasklist'
+            done = subprocess.run([tasklist, '/V', '/FI', 'IMAGENAME eq ' + SERVER_EXE, '/NH'],
+                                  capture_output=True, text=True, timeout=30)
+            if done.returncode == 0 and SERVER_EXE.lower() not in (done.stdout or '').lower():
+                return False
+        except (OSError, subprocess.SubprocessError):
+            pass
+        return None
+
+
+def server_running(server_root=None):
     """True if a DayZ server process is running, False if not, None if the process list cannot be read."""
+    if server_root is not None and os.name == 'nt':
+        return _windows_server_running(server_root)
     results = []
     if os.name == 'nt':
         commands = [['tasklist', '/FI', 'IMAGENAME eq ' + SERVER_EXE, '/NH']]
@@ -204,9 +248,23 @@ def server_running():
             results.append(None)
             continue
         if command[0].lower().startswith('tasklist'):
-            results.append(SERVER_EXE.lower() in (done.stdout or '').lower() if done.returncode == 0 else None)
+            results.append(_windows_server_running(server_root, 'powershell.exe') if server_root is not None else
+                           SERVER_EXE.lower() in (done.stdout or '').lower() if done.returncode == 0 else None)
         else:
-            results.append(True if done.returncode == 0 else False if done.returncode == 1 else None)
+            if done.returncode == 0 and server_root is not None:
+                # Resolve Linux/Wine image paths through procfs where available.
+                states = []
+                for pid in (done.stdout or '').split():
+                    try:
+                        image = Path('/proc') / pid / 'exe'
+                        resolved = image.resolve(strict=True)
+                        states.append(resolved.parent == Path(server_root).resolve()
+                                      if resolved.name.casefold() == SERVER_EXE.casefold() else None)
+                    except OSError:
+                        states.append(None)
+                results.append(True if True in states else None if not states or None in states else False)
+            else:
+                results.append(True if done.returncode == 0 else False if done.returncode == 1 else None)
     # Every probe must succeed and say "not running"; a probe that failed means unknown, never stopped.
     if any(r is True for r in results):
         return True
@@ -218,7 +276,7 @@ def server_running():
 def require_stopped(args):
     if getattr(args, 'assume_stopped', False):
         return
-    state = server_running()
+    state = server_running(getattr(args, 'server_root', None))
     if state:
         raise SyncError('a DayZ server process is running; stop it before changing mod files')
     if state is None:

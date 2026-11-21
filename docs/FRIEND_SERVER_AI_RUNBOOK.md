@@ -67,6 +67,34 @@ read-only `--check` as `install_interrupted` (or `rollback_pending` during undo)
 reported cause, and rerun with `--apply`: recovery finishes before installation resumes. Backups are retained;
 Steam download caches stay outside this server rollback. A prompt-time `serverDZ.cfg` edit is preserved.
 
+### Upgrade preflight and recovery (#312)
+
+The process check scopes readable Windows `ExecutablePath` values to the target
+server folder. An unrelated server in another folder does not block. An unreadable
+image path remains unknown; stop the target yourself before using
+`--assume-stopped`, which skips the process check entirely. The installer never
+stops or kills processes.
+
+`--plan-only` and `--check` now detect receipt-owned `db/globals.xml` drift before
+an upgrade; `--apply` refuses before its first write. The output includes exact
+PowerShell commands to create an absent `.hc-recovery` mission copy, undo the
+installed upper layers, and run `restore-originals` on that copy. Run each command
+only after the preceding one succeeds. Keep the original mission as the backup.
+This recovery still restores original globals: save operator tuning (including
+`IdleModeStartup`, `IdleModeCountdown`, `RespawnTypes` and `RespawnLimit`) and
+reapply reviewed values after installation. Automatic globals carry-forward is
+not implemented. Never remove receipts to bypass drift. The full recovery and
+mission swap procedure is in step 4 below.
+
+Untouched profile defaults with CRLF or a UTF-8 BOM now match shipped history and
+upgrade with a backup; other edits are kept. New bundles write profile JSON as
+LF regardless of checkout. The profiles step ships complete Groups and infected
+LOD settings and adds missing fields to existing JSON objects with a backup.
+Existing values, including explicit opt-outs, arrays and schema versions, stay
+unchanged; the native loader performs supported schema migrations. Invalid JSON
+is preserved with a warning and requires manual repair. Expansion AISettings
+retains its existing merge policy for HC-owned fields.
+
 ## Placeholders
 
 Pick real paths with the operator and set them once per PowerShell session; every
@@ -350,7 +378,8 @@ settings and state; do not delete them to force startup. The issue report contai
 no local settings values or specific loader refusal, so it cannot establish which
 local gate failed. Enabling the global preference alone does not prove a bug in
 the group service. Check a new server boot for the specific reason before changing
-configuration. Native compilation and a two-client Groups check remain pending.
+configuration. Native compilation, boot and a Groups exercise on one server with
+at most one client remain pending.
 
 ## 8. Mission overlay
 
