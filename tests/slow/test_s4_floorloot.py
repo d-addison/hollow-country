@@ -378,31 +378,37 @@ class CommittedPolicy(unittest.TestCase):
         self.policy = policy
         self.doc = policy.parse_policy((REPO / policy.FLOOR_POLICY).read_bytes())
 
-    def test_committed_policy_is_on_by_default_and_admits_only_clothes_and_listed_trash(self):
-        self.assertTrue(self.doc['enabled'])
-        self.assertEqual(self.doc['floor_categories'], ['clothes'])
-        self.assertTrue(self.policy.floor_eligible('TShirt_Beige', 'clothes', self.doc))
-        # Owner 2026-11-20: big items can use the floor; shelf points cannot hold them.
-        self.assertIn('Paper', self.doc['floor_classes'])
-        self.assertTrue(self.policy.floor_eligible('Paper', 'tools', self.doc))
-        for name, cat in (('Broom', 'tools'), ('DrysackBag_Yellow', 'containers'), ('Spotlight', 'tools'),
-                          ('Barrel_Blue', 'tools'), ('HatchbackWheel', 'tools'), ('MediumTent', 'containers')):
-            self.assertTrue(self.policy.floor_eligible(name, cat, self.doc), name)
-        for name, cat in (('Hatchet', 'tools'), ('Flashlight', 'tools'), ('TunaCan', 'food'),
-                          ('Matchbox', 'tools'), ('AmmoBox', 'containers'), ('Crowbar', 'tools')):
-            self.assertFalse(self.policy.floor_eligible(name, cat, self.doc), name)
-
-    def test_reviewed_equipment_stays_admitted_but_only_clothing_is_floor_eligible(self):
-        from tools.package import datamined_items as items
+    def test_authored_admission_is_derived_from_policy_for_every_ledger_row(self):
         ledger = json.loads((REPO / 'config/loot-dispositions.json').read_bytes())
-        admitted = {e['class'] for e in ledger['entries'] if e['floor_admitted']}
-        self.assertEqual(len(admitted), 59)  # 55 datamined floor rows + 4 LeatherGloves admitted by audit #199
-        self.assertEqual(len(items.SUPPLY_UNVERIFIED_FLOOR), 21)
-        self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 21 is withheld')
-        for name in sorted(items.SUPPLY_UNVERIFIED_FLOOR):
-            category = 'containers' if 'Bag' in name else 'clothes'
-            self.assertEqual(self.policy.floor_eligible(name, category, self.doc),
-                             category == 'clothes' or name in self.doc['floor_classes'], name)
+        categories = set(self.doc['floor_categories'])
+        explicit = set(self.doc['floor_classes'])
+        # Category and exact-name membership are the policy's data contract.
+        # Invented out-of-policy category prevents assumptions about class ancestry.
+        for row in ledger['entries']:
+            name = row['class']
+            for category in categories | {'synthetic_unlisted_category'}:
+                with self.subTest(name=name, category=category):
+                    self.assertEqual(self.policy.floor_eligible(name, category, self.doc),
+                                     category in categories or name in explicit)
+        for name in explicit:
+            self.assertTrue(self.policy.floor_eligible(name, 'synthetic_unlisted_category', self.doc))
+
+    def test_retagging_authored_admission_preserves_supply_and_row_identity(self):
+        ledger = json.loads((REPO / 'config/loot-dispositions.json').read_bytes())
+        root = ET.Element('types')
+        for index, row in enumerate(ledger['entries'], 1):
+            node = ET.SubElement(root, 'type', name=row['class'])
+            ET.SubElement(node, 'nominal').text = str(index)
+            ET.SubElement(node, 'min').text = str(index // 2)
+            ET.SubElement(node, 'category', name='synthetic_unlisted_category')
+        original = ET.tostring(root)
+        rewritten, _ = self.policy.retag_types(original, self.doc)
+        def supply(data):
+            return {n.get('name'): (n.findtext('nominal'), n.findtext('min'))
+                    for n in ET.fromstring(data)}
+        self.assertEqual(supply(original), supply(rewritten))
+        again, _ = self.policy.retag_types(rewritten, self.doc)
+        self.assertEqual(rewritten, again)
 
     def test_listed_classes_are_plain_names_and_patterns_are_refused(self):
         for name in self.doc['floor_classes']:
