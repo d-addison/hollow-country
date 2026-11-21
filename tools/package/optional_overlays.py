@@ -25,7 +25,7 @@ except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import xml_text
 
-from tools.package import rag_optional, travel
+from tools.package import HCWildlife_habitats, rag_optional, travel
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
@@ -215,6 +215,12 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     if not packs:
         return candidate
     policy = json.loads(read(policy_path))
+    composition_on = HCWildlife_habitats.composition_enabled(policy)
+    composition = None
+    if composition_on and 'AmbientAnimals' in packs:
+        composition = json.loads(read(Path(policy_path).parent.parent / 'ecology/composition-variety.json'))
+        if composition.get('SchemaVersion') != 1:
+            raise ValueError('unknown composition policy')
     if policy.get('schema') != 1:
         raise ValueError('unknown optional overlay policy')
     if (mission / MANAGED).exists():
@@ -308,6 +314,11 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
             if len(territory_nodes) != 1 or not event_nodes or not type_nodes:
                 raise ValueError('incomplete installed species instructions: ' + species)
             territory = territory_nodes[0]
+            selection = composition['DependencyAmbient'].get(species) if composition else None
+            if selection:
+                if territory.get('name') != selection['Territory']:
+                    raise ValueError('composition dependency territory changed: ' + species)
+                HCWildlife_habitats.composition_ambient(territory, selection)
             # Upstream raven README names seagull; otter usable names rat. Resolve
             # against that species' actual installed file, never another species.
             usable = species + '_territories'
@@ -333,11 +344,15 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
                 for animal_child in animal_event.findall('children/child'):
                     for attribute in ('min', 'max'):
                         animal_child.set(attribute, str(min(int(animal_child.get(attribute)), limit)))
+                if selection:
+                    HCWildlife_habitats.composition_children(animal_event, selection['Children'])
                 unique_append(events, animal_event)
             for animal_type in type_nodes:
                 unique_append(types, animal_type)
         put('cfgenvironment.xml', serialized(environment))
         native_ambient_delta(mission, options, source, put)
+        candidate['diagnostics'].append(HCWildlife_habitats.composition_summary(
+            composition_on, ambient=len(composition['DependencyAmbient']) if composition else 0))
 
     # Refuse existing declarations of the same types/events across stock and CE
     # extensions. No duplicate loot or reliance on unobserved replacement order.
@@ -551,15 +566,20 @@ def bundle_candidate(bundle, mission):
     habitat = json.loads(read(habitat_root / 'habitat-overrides.json'))
     if type(habitat.get('Enabled')) is not bool:
         raise ValueError('habitat Enabled preference missing')
+    composition_path = habitat_root / 'composition-variety.json'
+    overlay_policy_path = habitat_root.parent / 'optional/overlay-policy.json'
+    composition_on = (HCWildlife_habitats.composition_enabled(json.loads(read(overlay_policy_path)))
+                      if overlay_policy_path.exists() else composition_path.exists())
     habitat_stock = {}
-    if habitat['Enabled']:
+    if habitat['Enabled'] or composition_on:
         for name in ('cfgenvironment.xml', 'db/events.xml'):
             try:
                 habitat_stock[name] = read(mission / name)
             except FileNotFoundError as error:
-                raise ValueError('HC149_HABITAT_STOCK_MISSING: ' + name) from error
+                prefix = 'HC149_HABITAT_STOCK_MISSING: ' if habitat['Enabled'] else 'HC316_COMPOSITION_STOCK_MISSING: '
+                raise ValueError(prefix + name) from error
     patch = json.loads(read(bundle / 'mission-patches.json'))
-    candidate = {'mission': str(mission), 'files': {}, 'before': {}, 'sources': {}}
+    candidate = {'mission': str(mission), 'files': {}, 'before': {}, 'sources': {}, 'diagnostics': []}
 
     def put_file(name, data):
         if not allowed(name, BUNDLE_MANAGED):
@@ -619,13 +639,21 @@ def bundle_candidate(bundle, mission):
     # class names are from the inspected stock 1.30 configuration inventory;
     # this candidate is not evidence of class loading or mixed-herd behavior.
     if habitat['Enabled']:
-        from tools.package import HCWildlife_habitats
         habitat_files = HCWildlife_habitats.build(
             habitat, read(habitat_root / 'events.append.xml'),
             habitat_stock['cfgenvironment.xml'], habitat_stock['db/events.xml'],
             HCWildlife_habitats.REQUIRED_CLASSES)
         for relative, data in habitat_files.items():
             put_file(relative, data)
+    if composition_on:
+        composition = json.loads(read(composition_path))
+        replacements = HCWildlife_habitats.composition_build(
+            composition, candidate['files'].get('cfgenvironment.xml', habitat_stock['cfgenvironment.xml']),
+            candidate['files'].get('db/events.xml', habitat_stock['db/events.xml']))
+        for relative, data in replacements.items():
+            put_file(relative, data)
+    candidate['diagnostics'].append(HCWildlife_habitats.composition_summary(
+        composition_on, native=len(composition['NativeEvents']) + len(composition['NativeAmbient']) if composition_on else 0))
     return candidate
 
 
@@ -649,6 +677,8 @@ def bundle_apply(bundle, mission, workshop, loaded):
     if (Path(mission) / BUNDLE_MANAGED).exists():
         raise ValueError('bundle install exists; rollback before installing again')
     candidate = bundle_candidate(bundle, mission)
+    for line in candidate['diagnostics']:
+        print(line)
     from tools.package import loot_boost, travel, hc_events
     source = Path(bundle) / 'mission/hollow-country'
     travel.validate(source)
@@ -1050,6 +1080,8 @@ def main(argv=None):
                 bundle_rollback(args.mission)
             elif args.command == 'bundle-plan':
                 candidate = bundle_candidate(args.bundle, args.mission)
+                for line in candidate['diagnostics']:
+                    print(line)
                 for name in sorted(candidate['files']):
                     print('bundle overlay: ' + name)
             else:

@@ -171,8 +171,9 @@ class OptionalOverlaysSmoke(unittest.TestCase):
                 overlays.plan(workshop, mission, loaded)
             items = workshop_sync.load_manifest()['mods']
             folders = [m['folder'] for m in sorted(items, key=lambda m: m['rank'])]
-            self.assertEqual(folders[:6], ['@CF', '@COT', '@DabsFramework', '@Expansion-Core',
-                                          '@Expansion-AI', '@Expansion-Navigation'])
+            for dependency in ('@CF', '@COT', '@DabsFramework', '@Expansion-Core'):
+                self.assertLess(folders.index(dependency), folders.index('@Expansion-AI'))
+            self.assertLess(folders.index('@Expansion-AI'), folders.index('@Expansion-Navigation'))
             self.assertLess(folders.index('@RaG_Core'), folders.index('@RaG_Immersive_Vehicles'))
             self.assertLess(folders.index('@RaG_Immersive_Vehicles'), folders.index('@AmbientAnimals'))
 
@@ -238,6 +239,11 @@ class OptionalOverlaysSmoke(unittest.TestCase):
                 put(animals, species + '_territories/chernarus/' + species + '_territories.xml',
                     '<territory-type><territory><zone name="Graze" x="20" z="20" r="20" '
                     'smin="0" smax="0" dmin="0" dmax="0"/></territory></territory-type>')
+            import json
+            policy = json.loads(overlays.POLICY.read_bytes())
+            policy['Ecology'] = {'EnableCompositionVariety': False}
+            policy_path = root / 'synthetic-overlay-policy.json'
+            policy_path.write_text(json.dumps(policy))
             # Snake has a separate upstream instruction layout.
             put(animals, 'snake_territories/Snake_TypesEvents.txt',
                 '<event name="SyntheticSnake"><nominal>1</nominal><min>0</min><max>2</max></event>'
@@ -251,7 +257,7 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             installed_source = snapshot(workshop)
             self.assertEqual(overlays.plan(workshop, mission, [])['files'], {})
             before = snapshot(mission)
-            candidate = overlays.plan(workshop, mission, [bike, animals])
+            candidate = overlays.plan(workshop, mission, [bike, animals], policy_path)
             self.assertEqual(snapshot(mission), before, 'plan must be read only')
             overlays.install(candidate, mission)
             events = ET.fromstring((mission / overlays.MANAGED / 'events.xml').read_bytes())

@@ -161,3 +161,88 @@ def validate_ecosystem(config):
         if row.get('Role') not in ('Graze', 'Rest', 'Water', 'HuntingGround') or not row.get('Source') or not row.get('Id'):
             raise ValueError('ecosystem route provenance/role invalid')
     return True
+
+
+# #316 animal composition: install-time edits only; no actor work or new CE owner.
+def composition_enabled(policy):
+    ecology = policy.get('Ecology', {})
+    if not isinstance(ecology, dict):
+        raise ValueError('Ecology policy must be an object')
+    enabled = ecology.get('EnableCompositionVariety', True)
+    if type(enabled) is not bool:
+        raise ValueError('Ecology.EnableCompositionVariety must be boolean')
+    return enabled
+
+
+def composition_children(event, selections):
+    """Retain the event budget and aggregate child ceiling, using existing classes."""
+    rows = event.findall('children/child')
+    if len(rows) != len(selections) or {n.get('type') for n in rows} != set(selections):
+        raise ValueError('composition child inventory changed: ' + event.get('name', ''))
+    old_max = sum(int(n.get('max')) for n in rows)
+    new_max = 0
+    minimum = 0
+    for node in rows:
+        bounds = selections[node.get('type')]
+        if (not isinstance(bounds, list) or len(bounds) != 2
+                or any(type(v) is not int for v in bounds)
+                or not 0 <= bounds[0] <= bounds[1] <= 8 or bounds[1] == 0):
+            raise ValueError('composition child bounds invalid')
+        minimum += bounds[0]
+        new_max += bounds[1]
+    if new_max != old_max or minimum > int(event.findtext('max')):
+        raise ValueError('composition child population ceiling changed')
+    for node in rows:
+        lo, hi = selections[node.get('type')]
+        node.set('min', str(lo))
+        node.set('max', str(hi))
+
+
+def composition_ambient(territory, selection):
+    """Redistribute positive native chance weights without changing their sums.
+
+    Sex labels on dependency agents are upstream palette labels, not biological
+    evidence (in particular the raven airborne branch).
+    """
+    agents = territory.findall('agent')
+    spawns = territory.findall('agent/spawn')
+    for nodes, key, selected in ((agents, 'type', selection['Agents']),
+                                 (spawns, 'configName', selection['Spawns'])):
+        if len(nodes) != len(selected) or {n.get(key) for n in nodes} != set(selected):
+            raise ValueError('composition ambient inventory changed: ' + territory.get('name', ''))
+        if any(type(v) is not int or not 1 <= v <= 100 for v in selected.values()):
+            raise ValueError('composition chance invalid')
+        # Spawn chances are normalized independently for each agent. Preserve
+        # each denominator, not merely the sum over the whole territory.
+        groups = [nodes] if key == 'type' else [a.findall('spawn') for a in agents]
+        for group in groups:
+            if sum(int(n.get('chance', '1')) for n in group) != sum(selected[n.get(key)] for n in group):
+                raise ValueError('composition chance sum changed')
+        for node in nodes:
+            node.set('chance', str(selected[node.get(key)]))
+
+
+def composition_build(policy, environment_data, events_data):
+    """Build native selections from existing installed classes; preserve all else."""
+    if policy.get('SchemaVersion') != 1:
+        raise ValueError('unknown composition policy')
+    events, environment = _xml(events_data, 'events'), _xml(environment_data, 'env')
+    existing = _events(events)
+    for name, selection in policy['NativeEvents'].items():
+        event = existing.get(name.casefold())
+        if event is None:
+            raise ValueError('composition native event missing: ' + name)
+        composition_children(event, selection)
+    for name, selection in policy['NativeAmbient'].items():
+        territories = environment.findall('territories/territory')
+        matches = [n for n in territories if n.get('name') == name]
+        if len(matches) != 1:
+            raise ValueError('composition native territory missing or ambiguous: ' + name)
+        composition_ambient(matches[0], selection)
+    return {path: xml_text.document(root) + b'\n'
+            for path, root in (('db/events.xml', events), ('cfgenvironment.xml', environment))}
+
+
+def composition_summary(enabled, native=0, ambient=0):
+    return ('[HC Variety] animal_composition enabled=%d native=%d ambient=%d '
+            'install_time=1 runtime=PENDING' % (enabled, native, ambient))
