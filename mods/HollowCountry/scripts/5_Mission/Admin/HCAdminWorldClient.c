@@ -49,6 +49,9 @@ class HCAdminWorldClient
     protected bool m_ListDirty = true;
     protected vector m_Centre;
     protected float m_Scale;
+    // Native 3_Game/gameplay.c:328 GetScale; smaller scales zoom in.
+    protected const float LABEL_SCALE = 0.20;
+    protected ref HCAdminMark m_Selected;
     protected float m_Left;
     protected float m_Top;
     protected float m_Width;
@@ -90,6 +93,7 @@ class HCAdminWorldClient
         m_Incoming.Clear();
         DynamicRows.Clear();
         m_Pins.Clear();
+        m_Selected = null;
         m_Dirty = true;
         m_ListDirty = true;
         DayZGame.Event_OnRPC.Insert(Receive);
@@ -128,6 +132,7 @@ class HCAdminWorldClient
         m_Incoming.Clear();
         m_Pins.Clear();
         m_Cells.Clear();
+        m_Selected = null;
         if (m_Panel) { m_Panel.Show(false); }
         m_Panel = null;
         m_Toggle = null;
@@ -289,9 +294,17 @@ class HCAdminWorldClient
             {
                 HCAdminWorldPin pin = m_Pins[index];
                 HCAdminWorldStyle style = Style(pin.Mark.Layer);
-                string title = "[" + style.Layer + "] " + pin.Mark.Label;
-                if (pin.Count > 1) { title = "[" + style.Layer + "] x" + pin.Count.ToString(); }
-                pool.Pin(mapWidget, pin.Mark.Position, title, style.Color, style.Texture, settings);
+                // Selection survives a refreshed row object with the same identity.
+                bool selected = m_Selected && m_Selected.Layer == pin.Mark.Layer && m_Selected.Label == pin.Mark.Label && m_Selected.Position == pin.Mark.Position;
+                bool showLabel = m_Scale < LABEL_SCALE || selected;
+                string title = "";
+                if (showLabel) { title = "[" + style.Layer + "] " + pin.Mark.Label; }
+                if (pin.Count > 1)
+                {
+                    title = "x" + pin.Count.ToString();
+                    if (showLabel) { title = "[" + style.Layer + "] " + pin.Mark.Label + " " + title; }
+                }
+                pool.Pin(mapWidget, pin.Mark.Position, title, style.Color, style.Texture, settings, showLabel);
             }
             m_PoolStart = start;
             m_PoolCount = pool.HCUsed() - start;
@@ -359,6 +372,9 @@ class HCAdminWorldClient
             string detail = pin.Mark.Layer + " | " + pin.Mark.Label + "\n" + pin.Mark.Detail;
             if (pin.Count > 1) { detail = pin.Mark.Layer + ": " + pin.Count.ToString() + " rows in this cell. Zoom in for individual details."; }
             m_Detail.SetText(detail);
+            m_Selected = pin.Mark;
+            // Rebind pooled labels once; keep the collected pins/dirty cache.
+            m_PoolStart = -1;
             return true;
         }
         return false;
