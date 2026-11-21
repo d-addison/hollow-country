@@ -147,7 +147,9 @@ class Audit:
         if r['bundle_profile_catalogue']:
             # Pure repo-source catalogue; no profile reads, git calls, or bundle builds.
             from tools.setup.friend_bundle import repo_profile_sources
-            self.profile_sources = repo_profile_sources()
+            # Generated baseline profiles are inline bytes, not repository files.
+            self.profile_sources = {rel: source for rel, source in repo_profile_sources().items()
+                                    if not isinstance(source, bytes)}
             for p in self.profile_sources.values():
                 if not self.safe(p).is_file():
                     raise ValueError('bundle profile source missing: ' + self.display(p))
