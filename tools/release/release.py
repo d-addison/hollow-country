@@ -53,8 +53,19 @@ def build_number(value):
 def resolve_commit(commit, allow_unpushed=False):
     sha = run(['git', 'rev-parse', '--verify', '--end-of-options', commit + '^{commit}']).strip()
     if not allow_unpushed:
-        run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'])
+        # Release train: features build from origin/main, fixes from a pushed
+        # origin/rc/<name> branch. Either way the commit must be published.
+        refs = ['origin/main'] + run(['git', 'for-each-ref', '--format=%(refname:short)',
+                                      'refs/remotes/origin/rc/']).split()
+        if not any(published(sha, ref) for ref in refs):
+            raise ValueError('Commit is not on origin/main or a pushed origin/rc/* branch')
     return sha
+
+
+def published(sha, ref):
+    result = subprocess.run(['git', 'merge-base', '--is-ancestor', sha, ref], cwd=ROOT,
+                            capture_output=True, env=dict(os.environ, GIT_OPTIONAL_LOCKS='0'))
+    return result.returncode == 0
 
 
 def is_dirty(tree):
