@@ -191,8 +191,27 @@ def pack(files, prefix=PREFIX):
     return body + b'\0' + hashlib.sha1(body).digest()
 
 
+def check_expression_calls(ours, sheets):
+    """Refuse graph expressions calling functions no vanilla sheet calls.
+
+    The engine rejects an unknown call only when it first loads the graph for
+    a spawned body, and the server then crashes (GetVariableInt, build 134).
+    Variables are read by bare name, as in vanilla's "IdleState == 0".
+    """
+    def calls(text):
+        found = set()
+        for expr in re.findall(r'(?:Condition|Expression|Value)\s+"([^"]*)"', text):
+            found.update(re.findall(r'([A-Za-z_]\w*)\s*\(', expr))
+        return found
+    unknown = sorted(calls(ours) - calls(sheets))
+    if unknown:
+        raise ValueError('graph expressions call functions vanilla sheets never use: ' + ', '.join(unknown))
+
+
 def collect(addons_dir, clip_dir):
-    check_dead_slots(*read_vanilla_slot_sources(addons_dir))
+    ast, asi, sheets = read_vanilla_slot_sources(addons_dir)
+    check_dead_slots(ast, asi, sheets)
+    check_expression_calls((SOURCE / 'anims/infected/hc_poses.agf').read_text(encoding='utf-8'), sheets)
     files = {}
     for p in sorted(SOURCE.rglob('*')):
         if p.is_file() and not p.name.startswith('$'):

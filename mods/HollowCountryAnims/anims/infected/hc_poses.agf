@@ -121,7 +121,7 @@ AnimSrcGraphFile {
        ToState "ProneSleepGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 2"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && HCPoseFrom == 2"
        BlendFn S
        MotionVecBlend 0x33 0
       }
@@ -167,7 +167,7 @@ AnimSrcGraphFile {
        ToState "LieRiseGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 3"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && HCPoseFrom == 3"
        BlendFn S
        MotionVecBlend 0x33 0
       }
@@ -213,7 +213,7 @@ AnimSrcGraphFile {
        ToState "FeedKneelGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 4"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && HCPoseFrom == 4"
        BlendFn S
        MotionVecBlend 0x33 0
       }
@@ -260,7 +260,7 @@ AnimSrcGraphFile {
        ToState "SitWallGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 1"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && HCPoseFrom == 1"
        BlendFn S
        MotionVecBlend 0x33 0
       }
