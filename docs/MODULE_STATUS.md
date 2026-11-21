@@ -12,7 +12,7 @@ preserved. Missing measured content, dependencies, providers or trusted receipts
 still prevent admission and must be reported. An enabled preference alone is
 not proof that its gameplay is operational.
 
-## Current source changes — rounds r8–r11, 2026-11-20
+## Current source changes — rounds r8–r14, 2026-11-20
 
 This record supersedes older implementation snapshots below. All features ship with enabled
 preferences. Every change here has **native status PENDING**: final-source compile, boot with
@@ -22,11 +22,12 @@ not accept a feature. Capacity at 3–6 players remains provisional.
 
 | Change / source | Current implementation | Unverified gates / follow-up |
 | --- | --- | --- |
+| Round r14 (`7e40fdc9`..`baae4cec`, #275 #287 #305 #306 #312) | AI site survey keeps qualifying past the 1,500 s boot window, nearest sites first; policy-only counters. Route start-up admits one bounded page per visit. Events expiry/cleanup journals, infected variety scans, heavy Interiors queries and every staged-save file call yield across ticks with named `[HC Step]` stages. Periodic status lines print on change or every 30 min; R3 counts repeats per rolling 60 min. Seasons checkpoints leave a lagging queue at half the loss cap. Lint HC-E018/E019. Friend installer: scoped process probe, `--assume-stopped`, globals drift preflight, BOM/CRLF profiles, Groups/LOD field merges | Native timing (16 ms ceiling), full survey completion, journal recovery after interruption, the real 102→current upgrade on the friend server |
 | Ground support (`ffc24c7b`, #279) | Transformed bounding-box bottom plus support rays; props capped at 3 m, spawner structures 25 m, CE items 2.5 m. HC placements and HCX props share the service; CE queue cap 16,384, four per shared-budget slice. `[HC Ground]` reports per-source results | Native contact, collision and placement appearance; food/firework classes omitting `super.EEOnCECreate` remain uncovered |
 | No-jam rule (`f54f0b5f`) | Pristine/worn skip `Weapon_Base.JamCheck`; `noJamMaxHealthLevel=1`, -1 restores native rolls | Native firing, damage thresholds and pack compatibility |
 | Inventory sizing (`5c5454c7`, `cc387582`, #280) | Ancestry/dependency-based stack rules retain 570 vanilla overrides and add 51 stack overrides; 187 declared-pack attachment/magazine overrides cap dimensions at vanilla scale. Stale size tables refuse release; rollback covers both outputs | Signed addon loading, inventory fit, attachment/cargo interactions and rollback |
 | Native infected climb (`119ece77`, #281) | Default-on `InfectedClimb.*` scoped registry; unreachable target 0.5–2.2 m up, within 2.5 m, two bounded obstacle rays, native vault/landing. Four concurrent attempts, 6 s cooldown; retires after 12 attempts without reaching the top | Native vault landing, shared-budget/concurrency behaviour, outcome counters; ladders remain shadow diagnostics because no native infected ladder command is available |
-| Supported loot points (`ab26a56a`, following `c21706fb`, #274/#279) | Support/enclosure/clearance checks reduce floor additions 1,222→250 and interior surfaces 1,247→584, removing 1,635 candidates without moving coordinates. Current files contain 58 floor groups and 104 surface groups (125 distinct building groups across both); 834 points total | Native item support and access, construction exemptions, fresh CE spawn and the 3,000 surface-point target |
+| Supported loot points (`ab26a56a`, following `c21706fb`, #274/#279) | Support/enclosure/clearance checks reduce floor additions 1,222→250 and interior surfaces 1,247→584, removing 1,635 candidates without moving coordinates. At that commit the files held 58 floor groups and 104 surface groups (834 points); later audited additions (`681440f1`, r14) bring surfaces to 1,072 points in 119 classes, 1,322 points in 140 groups in total | Native item support and access, construction exemptions, fresh CE spawn and the 3,000 surface-point target |
 | Military CE budget (`7aa4c46b`) | Military-only primaries share a map budget around four Tisy kits. Every class keeps nominal/min >=1; missing/zeroed rows refuse generation. Scout, Scout_Chernarus and R12 retain Prison/Police routes; modded magazines 10–100% full | Observed CE mix and per-class availability; budget balance |
 | Activity check (`214f384f`) | Declared signals classify ACTIVE / INERT / SILENT / NO_SIGNAL / WAITING. `rpt_summary` and `checkstart` include the report without changing their exit codes. Build 117 report: 13 / 12 / 1 / 29 / 8 respectively | Declared counters and active gameplay evidence for every enabled owner; ACTIVITY is distinct from readiness and acceptance |
 | Static wiring and bundle (`74782d19`, `fae2405c`, `17514ec3`) | Audit covers spawn routes, unread settings, unreferenced classes, CE index gaps, zeroed spawnable rows (W009) and installer import closure (W010). Bundle adds imported audit/interior/probe modules and military-loot/disposition inputs, including floor-policy collision validator | New release install/upgrade and live spawn routes; static presence is not gameplay evidence |
@@ -150,7 +151,7 @@ means the gameplay is unverified, not that it is switched off.
 - AI affiliation: faction armbands and up to 16 site flags (docs/AI_FACTIONS.md); pre-engagement warnings deferred. Pending.
 - Military zones: the 17 primary zones split into 30 envelopes of at most 2 km, so all 98 guard sites sit inside one. Pending.
 - Boot perf (#271): Holdouts publication, interior resolve misses, save promotion and HCX readiness diagnostics are staged or sampled. Timings pending.
-- Interior surface loot: 917 audited above-floor points in 121 classes; 3,000-point target and furniture-aware audit open (#274). Pending.
+- Interior surface loot: 1,072 audited above-floor points in 119 classes (merged coverage 1,322 points in 140 groups; 250 floor points unchanged). Optional furniture bounds are part of the reach and sight audit. The 3,000-point target stays open (#274). Pending.
 
 ## Living Country — V2
 
