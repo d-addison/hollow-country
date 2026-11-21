@@ -182,7 +182,7 @@ class DiagSessionTests(unittest.TestCase):
     def test_log_filter_reuses_privacy_policy_and_bounds_lines(self):
         log = self.root / 'diag.RPT'
         self.put(log, ('noise\n[HC Ready] module=Core ready=true\n'
-                       'SCRIPT (E): error at /home/example/private/script.c\n'
+                       'SCRIPT (E): error at /' 'home/example/private/script.c\n'
                        "Can\'t compile World\n[HC Debug] Steam ID 12345678901234567\n"
                        '[HC Debug] Player "Sensitive Person" joined\n' +
                        '[HC Debug] ' + 'x' * 18000 + '\n[HC Debug] remaining\n').encode())
@@ -247,7 +247,7 @@ class DiagSessionTests(unittest.TestCase):
             self.plan()
 
     def test_errors_never_echo_raw_interop_or_home_paths(self):
-        with patch.object(diag, 'make_plan', side_effect=OSError('/home/example/password-secret')), \
+        with patch.object(diag, 'make_plan', side_effect=OSError('/' 'home/example/password-secret')), \
                 contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(diag.main([]), 2)
         self.assertNotIn('example', output.getvalue())

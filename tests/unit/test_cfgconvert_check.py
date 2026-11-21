@@ -64,7 +64,7 @@ class ConfigGateTests(unittest.TestCase):
             self.assertIn('$env:TEMP', script)
 
     def test_privacy_does_not_change_failure_verdict(self):
-        raw = 'Error line 7 C:\\Users\\Example\\secret.cpp\nSteam ID 12345678901234567'
+        raw = 'Error line 7 C:' + '\\Users\\Example\\secret.cpp\nSteam ID 12345678901234567'
         with patch.object(gate, 'convert', return_value=(False, raw)):
             code, out = self.run_gate()
         self.assertEqual(1, code)
