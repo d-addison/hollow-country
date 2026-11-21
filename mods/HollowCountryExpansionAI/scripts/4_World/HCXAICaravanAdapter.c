@@ -460,21 +460,22 @@ modded class HCXAISiteState
     vector HCJourneyEnd;
     float HCJourneyRetry;
     float HCJourneyStarted;
+    int HCJourneyRecoveryChecks;
+    int HCJourneyRetryVisits;
     ref TVectorArray HCJourneyPath = new TVectorArray;
-    vector HCJourneyFrom;
-    vector HCJourneyWanted;
     vector HCJourneySampled;
     int HCJourneyPathStage;
     int HCJourneyPathFailures;
 
-    // Failed sampling, queries or moving-origin validation must not probe forever
-    // at the normal cadence. Saturate the streak; success/handoff clears it.
+    // Failures wait at least 15/30 seconds AND skip one/two eligible visits.
+    // Visit backoff still matters when the director rotation exceeds that time.
     void HCFailJourneyLeg()
     {
         HCJourneyPathStage = 0;
         HCJourneyPath.Clear();
         HCJourneyPathFailures = Math.Min(HCJourneyPathFailures + 1, 2);
         HCJourneyRetry = GetGame().GetTickTime() + 15 * HCJourneyPathFailures;
+        HCJourneyRetryVisits = HCJourneyPathFailures;
     }
 
     void HCResetJourney()
@@ -491,7 +492,9 @@ modded class HCXAISiteState
         HCJourneyWalking = false;
         HCJourneyRecovery = null;
         HCJourneyStarted = 0;
+        HCJourneyRecoveryChecks = 0;
         HCJourneyRetry = 0;
+        HCJourneyRetryVisits = 0;
     }
 }
 
@@ -517,55 +520,41 @@ modded class HCXAISiteDirector
     }
 
     // One native operation per visit, charged as a native probe (64 units).
-    // Only finished legs require both query endpoints to remain within 1 m.
-    // Stages 1-2 retain their sampled origin while the leader keeps walking.
+    // Sampling yields; FindPath uses the current leader position and shares its
+    // visit with bounded validation and issue (one extra work unit). Never cache
+    // an origin across director visits while the patrol is still walking.
     // HCTakeAISlice admits the first item per consumer/tick even on an empty
     // pool: a 64-unit native probe can overshoot once per tick if it is first.
     bool HCJourneyLeg(HCXAISiteState state, vector position, vector wanted)
     {
-        if (state.HCJourneyPathStage == 3 && (vector.DistanceSq(position, state.HCJourneyFrom) > 1 || vector.DistanceSq(wanted, state.HCJourneyWanted) > 1))
-        {
-            state.HCJourneyPathStage = 0;
-            state.HCJourneyPath.Clear();
-        }
-        if (state.HCJourneyPathStage >= 2)
-        {
-            if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 1)) { return false; }
-        }
-        if (state.HCJourneyPathStage == 3) { return true; }
-        if (state.HCJourneyPathStage == 2)
-        {
-            TVectorArray path = state.HCJourneyPath;
-            bool valid = path.Count() >= 2 && path.Count() <= 32;
-            if (valid) { valid = HCXConvoyRoute.HCFlatSq(path[0], position) <= 64 && vector.DistanceSq(path[path.Count() - 1], state.HCJourneySampled) <= 4; }
-            float length = 0;
-            if (valid)
-            {
-                for (int index = 1; index < path.Count(); index++) { length += vector.Distance(path[index - 1], path[index]); }
-            }
-            if (valid && length <= 240) { state.HCJourneyPathStage = 3; state.HCJourneyPathFailures = 0; return true; }
-            state.HCFailJourneyLeg();
-            return false;
-        }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 64)) { return false; }
         if (state.HCJourneyPathStage == 0)
         {
-            state.HCJourneyFrom = position;
-            state.HCJourneyWanted = wanted;
             state.HCJourneySampled = this.NavSample(wanted, 12, m_Filter);
             if (state.HCJourneySampled == vector.Zero) { state.HCFailJourneyLeg(); return false; }
             state.HCJourneyPathStage = 1;
             return false;
         }
+        // Reserve validation/issue before the query: denial must never leave a
+        // completed path waiting for another visit with a stale first point.
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 1)) { return false; }
         AIWorld navigation = GetGame().GetWorld().GetAIWorld();
-        state.HCJourneyPath.Clear();
-        if (!navigation || !navigation.FindPath(state.HCJourneyFrom, state.HCJourneySampled, m_Filter, state.HCJourneyPath))
+        TVectorArray path = state.HCJourneyPath;
+        path.Clear();
+        if (!navigation || !navigation.FindPath(position, state.HCJourneySampled, m_Filter, path))
         {
             state.HCFailJourneyLeg();
             return false;
         }
-        // Validate the bounded result next visit; do not append work to an atomic query.
-        state.HCJourneyPathStage = 2;
+        bool valid = path.Count() >= 2 && path.Count() <= 32;
+        if (valid) { valid = HCXConvoyRoute.HCFlatSq(path[0], position) <= 64 && vector.DistanceSq(path[path.Count() - 1], state.HCJourneySampled) <= 4; }
+        float length = 0;
+        if (valid)
+        {
+            for (int index = 1; index < path.Count(); index++) { length += vector.Distance(path[index - 1], path[index]); }
+        }
+        if (valid && length <= 240) { state.HCJourneyPathStage = 0; state.HCJourneyPathFailures = 0; return true; }
+        state.HCFailJourneyLeg();
         return false;
     }
 
@@ -601,12 +590,18 @@ modded class HCXAISiteDirector
             if (state.HCJourneyRecovery)
             {
                 state.HCJourneyRecovery.HCCheck(party, position, GetGame().GetTime());
+                state.HCJourneyRecoveryChecks = Math.Min(state.HCJourneyRecoveryChecks + 1, 4);
             }
             bool gaveUp = state.HCJourneyRecovery && state.HCJourneyRecovery.GivenUp;
-            if (!gaveUp && now - state.HCJourneyStarted < 90) { return; }
+            bool refresh = state.HCJourneyRecoveryChecks >= 4 && now - state.HCJourneyStarted >= 90;
+            // Let pending no-progress checks and every active rung finish before
+            // refresh. Four calls alone only reach rung 1, starving rung 3 again.
+            if (state.HCJourneyRecovery && (state.HCJourneyRecovery.Checks > 0 || state.HCJourneyRecovery.LadderStep > 0 || state.HCJourneyRecovery.Replan)) { refresh = false; }
+            if (!gaveUp && !refresh) { return; }
             // Give-up and timed refresh both discard possibly failed geometry.
             state.HCResetJourney();
         }
+        if (state.HCJourneyRetryVisits > 0) { state.HCJourneyRetryVisits--; return; }
         if (now < state.HCJourneyRetry) { return; }
         state.HCJourneyRetry = now + 1;
         state.HCJourneyWalking = false;
@@ -628,6 +623,7 @@ modded class HCXAISiteDirector
         state.HCJourneyRecovery = new HCXAIStuckRecovery;
         state.HCJourneyRecovery.Kind = "journey";
         state.HCJourneyRecovery.HCStart(path, GetGame().GetTime(), 32);
+        state.HCJourneyRecoveryChecks = 0;
         state.HCJourneyEnd = state.HCJourneySampled;
         state.HCJourneyWalking = true;
         state.HCJourneyStarted = now;
