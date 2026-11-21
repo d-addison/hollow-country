@@ -21,15 +21,20 @@
 // still bounds held poses (a body over budget stays a normal standing infected).
 // Counters live in the base mod (HCVarietyCounters); per-body lines are capped.
 //
-// #315 (build 135 ACCESS_VIOLATION inside StartCommand_ScriptInst): the old code bound
-// the graph names lazily inside OnActivate, which runs within StartCommand_ScriptInst,
-// and passed unchecked results (-1 on error) straight to PreAnim_*. Now the binds are
-// resolved and checked before the start, the start waits for a settled Move command,
-// OnActivate makes no native call, and any failure refuses the body with one reason.
+// #315 (build 135 ACCESS_VIOLATION, read at 0x8, top script frame = the
+// StartCommand_ScriptInst line): the crash is in the engine, not in our graph or timing.
+// Server exe 1.30 disassembly: DayZInfected.StartCommand_ScriptInst builds the instance
+// without constructor arguments, and the native part of DayZInfectedCommandScript reads
+// its DayZInfected from those arguments, so it dereferences null before any script
+// callback (OnActivate) runs. A script `new HCPoseCommand(this)` passes the constructor
+// argument, so the command is now created with new and handed over with
+// StartCommand_Script (DayZInfected.c:62-66: C++ owns it once sent; never deleted or
+// ref-held by script). The bind preflight and settled-Move start stay as defence.
 //
 // Native API (scripts-1.30.164289):
-//   3_Game/Entities/DayZInfected.c:4 COMMANDID_MOVE, :10 COMMANDID_SCRIPT, :67 DayZInfectedCommandScript,
-//     :77 SetFlagFinished, :94 PostPhysUpdate, :123 StartCommand_ScriptInst, :124 GetCommand_Script
+//   3_Game/Entities/DayZInfected.c:4 COMMANDID_MOVE, :10 COMMANDID_SCRIPT, :62-66 ownership,
+//     :67 DayZInfectedCommandScript, :70 constructor(DayZInfected), :77 SetFlagFinished,
+//     :94 PostPhysUpdate, :122 StartCommand_Script, :124 GetCommand_Script
 //   3_Game/Anim/AnimCommand.c:13 OnActivate, :20 PreAnimUpdate, :27 PreAnim_CallCommand, :29 PreAnim_SetInt
 //   3_Game/Entities/DayZAnimal.c:7 binds return -1 on error, :10 BindCommand, :14 BindVariableInt,
 //     :35 GetAnimInterface, :175 ModCommandHandlerBefore
@@ -61,7 +66,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		m_HCResend = 0;
 	}
 
-	// #315: OnActivate runs inside StartCommand_ScriptInst, i.e. inside the owner's
+	// #315: OnActivate may run inside StartCommand_Script, i.e. inside the owner's
 	// CommandHandler and outside the anim pre-update. No native call is made here;
 	// the first PreAnimUpdate sends the pose (m_HCSent = -1 differs from any pose).
 	override void OnActivate()
@@ -152,9 +157,10 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	}
 
 	// Build 135: the first StartCommand_ScriptInst(HCPoseCommand) near a player
-	// crashed the server (ACCESS_VIOLATION). Until a native fix is proven the
-	// pose command starts only with the operator test file below; without it a
-	// posed class stays a normal standing infected. Checked once per session.
+	// crashed the server (ACCESS_VIOLATION; see #315 above). The start now uses
+	// new + StartCommand_Script; until that is observed natively the pose command
+	// starts only with the operator test file below; without it a posed class
+	// stays a normal standing infected. Checked once per session.
 	static const string HC_POSE_TEST_FILE = "$profile:HollowCountry/acceptance/PoseCommand.enable";
 	static const string HC_POSE_CRASH_REFUSAL = "pose_command_native_crash_pending_fix";
 	static int s_HCPoseAdmitted = -1;
@@ -415,7 +421,10 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		}
 		if (!HCPreflightBinds())
 			return false;
-		DayZInfectedCommandScript started = StartCommand_ScriptInst(HCPoseCommand);
+		// #315: never StartCommand_ScriptInst on infected (null constructor arguments
+		// in the engine). new passes `this` to the constructor; C++ owns the command
+		// from here (DayZInfected.c:62-66), so no script reference is kept.
+		DayZInfectedCommandScript started = StartCommand_Script(new HCPoseCommand(this));
 		if (!started)
 		{
 			HCPreflightFailed("start_command_null");
