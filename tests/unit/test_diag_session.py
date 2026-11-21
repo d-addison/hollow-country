@@ -112,6 +112,13 @@ class DiagSessionTests(unittest.TestCase):
             self.plan(without=[required])
         self.assertFalse(self.parent.exists())
 
+    def test_core_only_loads_just_the_base_addon(self):
+        plan = self.plan(core_only=True)
+        self.assertEqual([item['folder'] for item in plan.items], [diag.CORE_FOLDER])
+        self.assertEqual(list(plan.sources), [diag.CORE_FOLDER[1:]])
+        self.assertEqual(set(plan.without), {row['folder'] for row in self.rows} - {diag.CORE_FOLDER})
+        self.assertEqual(plan.arguments(False)[3], '-mod=' + diag.windows(plan.runtime / diag.CORE_FOLDER))
+
     def test_missing_dependency_refused_without_output_directory(self):
         (self.workshop / '42/addons').rename(self.workshop / '42/not-addons')
         with self.assertRaisesRegex(diag.Refused, 'dependency missing'):

@@ -32,6 +32,16 @@ python3 -B -m tools.setup.diag_session --launch --tag edit-002 --without @Tactic
 ```
 
 Only the optional weapon packs (`@TacticalFlava`, `@SnafuWeapons`) can be left out.
+
+A required dependency fails Diag too. Ambient Animals `Seagull_Base.c(110)` has
+unmatched brackets ("Unmatched brackets detected!"), and the Expansion AI addon
+requires that pack. So the full stack cannot boot under Diag without patching
+third-party code. `--core-only` loads only `@HollowCountry` (its requiredAddons are
+vanilla), so Diag still strict-compiles every base script:
+
+```sh
+python3 -B -m tools.setup.diag_session --launch --tag edit-003 --core-only
+```
 The session receipt records them under `without`. Retail boots (checkstart) still
 load every dependency.
 

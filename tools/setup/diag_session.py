@@ -33,6 +33,10 @@ ASSET_DIRS = ('Addons', 'dta', 'bliss', 'enoch', 'sakhal', 'nasdara',
 # third-party code, so a Diag session may drop these optional packs; HollowCountry
 # keeps them out of requiredAddons and its optional overlays are guarded.
 DIAG_OPTIONAL = frozenset({'@TacticalFlava', '@SnafuWeapons'})
+# A required dependency can fail Diag too (2026-11-21: Ambient Animals Seagull_Base.c(110)
+# "Unmatched brackets", needed by the Expansion AI addon). --core-only then loads only the
+# base addon, whose requiredAddons are vanilla, so Diag still checks every base script.
+CORE_FOLDER = '@HollowCountry'
 SOURCE_SUFFIXES = {'.c', '.cpp', '.xml', '.json', '.layout', '.edds', '.paa',
                    '.rvmat', '.p3d', '.ogg', '.wav', '.imageset', '.html', '.csv', '.txt'}
 
@@ -153,7 +157,7 @@ def process_guard():
 
 
 def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP,
-              parent=RUNTIME_PARENT, port=2402, without=()):
+              parent=RUNTIME_PARENT, port=2402, without=(), core_only=False):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,39}', tag) or re.search(r'\d{17}', tag):
         raise Refused('tag must be 1..40 letters/digits/underscore/hyphen; no identifiers')
     if not 1024 <= port <= 65531:
@@ -176,7 +180,7 @@ def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP
     items, sources = [], {}
     for row in manifest['mods']:
         item = dict(row)
-        if item['folder'] in without:
+        if item['folder'] in without or (core_only and item['folder'] != CORE_FOLDER):
             continue
         if item['publish']:
             prefix = item['folder'][1:]
@@ -192,6 +196,10 @@ def make_plan(tag, *, repo=REPO, client=CLIENT, server=SERVER, workshop=WORKSHOP
     if 'Addons' not in assets or 'dta' not in assets:
         raise Refused('installed engine Addons/dta missing')
     dlls = [plain(path) for path in sorted(client.glob('*.dll'))]
+    if core_only:
+        if [item['folder'] for item in items] != [CORE_FOLDER]:
+            raise Refused('core-only session needs the published base addon in the manifest')
+        without = tuple(sorted(row['folder'] for row in manifest['mods'] if row['folder'] != CORE_FOLDER))
     return Plan(runtime, repo, client, stock, items, sources, assets, dlls, port, without)
 
 
@@ -324,13 +332,15 @@ def main(argv=None):
     parser.add_argument('--without', action='append', default=[], metavar='FOLDER',
                         help='leave out an optional weapon pack that DayZDiag cannot compile '
                              '(' + ', '.join(sorted(DIAG_OPTIONAL)) + ')')
+    parser.add_argument('--core-only', action='store_true',
+                        help='load only the base addon (no Workshop dependencies, no AI addon)')
     args = parser.parse_args(argv)
     try:
         if args.log:
             for line in log_lines(args.log):
                 print(line)
             return 0
-        plan = make_plan(args.tag, port=args.port, without=args.without)
+        plan = make_plan(args.tag, port=args.port, without=args.without, core_only=args.core_only)
         if plan.without:
             print('Diag session leaves out optional packs: ' + ', '.join(plan.without))
         if args.refresh:
