@@ -16,7 +16,7 @@ class HCInteriorTemplatePlacement
     static const int STEP_RESOLVE = 0;   // Resolve: Game.c:923 GetObjectsAtPosition at the house
     static const int STEP_LOOKUP = 1;    // template/slot lookup, Object.c:873 ModelToWorld, :305 GetOrientation
     static const int STEP_INSPECT = 2;   // Available -> InspectProp: a second GetObjectsAtPosition3D
-    static const int STEP_CREATE = 3;    // Game.c:703 CreateObjectEx (CREATEPHYSICS|UPDATEPATHGRAPH)
+    static const int STEP_CREATE = 3;    // Game.c:703 CreateObjectEx (CREATEPHYSICS)
     static const int STEP_ORIENT = 4;    // Object.c:311 SetOrientation
     static const int STEP_LOG = 5;       // LogPropBox: Object.c:358 ClippingInfo + Print (<=25 types)
     static const int STEP_SCHEDULE = 6;  // CallLater queueing of the deferred pathgraph update
@@ -27,6 +27,8 @@ class HCInteriorTemplatePlacement
     protected static int s_LastQuery;
     // ":query"/":filter" from the cursor's last resolve visit; empty for direct resolves.
     protected static string s_LastPhase;
+    protected static ref HCPathgraphRefresh s_TemplateRegion;
+    protected static HCInteriorFurnishRow s_PathgraphRow;
     protected static bool s_Started;
     protected static int s_Placed;
     protected static int s_Capped;
@@ -44,6 +46,8 @@ class HCInteriorTemplatePlacement
 
     static void ResetPlacement()
     {
+        s_TemplateRegion = null;
+        s_PathgraphRow = null;
         s_Started = false;
         s_Placed = 0;
         s_Capped = 0;
@@ -79,15 +83,14 @@ class HCInteriorTemplatePlacement
     // House class, plus ':' and the prop type once a slot reached the creation path.
     static string HCLastType() { return s_LastType; }
 
-    // The deferred pathgraph update, timed: the same Game.c:1293 UpdatePathgraphRegionByObject call
-    // the CallLater formerly targeted directly (it null-checks and rebuilds the ClippingInfo-radius
-    // region through Game.c:1206 UpdatePathgraphRegion). Runs outside the module timer.
-    static void HCTimedPathgraph(Object placedObject)
+    // One deferred engine rebuild for the merged final transforms.
+    static void HCTimedPathgraph(HCPathgraphRefresh region)
     {
-        if (!GetGame()) { return; }
+        if (!GetGame() || !region) { return; }
         int mark = TickCount(0);
-        GetGame().UpdatePathgraphRegionByObject(placedObject);
-        if (placedObject) { HCSteps().HCDeferred(TickCount(mark)); }
+        region.Update();
+        HCInteriorPathgraph.Applied();
+        HCSteps().HCDeferred(TickCount(mark));
     }
 
     static void LogPropBox(Object prop)
@@ -244,9 +247,7 @@ class HCInteriorTemplatePlacement
     static Object Spawn(string type, vector position, vector orientation)
 
     {
-        // #271: Schedule already rebuilds this object's region after its final
-        // orientation. ECE_UPDATEPATHGRAPH rebuilt it synchronously as well,
-        // inside CreateObjectEx. Retain one rebuild, on the existing queue.
+        // Final transform precedes pathgraph influence and the deferred rebuild.
         int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
         HCStepTimer steps = HCSteps();
         int mark = TickCount(0);
@@ -264,23 +265,8 @@ class HCInteriorTemplatePlacement
     }
 
     static void Schedule(array<Object> objects)
-
     {
-        // Same inspected native pathgraph call as HCInteriorPathgraph; keep the
-        // large pack's diagnostics to its single aggregate placement summary.
-        int count = Math.Min(objects.Count(), 5);
-        int index = 0;
-        while (index < count)
-
-        {
-            Object placedObject = objects[index];
-            if (placedObject)
-
-            {
-                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, 100, false, placedObject);
-            }
-            index = index + 1;
-        }
+        HCInteriorPathgraph.Schedule(objects);
     }
 
     static void PlaceRow(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed)
@@ -288,7 +274,29 @@ class HCInteriorTemplatePlacement
         HCPlaceRowSlice(module, row, settings, placed, 0, 5, 0, 0);
     }
 
+    // A production cursor visits one slot per grant. Retain bounds across
+    // those visits, including refusal/limit exits, and queue only at row end.
     static bool HCPlaceRowSlice(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore, HCInteriorResolveCursor resolved = null)
+    {
+        if (s_PathgraphRow != row)
+        {
+            if (s_TemplateRegion) { HCInteriorPathgraph.Queue(s_TemplateRegion); }
+            s_TemplateRegion = new HCPathgraphRefresh;
+            s_PathgraphRow = row;
+        }
+        bool result = HCPlaceRowSliceWork(module, row, settings, placed, firstSlot, slotCount, resume, placedBefore, resolved);
+        bool finished = !result;
+        if (firstSlot + slotCount >= row.Props.Count()) { finished = true; }
+        if (finished)
+        {
+            HCInteriorPathgraph.Queue(s_TemplateRegion);
+            s_TemplateRegion = null;
+            s_PathgraphRow = null;
+        }
+        return result;
+    }
+
+    static bool HCPlaceRowSliceWork(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore, HCInteriorResolveCursor resolved = null)
 
     {
         int limit = Math.Min(settings.HCSearchCap("MaxFurnishedProps", settings.MaxFurnishedProps), 1500);
@@ -346,7 +354,6 @@ class HCInteriorTemplatePlacement
         }
         int houseCount = placedBefore;
         int slotIndex = -1;
-        array<Object> created = new array<Object>();
         foreach (int slotId : row.Props)
 
         {
@@ -392,14 +399,14 @@ class HCInteriorTemplatePlacement
             LogPropBox(object);
             steps.HCAdd(STEP_LOG, TickCount(mark));
             placed.Insert(object);
-            created.Insert(object);
+            mark = TickCount(0);
+            s_TemplateRegion.Include(object);
+            steps.HCAdd(STEP_SCHEDULE, TickCount(mark));
             houseCount = houseCount + 1;
             s_Placed = s_Placed + 1;
             HCModuleReadiness.HCUse("Interiors", "prop_placed");
         }
-        mark = TickCount(0);
-        Schedule(created);
-        steps.HCAdd(STEP_SCHEDULE, TickCount(mark));
+        // The wrapper queues the merged region after the final slot.
         return true;
     }
 

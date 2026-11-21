@@ -1,38 +1,78 @@
-// A1: pathgraph update after a batch of interior props.
-// Vanilla precedent for objects that appear at runtime: TentBase.c:797,
-// BaseBuildingBase.c:814 and FireplaceBase.c:1783 each call
-//   g_Game.GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(g_Game.UpdatePathgraphRegionByObject, 100, false, this)
-// (CGame.UpdatePathgraphRegionByObject, 3_Game/Global/Game.c:1293, null-checks the
-// object and updates the region of its clipping radius). The spawn flag
-// ECE_UPDATEPATHGRAPH alone is not observed to rebuild the region, so the same
-// short deferred call is made once per prop this module created, through the
-// HC-owned HCInteriorTemplatePlacement.HCTimedPathgraph target so a stop can
-// remove HC calls without cancelling vanilla's own queued updates. No queue is
-// retained and no world scan is made. Offline tests prove neither the rebuild
-// nor the infected routing around props; that needs a local DayZDiag run.
+// One post-transform 3D region per committed layout/template. Geometry and
+// engine calls live in 3_Game; readiness and bounded receipts stay in 4_World.
 class HCInteriorPathgraph
 {
-    // A layout places at most 5 props (HCInteriorsModule.m_PropLimit); the cap is a backstop.
-    static const int MAX_OBJECTS = 8;
-    static const int DELAY_MS = 100;
+    protected static int s_Marked;
+    protected static int s_Regions;
+    protected static int s_Skipped;
 
-    // Returns how many deferred updates were queued. Call only after the whole
-    // batch was placed, oriented and recorded; never for a rolled-back layout.
+    static HCPathgraphRefresh Bounds(array<Object> placed)
+    {
+        HCPathgraphRefresh region = new HCPathgraphRefresh;
+        foreach (Object object : placed) { region.Include(object); }
+        return region;
+    }
+
     static int Schedule(array<Object> placed)
     {
-        if (!placed || !GetGame() || !GetGame().IsServer()) return 0;
-        int count = Math.Min(placed.Count(), MAX_OBJECTS);
-        int scheduled = 0;
-        int index = 0;
-        while (index < count)
+        if (!placed) { return 0; }
+        HCPathgraphRefresh region = Bounds(placed);
+        return Queue(region);
+    }
+
+    static int Queue(HCPathgraphRefresh region)
+    {
+        if (!region || !GetGame()) { return 0; }
+        if (!GetGame().IsServer()) { return 0; }
+        s_Marked += region.Marked;
+        s_Skipped += region.SkippedNoGeom;
+        if (!region.HasBounds) { return 0; }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, 100, false, region);
+        return 1;
+    }
+
+    static void Applied()
+    {
+        s_Regions++;
+        HCModuleReadiness.HCUse("Interiors", "pathgraph_refresh");
+    }
+
+    static void Summary()
+    {
+        Print("" + "[HC Pathgraph] domain=interiors marked=" + s_Marked.ToString() + " regions=" + s_Regions.ToString() + " skipped_no_geom=" + s_Skipped.ToString());
+    }
+}
+
+// Keep the feature inventory in the existing registration dispatch without
+// changing the shared core file owned by another worker.
+modded class HCModuleReadiness
+{
+    override static void HCRegisterModuleUses(string module)
+    {
+        super.HCRegisterModuleUses(module);
+        if (module == "Interiors")
         {
-            Object placedObject = placed[index];
-            index++;
-            if (!placedObject) continue;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, DELAY_MS, false, placedObject);
-            scheduled++;
+            HCRegisterUse("Interiors", "pathgraph_refresh");
         }
-        Print("[HC Interiors] pathgraph update queued for " + scheduled.ToString() + " of " + placed.Count().ToString() + " placed prop(s)");
-        return scheduled;
+        if (module == "Shelters") { HCRegisterUse("Shelters", "pathgraph_refresh"); }
+        if (module == "ObjectSpawner") { HCRegisterUse("ObjectSpawner", "pathgraph_refresh"); }
+    }
+
+    override static void HCUseBegin()
+    {
+        super.HCUseBegin();
+        // The synchronous boot batch has already returned to vanilla's single
+        // marked-object flush. Report its first use from the World layer.
+        HCRegisterModuleUses("ObjectSpawner");
+        if (ObjectSpawnerHandler.HCPathgraphMarked > 0)
+        {
+            HCUse("ObjectSpawner", "pathgraph_refresh");
+        }
+    }
+
+    override static void HCSummary()
+    {
+        super.HCSummary();
+        HCInteriorPathgraph.Summary();
     }
 }
