@@ -25,6 +25,13 @@
  },
  "sources": {
   "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
+  "native_censuses": [
+   {
+    "native_run_id": "775356aaf00292026ca718421e9e68bf",
+    "sha256": "b254dc069c293e0c090e31be6a15b4af3e4d1017fa13ec97ef26d302026a4ecb"
+   }
+  ],
+  "native_method": "native model-frame standing hits (rot90 calibration); shared support/roof/enclosure/loader audits; audited standing seeds widen entry evidence only; no-door reach remains pending",
   "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
   "reader_sha256": {
    "data_p3d_odol.py": "275fb16b687d91920a5b024cbd96f6507c475b1d6a510efb55cb3293f9cd8252",
@@ -55,8 +62,20 @@
     "event_site_80m": 2,
     "map_overlay_150m": 42
    },
+   "Land_Wreck_Harverster": {
+    "map_overlay_150m": 1
+   },
+   "Land_Wreck_Harvester_head_trailer": {
+    "map_overlay_150m": 2
+   },
    "Land_Wreck_Tractor": {
     "map_overlay_150m": 2
+   },
+   "Land_Mil_Barracks2": {
+    "map_overlay_150m": 14
+   },
+   "Land_HouseBlock_2F1": {
+    "map_overlay_150m": 1
    },
    "Land_Church2_1": {
     "map_overlay_150m": 1
@@ -68,69 +87,93 @@
   "map_overlay_validation": "unchanged with the added rows"
  },
  "refused": {
-  "Land_Misc_Toilet_Mobile": {
-   "reason": "no floor point passed support/roof/standing/entry-connection checks",
+  "Land_Misc_Toilet_Mobile": "native census: no standable hits (run 775356aaf00292026ca718421e9e68bf)",
+  "Land_Castle_Donjon": "native census: no standable hits (run 775356aaf00292026ca718421e9e68bf)",
+  "Land_HouseBlock_2F1": "stock already has this group",
+  "Land_Mil_Barracks2": "stock already has this group",
+  "Land_Wreck_Harverster": {
+   "reason": "no floor point passed support/roof/standing/entry-connection checks; native audits: hit_count=3, clearance_rejected=3, supported=0, roofed=0, enclosed=0, eligible=0",
    "floor": {
-    "entry_points": 2,
-    "cells": 8,
-    "supported": 4,
-    "standing": 0,
+    "entry_points": 0,
+    "cells": 482,
+    "supported": 342,
+    "standing": 49,
     "roofed": 0,
     "enclosed": 0,
     "eligible": 0,
     "connected": 0,
     "door_clear": 0,
+    "native": {
+     "supported": 0,
+     "standing": 0,
+     "roofed": 0,
+     "enclosed": 0,
+     "eligible": 0,
+     "clearance_rejected": 3,
+     "runs": [
+      {
+       "native_run_id": "775356aaf00292026ca718421e9e68bf",
+       "observed_hit_count": 3,
+       "hit_count": 3
+      }
+     ],
+     "hit_count": 3,
+     "audited_points": 0,
+     "path": "standing seeds; entry reach pending for no-door"
+    },
     "connected_eligible": 0,
     "chosen": 0
-   }
+   },
+   "native_provenance": [
+    {
+     "native_run_id": "775356aaf00292026ca718421e9e68bf",
+     "observed_hit_count": 3,
+     "hit_count": 3
+    }
+   ],
+   "native_refusals": []
   },
-  "Land_CementWorks_MillA": {
-   "reason": "no floor point passed support/roof/standing/entry-connection checks",
+  "Land_Wreck_Harvester_head_trailer": {
+   "reason": "no floor point passed support/roof/standing/entry-connection checks; native audits: hit_count=1, clearance_rejected=1, supported=0, roofed=0, enclosed=0, eligible=0",
    "floor": {
     "entry_points": 0,
-    "cells": 14137,
-    "supported": 13900,
-    "standing": 5706,
-    "roofed": 2268,
-    "enclosed": 1808,
-    "eligible": 1808,
-    "connected": 0,
-    "door_clear": 0,
-    "connected_eligible": 0,
-    "chosen": 0
-   }
-  },
-  "Land_Castle_Donjon": {
-   "reason": "no floor point passed support/roof/standing/entry-connection checks",
-   "floor": {
-    "entry_points": 0,
-    "cells": 2881,
-    "supported": 2695,
-    "standing": 1757,
+    "cells": 62,
+    "supported": 10,
+    "standing": 4,
     "roofed": 0,
     "enclosed": 0,
     "eligible": 0,
     "connected": 0,
     "door_clear": 0,
+    "native": {
+     "supported": 0,
+     "standing": 0,
+     "roofed": 0,
+     "enclosed": 0,
+     "eligible": 0,
+     "clearance_rejected": 1,
+     "runs": [
+      {
+       "native_run_id": "775356aaf00292026ca718421e9e68bf",
+       "observed_hit_count": 1,
+       "hit_count": 1
+      }
+     ],
+     "hit_count": 1,
+     "audited_points": 0,
+     "path": "standing seeds; entry reach pending for no-door"
+    },
     "connected_eligible": 0,
     "chosen": 0
-   }
-  },
-  "Land_Wreck_C130J_2": {
-   "reason": "no floor point passed support/roof/standing/entry-connection checks",
-   "floor": {
-    "entry_points": 0,
-    "cells": 4299,
-    "supported": 3556,
-    "standing": 1153,
-    "roofed": 119,
-    "enclosed": 119,
-    "eligible": 112,
-    "connected": 0,
-    "door_clear": 0,
-    "connected_eligible": 0,
-    "chosen": 0
-   }
+   },
+   "native_provenance": [
+    {
+     "native_run_id": "775356aaf00292026ca718421e9e68bf",
+     "observed_hit_count": 1,
+     "hit_count": 1
+    }
+   ],
+   "native_refusals": []
   }
  },
  "groups": {
@@ -139,7 +182,7 @@
    "copy_of": "StaticObj_Wreck_Uaz_DE",
    "stock_sha256": "b6989f4ba81d3267c32a0f6032db5f9be99ffaee4003d1d925085cee1c45a78a",
    "model": "dz\\structures\\wrecks\\vehicles\\wreck_uaz.p3d",
-   "model_sha256": "473a490e1ef8924ba82b65817774798bf7deb28764205167060016557b08252a",
+   "model_sha256": "c706b2e4e882690619242d022ccf48aae20640c3d95a44b49daf8effa7a9fa4d",
    "basis": "stock group authored for the same installed p3d (copied at install)",
    "positions": [
     [
@@ -1265,7 +1308,7 @@
    "copy_of": "Land_Wreck_Tractor_DE",
    "stock_sha256": "62e05ea4da53492ac6ec73a49b9cb3dd16034cf6d7038438d8c5e7e09bb3f74a",
    "model": "dz\\structures_bliss\\wrecks\\vehicles\\wreck_tractor.p3d",
-   "model_sha256": "fab0e8cbecc1451062721d2c0eccef06726ad1a0b6d7bb4a601016fc42681888",
+   "model_sha256": "b9b2c9d3b3ec59a14d4a421a0967618a3acf46674d8f6086bbd1804573def1bf",
    "basis": "stock group authored for the same installed p3d (copied at install)",
    "positions": [
     [
@@ -1698,7 +1741,7 @@
    "copy_of": "Land_Wreck_Trailer_Closed_DE",
    "stock_sha256": "d9ca749299e1c2a4cd51a725720861e602ed4844fc0b7aac5741b60a0475c5e0",
    "model": "dz\\structures\\wrecks\\vehicles\\wreck_trailer_closed.p3d",
-   "model_sha256": "b1db5a74ad5921d9f6a15ab24b6e53331863eaed6cd48cf6e90609f3f7f2f039",
+   "model_sha256": "ddc534f5e2321a7e44fb95ad8b6c9adf3f5686daec9e376bf9dc071d2c300e23",
    "basis": "stock group authored for the same installed p3d (copied at install)",
    "positions": [
     [
@@ -2122,7 +2165,7 @@
    "analog": "Land_Mil_GuardTower",
    "analog_sha256": "dfd1e33dae5e9aa1899656e19ede1b3f5756813bcbf917a0cca76f7a8d185111",
    "model": "dz\\structures\\military\\houses\\mil_tower_small.p3d",
-   "model_sha256": "0075040384dffbae032068913809e996b497f0565dfb0ef962146e8aca688951",
+   "model_sha256": "f7b6c318add383a2be8a39e6da0cd992fe53dff677c1b8a6be11e34a167b718e",
    "lootmax": 1,
    "usages": [
     "Military"
@@ -2163,10 +2206,36 @@
      "enclosed": 8,
      "eligible": 8,
      "connected": 30,
-     "door_clear": 8,
+     "door_clear": 9,
+     "native": {
+      "supported": 1,
+      "standing": 1,
+      "roofed": 1,
+      "enclosed": 1,
+      "eligible": 1,
+      "clearance_rejected": 2,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 3,
+        "hit_count": 3
+       }
+      ],
+      "hit_count": 3,
+      "audited_points": 1,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
      "connected_eligible": 8,
      "chosen": 1
-    }
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 3,
+      "hit_count": 3
+     }
+    ],
+    "native_refusals": []
    },
    "positions": [
     [
@@ -3175,7 +3244,7 @@
    "analog": "Land_Tower_TC1",
    "analog_sha256": "2093f9bd9514cbc7d82304a99db4eb2fd65115e9ed4d4947a8268712e9a27b08",
    "model": "dz\\structures\\industrial\\farms\\farm_watertower_small.p3d",
-   "model_sha256": "841cd2ee0337a168db3ba0afbb54b5874880e9439508673fc336124a13d4c755",
+   "model_sha256": "311524f187edecf35456a0ca19cdaeadecb75eca69a7a635a861356dac18e628",
    "lootmax": null,
    "usages": [
     "Village",
@@ -3213,11 +3282,23 @@
      "cells": 184,
      "supported": 148,
      "standing": 70,
-     "roofed": 42,
-     "enclosed": 41,
-     "eligible": 41,
+     "roofed": 41,
+     "enclosed": 40,
+     "eligible": 40,
      "connected": 58,
      "door_clear": 40,
+     "native": {
+      "supported": 0,
+      "standing": 0,
+      "roofed": 0,
+      "enclosed": 0,
+      "eligible": 0,
+      "clearance_rejected": 0,
+      "runs": [],
+      "hit_count": 0,
+      "audited_points": 0,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
      "connected_eligible": 40,
      "chosen": 1
     }
@@ -3401,7 +3482,7 @@
    "analog": "Land_Church2_2",
    "analog_sha256": "9f6202b45c15053101093df6f0a28073c4db12ff5d7f76625dc82c9625063407",
    "model": "dz\\structures\\specific\\churches\\church2_1.p3d",
-   "model_sha256": "44929d86b1340fabaf22702a24997f4aabce6bacbeebdae5c1f781bb8af8cb98",
+   "model_sha256": "078c4a2294ca72afd03fa86a4e5be831abdddd22689d3c02b10afc882ecf85ce",
    "lootmax": 2,
    "usages": [
     "Town",
@@ -3432,14 +3513,19 @@
        2.25
       ],
       [
-       4.75,
+       -2.75,
        -11.05751,
-       2.25
+       9.75
       ],
       [
        -7.75,
        -11.05751,
        -1.25
+      ],
+      [
+       -1.75,
+       -11.05751,
+       5.75
       ]
      ]
     },
@@ -3459,14 +3545,14 @@
        -7.25
       ],
       [
-       -2.75,
+       7.25,
        -11.05751,
-       9.75
+       0.75
       ],
       [
-       1.25,
+       2.25,
        -11.05751,
-       6.25
+       5.25
       ]
      ]
     }
@@ -3474,17 +3560,45 @@
    "evidence": {
     "floor": {
      "entry_points": 2,
-     "cells": 5381,
-     "supported": 4362,
+     "cells": 6698,
+     "supported": 5628,
      "standing": 1021,
-     "roofed": 638,
-     "enclosed": 606,
-     "eligible": 405,
+     "roofed": 612,
+     "enclosed": 580,
+     "eligible": 379,
      "connected": 824,
-     "door_clear": 242,
-     "connected_eligible": 247,
-     "chosen": 7
-    }
+     "door_clear": 254,
+     "native": {
+      "supported": 0,
+      "standing": 0,
+      "roofed": 0,
+      "enclosed": 0,
+      "eligible": 0,
+      "clearance_rejected": 0,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 104,
+        "hit_count": 0
+       }
+      ],
+      "hit_count": 0,
+      "audited_points": 0,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 259,
+     "chosen": 8
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 104,
+      "hit_count": 0
+     }
+    ],
+    "native_refusals": [
+     "native player entry/door control not admitted"
+    ]
    },
    "positions": [
     [
@@ -3521,7 +3635,7 @@
    "analog": "Land_Office2",
    "analog_sha256": "35ef435b7652c563ff128b1ed9c45582db6dd884481cd506fe2303ac007214b2",
    "model": "dz\\structures\\residential\\offices\\office_municipal1.p3d",
-   "model_sha256": "14ac97f6b5d961f4e3922ad30e7b9660e027623804f66c197d62615a2d4e2a2d",
+   "model_sha256": "a4d9ca744e3a2f5051167ffc49f2f9bb518fb7e6d71949813d4eff6e7acd35a8",
    "lootmax": 1,
    "usages": [
     "Town",
@@ -3542,24 +3656,24 @@
      ],
      "points": [
       [
-       9.75,
-       -18.42057,
-       1.75
+       -0.675707,
+       1.63253,
+       -2.33806
       ],
       [
-       -5.25,
+       9.25,
+       -19.74543,
+       11.25
+      ],
+      [
+       -6.75,
        -18.48543,
        11.25
       ],
       [
-       -5.25,
-       -18.42543,
-       -1.25
-      ],
-      [
-       -7.25,
-       -18.48543,
-       7.25
+       -0.75,
+       -19.74543,
+       -11.25
       ]
      ]
     },
@@ -3579,9 +3693,14 @@
        -3.75
       ],
       [
-       -5.25,
-       -18.42543,
-       3.25
+       12.25,
+       -19.74543,
+       -10.25
+      ],
+      [
+       9.75,
+       -18.42057,
+       1.25
       ]
      ]
     }
@@ -3592,13 +3711,45 @@
      "cells": 11845,
      "supported": 9336,
      "standing": 4847,
-     "roofed": 1707,
-     "enclosed": 1687,
-     "eligible": 1337,
+     "roofed": 1754,
+     "enclosed": 1734,
+     "eligible": 1382,
      "connected": 2012,
-     "door_clear": 190,
-     "connected_eligible": 213,
-     "chosen": 6
+     "door_clear": 216,
+     "native": {
+      "supported": 30,
+      "standing": 30,
+      "roofed": 30,
+      "enclosed": 30,
+      "eligible": 1,
+      "clearance_rejected": 19,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 65,
+        "hit_count": 65
+       }
+      ],
+      "hit_count": 65,
+      "audited_points": 1,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 244,
+     "chosen": 7
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 65,
+      "hit_count": 65
+     }
+    ],
+    "native_refusals": [],
+    "upper_floors": {
+     "points": 1,
+     "native_upper_hits": 32,
+     "ground_height": -18.5405,
+     "reason": "native-seeded points above ground storey"
     }
    },
    "positions": [
@@ -3618,7 +3769,7 @@
    "analog": "Land_CementWorks_Hall1",
    "analog_sha256": "64bf79dc62c6a4571cdc063674bd76f5eca4fcb8a2dbe076a09376003d8da6d5",
    "model": "dz\\structures\\industrial\\cementworks\\cementworks_conveyorhall.p3d",
-   "model_sha256": "8e53862c2df8a887a276ca30673183e51c77a05496eaa08a279521cb9c49257c",
+   "model_sha256": "fa1d3d820a231eefbc6085879951602ad3cce8ec9810b6793c0ce0df7dd7d2e2",
    "lootmax": 10,
    "usages": [
     "Industrial"
@@ -3644,39 +3795,59 @@
        12.75
       ],
       [
-       5.75,
-       -4.11771,
+       5.25,
+       -4.1176,
        -6.75
       ],
       [
-       21.75,
-       -4.12074,
+       12.25,
+       -2.76175,
+       9.75
+      ],
+      [
+       22.75,
+       -4.1218,
        -2.25
       ],
       [
-       -10.25,
-       -4.10443,
-       -6.75
+       -2.41985,
+       -0.064958,
+       -0.242241
       ],
       [
-       -20.25,
+       12.25,
+       -0.06495,
+       -1.25
+      ],
+      [
+       -17.75,
+       -0.06496,
+       -2.75
+      ],
+      [
+       -22.25,
        -4.10504,
        -6.75
       ],
       [
-       20.25,
-       -4.11103,
-       7.25
+       14.25,
+       -4.11855,
+       0.75
       ],
       [
-       13.25,
-       -4.11841,
-       0.25
-      ],
-      [
-       -2.25,
-       -4.11571,
+       -2.75,
+       -4.11561,
        -3.75
+      ],
+      [
+       28.75,
+       -4.10312,
+       3.75
+      ],
+      [
+       -15.75,
+       -4.11254,
+       -0.25
       ],
       [
        13.75,
@@ -3684,19 +3855,44 @@
        -6.75
       ],
       [
+       -1.25,
+       -4.11485,
+       5.25
+      ],
+      [
        28.75,
-       -4.12781,
+       -4.10312,
        -3.25
       ],
       [
-       13.25,
-       -4.11686,
-       13.25
+       -21.75,
+       -0.06496,
+       1.75
       ],
       [
-       15.25,
-       -4.1192,
+       -10.75,
+       -2.76175,
+       9.75
+      ],
+      [
+       17.75,
+       -2.76175,
+       11.25
+      ],
+      [
+       15.75,
+       -4.10587,
        6.25
+      ],
+      [
+       8.58007,
+       -4.11667,
+       6.75686
+      ],
+      [
+       -6.25,
+       -4.10068,
+       6.75
       ],
       [
        9.75,
@@ -3704,9 +3900,24 @@
        -3.75
       ],
       [
-       1.25,
-       -4.10473,
+       7.5803,
+       -0.064946,
+       -0.242029
+      ],
+      [
+       22.5797,
+       -2.76174,
+       10.757
+      ],
+      [
+       0.75,
+       -4.10477,
        -6.75
+      ],
+      [
+       -7.25,
+       -4.10384,
+       -3.75
       ],
       [
        28.75,
@@ -3714,89 +3925,29 @@
        8.25
       ],
       [
-       25.75,
-       -4.10637,
-       -0.25
+       25.25,
+       -4.10823,
+       1.25
       ],
       [
-       -23.25,
-       -4.09633,
-       6.75
+       8.25,
+       -2.76175,
+       11.25
       ],
       [
-       -22.75,
-       -4.11152,
+       15.75,
+       -4.1192,
+       -3.25
+      ],
+      [
+       -21.75,
+       -0.06496,
+       -2.75
+      ],
+      [
+       -13.25,
+       -4.11346,
        -3.75
-      ],
-      [
-       3.75,
-       -4.10443,
-       -3.75
-      ],
-      [
-       -4.75,
-       -4.11556,
-       -6.75
-      ],
-      [
-       23.75,
-       -4.12606,
-       7.25
-      ],
-      [
-       -11.75,
-       -4.11377,
-       -3.75
-      ],
-      [
-       -18.75,
-       -4.11234,
-       -3.75
-      ],
-      [
-       13.25,
-       -4.10496,
-       3.75
-      ],
-      [
-       17.25,
-       -4.10758,
-       8.75
-      ],
-      [
-       -20.25,
-       -4.11084,
-       6.25
-      ],
-      [
-       -16.75,
-       -4.1131,
-       -6.75
-      ],
-      [
-       0.75,
-       -4.11633,
-       -3.75
-      ],
-      [
-       -1.75,
-       -4.11617,
-       -6.75
-      ],
-      [
-       26.25,
-       -4.12803,
-       5.25
-      ],
-      [
-       14.25,
-       -4.10502,
-       8.75
-      ],
-      [
-       21.25,
-       -4.12257,
-       4.75
       ]
      ]
     },
@@ -3811,84 +3962,84 @@
      "tags": [],
      "points": [
       [
-       -23.25,
-       -4.11064,
-       2.75
+       -23.42,
+       -4.1106,
+       2.75641
       ],
       [
-       -5.25,
-       -4.10052,
-       8.75
+       -4.75,
+       -2.76175,
+       11.25
       ],
       [
-       10.75,
-       -4.10482,
-       8.75
-      ],
-      [
-       28.75,
-       -4.10312,
-       3.75
-      ],
-      [
-       -18.25,
-       -4.0974,
-       8.75
-      ],
-      [
-       -15.25,
-       -4.11305,
-       -3.75
-      ],
-      [
-       23.75,
-       -4.12471,
-       3.25
-      ],
-      [
-       -6.75,
-       -4.10387,
-       -3.75
-      ],
-      [
-       15.75,
-       -4.1192,
-       -3.25
-      ],
-      [
-       17.25,
-       -4.10762,
-       0.25
-      ],
-      [
-       10.25,
-       -4.11868,
-       -7.25
-      ],
-      [
-       -13.75,
-       -4.10412,
+       -10.75,
+       -4.10435,
        -6.75
       ],
       [
-       8.75,
-       -4.11677,
+       -16.25,
+       -2.76175,
+       11.25
+      ],
+      [
+       21.25,
+       -4.12342,
+       7.25
+      ],
+      [
+       3.75,
+       -2.76175,
+       10.25
+      ],
+      [
+       6.25,
+       -4.10457,
+       1.75
+      ],
+      [
+       -22.25,
+       -2.76175,
+       9.75
+      ],
+      [
+       -18.25,
+       -4.11125,
        6.25
       ],
       [
-       12.75,
-       -4.10492,
-       -3.75
+       -16.4197,
+       -4.11311,
+       -6.24313
       ],
       [
-       6.75,
-       -4.11755,
-       -3.75
+       -7.25,
+       -0.06496,
+       -2.75
       ],
       [
-       -3.75,
-       -4.11422,
-       6.25
+       24.5795,
+       -2.86388,
+       4.75667
+      ],
+      [
+       13.25,
+       -4.11686,
+       13.25
+      ],
+      [
+       -1.25,
+       -4.10416,
+       0.75
+      ],
+      [
+       -0.75,
+       -2.76175,
+       9.75
+      ],
+      [
+       -23.4195,
+       -4.11013,
+       6.75791
       ]
      ]
     }
@@ -3896,17 +4047,43 @@
    "evidence": {
     "floor": {
      "entry_points": 2,
-     "cells": 32884,
-     "supported": 31102,
-     "standing": 16775,
-     "roofed": 4760,
-     "enclosed": 3208,
-     "eligible": 3136,
-     "connected": 11892,
-     "door_clear": 1850,
-     "connected_eligible": 1850,
+     "cells": 33483,
+     "supported": 31672,
+     "standing": 17148,
+     "roofed": 5097,
+     "enclosed": 3212,
+     "eligible": 3140,
+     "connected": 12937,
+     "door_clear": 2881,
+     "native": {
+      "supported": 578,
+      "standing": 578,
+      "roofed": 577,
+      "enclosed": 331,
+      "eligible": 318,
+      "clearance_rejected": 51,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 720,
+        "hit_count": 720
+       }
+      ],
+      "hit_count": 720,
+      "audited_points": 318,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 2563,
      "chosen": 48
-    }
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 720,
+      "hit_count": 720
+     }
+    ],
+    "native_refusals": []
    },
    "positions": [
     [
@@ -3961,7 +4138,7 @@
    "analog": "Land_CementWorks_SiloBig1A",
    "analog_sha256": "3b6b8620b54326bef16947700a8beef5cb45c0a3bf9ddc7ff665aa2de4169406",
    "model": "dz\\structures\\industrial\\cementworks\\cementworks_silobig1b.p3d",
-   "model_sha256": "ffd7079ce054c34dc786cb3c5df1e5c7726c5073f9fed4c1e65adac5665e2f3b",
+   "model_sha256": "ff73c56ad91520170b2a777bc5dbbc1b9870833ca8690724168cdc4f77483113",
    "lootmax": null,
    "usages": [
     "Industrial"
@@ -3981,119 +4158,64 @@
      ],
      "points": [
       [
-       8.25,
-       13.9043,
-       17.25
+       9.02688,
+       13.9042,
+       17.2999
       ],
       [
-       -7.75,
-       13.90431,
-       3.75
+       9.02694,
+       13.9042,
+       -5.70008
       ],
       [
-       -5.75,
-       13.9043,
-       17.25
-      ],
-      [
-       5.75,
-       13.9043,
-       5.25
-      ],
-      [
-       -4.75,
-       13.9043,
-       -6.75
-      ],
-      [
-       1.25,
-       13.9043,
-       14.75
-      ],
-      [
-       6.75,
-       13.9043,
-       -0.75
-      ],
-      [
-       6.75,
-       13.9043,
-       11.25
-      ],
-      [
-       7.75,
-       13.9043,
-       -12.75
-      ],
-      [
-       -7.25,
-       13.9043,
-       -1.75
-      ],
-      [
-       8.25,
+       0.25,
        13.9043,
        -17.25
       ],
       [
-       -7.75,
-       13.90431,
-       13.25
-      ],
-      [
-       -4.75,
+       -3.25,
        13.9043,
-       1.25
-      ],
-      [
-       -2.75,
-       13.9043,
-       14.75
-      ],
-      [
-       -4.75,
-       13.9043,
-       5.75
+       17.25
       ],
       [
        5.75,
        13.9043,
-       -9.75
+       5.75
       ],
       [
-       8.25,
-       13.9043,
-       2.75
-      ],
-      [
-       8.25,
-       13.9043,
-       7.75
+       9.02703,
+       13.9042,
+       -14.7
       ],
       [
        -7.75,
-       13.90431,
-       -8.25
-      ],
-      [
-       -5.75,
        13.9043,
-       -14.75
+       12.25
       ],
       [
-       6.25,
+       2.75,
        13.9043,
        14.75
       ],
       [
-       -7.75,
-       13.90431,
-       -4.75
+       8.25,
+       13.9043,
+       11.25
+      ],
+      [
+       6.25,
+       13.9043,
+       -0.25
+      ],
+      [
+       4.25,
+       13.9043,
+       -14.75
       ],
       [
        -4.75,
        13.9043,
-       -3.75
+       -11.25
       ],
       [
        -4.25,
@@ -4101,9 +4223,69 @@
        -17.25
       ],
       [
+       -7.75,
+       13.90431,
+       -2.75
+      ],
+      [
+       9.02685,
+       13.9042,
+       3.29984
+      ],
+      [
+       9.02673,
+       13.9042,
+       7.3001
+      ],
+      [
+       5.75,
+       13.9043,
+       -4.25
+      ],
+      [
        5.25,
        13.9043,
+       17.25
+      ],
+      [
+       -0.75,
+       13.9043,
+       14.75
+      ],
+      [
+       6.75,
+       13.9043,
+       -17.25
+      ],
+      [
+       -4.75,
+       13.9043,
+       13.75
+      ],
+      [
+       6.75,
+       13.9043,
+       14.25
+      ],
+      [
+       -2.25,
+       13.9043,
        -14.75
+      ],
+      [
+       5.75,
+       13.9043,
+       9.25
+      ],
+      [
+       -4.75,
+       13.9043,
+       -3.25
+      ],
+      [
+       6.25,
+       13.9043,
+       -7.25
       ]
      ]
     },
@@ -4118,69 +4300,69 @@
      "tags": [],
      "points": [
       [
-       -7.75,
-       13.9043,
-       -17.25
-      ],
-      [
-       8.25,
-       13.9043,
-       -6.75
-      ],
-      [
-       3.75,
-       13.9043,
-       -17.25
-      ],
-      [
-       -4.75,
-       13.9043,
-       10.25
-      ],
-      [
-       -2.25,
-       13.9043,
-       -14.75
-      ],
-      [
-       -7.25,
-       13.9043,
-       -11.75
+       -9.97312,
+       9.20274,
+       -12.6997
       ],
       [
        -7.75,
        13.90431,
-       7.75
+       5.75
       ],
       [
-       4.25,
+       -5.25,
        13.9043,
-       17.25
+       -6.25
       ],
       [
-       5.75,
-       13.9043,
-       -4.25
-      ],
-      [
-       0.25,
-       13.9043,
-       -17.25
-      ],
-      [
-       -0.75,
-       13.9043,
-       17.25
+       -7.75,
+       13.90431,
+       -14.75
       ],
       [
        -4.75,
        13.9043,
-       -9.75
+       0.25
       ],
       [
-       1.75,
+       5.75,
        13.9043,
-       -14.75
+       -10.25
+      ],
+      [
+       -7.75,
+       13.90431,
+       16.75
+      ],
+      [
+       -4.75,
+       13.9043,
+       8.75
+      ],
+      [
+       -7.75,
+       13.90431,
+       -9.25
+      ],
+      [
+       -7.75,
+       13.9043,
+       2.25
+      ],
+      [
+       -4.75,
+       13.9043,
+       4.25
+      ],
+      [
+       9.02715,
+       13.9042,
+       -9.69985
+      ],
+      [
+       9.02706,
+       13.9042,
+       -1.69987
       ]
      ]
     }
@@ -4188,17 +4370,43 @@
    "evidence": {
     "floor": {
      "entry_points": 2,
-     "cells": 20365,
-     "supported": 19733,
-     "standing": 11426,
-     "roofed": 4936,
-     "enclosed": 3776,
-     "eligible": 3776,
-     "connected": 5347,
-     "door_clear": 1220,
-     "connected_eligible": 1220,
-     "chosen": 38
-    }
+     "cells": 20422,
+     "supported": 19770,
+     "standing": 11446,
+     "roofed": 4931,
+     "enclosed": 3771,
+     "eligible": 3771,
+     "connected": 5369,
+     "door_clear": 1269,
+     "native": {
+      "supported": 39,
+      "standing": 39,
+      "roofed": 39,
+      "enclosed": 39,
+      "eligible": 39,
+      "clearance_rejected": 13,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 52,
+        "hit_count": 52
+       }
+      ],
+      "hit_count": 52,
+      "audited_points": 39,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 1230,
+     "chosen": 39
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 52,
+      "hit_count": 52
+     }
+    ],
+    "native_refusals": []
    },
    "positions": [
     [
@@ -4254,6 +4462,340 @@
      0.0,
      5.775975,
      84.224025
+    ]
+   ]
+  },
+  "Land_CementWorks_MillA": {
+   "kind": "generated",
+   "analog": "Land_CementWorks_MillB",
+   "analog_sha256": "6ab33efa8ee1837650fe50a08eecb25b5e172255fa4dc9a12aac8ef7cbcd04e1",
+   "model": "dz\\structures\\industrial\\cementworks\\cementworks_milla.p3d",
+   "model_sha256": "c6d338657c09c7db21f7e6f38137a0d06e6ab8a9f127303dbe05b5bc0b052c18",
+   "lootmax": null,
+   "usages": [
+    "Industrial"
+   ],
+   "containers": [
+    {
+     "name": "lootFloor",
+     "shape": "floor",
+     "lootmax": null,
+     "categories": [
+      "tools",
+      "containers",
+      "clothes"
+     ],
+     "tags": [
+      "ground",
+      "floor"
+     ],
+     "points": [
+      [
+       10.0003,
+       9.23633,
+       1.31949
+      ],
+      [
+       8.99986,
+       -5.83705,
+       9.31841
+      ],
+      [
+       9.00015,
+       -14.8619,
+       10.3177
+      ],
+      [
+       9.00003,
+       0.217024,
+       1.31805
+      ],
+      [
+       3.00199,
+       9.23633,
+       10.3195
+      ],
+      [
+       2.00009,
+       -2.83779,
+       6.31773
+      ],
+      [
+       2.00009,
+       -14.8923,
+       6.31773
+      ],
+      [
+       8.99986,
+       0.217024,
+       9.31841
+      ],
+      [
+       9.99974,
+       -2.80737,
+       5.31989
+      ],
+      [
+       9.00025,
+       -20.8067,
+       6.31865
+      ],
+      [
+       9.75,
+       9.2364,
+       8.25
+      ],
+      [
+       8.00035,
+       -11.8375,
+       7.31873
+      ],
+      [
+       9.75,
+       -8.86286,
+       6.75
+      ],
+      [
+       6.25,
+       -2.8074,
+       10.25
+      ],
+      [
+       6.25,
+       -8.86152,
+       10.25
+      ],
+      [
+       6.25,
+       -20.79209,
+       10.25
+      ]
+     ]
+    },
+    {
+     "name": "lootweapons",
+     "shape": "floor",
+     "lootmax": null,
+     "categories": [
+      "weapons",
+      "explosives"
+     ],
+     "tags": [],
+     "points": [
+      [
+       1.9994,
+       -20.8067,
+       8.31816
+      ],
+      [
+       3.00199,
+       3.18325,
+       10.3195
+      ],
+      [
+       7.75,
+       -10.30792,
+       1.25
+      ],
+      [
+       1.9994,
+       -8.89186,
+       8.31816
+      ],
+      [
+       10.0003,
+       -6.69603,
+       1.31949
+      ],
+      [
+       9.99974,
+       3.18325,
+       5.31989
+      ],
+      [
+       7.75,
+       -17.73724,
+       7.75
+      ],
+      [
+       9.00015,
+       3.18325,
+       10.3177
+      ]
+     ]
+    }
+   ],
+   "evidence": {
+    "floor": {
+     "entry_points": 0,
+     "cells": 14287,
+     "supported": 14033,
+     "standing": 5801,
+     "roofed": 2375,
+     "enclosed": 1915,
+     "eligible": 1915,
+     "connected": 789,
+     "door_clear": 922,
+     "native": {
+      "supported": 196,
+      "standing": 196,
+      "roofed": 195,
+      "enclosed": 175,
+      "eligible": 174,
+      "clearance_rejected": 7,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 269,
+        "hit_count": 269
+       }
+      ],
+      "hit_count": 269,
+      "audited_points": 174,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 748,
+     "chosen": 24
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 269,
+      "hit_count": 269
+     }
+    ],
+    "native_refusals": []
+   },
+   "positions": [
+    [
+     7286.291016,
+     27.816696,
+     2790.780518,
+     -0.0,
+     0.0,
+     -106.77,
+     -163.23
+    ],
+    [
+     7471.134766,
+     27.33828,
+     3144.855225,
+     -0.0,
+     0.0,
+     -176.50302,
+     -93.49698
+    ],
+    [
+     11919.766602,
+     49.545658,
+     14296.06543,
+     -0.0,
+     0.0,
+     -117.358268,
+     -152.641732
+    ],
+    [
+     12316.005859,
+     43.789963,
+     14241.834961,
+     -0.0,
+     0.0,
+     -69.181555,
+     159.181555
+    ]
+   ]
+  },
+  "Land_Wreck_C130J_2": {
+   "kind": "generated",
+   "analog": "Land_Wreck_C130J_Cargo",
+   "analog_sha256": "efb361686448ace1bc929555cb58cc6881a4ae84f9ecf899d711d67978500a13",
+   "model": "dz\\structures\\wrecks\\aircraft\\wreck_c130j_2.p3d",
+   "model_sha256": "28b50c9b31da6d62b3689451742bb42bf7f1c0e24842cd72ce09de263709f8e9",
+   "lootmax": 1,
+   "usages": [
+    "Military"
+   ],
+   "containers": [
+    {
+     "name": "lootFloor",
+     "shape": "floor",
+     "lootmax": null,
+     "categories": [
+      "clothes"
+     ],
+     "tags": [
+      "floor",
+      "ground"
+     ],
+     "points": [
+      [
+       -10.4919,
+       -3.39692,
+       0.475594
+      ],
+      [
+       2.75,
+       -4.50429,
+       -1.25
+      ],
+      [
+       -3.75,
+       -4.56004,
+       0.75
+      ]
+     ]
+    }
+   ],
+   "evidence": {
+    "floor": {
+     "entry_points": 0,
+     "cells": 4299,
+     "supported": 3556,
+     "standing": 1153,
+     "roofed": 154,
+     "enclosed": 131,
+     "eligible": 115,
+     "connected": 105,
+     "door_clear": 134,
+     "native": {
+      "supported": 38,
+      "standing": 38,
+      "roofed": 38,
+      "enclosed": 35,
+      "eligible": 29,
+      "clearance_rejected": 11,
+      "runs": [
+       {
+        "native_run_id": "775356aaf00292026ca718421e9e68bf",
+        "observed_hit_count": 58,
+        "hit_count": 58
+       }
+      ],
+      "hit_count": 58,
+      "audited_points": 29,
+      "path": "standing seeds; entry reach pending for no-door"
+     },
+     "connected_eligible": 105,
+     "chosen": 3
+    },
+    "native_provenance": [
+     {
+      "native_run_id": "775356aaf00292026ca718421e9e68bf",
+      "observed_hit_count": 58,
+      "hit_count": 58
+     }
+    ],
+    "native_refusals": []
+   },
+   "positions": [
+    [
+     4706.785156,
+     344.893494,
+     10329.291992,
+     -0.0,
+     0.0,
+     105.323997,
+     -15.323997
     ]
    ]
   }
