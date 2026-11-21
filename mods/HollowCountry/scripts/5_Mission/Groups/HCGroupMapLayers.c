@@ -51,7 +51,7 @@ class HCGroupMapLayers
         return true;
     }
 
-    void Pin(MapWidget mapWidget, vector position, string title, int color, string texture, HCGroupSettings settings)
+    void Pin(MapWidget mapWidget, vector position, string title, int color, string texture, HCGroupSettings settings, bool labelBackdrop = true)
     {
         int cap = 602;
         if (HCAdminWorldClient.Get().Authorized) { cap = cap + HCAdminWorldWire.DRAW; }
@@ -76,6 +76,12 @@ class HCGroupMapLayers
         if (!label || !image) return;
         HCGroupWorldIcons.Scale(pinRoot, label, image, settings);
         label.SetText(title);
+        // Native 1_Core/proto/EnWidgets.c:125 Show, :169 FindAnyWidget.
+        // Empty admin titles mean icon-only; compact counts need no wide backdrop.
+        // Default restores the existing group label appearance on slot reuse.
+        label.Show(title != "");
+        Widget backdrop = pinRoot.FindAnyWidget("HCBackdrop");
+        if (backdrop) backdrop.Show(title != "" && labelBackdrop);
         if (mHCTextures.Get(mHCUsed) != texture)
         {
             image.LoadImageFile(0, texture);
