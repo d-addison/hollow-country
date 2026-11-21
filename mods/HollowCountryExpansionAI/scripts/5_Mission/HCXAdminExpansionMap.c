@@ -1,85 +1,59 @@
 // Authored API bridge; no Expansion script text copied. Installed
 // Navigation/navigation_scripts.pbo:5_Mission/DayZExpansion_Navigation/
-// ExpansionMapMenu.c:151 Init, :1058 GetMapMenuRoot, :1098 GetMap,
-// :1261 OnClick, :1269 OnShow, :1297 OnHide, :1326 Update.
-// Init owns/reuses layoutRoot; OnShow/OnHide/OnClick chain to super;
-// Update may close the menu. Preserve every inherited lifecycle call.
-// Native scripts-1.30.164289/1_Core/proto/EnWidgets.c:125 Show,
-// :142-143 SetScreenPos/SetScreenSize, :153-154 GetScreenPos/GetScreenSize,
-// :169 FindAnyWidget, :181 CreateWidgets;
-// 3_Game/GUI/UIScriptedMenu.c:16-17 IsVisible/IsClosing.
+// ExpansionMapMenu.c:19 m_Markers (array<ref ExpansionMapWidgetBase>), :209
+// player arrow inserted the same way, :1058 GetMapMenuRoot, :1098 GetMap,
+// :1269 OnShow, :1297 OnHide, :1326 Update, :1343 M toggle gated by
+// IsEditingMarker, :1354-1363 per-frame Update of every m_Markers entry,
+// :1497 IsEditingMarker. Expansion removes only its own markers by identity
+// (Find/Remove) or after casting to ExpansionMapMarker (:844-847, :1121-1124),
+// so HC admin markers are never edited, deleted, saved or synced by it.
+// Native scripts-1.30.164289/3_Game/tools/UIScriptedMenu.c:16-17
+// IsVisible/IsClosing; 1_Core/proto/EnScript.c:407 Insert, :470 RemoveOrdered.
 modded class ExpansionMapMenu
 {
-    protected Widget mHCXAdminOverlay;
-    protected Widget mHCXAdminPins;
-    protected ref HCGroupMapLayers mHCXAdminLayers;
-    protected ref HCGroupSettings mHCXAdminDefaults = new HCGroupSettings;
-    protected bool mHCXAdminOpen;
-
-    override Widget Init()
-    {
-        Widget root = super.Init();
-        if (!root || mHCXAdminOverlay) return root;
-        mHCXAdminOverlay = GetGame().GetWorkspace().CreateWidgets("HollowCountry/gui/layouts/hc_admin_world_overlay.layout", root);
-        if (mHCXAdminOverlay)
-        {
-            mHCXAdminPins = mHCXAdminOverlay.FindAnyWidget("HCMapOverlay");
-            mHCXAdminLayers = new HCGroupMapLayers;
-            mHCXAdminLayers.Init(mHCXAdminOverlay);
-            mHCXAdminOverlay.Show(false);
-        }
-        return root;
-    }
+    protected ref HCXAdminMapLayers mHCXAdmin;
 
     override void OnShow()
     {
         super.OnShow();
-        if (!mHCXAdminOverlay || !mHCXAdminPins || !mHCXAdminLayers) return;
-        mHCXAdminOverlay.Show(false);
-        HCAdminWorldClient.Get().Open(mHCXAdminOverlay);
-        mHCXAdminOpen = true;
+        if (!mHCXAdmin) mHCXAdmin = new HCXAdminMapLayers;
+        mHCXAdmin.Open(this, GetMapMenuRoot(), GetMap());
     }
 
     override void Update(float timeslice)
     {
         super.Update(timeslice);
-        if (!mHCXAdminOpen || IsClosing() || !IsVisible()) return;
-        MapWidget mapWidget = GetMap();
-        if (!mapWidget) return;
-        HCAdminWorldClient admin = HCAdminWorldClient.Get();
-        admin.Tick(mapWidget);
-        mHCXAdminOverlay.Show(admin.Authorized);
-        // Match the actual viewport, including Expansion legend/layout changes.
-        float left, top, width, height;
-        mapWidget.GetScreenPos(left, top);
-        mapWidget.GetScreenSize(width, height);
-        mHCXAdminPins.SetScreenPos(left, top);
-        mHCXAdminPins.SetScreenSize(width, height);
-        HCGroupSettings settings = mHCXAdminDefaults;
-        HCGroupClient groups = HCGroupClient.Get();
-        HCGroupSnapshot frame;
-        if (groups) frame = groups.GetSnapshot();
-        if (frame && frame.Settings) settings = frame.Settings;
-        // Reuse the existing dirty cache, pool and server-provided draw cap.
-        mHCXAdminLayers.DrawAdminOverlay(mapWidget, settings);
+        // super.Update may have closed the menu.
+        if (!mHCXAdmin || IsClosing() || !IsVisible()) return;
+        mHCXAdmin.Update();
     }
 
-    override bool OnClick(Widget w, int x, int y, int button)
+    override bool IsEditingMarker()
     {
-        if (mHCXAdminOpen && HCAdminWorldClient.Get().Click(w, GetMap(), x, y)) return true;
-        return super.OnClick(w, x, y, button);
+        if (mHCXAdmin && mHCXAdmin.IsTyping()) return true;
+        return super.IsEditingMarker();
     }
 
     override void OnHide()
     {
-        if (mHCXAdminOpen)
-        {
-            mHCXAdminOpen = false;
-            // Close unregisters Event_OnRPC before any in-flight reply can bind.
-            HCAdminWorldClient.Get().Close();
-        }
-        if (mHCXAdminLayers) mHCXAdminLayers.Clear();
-        if (mHCXAdminOverlay) mHCXAdminOverlay.Show(false);
+        if (mHCXAdmin) mHCXAdmin.Close();
         super.OnHide();
+    }
+
+    // Client-local transient admin markers join Expansion's own projection loop.
+    void HCXInsertAdminMarker(ExpansionMapWidgetBase marker)
+    {
+        if (marker && m_Markers) m_Markers.Insert(marker);
+    }
+
+    // Drop admin markers whose pool slot is >= keep (0 drops all of them).
+    void HCXTrimAdminMarkers(int keep)
+    {
+        if (!m_Markers) return;
+        for (int index = m_Markers.Count() - 1; index >= 0; index--)
+        {
+            HCXAdminMapMarker marker = HCXAdminMapMarker.Cast(m_Markers[index]);
+            if (marker && marker.HCXSlot() >= keep) m_Markers.RemoveOrdered(index);
+        }
     }
 }

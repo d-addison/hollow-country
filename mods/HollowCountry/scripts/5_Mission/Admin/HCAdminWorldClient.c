@@ -2,10 +2,14 @@
 // gameplay.c:104-117/322-333 RPC + MapWidget projection/scale/centre;
 // DayZGame.c:991 Event_OnRPC; EnWidgets.c:125/140/144/153/154 Show/position/size;
 // EnScript.c:857/902/917 map Clear/Set/Contains. No entity queries here.
+// Rendering is pluggable: the base HC group map binds pooled circle pins
+// (HCGroupMapLayers.Pin), the Expansion addon binds real Expansion map
+// markers. Both read the same clustered, capped pin set through Refresh.
 class HCAdminWorldStyle
 {
     string Layer;
-    string Texture;
+    // Stable per-layer index; each renderer maps it to a verified texture.
+    int IconIndex;
     int Color;
     bool Visible = true;
     int Count;
@@ -27,6 +31,7 @@ class HCAdminWorldClient
     protected ref map<string, int> m_StyleIndex = new map<string, int>;
     protected ref map<string, int> m_Cells = new map<string, int>;
     protected ref array<ref HCAdminWorldPin> m_Pins = new array<ref HCAdminWorldPin>;
+    // Optional base-menu panel (hc_group_map.layout); null on the Expansion map.
     protected Widget m_Panel;
     protected ButtonWidget m_Toggle;
     protected TextListboxWidget m_Legend;
@@ -46,6 +51,8 @@ class HCAdminWorldClient
     protected bool m_Access;
     protected bool m_Visible = true;
     protected bool m_Dirty = true;
+    // New rows or toggles: collect at once instead of waiting for the throttle.
+    protected bool m_DataDirty = true;
     protected bool m_ListDirty = true;
     protected vector m_Centre;
     protected float m_Scale;
@@ -53,6 +60,9 @@ class HCAdminWorldClient
     protected const float LABEL_SCALE = 0.20;
     // Names stay readable only when few pins share the view (#324 client check).
     protected const int LABEL_PINS = 30;
+    // View changes re-cluster at most four times a second; renderers keep
+    // their markers between collects (Expansion projects them itself).
+    protected const float COLLECT_SECONDS = 0.25;
     protected ref HCAdminMark m_Selected;
     protected float m_Left;
     protected float m_Top;
@@ -60,10 +70,15 @@ class HCAdminWorldClient
     protected float m_Height;
     protected int m_PoolStart = -1;
     protected int m_PoolCount;
+    protected int m_PoolVersion = -1;
+    protected int m_LegendVersion = -1;
     protected float m_IconScale;
     protected float m_LabelScale;
     protected float m_SendAt;
     protected float m_ReplyAt;
+    protected float m_CollectAt;
+    protected int m_PinVersion;
+    protected int m_StyleVersion;
     protected int m_Dropped;
     protected int m_DrawLimit = 384;
     bool Authorized;
@@ -73,15 +88,25 @@ class HCAdminWorldClient
         if (!s_Instance) { s_Instance = new HCAdminWorldClient; }
         return s_Instance;
     }
+    // root may be null: the Expansion map renders through its own markers.
     void Open(Widget root)
     {
         if (m_Open) { Close(); }
-        m_Panel = root.FindAnyWidget("HCAdminWorldPanel");
-        m_Toggle = ButtonWidget.Cast(root.FindAnyWidget("HCAdminWorldToggle"));
-        m_Legend = TextListboxWidget.Cast(root.FindAnyWidget("HCAdminWorldLegend"));
-        m_Detail = MultilineTextWidget.Cast(root.FindAnyWidget("HCAdminWorldDetail"));
-        m_LootFilter = EditBoxWidget.Cast(root.FindAnyWidget("HCAdminWorldLootFilter"));
-        m_State = TextWidget.Cast(root.FindAnyWidget("HCAdminWorldState"));
+        m_Panel = null;
+        m_Toggle = null;
+        m_Legend = null;
+        m_Detail = null;
+        m_LootFilter = null;
+        m_State = null;
+        if (root)
+        {
+            m_Panel = root.FindAnyWidget("HCAdminWorldPanel");
+            m_Toggle = ButtonWidget.Cast(root.FindAnyWidget("HCAdminWorldToggle"));
+            m_Legend = TextListboxWidget.Cast(root.FindAnyWidget("HCAdminWorldLegend"));
+            m_Detail = MultilineTextWidget.Cast(root.FindAnyWidget("HCAdminWorldDetail"));
+            m_LootFilter = EditBoxWidget.Cast(root.FindAnyWidget("HCAdminWorldLootFilter"));
+            m_State = TextWidget.Cast(root.FindAnyWidget("HCAdminWorldState"));
+        }
         if (m_Panel) { m_Panel.Show(false); }
         m_Open = true;
         m_Access = false;
@@ -92,12 +117,16 @@ class HCAdminWorldClient
         m_Sequence = 0;
         m_Chunk = 0;
         m_SendAt = 0;
+        m_CollectAt = 0;
         m_Incoming.Clear();
         DynamicRows.Clear();
         m_Pins.Clear();
         m_Selected = null;
         m_Dirty = true;
+        m_DataDirty = true;
         m_ListDirty = true;
+        m_PinVersion++;
+        m_StyleVersion++;
         DayZGame.Event_OnRPC.Insert(Receive);
     }
     protected void Send(bool open, MapWidget mapWidget)
@@ -135,6 +164,7 @@ class HCAdminWorldClient
         m_Pins.Clear();
         m_Cells.Clear();
         m_Selected = null;
+        m_PinVersion++;
         if (m_Panel) { m_Panel.Show(false); }
         m_Panel = null;
         m_Toggle = null;
@@ -160,6 +190,7 @@ class HCAdminWorldClient
             Authorized = false;
             DynamicRows.Clear();
             m_Pins.Clear();
+            m_PinVersion++;
             if (m_Panel) { m_Panel.Show(false); }
         }
         // Foreign map layouts can move their viewport without changing zoom.
@@ -214,6 +245,7 @@ class HCAdminWorldClient
         m_Incoming = new array<ref HCAdminMark>;
         m_Dropped = reply.Truncated;
         m_Dirty = true;
+        m_DataDirty = true;
         m_ListDirty = true;
     }
     protected HCAdminWorldStyle Style(string layer)
@@ -229,13 +261,13 @@ class HCAdminWorldClient
         int green = 75 + (index * 113) % 180;
         int blue = 75 + (index * 47) % 180;
         style.Color = ARGB(255, red, green, blue);
-        // Vanilla icon table; native scripts-1.30.164289/3_Game/gameplay.c
-        // MapMarkerTypes.GetMarkerTypeFromID is observed at
-        // 5_Mission/GUI/MapMarkersInfo.c:42-45 and reused by HCGroupMapLayers.
-        int icon = index % eMapMarkerTypes.MARKERTYPE_MAX;
-        style.Texture = MapMarkerTypes.GetMarkerTypeFromID(icon);
+        // No texture path here. The build 149 client could not load the
+        // MapMarkerTypes paths into an ImageWidget (map_*_ca.paa are
+        // MapWidget.AddUserMark textures only) and spammed the RPT.
+        style.IconIndex = index;
         m_StyleIndex.Set(layer, index);
         m_Styles.Insert(style);
+        m_StyleVersion++;
         return style;
     }
     protected void Collect(MapWidget mapWidget, array<ref HCAdminMark> rows)
@@ -273,22 +305,123 @@ class HCAdminWorldClient
             m_Pins.Insert(pin);
         }
     }
+    // Re-cluster only when the view or data changed, throttled for view
+    // changes. Returns true when the pin set was rebuilt (bind markers again).
+    bool Refresh(MapWidget mapWidget)
+    {
+        if (!Authorized || !m_Open || !mapWidget) { return false; }
+        if (!m_Dirty && !m_DataDirty) { return false; }
+        float now = GetGame().GetTickTime();
+        if (!m_DataDirty && now < m_CollectAt) { return false; }
+        m_Pins.Clear();
+        m_Cells.Clear();
+        for (int reset = 0; reset < m_Styles.Count(); reset++) { m_Styles[reset].Count = 0; }
+        // Dynamic bodies get drawing priority; all layers retain legend counts.
+        Collect(mapWidget, DynamicRows);
+        Collect(mapWidget, StaticRows);
+        m_Dirty = false;
+        m_DataDirty = false;
+        m_CollectAt = now + COLLECT_SECONDS;
+        m_PinVersion++;
+        if (m_ListDirty) { m_StyleVersion++; m_ListDirty = false; }
+        return true;
+    }
+    int PinVersion() { return m_PinVersion; }
+    int StyleVersion() { return m_StyleVersion; }
+    int PinCount() { return m_Pins.Count(); }
+    HCAdminWorldPin PinAt(int index)
+    {
+        if (index < 0 || index >= m_Pins.Count()) { return null; }
+        return m_Pins[index];
+    }
+    int StyleCount() { return m_Styles.Count(); }
+    HCAdminWorldStyle StyleAt(int index)
+    {
+        if (index < 0 || index >= m_Styles.Count()) { return null; }
+        return m_Styles[index];
+    }
+    HCAdminWorldStyle StyleOf(HCAdminWorldPin pin)
+    {
+        if (!pin || !pin.Mark) { return null; }
+        int index;
+        if (!m_StyleIndex.Find(pin.Mark.Layer, index)) { return null; }
+        return m_Styles[index];
+    }
+    bool LayersVisible() { return m_Visible; }
+    bool IsSelected(HCAdminWorldPin pin)
+    {
+        if (!pin || !pin.Mark || !m_Selected) { return false; }
+        // Selection survives a refreshed row object with the same identity.
+        return m_Selected.Layer == pin.Mark.Layer && m_Selected.Label == pin.Mark.Label && m_Selected.Position == pin.Mark.Position;
+    }
+    // Shared label rule: names only when zoomed in with few pins, or selected.
+    string PinTitle(HCAdminWorldPin pin)
+    {
+        if (!pin || !pin.Mark) { return ""; }
+        bool showLabel = IsSelected(pin) || (m_Scale < LABEL_SCALE && m_Pins.Count() <= LABEL_PINS);
+        string title = "";
+        if (showLabel) { title = "[" + pin.Mark.Layer + "] " + pin.Mark.Label; }
+        if (pin.Count > 1)
+        {
+            title = "x" + pin.Count.ToString();
+            if (showLabel) { title = "[" + pin.Mark.Layer + "] " + pin.Mark.Label + " " + title; }
+        }
+        return title;
+    }
+    bool PinLabelled(HCAdminWorldPin pin)
+    {
+        return IsSelected(pin) || (m_Scale < LABEL_SCALE && m_Pins.Count() <= LABEL_PINS);
+    }
+    string StateText()
+    {
+        return "Admin: " + m_Pins.Count().ToString() + "/" + m_DrawLimit.ToString() + " pins | source omitted=" + m_Dropped.ToString();
+    }
+    void ToggleAll()
+    {
+        m_Visible = !m_Visible;
+        m_Dirty = true;
+        m_DataDirty = true;
+        m_StyleVersion++;
+    }
+    void ToggleLayer(int index)
+    {
+        if (index < 0 || index >= m_Styles.Count()) { return; }
+        m_Styles[index].Visible = !m_Styles[index].Visible;
+        m_Dirty = true;
+        m_DataDirty = true;
+        m_StyleVersion++;
+    }
+    // Returns the detail text for a clicked pin and marks it selected.
+    string Select(HCAdminWorldPin pin)
+    {
+        if (!pin || !pin.Mark) { return ""; }
+        m_Selected = pin.Mark;
+        // Labels change for the selected pin; renderers rebind once.
+        m_PinVersion++;
+        m_PoolStart = -1;
+        if (pin.Count > 1) { return pin.Mark.Layer + ": " + pin.Count.ToString() + " rows in this cell. Zoom in for individual details."; }
+        return pin.Mark.Layer + " | " + pin.Mark.Label + "\n" + pin.Mark.Detail;
+    }
+    // Bounded ground loot query; the server keeps its own caps and cooldown.
+    string RequestLoot(string filter, MapWidget mapWidget)
+    {
+        if (!Authorized) { return ""; }
+        if (!HCAdminLootMap.HCValidFilter(filter)) { return "Enter a valid class or class prefix for a bounded ground loot query."; }
+        m_LootRequest = filter;
+        Send(true, mapWidget);
+        m_SendAt = GetGame().GetTickTime() + 4;
+        return "Loot ground query requested. Existing query caps/cooldown apply; results appear as lootmap pins.";
+    }
+    // Base HC group map renderer: pooled circle pins from hc_group_icon.layout.
     void Draw(HCGroupMapLayers pool, MapWidget mapWidget, HCGroupSettings settings)
     {
         if (!Authorized || !m_Open) { return; }
-        bool changed = m_Dirty;
-        if (m_Dirty)
-        {
-            m_Pins.Clear();
-            m_Cells.Clear();
-            for (int reset = 0; reset < m_Styles.Count(); reset++) { m_Styles[reset].Count = 0; }
-            // Dynamic bodies get drawing priority; all layers retain legend counts.
-            Collect(mapWidget, DynamicRows);
-            Collect(mapWidget, StaticRows);
-            m_Dirty = false;
-        }
+        // The pooled widgets are placed in screen space at bind time, so any
+        // view change rebinds them; the base menu calls this every 0.25 s.
+        bool moved = m_Dirty;
+        Refresh(mapWidget);
         int start = pool.HCUsed();
-        bool reuse = !changed && start == m_PoolStart && settings.IconScale == m_IconScale && settings.LabelScale == m_LabelScale;
+        bool reuse = !moved && m_PoolVersion == m_PinVersion && start == m_PoolStart && settings.IconScale == m_IconScale && settings.LabelScale == m_LabelScale;
         if (reuse) { reuse = pool.HCKeep(m_PoolCount); }
         if (!reuse)
         {
@@ -296,24 +429,16 @@ class HCAdminWorldClient
             {
                 HCAdminWorldPin pin = m_Pins[index];
                 HCAdminWorldStyle style = Style(pin.Mark.Layer);
-                // Selection survives a refreshed row object with the same identity.
-                bool selected = m_Selected && m_Selected.Layer == pin.Mark.Layer && m_Selected.Label == pin.Mark.Label && m_Selected.Position == pin.Mark.Position;
-                bool showLabel = selected || (m_Scale < LABEL_SCALE && m_Pins.Count() <= LABEL_PINS);
-                string title = "";
-                if (showLabel) { title = "[" + style.Layer + "] " + pin.Mark.Label; }
-                if (pin.Count > 1)
-                {
-                    title = "x" + pin.Count.ToString();
-                    if (showLabel) { title = "[" + style.Layer + "] " + pin.Mark.Label + " " + title; }
-                }
-                pool.Pin(mapWidget, pin.Mark.Position, title, style.Color, style.Texture, settings, showLabel);
+                if (!style) { continue; }
+                pool.Pin(mapWidget, pin.Mark.Position, PinTitle(pin), style.Color, settings, PinLabelled(pin));
             }
             m_PoolStart = start;
             m_PoolCount = pool.HCUsed() - start;
+            m_PoolVersion = m_PinVersion;
             m_IconScale = settings.IconScale;
             m_LabelScale = settings.LabelScale;
         }
-        if (m_ListDirty && m_Legend)
+        if (m_Legend && m_LegendVersion != m_StyleVersion)
         {
             m_Legend.ClearItems();
             for (int layer = 0; layer < m_Styles.Count(); layer++)
@@ -324,30 +449,23 @@ class HCAdminWorldClient
                 int row = m_Legend.AddItem(flag + entry.Layer + " (" + entry.Count.ToString() + ")", null, 0);
                 m_Legend.SetItemColor(row, 0, entry.Color);
             }
-            m_ListDirty = false;
+            m_LegendVersion = m_StyleVersion;
         }
-        if (m_State) { m_State.SetText("Admin: " + m_Pins.Count().ToString() + "/" + m_DrawLimit.ToString() + " pins | source omitted=" + m_Dropped.ToString()); }
+        if (m_State) { m_State.SetText(StateText()); }
     }
+    // Base HC group map controls (hc_group_map.layout HCAdminWorldPanel).
     bool Click(Widget widget, MapWidget mapWidget, int x, int y)
     {
         if (!Authorized || !widget) { return false; }
         if (widget.GetName() == "HCAdminWorldLootRun" && m_LootFilter)
         {
-            string filter = m_LootFilter.GetText();
-            if (HCAdminLootMap.HCValidFilter(filter))
-            {
-                m_LootRequest = filter;
-                Send(true, mapWidget);
-                m_SendAt = GetGame().GetTickTime() + 4;
-                if (m_Detail) { m_Detail.SetText("Loot ground query requested. Existing query caps/cooldown apply; results appear as lootmap pins."); }
-            }
-            else if (m_Detail) { m_Detail.SetText("Enter a valid class or class prefix for a bounded ground loot query."); }
+            string status = RequestLoot(m_LootFilter.GetText(), mapWidget);
+            if (m_Detail && status != "") { m_Detail.SetText(status); }
             return true;
         }
         if (widget == m_Toggle)
         {
-            m_Visible = !m_Visible;
-            m_Dirty = true;
+            ToggleAll();
             string label = "Admin [on]";
             if (!m_Visible) { label = "Admin [off]"; }
             m_Toggle.SetText(label);
@@ -355,13 +473,7 @@ class HCAdminWorldClient
         }
         if (widget.GetName() == "HCAdminWorldLayerToggle" && m_Legend)
         {
-            int selected = m_Legend.GetSelectedRow();
-            if (selected >= 0 && selected < m_Styles.Count())
-            {
-                m_Styles[selected].Visible = !m_Styles[selected].Visible;
-                m_Dirty = true;
-                m_ListDirty = true;
-            }
+            ToggleLayer(m_Legend.GetSelectedRow());
             return true;
         }
         if (widget != mapWidget || !m_Detail) { return false; }
@@ -371,12 +483,7 @@ class HCAdminWorldClient
             float dx = pin.Screen[0] - x;
             float dy = pin.Screen[1] - y;
             if (dx * dx + dy * dy > 400) { continue; }
-            string detail = pin.Mark.Layer + " | " + pin.Mark.Label + "\n" + pin.Mark.Detail;
-            if (pin.Count > 1) { detail = pin.Mark.Layer + ": " + pin.Count.ToString() + " rows in this cell. Zoom in for individual details."; }
-            m_Detail.SetText(detail);
-            m_Selected = pin.Mark;
-            // Rebind pooled labels once; keep the collected pins/dirty cache.
-            m_PoolStart = -1;
+            m_Detail.SetText(Select(pin));
             return true;
         }
         return false;

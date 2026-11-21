@@ -1,0 +1,86 @@
+// Client-local, transient admin world marker on the Expansion M map.
+// Authored against installed Expansion class/API names only (CC BY-NC-ND;
+// no Expansion script text copied). Installed Core/core_scripts.pbo:
+// 5_Mission/DayZExpansion_Core/ExpansionMapWidgetBase.c:37-45 ctor creates
+// DayZExpansion/Core/GUI/layouts/map/expansion_map_marker.layout under the
+// parent and sets this as handler; :47-51 dtor unlinks it; :112-119 Update
+// projects m_WorldPosition with MapToScreen (called by the menu, below);
+// :121-129 OnClick -> :190 OnMarkerClick; :79 GetDropSoundEffect; :89
+// IsDragWidget; :347 CanDrag; :174 SetPosition(vector); :207 Show; :229 SetName;
+// :236 GetName; :241 SetIcon(ExpansionIcon) loads icon.IconPath; :264
+// SetPrimaryColor; :280 SetHoverColour. ExpansionMapMarkerPlayerArrow.c:13-24
+// is the installed precedent: a direct ExpansionMapWidgetBase subclass that
+// ExpansionMapMenu inserts into m_Markers (navigation_scripts.pbo
+// 5_Mission/DayZExpansion_Navigation/ExpansionMapMenu.c:177-209) and projects
+// in its Update loop (:1354-1363). This class never touches
+// ExpansionMarkerData/ExpansionMarkerModule: nothing is saved, synced or sent.
+class HCXAdminMapMarker : ExpansionMapWidgetBase
+{
+    // Weak back-reference; the owner deletes its markers before it goes away.
+    protected HCXAdminMapLayers mHCXOwner;
+    // Pool slot (fixed at creation) and the admin pin it currently shows.
+    protected int mHCXSlot;
+    protected int mHCXPin = -1;
+    protected string mHCXIconName;
+    protected string mHCXTitle;
+
+    void HCXAdminMapMarker(Widget parent, MapWidget mapWidget, bool autoInit = true)
+    {
+        SetHoverColour(ARGB(255, 255, 255, 255));
+        // Hidden until bound; an unbound marker would sit in the top-left corner.
+        Hide();
+    }
+
+    void HCXOwn(HCXAdminMapLayers owner, int slot)
+    {
+        mHCXOwner = owner;
+        mHCXSlot = slot;
+    }
+
+    int HCXSlot()
+    {
+        return mHCXSlot;
+    }
+
+    void HCXBind(int pin, vector position, string title, string iconName, int color)
+    {
+        mHCXPin = pin;
+        if (iconName != mHCXIconName)
+        {
+            // Only verified registry icons, never a raw path. The name is cached
+            // even if lookup fails, so a missing icon is never retried per bind.
+            mHCXIconName = iconName;
+            ExpansionIcon icon = ExpansionIcons.Get(iconName);
+            if (icon) SetIcon(icon);
+        }
+        if (title != mHCXTitle)
+        {
+            mHCXTitle = title;
+            SetName(title);
+        }
+        SetPrimaryColor(color);
+        SetPosition(position);
+        Show(true);
+    }
+
+    // Admin pins are read-only: no drag, no drop sound, no edit.
+    override string GetDropSoundEffect()
+    {
+        return "";
+    }
+
+    override bool CanDrag()
+    {
+        return false;
+    }
+
+    override bool IsDragWidget(Widget w)
+    {
+        return false;
+    }
+
+    override void OnMarkerClick()
+    {
+        if (mHCXOwner && mHCXPin >= 0) mHCXOwner.HCXSelect(mHCXPin);
+    }
+}

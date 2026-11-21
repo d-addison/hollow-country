@@ -9,10 +9,10 @@ FrameWidgetClass HCGroupIconRoot {
 
  priority 1000
  {
-  ImageWidgetClass HCBackdrop {
+  PanelWidgetClass HCBackdrop {
    ignorepointer 1 position 0 0 size 1 1
    hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.01 0.01 0.01 0.85
+   style rover_sim_colorable color 0.01 0.01 0.01 0.85
   }
   ImageWidgetClass HCMark {
    ignorepointer 1 position 0 4
@@ -21,7 +21,7 @@ FrameWidgetClass HCGroupIconRoot {
    vexactpos 1
    hexactsize 1
    vexactsize 1
-   image0 "\dz\gear\navigation\data\map_tree_ca.paa"
+   image0 "set:dayz_gui image:circle"
   }
   TextWidgetClass HCLabel {
    ignorepointer 1 position 24 0

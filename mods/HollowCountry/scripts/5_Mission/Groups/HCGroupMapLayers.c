@@ -4,6 +4,12 @@
 // HCInfoLayers.c (labels/logging); scripts-1.30.164289/3_Game/gameplay.c:324,332
 // (ClearUserMarks/MapToScreen), 1_Core/proto/EnWidgets.c:125,140,144,153,154,
 // 169,173,181,195,257,267 (existing widget pooling/drawing path).
+// Pins never call LoadImageFile: hc_group_icon.layout carries the verified
+// vanilla imageset circle (dayz_gui.imageset image "circle", used by vanilla
+// day_z_hud.layout) and each layer is identified by colour and text prefix.
+// The build 149 client logged thousands of ImageWidget::LoadImageFile errors
+// for \dz\gear\navigation\data\map_*_ca.paa (AddUserMark-only textures),
+// retried whenever a pooled slot changed layer.
 class HCGroupMapLayers
 {
     protected Widget mHCOverlay;
@@ -12,7 +18,6 @@ class HCGroupMapLayers
     protected TextListboxWidget mHCEvents;
     protected ref array<Widget> mHCPool = new array<Widget>();
     protected int mHCUsed;
-    protected ref array<string> mHCTextures = new array<string>();
     protected ref HCGroupEquipment mHCEquipment;
     protected PlayerBase mHCViewer;
     protected float mHCEquipmentTime;
@@ -31,7 +36,6 @@ class HCGroupMapLayers
         foreach (Widget iconRoot : mHCPool)
             if (iconRoot) iconRoot.Unlink();
         mHCPool.Clear();
-        mHCTextures.Clear();
         mHCEquipment = null;
         mHCViewer = null;
         mHCInfoEvents.Clear();
@@ -51,7 +55,7 @@ class HCGroupMapLayers
         return true;
     }
 
-    void Pin(MapWidget mapWidget, vector position, string title, int color, string texture, HCGroupSettings settings, bool labelBackdrop = true)
+    void Pin(MapWidget mapWidget, vector position, string title, int color, HCGroupSettings settings, bool labelBackdrop = true)
     {
         int cap = 602;
         if (HCAdminWorldClient.Get().Authorized) { cap = cap + HCAdminWorldWire.DRAW; }
@@ -68,7 +72,6 @@ class HCGroupMapLayers
             Widget created = GetGame().GetWorkspace().CreateWidgets("HollowCountry/gui/layouts/hc_group_icon.layout", mHCOverlay);
             if (!created) return;
             mHCPool.Insert(created);
-            mHCTextures.Insert("");
         }
         Widget pinRoot = mHCPool.Get(mHCUsed);
         TextWidget label = TextWidget.Cast(pinRoot.FindAnyWidget("HCLabel"));
@@ -82,11 +85,6 @@ class HCGroupMapLayers
         label.Show(title != "");
         Widget backdrop = pinRoot.FindAnyWidget("HCBackdrop");
         if (backdrop) backdrop.Show(title != "" && labelBackdrop);
-        if (mHCTextures.Get(mHCUsed) != texture)
-        {
-            image.LoadImageFile(0, texture);
-            mHCTextures.Set(mHCUsed, texture);
-        }
         image.SetImage(0);
         image.SetColor(color);
         pinRoot.SetPos(x, y);
@@ -184,8 +182,9 @@ class HCGroupMapLayers
         DrawAdminOverlay(mapWidget, frame.Settings);
     }
 
-    // Foreign map menus own their marks. Draw only our pooled widgets and
-    // accept settings directly so no group snapshot is needed for admin access.
+    // Admin pins only, from our pooled widgets; settings are passed directly so
+    // no group snapshot is needed. The Expansion map uses its own marker
+    // widgets instead (HollowCountryExpansionAI HCXAdminMapLayers).
     void DrawAdminOverlay(MapWidget mapWidget, HCGroupSettings settings)
     {
         if (!mapWidget || !settings) return;
@@ -206,7 +205,6 @@ class HCGroupMapLayers
         else HideNavigation();
         if (flags.ShowEvents) Missions(frame.Settings);
         else HideMissions();
-        string texture = "\\dz\\gear\\navigation\\data\\map_tree_ca.paa";
         int utc = HCGroupClock.Utc();
         HCInfoMapPins.Log(frame, utc);
         // The bound is validated by HCGroupClient; hidden entries never enter
@@ -217,8 +215,7 @@ class HCGroupMapLayers
             {
                 if (marker.ExpiresUtc > 0 && (utc < 1 || marker.ExpiresUtc <= utc)) continue;
                 if (marker.Icon < 0 || marker.Icon >= eMapMarkerTypes.MARKERTYPE_MAX) continue;
-                string markerTexture = MapMarkerTypes.GetMarkerTypeFromID(marker.Icon);
-                Pin(mapWidget, marker.Position, "[Marker] " + marker.Name, ARGB(255,230,159,0), markerTexture, frame.Settings);
+                Pin(mapWidget, marker.Position, "[Marker] " + marker.Name, ARGB(255,230,159,0), frame.Settings);
             }
         }
         // Known-event sites come from the already-public event rows only.
@@ -227,7 +224,7 @@ class HCGroupMapLayers
             float worldSize = GetGame().GetWorld().GetWorldSize();
             array<ref HCInfoPin> sites = mHCInfoEvents.Pins(GetGame().GetTickTime(), worldSize);
             foreach (HCInfoPin site : sites)
-                Pin(mapWidget, site.Position, site.Label, ARGB(255,213,94,0), texture, frame.Settings);
+                Pin(mapWidget, site.Position, site.Label, ARGB(255,213,94,0), frame.Settings);
         }
         if (flags.ShowVisited && frame.Settings.DiscoveryLayer)
         {
@@ -238,7 +235,7 @@ class HCGroupMapLayers
                 int placeColor = ARGB(255,240,228,66);
                 if (place.Id.IndexOf("hc-lead:") == 0) placeColor = ARGB(255,204,121,167);
                 if (place.Id.IndexOf("hc-found:") == 0) placeColor = ARGB(255,0,158,115);
-                Pin(mapWidget, place.Position, placeLabel, placeColor, texture, frame.Settings);
+                Pin(mapWidget, place.Position, placeLabel, placeColor, frame.Settings);
             }
         }
         if (flags.ShowTeam && frame.Settings.MapIcons)
@@ -246,7 +243,7 @@ class HCGroupMapLayers
             foreach (HCGroupMember member : frame.Members)
             {
                 if (!member.HasPosition || !member.Online || !member.Alive) continue;
-                Pin(mapWidget, member.Position, "[Team] " + member.Name, ARGB(255,86,180,233), texture, frame.Settings);
+                Pin(mapWidget, member.Position, "[Team] " + member.Name, ARGB(255,86,180,233), frame.Settings);
             }
         }
         HCAdminWorldClient.Get().Draw(this, mapWidget, frame.Settings);
