@@ -305,7 +305,7 @@ templates from an admitted legacy pilot; admission still requires native testing
 an AI widens its caution range to 80 m for 10 s. A firefight nearby makes groups
 wary; a distant shot does not.
 
-**Optional Workshop weapons (default on; test abundance, 2026-11-20).**
+**Optional Workshop weapons (default on; test abundance, 2026-11-21).**
 Run `install-hollow-country.bat --apply` against the stopped friend or local server.
 Its weapon step follows the base mission and map overlays, reads the selected
 Workshop dependencies, verifies the installed config, generates CE entries, then
@@ -317,17 +317,18 @@ The bundle includes our tools/allowlists, never third-party PBOs or copied confi
 Keep the original Workshop downloads available through `--workshop-content`:
 server mod copies contain PBOs and keys but omit the terms/vendor catalogue.
 
-The expanded static roster contains **176 SNAFU firearms (nominal 352, min 176)**
-and **56 TF firearms (nominal 336, min 168)**, plus their verified magazines,
-loose pack ammo and functional attachments. Civilian/hunting weapons use
-Town/Village/Hunting and tiers 1–2; sidearms, SMGs and WW2 arms use Police/Military
-and tiers 2–3; modern military rifles use Military and tiers 3–4. Native patches,
-testbeds and unresolved/duplicate config definitions remain traceable in each
-allowlist's `excluded` list. The vendor catalogue is incomplete: individual
-config subset pins are authoritative for the expanded SNAFU roster.
+The static roster contains 176 SNAFU and 55 Tactical Flava firearms, plus their
+verified magazines, loose pack ammo and functional attachments. Military firearm
+budgets remain shared across packs and native rows; adding Police access happens
+after allocation. Hunting weapons also reach Farm/Town/Village points throughout
+tiers 1–4. Police families reach Prison, and magazines/ammo/attachments inherit
+the routes of the weapons they feed or fit. Native patches, testbeds and unresolved
+or duplicate definitions stay in each allowlist's `excluded` list. Individual
+config subset pins remain authoritative for the expanded pack roster.
 
-Each allowlist has one `test_abundance_multiplier` knob (default `1.0` for these
-high test totals); set `0.5` to halve firearm, magazine and emitted ammo budgets.
+Each allowlist has one `test_abundance_multiplier` knob, now **`2.0`** under the
+owner's 2026-11-21 #314 decision (previously 3.0); `--nominal-scale 1` selects the
+pack baseline. Military allocation can further lower a row to its shared budget.
 Generation also accepts `--nominal-scale X` (0.25–4.0), overriding that knob, and
 repeatable `--tier-scale common|uncommon|rare=X`. Effective scales remain in
 0.25–4.0; a positive CE minimum never rounds below 1. Family ceilings permit

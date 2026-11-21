@@ -263,10 +263,13 @@ def check_retained(inputs, outputs):
     actual = {}
     for row in outputs:
         if isinstance(row, dict):
-            actual[row['class'].lower()] = row['set']
+            actual[row['class'].lower()] = dict(row['set'])
+            if 'usage' in row or 'set_usage' in row:
+                actual[row['class'].lower()]['usage'] = row.get('set_usage', row.get('usage'))
         else:
             actual[row.get('name').lower()] = {'nominal': int(row.findtext('nominal', '0')),
-                                              'min': int(row.findtext('min', '0'))}
+                                              'min': int(row.findtext('min', '0')),
+                                              'usage': [u.get('name') for u in row.findall('usage')]}
     errors = []
     for row in inputs:
         name = row['class']
@@ -275,6 +278,8 @@ def check_retained(inputs, outputs):
         candidate = actual.get(name.lower())
         if candidate is None or candidate['nominal'] < 1:
             errors.append(name + (':missing' if candidate is None else ':nominal=0'))
+        elif ('usage' in candidate or 'usage' in row or 'set_usage' in row) and not candidate.get('usage'):
+            errors.append(name + ':no usage')
         elif budgeted(dict(row, usage=row.get('usage', row.get('set_usage', [])))) and candidate['min'] < 1:
             errors.append(name + ':min=0')
     if errors:
@@ -302,7 +307,69 @@ def apply(entries):
                 entry['set_value'] = original['value']
         entry['set'].update(nominal=nominal, min=min(nominal, math.ceil(nominal * rules['min_fraction'])),
                             lifetime=rules['lifetime_seconds'], restock=rules['restock_seconds'])
+    result = role_routes(result)
     check_retained(entries, result)
+    return result
+
+
+def role_routes(entries):
+    """Expand shipped routes from roles/families and weapon dependency edges.
+
+    Apply AFTER shared budget allocation: Police access must not exempt a
+    military class from its ceiling. Custom/synthetic policies are untouched.
+    No tags are added: native firearms use category=weapons without a tag
+    restriction, which also admits floor/shelf containers of that category.
+    """
+    known = catalog()
+    weapons = {name: row for name, row in known.items() if row['kind'] == 'weapon'}
+    routes, tiers = {}, {}
+    for name, row in weapons.items():
+        usage = set(row['usage'])
+        if item_kind(row) == 'firearm' and 'Military' in usage:
+            usage.add('Police')
+        if row['role'] == 'police' or usage == {'Police'}:
+            usage.add('Prison')
+        if 'Hunting' in usage or item_kind(row) == 'archery':
+            usage.update(('Hunting', 'Farm', 'Town', 'Village'))
+        routes[name] = usage
+        tiers[name] = (set(('Tier1', 'Tier2', 'Tier3', 'Tier4'))
+                       if usage & {'Hunting', 'Town', 'Village', 'Farm'} else set(row['value']))
+    family_routes = defaultdict(set)
+    for name, row in weapons.items():
+        family_routes[row.get('family', name)].update(routes[name])
+    for name, row in weapons.items():
+        routes[name].update(family_routes[row.get('family', name)])
+    parents = defaultdict(set)
+    for name, weapon in weapons.items():
+        for field in ('magazines', 'ammo', 'vanilla_ammo', 'snafu_ammo', 'optic_requires'):
+            for child in weapon.get(field, []):
+                parents[child.lower()].add(name)
+    result = copy.deepcopy(entries)
+    for entry in result:
+        name = entry['class']
+        if name not in known:
+            continue
+        usage_key = 'set_usage' if 'set_usage' in entry else 'usage'
+        value_key = 'set_value' if 'set_value' in entry else 'value'
+        if entry['kind'] == 'weapon':
+            usage = routes[name]
+            # Keep the allocated military tier; civilian/hunting choices must
+            # reach vanilla deer stands throughout the map's value plane.
+            values = tiers[name] if usage & {'Hunting', 'Town', 'Village', 'Farm'} else set(entry[value_key])
+        else:
+            carriers = parents[name.lower()] | set(known[name].get('fits', []))
+            usage = set(entry[usage_key])
+            values = set(entry[value_key])
+            for parent in carriers:
+                if parent in routes:
+                    usage.update(routes[parent])
+                    values.update(tiers[parent])
+        entry[usage_key] = sorted(usage)
+        entry[value_key] = sorted(values)
+        if 'usage' in entry and 'set_usage' in entry:
+            entry['usage'] = entry['set_usage']
+        if 'value' in entry and 'set_value' in entry:
+            entry['value'] = entry['set_value']
     return result
 
 

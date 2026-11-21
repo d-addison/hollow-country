@@ -549,7 +549,7 @@ def mission(root):
     synthetic_mission(root)
     (root / 'cfglimitsdefinition.xml').write_text(
         '<lists><usageflags><usage name="Town"/><usage name="Village"/><usage name="Military"/>'
-        '<usage name="Hunting"/><usage name="Police"/><usage name="Farm"/></usageflags><valueflags>'
+        '<usage name="Hunting"/><usage name="Police"/><usage name="Farm"/><usage name="Prison"/></usageflags><valueflags>'
         '<value name="Tier1"/><value name="Tier2"/><value name="Tier3"/><value name="Tier4"/></valueflags></lists>')
     types = (root / 'db/types.xml').read_text()
     extra = ''.join(stock_entry(n, 50, 30, 14400, 0, ['Military'], ['Tier3']) for n in ('Ammo_545x39', 'Ammo_308Win'))
