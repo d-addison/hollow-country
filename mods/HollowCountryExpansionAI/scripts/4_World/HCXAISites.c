@@ -514,6 +514,12 @@ class HCXAISiteDirector : Managed
     protected int m_CacheSamples;
     protected int m_CacheHits;
     protected int m_Requalified;
+    protected int m_CacheDiscarded;
+    protected int m_CacheReviewCursor;
+    protected ref array<string> m_CacheReviewIds = new array<string>();
+    protected ref map<string, bool> m_CachePending = new map<string, bool>();
+    protected ref map<string, ref HCXAISite> m_CachePolicy = new map<string, ref HCXAISite>();
+    protected ref map<string, ref HCXAISiteState> m_CacheStates = new map<string, ref HCXAISiteState>();
     protected bool m_RoutesWarm;
     protected string m_Phase = "wait";
     protected int m_Cursor;
@@ -1466,6 +1472,16 @@ class HCXAISiteDirector : Managed
         // Persistent input reads are a startup snapshot. Admission after provider
         // readiness retains its ownership write barrier. Formats/paths unchanged.
         m_Routes = HCXAISiteDirector.LoadRoutes();
+        if (m_Routes)
+        {
+            foreach (HCXAIRouteRow bootRoute : m_Routes.Rows)
+            {
+                if (m_CachePending.Contains(bootRoute.SiteId)) { continue; }
+                m_CachePending.Set(bootRoute.SiteId, true);
+                m_CacheReviewIds.Insert(bootRoute.SiteId);
+            }
+            foreach (HCXAISite bootSite : m_Policy.Sites) { m_CachePolicy.Set(bootSite.Id, bootSite); }
+        }
         m_Caches = HCXAISiteDirector.LoadCaches();
         m_BootOwned = HCXAISiteDirector.LoadOwned();
         Print("[HC Expansion AI] start step=policy_checked");
@@ -1537,6 +1553,13 @@ class HCXAISiteDirector : Managed
         if (m_Phase == "run")
         {
             m_SurveyTurn = !m_SurveyTurn;
+            // Review the boot image independently of uncached policy routes.
+            // A slow/refused policy site cannot suppress the cache receipt.
+            if (!m_RoutesWarm && m_SurveyTurn && this.HCSurveyReady())
+            {
+                this.HCReviewCachedRoute();
+                return;
+            }
             if (m_Localities && m_SurveyTurn && m_SurveyCursor < m_Policy.Sites.Count())
             {
                 this.HCStepSurvey();
@@ -1547,14 +1570,69 @@ class HCXAISiteDirector : Managed
     }
     protected void HCRoutesWarm()
     {
-        if (m_RoutesWarm) { return; }
+        if (m_RoutesWarm || m_CachePending.Count() > 0) { return; }
         m_RoutesWarm = true;
         int elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000;
-        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString());
+        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString());
+    }
+    protected void HCCacheVerdict(string siteId, bool reused)
+    {
+        if (!m_CachePending.Contains(siteId)) { return; }
+        m_CachePending.Remove(siteId);
+        if (reused) { m_CacheHits++; }
+        else { m_CacheDiscarded++; }
+    }
+    protected void HCCacheDiscard(HCXAIRouteRow row, string reason, string field = "")
+    {
+        string diagnostic = reason;
+        if (field != "") { diagnostic += " field=" + field; }
+        if (!m_CacheReasons.Contains(diagnostic))
+        {
+            m_CacheReasons.Set(diagnostic, true);
+            string detail;
+            if (reason == "validity_mismatch" && row.ValidityKey == "") { detail = " detail=missing_validity"; }
+            Print("[HC Expansion AI] route cache discarded reason=" + diagnostic + detail);
+        }
+        this.HCCacheVerdict(row.SiteId, false);
+        m_Routes.Rows.RemoveItem(row);
+        this.SaveRoutes();
+    }
+    protected void HCReviewCachedRoute()
+    {
+        // Structural work uses the site slot. Leave the cache slot's single
+        // starvation grant available for the retained-point sample below.
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
+        HCWorkBudget slice = new HCWorkBudget;
+        slice.HCReset(16, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+        while (m_CacheReviewCursor < m_CacheReviewIds.Count() && !m_CachePending.Contains(m_CacheReviewIds[m_CacheReviewCursor]) && slice.HCContinue()) { m_CacheReviewCursor++; }
+        if (m_CacheReviewCursor >= m_CacheReviewIds.Count()) { this.HCRoutesWarm(); return; }
+        string siteId = m_CacheReviewIds[m_CacheReviewCursor];
+        if (!m_CachePending.Contains(siteId)) { return; }
+        HCXAIRouteRow row = this.RouteRow(siteId);
+        if (!row) { this.HCCacheVerdict(siteId, false); return; }
+        // Legacy/changed scalar stamps need no house lookup or route hash.
+        string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity);
+        if (scalarField != "") { this.HCCacheDiscard(row, "validity_mismatch", scalarField); return; }
+        HCXAISiteState state = m_CacheStates.Get(siteId);
+        if (!state && m_CachePolicy.Contains(siteId)) { state = this.HCSurveyState(m_CachePolicy.Get(siteId)); }
+        if (!state)
+        {
+            this.HCCacheDiscard(row, "validity_mismatch", "key");
+            return;
+        }
+        if (!state.Bound && !state.Failed) { this.Bind(state); return; }
+        if (state.Failed || (state.Site.Checkpoint && !HCXAIQualification.EncountersEnabled()))
+        {
+            this.HCCacheDiscard(row, "validity_mismatch", "key");
+            return;
+        }
+        // Only the retained row is visited; a discard returns before FindPath.
+        this.QualifyStep(state);
     }
     protected void StepWait()
     {
-        bool aiLoaded = HCXExpansionBridge.HCSettings() != null;
+        ExpansionAISettings aiSettings = HCXExpansionBridge.HCSettings();
+        bool aiLoaded = aiSettings != null;
         bool patrolLoaded = false;
         if (aiLoaded) { patrolLoaded = HCXExpansionBridge.HCPatrolSettings() != null; }
         if (!aiLoaded || !patrolLoaded) { return; }
@@ -1584,7 +1662,9 @@ class HCXAISiteDirector : Managed
         m_Filter = new PGFilter();
         int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
         int exclude = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
-        if (eAIBase.AI_HANDLEVAULTING) { include = include | PGPolyFlags.SPECIAL; }
+        // eAIBase's static default is updated only in its actor constructor.
+        // Cache policy must depend on loaded settings, never actor spawn order.
+        if (aiSettings.Vaulting) { include = include | PGPolyFlags.SPECIAL; }
         else { exclude = exclude | PGPolyFlags.SPECIAL; }
         m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
         // Native: 3_Game/AI/AIWorld.c:1-26 PGPolyFlags, :65 PGFilter.SetFlags. Walkable
@@ -1728,6 +1808,10 @@ class HCXAISiteDirector : Managed
     protected void Bind(HCXAISiteState state)
     {
         if (state.Bound || state.Failed) { return; }
+        if (!state.Transient) { m_CacheStates.Set(state.Site.Id, state); }
+        // Nearby locality maintenance can arrive before the supplement has
+        // settled. Do not freeze a fallback key before its road route is known.
+        if (!state.Transient && state.LocalityId != "" && !this.HCSurveyReady()) { return; }
         // Retain geometry and hash progress independently. The provider uses
         // static hash storage, so the adapter restores ambient state each call.
         if (state.HCBindHash)
@@ -1849,13 +1933,15 @@ class HCXAISiteDirector : Managed
         if (cached)
         {
             string cacheProblem;
-            if (!HCXAISiteRules.ReuseRoute(cached, state.Key, m_RouteValidity)) { cacheProblem = "validity_mismatch"; }
-            else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2)) { cacheProblem = "no_geometry"; }
+            string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity);
+            if (cacheField != "") { cacheProblem = "validity_mismatch"; }
+            else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2 || cached.Waypoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())) { cacheProblem = "no_geometry"; }
             if (cacheProblem == "")
             {
                 if (!cached.Qualified)
                 {
                     if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
+                    this.HCCacheVerdict(state.Site.Id, true);
                     state.Failed = true;
                     state.Reason = cached.Reason;
                     Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
@@ -1888,14 +1974,8 @@ class HCXAISiteDirector : Managed
                     return;
                 }
             }
-            if (!m_CacheReasons.Contains(cacheProblem))
-            {
-                m_CacheReasons.Set(cacheProblem, true);
-                Print("[HC Expansion AI] route cache discarded reason=" + cacheProblem);
-            }
-            m_Routes.Rows.RemoveItem(cached);
+            this.HCCacheDiscard(cached, cacheProblem, cacheField);
             state.HCCachedRoute = null;
-            this.SaveRoutes();
             return;
         }
         float radius = 12;
@@ -2234,7 +2314,7 @@ class HCXAISiteDirector : Managed
     protected void HCReusedRoute(HCXAISiteState state)
     {
         state.Cached = true;
-        if (m_PolicySiteIds.Contains(state.Site.Id) && !m_RouteResults.Contains(state.Site.Id)) { m_CacheHits++; }
+        this.HCCacheVerdict(state.Site.Id, true);
         HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_cache");
     }
     protected void Remember(HCXAIRouteRow row)
