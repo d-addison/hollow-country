@@ -37,6 +37,7 @@ CI_EXCLUSIONS = {
        for name in ('firearms', 'loot_point_preserve', 'snafu_optional',
                     'tactical_flava_optional', 'new_buildings', 'economy', 'ai_patrols')},
     'generated_digests.anims_config': 'requires the installed stock zombie addon',
+    'generated_digests.gui_icons': 'requires the Windows DayZ Tools ImageToPAA converter',
     **{'wiring_audit.' + name: reason for name, reason in OFFLINE_EXCLUSIONS.items()},
     'wiring_audit.external_classes': 'installed vanilla/Workshop class caches are absent; repository wiring still runs',
 }
@@ -55,6 +56,7 @@ CI_NOTICES = {
         r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|economy) stock mission cfgeconomycore\.xml unavailable$',
         r'^SKIP (?:loot_point_preserve|new_buildings|ai_patrols) stock mission mapgrouppos\.xml unavailable$',
         r'^SKIP anims_config stock zombie addon unavailable$',
+        r'^SKIP gui_icons ImageToPAA (?:converter|Windows interop) unavailable$',
     ),
     'wiring_audit': (
         *(r'^EXCLUDED ' + re.escape(name + ': ' + reason) + r'$'
