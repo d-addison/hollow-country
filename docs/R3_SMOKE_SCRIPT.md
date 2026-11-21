@@ -365,11 +365,14 @@ Each row points into the companion JSON for the full predicate, steps, timing an
 prerequisites. Check only after an observed positive counter in this candidate's
 logs; every checkbox below is deliberately unchecked.
 
-- [ ] `AIIncidents/response_started` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:519`.
+- [ ] `AIIncidents/response_started` — `admin_action` **implemented-unverified**, command `fx_incident`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:598`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Create a real recorded incident near a real eligible HC patrol through normal gameplay. Run fx_incident from the lead admin position. The nearest recorded incident and nearest eligible group are queued for at most 60 seconds; the normal role scheduler must pass its busy checks and revalidate perception, range, cooldown, cap and claim before HCStartLease. Require the real response_started line with fixture=1. Selection alone earns nothing.
 - [ ] `AIRoles/activity_started` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c:680`.
 - [ ] `AISelfDefence/hit_reaction` — `client_action`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c:310`.
-- [ ] `AITactics/tactic_chosen` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:553`.
-- [ ] `AITrade/trade_completed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCAITrade.c:529`.
+- [ ] `AITactics/tactic_chosen` — `admin_action` **implemented-unverified**, command `fx_tactic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:677`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Let an existing HC group perceive a real hostile threat or infected. Run fx_tactic; the nearest living owned member with real perception is prioritized for the next normal evaluation. Keep real stock, cooldown and policy guards. Require tactic_chosen with fixture=1 after a successful real throw or smoke drop; an inventory scan alone earns nothing.
+- [ ] `AITrade/trade_completed` — `admin_action` **implemented-unverified**, command `fx_trade`; `mods/HollowCountry/scripts/4_World/World/HCAITrade.c:535`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected.
 - [ ] `AdminMap/request` — `admin_action`; `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:648`.
 - [ ] `AdminMap/window_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c:484`.
 - [ ] `BodyStories/body_observed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c:245`.
@@ -403,7 +406,8 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.
 - [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c:123`.
 - [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520`.
-- [ ] `MaterializerBridge/party_materialized` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:76`.
+- [ ] `MaterializerBridge/party_materialized` — `admin_action` **implemented-unverified**, command `fx_materialize`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:99`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing.
 - [ ] `Melee/hit_processed` — `client_action`; `mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c:93`.
 - [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c:117`.
 - [ ] `Notes/note_read` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c:333`.
@@ -429,6 +433,8 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `WreckSalvage/part_created` — `client_action`; `mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:681`.
 - [ ] `ZoneGuards/guards_posted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:220`.
 - [ ] `optional-expansion-human-ai/actor_spawned` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c:568`.
-- [ ] `optional-expansion-human-ai/convoy_astar` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:43`.
-- [ ] `optional-expansion-human-ai/stuck_recovery` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:112`.
+- [ ] `optional-expansion-human-ai/convoy_astar` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:103`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. GAP: HCXConvoyRoute owns the A* outcome counter and log in an unowned file, so fixture=1 propagation for convoy_astar is not implemented. The unowned HCXAICaravanAdapter journey FIFO queue diagnostic also needs per-item fixture attribution. This entry remains unverified and cannot pass fixture acceptance until those hooks land. No sample or stuck outcome is forced.
+- [ ] `optional-expansion-human-ai/stuck_recovery` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:178`.
+  Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. It marks only the nearest eligible observer, preserving all samples, timestamps and ladder state. Allow normal motion observation and recovery (journey rung 3 still uses the FIFO). Require a real recovery_step and stuck_recovery with fixture=1. Moving normally may produce no recovery; do not teleport or fabricate a stuck sample.
 - [ ] `v2-expansion-living-world/actor_admitted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c:184`.

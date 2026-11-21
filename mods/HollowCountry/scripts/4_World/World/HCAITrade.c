@@ -147,6 +147,9 @@ class HCTradeReadiness
 
 class HCTradeState
 {
+    // Runtime attribution only; preserve the persisted trade state format.
+    [NonSerialized()]
+    bool Fixture;
     int Version = 1;
     string Id;
     string Phase = "idle";
@@ -526,7 +529,13 @@ class HCTradeTransaction
         {
             m_State.Phase = "rollback_pending";
             m_State.Transfer = "right_refused_before_mutation";
-            if (result == 2) { m_State.Phase = "complete"; m_State.Transfer = "reciprocal_confirmed"; HCModuleReadiness.HCUse("AITrade", "trade_completed"); }
+            if (result == 2)
+            {
+                m_State.Phase = "complete";
+                m_State.Transfer = "reciprocal_confirmed";
+                if (m_State.Fixture) { HCModuleReadiness.HCUseFixture("AITrade", "trade_completed"); }
+                else { HCModuleReadiness.HCUse("AITrade", "trade_completed"); }
+            }
         }
         if (step == "rollback")
         {
@@ -592,6 +601,7 @@ class HCTradeTransaction
         string line = "[HC Plan] HC-35 trade=" + id + " phase=" + m_State.Phase;
         line += " transfer=" + m_State.Transfer + " state=" + effective + " refusal=" + shown;
         line += " authored=1 count=" + bound + " observed_complete=" + observed;
+        if (m_State.Fixture) { line += " fixture=1"; }
         Print(line + " count_cap=1 runtime=PENDING");
     }
 

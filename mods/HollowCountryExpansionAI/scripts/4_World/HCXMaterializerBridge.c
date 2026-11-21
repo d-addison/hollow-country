@@ -17,6 +17,7 @@ class HCXMaterializerBridge : HCModule
     protected int m_Spawned;
     protected int m_Refused;
     protected int m_UnattributedSpawnCallbacks;
+    protected ref array<string> m_Fixtures = new array<string>();
     protected ref array<string> m_Started = new array<string>();
 
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -43,6 +44,7 @@ class HCXMaterializerBridge : HCModule
         m_Running = true;
         m_LogSeconds = 0;
         m_Started.Clear();
+        m_Fixtures.Clear();
         s_Instance = this;
     }
 
@@ -51,9 +53,28 @@ class HCXMaterializerBridge : HCModule
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         string reason = "site director unavailable";
         bool admitted = false;
+        // Retain before AdmitTransient: the director may callback synchronously.
+        if (proposal.Fixture)
+        {
+            // Expired core leases need no later attribution. This runs only
+            // for a new marked offer, never as an off-profile tick scan.
+            for (int stale = m_Fixtures.Count() - 1; stale >= 0; stale--)
+            {
+                if (!HCWorldMaterializer.HCIdentity(m_Fixtures[stale])) { m_Fixtures.RemoveOrdered(stale); }
+            }
+            if (m_Fixtures.Count() >= HCAIPartyCustody.MAX_ROWS)
+            {
+                m_Refused++;
+                Print("[HC Expansion AI] offer_refused reason=fixture-attribution-cap fixture=1");
+                HCWorldMaterializer.Result(proposal.Id, false, 0);
+                return;
+            }
+            if (m_Fixtures.Find(proposal.Id) < 0) { m_Fixtures.Insert(proposal.Id); }
+        }
         if (director) { admitted = director.AdmitTransient(proposal.Id, proposal.FactionId, proposal.Position, proposal.ActorCap, reason); }
         if (admitted) { return; }
         m_Refused++;
+        m_Fixtures.RemoveItem(proposal.Id);
         HCWorldMaterializer.Result(proposal.Id, false, 0);
     }
 
@@ -73,12 +94,19 @@ class HCXMaterializerBridge : HCModule
         if (s_Instance.m_Started.Find(proposalId) >= 0 || s_Instance.m_Started.Count() >= HCAIPartyCustody.MAX_ROWS) { return; }
         s_Instance.m_Started.Insert(proposalId);
         s_Instance.m_Spawned++;
-        HCModuleReadiness.HCUse("MaterializerBridge", "party_materialized");
+        if (s_Instance.m_Fixtures.Find(proposalId) >= 0)
+        {
+            HCModuleReadiness.HCUseFixture("MaterializerBridge", "party_materialized");
+            Print("[HC Expansion AI] party_materialized fixture=1");
+            s_Instance.m_Fixtures.RemoveItem(proposalId);
+        }
+        else { HCModuleReadiness.HCUse("MaterializerBridge", "party_materialized"); }
         HCReached.Mark("materializer_bridge.spawn");
     }
     static void SiteEnded(string proposalId, bool materialized, int survivors)
     {
         if (!materialized && s_Instance && s_Instance.m_Running) { s_Instance.m_Refused++; }
+        if (s_Instance) { s_Instance.m_Fixtures.RemoveItem(proposalId); }
         HCWorldMaterializer.Result(proposalId, materialized, survivors);
     }
 
@@ -89,6 +117,7 @@ class HCXMaterializerBridge : HCModule
 
     static void SiteEndedTyped(HCAIPartyResult result)
     {
+        if (s_Instance && result) { s_Instance.m_Fixtures.RemoveItem(result.HCLeaseId()); }
         HCWorldMaterializer.HCTypedResult(result);
     }
 
@@ -110,6 +139,7 @@ class HCXMaterializerBridge : HCModule
     override void OnStop()
     {
         m_Running = false;
+        m_Fixtures.Clear();
         if (s_Instance == this) { s_Instance = null; }
     }
 }
