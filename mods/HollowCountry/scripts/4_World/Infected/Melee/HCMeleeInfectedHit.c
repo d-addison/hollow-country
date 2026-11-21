@@ -18,10 +18,13 @@ modded class ZombieBase
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
         // Keep super on nested HC hits: native crawl/death selection must still run.
-        if (!HCMeleeModule.Active() || damageType != DT_CLOSE_COMBAT || HCMeleeAmmo.IsHC(ammo) || !IsAlive())
+        if (!HCMeleeModule.Active() || damageType != DT_CLOSE_COMBAT || HCMeleeAmmo.IsHC(ammo))
             return;
 
         PlayerBase attacker = HCMeleeTarget.Attacker(source);
+        // Include lethal original hits; the probe never applies or refuses damage.
+        HCMeleeTargetingParity.Observe(attacker, this, dmgZone, modelPos);
+        if (!IsAlive()) { return; }
         string implausible = HCMeleeTarget.ImplausibleReason(attacker, this, dmgZone, modelPos);
         if (implausible != "")
         {
