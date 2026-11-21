@@ -27,6 +27,11 @@ class HCInteriorPathgraph
         s_Marked += region.Marked;
         s_Skipped += region.SkippedNoGeom;
         if (!region.HasBounds) { return 0; }
+        if (!HCPathgraphRefresh.Hold(region))
+        {
+            HCInteriorTemplatePlacement.HCTimedPathgraph(region);
+            return 1;
+        }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, 100, false, region);
         return 1;
     }

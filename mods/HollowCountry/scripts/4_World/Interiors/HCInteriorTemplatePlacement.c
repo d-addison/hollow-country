@@ -89,6 +89,7 @@ class HCInteriorTemplatePlacement
         if (!GetGame() || !region) { return; }
         int mark = TickCount(0);
         region.Update();
+        HCPathgraphRefresh.Release(region);
         HCInteriorPathgraph.Applied();
         HCSteps().HCDeferred(TickCount(mark));
     }

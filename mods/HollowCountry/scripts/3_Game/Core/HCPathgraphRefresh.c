@@ -8,6 +8,25 @@ class HCPathgraphRefresh
     int Marked;
     int SkippedNoGeom;
 
+    // CallLater parameters are not documented as owning references, so a
+    // queued region is held here until its deferred update ran (bounded).
+    static const int MAX_PENDING = 64;
+    protected static ref array<ref HCPathgraphRefresh> s_Pending = new array<ref HCPathgraphRefresh>;
+
+    // False when the pending cap is reached; the caller then updates at once.
+    static bool Hold(HCPathgraphRefresh region)
+    {
+        if (!region || s_Pending.Count() >= MAX_PENDING) { return false; }
+        s_Pending.Insert(region);
+        return true;
+    }
+
+    static void Release(HCPathgraphRefresh region)
+    {
+        int index = s_Pending.Find(region);
+        if (index >= 0) { s_Pending.Remove(index); }
+    }
+
     static bool Prepare(Object object)
     {
         if (!object) { return false; }

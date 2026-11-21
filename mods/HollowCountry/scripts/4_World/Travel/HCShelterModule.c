@@ -63,6 +63,11 @@ class HCShelterModule : HCModule
         m_PathgraphMarked += region.Marked;
         m_PathgraphSkipped += region.SkippedNoGeom;
         if (!region.HasBounds) { return; }
+        if (!HCPathgraphRefresh.Hold(region))
+        {
+            HCApplyPathgraph(region);
+            return;
+        }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyPathgraph, 100, false, region);
     }
 
@@ -70,6 +75,7 @@ class HCShelterModule : HCModule
     {
         if (!GetGame() || !region) { return; }
         region.Update();
+        HCPathgraphRefresh.Release(region);
         m_PathgraphRegions++;
         HCModuleReadiness.HCUse("Shelters", "pathgraph_refresh");
     }
