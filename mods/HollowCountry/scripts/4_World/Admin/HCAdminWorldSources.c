@@ -103,7 +103,9 @@ modded class HCNativeInfectedPack
             living++;
         }
         if (living == 0) { return false; }
-        position = position / living;
+        // Enforce refuses vector / int; scale by a float reciprocal.
+        float share = 1.0 / living;
+        position = position * share;
         return true;
     }
 }

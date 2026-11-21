@@ -79,7 +79,9 @@ modded class HCAdminModule
         HCAdminWorldPeer peer;
         for (int index = 0; index < m_WorldPeers.Count(); index++)
         {
-            if (m_WorldPeers[index].Identity.GetPlainId() == sender.GetPlainId()) { peer = m_WorldPeers[index]; break; }
+            // A disconnected peer keeps a null identity until it expires.
+            PlayerIdentity known = m_WorldPeers[index].Identity;
+            if (known && known.GetPlainId() == sender.GetPlainId()) { peer = m_WorldPeers[index]; break; }
         }
         float now = GetGame().GetTickTime();
         HCAdminWorldRequest request;
@@ -344,7 +346,10 @@ modded class HCAdminModule
         // Per-visit measured cost; high-resolution units use the shared perf rate.
         int cost = TickCount(start);
         if (m_WorldPeer) { m_WorldCost += cost; }
-        Print("[HC Admin] map_refresh stage=" + m_WorldStage.ToString() + " ms=" + HCWorkBudget.HCAdminMilliseconds(cost).ToString() + " ticks=" + cost.ToString());
+        // Per-visit cost prints only when a visit exceeds the shared slice; the
+        // totals live in map_snapshot. A 100 ms pulse must not spam the RPT.
+        float visitMs = HCWorkBudget.HCAdminMilliseconds(cost);
+        if (visitMs > HCPerfConfig.HCGet().SliceMs) { Print("[HC Admin] map_refresh stage=" + m_WorldStage.ToString() + " ms=" + visitMs.ToString() + " ticks=" + cost.ToString() + " over_slice=1"); }
     }
 
     protected void HCWorldCancelLoot(HCAdminWorldPeer peer)

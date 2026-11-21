@@ -192,7 +192,8 @@ class HCAdminWorldClient
             HCAdminMark mark = reply.Marks[index];
             if (!mark || mark.Layer.Length() > 48 || mark.Label.Length() > 128 || mark.Detail.Length() > 256 || !HCDebugSnapshot.HCPositionValid(mark.Position)) { return; }
         }
-        m_Incoming.InsertAll(reply.Marks);
+        // InsertAll refuses array<ref T> into array<ref T> here; copy row by row (<=64).
+        for (int copy = 0; copy < reply.Marks.Count(); copy++) { m_Incoming.Insert(reply.Marks[copy]); }
         m_Chunk++;
         Authorized = true;
         m_ReplyAt = GetGame().GetTickTime();

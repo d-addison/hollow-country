@@ -3,7 +3,8 @@
 // Native scripts-1.30.164289: 3_Game/Vehicles/Transport.c:66-68,135;
 // Entities/EntityAI.c:905 EEInit; Object.c:287/467/1219 position/type/ruined;
 // Vehicles/Car.c:230, Boat.c:95, Motorbike.c:163 EngineIsOn.
-// EEInit/EEDelete hooks retain <=2048 vehicles and <=256 event entities.
+// EEInit/EEDelete hooks (4_World Admin/HCAdminVehicleHooks.c; the engine
+// refuses 'modded class Transport') retain <=2048 vehicles and <=256 event entities.
 // No polling when no admin map is subscribed. Overflow is shown in map details.
 class HCAdminVehicleRegistry
 {
@@ -42,18 +43,5 @@ class HCAdminVehicleRegistry
         else if (boat) { detail = "engine=" + boat.EngineIsOn().ToString(); }
         else if (bike) { detail = "engine=" + bike.EngineIsOn().ToString(); }
         return detail + "; ruined=" + vehicle.IsRuined().ToString() + "; registry_overflow=" + Overflow.ToString();
-    }
-}
-modded class Transport
-{
-    override void EEInit()
-    {
-        super.EEInit();
-        HCAdminVehicleRegistry.Add(this);
-    }
-    override void EEDelete(EntityAI parent)
-    {
-        HCAdminVehicleRegistry.Remove(this);
-        super.EEDelete(parent);
     }
 }
