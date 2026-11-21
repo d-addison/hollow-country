@@ -126,6 +126,9 @@ class NativeSteps:
         manifest = json.loads((self.args.bundle / 'BUILD_MANIFEST.json').read_text())
         if manifest.get('commit') != self.args.commit:
             raise Refused('bundle manifest commit mismatch')
+        digests = manifest.get('generated_digests')
+        if not isinstance(digests, dict) or digests.get('strict') is not True or digests.get('waived_unavailable'):
+            raise Refused('bundle was not built with strict generated-artefact digests (local test waivers)')
 
     def install(self, bundle):
         if winproc.process_state('DayZServer_x64.exe') != 'gone':

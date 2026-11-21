@@ -148,6 +148,9 @@ def main(argv=None):
     parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1')
     parser.add_argument('--workshop-content', default=r'G:\SteamLibrary\steamapps\workshop\content\221100')
     parser.add_argument('--build-only', action='store_true')
+    parser.add_argument('--local-test-waivers', action='store_true',
+                        help='local test build: list generated artefacts whose installed inputs are '
+                             'unavailable here as BUILD_MANIFEST waivers; the release gate refuses them')
     args = parser.parse_args(argv)
     try:
         from tools.release.host_lock import host_lock

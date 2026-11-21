@@ -394,18 +394,34 @@ def verify_record(contract, recorded, values):
         raise ValueError('installed input identity differs')
 
 
-def verify_release(tree, addons, workshop):
-    """Run the pinned checker before any release-tree injection or packaging."""
-    result = subprocess.run([sys.executable, '-B', '-m', 'tools.package.generated_digests',
-                             '--check', '--require-installed', '--addons', str(addons),
-                             '--workshop', str(workshop)], cwd=tree, capture_output=True,
-                            text=True, timeout=1800)
+def verify_release(tree, addons, workshop, waive_unavailable=False):
+    """Run the pinned checker before any release-tree injection or packaging.
+
+    Strict by default. waive_unavailable is for local test builds only: an
+    artefact whose installed inputs are absent on this host (checker SKIP) is
+    returned as a named waiver instead of refusing. FAIL (missing/pending
+    receipt, changed inputs, stale outputs) still refuses. Callers record the
+    waivers in BUILD_MANIFEST; the release gate refuses any bundle carrying them.
+    """
+    argv = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--check',
+            '--addons', str(addons), '--workshop', str(workshop)]
+    if not waive_unavailable:
+        argv.insert(5, '--require-installed')
+    result = subprocess.run(argv, cwd=tree, capture_output=True, text=True, timeout=1800)
+    waived = []
     for line in result.stdout.splitlines():
         safe = filtered(line)
         if safe:
             print(safe[:400], flush=True)
+        parts = line.split(' ', 2)
+        if waive_unavailable and len(parts) >= 2 and parts[0] == 'SKIP':
+            waived.append({'artefact': parts[1], 'reason': filtered(parts[2])[:200] if len(parts) > 2 else ''})
     if result.returncode:
         raise ValueError('generated artefact digest verification refused release')
+    for item in waived:
+        print('WAIVER generated_digests ' + item['artefact'] + ' installed input unavailable (local test build only)',
+              flush=True)
+    return {'strict': not waive_unavailable, 'waived_unavailable': waived}
 
 
 def main(argv=None):

@@ -156,6 +156,21 @@ class DigestTests(unittest.TestCase):
         self.assertIn('--require-installed', command)
         self.assertEqual(self.root, run.call_args.kwargs['cwd'])
 
+    def test_local_test_waivers_list_skips_but_still_refuse_failures(self):
+        skipped = subprocess.CompletedProcess([], 0, 'PASS a ok\nSKIP b reader unavailable\n', '')
+        with patch.object(digests.subprocess, 'run', return_value=skipped) as run, contextlib.redirect_stdout(io.StringIO()):
+            result = digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop', waive_unavailable=True)
+        self.assertNotIn('--require-installed', run.call_args.args[0])
+        self.assertEqual({'strict': False, 'waived_unavailable': [{'artefact': 'b', 'reason': 'reader unavailable'}]}, result)
+        failed = subprocess.CompletedProcess([], 1, 'FAIL a stale\nSKIP b reader unavailable\n', '')
+        with patch.object(digests.subprocess, 'run', return_value=failed), contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(ValueError):
+                digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop', waive_unavailable=True)
+        strict = subprocess.CompletedProcess([], 0, 'PASS a ok\n', '')
+        with patch.object(digests.subprocess, 'run', return_value=strict), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual({'strict': True, 'waived_unavailable': []},
+                             digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop'))
+
 
 if __name__ == '__main__':
     unittest.main()

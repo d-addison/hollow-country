@@ -190,7 +190,8 @@ def build(args):
         raise ValueError('Release output must be outside the source/build worktree')
     with worktree(sha, args.build) as tree, tempfile.TemporaryDirectory(prefix='hc-release-') as temp:
         from tools.package.generated_digests import verify_release
-        verify_release(tree, args.addons.absolute(), Path(getattr(args, 'workshop', WORKSHOP)).absolute())
+        digests = verify_release(tree, args.addons.absolute(), Path(getattr(args, 'workshop', WORKSHOP)).absolute(),
+                                 waive_unavailable=bool(getattr(args, 'local_test_waivers', False)))
         scratch = Path(temp)
         target = tree / 'mods/HollowCountry/data/defaults/templates'
         backup = scratch / 'original-templates'
@@ -298,7 +299,8 @@ def build(args):
                          for p in sorted(stage.rglob('*.pbo')) if p.is_file()},
                 'weapon_pack_guards': guard_receipt,
                 'templates': templates, 'attachment_scale': attachment_scale, 'source_json': sources,
-                'signatures_verified': True, 'compile_gate': gate_result, 'runtime_acceptance': 'pending'}
+                'signatures_verified': True, 'compile_gate': gate_result, 'runtime_acceptance': 'pending',
+                'generated_digests': digests}
             (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(stage, out)

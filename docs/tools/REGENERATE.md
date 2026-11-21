@@ -112,6 +112,14 @@ It prints the refusing artefact names. Missing receipts, pending receipts,
 changed inputs/sources/outputs and unavailable installed inputs all refuse release.
 No boot or native tools run as part of this check.
 
+Local test builds may pass `friendcycle --local-test-waivers`. Then an artefact
+whose installed inputs are absent on this host (a checker SKIP, e.g. no pinned
+geometry reader) is printed as `WAIVER generated_digests <name>` and recorded under
+`generated_digests.waived_unavailable` in BUILD_MANIFEST.json instead of refusing.
+Missing or pending receipts, changed inputs and stale outputs still refuse. A
+waiver is a listed gap, never a pass: `release_gate` refuses any bundle whose
+manifest is not `generated_digests.strict: true` with no waivers.
+
 For release inputs whose locations are not release-builder options, set
 `HC_GENERATED_SOURCE`, `HC_GENERATED_READER`, `HC_GENERATED_SNAFU_REPORT`,
 `HC_GENERATED_TACTICAL_FLAVA_REPORT`, and `HC_GENERATED_IMAGE_TO_PAA` as needed.

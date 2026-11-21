@@ -54,6 +54,14 @@ class ReleaseGateTests(unittest.TestCase):
             with self.assertRaisesRegex(gate.Refused, 'commit mismatch'):
                 steps.manifest()
             manifest.write_text(json.dumps({'commit': 'a' * 40}))
+            with self.assertRaisesRegex(gate.Refused, 'strict generated-artefact'):
+                steps.manifest()
+            waived = {'strict': False, 'waived_unavailable': [{'artefact': 'x', 'reason': 'unavailable'}]}
+            manifest.write_text(json.dumps({'commit': 'a' * 40, 'generated_digests': waived}))
+            with self.assertRaisesRegex(gate.Refused, 'strict generated-artefact'):
+                steps.manifest()
+            strict = {'strict': True, 'waived_unavailable': []}
+            manifest.write_text(json.dumps({'commit': 'a' * 40, 'generated_digests': strict}))
             steps.manifest()
 
     def test_compile_requires_exact_status(self):
