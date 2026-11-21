@@ -429,6 +429,10 @@ class HCXAIRouteSave : HCSaveJob
 }
 class HCXAISiteDirector : Managed
 {
+    protected string m_SpawnLogLine;
+    protected float m_SpawnLogAt;
+    protected string m_SitesLogLine;
+    protected float m_SitesLogAt;
     static const string POLICY = "$profile:HollowCountry/expansion-ai-sites.json";
     static const string ROUTES = "$profile:HollowCountry/expansion-ai-routes.json";
     static const string CACHES = "$profile:HollowCountry/expansion-ai-caches.json";
@@ -1291,6 +1295,10 @@ class HCXAISiteDirector : Managed
 
     void Start()
     {
+        m_SitesLogLine = "";
+        m_SitesLogAt = 0;
+        m_SpawnLogLine = "";
+        m_SpawnLogAt = 0;
         if (!GetGame() || !GetGame().IsServer()) { return; }
         s_Active = this;
         HCXAIStore.HCPrimeJournal();
@@ -2201,7 +2209,15 @@ class HCXAISiteDirector : Managed
         }
         int pending = m_Policy.Sites.Count() - m_QualifiedCount - m_RefusedCount;
         string summary = "[HC Expansion AI] sites summary: qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " pending=" + pending.ToString();
-        Print("[HC Expansion AI] spawn summary admitted=" + m_AdmittedTotal.ToString() + " spawned=" + m_SpawnedTotal.ToString() + " relocated=" + m_RelocatedTotal.ToString() + " runtime=PENDING");
+        string spawnStatusLine = "[HC Expansion AI] spawn summary admitted=" + m_AdmittedTotal.ToString() + " spawned=" + m_SpawnedTotal.ToString() + " relocated=" + m_RelocatedTotal.ToString() + " runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float spawnStatusLineNow = GetGame().GetTickTime();
+        if (spawnStatusLine != m_SpawnLogLine || spawnStatusLineNow < m_SpawnLogAt || spawnStatusLineNow - m_SpawnLogAt >= 1800)
+        {
+            Print("" + spawnStatusLine);
+            m_SpawnLogLine = spawnStatusLine;
+            m_SpawnLogAt = spawnStatusLineNow;
+        }
         string refusals = "[HC Expansion AI] spawn refusals";
         for (int refusalIndex = 0; refusalIndex < m_SpawnRefusals.Count(); refusalIndex++)
         {
@@ -2221,7 +2237,15 @@ class HCXAISiteDirector : Managed
         m_LastSummaryMs = nowMs;
         m_LastSummaryQualified = m_QualifiedCount;
         summary += " qualified_per_s=" + qualifiedRate.ToString() + " survey_cursor=" + m_SurveyCursor.ToString();
-        Print(summary + " active_sites=" + sites.ToString() + " actors=" + actors.ToString() + " controllers=" + m_States.Count().ToString() + " runtime=PENDING");
+        string sitesStatusLine = summary + " active_sites=" + sites.ToString() + " actors=" + actors.ToString() + " controllers=" + m_States.Count().ToString() + " runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float sitesStatusLineNow = GetGame().GetTickTime();
+        if (sitesStatusLine != m_SitesLogLine || sitesStatusLineNow < m_SitesLogAt || sitesStatusLineNow - m_SitesLogAt >= 1800)
+        {
+            Print("" + sitesStatusLine);
+            m_SitesLogLine = sitesStatusLine;
+            m_SitesLogAt = sitesStatusLineNow;
+        }
     }
     // Diagnostic only (marker off by default): the first created site of each
     // kind spawns once with no player so Wine runs can observe loadouts.

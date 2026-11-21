@@ -31,6 +31,8 @@
 // Interiors: these V2 scenes follow EnableTravel and only LOG native verdicts.
 class HCShelterModule : HCModule
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected bool m_Started;
     protected bool m_CandidateSurveyReported;
     protected int m_RegionalCursor;
@@ -95,6 +97,8 @@ class HCShelterModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer() || !IsEnabled(settings) || m_Started) return;
+        m_StatusLogLine = "";
+        m_StatusLogAt = 0;
         m_Started = true;
         Print(HCV2Admission.Line("Shelters", true, "EXP-T5", HCV2Gates.Qualified("EXP-T5")));
         string worldName = GetGame().GetWorldName();
@@ -763,7 +767,15 @@ class HCShelterModule : HCModule
         }
         string line = "[HC Shelters] regional_summary placed=" + m_RegionalPlaced.ToString() + " refused=" + m_RegionalFailed.ToString() + " pending=" + m_RegionalRemaining.ToString();
         line += " layouts_per_site=" + HC_REGIONAL_LAYOUTS.ToString() + " refused_by_reason=" + refusedReasons + " candidate_refused_by_reason=" + candidateReasons;
-        Print(line + " runtime=PENDING");
+        string statusLine = line + " runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
     }
 
     protected void HCRegionalRefuse(HCShelterEntry entry, string reason)

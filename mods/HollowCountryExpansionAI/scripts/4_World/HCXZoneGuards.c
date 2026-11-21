@@ -38,6 +38,8 @@ class HCXZoneGuardsDebug : HCDebugContributor
 }
 class HCXZoneGuards : HCModule
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected static HCXZoneGuards s_Active;
     protected ref HCXZoneGuardsConfig m_Config;
     protected ref HCXZoneGuardsJournal m_Data;
@@ -124,6 +126,8 @@ class HCXZoneGuards : HCModule
     }
     override void OnStart(HCSettings settings)
     {
+        m_StatusLogLine = "";
+        m_StatusLogAt = 0;
         if (!m_Config) { m_Refusal = "zone_settings_invalid"; return; }
         if (!HCBuildIdentity.SameWorld("chernarusplus", GetGame().GetWorldName())) { m_Refusal = "zone_world_mismatch"; return; }
         HCXZoneGuardsCatalog catalog = LoadCatalog();
@@ -236,7 +240,15 @@ class HCXZoneGuards : HCModule
         line += " sites_owned=" + ownedSites.ToString() + " sites_held=" + held.ToString() + " sites_released=" + released.ToString();
         line += " sites_sampled=" + sampled.ToString() + " zg_sites_created=" + created.ToString() + " actors_spawned=" + m_ActorsSpawned.ToString();
         line += " last_day=" + m_Data.LastDay.ToString() + " runtime=PENDING";
-        Print("" + line);
+        string statusLine = "" + line;
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
     }
     bool Held(string id)
     {

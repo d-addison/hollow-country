@@ -54,6 +54,8 @@ class HCPerfSampler
     protected ref array<int> m_CostMaxTicks = new array<int>();
     // Scratch flags for the top-N selection; one per module slot, refilled at each emission.
     protected ref array<int> m_CostPicked = new array<int>();
+    protected ref array<string> m_CostLogLines = new array<string>();
+    protected ref array<float> m_CostLogTimes = new array<float>();
     protected float m_TicksPerMs;
     protected int m_EcologyIndex = -1;
     protected ref array<Man> m_Players = new array<Man>();
@@ -62,6 +64,8 @@ class HCPerfSampler
     {
         m_CostMaxTicks.Reserve(HC_PERF_MAX_MODULES * 4);
         m_CostPicked.Reserve(HC_PERF_MAX_MODULES);
+        m_CostLogLines.Reserve(HC_PERF_MAX_MODULES);
+        m_CostLogTimes.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleNames.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleMaxTicks.Reserve(HC_PERF_MAX_MODULES);
         m_SortedModuleNames.Reserve(HC_PERF_MAX_MODULES);
@@ -81,6 +85,8 @@ class HCPerfSampler
         if (m_WindowSeconds > HC_PERF_MAX_WINDOW_SECONDS) m_WindowSeconds = HC_PERF_MAX_WINDOW_SECONDS;
         m_WindowIndex = 0;
         m_CostMaxTicks.Clear();
+        m_CostLogLines.Clear();
+        m_CostLogTimes.Clear();
         m_TicksPerMs = 0;
         HCWorkBudget.HCSetTicksPerMs(0);
         HCRefreshEcologyCalibration();
@@ -99,6 +105,8 @@ class HCPerfSampler
         if (!m_Active || m_ModuleNames.Count() >= HC_PERF_MAX_MODULES) return;
         if (name == "Ecology") m_EcologyIndex = m_ModuleNames.Count();
         m_ModuleNames.Insert(name);
+        m_CostLogLines.Insert("");
+        m_CostLogTimes.Insert(0);
         m_ModuleMaxTicks.Insert(0);
         m_CostMaxTicks.Insert(-1);
         m_CostMaxTicks.Insert(-1);
@@ -292,7 +300,15 @@ class HCPerfSampler
             cost = cost + " admission_ticks=" + admissionTicks.ToString();
             cost = cost + " calibration=invalid reason=invalid_calibration";
         }
-        Print("" + cost + "; runtime=PENDING");
+        cost = cost + "; runtime=PENDING";
+        float costNow = GetGame().GetTickTime();
+        float costAt = m_CostLogTimes.Get(costIndex);
+        if (cost != m_CostLogLines.Get(costIndex) || costNow < costAt || costNow - costAt >= 1800)
+        {
+            Print("" + cost);
+            m_CostLogLines.Set(costIndex, cost);
+            m_CostLogTimes.Set(costIndex, costNow);
+        }
     }
 
     // elapsedSeconds: wall time since the previous HC tick. workTicks: TickCount(start) around the module loop.
