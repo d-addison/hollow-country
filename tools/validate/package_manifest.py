@@ -16,7 +16,7 @@ from collections import namedtuple
 from pathlib import Path
 import re
 
-from tools.package import pbo, workshop_publish
+from tools.package import pbo, weapon_pack_guards, workshop_publish
 
 KINDS = {'base': 'base', 'expansionai': 'addon'}  # CLI kind -> workshop_publish item
 Finding = namedtuple('Finding', 'code detail')
@@ -31,7 +31,9 @@ def expected_spec(kind):
     item = KINDS[kind]
     entry = workshop_publish.item_spec(item)
     names = (entry['pbo'],) + tuple(entry['extra_pbos'])
-    by_name = {prefix.lower() + '.pbo': prefix for prefix in pbo.PREFIXES}
+    # The guard PBO's file name is not its lowercased prefix; the guard packer owns it.
+    by_name = {(weapon_pack_guards.PBO_NAME if prefix == pbo.GUARD_PREFIX else prefix.lower() + '.pbo'): prefix
+               for prefix in pbo.PREFIXES}
     unknown = [n for n in names if n not in by_name]
     if unknown:
         raise ValueError('publish tool names a PBO without a packaging prefix: %s' % ', '.join(unknown))

@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.package import pbo, workshop_publish
+from tools.package import pbo, weapon_pack_guards, workshop_publish
 from tools.validate import package_manifest as pm
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -70,7 +70,7 @@ class ExpectedSpec(Case):
     def test_expansionai_expects_its_own_pbo_and_id(self):
         spec = pm.expected_spec('expansionai')
         self.assertEqual(spec['published_id'], ADDON_ID)
-        self.assertEqual(spec['pbos'], ('hollowcountryexpansionai.pbo',))
+        self.assertEqual(spec['pbos'][0], 'hollowcountryexpansionai.pbo')
 
     def test_expected_names_track_the_publish_tool_not_a_private_list(self):
         for kind, item in (('base', 'base'), ('expansionai', 'addon')):
@@ -82,6 +82,10 @@ class ExpectedSpec(Case):
         for kind in ('base', 'expansionai'):
             for name, prefix in pm.expected_spec(kind)['prefixes'].items():
                 self.assertIn(prefix, pbo.PREFIXES)
+                if prefix == pbo.GUARD_PREFIX:
+                    # Generated at package time from Workshop configs; no source folder.
+                    self.assertEqual(weapon_pack_guards.PBO_NAME, name)
+                    continue
                 self.assertEqual(prefix.lower() + '.pbo', name)
                 self.assertTrue((ROOT / 'mods' / prefix).is_dir())
 
@@ -209,6 +213,10 @@ class RealUnsignedPbos(Case):
         for name, prefix in spec['prefixes'].items():
             if name == self.NOT_BUILDABLE:
                 (mod / 'addons' / name).write_bytes(b'synthetic stand-in for the DayZ Tools anims PBO')
+                continue
+            if prefix == pbo.GUARD_PREFIX:
+                # weapon_pack_guards builds this one from installed Workshop configs.
+                (mod / 'addons' / name).write_bytes(b'synthetic stand-in for the generated guard PBO')
                 continue
             files = pbo.collect_addon(ROOT / 'mods' / prefix, prefix)
             (mod / 'addons' / name).write_bytes(pbo.pack(files, prefix))
