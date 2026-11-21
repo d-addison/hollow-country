@@ -143,7 +143,7 @@ class HCInfectedVarietyRoutes
         return fallback;
     }
 
-    static void HCStep(float now)
+    static void HCStep(float now, HCWorkBudget workBudget)
     {
         if (!s_Config || !s_Config.EnableMigration || !HCInfectedVarietyModule.VarietyActive()) { return; }
         if (s_Routes && !s_Routes.Enabled) { return; }
@@ -153,16 +153,26 @@ class HCInfectedVarietyRoutes
             // Safety release (expiry, wake, combat, ownership, sight) never waits
             // for budget; only segment advancement and native upkeep are funded.
             bool keep;
-            if (HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { keep = s_Pack.Tick(now); }
+            if (workBudget.HCContinue() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { keep = s_Pack.Tick(now); }
             else { keep = s_Pack.HCMaintain(now); }
             if (!keep) { HCClearRoster(); s_Pack = null; }
             return;
         }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { return; }
+        if (!workBudget.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { return; }
         s_NextScan = now + s_Config.MigrationScanSeconds;
-        array<HCInfectedActor> roster = HCInfectedModule.Instance.HCVarietyRouteRoster();
-        if (!roster || roster.Count() < 1) { return; }
+        array<HCInfectedActor> roster = HCInfectedModule.Instance.HCVarietyRouteRoster(workBudget);
+        if (!roster || roster.Count() < 1)
+        {
+            if (HCInfectedModule.Instance.HCVarietyRouteScanning()) { s_NextScan = now; }
+            return;
+        }
+        if (!roster[0]) { return; }
         ZombieBase leader = roster[0].InfectedEntity;
+        if (!leader || !leader.IsAlive()) { return; }
+        foreach (HCInfectedActor current : roster)
+        {
+            if (!HCInfectedModule.Instance.HCVarietyRouteEligible(current, leader.HCVarietyPlace())) { return; }
+        }
         HCHordeRouteSurvey route = HCSelect(leader.GetPosition());
         if (!route) { route = HCFallback(leader.GetPosition()); }
         if (!route)
@@ -174,9 +184,10 @@ class HCInfectedVarietyRoutes
         array<Man> players = HCPerfPlayers.HCGet();
         foreach (HCInfectedActor actor : roster)
         {
-            if (!HCInfectedVariety.HCHidden(actor.InfectedEntity.GetPosition(), players)) { return; }
+            if (!workBudget.HCContinue() || !HCInfectedVariety.HCHidden(actor.InfectedEntity.GetPosition(), players)) { return; }
         }
-        if (!HCInfectedVariety.HCHidden(route.Nodes[0], players)) { return; }
+        if (!workBudget.HCContinue() || !HCInfectedVariety.HCHidden(route.Nodes[0], players)) { return; }
+        if (!workBudget.HCContinue()) { return; }
         HCInfectedVarietyRoutePack pack = new HCInfectedVarietyRoutePack;
         HCHordeRouteDefaults nativeDefaults = new HCHordeRouteDefaults;
         if (s_Routes) { nativeDefaults = s_Routes.Defaults; }
@@ -291,8 +302,36 @@ modded class ZombieBase
 modded class HCInfectedModule
 {
     protected int m_HCVarietyRouteCursor;
+    protected int m_HCVarietyRouteScan;
+    protected int m_HCVarietyRouteSize;
+    protected string m_HCVarietyRoutePlace;
+    protected ref array<HCInfectedActor> m_HCVarietyRoutePending = new array<HCInfectedActor>;
 
-    array<HCInfectedActor> HCVarietyRouteRoster()
+    bool HCVarietyRouteScanning() { return m_HCVarietyRoutePlace != ""; }
+
+    void HCVarietyRouteReset()
+    {
+        m_HCVarietyRoutePlace = "";
+        m_HCVarietyRouteScan = 0;
+        m_HCVarietyRoutePending.Clear();
+    }
+
+    bool HCVarietyRouteEligible(HCInfectedActor actor, string place)
+    {
+        if (!actor || m_Actors.Find(actor) < 0) { return false; }
+        ZombieBase body = actor.InfectedEntity;
+        if (!body || !body.IsAlive() || !body.HCVarietyTriedDormant() || body.HCVarietyRouteTried()) { return false; }
+        if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || body.HCVarietyPlace() != place) { return false; }
+        return !body.HCVarietyDormant() && body.GetMindStateSynced() == DayZInfectedConstants.MINDSTATE_CALM;
+    }
+
+    override void HCVarietyReleaseAll()
+    {
+        HCVarietyRouteReset();
+        super.HCVarietyReleaseAll();
+    }
+
+    array<HCInfectedActor> HCVarietyRouteRoster(HCWorkBudget workBudget)
     {
         if (!m_Healthy || !m_Config) { return null; }
         HCInfectedVarietyConfig variety = HCInfectedVariety.HCConfig();
@@ -301,40 +340,52 @@ modded class HCInfectedModule
         int count = actors.Count();
         // MaxTracked is the existing validated actor cap. Never truncate a
         // place roster if the owner has somehow exceeded that cap.
-        if (count < 1 || count > m_Config.MaxTracked) { return null; }
-        array<Man> players = HCPerfPlayers.HCGet();
-        map<string, bool> visited = new map<string, bool>;
-        // At most MaxTracked candidates and MaxTracked members per place.
-        // Advance before testing so blocked places cannot pin the next scan.
-        for (int scan = 0; scan < count; scan++)
+        if (count < 1 || count > m_Config.MaxTracked) { HCVarietyRouteReset(); return null; }
+        // A place roster resumes across ticks; no partially scanned roster is
+        // published. Retain weak actor handles and recheck eligibility at commit.
+        if (m_HCVarietyRouteSize != count) { HCVarietyRouteReset(); }
+        m_HCVarietyRouteSize = count;
+        if (m_HCVarietyRoutePlace == "")
         {
-            m_HCVarietyRouteCursor = m_HCVarietyRouteCursor % count;
-            HCInfectedActor candidate = actors[m_HCVarietyRouteCursor];
-            m_HCVarietyRouteCursor = (m_HCVarietyRouteCursor + 1) % count;
-            if (!candidate) { continue; }
-            ZombieBase candidateBody = candidate.InfectedEntity;
-            if (!candidateBody || !candidateBody.IsAlive() || !candidateBody.HCVarietyTriedDormant() || candidateBody.HCVarietyRouteTried()) { continue; }
-            if (candidate.GroupId != 0 || candidate.SearchPack || candidate.EverAssigned) { continue; }
-            string place = candidateBody.HCVarietyPlace();
-            if (place == "" || visited.Contains(place)) { continue; }
-            visited.Insert(place, true);
-            array<HCInfectedActor> roster = new array<HCInfectedActor>;
-            bool blocked = false;
-            foreach (HCInfectedActor actor : actors)
+            int checked = 0;
+            while (checked < count && checked < 32 && workBudget.HCContinue())
             {
-                if (!actor) { continue; }
-                ZombieBase body = actor.InfectedEntity;
-                if (!body || !body.IsAlive() || !body.HCVarietyTriedDormant() || body.HCVarietyRouteTried()) { continue; }
-                if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || body.HCVarietyPlace() != place) { continue; }
-                // Wait for the whole capped place group, without starving
-                // awake hidden groups elsewhere. Existing native owners win.
-                if (body.HCVarietyDormant() || body.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { blocked = true; break; }
-                if (!HCInfectedVariety.HCHidden(body.GetPosition(), players)) { blocked = true; break; }
-                if (roster.Count() >= variety.GroupMembers) { blocked = true; break; }
-                roster.Insert(actor);
+                m_HCVarietyRouteCursor = m_HCVarietyRouteCursor % count;
+                HCInfectedActor candidate = actors[m_HCVarietyRouteCursor];
+                m_HCVarietyRouteCursor = (m_HCVarietyRouteCursor + 1) % count;
+                checked++;
+                if (!candidate) { continue; }
+                ZombieBase candidateBody = candidate.InfectedEntity;
+                if (!candidateBody || !candidateBody.IsAlive() || !candidateBody.HCVarietyTriedDormant() || candidateBody.HCVarietyRouteTried()) { continue; }
+                if (candidate.GroupId != 0 || candidate.SearchPack || candidate.EverAssigned) { continue; }
+                m_HCVarietyRoutePlace = candidateBody.HCVarietyPlace();
+                if (m_HCVarietyRoutePlace != "") { break; }
             }
-            if (!blocked && roster.Count() > 0) { return roster; }
+            // Selection and roster collection are distinct continuations.
+            return null;
         }
+        int scanned = 0;
+        while (m_HCVarietyRouteScan < count && scanned < 32 && workBudget.HCContinue())
+        {
+            HCInfectedActor actor = actors[m_HCVarietyRouteScan];
+            m_HCVarietyRouteScan++;
+            scanned++;
+            if (!actor) { continue; }
+            ZombieBase body = actor.InfectedEntity;
+            if (!body || !body.IsAlive() || !body.HCVarietyTriedDormant() || body.HCVarietyRouteTried()) { continue; }
+            if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || body.HCVarietyPlace() != m_HCVarietyRoutePlace) { continue; }
+            if (body.HCVarietyDormant() || body.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM || m_HCVarietyRoutePending.Count() >= variety.GroupMembers)
+            {
+                HCVarietyRouteReset();
+                return null;
+            }
+            m_HCVarietyRoutePending.Insert(actor);
+        }
+        if (m_HCVarietyRouteScan < count) { return null; }
+        array<HCInfectedActor> roster = new array<HCInfectedActor>;
+        foreach (HCInfectedActor member : m_HCVarietyRoutePending) { roster.Insert(member); }
+        HCVarietyRouteReset();
+        if (roster.Count() > 0) { return roster; }
         return null;
     }
 }
@@ -345,11 +396,6 @@ modded class HCInfectedVarietyModule
     {
         super.OnStart(settings);
         HCInfectedVarietyRoutes.HCStart();
-    }
-    override void OnTick(float deltaTime)
-    {
-        super.OnTick(deltaTime);
-        if (m_Running && m_Variety) { HCInfectedVarietyRoutes.HCStep(m_Clock); }
     }
     override void OnStop()
     {

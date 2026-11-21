@@ -2,7 +2,7 @@
 // The HollowCountryAnims classes (HC_ZmbM_Sitter/Sleeper/Riser/Feeder/Crawler,
 // spawned by the vanilla CE through db/events.xml children) report here; the
 // base mod never references them. Every call is O(1) with no IO; the arrays are
-// allocated once. HCInfectedVarietyModule prints one summary per window.
+// allocated once. HCInfectedVarietyModule prints changes or a 30-minute heartbeat.
 // Counted facts are server script observations (EEInit ran, a slot was taken,
 // the scripted command became current, the native crawl command became current,
 // the mind state reached ALERTED, a hit landed). They never prove client playback.
@@ -97,7 +97,16 @@ class HCVarietyCounters
         return spawned + pose + refused + woken + ended;
     }
 
-    //! One summary line; resets the window. Called once per window by the module.
+    // Compare counters only: elapsed window text must not trigger a print.
+    static string HCSignature()
+    {
+        HCEnsure();
+        // Slot zero (unknown kind) is counted but absent from the legacy line.
+        // It must still count as a change without changing that public format.
+        return HCPart(s_Window) + " | total " + HCPart(s_Total) + " held=" + s_Held.ToString() + " unknown=" + s_Window[0].ToString() + ":" + s_Total[0].ToString();
+    }
+
+    //! One printed summary; resets only its emitted window, never a suppressed window.
     static string HCSummary(int windowSeconds)
     {
         HCEnsure();

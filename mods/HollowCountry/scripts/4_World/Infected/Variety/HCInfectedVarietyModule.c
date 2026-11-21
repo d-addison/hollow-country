@@ -9,8 +9,9 @@
 // EnScript.c:380 Count, :385 Clear; EnDebug.c:96 Print. Geometry uses the
 // already inspected HCAlertChain.ClearGeometry (DayZPhysics.c:199 RaycastRV).
 // Tick bound: one GetPlayers; at most 32 proximity candidates per sampled
-// actor; two passes over <=128 entries for counts/cap repair, four cursor-selected
-// actors, at most 8*128 corpse/place checks, at most eight proximity rays; a single
+// actor; resumable census/cap passes over <=256 entries (<=32 per tick), one
+// up to four cheap candidates, one spatial posture candidate (<=2*256 corpse/place
+// checks and <=2 proximity rays); a single
 // shot visits <=32 actors with a cooperative slice, <=3 cues in ONE place, <=6 rays.
 // Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
 // Room context reuses HCInfectedRoomCatalog.BuildProductionOrder: existing
@@ -40,7 +41,24 @@ class HCInfectedVarietyModule : HCModule
     protected vector m_ShotOrigin;
     protected float m_ShotAt;
     protected int m_Woken;
-    // #279 CE-owned variant summary: first line early for boot proof, then every 300 s.
+    protected ref HCWorkBudget m_VarietyWork = new HCWorkBudget;
+    protected ref HCStepTimer m_VarietySteps;
+    protected int m_WakeRevision;
+    protected string m_LastSummary;
+    protected float m_SummaryPrintedAt;
+    protected float m_CEPrintedAt;
+    protected string m_LastCESummary;
+
+    // Shared by the entire modded tick chain, including routes and posture admission.
+    void HCMeasureVariety(int stage, string name, int started)
+    {
+        int ticks = TickCount(started);
+        m_VarietySteps.HCAdd(stage, ticks);
+        m_VarietySteps.HCItem(name, ticks);
+    }
+
+    // #279: first CE summary at 120 s; inspect changes every 300 s.
+    // Unchanged summaries heartbeat at most once per 1800 s.
     protected float m_CEVariantsAt = 120;
     protected float m_CEVariantsFrom;
 
@@ -62,7 +80,15 @@ class HCInfectedVarietyModule : HCModule
             Print(HCV2Admission.Line("InfectedVariety", m_Variety, "W5-121", false));
             m_Printed = true;
         }
-        m_Players = new array<Man>;
+        m_VarietySteps = new HCStepTimer("InfectedVariety");
+        m_VarietySteps.HCDefine("observers");
+        m_VarietySteps.HCDefine("census");
+        m_VarietySteps.HCDefine("caps");
+        m_VarietySteps.HCDefine("posture");
+        m_VarietySteps.HCDefine("shot");
+        m_VarietySteps.HCDefine("fresh");
+        m_VarietySteps.HCDefine("routes");
+        m_VarietySteps.HCDefine("summary");
         m_Running = true;
         s_Instance = this;
         if (settings.EnableDebugSnapshot)
@@ -88,11 +114,14 @@ class HCInfectedVarietyModule : HCModule
         return HCInfectedModule.Instance != null;
     }
 
-    static void HCRecordDamageWake()
+    static void HCRecordWake()
     {
         if (!VarietyActive()) { return; }
         s_Instance.m_Woken++;
+        s_Instance.m_WakeRevision++;
     }
+
+    static void HCRecordDamageWake() { HCRecordWake(); }
 
     static int HCScaledCohort(int requested, int available)
     {
@@ -115,9 +144,14 @@ class HCInfectedVarietyModule : HCModule
     {
         if (!m_Running || !(deltaTime > 0) || deltaTime > 300) { return; }
         m_Clock += deltaTime;
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
+        m_VarietyWork.HCReset(64, 4);
+        // Consume the first-unit allowance before native work, so later stages
+        // cannot each force an extra unit after the shared deadline expires.
+        m_VarietyWork.HCContinue();
+        int started = TickCount(0);
+        m_Players = HCPerfPlayers.HCGet();
         HCReached.Mark("infected_variety.observer_sample");
+        HCMeasureVariety(0, "observer_sample", started);
         m_Scale = 1;
         if (m_Scaling) { m_Scale = HCInfectedVarietyPolicy.GroupScale(m_Players.Count()); }
         HCInfectedModule infected = HCInfectedModule.Instance;
@@ -127,31 +161,60 @@ class HCInfectedVarietyModule : HCModule
             float rain = 0;
             Weather weather = GetGame().GetWeather();
             if (weather) { rain = weather.GetRain().GetActual(); }
-            m_Woken += infected.HCVarietyTick(m_Players, m_Clock, nightness, rain, m_Scale);
-            if (m_Shot && m_Clock - m_ShotAt <= 2)
+            int tickWoken = infected.HCVarietyTick(m_Players, m_Clock, nightness, rain, m_Scale, m_VarietyWork, m_VarietySteps);
+            m_Woken += tickWoken;
+            m_WakeRevision += tickWoken;
+            if (m_Shot && m_Clock - m_ShotAt <= 2 && m_VarietyWork.HCContinue())
             {
-                m_Woken += infected.HCVarietyShot(m_ShotOrigin, nightness, rain);
+                started = TickCount(0);
+                int shotWoken = infected.HCVarietyShot(m_ShotOrigin, nightness, rain, m_VarietyWork);
+                m_Woken += shotWoken;
+                m_WakeRevision += shotWoken;
+                HCMeasureVariety(4, "gunshot", started);
             }
         }
         m_Shot = false;
-        HCInfectedVariety.HCStep(m_Clock, m_Scale);
-        m_Players.Clear();
+        if (m_VarietyWork.HCContinue())
+        {
+            started = TickCount(0);
+            HCInfectedVariety.HCStep(m_Clock, m_Scale, m_VarietyWork);
+            HCMeasureVariety(5, "fresh_body", started);
+        }
+        started = TickCount(0);
+        if (m_Variety) { HCInfectedVarietyRoutes.HCStep(m_Clock, m_VarietyWork); }
+        HCMeasureVariety(6, "migration", started);
+        // HCPerfPlayers owns this shared array; never clear it here.
+        m_Players = null;
+        started = TickCount(0);
         if (m_Clock >= m_LogAt)
         {
             m_LogAt = m_Clock + 600;
             int dormant = 0;
             int runners = 0;
             if (infected) { infected.HCVarietyCounts(dormant, runners); }
-            Print("[HC Infected] variety dormant=" + dormant.ToString() + " woken=" + m_Woken.ToString() + " runners=" + runners.ToString() + " scale=" + m_Scale.ToString() + " runtime-unverified");
-            m_Woken = 0;
+            string signature = dormant.ToString() + ":" + m_WakeRevision.ToString() + ":" + m_Woken.ToString() + ":" + runners.ToString() + ":" + m_Scale.ToString();
+            if (signature != m_LastSummary || m_Clock - m_SummaryPrintedAt >= 1800)
+            {
+                Print("[HC Infected] variety dormant=" + dormant.ToString() + " woken=" + m_Woken.ToString() + " runners=" + runners.ToString() + " scale=" + m_Scale.ToString() + " runtime-unverified");
+                m_LastSummary = signature;
+                m_SummaryPrintedAt = m_Clock;
+                m_Woken = 0;
+            }
         }
         if (m_Clock >= m_CEVariantsAt)
         {
-            int window = Math.Round(m_Clock - m_CEVariantsFrom);
-            m_CEVariantsFrom = m_Clock;
             m_CEVariantsAt = m_Clock + 300;
-            Print(HCVarietyCounters.HCSummary(window));
+            string ceSignature = HCVarietyCounters.HCSignature();
+            if (ceSignature != m_LastCESummary || m_Clock - m_CEPrintedAt >= 1800)
+            {
+                int window = Math.Round(m_Clock - m_CEVariantsFrom);
+                Print(HCVarietyCounters.HCSummary(window));
+                m_CEVariantsFrom = m_Clock;
+                m_CEPrintedAt = m_Clock;
+                m_LastCESummary = ceSignature;
+            }
         }
+        HCMeasureVariety(7, "summaries", started);
     }
 
     // #279: which CE variant classes the loaded addons define as public (scope 2).
@@ -277,76 +340,134 @@ modded class HCInfectedModule
         return false;
     }
 
-    int HCVarietyTick(array<Man> players, float now, float nightness, float rain, float scale)
+    protected int m_HCVarietyPhase;
+    protected int m_HCVarietyScan;
+    protected int m_HCVarietySize;
+    protected int m_HCVarietyLiving;
+    protected int m_HCVarietyRunners;
+    protected int m_HCVarietyDormant;
+    protected int m_HCVarietyFull;
+    protected int m_HCVarietyIdle;
+    protected int m_HCVarietySamples;
+    protected int m_HCVarietyDormantCap = -1;
+
+    int HCVarietyTick(array<Man> players, float now, float nightness, float rain, float scale, HCWorkBudget workBudget, HCStepTimer steps)
     {
         if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
         int woken = 0;
-        int living = 0;
-        int runners = 0;
-        int dormant = 0;
-        foreach (HCInfectedActor counted : m_Actors)
-        {
-            ZombieBase countedEntity = counted.InfectedEntity;
-            if (!countedEntity || !countedEntity.IsAlive()) { continue; }
-            living++;
-        }
-        int runnerCap = HCInfectedVarietyPolicy.RunnerLimit(living, nightness);
+        // Retain scan cursors across ticks. A census/cap pass processes at most
+        // 32 actors in a 4 ms shared slice; at most one spatial posture test runs
+        // per tick. Cheap ineligible candidates retain the old four-actor cap.
+        // Roster/cap changes restart counts before any new posture admission.
         int dormantCap = HCInfectedVarietyPolicy.DormantLimitAt(scale, HCInfectedLOD.PosedBudget());
-        int dormantFull = 0;
-        int dormantIdle = 0;
-        foreach (HCInfectedActor bounded : m_Actors)
+        if (m_HCVarietySize != m_Actors.Count() || m_HCVarietyDormantCap != dormantCap)
         {
-            ZombieBase boundedEntity = bounded.InfectedEntity;
-            if (!boundedEntity) { continue; }
-            if (!boundedEntity.IsAlive()) { boundedEntity.HCVarietyRelease(); continue; }
-            if (boundedEntity.HCVarietyRole() == 2)
-            {
-                if (runners >= runnerCap)
-                {
-                    boundedEntity.HCVarietyAssign(1, boundedEntity.HCVarietyPlace());
-                }
-                else { runners++; }
-            }
-            if (boundedEntity.HCVarietyDormant())
-            {
-                bool overCap = dormant >= dormantCap;
-                if (HCInfectedVarietyPolicy.HCShouldWakeDormant(overCap, boundedEntity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM))
-                {
-                    if (boundedEntity.HCVarietyWake()) { woken++; }
-                }
-                else
-                {
-                    dormant++;
-                    if (bounded.LODTier < 0 || bounded.LODTier == HCLODPolicy.TIER_FULL) { dormantFull++; }
-                    else { dormantIdle++; }
-                }
-            }
+            m_HCVarietyPhase = 0;
+            m_HCVarietyScan = 0;
         }
-        int work = Math.Min(4, m_Actors.Count());
-        for (int sampleIndex = 0; sampleIndex < work; sampleIndex++)
+        m_HCVarietySize = m_Actors.Count();
+        m_HCVarietyDormantCap = dormantCap;
+        int started = TickCount(0);
+        if (m_HCVarietyPhase == 0)
         {
+            if (m_HCVarietyScan == 0) { m_HCVarietyLiving = 0; }
+            int countedWork = 0;
+            while (m_HCVarietyScan < m_Actors.Count() && countedWork < 32 && workBudget.HCContinue())
+            {
+                HCInfectedActor counted = m_Actors[m_HCVarietyScan];
+                m_HCVarietyScan++;
+                countedWork++;
+                if (counted && counted.InfectedEntity && counted.InfectedEntity.IsAlive()) { m_HCVarietyLiving++; }
+            }
+            int censusTicks = TickCount(started);
+            steps.HCAdd(1, censusTicks);
+            steps.HCItem("living_census", censusTicks);
+            if (m_HCVarietyScan >= m_Actors.Count())
+            {
+                m_HCVarietyPhase = 1;
+                m_HCVarietyScan = 0;
+                m_HCVarietyRunners = 0;
+                m_HCVarietyDormant = 0;
+                m_HCVarietyFull = 0;
+                m_HCVarietyIdle = 0;
+            }
+            return 0;
+        }
+        int runnerCap = HCInfectedVarietyPolicy.RunnerLimit(m_HCVarietyLiving, nightness);
+        if (m_HCVarietyPhase == 1)
+        {
+            int boundedWork = 0;
+            while (m_HCVarietyScan < m_Actors.Count() && boundedWork < 32 && workBudget.HCContinue())
+            {
+                HCInfectedActor bounded = m_Actors[m_HCVarietyScan];
+                m_HCVarietyScan++;
+                boundedWork++;
+                if (!bounded) { continue; }
+                ZombieBase boundedEntity = bounded.InfectedEntity;
+                if (!boundedEntity) { continue; }
+                if (!boundedEntity.IsAlive()) { boundedEntity.HCVarietyRelease(); continue; }
+                if (boundedEntity.HCVarietyRole() == 2)
+                {
+                    if (m_HCVarietyRunners >= runnerCap)
+                    {
+                        boundedEntity.HCVarietyAssign(1, boundedEntity.HCVarietyPlace());
+                    }
+                    else { m_HCVarietyRunners++; }
+                }
+                if (boundedEntity.HCVarietyDormant())
+                {
+                    bool overCap = m_HCVarietyDormant >= dormantCap;
+                    if (HCInfectedVarietyPolicy.HCShouldWakeDormant(overCap, boundedEntity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM))
+                    {
+                        if (boundedEntity.HCVarietyWake()) { woken++; }
+                    }
+                    else
+                    {
+                        m_HCVarietyDormant++;
+                        if (bounded.LODTier < 0 || bounded.LODTier == HCLODPolicy.TIER_FULL) { m_HCVarietyFull++; }
+                        else { m_HCVarietyIdle++; }
+                    }
+                }
+            }
+            int capTicks = TickCount(started);
+            steps.HCAdd(2, capTicks);
+            steps.HCItem("cap_repair", capTicks);
+            if (m_HCVarietyScan >= m_Actors.Count())
+            {
+                m_HCVarietyPhase = 2;
+                m_HCVarietySamples = 0;
+            }
+            return woken;
+        }
+        bool spatialTest = false;
+        int work = Math.Min(4, m_Actors.Count());
+        for (int sampleIndex = 0; sampleIndex < work && !spatialTest && workBudget.HCContinue(); sampleIndex++)
+        {
+            m_HCVarietySamples++;
             if (m_HCVarietyCursor >= m_Actors.Count()) { m_HCVarietyCursor = 0; }
             HCInfectedActor actor = m_Actors[m_HCVarietyCursor];
             m_HCVarietyCursor++;
+            if (!actor) { continue; }
             ZombieBase entity = actor.InfectedEntity;
             if (!entity || !entity.IsAlive()) { continue; }
             if (entity.HCVarietyRole() < 0)
             {
                 string context = HCInfectedVariety.HCContext(entity.GetPosition());
-                int role = HCInfectedVarietyPolicy.HCContextRole(context, runners < runnerCap && !entity.IsCrawling());
-                if (role == 2) { runners++; }
+                int role = HCInfectedVarietyPolicy.HCContextRole(context, m_HCVarietyRunners < runnerCap && !entity.IsCrawling());
+                if (role == 2) { m_HCVarietyRunners++; }
                 entity.HCVarietyAssign(role, HCVarietyPlaceAt(entity.GetPosition()));
             }
             if (entity.HCVarietyDormant())
             {
+                spatialTest = true;
                 if (HCVarietyNearStanding(players, actor, entity, true))
                 {
                     if (entity.HCVarietyWake())
                     {
                         woken++;
-                        dormant--;
-                        if (actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL) { dormantFull--; }
-                        else { dormantIdle--; }
+                        m_HCVarietyDormant--;
+                        if (actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL) { m_HCVarietyFull--; }
+                        else { m_HCVarietyIdle--; }
                     }
                 }
                 continue;
@@ -357,26 +478,36 @@ modded class HCInfectedModule
             // A crawler may have moved since first registration; name the real
             // sleep location before applying the three-per-place cap.
             entity.HCVarietyAssign(entity.HCVarietyRole(), HCVarietyPlaceAt(entity.GetPosition()));
-            if (dormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
+            if (m_HCVarietyDormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
             bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
-            if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, dormantFull, dormantIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
+            if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, m_HCVarietyFull, m_HCVarietyIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
             if (players.Count() > 32 || HCVarietyNearStanding(players, actor, entity, false)) { continue; }
-            if (!HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity) && HCInfectedVariety.HCContext(entity.GetPosition()) == "") { continue; }
+            spatialTest = true;
+            // Authored context already qualifies this actor. Avoid binding a
+            // room merely to establish an equivalent context result.
+            if (HCInfectedVariety.HCContext(entity.GetPosition()) == "" && !HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity)) { continue; }
             bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
             if (entity.HCVarietySleep(now, permitted))
             {
-                dormant++;
-                if (nearPlayers) { dormantFull++; }
-                else { dormantIdle++; }
+                m_HCVarietyDormant++;
+                if (nearPlayers) { m_HCVarietyFull++; }
+                else { m_HCVarietyIdle++; }
             }
+        }
+        int postureTicks = TickCount(started);
+        steps.HCAdd(3, postureTicks);
+        steps.HCItem("posture_candidate", postureTicks);
+        if (m_HCVarietySamples >= Math.Min(32, m_Actors.Count()))
+        {
+            m_HCVarietyPhase = 0;
+            m_HCVarietyScan = 0;
         }
         return woken;
     }
 
     protected int m_HCShotCursor;
-    protected ref HCWorkBudget m_HCShotWork = new HCWorkBudget;
 
-    int HCVarietyShot(vector origin, float nightness, float rain)
+    int HCVarietyShot(vector origin, float nightness, float rain, HCWorkBudget workBudget)
     {
         if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
         bool wake = Math.RandomFloat01() <= HCInfectedVarietyPolicy.NoiseWakeChance(nightness, rain);
@@ -384,10 +515,9 @@ modded class HCInfectedModule
         int recipients = 0;
         int checks = 0;
         int woken = 0;
-        m_HCShotWork.HCReset(m_WorkCap);
         for (int scanned = 0; scanned < m_Actors.Count() && scanned < m_WorkCap; scanned++)
         {
-            if (!m_HCShotWork.HCContinue()) { break; }
+            if (!workBudget.HCContinue()) { break; }
             m_HCShotCursor = m_HCShotCursor % m_Actors.Count();
             HCInfectedActor actor = m_Actors[m_HCShotCursor];
             m_HCShotCursor++;
@@ -413,6 +543,8 @@ modded class HCInfectedModule
 
     void HCVarietyReleaseAll()
     {
+        m_HCVarietyPhase = 0;
+        m_HCVarietyScan = 0;
         foreach (HCInfectedActor actor : m_Actors)
         {
             if (actor.InfectedEntity) { actor.InfectedEntity.HCVarietyRelease(); }
