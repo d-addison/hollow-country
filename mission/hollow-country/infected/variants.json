@@ -7,7 +7,7 @@
     "spec": "issue_248_owner_2026-11-20_mixed_native_roster; required_spec_paths_absent_in_checkout",
     "plan": "reuse_stock_CE_events; conserve_child_budgets; rare_mummies; bundled_install_receipt_and_off",
     "task": "author_verified_native_roster; apply_after_mission_copy; idempotent_install_and_byte_exact_rollback; runtime_PENDING",
-    "issue_316": "install-time CE family balance and stock accessory redistribution; legacy substitutions retained; #315 poses withdrawn"
+    "issue_316": "owner 2026-11-21: every stock infected CE event family; outfit-preserving male/female poses and crawlers; #315 constructor fix landed, native pending"
   },
   "runtime_acceptance": "PENDING",
   "production_enabled": true,
@@ -369,9 +369,353 @@
       "existing_destination": true
     },
     {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_Autumn",
+      "to": "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_Flat",
+      "to": "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_Summer",
+      "to": "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Summer",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_SoldierNormal",
+      "to": "HC_ZmbM_Sitter_ZmbM_SoldierNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_usSoldier_normal_Woodland",
+      "to": "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Woodland",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_Heavy_Desert",
+      "to": "HC_ZmbF_Feeder_ZmbF_usSoldier_Heavy_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_Heavy_Desert",
+      "to": "HC_ZmbF_Riser_ZmbF_usSoldier_Heavy_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_Heavy_Desert",
+      "to": "HC_ZmbF_Sitter_ZmbF_usSoldier_Heavy_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_normal_Desert",
+      "to": "HC_ZmbF_Crawler_ZmbF_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_normal_Desert",
+      "to": "HC_ZmbF_Riser_ZmbF_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbF_usSoldier_normal_Desert",
+      "to": "HC_ZmbF_Sleeper_ZmbF_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbM_usSoldier_normal_Desert",
+      "to": "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbM_usSoldier_normal_Desert",
+      "to": "HC_ZmbM_Feeder_ZmbM_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbM_usSoldier_normal_Desert",
+      "to": "HC_ZmbM_Sitter_ZmbM_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyDesert",
+      "from": "ZmbM_usSoldier_normal_Desert",
+      "to": "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_Autumn",
+      "to": "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Autumn",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_Flat",
+      "to": "HC_ZmbM_Crawler_ZmbM_PatrolNormal_Flat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_Summer",
+      "to": "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Summer",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_SoldierNormal",
+      "to": "HC_ZmbM_Riser_ZmbM_SoldierNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_SoldierNormal",
+      "to": "HC_ZmbM_Sitter_ZmbM_SoldierNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_Heavy_Woodland",
+      "to": "HC_ZmbM_Feeder_ZmbM_usSoldier_Heavy_Woodland",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_Heavy_Woodland",
+      "to": "HC_ZmbM_Sleeper_ZmbM_usSoldier_Heavy_Woodland",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_Officer_Desert",
+      "to": "HC_ZmbM_Riser_ZmbM_usSoldier_Officer_Desert",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_normal_Woodland",
+      "to": "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Woodland",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbF_BlueCollarFat_White",
+      "to": "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_White",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbF_CitizenBSkinny",
+      "to": "HC_ZmbF_Feeder_ZmbF_CitizenBSkinny",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenASkinny_Blue",
+      "to": "HC_ZmbM_Crawler_ZmbM_CitizenASkinny_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenASkinny_Grey",
+      "to": "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Grey",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
       "event": "InfectedCity",
       "from": "ZmbM_CitizenASkinny_Red",
-      "to": "HC_ZmbM_Crawler",
+      "to": "HC_ZmbM_Sleeper_ZmbM_CitizenASkinny_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenBFat_Blue",
+      "to": "HC_ZmbM_Riser_ZmbM_CitizenBFat_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenBFat_Green",
+      "to": "HC_ZmbM_Feeder_ZmbM_CitizenBFat_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenBFat_Red",
+      "to": "HC_ZmbM_Crawler_ZmbM_CitizenBFat_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_JournalistSkinny",
+      "to": "HC_ZmbM_Riser_ZmbM_JournalistSkinny",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_MotobikerFat_Beige",
+      "to": "HC_ZmbM_Sitter_ZmbM_MotobikerFat_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbF_CitizenANormal_Brown",
+      "to": "HC_ZmbF_Sleeper_ZmbF_CitizenANormal_Brown",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbF_Clerk_Normal_Green",
+      "to": "HC_ZmbF_Feeder_ZmbF_Clerk_Normal_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbF_JournalistNormal_White",
+      "to": "HC_ZmbF_Sitter_ZmbF_JournalistNormal_White",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbF_ShortSkirt_black",
+      "to": "HC_ZmbF_Riser_ZmbF_ShortSkirt_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbF_SurvivorNormal_Orange",
+      "to": "HC_ZmbF_Crawler_ZmbF_SurvivorNormal_Orange",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_CitizenASkinny_Brown",
+      "to": "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Brown",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_ClerkFat_Brown",
+      "to": "HC_ZmbM_Riser_ZmbM_ClerkFat_Brown",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_CommercialPilotOld_Grey",
+      "to": "HC_ZmbM_Crawler_ZmbM_CommercialPilotOld_Grey",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_MotobikerFat_Black",
+      "to": "HC_ZmbM_Feeder_ZmbM_MotobikerFat_Black",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -379,15 +723,847 @@
     {
       "event": "InfectedCityTier1",
       "from": "ZmbM_SkaterYoung_Blue",
-      "to": "HC_ZmbM_Crawler",
+      "to": "HC_ZmbM_Sleeper_ZmbM_SkaterYoung_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_FirefighterNormal",
+      "to": "HC_ZmbM_Crawler_ZmbM_FirefighterNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_FirefighterNormal",
+      "to": "HC_ZmbM_Feeder_ZmbM_FirefighterNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_FirefighterNormal",
+      "to": "HC_ZmbM_Riser_ZmbM_FirefighterNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_FirefighterNormal",
+      "to": "HC_ZmbM_Sitter_ZmbM_FirefighterNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_FirefighterNormal",
+      "to": "HC_ZmbM_Sleeper_ZmbM_FirefighterNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Crawler_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Feeder_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Riser_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Sitter_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedFirefighter",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Sleeper_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbF_BlueCollarFat_Blue",
+      "to": "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbF_BlueCollarFat_Green",
+      "to": "HC_ZmbF_Feeder_ZmbF_BlueCollarFat_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbF_BlueCollarFat_Red",
+      "to": "HC_ZmbF_Sitter_ZmbF_BlueCollarFat_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbF_BlueCollarFat_White",
+      "to": "HC_ZmbF_Riser_ZmbF_BlueCollarFat_White",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbF_MechanicNormal_Beige",
+      "to": "HC_ZmbF_Crawler_ZmbF_MechanicNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_ConstrWorkerNormal_Beige",
+      "to": "HC_ZmbM_Sitter_ZmbM_ConstrWorkerNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_ConstrWorkerNormal_Black",
+      "to": "HC_ZmbM_Riser_ZmbM_ConstrWorkerNormal_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_ConstrWorkerNormal_Green",
+      "to": "HC_ZmbM_Crawler_ZmbM_ConstrWorkerNormal_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_ConstrWorkerNormal_Grey",
+      "to": "HC_ZmbM_Sleeper_ZmbM_ConstrWorkerNormal_Grey",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbF_DoctorSkinny",
+      "to": "HC_ZmbF_Sleeper_ZmbF_DoctorSkinny",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbF_NurseFat",
+      "to": "HC_ZmbF_Feeder_ZmbF_NurseFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbF_ParamedicNormal_Blue",
+      "to": "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbF_ParamedicNormal_Green",
+      "to": "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbF_PatientOld",
+      "to": "HC_ZmbF_Sitter_ZmbF_PatientOld",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_DoctorFat",
+      "to": "HC_ZmbM_Sitter_ZmbM_DoctorFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Riser_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_ParamedicNormal_Black",
+      "to": "HC_ZmbM_Sleeper_ZmbM_ParamedicNormal_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_ParamedicNormal_Blue",
+      "to": "HC_ZmbM_Feeder_ZmbM_ParamedicNormal_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_PatientSkinny",
+      "to": "HC_ZmbM_Crawler_ZmbM_PatientSkinny",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "HC_ZmbM_Crawler_ZmbM_NBC_Grey",
       "share": 2,
       "min_delta": 0,
       "max_delta": 0
     },
     {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "HC_ZmbM_Feeder_ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "HC_ZmbM_Riser_ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "HC_ZmbM_Sitter_ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "HC_ZmbM_Sleeper_ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBCYellow",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Crawler_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBCYellow",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Feeder_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBCYellow",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Riser_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBCYellow",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Sitter_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBCYellow",
+      "from": "ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Sleeper_ZmbM_NBC_Yellow",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbF_PoliceWomanNormal",
+      "to": "HC_ZmbF_Feeder_ZmbF_PoliceWomanNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbF_PoliceWomanNormal",
+      "to": "HC_ZmbF_Riser_ZmbF_PoliceWomanNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbF_PoliceWomanNormal",
+      "to": "HC_ZmbF_Sitter_ZmbF_PoliceWomanNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbF_PoliceWomanNormal",
+      "to": "HC_ZmbF_Sleeper_ZmbF_PoliceWomanNormal",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbM_PolicemanFat",
+      "to": "HC_ZmbM_Crawler_ZmbM_PolicemanFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbM_PolicemanFat",
+      "to": "HC_ZmbM_Riser_ZmbM_PolicemanFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbM_PolicemanFat",
+      "to": "HC_ZmbM_Sitter_ZmbM_PolicemanFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbM_PolicemanFat",
+      "to": "HC_ZmbM_Sleeper_ZmbM_PolicemanFat",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "HC_ZmbM_Crawler_ZmbM_PolicemanSpecForce_Heavy",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "HC_ZmbM_Feeder_ZmbM_PolicemanSpecForce_Heavy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "HC_ZmbM_Riser_ZmbM_PolicemanSpecForce_Heavy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "HC_ZmbM_Sitter_ZmbM_PolicemanSpecForce_Heavy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "HC_ZmbM_Sleeper_ZmbM_PolicemanSpecForce_Heavy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPrisoner",
+      "from": "ZmbM_PrisonerSkinny",
+      "to": "HC_ZmbM_Crawler_ZmbM_PrisonerSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPrisoner",
+      "from": "ZmbM_PrisonerSkinny",
+      "to": "HC_ZmbM_Feeder_ZmbM_PrisonerSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPrisoner",
+      "from": "ZmbM_PrisonerSkinny",
+      "to": "HC_ZmbM_Riser_ZmbM_PrisonerSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPrisoner",
+      "from": "ZmbM_PrisonerSkinny",
+      "to": "HC_ZmbM_Sitter_ZmbM_PrisonerSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPrisoner",
+      "from": "ZmbM_PrisonerSkinny",
+      "to": "HC_ZmbM_Sleeper_ZmbM_PrisonerSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedReligious",
+      "from": "ZmbM_priestPopSkinny",
+      "to": "HC_ZmbM_Crawler_ZmbM_priestPopSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedReligious",
+      "from": "ZmbM_priestPopSkinny",
+      "to": "HC_ZmbM_Feeder_ZmbM_priestPopSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedReligious",
+      "from": "ZmbM_priestPopSkinny",
+      "to": "HC_ZmbM_Riser_ZmbM_priestPopSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedReligious",
+      "from": "ZmbM_priestPopSkinny",
+      "to": "HC_ZmbM_Sitter_ZmbM_priestPopSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedReligious",
+      "from": "ZmbM_priestPopSkinny",
+      "to": "HC_ZmbM_Sleeper_ZmbM_priestPopSkinny",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSanta",
+      "from": "ZmbM_Santa",
+      "to": "HC_ZmbM_Crawler_ZmbM_Santa",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSanta",
+      "from": "ZmbM_Santa",
+      "to": "HC_ZmbM_Feeder_ZmbM_Santa",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSanta",
+      "from": "ZmbM_Santa",
+      "to": "HC_ZmbM_Riser_ZmbM_Santa",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSanta",
+      "from": "ZmbM_Santa",
+      "to": "HC_ZmbM_Sitter_ZmbM_Santa",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSanta",
+      "from": "ZmbM_Santa",
+      "to": "HC_ZmbM_Sleeper_ZmbM_Santa",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbF_HikerSkinny_Blue",
+      "to": "HC_ZmbF_Sleeper_ZmbF_HikerSkinny_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbF_HikerSkinny_Green",
+      "to": "HC_ZmbF_Feeder_ZmbF_HikerSkinny_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbF_HikerSkinny_Grey",
+      "to": "HC_ZmbF_Sitter_ZmbF_HikerSkinny_Grey",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbF_HikerSkinny_Red",
+      "to": "HC_ZmbF_Riser_ZmbF_HikerSkinny_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_FishermanOld_Blue",
+      "to": "HC_ZmbM_Riser_ZmbM_FishermanOld_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_FishermanOld_Green",
+      "to": "HC_ZmbM_Crawler_ZmbM_FishermanOld_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_FishermanOld_Grey",
+      "to": "HC_ZmbM_Sleeper_ZmbM_FishermanOld_Grey",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_FishermanOld_Red",
+      "to": "HC_ZmbM_Feeder_ZmbM_FishermanOld_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_HermitSkinny_Beige",
+      "to": "HC_ZmbM_Crawler_ZmbM_HermitSkinny_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_HunterOld_Autumn",
+      "to": "HC_ZmbM_Sitter_ZmbM_HunterOld_Autumn",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbF_MilkMaidOld_Black",
+      "to": "HC_ZmbF_Crawler_ZmbF_MilkMaidOld_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbF_MilkMaidOld_Black",
+      "to": "HC_ZmbF_Feeder_ZmbF_MilkMaidOld_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbF_MilkMaidOld_Black",
+      "to": "HC_ZmbF_Riser_ZmbF_MilkMaidOld_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbF_MilkMaidOld_Black",
+      "to": "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbF_MilkMaidOld_Black",
+      "to": "HC_ZmbF_Sleeper_ZmbF_MilkMaidOld_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Crawler_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Riser_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Sitter_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSpooky",
+      "from": "ZmbM_HandymanNormal_Beige",
+      "to": "HC_ZmbM_Sleeper_ZmbM_HandymanNormal_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
       "event": "InfectedVillage",
-      "from": "ZmbM_Jacket_stripes",
-      "to": "HC_ZmbM_Crawler",
+      "from": "ZmbF_JoggerSkinny_Blue",
+      "to": "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbF_JoggerSkinny_Brown",
+      "to": "HC_ZmbF_Feeder_ZmbF_JoggerSkinny_Brown",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_FarmerFat_Blue",
+      "to": "HC_ZmbM_Crawler_ZmbM_FarmerFat_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_FarmerFat_Brown",
+      "to": "HC_ZmbM_Sitter_ZmbM_FarmerFat_Brown",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_FarmerFat_Green",
+      "to": "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_beige",
+      "to": "HC_ZmbM_Riser_ZmbM_Jacket_beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_black",
+      "to": "HC_ZmbM_Feeder_ZmbM_Jacket_black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_blue",
+      "to": "HC_ZmbM_Crawler_ZmbM_Jacket_blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_JoggerSkinny_Blue",
+      "to": "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_JoggerSkinny_Green",
+      "to": "HC_ZmbM_Riser_ZmbM_JoggerSkinny_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbF_JoggerSkinny_Red",
+      "to": "HC_ZmbF_Crawler_ZmbF_JoggerSkinny_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbF_JoggerSkinny_Red",
+      "to": "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbF_MilkMaidOld_Green",
+      "to": "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Green",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbF_VillagerOld_Blue",
+      "to": "HC_ZmbF_Feeder_ZmbF_VillagerOld_Blue",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_FarmerFat_Beige",
+      "to": "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Beige",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_Jacket_bluechecks",
+      "to": "HC_ZmbM_Riser_ZmbM_Jacket_bluechecks",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_Jacket_magenta",
+      "to": "HC_ZmbM_Crawler_ZmbM_Jacket_magenta",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -395,23 +1571,23 @@
     {
       "event": "InfectedVillageTier1",
       "from": "ZmbM_JoggerSkinny_Red",
-      "to": "HC_ZmbM_Crawler",
-      "share": 2,
-      "min_delta": 0,
-      "max_delta": 0
-    },
-    {
-      "event": "InfectedIndustrial",
-      "from": "ZmbM_HeavyIndustryWorker",
-      "to": "HC_ZmbM_Crawler",
+      "to": "HC_ZmbM_Feeder_ZmbM_JoggerSkinny_Red",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
     },
     {
-      "event": "InfectedMedic",
-      "from": "ZmbM_ParamedicNormal_Red",
-      "to": "HC_ZmbM_Crawler",
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_JoggerSkinny_Red",
+      "to": "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_VillagerOld_Green",
+      "to": "HC_ZmbM_Riser_ZmbM_VillagerOld_Green",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -4510,7 +5686,7 @@
     "heavy_labels": "native female Heavy classes use InfectedMSoldier; substitute normal soldier shares, never promise heavy AI",
     "Santa": "native class exists; rare year_round cityTier1 share; no winter scheduling",
     "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once",
-    "hc_variants": "issue_279 HollowCountryAnims CE children: Crawler only (vanilla crawl request at spawn); Sitter/Sleeper/Riser/Feeder are withdrawn from the CE because starting the custom-graph pose command crashed the server (ACCESS_VIOLATION in StartCommand_ScriptInst, build 135, first posed body near a player) until a native fix is proven; shares 1-2 of ~100 per event; donors are unused stock civilian males and each keeps a positive weight; runtime PENDING",
+    "hc_variants": "All 19 stock infected event families receive outfit-preserving male/female Sitter/Sleeper/Riser/Feeder/Crawler children, data-derived by tools.anim.ce_variants. Weight share floor(total/10), minimum five integer units to expose all modes: 9.4-10% normally, NBCYellow 5/10 (50%). Positive donors, unchanged event min/max sums and population_delta=0; MaxPosed and admission retained. Both sexes inherit identical ZombieBase.enfanimsys in the hash-pinned addon; generated stock bases validated at build. #315 constructor fix landed; native playback/skin/wake pending.",
     "EnableComposition": true,
     "EnableAccessories": true
   },
@@ -5234,8 +6410,303 @@
       ]
     },
     "explicit_classes": {
-      "HC_ZmbM_Crawler": "ZmbM_CitizenASkinny_Red"
+      "HC_ZmbM_Crawler": "ZmbM_CitizenASkinny_Red",
+      "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn": "ZmbM_PatrolNormal_Autumn",
+      "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat": "ZmbM_PatrolNormal_Flat",
+      "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev": "ZmbM_PatrolNormal_PautRev",
+      "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Summer": "ZmbM_PatrolNormal_Summer",
+      "HC_ZmbM_Sitter_ZmbM_SoldierNormal": "ZmbM_SoldierNormal",
+      "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Woodland": "ZmbM_usSoldier_normal_Woodland",
+      "HC_ZmbF_Feeder_ZmbF_usSoldier_Heavy_Desert": "ZmbF_usSoldier_Heavy_Desert",
+      "HC_ZmbF_Riser_ZmbF_usSoldier_Heavy_Desert": "ZmbF_usSoldier_Heavy_Desert",
+      "HC_ZmbF_Sitter_ZmbF_usSoldier_Heavy_Desert": "ZmbF_usSoldier_Heavy_Desert",
+      "HC_ZmbF_Crawler_ZmbF_usSoldier_normal_Desert": "ZmbF_usSoldier_normal_Desert",
+      "HC_ZmbF_Riser_ZmbF_usSoldier_normal_Desert": "ZmbF_usSoldier_normal_Desert",
+      "HC_ZmbF_Sleeper_ZmbF_usSoldier_normal_Desert": "ZmbF_usSoldier_normal_Desert",
+      "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Desert": "ZmbM_usSoldier_normal_Desert",
+      "HC_ZmbM_Feeder_ZmbM_usSoldier_normal_Desert": "ZmbM_usSoldier_normal_Desert",
+      "HC_ZmbM_Sitter_ZmbM_usSoldier_normal_Desert": "ZmbM_usSoldier_normal_Desert",
+      "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Desert": "ZmbM_usSoldier_normal_Desert",
+      "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Autumn": "ZmbM_PatrolNormal_Autumn",
+      "HC_ZmbM_Crawler_ZmbM_PatrolNormal_Flat": "ZmbM_PatrolNormal_Flat",
+      "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Summer": "ZmbM_PatrolNormal_Summer",
+      "HC_ZmbM_Riser_ZmbM_SoldierNormal": "ZmbM_SoldierNormal",
+      "HC_ZmbM_Feeder_ZmbM_usSoldier_Heavy_Woodland": "ZmbM_usSoldier_Heavy_Woodland",
+      "HC_ZmbM_Sleeper_ZmbM_usSoldier_Heavy_Woodland": "ZmbM_usSoldier_Heavy_Woodland",
+      "HC_ZmbM_Riser_ZmbM_usSoldier_Officer_Desert": "ZmbM_usSoldier_Officer_Desert",
+      "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Woodland": "ZmbM_usSoldier_normal_Woodland",
+      "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_White": "ZmbF_BlueCollarFat_White",
+      "HC_ZmbF_Feeder_ZmbF_CitizenBSkinny": "ZmbF_CitizenBSkinny",
+      "HC_ZmbM_Crawler_ZmbM_CitizenASkinny_Blue": "ZmbM_CitizenASkinny_Blue",
+      "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Grey": "ZmbM_CitizenASkinny_Grey",
+      "HC_ZmbM_Sleeper_ZmbM_CitizenASkinny_Red": "ZmbM_CitizenASkinny_Red",
+      "HC_ZmbM_Riser_ZmbM_CitizenBFat_Blue": "ZmbM_CitizenBFat_Blue",
+      "HC_ZmbM_Feeder_ZmbM_CitizenBFat_Green": "ZmbM_CitizenBFat_Green",
+      "HC_ZmbM_Crawler_ZmbM_CitizenBFat_Red": "ZmbM_CitizenBFat_Red",
+      "HC_ZmbM_Riser_ZmbM_JournalistSkinny": "ZmbM_JournalistSkinny",
+      "HC_ZmbM_Sitter_ZmbM_MotobikerFat_Beige": "ZmbM_MotobikerFat_Beige",
+      "HC_ZmbF_Sleeper_ZmbF_CitizenANormal_Brown": "ZmbF_CitizenANormal_Brown",
+      "HC_ZmbF_Feeder_ZmbF_Clerk_Normal_Green": "ZmbF_Clerk_Normal_Green",
+      "HC_ZmbF_Sitter_ZmbF_JournalistNormal_White": "ZmbF_JournalistNormal_White",
+      "HC_ZmbF_Riser_ZmbF_ShortSkirt_Black": "ZmbF_ShortSkirt_black",
+      "HC_ZmbF_Crawler_ZmbF_SurvivorNormal_Orange": "ZmbF_SurvivorNormal_Orange",
+      "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Brown": "ZmbM_CitizenASkinny_Brown",
+      "HC_ZmbM_Riser_ZmbM_ClerkFat_Brown": "ZmbM_ClerkFat_Brown",
+      "HC_ZmbM_Crawler_ZmbM_CommercialPilotOld_Grey": "ZmbM_CommercialPilotOld_Grey",
+      "HC_ZmbM_Feeder_ZmbM_MotobikerFat_Black": "ZmbM_MotobikerFat_Black",
+      "HC_ZmbM_Sleeper_ZmbM_SkaterYoung_Blue": "ZmbM_SkaterYoung_Blue",
+      "HC_ZmbM_Crawler_ZmbM_FirefighterNormal": "ZmbM_FirefighterNormal",
+      "HC_ZmbM_Feeder_ZmbM_FirefighterNormal": "ZmbM_FirefighterNormal",
+      "HC_ZmbM_Riser_ZmbM_FirefighterNormal": "ZmbM_FirefighterNormal",
+      "HC_ZmbM_Sitter_ZmbM_FirefighterNormal": "ZmbM_FirefighterNormal",
+      "HC_ZmbM_Sleeper_ZmbM_FirefighterNormal": "ZmbM_FirefighterNormal",
+      "HC_ZmbM_Crawler_ZmbM_NBC_Yellow": "ZmbM_NBC_Yellow",
+      "HC_ZmbM_Feeder_ZmbM_NBC_Yellow": "ZmbM_NBC_Yellow",
+      "HC_ZmbM_Riser_ZmbM_NBC_Yellow": "ZmbM_NBC_Yellow",
+      "HC_ZmbM_Sitter_ZmbM_NBC_Yellow": "ZmbM_NBC_Yellow",
+      "HC_ZmbM_Sleeper_ZmbM_NBC_Yellow": "ZmbM_NBC_Yellow",
+      "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_Blue": "ZmbF_BlueCollarFat_Blue",
+      "HC_ZmbF_Feeder_ZmbF_BlueCollarFat_Green": "ZmbF_BlueCollarFat_Green",
+      "HC_ZmbF_Sitter_ZmbF_BlueCollarFat_Red": "ZmbF_BlueCollarFat_Red",
+      "HC_ZmbF_Riser_ZmbF_BlueCollarFat_White": "ZmbF_BlueCollarFat_White",
+      "HC_ZmbF_Crawler_ZmbF_MechanicNormal_Beige": "ZmbF_MechanicNormal_Beige",
+      "HC_ZmbM_Sitter_ZmbM_ConstrWorkerNormal_Beige": "ZmbM_ConstrWorkerNormal_Beige",
+      "HC_ZmbM_Riser_ZmbM_ConstrWorkerNormal_Black": "ZmbM_ConstrWorkerNormal_Black",
+      "HC_ZmbM_Crawler_ZmbM_ConstrWorkerNormal_Green": "ZmbM_ConstrWorkerNormal_Green",
+      "HC_ZmbM_Sleeper_ZmbM_ConstrWorkerNormal_Grey": "ZmbM_ConstrWorkerNormal_Grey",
+      "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
+      "HC_ZmbF_Sleeper_ZmbF_DoctorSkinny": "ZmbF_DoctorSkinny",
+      "HC_ZmbF_Feeder_ZmbF_NurseFat": "ZmbF_NurseFat",
+      "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue": "ZmbF_ParamedicNormal_Blue",
+      "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green": "ZmbF_ParamedicNormal_Green",
+      "HC_ZmbF_Sitter_ZmbF_PatientOld": "ZmbF_PatientOld",
+      "HC_ZmbM_Sitter_ZmbM_DoctorFat": "ZmbM_DoctorFat",
+      "HC_ZmbM_Sleeper_ZmbM_ParamedicNormal_Black": "ZmbM_ParamedicNormal_Black",
+      "HC_ZmbM_Feeder_ZmbM_ParamedicNormal_Blue": "ZmbM_ParamedicNormal_Blue",
+      "HC_ZmbM_Crawler_ZmbM_PatientSkinny": "ZmbM_PatientSkinny",
+      "HC_ZmbM_Crawler_ZmbM_NBC_Grey": "ZmbM_NBC_Grey",
+      "HC_ZmbM_Feeder_ZmbM_NBC_Grey": "ZmbM_NBC_Grey",
+      "HC_ZmbM_Riser_ZmbM_NBC_Grey": "ZmbM_NBC_Grey",
+      "HC_ZmbM_Sitter_ZmbM_NBC_Grey": "ZmbM_NBC_Grey",
+      "HC_ZmbM_Sleeper_ZmbM_NBC_Grey": "ZmbM_NBC_Grey",
+      "HC_ZmbF_Feeder_ZmbF_PoliceWomanNormal": "ZmbF_PoliceWomanNormal",
+      "HC_ZmbF_Riser_ZmbF_PoliceWomanNormal": "ZmbF_PoliceWomanNormal",
+      "HC_ZmbF_Sitter_ZmbF_PoliceWomanNormal": "ZmbF_PoliceWomanNormal",
+      "HC_ZmbF_Sleeper_ZmbF_PoliceWomanNormal": "ZmbF_PoliceWomanNormal",
+      "HC_ZmbM_Crawler_ZmbM_PolicemanFat": "ZmbM_PolicemanFat",
+      "HC_ZmbM_Riser_ZmbM_PolicemanFat": "ZmbM_PolicemanFat",
+      "HC_ZmbM_Sitter_ZmbM_PolicemanFat": "ZmbM_PolicemanFat",
+      "HC_ZmbM_Sleeper_ZmbM_PolicemanFat": "ZmbM_PolicemanFat",
+      "HC_ZmbM_Crawler_ZmbM_PolicemanSpecForce_Heavy": "ZmbM_PolicemanSpecForce_Heavy",
+      "HC_ZmbM_Feeder_ZmbM_PolicemanSpecForce_Heavy": "ZmbM_PolicemanSpecForce_Heavy",
+      "HC_ZmbM_Riser_ZmbM_PolicemanSpecForce_Heavy": "ZmbM_PolicemanSpecForce_Heavy",
+      "HC_ZmbM_Sitter_ZmbM_PolicemanSpecForce_Heavy": "ZmbM_PolicemanSpecForce_Heavy",
+      "HC_ZmbM_Sleeper_ZmbM_PolicemanSpecForce_Heavy": "ZmbM_PolicemanSpecForce_Heavy",
+      "HC_ZmbM_Crawler_ZmbM_PrisonerSkinny": "ZmbM_PrisonerSkinny",
+      "HC_ZmbM_Feeder_ZmbM_PrisonerSkinny": "ZmbM_PrisonerSkinny",
+      "HC_ZmbM_Riser_ZmbM_PrisonerSkinny": "ZmbM_PrisonerSkinny",
+      "HC_ZmbM_Sitter_ZmbM_PrisonerSkinny": "ZmbM_PrisonerSkinny",
+      "HC_ZmbM_Sleeper_ZmbM_PrisonerSkinny": "ZmbM_PrisonerSkinny",
+      "HC_ZmbM_Crawler_ZmbM_priestPopSkinny": "ZmbM_priestPopSkinny",
+      "HC_ZmbM_Feeder_ZmbM_priestPopSkinny": "ZmbM_priestPopSkinny",
+      "HC_ZmbM_Riser_ZmbM_priestPopSkinny": "ZmbM_priestPopSkinny",
+      "HC_ZmbM_Sitter_ZmbM_priestPopSkinny": "ZmbM_priestPopSkinny",
+      "HC_ZmbM_Sleeper_ZmbM_priestPopSkinny": "ZmbM_priestPopSkinny",
+      "HC_ZmbM_Crawler_ZmbM_Santa": "ZmbM_Santa",
+      "HC_ZmbM_Feeder_ZmbM_Santa": "ZmbM_Santa",
+      "HC_ZmbM_Riser_ZmbM_Santa": "ZmbM_Santa",
+      "HC_ZmbM_Sitter_ZmbM_Santa": "ZmbM_Santa",
+      "HC_ZmbM_Sleeper_ZmbM_Santa": "ZmbM_Santa",
+      "HC_ZmbF_Sleeper_ZmbF_HikerSkinny_Blue": "ZmbF_HikerSkinny_Blue",
+      "HC_ZmbF_Feeder_ZmbF_HikerSkinny_Green": "ZmbF_HikerSkinny_Green",
+      "HC_ZmbF_Sitter_ZmbF_HikerSkinny_Grey": "ZmbF_HikerSkinny_Grey",
+      "HC_ZmbF_Riser_ZmbF_HikerSkinny_Red": "ZmbF_HikerSkinny_Red",
+      "HC_ZmbM_Riser_ZmbM_FishermanOld_Blue": "ZmbM_FishermanOld_Blue",
+      "HC_ZmbM_Crawler_ZmbM_FishermanOld_Green": "ZmbM_FishermanOld_Green",
+      "HC_ZmbM_Sleeper_ZmbM_FishermanOld_Grey": "ZmbM_FishermanOld_Grey",
+      "HC_ZmbM_Feeder_ZmbM_FishermanOld_Red": "ZmbM_FishermanOld_Red",
+      "HC_ZmbM_Crawler_ZmbM_HermitSkinny_Beige": "ZmbM_HermitSkinny_Beige",
+      "HC_ZmbM_Sitter_ZmbM_HunterOld_Autumn": "ZmbM_HunterOld_Autumn",
+      "HC_ZmbF_Crawler_ZmbF_MilkMaidOld_Black": "ZmbF_MilkMaidOld_Black",
+      "HC_ZmbF_Feeder_ZmbF_MilkMaidOld_Black": "ZmbF_MilkMaidOld_Black",
+      "HC_ZmbF_Riser_ZmbF_MilkMaidOld_Black": "ZmbF_MilkMaidOld_Black",
+      "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Black": "ZmbF_MilkMaidOld_Black",
+      "HC_ZmbF_Sleeper_ZmbF_MilkMaidOld_Black": "ZmbF_MilkMaidOld_Black",
+      "HC_ZmbM_Crawler_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
+      "HC_ZmbM_Riser_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
+      "HC_ZmbM_Sitter_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
+      "HC_ZmbM_Sleeper_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
+      "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Blue": "ZmbF_JoggerSkinny_Blue",
+      "HC_ZmbF_Feeder_ZmbF_JoggerSkinny_Brown": "ZmbF_JoggerSkinny_Brown",
+      "HC_ZmbM_Crawler_ZmbM_FarmerFat_Blue": "ZmbM_FarmerFat_Blue",
+      "HC_ZmbM_Sitter_ZmbM_FarmerFat_Brown": "ZmbM_FarmerFat_Brown",
+      "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Green": "ZmbM_FarmerFat_Green",
+      "HC_ZmbM_Riser_ZmbM_Jacket_beige": "ZmbM_Jacket_beige",
+      "HC_ZmbM_Feeder_ZmbM_Jacket_black": "ZmbM_Jacket_black",
+      "HC_ZmbM_Crawler_ZmbM_Jacket_blue": "ZmbM_Jacket_blue",
+      "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Blue": "ZmbM_JoggerSkinny_Blue",
+      "HC_ZmbM_Riser_ZmbM_JoggerSkinny_Green": "ZmbM_JoggerSkinny_Green",
+      "HC_ZmbF_Crawler_ZmbF_JoggerSkinny_Red": "ZmbF_JoggerSkinny_Red",
+      "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Red": "ZmbF_JoggerSkinny_Red",
+      "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Green": "ZmbF_MilkMaidOld_Green",
+      "HC_ZmbF_Feeder_ZmbF_VillagerOld_Blue": "ZmbF_VillagerOld_Blue",
+      "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Beige": "ZmbM_FarmerFat_Beige",
+      "HC_ZmbM_Riser_ZmbM_Jacket_bluechecks": "ZmbM_Jacket_bluechecks",
+      "HC_ZmbM_Crawler_ZmbM_Jacket_magenta": "ZmbM_Jacket_magenta",
+      "HC_ZmbM_Feeder_ZmbM_JoggerSkinny_Red": "ZmbM_JoggerSkinny_Red",
+      "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red": "ZmbM_JoggerSkinny_Red",
+      "HC_ZmbM_Riser_ZmbM_VillagerOld_Green": "ZmbM_VillagerOld_Green"
     },
     "constraints": "Only stock preset items; no new armour or occurrence increase; cargo untouched; crawler copies parent attachments only (no cargo); all original positive item choices remain positive."
+  },
+  "ce_pose_coverage": {
+    "InfectedArmy": {
+      "rows": 6,
+      "classes": 6,
+      "weight": 9,
+      "stock_weight": 95,
+      "population_delta": 0
+    },
+    "InfectedArmyDesert": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedArmyHard": {
+      "rows": 9,
+      "classes": 9,
+      "weight": 9,
+      "stock_weight": 90,
+      "population_delta": 0
+    },
+    "InfectedCity": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 106,
+      "population_delta": 0
+    },
+    "InfectedCityTier1": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedFirefighter": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedIndustrial": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedMedic": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedNBC": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedNBCYellow": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 5,
+      "stock_weight": 10,
+      "population_delta": 0
+    },
+    "InfectedPolice": {
+      "rows": 8,
+      "classes": 8,
+      "weight": 8,
+      "stock_weight": 80,
+      "population_delta": 0
+    },
+    "InfectedPoliceHard": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 9,
+      "stock_weight": 90,
+      "population_delta": 0
+    },
+    "InfectedPrisoner": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedReligious": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedSanta": {
+      "rows": 5,
+      "classes": 5,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedSolitude": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedSpooky": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedVillage": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    },
+    "InfectedVillageTier1": {
+      "rows": 10,
+      "classes": 10,
+      "weight": 10,
+      "stock_weight": 100,
+      "population_delta": 0
+    }
+  },
+  "ce_pose_policy": {
+    "generator": "python3 -B -m tools.anim.ce_variants --stock-events STOCK_EVENTS --addons STOCK_ADDONS",
+    "share": "max(5, floor(stock child min sum / 10)) integer weight units, reserved after existing substitutions and composition transfers; donors retain at least one unit",
+    "why": "Rare ambient poses/crawlers without extra CE population or a new scheduler; minimum five integer units exposes all five modes in NBCYellow (50% of ten); existing MaxPosed bounds actual held poses",
+    "female_decision": "Include female poses and crawlers. The pinned characters_zombies.pbo CfgVehicles/ZombieFemaleBase and ZombieMaleBase both inherit the complete ZombieBase/enfanimsys block without override; every selected stock outfit checked against that block at generation and build.",
+    "shared_inputs": {
+      "meshObject": "dz\\characters\\zombies\\z_hermit_m.xob",
+      "skeletonName": "hermit_newbindpose.xob",
+      "graphname": "dz\\anims\\workspaces\\infected\\infected_main\\infected.agr",
+      "defaultinstance": "dz\\anims\\workspaces\\infected\\infected_main\\infected_main.asi",
+      "startnode": "MasterControl"
+    },
+    "scope": "Every Infected* event in pinned stock events.xml. Coastal tiers use CityTier1/VillageTier1; farm outfits use Village; hunting/forest/fishing outfits use Solitude. No invented CE event names.",
+    "runtime_acceptance": "PENDING; identical config inputs do not prove female skinning or playback"
   }
 }

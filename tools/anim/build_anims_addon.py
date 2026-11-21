@@ -212,6 +212,12 @@ def collect(addons_dir, clip_dir):
     ast, asi, sheets = read_vanilla_slot_sources(addons_dir)
     check_dead_slots(ast, asi, sheets)
     check_expression_calls((SOURCE / 'anims/infected/hc_poses.agf').read_text(encoding='utf-8'), sheets)
+    from tools.anim import ce_variants
+    import json
+    config = (SOURCE / 'config.cpp').read_text(encoding='utf-8')
+    policy = json.loads(ce_variants.POLICY.read_bytes())
+    if ce_variants.render(config, policy, addons_dir) != config:
+        raise ValueError('stale CE outfit config; regenerate with tools.anim.ce_variants')
     files = {}
     for p in sorted(SOURCE.rglob('*')):
         if p.is_file() and not p.name.startswith('$'):

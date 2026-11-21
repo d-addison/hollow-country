@@ -441,7 +441,7 @@ modded class HCInfectedModule
             if (entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
             float nearest = HCInfectedLOD.NearestDistance(players, entity.GetPosition());
             if (nearest < 0 || nearest > range) { continue; }
-            if (entity.IsKindOf("HC_ZmbM_Sitter")) { return entity; }
+            if (HCInfectedVarietyPolicy.HCIsPosedType(entity.GetType())) { return entity; }
             if (!fallback) { fallback = entity; }
         }
         return fallback;

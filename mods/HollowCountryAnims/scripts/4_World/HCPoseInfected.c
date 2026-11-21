@@ -1,5 +1,5 @@
 // Hollow Country posed infected: server-side request hook for the HCMasterControl pose layer.
-// Experimental: compiled and played by nobody yet; native and two-client acceptance pending.
+// Runtime acceptance pending: one server and at most one client.
 //
 // Issue #225: all four pose pairs have source generators and graph states. Admission
 // remains owned by HCPostureAdmission; the lead must apply the exact scope-boundary
@@ -51,7 +51,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 {
 	static const float RESEND_SECONDS = 2.0;  // re-announce the pose for clients that streamed in late
 
-	protected HC_ZmbM_Sitter m_HCOwner;
+	protected ZombieBase m_HCOwner;
 	protected int m_HCSent;
 	protected float m_HCRise;
 	protected int m_HCRiseFrom;   // pose being left; its clip length bounds the rise
@@ -59,7 +59,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 
 	void HCPoseCommand(DayZInfected pInfected)
 	{
-		m_HCOwner = HC_ZmbM_Sitter.Cast(pInfected);
+		m_HCOwner = ZombieBase.Cast(pInfected);
 		m_HCSent = -1;
 		m_HCRise = -1;
 		m_HCRiseFrom = -1;
@@ -132,9 +132,13 @@ class HCPoseCommand extends DayZInfectedCommandScript
 	}
 }
 
-class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
+// Share the hook without replacing outfit-specific native script ancestry.
+// Unmarked stock bodies never request a pose or crawl transition.
+modded class ZombieBase
 {
 	static int s_HCPosed;
+	protected int m_HCSpawnKind = -1;
+	protected bool m_HCCrawlSeen;
 
 	protected int m_HCPose;            // 0 stand, 1 sit against a wall or tree, 2 flat sleeper, 3 lying riser, 4 kneel feeding
 	protected bool m_HCHolding;        // holds one configured MaxPosed slot
@@ -153,32 +157,28 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	//! Pose this class takes when the CE (or a test helper) creates it.
 	int HCSpawnPose()
 	{
-		return HCVarietyCounters.KIND_SIT;
+		// Native 3_Game/Global/Game.c:539 ConfigGetInt, :612 ConfigIsExisting.
+		// Check existence first so unmarked stock spawns do not log missing entries.
+		if (m_HCSpawnKind < 0)
+		{
+			m_HCSpawnKind = 0;
+			string path = "CfgVehicles " + GetType() + " hcSpawnPose";
+			if (g_Game.ConfigIsExisting(path)) { m_HCSpawnKind = g_Game.ConfigGetInt(path); }
+		}
+		return m_HCSpawnKind;
 	}
 
-	// Build 135: the first StartCommand_ScriptInst(HCPoseCommand) near a player
-	// crashed the server (ACCESS_VIOLATION; see #315 above). The start now uses
-	// new + StartCommand_Script; until that is observed natively the pose command
-	// starts only with the operator test file below; without it a posed class
-	// stays a normal standing infected. Checked once per session.
-	static const string HC_POSE_TEST_FILE = "$profile:HollowCountry/acceptance/PoseCommand.enable";
-	static const string HC_POSE_CRASH_REFUSAL = "pose_command_native_crash_pending_fix";
-	static int s_HCPoseAdmitted = -1;
-
+	// Default-on policy is isolated so the lead can restore the #315 opt-in
+	// independently of CE coverage. Bind preflight and settled-Move stay below.
 	static bool HCPoseCommandAdmitted()
 	{
-		if (s_HCPoseAdmitted < 0)
-		{
-			s_HCPoseAdmitted = 0;
-			if (FileExist(HC_ZmbM_Sitter.HC_POSE_TEST_FILE)) { s_HCPoseAdmitted = 1; }
-		}
-		return s_HCPoseAdmitted == 1;
+		return HCPoseCommandAdmission.Enabled();
 	}
 
 	//! Server: only authored modes admitted by the shared owner may acquire a slot.
 	bool HCRequestPose(int pose)
 	{
-		if (!g_Game.IsServer() || !IsAlive())
+		if (!g_Game.IsServer() || !IsAlive() || HCSpawnPose() < 1 || HCSpawnPose() > 4)
 			return false;
 		// Operator off switches: EnableInfectedVariety=false, infected_variety.disable
 		// (both via the variety owner) or infected_poses.disable. Wake/release stay open.
@@ -190,12 +190,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		if (pose != 0 && !HCPoseCommandAdmitted())
 		{
 			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_ADMISSION);
-			if (s_HCLastRefusal != HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL)
-			{
-				s_HCLastRefusal = HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL;
-				Print("[HollowCountryAnims] pose refused reason=" + HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL + " runtime=PENDING");
-			}
-			return false;   // stays a normal standing infected
+			return false;
 		}
 		if (pose != 0 && m_HCBindState < 0)
 		{
@@ -315,7 +310,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		string graph;
 		g_Game.ConfigGetText("CfgVehicles " + GetType() + " enfanimsys graphname", graph);
 		graph.ToLower();
-		if (!graph.Contains(HC_ZmbM_Sitter.HC_POSE_GRAPH))
+		if (!graph.Contains(ZombieBase.HC_POSE_GRAPH))
 			return HCPreflightFailed("graph_not_hc");
 		DayZCreatureAnimInterface anim = GetAnimInterface();
 		if (!anim)
@@ -372,6 +367,13 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 
 	override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
 	{
+		if (!m_HCCrawlSeen && m_HCSpawnKind == HCVarietyCounters.KIND_CRAWL && pCurrentCommandID == DayZInfectedConstants.COMMANDID_CRAWL && g_Game.IsServer())
+		{
+			m_HCCrawlSeen = true;
+			HCVarietyCounters.HCAdd(HCVarietyCounters.CRAWLING);
+			if (HCVarietyCounters.HCDetail())
+				Print("[HollowCountryAnims] crawler crawling class=" + GetType() + " runtime=PENDING");
+		}
 		if (!m_HCHolding)
 			return super.ModCommandHandlerBefore(pDt, pCurrentCommandID, pCurrentCommandFinished);
 		if (!IsAlive())
@@ -414,7 +416,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			m_HCSettledTicks = 0;
 			return false;
 		}
-		if (m_HCSettledTicks < HC_ZmbM_Sitter.HC_POSE_SETTLE_TICKS)
+		if (m_HCSettledTicks < ZombieBase.HC_POSE_SETTLE_TICKS)
 		{
 			m_HCSettledTicks++;
 			return false;
@@ -450,8 +452,16 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		super.EEInit();
 		if (g_Game.IsServer())
 		{
-			HCVarietyCounters.HCSpawned(HCSpawnPose());
-			HCRequestPose(HCSpawnPose());
+			int kind = HCSpawnPose();
+			if (kind < 1 || kind > HCVarietyCounters.KIND_CRAWL) { return; }
+			HCVarietyCounters.HCSpawned(kind);
+			if (kind != HCVarietyCounters.KIND_CRAWL) { HCRequestPose(kind); }
+			else if (!HCInfectedVarietyModule.VarietyActive()) { HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT); }
+			else if (IsAlive() && !IsCrawling())
+			{
+				// Native ZombieBase.c:809-824 consumes this injury transition.
+				m_CrawlTransition = 0;
+			}
 		}
 	}
 
@@ -477,67 +487,10 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	}
 }
 
-// #279 CE variants: same pose layer, a different spawn pose. Config parents (outfits)
-// are vanilla civilian males whose script bases are empty, so behaviour is unchanged.
-class HC_ZmbM_Sleeper extends HC_ZmbM_Sitter
-{
-	override int HCSpawnPose()
-	{
-		return HCVarietyCounters.KIND_SLEEP;
-	}
-}
-
-class HC_ZmbM_Riser extends HC_ZmbM_Sitter
-{
-	override int HCSpawnPose()
-	{
-		return HCVarietyCounters.KIND_RISER;
-	}
-}
-
-class HC_ZmbM_Feeder extends HC_ZmbM_Sitter
-{
-	override int HCSpawnPose()
-	{
-		return HCVarietyCounters.KIND_FEED;
-	}
-}
-
-// #279 CE crawler on the vanilla graph. EEInit sets the SAME request the vanilla
-// injury path uses (ZombieBase.c:809 m_CrawlTransition, consumed by :811-824
-// HandleCrawlTransition, which starts StartCommand_Crawl and syncs m_IsCrawling).
-// No health edit, no teleport; native AI drives the crawler and never stands it up.
-// The CE spawns it away from players, so the fall into the crawl is not watched.
-class HC_ZmbM_Crawler extends ZmbM_CitizenASkinny_Base
-{
-	protected bool m_HCCrawlSeen;
-
-	override void EEInit()
-	{
-		super.EEInit();
-		if (!g_Game.IsServer())
-			return;
-		HCVarietyCounters.HCSpawned(HCVarietyCounters.KIND_CRAWL);
-		// Same operator gate as the posed classes: with variety off it stays a
-		// normal standing infected and counts as refused_optout.
-		if (!HCInfectedVarietyModule.VarietyActive())
-		{
-			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT);
-			return;
-		}
-		if (IsAlive() && !IsCrawling())
-			m_CrawlTransition = 0;
-	}
-
-	override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
-	{
-		if (!m_HCCrawlSeen && pCurrentCommandID == DayZInfectedConstants.COMMANDID_CRAWL && g_Game.IsServer())
-		{
-			m_HCCrawlSeen = true;
-			HCVarietyCounters.HCAdd(HCVarietyCounters.CRAWLING);
-			if (HCVarietyCounters.HCDetail())
-				Print("[HollowCountryAnims] crawler crawling class=" + GetType() + " runtime=PENDING");
-		}
-		return super.ModCommandHandlerBefore(pDt, pCurrentCommandID, pCurrentCommandFinished);
-	}
-}
+// Legacy admin/herd class identities remain available; generated config children
+// inherit their own stock outfit script classes and use the shared hook above.
+class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base {}
+class HC_ZmbM_Sleeper extends ZmbM_CitizenASkinny_Base {}
+class HC_ZmbM_Riser extends ZmbM_Jacket_Base {}
+class HC_ZmbM_Feeder extends ZmbM_FarmerFat_Base {}
+class HC_ZmbM_Crawler extends ZmbM_CitizenASkinny_Base {}

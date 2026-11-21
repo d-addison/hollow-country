@@ -1,6 +1,6 @@
 // #316: selection happens once before materialization/command entry. No new
-// scheduler, census, animation API or pose slot owner. The addon still refuses
-// command entry under #315; neither this preference nor a roll opens that gate.
+// scheduler, census, animation API or pose slot owner. The addon owns
+// command entry, bind preflight and settled-Move checks under #315.
 // Native scripts-1.30.164289: EnMath.c:38 RandomInt; Game.c:914 GetTickTime;
 // DayZInfectedInputController.c:9 GetMindState; Object.c:287 GetPosition.
 // Existing HCVariety native threat/hit wakes and LOD sub-budgets are unchanged.
