@@ -416,10 +416,9 @@ class HCXAICaravanAdapter : HCCaravanInventory
             for (int forward = 0; forward < roads.Path.Count(); forward++) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, roads.Path[roads.Path.Count() - 1 - forward]); }
             HCXExpansionBridge.HCGroupAddWaypoint(m_Group, m_To);
         }
-        array<vector> requested = HCXExpansionBridge.HCGroupGetWaypoints(m_Group);
-        m_Recovery.EndMeters = Corridor.ArrivalRangeMeters;
-        m_Recovery.Kind = "caravan";
-        m_Recovery.HCStart(requested, GetGame().GetTime(), Corridor.MaxRouteNodes + 1);
+        // Legacy in-progress journals may still request a route. Recovery stays
+        // dormant until a caller owns its give-up/abort lifecycle; arrival polling
+        // alone cannot complete that lifecycle after an observer gives up.
         return true;
     }
     override bool HCBindCaravan(HCCaravanState row)
@@ -466,15 +465,27 @@ modded class HCXAISiteState
     vector HCJourneyWanted;
     vector HCJourneySampled;
     int HCJourneyPathStage;
+    int HCJourneyPathFailures;
+
+    // Failed sampling, queries or moving-origin validation must not probe forever
+    // at the normal cadence. Saturate the streak; success/handoff clears it.
+    void HCFailJourneyLeg()
+    {
+        HCJourneyPathStage = 0;
+        HCJourneyPath.Clear();
+        HCJourneyPathFailures = Math.Min(HCJourneyPathFailures + 1, 2);
+        HCJourneyRetry = GetGame().GetTickTime() + 15 * HCJourneyPathFailures;
+    }
 
     void HCResetJourney()
     {
         HCStopJourney();
         HCJourneyPath.Clear();
         HCJourneyPathStage = 0;
+        HCJourneyPathFailures = 0;
     }
 
-    // A timed leg refresh may reuse geometry; ownership handoffs invalidate it.
+    // Stop motion observation; callers invalidating geometry use HCResetJourney.
     void HCStopJourney()
     {
         HCJourneyWalking = false;
@@ -506,10 +517,13 @@ modded class HCXAISiteDirector
     }
 
     // One native operation per visit, charged as a native probe (64 units).
-    // Keep the last good leg only while both query endpoints remain within 1 m.
+    // Only finished legs require both query endpoints to remain within 1 m.
+    // Stages 1-2 retain their sampled origin while the leader keeps walking.
+    // HCTakeAISlice admits the first item per consumer/tick even on an empty
+    // pool: a 64-unit native probe can overshoot once per tick if it is first.
     bool HCJourneyLeg(HCXAISiteState state, vector position, vector wanted)
     {
-        if (vector.DistanceSq(position, state.HCJourneyFrom) > 1 || vector.DistanceSq(wanted, state.HCJourneyWanted) > 1)
+        if (state.HCJourneyPathStage == 3 && (vector.DistanceSq(position, state.HCJourneyFrom) > 1 || vector.DistanceSq(wanted, state.HCJourneyWanted) > 1))
         {
             state.HCJourneyPathStage = 0;
             state.HCJourneyPath.Clear();
@@ -523,16 +537,14 @@ modded class HCXAISiteDirector
         {
             TVectorArray path = state.HCJourneyPath;
             bool valid = path.Count() >= 2 && path.Count() <= 32;
-            if (valid) { valid = vector.DistanceSq(path[path.Count() - 1], state.HCJourneySampled) <= 4; }
+            if (valid) { valid = HCXConvoyRoute.HCFlatSq(path[0], position) <= 64 && vector.DistanceSq(path[path.Count() - 1], state.HCJourneySampled) <= 4; }
             float length = 0;
             if (valid)
             {
                 for (int index = 1; index < path.Count(); index++) { length += vector.Distance(path[index - 1], path[index]); }
             }
-            if (valid && length <= 240) { state.HCJourneyPathStage = 3; return true; }
-            state.HCJourneyPathStage = 0;
-            state.HCJourneyPath.Clear();
-            state.HCJourneyRetry = GetGame().GetTickTime() + 15;
+            if (valid && length <= 240) { state.HCJourneyPathStage = 3; state.HCJourneyPathFailures = 0; return true; }
+            state.HCFailJourneyLeg();
             return false;
         }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 64)) { return false; }
@@ -541,7 +553,7 @@ modded class HCXAISiteDirector
             state.HCJourneyFrom = position;
             state.HCJourneyWanted = wanted;
             state.HCJourneySampled = this.NavSample(wanted, 12, m_Filter);
-            if (state.HCJourneySampled == vector.Zero) { state.HCJourneyRetry = GetGame().GetTickTime() + 15; return false; }
+            if (state.HCJourneySampled == vector.Zero) { state.HCFailJourneyLeg(); return false; }
             state.HCJourneyPathStage = 1;
             return false;
         }
@@ -549,8 +561,7 @@ modded class HCXAISiteDirector
         state.HCJourneyPath.Clear();
         if (!navigation || !navigation.FindPath(state.HCJourneyFrom, state.HCJourneySampled, m_Filter, state.HCJourneyPath))
         {
-            state.HCJourneyPathStage = 0;
-            state.HCJourneyRetry = GetGame().GetTickTime() + 15;
+            state.HCFailJourneyLeg();
             return false;
         }
         // Validate the bounded result next visit; do not append work to an atomic query.
@@ -578,6 +589,7 @@ modded class HCXAISiteDirector
         DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(party);
         if (!leader || !leader.IsAlive()) { return; }
         vector position = leader.GetPosition();
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
         world.HCJourneyObserved(identity.HCPartyId(), position);
         if (HCXExpansionBridge.HCGroupIsInCombat(party)) { state.HCResetJourney(); return; }
         // Installed eAIDynamicPatrol.c:760-765 measures despawn distance
@@ -592,8 +604,8 @@ modded class HCXAISiteDirector
             }
             bool gaveUp = state.HCJourneyRecovery && state.HCJourneyRecovery.GivenUp;
             if (!gaveUp && now - state.HCJourneyStarted < 90) { return; }
-            if (gaveUp) { state.HCResetJourney(); }
-            else { state.HCStopJourney(); }
+            // Give-up and timed refresh both discard possibly failed geometry.
+            state.HCResetJourney();
         }
         if (now < state.HCJourneyRetry) { return; }
         state.HCJourneyRetry = now + 1;
