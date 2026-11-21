@@ -2,9 +2,9 @@
 
 Class allowlist: installed 1.30.164289 EnWidgets.c/WidgetType and vanilla
 GUI PBO layouts, inspected locally 2026-11-18. No vanilla content is distributed.
-Literal script loads/lookups are checked per source file; a borrowed root with
-no matching local load is reported for human review, never silently satisfied
-by an unrelated layout. Dynamic names are outside this static check's scope.
+Literal script loads/lookups are checked per source file and reviewed borrowed
+root declarations, never silently satisfied by an unrelated layout. Dynamic
+names are outside this static check's scope.
 """
 import argparse
 from pathlib import Path
@@ -26,6 +26,26 @@ Workspace'''.split())
 WIDGET_CLASSES = frozenset(name + 'WidgetClass' for name in WIDGET_CLASSES)
 LEX = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*[\s\S]*?\*/|[{}]|[^\s{}]+')
 SCRIPT_LEX = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*[\s\S]*?\*/')
+
+# Reviewed root handoffs. Each root is checked separately, including its loader;
+# an unrelated layout cannot satisfy a consumer's lookup. Optional names describe
+# the smaller Expansion admin-only root, whose absent fields are null-guarded.
+_GROUP_MENU = 'mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c'
+_EXPANSION_MAP = 'mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminExpansionMap.c'
+_GROUP_LAYOUT = 'HollowCountry/gui/layouts/hc_group_map.layout'
+_ADMIN_LAYOUT = 'HollowCountry/gui/layouts/hc_admin_world_overlay.layout'
+BORROWED_ROOTS = {
+    'mods/HollowCountry/scripts/5_Mission/Admin/HCAdminWorldClient.c': (
+        (_GROUP_LAYOUT, _GROUP_MENU, (), 'Init passes layoutRoot to HCAdminWorldClient.Open.'),
+        (_ADMIN_LAYOUT, _EXPANSION_MAP, (), 'OnShow passes mHCXAdminOverlay to HCAdminWorldClient.Open.'),
+    ),
+    'mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapLayers.c': (
+        (_GROUP_LAYOUT, _GROUP_MENU, (), 'Init passes layoutRoot to mHCLayers.Init.'),
+        (_ADMIN_LAYOUT, _EXPANSION_MAP, ('HCGrid', 'HCNavigation', 'HCKnownEvents'),
+         'Init passes mHCXAdminOverlay to mHCXAdminLayers.Init; DrawAdminOverlay uses pins only. '
+         'Grid, navigation and events fields are optional and null-guarded.'),
+    ),
+}
 
 
 def uncomment(text):
@@ -70,9 +90,11 @@ def lint_layout(text):
     return names, findings
 
 
-def lint_tree(root):
+def lint_tree(root, borrowed_roots=None):
     """Check every authored layout, load and literal lookup under root/mods."""
     root = Path(root)
+    if borrowed_roots is None:
+        borrowed_roots = BORROWED_ROOTS
     findings, parsed = [], {}
     for path in sorted((root / 'mods').glob('*/gui/layouts/**/*.layout')):
         names, paths, errors = _parse(path.read_text(encoding='utf-8-sig'))
@@ -82,7 +104,19 @@ def lint_tree(root):
         text = uncomment(script.read_text(encoding='utf-8-sig'))
         label = script.relative_to(root).as_posix()
         loads = re.findall(r'"([^"\n]+\.layout)"', text)
+        local_loads = set(loads)
+        borrowed = borrowed_roots.get(label, ())
+        for layout, loader, optional, reason in borrowed:
+            loader_path = root / loader
+            if not reason.strip() or not loader_path.is_file():
+                findings.append(f'{label}: invalid borrowed-root declaration: {layout}')
+                continue
+            loader_loads = re.findall(r'"([^"\n]+\.layout)"', uncomment(loader_path.read_text(encoding='utf-8-sig')))
+            if layout not in loader_loads:
+                findings.append(f'{label}: borrowed-root loader {loader} does not load {layout}')
+            loads.append(layout)
         loaded_names, loaded_paths = set(), set()
+        local_names, local_paths = set(), set()
         for load in sorted(set(loads)):
             canonical = load.replace('\\\\', '/').replace('\\', '/').lstrip('/')
             parts = canonical.split('/', 1)
@@ -99,14 +133,27 @@ def lint_tree(root):
                 names, paths = parsed[path]
                 loaded_names.update(names)
                 loaded_paths.update(paths)
+                if load in local_loads:
+                    local_names.update(names)
+                    local_paths.update(paths)
         for kind, name in re.findall(r'\b(FindAnyWidget|FindWidget)\s*\(\s*"([^"]+)"\s*\)', text):
-            if kind == 'FindAnyWidget' and '.' not in name:
-                exists = name in loaded_names
-            else:
-                exists = any(p == name or p.endswith('.' + name) for p in loaded_paths)
+            for layout, loader, optional, reason in borrowed:
+                names, paths = parsed.get(root / 'mods' / layout, (set(), set()))
+                if name in optional:
+                    continue
+                # A consumer can also create its own child widgets (map icons).
+                if not _lookup_exists(kind, name, names | local_names, paths | local_paths):
+                    findings.append(f'{label}: lookup {name!r} has no match in borrowed root {layout} ({reason})')
+            exists = _lookup_exists(kind, name, loaded_names, loaded_paths)
             if not exists:
                 findings.append(f'{label}: lookup {name!r} has no match in layouts loaded by this script (borrowed roots need review)')
     return findings
+
+
+def _lookup_exists(kind, name, names, paths):
+    if kind == 'FindAnyWidget' and '.' not in name:
+        return name in names
+    return any(p == name or p.endswith('.' + name) for p in paths)
 
 
 def main(argv=None):

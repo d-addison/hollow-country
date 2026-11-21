@@ -65,7 +65,7 @@ class CensusClassificationTests(unittest.TestCase):
         self.assertEqual(verdict["measured"], sorted(fixture.CLASSES))
 
     def test_the_label_never_carries_a_directory(self):
-        verdict = cov.classify_census("/home/someone/secret/census.json", legacy_census())
+        verdict = cov.classify_census(str(Path.home() / "secret" / "census.json"), legacy_census())
         self.assertEqual(verdict["label"], "census.json")
 
 
