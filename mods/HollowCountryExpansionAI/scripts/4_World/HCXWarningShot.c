@@ -52,6 +52,8 @@ class HCXWarningShot
             return false;
         }
         vector direction = vector.Direction(origin, point).Normalized();
+        // Start the round clear of the shooter's own body.
+        origin = origin + direction * 0.6;
         // One native discharge consumes the existing chambered cartridge. Never
         // spawn, remove, replenish or copy ammunition. No queued burst/auto fire.
         bool fired = weapon.Fire(muzzle, origin, direction, direction);
@@ -59,7 +61,9 @@ class HCXWarningShot
         {
             // Use the observed provider presentation RPC; authority for the round
             // and its trajectory remains this server's native Fire call.
-            actor.eAI_FireWeaponOnClient(muzzle, actor.HCXWarningStarted);
+            // Shot id 0: the provider packs muzzle and shot id into one int and its
+            // client id check is disabled, so a large id would only corrupt the muzzle.
+            actor.eAI_FireWeaponOnClient(muzzle, 0);
             weapon.RandomizeFSMState();
             weapon.Synchronize();
             Print("[HollowCountry] Stance warning_shot fired offset=12m runtime=PENDING");
