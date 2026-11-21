@@ -14,6 +14,7 @@ import json
 from contextlib import ExitStack
 
 from tools.setup import wine_compile_probe as probe
+from tools.release import compile_gate, release, ship_inputs
 
 
 class MockedWineRunTests(unittest.TestCase):
@@ -76,6 +77,79 @@ class MockedWineRunTests(unittest.TestCase):
         self.assertEqual('log-collection-incomplete', report['status'])
         self.assertFalse(report['engine_error_observed'])
         self.assert_cleaned_report(report)
+
+    def test_gate_packages_reach_launched_mod_folders(self):
+        """Exercise the gate/probe boundary against the release's own catalogue."""
+        animation = self.root / 'HollowCountryAnims.pbo'
+        animation.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic animation'},
+                                            prefix='HollowCountryAnims'))
+        adapter = self.root / probe.SERVER_MOD_PBO
+        adapter.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic adapter'},
+                                          prefix=probe.SERVER_MOD_PREFIX))
+        guard = self.root / compile_gate.weapon_pack_guards.PBO_NAME
+        guard.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic guard'},
+                                        prefix=probe.pbo.GUARD_PREFIX))
+        for index, declared in enumerate((False, True)):
+            self.experiment = self.root / ('catalogue-' + str(index))
+            self.now = 0
+            self.process.returncode = None
+            inputs = {'server_mod': adapter, 'server_extra_pbos': [guard] if declared else []}
+            with patch.object(ship_inputs, 'build_anims', return_value=animation), \
+                    patch.object(compile_gate.weapon_pack_guards, 'declared', return_value=declared):
+                inputs = compile_gate.stage_release_pbos(
+                    self.root, self.source, inputs, self.root / 'Addons', self.root / ('stage-' + str(index)))
+            report = self.run_mocked(**inputs)
+            staged = {path.relative_to(self.experiment).as_posix(): path
+                      for path in self.experiment.glob('@*/addons/*.pbo')}
+            expected = {f'@{mod}/addons/{name}.pbo'.casefold()
+                        for name, mod, _ in release.ship_inputs.signing_inputs(guard.name if declared else None)}
+            self.assertEqual({name.casefold() for name in staged}, expected)
+            self.assertEqual(report['base_extra_pbos'], {animation.name.lower(): 'HollowCountryAnims'})
+            command = self.launch.call_args.args[0]
+            mod_arg = next(arg for arg in command if arg.startswith('-mod='))
+            for folder in {path.parent.parent for path in staged.values()}:
+                self.assertIn(probe.win(folder), mod_arg)
+            self.assert_cleaned_report(report)
+
+    def test_base_companion_drift_revokes_clean_initialization(self):
+        animation = self.root / 'HollowCountryAnims.pbo'
+        animation.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic animation'},
+                                            prefix='HollowCountryAnims'))
+        staged = self.experiment / '@HollowCountry/addons' / animation.name
+        report = self.run_mocked(base_extra_pbos=[animation],
+                                 final_mutation=lambda: staged.write_bytes(b'changed'))
+        self.assertEqual(report['status'], 'input-drift')
+        self.assert_cleaned_report(report)
+
+    def test_invalid_base_companions_fail_before_staging_or_launch(self):
+        cases = (
+            ('hollowcountry.pbo', self.source.read_bytes(), 'duplicate or invalid base PBO filename'),
+            ('duplicate.pbo', self.source.read_bytes(), 'duplicate PBO prefix'),
+            ('broken.pbo', b'not a PBO', None),
+            ('animation.txt', b'not a PBO', 'duplicate or invalid base PBO filename'),
+        )
+        for name, data, message in cases:
+            companion = self.root / name
+            companion.write_bytes(data)
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError) as error:
+                    self.run_mocked(base_extra_pbos=[companion])
+                if message:
+                    self.assertIn(message, str(error.exception))
+                self.launch.assert_not_called()
+                self.assertFalse(self.experiment.exists())
+
+    def test_base_companions_cannot_overwrite_each_other(self):
+        animation = self.root / 'HollowCountryAnims.pbo'
+        animation.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic animation'},
+                                            prefix='HollowCountryAnims'))
+        other = self.root / 'hollowcountryanims.PBO'
+        other.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic other'},
+                                        prefix=probe.pbo.GUARD_PREFIX))
+        with self.assertRaisesRegex(ValueError, 'duplicate or invalid base PBO filename'):
+            self.run_mocked(base_extra_pbos=[animation, other])
+        self.launch.assert_not_called()
+        self.assertFalse(self.experiment.exists())
 
     def test_engine_fatal_during_polling_is_distinct_from_compile_or_timeout(self):
         report=self.run_mocked(lambda now:'ENGINE    (F): Crashed')

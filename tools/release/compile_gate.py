@@ -23,6 +23,7 @@ sys.path.insert(0, str(REPO))
 from tools.package import inventory_sizes, pbo, weapon_pack_guards
 from tools.audit.pbo_config import parse_text_config, read_config_members
 from tools.setup import wine_compile_probe as probe
+from tools.release import ship_inputs
 
 SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
 COMPILE_FAILURE = re.compile(
@@ -265,6 +266,59 @@ def ship_config(tree, disposable):
           + ' sha256=' + receipt['sha256'])
 
 
+def build_command(command, cwd):
+    result = subprocess.run([str(arg) for arg in command], cwd=cwd, capture_output=True,
+                            text=True, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
+                            timeout=1800)
+    if result.returncode:
+        raise ValueError('animation build/verify failed: ' + Path(str(command[0])).name
+                         + ' ' + private(result.stderr.strip()[-400:]))
+    return result.stdout
+
+
+def validate_staged_pbos(staged, guard_name=None):
+    """Compare actual staged paths with the catalogue used by release signing."""
+    expected = {f'@{mod}/addons/{name}.pbo'.casefold()
+                for name, mod, _ in ship_inputs.signing_inputs(guard_name)}
+    actual = {name.casefold() for name, path in staged.items() if path.is_file()}
+    missing = sorted(expected - actual)
+    if missing:
+        raise ValueError('release PBOs not staged: ' + ', '.join(missing))
+    if actual - expected:
+        raise ValueError('unexpected staged PBOs: ' + ', '.join(sorted(actual - expected)))
+    print('compile_gate: staged_pbos=' + str(len(actual)) + ' names=' + ','.join(sorted(actual)))
+
+
+def stage_release_pbos(tree, package, inputs, addons, scratch):
+    """Stage release layout once, then give the probe these exact package files."""
+    base = scratch / '@HollowCountry/addons'
+    base.mkdir(parents=True)
+    shutil.copyfile(package, base / 'hollowcountry.pbo')
+    anims = ship_inputs.build_anims(tree, addons, scratch, build_command)
+    shutil.copyfile(anims, base / 'hollowcountryanims.pbo')
+    server = scratch / '@HollowCountryExpansionAI/addons'
+    server.mkdir(parents=True)
+    adapter = server / 'hollowcountryexpansionai.pbo'
+    if inputs.get('server_mod'):
+        shutil.copyfile(inputs['server_mod'], adapter)
+    else:
+        adapter.write_bytes(pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountryExpansionAI',
+                                                      prefix='HollowCountryExpansionAI'),
+                                     prefix='HollowCountryExpansionAI'))
+    extras = []
+    for source in inputs.get('server_extra_pbos', ()):
+        target = server / source.name
+        shutil.copyfile(source, target)
+        extras.append(target)
+    staged = {path.relative_to(scratch).as_posix(): path
+              for path in scratch.glob('@*/addons/*.pbo')}
+    guard_name = weapon_pack_guards.PBO_NAME if weapon_pack_guards.declared(
+        tree / 'tools/setup/workshop_mods.json') else None
+    validate_staged_pbos(staged, guard_name)
+    return dict(inputs, server_mod=adapter, server_extra_pbos=extras,
+                base_extra_pbos=[base / 'hollowcountryanims.pbo'])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tree', type=Path, default=Path.cwd(), help='source checkout (default: current directory)')
@@ -275,6 +329,8 @@ def main():
     parser.add_argument('--seconds', type=int, default=300, help='Wine probe budget, 15..900 seconds (default 300; use 900 on a busy host)')
     parser.add_argument('--workshop', type=Path, default=weapon_pack_guards.WORKSHOP,
                         help='installed Workshop content root; compile guard and HCX when pack is installed')
+    parser.add_argument('--addons', type=Path, default=ship_inputs.ADDONS,
+                        help='installed DayZ/DayZServer Addons folder (read only; same as release)')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
     args = parser.parse_args()
     if not args.prepare_only:
@@ -307,6 +363,8 @@ def main():
                     finally:
                         temporary.unlink(missing_ok=True)
             print('compile_gate: pbo_sha256=' + digest + ' package_cache=' + ('hit' if reused else 'miss'))
+            staging = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='ship-inputs-', dir=cache)))
+            inputs = stage_release_pbos(tree, package, inputs, args.addons.expanduser().absolute(), staging)
             if args.prepare_only:
                 print('compile_gate: PREPARED ONLY; native compile NOT RUN')
                 return 0
