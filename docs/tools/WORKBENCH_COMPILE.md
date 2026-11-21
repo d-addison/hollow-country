@@ -166,3 +166,46 @@ on the clean tree.
   sources and the guard PBO are compiled only by the server gate.
 - This is a compile check: no boot, config runtime, gameplay or multiplayer
   result. The native server compile gate remains required for Enforce changes.
+
+## Calibration
+
+The historical corpus in `tools/release/wb_calibrate.py` records native compile
+fixes and their reasons from git subjects. Every fix must exist and its first
+parent must be an ancestor of local `main`; the runner validates the entire
+corpus before launching a compiler, even with `--only`.
+
+Lead only, while the owner is not playing: run the current drivers against
+read-only snapshots of each fix's parent (expected `compile_failed`) and fix
+(expected `passed`). Workers test this orchestration with fakes and never start
+Workbench or the native gate. Calls are sequential; the drivers retain their
+own shared host locking. A missing Workbench installation refuses the run.
+
+```sh
+python3 -B -m tools.release.wb_calibrate --out /tmp/hc-wb-calibration
+python3 -B -m tools.release.wb_calibrate --only 47f27ad5 386809e1 --gate --out /tmp/hc-wb-calibration-native
+python3 -B -m unittest tests.unit.test_wb_calibrate
+```
+
+`--out` is a directory outside the repository; it receives `agreement.json`
+and `agreement.md`. Without it a unique `hc-wb-calibrate-*` directory is created
+under the job's `TEMP` (or Python's temporary directory). Locations in reports
+are source-relative or basenames; raw compiler output and account paths are
+never copied into reports or printed. Reports checkpoint after every invocation.
+Use a distinct output directory for each run to retain previous evidence.
+
+`--gate` also runs the native gate at each parent. Its verdict requires the
+gate's explicit compiler-error evidence or a pass that reached Mission; a
+generic failure is inconclusive. The first available error `file:line` is
+recorded for Workbench and native failures. A parent accepted by Workbench, a
+fix rejected by Workbench, or a native verdict differing from Workbench is a
+disagreement. An inconclusive or unsafe tool outcome stops further invocations.
+
+Exit 0 means all selected expectations matched (`expected_only` without
+`--gate`, `agree` with it); 1 means disagreement; 2 means refusal or incomplete
+evidence. A subset or `expected_only` result does not qualify replacement of the
+native gate. The lead must run the full corpus with `--gate`, investigate every
+disagreement and fill the table below. These are compile results only; boot,
+gameplay and multiplayer acceptance remain separate.
+
+| Fix | Reason | WB parent | First error | WB fix | Native parent | Agreement |
+| --- | --- | --- | --- | --- | --- | --- |
