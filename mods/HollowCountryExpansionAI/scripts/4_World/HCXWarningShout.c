@@ -40,39 +40,18 @@ class HCXWarningShout
 modded class eAIBase
 {
     bool HCWarningActor;
-    protected int m_HCWarningTime;
-    protected bool m_HCHasWarned;
-    protected PlayerBase m_HCWarningContact;
+    int HCXLastWarning = -60000;
 
-    override void eAI_Targeting(float pDt, EntityAI entityInHands, bool checkLOS = true)
+    // Native 1.30: PlayerBase.c:6924 MessageStatus, :7779 RequestSoundEvent
+    // (sound API also used by the preceding #276 adapter).
+    bool HCXWarnPlayer(PlayerBase player, int now)
     {
-        super.eAI_Targeting(pDt, entityInHands, checkLOS);
-        if (!GetGame() || !GetGame().IsServer() || !HCWarningActor) { return; }
-        // A simulation-disabled update explicitly skips LOS; never use that cache.
-        if (!checkLOS) { return; }
-        eAITarget contact;
-        if (TargetCount() > 0) { contact = GetTarget(); }
-        PlayerBase player;
-        if (contact) { player = PlayerBase.Cast(contact.GetEntity()); }
-        if (!player || player.IsAI() || !player.IsAlive() || !eAI_HasLOS() || vector.DistanceSq(GetPosition(), player.GetPosition()) > 6400)
-        {
-            m_HCWarningContact = null;
-            return;
-        }
-        if (m_HCWarningContact == player) { return; }
-        // Eligibility and hostility are re-checked every targeting pass, so a
-        // player who turns hostile while in view can still be warned.
-        if (!IsAlive() || IsUnconscious() || IsRestrained() || IsFighting() || m_eAI_IsFightingFSM || IsRaised()) { return; }
-        if (GetThreatToSelf() >= 0.4 || !PlayerIsEnemy(player)) { return; }
-        // One attempt per eligible hostile contact, even when a cooldown refuses it.
-        m_HCWarningContact = player;
-        int now = GetGame().GetTime();
-        if (m_HCHasWarned && now - m_HCWarningTime < HCXWarningShout.COOLDOWN_MS) { return; }
-        if (!HCXWarningShout.AdmitPlayer(player, now)) { return; }
-        m_HCHasWarned = true;
-        m_HCWarningTime = now;
-        // Native heavy-melee vocalisation only: no swing, gesture, raised-weapon
-        // change, target rewrite, threat suppression or engagement timer.
+        if (!HCWarningActor || now - HCXLastWarning < HCXWarningShout.COOLDOWN_MS) { return false; }
+        if (!HCXWarningShout.AdmitPlayer(player, now)) { return false; }
+        HCXLastWarning = now;
         RequestSoundEvent(EPlayerSoundEventID.MELEE_ATTACK_HEAVY);
+        player.MessageStatus("Stay back. Lower your weapon and move away.");
+        Print("[HollowCountry] Stance warning: shout + text; keep back 40m; runtime=PENDING");
+        return true;
     }
 }

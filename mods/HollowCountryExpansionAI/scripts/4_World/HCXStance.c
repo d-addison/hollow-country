@@ -137,6 +137,9 @@ modded class eAIPlayerTargetInformation
         PlayerBase player = PlayerBase.Cast(GetEntity());
         if (!HCXStance.Owns(ai) || !player || !player.GetIdentity()) { return super.CalculateThreat(ai, state); }
         if (!GetGame() || !GetGame().IsServer()) { return super.CalculateThreat(ai, state); }
+        // Only the selected, perceived contact owns the warning fire interlock.
+        eAITarget selected = ai.GetTarget();
+        if (selected && selected.GetEntity() == player) { ai.HCXWarningPlayer = null; }
         // Hit/kill hooks persist accepted aggression before this evaluation.
         // Surrender refuses cease-fire while a live hit/kill record exists;
         // native perception still gates whether defence can raise threat.
@@ -215,43 +218,47 @@ modded class eAIPlayerTargetInformation
             warning.Hostile = false;
         }
         warning.LastSeen = nowMs;
-        bool gunfire = ai.HCXLastGunfire >= 0 && nowMs >= ai.HCXLastGunfire && nowMs - ai.HCXLastGunfire <= 10000;
-        int stance = HCStancePolicy.Evaluate(HCXStance.RaisedWeapon(player), vector.Distance(ai.GetPosition(), player.GetPosition()), gunfire, HCXStance.Relation(ai, player));
-        if (stance == HCStancePolicy.WATCH)
+        float distance = vector.Distance(ai.GetPosition(), player.GetPosition());
+        bool raised = HCXStance.RaisedWeapon(player);
+        int relation = HCXStance.Relation(ai, player);
+        // Hostile factions skip the warning sequence. Non-hostile contacts engage
+        // at 40m or on aiming, with no elapsed-time escalation at a safe distance.
+        if (relation < 0 || distance <= 40 || (raised && distance <= 80))
         {
-            if (warning.Started >= 0) { Print("[HollowCountry] Stance de-escalated: weapon lowered or outside caution range"); }
+            if (!warning.Hostile) { Print("[HollowCountry] Stance hostile: faction, closing within 40m or raised weapon"); }
+            warning.Hostile = true;
+            state.m_ThreatLevelActive = 0.6;
+            return 0.6;
+        }
+        if (distance > 80 || (warning.Hostile && !raised))
+        {
+            if (warning.Started >= 0 || warning.Hostile) { Print("[HollowCountry] Stance de-escalated: weapon lowered or outside caution range"); }
             warning.Started = -1;
             warning.Hostile = false;
-            // Drop active cached aggression immediately as well as the return
-            // value; Expansion otherwise decays active hostility over time.
             state.m_ThreatLevelActive = 0.1;
             state.m_AggressionTimeout = 0;
             if (currentPlayer) { ai.RaiseWeapon(false); }
             return 0.1;
         }
-        if (warning.Started < 0)
+        if (!currentPlayer) { state.m_ThreatLevelActive = 0.15; return 0.15; }
+        ai.HCXWarningPlayer = player;
+        ai.HCXWarningSeen = nowMs;
+        if (warning.Started < 0 && nowMs >= warning.NextWarning)
         {
-            // Finite gesture warning, no NPC text and no scripted warning shot.
-            // Unsupported control refuses without progressing toward fire.
-            if (!currentPlayer || !HCStancePolicy.WarningDue(nowMs, warning.NextWarning)) { state.m_ThreatLevelActive = 0.15; return 0.15; }
-            ai.RaiseWeapon(false);
-            if (!HCXEmoteObservation.Warn(ai, player)) { state.m_ThreatLevelActive = 0.15; return 0.15; }
-            warning.NextWarning = nowMs + 30000;
-            warning.Started = nowMs;
-            state.m_ThreatLevelActive = 0.15;
-            Print("[HollowCountry] Stance warning: gesture; lower weapon to de-escalate; runtime=PENDING");
-            return 0.15;
+            warning.NextWarning = nowMs + HCXWarningShout.COOLDOWN_MS;
+            // Both sound and the real-round attempt share one global per-player
+            // admission. Refusal still holds ordinary fire between 40 and 80m.
+            if (ai.HCXWarnPlayer(player, nowMs))
+            {
+                warning.Started = nowMs;
+                ai.HCXWarningShotPlayer = player;
+                ai.HCXWarningStarted = nowMs;
+                ai.HCXWarningPending = true;
+            }
         }
-        // Let the warning animation finish, then aim using the provider's
-        // already perceived target. HC never supplies its position to the AI.
-        if (nowMs - warning.Started >= 2000 && currentPlayer && ai.CanRaiseWeapon()) { ai.RaiseWeapon(true); }
-        if (nowMs - warning.Started < 8000) { return 0.2; }
-        if (!warning.Hostile)
-        {
-            warning.Hostile = true;
-            Print("[HollowCountry] Stance hostile: raised weapon persisted after 8s warning");
-        }
-        return 0.6;
+        state.m_ThreatLevelActive = 0.2;
+        state.m_AggressionTimeout = 0;
+        return 0.2;
     }
 }
 class HCXLivingModule : HCModule

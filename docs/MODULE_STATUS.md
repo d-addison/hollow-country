@@ -153,7 +153,7 @@ means the gameplay is unverified, not that it is switched off.
 - Story index: parsing continues while Scenes waits for a checkpoint. Pending.
 - First common car: CE part rows so one common car is repairable (docs/VEHICLES.md). Pending.
 - Journeys: caravans and herds walk real native paths (multi-point waypoints use ONCE). Pending.
-- AI affiliation: faction armbands and up to 16 site flags (docs/AI_FACTIONS.md); pre-engagement warnings deferred. Pending.
+- AI affiliation: faction armbands and up to 16 site flags (docs/AI_FACTIONS.md); pre-engagement shout/text, aim and single real-round offset warning shot built (80m warn / 40m or raised-weapon engage, bounded cooldowns). Native verification pending: EXP-L3 trajectory/ricochet safety, ammo/FSM/client presentation and de-escalation; never-hit acceptance remains open.
 - Military zones: the 17 primary zones split into 30 envelopes of at most 2 km, so all 98 guard sites sit inside one. Pending.
 - Boot perf (#271): Holdouts publication, interior resolve misses, save promotion and HCX readiness diagnostics are staged or sampled. Timings pending.
 - Interior surface loot: 1,072 audited above-floor points in 119 classes (merged coverage 1,322 points in 140 groups; 250 floor points unchanged). Optional furniture bounds are part of the reach and sight audit. The 3,000-point target stays open (#274). Pending.
