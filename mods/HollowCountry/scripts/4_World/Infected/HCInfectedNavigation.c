@@ -461,109 +461,40 @@ class HCNativeInfectedPack
     bool Release()
     {
         if (RouteResult == 1) RouteResult = 5;
-        // A previous empty CE group may already have been deleted by AIWorld.
-        // Rehome surviving agents in a native default group; never DeleteGroup,
-        // which destroys its agents. Ownership/CE cleanup still need native tests.
-        // Stop patrol intent before rehoming, including allocation-failure cases.
-        // Native combat may still run; this never cancels injury/death commands.
+        // Crash fix (both build-152 boots, 2026-11-21): moving agents out of the
+        // pack group (RemoveAgent + AIWorld.CreateDefaultGroup + AddAgent) crashed
+        // the server natively within a second each time; vanilla never moves
+        // infected between groups. Release now only parks the native pack: hold at
+        // a live member's current position and drop our ownership. Members stay in
+        // their native DZInfectedPackBeh group, so native perception, chase and
+        // combat are unchanged; AIWorld deletes the group once it is empty. Never
+        // DeleteGroup (destroys agents) and never re-add agents to another group.
         if (!m_Releasing && Group)
         {
+            vector hold = m_LastPosition;
+            for (int i = 0; i < m_Members.Count(); i++)
+            {
+                if (m_Members[i] && !m_Members[i].IsPendingDeletion())
+                {
+                    hold = m_Members[i].GetPosition();
+                    break;
+                }
+            }
             BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
             if (behaviour)
             {
-                ref array<ref BehaviourGroupInfectedPackWaypointParams> hold = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-                hold.Insert(new BehaviourGroupInfectedPackWaypointParams(m_LastPosition, 1));
-                behaviour.SetWaypoints(hold, 0, true, false);
+                ref array<ref BehaviourGroupInfectedPackWaypointParams> parked = new array<ref BehaviourGroupInfectedPackWaypointParams>;
+                parked.Insert(new BehaviourGroupInfectedPackWaypointParams(hold, 1));
+                behaviour.SetWaypoints(parked, 0, true, false);
             }
+            Print("[HC Infected] pack released in place members=" + m_Members.Count().ToString() + " (no native group transfer)");
         }
         m_Releasing = true;
-        // Only a disappeared entity or confirmed expected fallback can leave
-        // this ledger. Even a temporarily missing AIAgent remains unresolved.
-        for (int i = m_Members.Count() - 1; i >= 0; i--)
-        {
-            ZombieBase member = m_Members[i];
-            if (!member)
-            {
-                m_ReleaseFallbacks.Remove(member);
-                m_Members.Remove(i);
-                continue;
-            }
-            AIAgent observedAgent = member.GetAIAgent();
-            AIGroup expected = m_ReleaseFallbacks.Get(member);
-            if (observedAgent && expected && observedAgent.GetGroup() == expected)
-            {
-                m_ReleaseFallbacks.Remove(member);
-                m_Members.Remove(i);
-            }
-        }
-        if (m_Members.Count() == 0)
-        {
-            m_ReleaseFallbacks.Clear();
-            Group = null;
-            s_PendingRelease.RemoveItem(this);
-            return true;
-        }
-        // Retain ownership even when callers discard an expired/failed pack or
-        // the module is quarantined. Exhausted retries remain visible/owned;
-        // no replacement pack is admitted until native cleanup succeeds.
-        if (s_PendingRelease.Find(this) < 0)
-        {
-            s_PendingRelease.Insert(this);
-            Print("[HC Infected] native release pending; pack retained and new routes blocked");
-        }
-        int nowUtc = HCInfectedClock.UtcSeconds();
-        if (!HCInfectedPolicy.MayRetryRelease(m_ReleaseAttempts, nowUtc, m_NextReleaseUtc))
-        {
-            if (m_ReleaseAttempts >= HCInfectedPolicy.MaxReleaseAttempts() && !m_ReleaseQuarantined)
-            {
-                m_ReleaseQuarantined = true;
-                Print("[HC Infected] native release quarantined; fallback ownership unconfirmed");
-            }
-            return false;
-        }
-        m_ReleaseAttempts++;
-        m_NextReleaseUtc = nowUtc + 5;
-        AIWorld world = GetAIWorld();
-        if (!world) return false;
-        for (int j = m_Members.Count() - 1; j >= 0; j--)
-        {
-            AIAgent agent = m_Members[j].GetAIAgent();
-            if (!agent)
-                continue;
-            // Never detach an unexpected native owner in order to make our
-            // bookkeeping succeed. Keep that member quarantinable instead.
-            if (agent.GetGroup() && agent.GetGroup() != Group)
-                continue;
-            AIGroup fallback = m_ReleaseFallbacks.Get(m_Members[j]);
-            if (!fallback)
-            {
-                // AIWorld deletes empty groups next frame. If a failed add's
-                // expected group has disappeared, record a replacement before
-                // another transfer attempt; never accept null == null as proof.
-                fallback = world.CreateDefaultGroup();
-                if (!fallback)
-                    continue;
-                m_ReleaseFallbacks.Set(m_Members[j], fallback);
-            }
-            if (Group && agent.GetGroup() == Group)
-                Group.RemoveAgent(agent);
-            // RemoveAgent is void too: verify detachment before attempting add.
-            if (!agent.GetGroup())
-                fallback.AddAgent(agent);
-            if (agent.GetGroup() == fallback)
-            {
-                m_ReleaseFallbacks.Remove(m_Members[j]);
-                m_Members.Remove(j);
-            }
-        }
-        if (m_Members.Count() == 0)
-        {
-            m_ReleaseFallbacks.Clear();
-            Group = null;
-            s_PendingRelease.RemoveItem(this);
-            return true;
-        }
-        return false;
+        m_Members.Clear();
+        m_ReleaseFallbacks.Clear();
+        Group = null;
+        s_PendingRelease.RemoveItem(this);
+        return true;
     }
 }
 
