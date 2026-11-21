@@ -17,10 +17,10 @@ class HCInteriorPathgraph
     {
         if (!placed) { return 0; }
         HCPathgraphRefresh region = Bounds(placed);
-        return Queue(region);
+        return HCQueueRegion(region);
     }
 
-    static int Queue(HCPathgraphRefresh region)
+    static int HCQueueRegion(HCPathgraphRefresh region)
     {
         if (!region || !GetGame()) { return 0; }
         if (!GetGame().IsServer()) { return 0; }

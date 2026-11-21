@@ -281,7 +281,7 @@ class HCInteriorTemplatePlacement
     {
         if (s_PathgraphRow != row)
         {
-            if (s_TemplateRegion) { HCInteriorPathgraph.Queue(s_TemplateRegion); }
+            if (s_TemplateRegion) { HCInteriorPathgraph.HCQueueRegion(s_TemplateRegion); }
             s_TemplateRegion = new HCPathgraphRefresh;
             s_PathgraphRow = row;
         }
@@ -290,7 +290,7 @@ class HCInteriorTemplatePlacement
         if (firstSlot + slotCount >= row.Props.Count()) { finished = true; }
         if (finished)
         {
-            HCInteriorPathgraph.Queue(s_TemplateRegion);
+            HCInteriorPathgraph.HCQueueRegion(s_TemplateRegion);
             s_TemplateRegion = null;
             s_PathgraphRow = null;
         }
