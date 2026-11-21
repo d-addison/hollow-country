@@ -27,9 +27,16 @@ proxy_table = gen.proxy_table
 ROOT = Path(__file__).resolve().parents[2]
 # ODOL resolution identifiers, compared tolerantly because stored as float32.
 COLLISION = (('geometry', 1e13), ('roadway', 3e15), ('view-geometry', 6e15))
+# View Geometry (6e15) is the AI visibility/occlusion LOD. Its tops coincide
+# with authored solids (baked counters, building slabs), so it may still carry
+# an item, but its boxes are coarse: in house_1w06 they sit 4-5 cm above every
+# skrin_bar top and 31 cm above a kitchen counter. As a clearance blocker it
+# refused every real top in that house as "collision above". Only Geometry and
+# Roadway decide what is physically above a support.
+CLEARANCE = ('geometry', 'roadway')
 FOOTPRINT = ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12),
              (.085, .085), (.085, -.085), (-.085, .085), (-.085, -.085))
-METHOD = 'collision-support-v1: Geometry/Roadway/View-Geometry only; 0..0.08m below; 12cm footprint and 50cm vertical clearance; building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
+METHOD = 'collision-support-v2: Geometry/Roadway/View-Geometry support; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
 
 
 class SupportScene(Scene):
@@ -94,7 +101,7 @@ class Audit:
         if spec.get('building_model_sha256', gen.sha(data)) != gen.sha(data):
             raise ValueError('building model pin mismatch: ' + name)
         model.bounding_center = (0., 0., 0.)  # raw building vertices = CE model origin
-        support, building = SupportScene(), Scene()
+        support, building, clearance = SupportScene(), Scene(), Scene()
         lods = [(kind, lod_for(model, resolution)) for kind, resolution in COLLISION]
         if not any(lod is not None for _, lod in lods):
             return None
@@ -106,6 +113,8 @@ class Audit:
             source = {'model': path, 'sha256': gen.sha(data), 'lod': lod.index, 'kind': kind}
             support.add_source(collision_triangles(model, lod), source)
             building.add(collision_triangles(model, lod))
+            if kind in CLEARANCE:
+                clearance.add(collision_triangles(model, lod))
         # Stock visual proxy tables identify furniture actually in the model.
         # Only that furniture's collision LODs are eligible, never its visual LOD.
         seen = set()
@@ -132,10 +141,12 @@ class Audit:
                                   'lod': prop_lod.index, 'kind': prop_kind,
                                   'transform': list(matrix)}
                         support.add_source(collision_triangles(prop, prop_lod, matrix), source)
+                        if prop_kind in CLEARANCE:
+                            clearance.add(collision_triangles(prop, prop_lod, matrix))
                 self.stats['stock_proxy_instances'] += 1
         points = [model_point([float(v) for v in p.get('pos').split()]) for p in stock.iter('point')]
         extent = max((math.sqrt(sum(v*v for v in p)) for tri in building.triangles for p in tri), default=0)
-        context = (support, building, points, max(10., extent * 2 + 1), path, gen.sha(data))
+        context = (support, building, clearance, points, max(10., extent * 2 + 1), path, gen.sha(data))
         self.context_cache = (name, context)
         self.assets.cache.pop(path, None)
         self.stats['building_models'] += 1
@@ -144,7 +155,7 @@ class Audit:
     def check(self, name, point, context):
         if context is None:
             return 'missing_collision_model', None
-        support, building, stock, distance, _, _ = context
+        support, building, clearance, stock, distance, _, _ = context
         x, y, z = model_point(point)
         hits = support.supports(x, z, y - .080001, y + .000001)
         if not hits:
@@ -159,7 +170,7 @@ class Audit:
         height, source = candidate
         # A slab's underside is not an exposed top: require the CE item's
         # 50cm box to be clear above every support sample as well.
-        if any(not support.clear((x+dx, y+.002, z+dz), (x+dx, y+.502, z+dz))
+        if any(not clearance.clear((x+dx, y+.002, z+dz), (x+dx, y+.502, z+dz))
                for dx, dz in FOOTPRINT):
             return 'collision_above_item_support', None
         open_structure = (name in self.policy['open_structure_classes']
@@ -209,9 +220,10 @@ class Audit:
             reasons, witnesses = Counter(), {}
             for cname, container in list(spec['containers'].items()):
                 keep, sources, proofs = [], [], []
-                old_sources = spec.get('surface_sources') if cname == 'lootHCSurface' else None
+                source_key = 'surface_sources' if cname == 'lootHCSurface' else 'floor_sources'
+                old_sources = spec.get(source_key)
                 if old_sources is not None and len(old_sources) != len(container['points']):
-                    raise ValueError('surface evidence length mismatch: ' + name)
+                    raise ValueError(source_key.split('_')[0] + ' evidence length mismatch: ' + name)
                 for index, point in enumerate(container['points']):
                     reason, proof = self.check(name, point, context)
                     if reason:
@@ -223,14 +235,13 @@ class Audit:
                             sources.append(old_sources[index])
                 if keep:
                     container['points'] = keep
-                    container['lootmax'] = loot.added_lootmax(len(keep))
+                    container['lootmax'] = loot.added_lootmax(len(keep), spec.get('interior_area_m2'))
                     witnesses[cname] = proofs
                     if old_sources is not None:
-                        spec['surface_sources'] = sources
+                        spec[source_key] = sources
                 else:
                     del spec['containers'][cname]
-                    if old_sources is not None:
-                        spec.pop('surface_sources', None)
+                    spec.pop(source_key, None)
             after = sum(len(c['points']) for c in spec['containers'].values())
             print(f'collision result {name} before={before} after={after}', file=sys.stderr, flush=True)
             totals.update(reasons)

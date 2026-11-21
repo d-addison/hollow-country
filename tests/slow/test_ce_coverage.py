@@ -110,15 +110,21 @@ class ContractTests(Fixture):
         self.assertEqual(cc.TARGET_GROUPS, ('Land_Tenement_Small', 'Land_Tenement_Big'))
 
     def test_shipped_mission_carries_no_apartment_point_data(self):
-        # HC-57 design inputs are permitted; they are not native sampler results or installed deltas.
+        # HC-57 design inputs are permitted; native sampler results, installed deltas and requests
+        # never ship under mission/. Other tools may cover the same classes with their own data.
         authored = {REPO / 'mission/hollow-country/ce-coverage' / name
                     for name in ('apartments.json', 'municipal-office.json')}
-        for path in (REPO / 'mission').rglob('*'):
-            if path.is_file() and path.suffix != '.md':
-                if path in authored:
-                    cc.parse_input(path.read_bytes())
-                    continue
-                self.assertNotIn(b'Land_Tenement', path.read_bytes(), path.name)
+        produced = {cc.RESULT_KIND, cc.DELTA_KIND, cc.REQUEST_KIND}
+        for path in (REPO / 'mission').rglob('*.json'):
+            if path in authored:
+                cc.parse_input(path.read_bytes())
+                continue
+            try:
+                doc = json.loads(path.read_bytes())
+            except ValueError:
+                continue
+            kind = doc.get('kind') if isinstance(doc, dict) else None
+            self.assertNotIn(kind, produced, path.name)
 
 
 class RequestTests(Fixture):

@@ -3047,15 +3047,32 @@
   },
   "collision_support": {
     "open_structure_prefixes": [
+      "Land_Boat_Small",
+      "Land_BusStop_",
       "Land_Construction_",
-      "Land_Misc_Scaffolding"
+      "Land_Misc_DeerStand",
+      "Land_Misc_Scaffolding",
+      "Land_Misc_TrailRoof_",
+      "Land_Wreck_",
+      "Land_wreck_"
     ],
     "open_structure_classes": [
       "Land_Airfield_Hangar_Green",
       "Land_Airfield_ServiceHangar_L",
       "Land_Airfield_ServiceHangar_R",
       "Land_Airfield_Small_Hangar",
+      "Land_City_Stand_News2",
+      "Land_Lunapark_Autodrome",
+      "Land_Lunapark_Carousel_Swan",
+      "Land_Lunapark_Shooting_Gallery",
+      "Land_Medical_Tent_Big",
+      "Land_Medical_Tent_Shower",
       "Land_Mil_Fortified_Nest_Watchtower",
+      "Land_Mil_GuardTower",
+      "Land_Mil_Tent_Big1_2",
+      "Land_Mil_Tent_Big1_3",
+      "Land_Misc_FeedShack",
+      "Land_Misc_Polytunnel",
       "Land_Shed_M1",
       "Land_Shed_M3",
       "Land_Shed_M4",
@@ -3064,8 +3081,9 @@
       "Land_Shed_W3",
       "Land_Shed_W4",
       "Land_Shed_W5",
-      "Land_Shed_W6"
+      "Land_Shed_W6",
+      "Land_Tisy_RadarPlatform_Top"
     ],
-    "note": "Open construction/scaffolds and stock-looted open hangars/sheds/watch platforms: roof/wall enclosure exempt; real collision support and a stock loot witness within 3m horizontally and 0.35m vertically remain mandatory. Closed sheds, barns, ruins and courtyards have no blanket exemption. Static evidence only; native CE/support acceptance pending."
+    "note": "Open construction/scaffolds, stock-looted open hangars/sheds/watch platforms, and (owner 2026-11-20, full coverage: no place stays vanilla-only) deer stands, feed shacks, polytunnels, trail roofs, bus stops, kiosks, fairground rides, canvas tents, open boats and vehicle wrecks: roof/wall enclosure exempt; real collision support and a stock loot witness within 3m horizontally and 0.35m vertically remain mandatory. Closed sheds, barns, ruins and courtyards have no blanket exemption. Static evidence only; native CE/support acceptance pending."
   }
 }
