@@ -121,3 +121,83 @@ class LayoutSyntax(unittest.TestCase):
 
     def test_every_layout_and_lookup_is_clean(self):
         self.assertEqual([], layout_lint.lint_tree(ROOT))
+
+
+class TextureReferences(unittest.TestCase):
+    tree = LayoutSyntax.tree
+    def test_missing_indexed_and_wrong_extension(self):
+        root = self.tree(layout='ImageWidgetClass Root { image0 "dz/ui/missing.paa" }')
+        self.assertEqual([], layout_lint.lint_textures(root)[0])
+        self.assertTrue(any('missing indexed' in f for f in layout_lint.lint_textures(root, set())[0]))
+        self.assertEqual([], layout_lint.lint_textures(root, {'DZ/UI/MISSING.PAA'})[0])
+        path = root / 'mods/HollowCountry/gui/layouts/test.layout'
+        path.write_text('ImageWidgetClass Root { image0 "dz/ui/icon.png" }')
+        self.assertTrue(any('wrong texture extension' in f for f in layout_lint.lint_textures(root)[0]))
+
+    def test_observed_procedural_grammar(self):
+        for value in ('#(argb,8,8,3)color(1,1,1,1,co)', '#(argb,8,8,3)color(0.15,0,0,1.0,CO)',
+                      '#(argb,8,8,3)color(0.5,0.5,0.5,0.75,ca)'):
+            root = self.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
+            self.assertEqual(([], []), layout_lint.lint_textures(root))
+        for value in ('#(argb,8,8,3)color(1,1,1)', '#(argb,8,8,3)color(.5,1,1,1,co)',
+                      '#(argb,8,8,3)color(1, 1,1,1,co)', '#(argb,7,8,3)color(1,1,1,1,co)'):
+            root = self.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
+            self.assertTrue(layout_lint.lint_textures(root)[0], value)
+
+    def test_script_calls_constants_and_runtime_tables(self):
+        root = self.tree(script=r'''
+            // LoadImageFile(0, "ghost.png");
+            image.LoadImageFile(0, "\\dz\\ui\\ok.paa");
+            image.LoadMaskTexture("dz/ui/mask.paa");
+            object.SetTexture(0, "dz/ui/other.paa");
+            image.SetImage(0);
+            image.SetImage("set:dayz_gui image:icon");
+            image.LoadImageFile(0, textures.Get(index));
+            string marker = MapMarkerTypes.GetMarkerTypeFromID(id);
+            string constant = "dz/ui/constant.paa";
+        ''')
+        findings, warnings = layout_lint.lint_textures(root, {'dz/ui/ok.paa', 'dz/ui/mask.paa'})
+        self.assertEqual(2, len(findings), findings)
+        self.assertTrue(any('MapMarkerTypes' in w for w in warnings))
+        self.assertTrue(any('textures.Get(index)' in w for w in warnings))
+        self.assertTrue(any('symbolic' in w for w in warnings))
+        self.assertFalse(any('ghost' in f for f in findings))
+
+    def test_authored_missing_and_unshipped(self):
+        root = self.tree(layout='ImageWidgetClass Root { image0 "HollowCountry/icon.paa" }')
+        self.assertTrue(any('missing authored' in f for f in layout_lint.lint_textures(root)[0]))
+        (root / 'mods/HollowCountry/icon.paa').write_bytes(b'')
+        self.assertTrue(any('not shipped' in f for f in layout_lint.lint_textures(root)[0]))
+
+    def test_imageset_config_and_gui_outside_layouts(self):
+        root = self.tree()
+        addon = root / 'mods/HollowCountry'
+        (addon / 'gui/icon.imageset').write_text('ImageSetClass { Textures { ImageSetTextureClass { path "dz/ui/atlas.edds" } } }')
+        (addon / 'gui/other.layout').write_text('ImageWidgetClass Root { image0 "dz/ui/other.paa" }')
+        (addon / 'config.cpp').write_text('hiddenSelectionsTextures[]={"dz/ui/config.paa", ""}; texture="dz/ui/single.paa";')
+        findings, _ = layout_lint.lint_textures(root, set())
+        self.assertEqual(4, len(findings), findings)
+
+    def test_comments_keep_line_numbers_and_unknown_generators_warn(self):
+        root = self.tree(layout='/* comment\n comment */\nImageWidgetClass Root { image0 "#(rgb,8,8,3)point()" }')
+        findings, warnings = layout_lint.lint_textures(root)
+        self.assertEqual([], findings)
+        self.assertTrue(any(':3:' in w and 'unverified' in w for w in warnings))
+
+    def test_cli_without_cache_has_notice_and_success(self):
+        root = self.tree()
+        result = subprocess.run([sys.executable, '-B', '-m', 'tools.validate.layout_lint', '--root', str(root),
+                                 '--texture-index', str(root / 'absent.json')], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('skipping unresolved vanilla', result.stdout)
+
+
+    def test_documented_color_variants_warn_instead_of_false_errors(self):
+        root = self.tree(layout='ImageWidgetClass Root { image0 "#(argb,8,8,3)color(1,1,1,1)" }')
+        errors, warnings = layout_lint.lint_textures(root)
+        self.assertEqual([], errors)
+        self.assertTrue(any('documented procedural' in w for w in warnings))
+
+    def test_calls_inside_messages_are_not_runtime_calls(self):
+        root = self.tree(script='Print("MapMarkerTypes.GetMarkerTypeFromID(id)"); Print("LoadImageFile(0, value)");')
+        self.assertEqual(([], []), layout_lint.lint_textures(root))
