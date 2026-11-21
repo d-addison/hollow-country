@@ -7,6 +7,7 @@ class HC_CompileCheck: WorkbenchPlugin
 {
 	override void RunCommandline()
 	{
+		Print("[HC CompileCheck] run_commandline");
 		ScriptEditor editor = Workbench.GetModule(ScriptEditor);
 		if (!editor)
 		{
@@ -22,6 +23,7 @@ class HC_CompileCheck: WorkbenchPlugin
 			return;
 		}
 		actionPath.Replace("\"", "");
+		Print("[HC CompileCheck] action=" + actionPath);
 		array<string> menuPath = new array<string>;
 		actionPath.Split("/", menuPath);
 		bool dispatched = editor.ExecuteAction(menuPath);

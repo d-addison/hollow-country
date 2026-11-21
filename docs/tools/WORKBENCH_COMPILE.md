@@ -1,143 +1,143 @@
-# Experimental headless Workbench compile check
+# Workbench script compile check
 
-**Native qualification pending.** This is developer tooling, not a replacement
-for the native server compile gate or boot/readiness checks. No speedup, gameplay
-or multiplayer result is established. The current tree and deliberately broken
-scratch-copy controls have **not** run through Workbench in this session.
+Developer preflight: DayZ Tools Workbench compiles the full script stack
+(game data, Workshop dependencies, our packed addons) in about 3-4 minutes with
+no manual clicks. It does **not** replace the native server compile gate, boot
+or readiness checks (truth order: native boot > compile gate > lint > tests).
 
-Run from the repository root in WSL, with Windows DayZ Tools installed:
-
-```sh
-python3 -B -m tools.release.wb_compile
-python3 -B -m tools.release.wb_compile --commit HEAD --seconds 120
-python3 -B -m unittest tests.unit.test_wb_compile -v
-python3 -B -m tools.validate.enforce_lint --native-scripts ~/.cache/hollow-country/native-scripts/scripts-1.30.164289
-```
-
-`--tree PATH` selects an authored tree; `--commit COMMIT` uses the existing
-compile gate's read-only `git archive` snapshot helper. It never writes git
-metadata. An older commit without `HC_CompileCheck.c` cannot run this plugin.
-The default is the current tree, including edits. `--workbench PATH` and
-`--native-scripts PATH` override the installed-tool and native-source locations.
-`--action-path 'Validate Scripts'` is the **unverified** candidate menu path;
-slash-separated parent menu labels can be supplied after inspecting the UI.
-The plugin source and installed project template must be available.
-
-The driver prints one JSON object. Exit 0 requires the native engine text
-`Script validation successful.`, the plugin's `action_returned` receipt, tool
-exit 0, complete bounded captured logs and no error. Errors take precedence over
-success. Compile failures, tool failures, incomplete evidence and timeout exit 1;
-preflight/staging/controller failures exit 2. `errors` contains `file`, numeric
-`line` and privacy-filtered `message`. Unknown locations are null, not invented.
-For example, native `SCRIPT (E)` followed by `scripts/4_World/file.c(42)` becomes
-`{"file":"scripts/4_World/file.c","line":42,...}`. Identity-bearing diagnostics
-are suppressed after determining the failure verdict, so privacy filtering
-cannot turn a failure into a pass. `route_qualified` remains false even if a run
-returns `passed`, until the controls below establish this route's behaviour.
-
-## What is implemented
-
-- Select authored script roots through `ship_inputs.signing_inputs()`, also
-  used by `compile_gate`; currently base HC and the Expansion AI adapter.
-  Animation PBOs have no script root. It does not duplicate the release catalogue.
-- Copy only `.c` sources into a unique Windows `%TEMP%/hc-wbcompile-*` directory;
-  reject symlinks. Copy native modules 1–5 and native editor/Workbench sources,
-  plus the original HC plugin. No native/Workshop code or assets enter git.
-- Derive the scratch `.gproj` from installed `dayz.gproj`, retaining native
-  module names, order and entry points. Append selected HC paths to the matching
-  native module Paths blocks. The game filesystem root points at the scratch
-  directory. Template shape drift fails closed.
-- Invoke `WorkbenchApp.exe -gproj=<scratch>/hc_compile.gproj
-  -wbmodule=ScriptEditor -plugin=HC_CompileCheck
-  -hcCompileAction="Validate Scripts"`, with the executable's folder as cwd.
-  The plugin dispatches `ScriptEditor.ExecuteAction(menuPath)` and exits.
-- Refuse an existing Workbench instance or unknown process state, query again
-  inside a Windows named mutex immediately before launch, and never retry a
-  launch. PowerShell retains the started process object, waits for the bounded
-  deadline, and kills only that object on timeout or exceptional cleanup.
-  It never kills by name or touches a pre-existing process. A manually launched
-  Workbench can still race the last check; the mutex coordinates these drivers.
-- Capture redirected stdout/stderr and scratch `.log`/`.rpt` files, up to 16 MiB
-  total. No shared tool/profile logs are read or deleted. Scratch sources/logs
-  are removed after confirmed completion. If controller/cleanup confirmation is
-  lost, the unique TEMP folder is retained for local recovery; do not delete it
-  until the owned process has exited. A Python outer timeout leaves Windows ownership
-  with the controller (it does not kill PowerShell and abandon its child),
-  reports cleanup unconfirmed, and never infers successful compilation.
-
-## Observed versus assumed
-
-Read directly from installed DayZ Tools `Bin/Workbench/dta/scripts.pbo`:
-
-| Installed declaration | Observation |
-| --- | --- |
-| `1_Core/WorkbenchAPI/Modules/ScriptEditor.c` | No direct compile/reload method |
-| `1_Core/WorkbenchAPI/Modules/WBModuleDef.c` | `ExecuteAction(array<string> menuPath, bool bKeepFocus=true)` returns bool; `GetCmdLine` exists |
-| `1_Core/WorkbenchAPI/Workbench.c` | `GetModule`, `Exit(int)`, `GetWBGameScriptModule`, `GetWBScriptModule` exist |
-| `1_Core/WorkbenchAPI/Plugins/WorkbenchPlugin.c` | `RunCommandline` event exists |
-| Installed `dayz.gproj` | Native core/gameLib/game/world/mission/workbench paths and syntax |
-
-The prior `tools/anim/workbench/HC_TxaBuild.c` supplies the plugin launch pattern.
-The installed executable's strings contain `-gproj`, `-wbmodule`, `-plugin`,
-`-validate`, `&Validate Scripts`, `&Reload Scripts`,
-`Script validation successful.` and `Script validation failed.`. These strings
-are static observations, **not a successful CLI or menu-action experiment**.
-No `-help` launch was made while Workbench was running. `-validate` is not used:
-its semantics have not been observed.
-
-Still assumed/unverified: the candidate single-element action path, whether
-ExecuteAction blocks until validation finishes, whether the engine logs its
-completion on a captured channel, scratch filesystem mounting in native
-Workbench, and validation of every intended preprocessor variant/module.
-If action dispatch is asynchronous or logs only to an uncaptured shared log,
-the driver returns nonzero for missing completion evidence. A zero tool exit or
-plugin receipt alone cannot pass. The API's bool proves action dispatch only.
-
-The default project does **not** stage the declared Workshop dependency script
-stack, generated guards, CfgMods/config changes, addon config definitions or
-release-time animation inputs. The adapter may report missing dependency types.
-Do not suppress these errors or label a base-only check as full-stack acceptance.
-A validated dependency-mount strategy remains lead work before using this as a
-required full-release gate. `ship_inputs` selects the same authored catalogue;
-this tool does not claim input equivalence with the server compile gate.
-
-Session observations (2026-11-21): the initial read-only process query found an
-existing Workbench, so no launch occurred. A subsequent driver invocation found
-it gone, resolved Windows TEMP, then returned `status=unavailable`, exit 2:
-`Read-only file system` creating its unique TEMP directory through the WSL mount.
-No Workbench process was started, so neither native compile control ran.
-Focused Python tooling tests: 9 passed. Required native-aware lint:
-`pass findings=1 new=0 stale=0 native=yes`; performance lint `new=0`.
-The repository lint scans its configured source scope; this is not native
-compilation of the new Workbench plugin. The worker was forbidden to start game
-executables, so the server compile gate remains for the lead.
-
-## Lead qualification commands
-
-After closing Workbench normally and using a WSL environment with a writable
-Windows TEMP mount:
+**Qualified 2026-11-21** on WorkbenchApp.exe sha256 `16085382d1c2609b…`
+(DayZ Tools 1.30): the clean tree passed and a scratch-only broken control
+failed at `HCCompileBrokenControl.c:5`. `route_qualified` is true only for a
+passing run on a build listed in `QUALIFIED_WORKBENCH` in
+`tools/release/wb_compile.py`. A new DayZ Tools build stays unqualified until
+both runs below are repeated and its hash is added.
 
 ```sh
-python3 -B -m tools.setup.winproc query WorkbenchApp.exe
-python3 -B -m tools.release.wb_compile --tree "$PWD" --seconds 120
+python3 -B -m tools.setup.winproc query WorkbenchApp.exe   # must print {"state": "gone"}
+python3 -B -m tools.release.wb_compile                       # current tree, default --seconds 240
+python3 -B -m tools.release.wb_compile --commit HEAD --keep-scratch
+python3 -B -m unittest tests.unit.test_wb_compile
 ```
 
-Expected first command: `state=gone` (its query exit code is 1). Preserve the
-second command's filtered JSON and wall time. If it returns unverified or
-`action_refused`, inspect the Script Editor menu labels and rerun with the exact
-observed `--action-path`. Do not accept an invented menu path or missing engine
-completion receipt. Observe whether validation is synchronous before changing
-plugin exit timing. Resolve the full declared dependency mount before claiming
-a complete HC/adapter pass.
+Exit 0 = `passed`; 1 = `compile_failed`, `unverified`, `timeout`,
+`incomplete_logs` or `tool_failed`; 2 = blocked (Workbench already running),
+`controller_failed` or `cleanup_unconfirmed` (scratch kept; do not delete it
+until the owned Workbench has exited).
 
-Create the deliberately broken control entirely in local scratch, never in the
-worktree, and run the same driver against it:
+## Route
+
+`WorkbenchApp.exe -loadAddons -mod=<deps;@HollowCountry;@HollowCountryExpansionAI;@HCWorkbenchTool>
+-profiles=<scratch>\profile -wbmodule=ScriptEditor -plugin=HC_CompileCheck`, cwd
+`Bin\Workbench`.
+
+- `-loadAddons` mounts the installed game data; Workbench's game runtime then
+  compiles every script module (GameLib, Game, World, Mission) at start.
+- Dependencies are the compile gate's `compatibility_inputs` Workshop items,
+  mounted read-only in place from the Workshop content folder. No Workshop code
+  is copied into the repo or the scratch, except the partial exclusion below,
+  which copies the remaining PBOs of one item into the Windows TEMP scratch only.
+- Our two addons are packed into `%TEMP%\hc-wbcompile-*` from the selected tree
+  (`--tree`, or `--commit` via a read-only `git archive`).
+- The scratch tool mod `@HCWorkbenchTool` adds one probe file per module that
+  references an authored class from that module and raises a marked
+  `[Obsolete("hc_wb_probe <module>")]` warning. All three markers present
+  proves our files were inside the compiled modules. Observed:
+  Game 995 files, World 3785, Mission 684.
+
+The verdict comes from the logs only: `passed` requires Mission loaded, all
+three probe markers, no blocking diagnostic, complete logs and a confirmed
+owned-process exit. A zero exit code or plugin receipt alone never passes.
+
+## Popups and dialogs (no manual clicks)
+
+No command-line flag or setting suppresses the authorization prompt (none in
+the exe strings or the Workbench script API). The controller answers exactly
+three dialog kinds. Each is matched by exact title and by
+`GetWindowThreadProcessId` == the PID of the Workbench it started. The answer is
+a message posted to that one window: no focus change, no `SendKeys`, no global
+input, no clicks on coordinates. Each kind has a per-run limit.
+
+| Dialog | Source | Answer |
+| --- | --- | --- |
+| `Script Authorization Required` | a vanilla or dependency script asks to call `OpenFile` | **N&o to All** (`O` mnemonic). Denying is the safe direction: no script gains file access; the compile does not need it |
+| `Error: Plugin<Name>` | DabsFramework Workbench plugins fail to load a project.cfg (7 per run) | OK (Enter) |
+| `Enfusion engine`, class `#32770` | engine assertion at shutdown, `enf_scriptmodule.cpp` line 599 "Script is leaking!" (2 per run) | Ignore (`IDIGNORE`); Abort would end the process abruptly. The text is also in `crash_*.log` |
+
+Once `Module: Mission` (or a compile failure) appears in `script_*.log`, the
+controller waits 5 s, then posts `WM_CLOSE` to the owned `Workbench - *` main
+window. It answers the shutdown assertions and repeats the close request at most
+3 times, 20 s apart, within 150 s. It never uses `Stop-Process`, `taskkill` or
+`.Kill()`. A refused shutdown reports `cleanup_unconfirmed`.
+
+The controller runs as a detached Windows PowerShell from `<scratch>\controller.ps1`
+(shell-execute, so no inherited WSL handles). It writes `controller-started.txt`
+and an atomic `controller-receipt.json`. WSL interop drops
+(`UtilAcceptVsock ... accept4 failed 110`) killed the earlier pipe-attached
+controller while Workbench stayed open. Python now only reads the receipt file.
+The launch is never retried. A named mutex and an in-lock `Get-Process`
+re-check prevent a second Workbench.
+
+## Logs
+
+Read from `<scratch>\profile` only: `script_*.log`, `error_*.log`,
+`warning_*.log`, `crash_*.log` (bounded at 16 MiB). `stderr.txt` is never read:
+the Steam client writes a Steam ID there. Messages are masked (home folders,
+17-digit ids) and filtered with `rpt_summary.filtered`. Classification uses the
+masked line so a dropped message keeps its location. Duplicate lines repeated
+across `script_*` and `error_*` count once. `--keep-scratch` keeps the folder.
+
+Classes: `ours` (HollowCountry, HollowCountryExpansionAI or the tool mod path),
+`known_vanilla` (`KNOWN_VANILLA` patterns or a `scripts/N_*` vanilla location),
+`dependency` (any other mounted mod location), `probe` (our markers),
+`compile_failure` (`Can't compile`, `Failed to load ... script`) and
+`unclassified`. Blocking: `ours`, `compile_failure` and `unclassified` errors.
+A bare engine `Assertion failed` header is read together with its `Reason:` line.
+
+## Triage (clean tree, 2026-11-21)
+
+| Class | Errors | Warnings | Content |
+| --- | --- | --- | --- |
+| (a) ours | 0 | 0 | after the fix below |
+| probe | 0 | 3 | one marker per module |
+| (b) dependency | 2 | 0 | DabsFramework Workbench plugin VM exception, `pluginlaunchgamebase.c:5` NULL `launch_settings` (editor plugin, not game code) |
+| (c) known vanilla | 11 | 129-152 | shutdown leak report (`Leaked '...' script instance`, `Total Leaks`) and its assertion; `Missing script declaration` / `Method not linked` (CF `cf_lifecycleevents.c`, vanilla `areadamage.c`, `human.c`, `object.c`, `game.c`); one vanilla `is obsolete` |
+
+The noise below is plain engine output, not a `SCRIPT (E/W)` diagnostic, so it
+never counts toward the verdict. Per run: ~955 `No entry` (CfgWorlds/CfgVehicles/
+heatHazeNoise), 16 imageset `Unknown object type`, 20 `skeletons.anim.xml`,
+12 `.emat`, 5 `STR_DN_*`. UAGestureSlot/UAEmote duplicates, Heli InputAccess,
+offline shader cache, DayZSetting.xml and "Config file deleted" are seen only in
+the Workbench console. They are listed in `KNOWN_VANILLA` in case they reach a log.
+
+Class (a) fixed: `mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:8`
+and `:30`. The `modded class ObjectSpawnerHandler` redefined the vanilla
+static `SpawnObjects()` and `SpawnObject(ITEM_SpawnerObject)` without `override`. Workbench reported "Overriding function
+... but not marked as 'override'" and could not compile Game. Both are now
+marked `override static`.
+
+## Dependency exclusions (Workbench only)
+
+Workbench compiles `FIX-ME` diagnostics as errors; the game runtime and the
+server compile gate log the same lines as warnings and compile on. Two
+dependency sources therefore stop Workbench's World module and are left out of
+its mount. Each run reports them under `inputs`:
+
+- `2646817942` (Tactical Flava), whole item: `script_a` has brace-less method
+  bodies, `Missing function scope` x12. Neither HollowCountry nor
+  HollowCountryExpansionAI requires it.
+- `3114410963` (Ambient Animals), only `dayz_seagull.pbo`:
+  `seagull_base.c,110 Unmatched brackets` x1. HCX needs this item's otter,
+  rat, raven and squirrel addons, so its other PBOs are mounted.
+- Uncovered: `hollowcountry_weapon_pack_guards.pbo` requires `script_a` and
+  is not mounted. The server compile gate covers it.
+
+## Broken control (qualification)
+
+Build it in a scratch copy only, never in the worktree:
 
 ```sh
 scratch=$(mktemp -d /tmp/hc-wb-broken-XXXXXX)
-mkdir -p "$scratch/mods" "$scratch/tools/workbench"
-cp -R mods/HollowCountry mods/HollowCountryExpansionAI "$scratch/mods/"
-cp tools/workbench/HC_CompileCheck.c "$scratch/tools/workbench/"
+tar --exclude=./.git --exclude=./.claude -cf - . | tar -C "$scratch" -xf -
 cat > "$scratch/mods/HollowCountry/scripts/3_Game/HCCompileBrokenControl.c" <<'CONTROL'
 class HCCompileBrokenControl
 {
@@ -147,30 +147,22 @@ class HCCompileBrokenControl
     }
 }
 CONTROL
-python3 -B -m tools.release.wb_compile --tree "$scratch" --seconds 120
+python3 -B -m tools.release.wb_compile --tree "$scratch"
 rm -rf -- "$scratch"
 ```
 
-Require nonzero exit, `compile_failed`, and an error for
-`HCCompileBrokenControl.c:5`. This scratch control is not a unit test or
-translator harness. Failure at another missing dependency does not qualify the
-control: first resolve the baseline dependency stack and get a clean pass.
-No game process is started by these commands.
+Observed: exit 1, `compile_failed`, first error `ours`
+`HollowCountry/scripts/3_Game/hccompilebrokencontrol.c:5` "Unknown type
+'HCCompileDeliberatelyMissingType'", then `Can't compile "Game" script
+module!`. Cascade `Bad type 'JsonFileLoader'` errors follow, and they are absent
+on the clean tree.
 
-For the separate native server gate, the lead can run the existing authorized
-isolated environment command:
+## Not qualified
 
-```sh
-python3 -B -m tools.release.compile_gate --commit HEAD
-```
-
-That command starts a server and was not run by this worker. To wire Workbench
-into `compile_gate.py` later, invoke this module as a bounded preflight, consume
-its JSON/exit code, and retain the native server check until both controls and
-stack/define/module equivalence are proven. No change to `compile_gate.py` is
-included here. Missing prerequisites must remain an explicit failed/unverified
-preflight, never a successful compile receipt.
-
-Writer handoff: this new document is ignored by the repository rule `/docs/*`.
-The lead must arrange its inclusion through the shared ignore-policy change; this
-worker owns neither `.gitignore` nor git metadata and did not alter either.
+- `HC_CompileCheck` `RunCommandline` was never observed firing (its prints never
+  appear), so `plugin_returned` and `script_editor_validation` stay false. The
+  verdict does not depend on them.
+- Workbench is stricter than the runtime for `FIX-ME`. The excluded dependency
+  sources and the guard PBO are compiled only by the server gate.
+- This is a compile check: no boot, config runtime, gameplay or multiplayer
+  result. The native server compile gate remains required for Enforce changes.
