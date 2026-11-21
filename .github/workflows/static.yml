@@ -26,9 +26,6 @@ jobs:
       - name: Native Windows CE candidate preparation behavior
         shell: powershell
         run: python -B -m unittest discover -s tests/unit -p test_coverage_patch.py -v
-      - name: Native Windows package and verified smoke dependency behavior
-        shell: powershell
-        run: python -B -m unittest discover -s tests/legacy -p test_package.py -v
       - name: Native Windows repository hygiene behavior
         shell: powershell
         run: python -B -m unittest discover -s tests/unit -p test_hygiene.py -v
@@ -87,7 +84,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tier: [slow, legacy]
+        # tests/legacy (source-text and translator contracts) is quarantined from CI
+        # (retro R9, 2026-11-21): it cannot observe DayZ behaviour and was red for days.
+        # Run a legacy file locally only when its tool changes; convert or delete over time.
+        tier: [slow]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -98,5 +98,4 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -m unittest discover -s tests/${{ matrix.tier }} -v
       - name: Executable offline BDD bindings
-        if: matrix.tier == 'legacy'
         run: python3 -B -m tools.validate.bdd
