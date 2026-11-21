@@ -1527,7 +1527,7 @@ class HCXAISiteDirector : Managed
     }
     protected void HCStepRouteValidity()
     {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 32)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 32)) { return; }
         HCWorkBudget slice = new HCWorkBudget;
         slice.HCReset(32, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         while (m_ValidityHash && slice.HCContinue())
@@ -1852,7 +1852,7 @@ class HCXAISiteDirector : Managed
             {
                 int tick = GetGame().GetTime();
                 if (m_CacheSampleTick != tick) { m_CacheSampleTick = tick; m_CacheSamples = 0; }
-                if (m_CacheSamples >= 4 || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 1)) { return; }
+                if (m_CacheSamples >= 4 || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
                 m_CacheSamples++;
                 vector point = cached.Waypoints[state.HCCacheCursor];
                 if (!HCXAIRules.PositionValid(point, 1000000)) { cacheProblem = "waypoint_bounds"; }

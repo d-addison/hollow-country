@@ -91,7 +91,10 @@ class HCUnitBudget
     static const int HC_WORK_WILDLIFE = 38;
     // Zone state/service must advance even when earlier modules exhaust the pool.
     static const int HC_WORK_ZONE_GUARDS = 39;
-    static const int HC_WORK_CONSUMERS = 40;
+    // P1.2 qualified-route cache validity/sampling. Own slot: it shares HCXAISiteDirector with the
+    // AI_SITES pager and must not starve the gapcode route catalog on AI_ROUTES.
+    static const int HC_WORK_AI_ROUTE_CACHE = 40;
+    static const int HC_WORK_CONSUMERS = 41;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
