@@ -298,7 +298,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=()):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=(), base_extra_pbos=()):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -334,7 +334,22 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     if str(root).startswith('/mnt/'):
         raise ValueError('Wine PE loading must use the Linux filesystem')
     blob = Path(source_pbo).read_bytes()
-    pbo.parse(blob)
+    base_prefix, _ = pbo.parse(blob)
+    # Release companions (including animations) share @HollowCountry/addons.
+    # Snapshot and validate before creating the experiment or launching Wine.
+    base_extras = []
+    base_names, base_prefixes = {'hollowcountry.pbo'}, {base_prefix.casefold()}
+    for extra in base_extra_pbos:
+        extra = Path(extra)
+        if extra.suffix.lower() != '.pbo' or extra.name.casefold() in base_names:
+            raise ValueError('duplicate or invalid base PBO filename: ' + extra.name)
+        extra_blob = extra.read_bytes()
+        extra_prefix, _ = pbo.parse(extra_blob, prefixes=pbo.PREFIXES)
+        if extra_prefix.casefold() in base_prefixes:
+            raise ValueError('duplicate PBO prefix in one mod folder: ' + extra_prefix)
+        base_names.add(extra.name.casefold())
+        base_prefixes.add(extra_prefix.casefold())
+        base_extras.append((extra.name, extra_blob, extra_prefix))
     extra_mods = referenced_mods(extra_mods)
     server_blob = None
     if server_mod is not None:
@@ -409,6 +424,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     addon = experiment / '@HollowCountry/addons'
     addon.mkdir(parents=True)
     (addon / 'hollowcountry.pbo').write_bytes(blob)
+    for extra_name, extra_blob, _ in base_extras:
+        (addon / extra_name).write_bytes(extra_blob)
     server_addon = None
     if server_blob is not None:
         server_addon = experiment / '@HollowCountryExpansionAI/addons'
@@ -487,6 +504,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
               'pbo_sha256': hashlib.sha256(blob).hexdigest(),
               'server_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}
     report['extra_mods'] = [str(m) for m in extra_mods]
+    report['base_extra_pbos'] = {name: prefix for name, _, prefix in base_extras}
     report['server_mod_sha256'] = hashlib.sha256(server_blob).hexdigest() if server_blob is not None else None
     report['server_extra_pbos'] = {name: prefix for name, _, prefix in server_extras}
     report['dependency_mission_copy'] = str(mission) if mod_stack_mission else None
@@ -525,6 +543,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         (battleye / native_be.name, 16 * 1024 * 1024,
          input_sha256(battleye / native_be.name, 16 * 1024 * 1024)),
     ]
+    launch_inputs.extend((addon / name, len(data), hashlib.sha256(data).hexdigest())
+                         for name, data, _ in base_extras)
     if server_blob is not None:
         launch_inputs.append((server_addon / SERVER_MOD_PBO, len(server_blob), report['server_mod_sha256']))
         launch_inputs.extend((server_addon / extra_name, len(extra_blob), hashlib.sha256(extra_blob).hexdigest())
