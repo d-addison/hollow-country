@@ -1,0 +1,180 @@
+WrapSpacerWidgetClass HCXAdminLayers {
+ visible 0
+ ignorepointer 0
+ position 0 0
+ size 285 1
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 0
+ Padding 0
+ Margin 0
+ "Size To Content V" 1
+ content_halign center
+ {
+  PanelWidgetClass HCXAdminHeader {
+   ignorepointer 0
+   color 0 0 0 0.8627
+   size 285 30
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style DayZDefaultPanel
+   {
+    ButtonWidgetClass HCXAdminToggle {
+     color 0.8627 0.8627 0.8627 0.549
+     position 0 0
+     size 1 1
+     hexactpos 1
+     vexactpos 1
+     hexactsize 0
+     vexactsize 0
+     style Default
+     {
+      TextWidgetClass HCXAdminTitle {
+       ignorepointer 1
+       color 0.8627 0.8627 0.8627 1
+       position 8 0
+       size 270 30
+       hexactpos 1
+       vexactpos 1
+       hexactsize 1
+       vexactsize 1
+       text "Admin layers [on]"
+       font "gui/fonts/sdf_MetronBook24"
+       "exact text" 1
+       "exact text size" 14
+       "text valign" center
+      }
+     }
+    }
+   }
+  }
+  PanelWidgetClass HCXAdminSeparator {
+   ignorepointer 1
+   color 0.8627 0.8627 0.8627 0.549
+   size 285 2
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style DayZDefaultPanel
+  }
+  WrapSpacerWidgetClass HCXAdminRows {
+   ignorepointer 0
+   size 285 1
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 0
+   Padding 0
+   Margin 0
+   "Size To Content V" 1
+  }
+  PanelWidgetClass HCXAdminLoot {
+   ignorepointer 0
+   color 0 0 0 0.8627
+   size 285 32
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style DayZDefaultPanel
+   {
+    EditBoxWidgetClass HCXAdminLootFilter {
+     position 6 4
+     size 186 24
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     style DefaultBorder
+     "Use default text" 0
+     font "gui/fonts/MetronBook"
+     "exact text" 1
+     "exact text size" 14
+    }
+    ButtonWidgetClass HCXAdminLootRun {
+     color 0.8627 0.8627 0.8627 0.549
+     position 198 4
+     size 81 24
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     style Default
+     {
+      TextWidgetClass HCXAdminLootLabel {
+       ignorepointer 1
+       color 0.8627 0.8627 0.8627 1
+       position 0 0
+       size 1 1
+       hexactpos 1
+       vexactpos 1
+       hexactsize 0
+       vexactsize 0
+       text "Loot query"
+       font "gui/fonts/sdf_MetronBook24"
+       "exact text" 1
+       "exact text size" 13
+       "text halign" center
+       "text valign" center
+      }
+     }
+    }
+   }
+  }
+  PanelWidgetClass HCXAdminInfo {
+   ignorepointer 1
+   color 0 0 0 0.8627
+   size 285 86
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style DayZDefaultPanel
+   {
+    MultilineTextWidgetClass HCXAdminDetail {
+     ignorepointer 1
+     color 0.8627 0.8627 0.8627 1
+     position 6 2
+     size 273 62
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     text "Click an admin marker for details. Zoom in to separate clusters."
+     font "gui/fonts/sdf_MetronBook24"
+     "exact text" 1
+     "exact text size" 13
+     wrap 1
+    }
+    TextWidgetClass HCXAdminState {
+     ignorepointer 1
+     color 0.8627 0.8627 0.8627 0.7
+     position 6 64
+     size 273 20
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     font "gui/fonts/sdf_MetronBook24"
+     "exact text" 1
+     "exact text size" 12
+     "text valign" center
+    }
+   }
+  }
+  PanelWidgetClass HCXAdminSpacer {
+   ignorepointer 1
+   color 0 0 0 0.8627
+   size 285 25
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style DayZDefaultPanel
+  }
+ }
+}

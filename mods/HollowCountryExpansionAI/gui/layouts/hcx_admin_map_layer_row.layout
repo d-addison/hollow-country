@@ -1,0 +1,51 @@
+PanelWidgetClass HCXAdminLayerRow {
+ ignorepointer 0
+ color 0 0 0 0.8627
+ size 285 30
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ style DayZDefaultPanel
+ {
+  ButtonWidgetClass HCXAdminLayerButton {
+   color 0.8627 0.8627 0.8627 0.549
+   position 0 0
+   size 1 1
+   hexactpos 1
+   vexactpos 1
+   hexactsize 0
+   vexactsize 0
+   style Empty
+   {
+    ImageWidgetClass HCXAdminLayerIcon {
+     ignorepointer 1
+     position 6 3
+     size 24 24
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     mode blend
+     "src alpha" 1
+     "no wrap" 1
+     stretch 1
+    }
+    TextWidgetClass HCXAdminLayerName {
+     ignorepointer 1
+     color 0.8627 0.8627 0.8627 1
+     position 38 0
+     size 240 30
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     font "gui/fonts/sdf_MetronBook24"
+     "exact text" 1
+     "exact text size" 14
+     "text valign" center
+    }
+   }
+  }
+ }
+}

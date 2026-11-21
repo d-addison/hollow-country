@@ -291,22 +291,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCAdminWorldPin",
-      "file": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminWorldClient.c",
-      "line": 13,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local client pin record created during server mark decoding and retained in m_Pins for Draw and Click hit testing in HCAdminWorldClient."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAdminWorldStyle",
-      "file": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminWorldClient.c",
-      "line": 5,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local layer style/cache record created by HCAdminWorldClient.Style, retained in m_Styles and consumed by pin drawing and layer controls."
-    },
-    {
-      "id": "W004",
       "subject": "HCAlertRoot",
       "file": "mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
       "line": 18,
