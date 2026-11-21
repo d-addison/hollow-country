@@ -87,6 +87,7 @@ Thumbs.db
 !/docs/EVENTS.md
 !/docs/VEHICLES.md
 !/docs/AI_FACTIONS.md
+!/docs/tools/
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
