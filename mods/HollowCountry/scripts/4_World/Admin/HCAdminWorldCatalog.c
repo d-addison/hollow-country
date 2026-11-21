@@ -6,9 +6,44 @@ class HCAdminWorldCatalog
 {
     static const int VERSION = 244727726;
     static const int COUNT = 3161;
+    // One atomic row per call; caller owns the shared slice and retained cursor.
     static void Emit(HCAdminWorldCapture capture, int index)
     {
-        int page = index / 64;
+        if (index < 0 || index >= COUNT) { return; }
+        Dispatch0_396(capture, index, index / 8);
+    }
+    static void Dispatch0_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 198) { Dispatch0_198(capture, index, page); }
+        else { Dispatch198_396(capture, index, page); }
+    }
+    static void Dispatch0_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 99) { Dispatch0_99(capture, index, page); }
+        else { Dispatch99_198(capture, index, page); }
+    }
+    static void Dispatch0_99(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 49) { Dispatch0_49(capture, index, page); }
+        else { Dispatch49_99(capture, index, page); }
+    }
+    static void Dispatch0_49(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 24) { Dispatch0_24(capture, index, page); }
+        else { Dispatch24_49(capture, index, page); }
+    }
+    static void Dispatch0_24(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 12) { Dispatch0_12(capture, index, page); }
+        else { Dispatch12_24(capture, index, page); }
+    }
+    static void Dispatch0_12(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 6) { Dispatch0_6(capture, index, page); }
+        else { Dispatch6_12(capture, index, page); }
+    }
+    static void Dispatch0_6(HCAdminWorldCapture capture, int index, int page)
+    {
         switch (page)
         {
             case 0: Page0(capture, index); break;
@@ -17,42 +52,104 @@ class HCAdminWorldCatalog
             case 3: Page3(capture, index); break;
             case 4: Page4(capture, index); break;
             case 5: Page5(capture, index); break;
+        }
+    }
+    static void Dispatch6_12(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 6: Page6(capture, index); break;
             case 7: Page7(capture, index); break;
             case 8: Page8(capture, index); break;
             case 9: Page9(capture, index); break;
             case 10: Page10(capture, index); break;
             case 11: Page11(capture, index); break;
+        }
+    }
+    static void Dispatch12_24(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 18) { Dispatch12_18(capture, index, page); }
+        else { Dispatch18_24(capture, index, page); }
+    }
+    static void Dispatch12_18(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 12: Page12(capture, index); break;
             case 13: Page13(capture, index); break;
             case 14: Page14(capture, index); break;
             case 15: Page15(capture, index); break;
             case 16: Page16(capture, index); break;
             case 17: Page17(capture, index); break;
+        }
+    }
+    static void Dispatch18_24(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 18: Page18(capture, index); break;
             case 19: Page19(capture, index); break;
             case 20: Page20(capture, index); break;
             case 21: Page21(capture, index); break;
             case 22: Page22(capture, index); break;
             case 23: Page23(capture, index); break;
+        }
+    }
+    static void Dispatch24_49(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 36) { Dispatch24_36(capture, index, page); }
+        else { Dispatch36_49(capture, index, page); }
+    }
+    static void Dispatch24_36(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 30) { Dispatch24_30(capture, index, page); }
+        else { Dispatch30_36(capture, index, page); }
+    }
+    static void Dispatch24_30(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 24: Page24(capture, index); break;
             case 25: Page25(capture, index); break;
             case 26: Page26(capture, index); break;
             case 27: Page27(capture, index); break;
             case 28: Page28(capture, index); break;
             case 29: Page29(capture, index); break;
+        }
+    }
+    static void Dispatch30_36(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 30: Page30(capture, index); break;
             case 31: Page31(capture, index); break;
             case 32: Page32(capture, index); break;
             case 33: Page33(capture, index); break;
             case 34: Page34(capture, index); break;
             case 35: Page35(capture, index); break;
+        }
+    }
+    static void Dispatch36_49(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 42) { Dispatch36_42(capture, index, page); }
+        else { Dispatch42_49(capture, index, page); }
+    }
+    static void Dispatch36_42(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 36: Page36(capture, index); break;
             case 37: Page37(capture, index); break;
             case 38: Page38(capture, index); break;
             case 39: Page39(capture, index); break;
             case 40: Page40(capture, index); break;
             case 41: Page41(capture, index); break;
+        }
+    }
+    static void Dispatch42_49(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 42: Page42(capture, index); break;
             case 43: Page43(capture, index); break;
             case 44: Page44(capture, index); break;
@@ -60,7 +157,954 @@ class HCAdminWorldCatalog
             case 46: Page46(capture, index); break;
             case 47: Page47(capture, index); break;
             case 48: Page48(capture, index); break;
+        }
+    }
+    static void Dispatch49_99(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 74) { Dispatch49_74(capture, index, page); }
+        else { Dispatch74_99(capture, index, page); }
+    }
+    static void Dispatch49_74(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 61) { Dispatch49_61(capture, index, page); }
+        else { Dispatch61_74(capture, index, page); }
+    }
+    static void Dispatch49_61(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 55) { Dispatch49_55(capture, index, page); }
+        else { Dispatch55_61(capture, index, page); }
+    }
+    static void Dispatch49_55(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
             case 49: Page49(capture, index); break;
+            case 50: Page50(capture, index); break;
+            case 51: Page51(capture, index); break;
+            case 52: Page52(capture, index); break;
+            case 53: Page53(capture, index); break;
+            case 54: Page54(capture, index); break;
+        }
+    }
+    static void Dispatch55_61(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 55: Page55(capture, index); break;
+            case 56: Page56(capture, index); break;
+            case 57: Page57(capture, index); break;
+            case 58: Page58(capture, index); break;
+            case 59: Page59(capture, index); break;
+            case 60: Page60(capture, index); break;
+        }
+    }
+    static void Dispatch61_74(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 67) { Dispatch61_67(capture, index, page); }
+        else { Dispatch67_74(capture, index, page); }
+    }
+    static void Dispatch61_67(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 61: Page61(capture, index); break;
+            case 62: Page62(capture, index); break;
+            case 63: Page63(capture, index); break;
+            case 64: Page64(capture, index); break;
+            case 65: Page65(capture, index); break;
+            case 66: Page66(capture, index); break;
+        }
+    }
+    static void Dispatch67_74(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 67: Page67(capture, index); break;
+            case 68: Page68(capture, index); break;
+            case 69: Page69(capture, index); break;
+            case 70: Page70(capture, index); break;
+            case 71: Page71(capture, index); break;
+            case 72: Page72(capture, index); break;
+            case 73: Page73(capture, index); break;
+        }
+    }
+    static void Dispatch74_99(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 86) { Dispatch74_86(capture, index, page); }
+        else { Dispatch86_99(capture, index, page); }
+    }
+    static void Dispatch74_86(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 80) { Dispatch74_80(capture, index, page); }
+        else { Dispatch80_86(capture, index, page); }
+    }
+    static void Dispatch74_80(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 74: Page74(capture, index); break;
+            case 75: Page75(capture, index); break;
+            case 76: Page76(capture, index); break;
+            case 77: Page77(capture, index); break;
+            case 78: Page78(capture, index); break;
+            case 79: Page79(capture, index); break;
+        }
+    }
+    static void Dispatch80_86(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 80: Page80(capture, index); break;
+            case 81: Page81(capture, index); break;
+            case 82: Page82(capture, index); break;
+            case 83: Page83(capture, index); break;
+            case 84: Page84(capture, index); break;
+            case 85: Page85(capture, index); break;
+        }
+    }
+    static void Dispatch86_99(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 92) { Dispatch86_92(capture, index, page); }
+        else { Dispatch92_99(capture, index, page); }
+    }
+    static void Dispatch86_92(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 86: Page86(capture, index); break;
+            case 87: Page87(capture, index); break;
+            case 88: Page88(capture, index); break;
+            case 89: Page89(capture, index); break;
+            case 90: Page90(capture, index); break;
+            case 91: Page91(capture, index); break;
+        }
+    }
+    static void Dispatch92_99(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 92: Page92(capture, index); break;
+            case 93: Page93(capture, index); break;
+            case 94: Page94(capture, index); break;
+            case 95: Page95(capture, index); break;
+            case 96: Page96(capture, index); break;
+            case 97: Page97(capture, index); break;
+            case 98: Page98(capture, index); break;
+        }
+    }
+    static void Dispatch99_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 148) { Dispatch99_148(capture, index, page); }
+        else { Dispatch148_198(capture, index, page); }
+    }
+    static void Dispatch99_148(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 123) { Dispatch99_123(capture, index, page); }
+        else { Dispatch123_148(capture, index, page); }
+    }
+    static void Dispatch99_123(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 111) { Dispatch99_111(capture, index, page); }
+        else { Dispatch111_123(capture, index, page); }
+    }
+    static void Dispatch99_111(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 105) { Dispatch99_105(capture, index, page); }
+        else { Dispatch105_111(capture, index, page); }
+    }
+    static void Dispatch99_105(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 99: Page99(capture, index); break;
+            case 100: Page100(capture, index); break;
+            case 101: Page101(capture, index); break;
+            case 102: Page102(capture, index); break;
+            case 103: Page103(capture, index); break;
+            case 104: Page104(capture, index); break;
+        }
+    }
+    static void Dispatch105_111(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 105: Page105(capture, index); break;
+            case 106: Page106(capture, index); break;
+            case 107: Page107(capture, index); break;
+            case 108: Page108(capture, index); break;
+            case 109: Page109(capture, index); break;
+            case 110: Page110(capture, index); break;
+        }
+    }
+    static void Dispatch111_123(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 117) { Dispatch111_117(capture, index, page); }
+        else { Dispatch117_123(capture, index, page); }
+    }
+    static void Dispatch111_117(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 111: Page111(capture, index); break;
+            case 112: Page112(capture, index); break;
+            case 113: Page113(capture, index); break;
+            case 114: Page114(capture, index); break;
+            case 115: Page115(capture, index); break;
+            case 116: Page116(capture, index); break;
+        }
+    }
+    static void Dispatch117_123(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 117: Page117(capture, index); break;
+            case 118: Page118(capture, index); break;
+            case 119: Page119(capture, index); break;
+            case 120: Page120(capture, index); break;
+            case 121: Page121(capture, index); break;
+            case 122: Page122(capture, index); break;
+        }
+    }
+    static void Dispatch123_148(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 135) { Dispatch123_135(capture, index, page); }
+        else { Dispatch135_148(capture, index, page); }
+    }
+    static void Dispatch123_135(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 129) { Dispatch123_129(capture, index, page); }
+        else { Dispatch129_135(capture, index, page); }
+    }
+    static void Dispatch123_129(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 123: Page123(capture, index); break;
+            case 124: Page124(capture, index); break;
+            case 125: Page125(capture, index); break;
+            case 126: Page126(capture, index); break;
+            case 127: Page127(capture, index); break;
+            case 128: Page128(capture, index); break;
+        }
+    }
+    static void Dispatch129_135(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 129: Page129(capture, index); break;
+            case 130: Page130(capture, index); break;
+            case 131: Page131(capture, index); break;
+            case 132: Page132(capture, index); break;
+            case 133: Page133(capture, index); break;
+            case 134: Page134(capture, index); break;
+        }
+    }
+    static void Dispatch135_148(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 141) { Dispatch135_141(capture, index, page); }
+        else { Dispatch141_148(capture, index, page); }
+    }
+    static void Dispatch135_141(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 135: Page135(capture, index); break;
+            case 136: Page136(capture, index); break;
+            case 137: Page137(capture, index); break;
+            case 138: Page138(capture, index); break;
+            case 139: Page139(capture, index); break;
+            case 140: Page140(capture, index); break;
+        }
+    }
+    static void Dispatch141_148(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 141: Page141(capture, index); break;
+            case 142: Page142(capture, index); break;
+            case 143: Page143(capture, index); break;
+            case 144: Page144(capture, index); break;
+            case 145: Page145(capture, index); break;
+            case 146: Page146(capture, index); break;
+            case 147: Page147(capture, index); break;
+        }
+    }
+    static void Dispatch148_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 173) { Dispatch148_173(capture, index, page); }
+        else { Dispatch173_198(capture, index, page); }
+    }
+    static void Dispatch148_173(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 160) { Dispatch148_160(capture, index, page); }
+        else { Dispatch160_173(capture, index, page); }
+    }
+    static void Dispatch148_160(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 154) { Dispatch148_154(capture, index, page); }
+        else { Dispatch154_160(capture, index, page); }
+    }
+    static void Dispatch148_154(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 148: Page148(capture, index); break;
+            case 149: Page149(capture, index); break;
+            case 150: Page150(capture, index); break;
+            case 151: Page151(capture, index); break;
+            case 152: Page152(capture, index); break;
+            case 153: Page153(capture, index); break;
+        }
+    }
+    static void Dispatch154_160(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 154: Page154(capture, index); break;
+            case 155: Page155(capture, index); break;
+            case 156: Page156(capture, index); break;
+            case 157: Page157(capture, index); break;
+            case 158: Page158(capture, index); break;
+            case 159: Page159(capture, index); break;
+        }
+    }
+    static void Dispatch160_173(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 166) { Dispatch160_166(capture, index, page); }
+        else { Dispatch166_173(capture, index, page); }
+    }
+    static void Dispatch160_166(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 160: Page160(capture, index); break;
+            case 161: Page161(capture, index); break;
+            case 162: Page162(capture, index); break;
+            case 163: Page163(capture, index); break;
+            case 164: Page164(capture, index); break;
+            case 165: Page165(capture, index); break;
+        }
+    }
+    static void Dispatch166_173(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 166: Page166(capture, index); break;
+            case 167: Page167(capture, index); break;
+            case 168: Page168(capture, index); break;
+            case 169: Page169(capture, index); break;
+            case 170: Page170(capture, index); break;
+            case 171: Page171(capture, index); break;
+            case 172: Page172(capture, index); break;
+        }
+    }
+    static void Dispatch173_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 185) { Dispatch173_185(capture, index, page); }
+        else { Dispatch185_198(capture, index, page); }
+    }
+    static void Dispatch173_185(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 179) { Dispatch173_179(capture, index, page); }
+        else { Dispatch179_185(capture, index, page); }
+    }
+    static void Dispatch173_179(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 173: Page173(capture, index); break;
+            case 174: Page174(capture, index); break;
+            case 175: Page175(capture, index); break;
+            case 176: Page176(capture, index); break;
+            case 177: Page177(capture, index); break;
+            case 178: Page178(capture, index); break;
+        }
+    }
+    static void Dispatch179_185(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 179: Page179(capture, index); break;
+            case 180: Page180(capture, index); break;
+            case 181: Page181(capture, index); break;
+            case 182: Page182(capture, index); break;
+            case 183: Page183(capture, index); break;
+            case 184: Page184(capture, index); break;
+        }
+    }
+    static void Dispatch185_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 191) { Dispatch185_191(capture, index, page); }
+        else { Dispatch191_198(capture, index, page); }
+    }
+    static void Dispatch185_191(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 185: Page185(capture, index); break;
+            case 186: Page186(capture, index); break;
+            case 187: Page187(capture, index); break;
+            case 188: Page188(capture, index); break;
+            case 189: Page189(capture, index); break;
+            case 190: Page190(capture, index); break;
+        }
+    }
+    static void Dispatch191_198(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 191: Page191(capture, index); break;
+            case 192: Page192(capture, index); break;
+            case 193: Page193(capture, index); break;
+            case 194: Page194(capture, index); break;
+            case 195: Page195(capture, index); break;
+            case 196: Page196(capture, index); break;
+            case 197: Page197(capture, index); break;
+        }
+    }
+    static void Dispatch198_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 297) { Dispatch198_297(capture, index, page); }
+        else { Dispatch297_396(capture, index, page); }
+    }
+    static void Dispatch198_297(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 247) { Dispatch198_247(capture, index, page); }
+        else { Dispatch247_297(capture, index, page); }
+    }
+    static void Dispatch198_247(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 222) { Dispatch198_222(capture, index, page); }
+        else { Dispatch222_247(capture, index, page); }
+    }
+    static void Dispatch198_222(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 210) { Dispatch198_210(capture, index, page); }
+        else { Dispatch210_222(capture, index, page); }
+    }
+    static void Dispatch198_210(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 204) { Dispatch198_204(capture, index, page); }
+        else { Dispatch204_210(capture, index, page); }
+    }
+    static void Dispatch198_204(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 198: Page198(capture, index); break;
+            case 199: Page199(capture, index); break;
+            case 200: Page200(capture, index); break;
+            case 201: Page201(capture, index); break;
+            case 202: Page202(capture, index); break;
+            case 203: Page203(capture, index); break;
+        }
+    }
+    static void Dispatch204_210(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 204: Page204(capture, index); break;
+            case 205: Page205(capture, index); break;
+            case 206: Page206(capture, index); break;
+            case 207: Page207(capture, index); break;
+            case 208: Page208(capture, index); break;
+            case 209: Page209(capture, index); break;
+        }
+    }
+    static void Dispatch210_222(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 216) { Dispatch210_216(capture, index, page); }
+        else { Dispatch216_222(capture, index, page); }
+    }
+    static void Dispatch210_216(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 210: Page210(capture, index); break;
+            case 211: Page211(capture, index); break;
+            case 212: Page212(capture, index); break;
+            case 213: Page213(capture, index); break;
+            case 214: Page214(capture, index); break;
+            case 215: Page215(capture, index); break;
+        }
+    }
+    static void Dispatch216_222(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 216: Page216(capture, index); break;
+            case 217: Page217(capture, index); break;
+            case 218: Page218(capture, index); break;
+            case 219: Page219(capture, index); break;
+            case 220: Page220(capture, index); break;
+            case 221: Page221(capture, index); break;
+        }
+    }
+    static void Dispatch222_247(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 234) { Dispatch222_234(capture, index, page); }
+        else { Dispatch234_247(capture, index, page); }
+    }
+    static void Dispatch222_234(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 228) { Dispatch222_228(capture, index, page); }
+        else { Dispatch228_234(capture, index, page); }
+    }
+    static void Dispatch222_228(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 222: Page222(capture, index); break;
+            case 223: Page223(capture, index); break;
+            case 224: Page224(capture, index); break;
+            case 225: Page225(capture, index); break;
+            case 226: Page226(capture, index); break;
+            case 227: Page227(capture, index); break;
+        }
+    }
+    static void Dispatch228_234(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 228: Page228(capture, index); break;
+            case 229: Page229(capture, index); break;
+            case 230: Page230(capture, index); break;
+            case 231: Page231(capture, index); break;
+            case 232: Page232(capture, index); break;
+            case 233: Page233(capture, index); break;
+        }
+    }
+    static void Dispatch234_247(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 240) { Dispatch234_240(capture, index, page); }
+        else { Dispatch240_247(capture, index, page); }
+    }
+    static void Dispatch234_240(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 234: Page234(capture, index); break;
+            case 235: Page235(capture, index); break;
+            case 236: Page236(capture, index); break;
+            case 237: Page237(capture, index); break;
+            case 238: Page238(capture, index); break;
+            case 239: Page239(capture, index); break;
+        }
+    }
+    static void Dispatch240_247(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 240: Page240(capture, index); break;
+            case 241: Page241(capture, index); break;
+            case 242: Page242(capture, index); break;
+            case 243: Page243(capture, index); break;
+            case 244: Page244(capture, index); break;
+            case 245: Page245(capture, index); break;
+            case 246: Page246(capture, index); break;
+        }
+    }
+    static void Dispatch247_297(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 272) { Dispatch247_272(capture, index, page); }
+        else { Dispatch272_297(capture, index, page); }
+    }
+    static void Dispatch247_272(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 259) { Dispatch247_259(capture, index, page); }
+        else { Dispatch259_272(capture, index, page); }
+    }
+    static void Dispatch247_259(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 253) { Dispatch247_253(capture, index, page); }
+        else { Dispatch253_259(capture, index, page); }
+    }
+    static void Dispatch247_253(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 247: Page247(capture, index); break;
+            case 248: Page248(capture, index); break;
+            case 249: Page249(capture, index); break;
+            case 250: Page250(capture, index); break;
+            case 251: Page251(capture, index); break;
+            case 252: Page252(capture, index); break;
+        }
+    }
+    static void Dispatch253_259(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 253: Page253(capture, index); break;
+            case 254: Page254(capture, index); break;
+            case 255: Page255(capture, index); break;
+            case 256: Page256(capture, index); break;
+            case 257: Page257(capture, index); break;
+            case 258: Page258(capture, index); break;
+        }
+    }
+    static void Dispatch259_272(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 265) { Dispatch259_265(capture, index, page); }
+        else { Dispatch265_272(capture, index, page); }
+    }
+    static void Dispatch259_265(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 259: Page259(capture, index); break;
+            case 260: Page260(capture, index); break;
+            case 261: Page261(capture, index); break;
+            case 262: Page262(capture, index); break;
+            case 263: Page263(capture, index); break;
+            case 264: Page264(capture, index); break;
+        }
+    }
+    static void Dispatch265_272(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 265: Page265(capture, index); break;
+            case 266: Page266(capture, index); break;
+            case 267: Page267(capture, index); break;
+            case 268: Page268(capture, index); break;
+            case 269: Page269(capture, index); break;
+            case 270: Page270(capture, index); break;
+            case 271: Page271(capture, index); break;
+        }
+    }
+    static void Dispatch272_297(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 284) { Dispatch272_284(capture, index, page); }
+        else { Dispatch284_297(capture, index, page); }
+    }
+    static void Dispatch272_284(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 278) { Dispatch272_278(capture, index, page); }
+        else { Dispatch278_284(capture, index, page); }
+    }
+    static void Dispatch272_278(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 272: Page272(capture, index); break;
+            case 273: Page273(capture, index); break;
+            case 274: Page274(capture, index); break;
+            case 275: Page275(capture, index); break;
+            case 276: Page276(capture, index); break;
+            case 277: Page277(capture, index); break;
+        }
+    }
+    static void Dispatch278_284(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 278: Page278(capture, index); break;
+            case 279: Page279(capture, index); break;
+            case 280: Page280(capture, index); break;
+            case 281: Page281(capture, index); break;
+            case 282: Page282(capture, index); break;
+            case 283: Page283(capture, index); break;
+        }
+    }
+    static void Dispatch284_297(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 290) { Dispatch284_290(capture, index, page); }
+        else { Dispatch290_297(capture, index, page); }
+    }
+    static void Dispatch284_290(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 284: Page284(capture, index); break;
+            case 285: Page285(capture, index); break;
+            case 286: Page286(capture, index); break;
+            case 287: Page287(capture, index); break;
+            case 288: Page288(capture, index); break;
+            case 289: Page289(capture, index); break;
+        }
+    }
+    static void Dispatch290_297(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 290: Page290(capture, index); break;
+            case 291: Page291(capture, index); break;
+            case 292: Page292(capture, index); break;
+            case 293: Page293(capture, index); break;
+            case 294: Page294(capture, index); break;
+            case 295: Page295(capture, index); break;
+            case 296: Page296(capture, index); break;
+        }
+    }
+    static void Dispatch297_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 346) { Dispatch297_346(capture, index, page); }
+        else { Dispatch346_396(capture, index, page); }
+    }
+    static void Dispatch297_346(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 321) { Dispatch297_321(capture, index, page); }
+        else { Dispatch321_346(capture, index, page); }
+    }
+    static void Dispatch297_321(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 309) { Dispatch297_309(capture, index, page); }
+        else { Dispatch309_321(capture, index, page); }
+    }
+    static void Dispatch297_309(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 303) { Dispatch297_303(capture, index, page); }
+        else { Dispatch303_309(capture, index, page); }
+    }
+    static void Dispatch297_303(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 297: Page297(capture, index); break;
+            case 298: Page298(capture, index); break;
+            case 299: Page299(capture, index); break;
+            case 300: Page300(capture, index); break;
+            case 301: Page301(capture, index); break;
+            case 302: Page302(capture, index); break;
+        }
+    }
+    static void Dispatch303_309(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 303: Page303(capture, index); break;
+            case 304: Page304(capture, index); break;
+            case 305: Page305(capture, index); break;
+            case 306: Page306(capture, index); break;
+            case 307: Page307(capture, index); break;
+            case 308: Page308(capture, index); break;
+        }
+    }
+    static void Dispatch309_321(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 315) { Dispatch309_315(capture, index, page); }
+        else { Dispatch315_321(capture, index, page); }
+    }
+    static void Dispatch309_315(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 309: Page309(capture, index); break;
+            case 310: Page310(capture, index); break;
+            case 311: Page311(capture, index); break;
+            case 312: Page312(capture, index); break;
+            case 313: Page313(capture, index); break;
+            case 314: Page314(capture, index); break;
+        }
+    }
+    static void Dispatch315_321(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 315: Page315(capture, index); break;
+            case 316: Page316(capture, index); break;
+            case 317: Page317(capture, index); break;
+            case 318: Page318(capture, index); break;
+            case 319: Page319(capture, index); break;
+            case 320: Page320(capture, index); break;
+        }
+    }
+    static void Dispatch321_346(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 333) { Dispatch321_333(capture, index, page); }
+        else { Dispatch333_346(capture, index, page); }
+    }
+    static void Dispatch321_333(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 327) { Dispatch321_327(capture, index, page); }
+        else { Dispatch327_333(capture, index, page); }
+    }
+    static void Dispatch321_327(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 321: Page321(capture, index); break;
+            case 322: Page322(capture, index); break;
+            case 323: Page323(capture, index); break;
+            case 324: Page324(capture, index); break;
+            case 325: Page325(capture, index); break;
+            case 326: Page326(capture, index); break;
+        }
+    }
+    static void Dispatch327_333(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 327: Page327(capture, index); break;
+            case 328: Page328(capture, index); break;
+            case 329: Page329(capture, index); break;
+            case 330: Page330(capture, index); break;
+            case 331: Page331(capture, index); break;
+            case 332: Page332(capture, index); break;
+        }
+    }
+    static void Dispatch333_346(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 339) { Dispatch333_339(capture, index, page); }
+        else { Dispatch339_346(capture, index, page); }
+    }
+    static void Dispatch333_339(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 333: Page333(capture, index); break;
+            case 334: Page334(capture, index); break;
+            case 335: Page335(capture, index); break;
+            case 336: Page336(capture, index); break;
+            case 337: Page337(capture, index); break;
+            case 338: Page338(capture, index); break;
+        }
+    }
+    static void Dispatch339_346(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 339: Page339(capture, index); break;
+            case 340: Page340(capture, index); break;
+            case 341: Page341(capture, index); break;
+            case 342: Page342(capture, index); break;
+            case 343: Page343(capture, index); break;
+            case 344: Page344(capture, index); break;
+            case 345: Page345(capture, index); break;
+        }
+    }
+    static void Dispatch346_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 371) { Dispatch346_371(capture, index, page); }
+        else { Dispatch371_396(capture, index, page); }
+    }
+    static void Dispatch346_371(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 358) { Dispatch346_358(capture, index, page); }
+        else { Dispatch358_371(capture, index, page); }
+    }
+    static void Dispatch346_358(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 352) { Dispatch346_352(capture, index, page); }
+        else { Dispatch352_358(capture, index, page); }
+    }
+    static void Dispatch346_352(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 346: Page346(capture, index); break;
+            case 347: Page347(capture, index); break;
+            case 348: Page348(capture, index); break;
+            case 349: Page349(capture, index); break;
+            case 350: Page350(capture, index); break;
+            case 351: Page351(capture, index); break;
+        }
+    }
+    static void Dispatch352_358(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 352: Page352(capture, index); break;
+            case 353: Page353(capture, index); break;
+            case 354: Page354(capture, index); break;
+            case 355: Page355(capture, index); break;
+            case 356: Page356(capture, index); break;
+            case 357: Page357(capture, index); break;
+        }
+    }
+    static void Dispatch358_371(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 364) { Dispatch358_364(capture, index, page); }
+        else { Dispatch364_371(capture, index, page); }
+    }
+    static void Dispatch358_364(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 358: Page358(capture, index); break;
+            case 359: Page359(capture, index); break;
+            case 360: Page360(capture, index); break;
+            case 361: Page361(capture, index); break;
+            case 362: Page362(capture, index); break;
+            case 363: Page363(capture, index); break;
+        }
+    }
+    static void Dispatch364_371(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 364: Page364(capture, index); break;
+            case 365: Page365(capture, index); break;
+            case 366: Page366(capture, index); break;
+            case 367: Page367(capture, index); break;
+            case 368: Page368(capture, index); break;
+            case 369: Page369(capture, index); break;
+            case 370: Page370(capture, index); break;
+        }
+    }
+    static void Dispatch371_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 383) { Dispatch371_383(capture, index, page); }
+        else { Dispatch383_396(capture, index, page); }
+    }
+    static void Dispatch371_383(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 377) { Dispatch371_377(capture, index, page); }
+        else { Dispatch377_383(capture, index, page); }
+    }
+    static void Dispatch371_377(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 371: Page371(capture, index); break;
+            case 372: Page372(capture, index); break;
+            case 373: Page373(capture, index); break;
+            case 374: Page374(capture, index); break;
+            case 375: Page375(capture, index); break;
+            case 376: Page376(capture, index); break;
+        }
+    }
+    static void Dispatch377_383(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 377: Page377(capture, index); break;
+            case 378: Page378(capture, index); break;
+            case 379: Page379(capture, index); break;
+            case 380: Page380(capture, index); break;
+            case 381: Page381(capture, index); break;
+            case 382: Page382(capture, index); break;
+        }
+    }
+    static void Dispatch383_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        if (page < 389) { Dispatch383_389(capture, index, page); }
+        else { Dispatch389_396(capture, index, page); }
+    }
+    static void Dispatch383_389(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 383: Page383(capture, index); break;
+            case 384: Page384(capture, index); break;
+            case 385: Page385(capture, index); break;
+            case 386: Page386(capture, index); break;
+            case 387: Page387(capture, index); break;
+            case 388: Page388(capture, index); break;
+        }
+    }
+    static void Dispatch389_396(HCAdminWorldCapture capture, int index, int page)
+    {
+        switch (page)
+        {
+            case 389: Page389(capture, index); break;
+            case 390: Page390(capture, index); break;
+            case 391: Page391(capture, index); break;
+            case 392: Page392(capture, index); break;
+            case 393: Page393(capture, index); break;
+            case 394: Page394(capture, index); break;
+            case 395: Page395(capture, index); break;
         }
     }
     static void Page0(HCAdminWorldCapture capture, int index)
@@ -75,6 +1119,12 @@ class HCAdminWorldCatalog
             case 5: capture.Put("ai-sites", Vector(3689.600, 190.500, 13081.100), "police-novaya-petrovka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 6: capture.Put("ai-sites", Vector(4621.010, 339.740, 10595.410), "mil-nwaf", "Authored AI site; faction=East; role=patrol; not live occupancy"); break;
             case 7: capture.Put("ai-sites", Vector(1684.980, 456.290, 14219.320), "mil-tisy", "Authored AI site; faction=East; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page1(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 8: capture.Put("ai-sites", Vector(4485.200, 316.690, 8290.670), "mil-vybor", "Authored AI site; faction=East; role=patrol; not live occupancy"); break;
             case 9: capture.Put("ai-sites", Vector(6790.940, 9.520, 2580.320), "scav-chernogorsk", "Authored AI site; faction=Raiders; role=scavenger; not live occupancy"); break;
             case 10: capture.Put("ai-sites", Vector(10501.500, 12.350, 2323.910), "scav-elektrozavodsk", "Authored AI site; faction=Raiders; role=scavenger; not live occupancy"); break;
@@ -83,6 +1133,12 @@ class HCAdminWorldCatalog
             case 13: capture.Put("ai-sites", Vector(11579.020, 65.830, 14599.060), "scav-novodmitrovsk", "Authored AI site; faction=Raiders; role=scavenger; not live occupancy"); break;
             case 14: capture.Put("ai-sites", Vector(9559.100, 306.960, 8855.510), "holdout-gorka", "Authored AI site; faction=Guards; role=holdout; not live occupancy"); break;
             case 15: capture.Put("ai-sites", Vector(7562.900, 220.510, 5149.570), "holdout-mogilevka", "Authored AI site; faction=Guards; role=holdout; not live occupancy"); break;
+        }
+    }
+    static void Page2(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 16: capture.Put("ai-sites", Vector(5853.870, 139.220, 4722.040), "holdout-nadezhdino", "Authored AI site; faction=Guards; role=holdout; not live occupancy"); break;
             case 17: capture.Put("ai-sites", Vector(4446.810, 300.990, 6376.180), "holdout-pogorevka", "Authored AI site; faction=Guards; role=holdout; not live occupancy"); break;
             case 18: capture.Put("ai-sites", Vector(10719.430, 215.000, 8035.760), "holdout-polana", "Authored AI site; faction=Guards; role=holdout; not live occupancy"); break;
@@ -91,6 +1147,12 @@ class HCAdminWorldCatalog
             case 21: capture.Put("ai-sites", Vector(6102.691, 0.000, 3275.103), "gapcov-novoselki", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 22: capture.Put("ai-sites", Vector(6767.678, 0.000, 3614.937), "gapcov-dubovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 23: capture.Put("ai-sites", Vector(5695.703, 0.000, 2562.760), "gapcov-vysotovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page3(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 24: capture.Put("ai-sites", Vector(13441.925, 0.000, 6258.638), "gapcov-solnechny", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 25: capture.Put("ai-sites", Vector(6113.484, 0.000, 7865.003), "gapcov-stary-sobor", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 26: capture.Put("ai-sites", Vector(8142.064, 0.000, 12598.861), "gapcov-severograd", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -99,6 +1161,12 @@ class HCAdminWorldCatalog
             case 29: capture.Put("ai-sites", Vector(11204.836, 0.000, 12369.894), "gapcov-krasnostav", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 30: capture.Put("ai-sites", Vector(12160.540, 0.000, 13772.723), "gapcov-chernaya-polyana", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 31: capture.Put("ai-sites", Vector(12790.680, 0.000, 4435.541), "gapcov-tulga", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page4(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 32: capture.Put("ai-sites", Vector(11317.513, 0.000, 5469.953), "gapcov-msta", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 33: capture.Put("ai-sites", Vector(10183.366, 0.000, 5409.900), "gapcov-staroye", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 34: capture.Put("ai-sites", Vector(9715.246, 0.000, 6539.725), "gapcov-shakhovka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -107,6 +1175,12 @@ class HCAdminWorldCatalog
             case 37: capture.Put("ai-sites", Vector(7129.149, 0.000, 7756.585), "gapcov-novy-sobor", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 38: capture.Put("ai-sites", Vector(5315.166, 0.000, 8642.292), "gapcov-kabanino", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 39: capture.Put("ai-sites", Vector(8421.036, 0.000, 6604.919), "gapcov-guglovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page5(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 40: capture.Put("ai-sites", Vector(12161.423, 0.000, 3466.562), "gapcov-kamyshovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 41: capture.Put("ai-sites", Vector(9185.697, 0.000, 3897.568), "gapcov-pusta", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 42: capture.Put("ai-sites", Vector(10305.383, 0.000, 9832.975), "gapcov-dubrovka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -115,6 +1189,12 @@ class HCAdminWorldCatalog
             case 45: capture.Put("ai-sites", Vector(13375.413, 0.000, 12892.140), "gapcov-olsha", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 46: capture.Put("ai-sites", Vector(8654.854, 0.000, 11905.974), "gapcov-gvozdno", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 47: capture.Put("ai-sites", Vector(5972.360, 0.000, 10277.688), "gapcov-grishino", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page6(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 48: capture.Put("ai-sites", Vector(4782.083, 0.000, 6758.314), "gapcov-rogovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 49: capture.Put("ai-sites", Vector(3142.244, 0.000, 7873.180), "gapcov-pustoshka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 50: capture.Put("ai-sites", Vector(4372.189, 0.000, 4738.779), "gapcov-kozlovka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -123,6 +1203,12 @@ class HCAdminWorldCatalog
             case 53: capture.Put("ai-sites", Vector(1956.291, 0.000, 2202.299), "gapcov-kamenka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 54: capture.Put("ai-sites", Vector(2043.439, 0.000, 7292.442), "gapcov-myshkino", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 55: capture.Put("ai-sites", Vector(1704.345, 0.000, 3869.158), "gapcov-pavlovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page7(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 56: capture.Put("ai-sites", Vector(2768.163, 0.000, 10027.505), "gapcov-lopatino", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 57: capture.Put("ai-sites", Vector(6605.606, 0.000, 6021.668), "gapcov-vyshnoye", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 58: capture.Put("ai-sites", Vector(7756.195, 0.000, 3270.546), "gapcov-prigorodki", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -133,7 +1219,7 @@ class HCAdminWorldCatalog
             case 63: capture.Put("ai-sites", Vector(15086.163, 0.000, 13820.106), "gapcov-berezhki", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page1(HCAdminWorldCapture capture, int index)
+    static void Page8(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -145,6 +1231,12 @@ class HCAdminWorldCatalog
             case 69: capture.Put("ai-sites", Vector(6186.320, 0.000, 12727.882), "gapcov-ratnoye", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 70: capture.Put("ai-sites", Vector(6748.700, 0.000, 14416.898), "gapcov-kamensk", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 71: capture.Put("ai-sites", Vector(6392.806, 0.000, 15011.350), "gapcov-krasnoye", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page9(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 72: capture.Put("ai-sites", Vector(4994.318, 0.000, 15032.614), "gapcov-stary-yar", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 73: capture.Put("ai-sites", Vector(5947.196, 0.000, 13576.773), "gapcov-polesovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 74: capture.Put("ai-sites", Vector(3444.232, 0.000, 14806.767), "gapcov-tisy", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -153,6 +1245,12 @@ class HCAdminWorldCatalog
             case 77: capture.Put("ai-sites", Vector(1563.398, 0.000, 11954.816), "gapcov-sinystok", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 78: capture.Put("ai-sites", Vector(2232.961, 0.000, 11104.645), "gapcov-vavilovo", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 79: capture.Put("ai-sites", Vector(8161.335, 0.000, 6190.596), "gapcov-kumyrna", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page10(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 80: capture.Put("ai-sites", Vector(7502.969, 0.000, 13453.941), "gapcov-kalinovka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 81: capture.Put("ai-sites", Vector(1516.752, 0.000, 8927.051), "gapcov-bogatyrka", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 82: capture.Put("ai-sites", Vector(340.149, 0.000, 11889.149), "gapcov-svyatoy-roman-ski-resort", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -161,6 +1259,12 @@ class HCAdminWorldCatalog
             case 85: capture.Put("ai-sites", Vector(1237.844, 0.000, 9995.732), "gapcov-zabolotye", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 86: capture.Put("ai-sites", Vector(1155.348, 0.000, 8837.761), "gapcov-galkino", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 87: capture.Put("ai-sites", Vector(13616.199, 0.000, 3089.463), "gapcov-skalisty", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page11(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 88: capture.Put("ai-sites", Vector(11161.536, 0.000, 2436.457), "gapcov-drakon", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 89: capture.Put("ai-sites", Vector(11632.295, 0.000, 3179.353), "gapcov-otmel", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 90: capture.Put("ai-sites", Vector(2797.823, 0.000, 1250.676), "gapcov-prison-island", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -169,6 +1273,12 @@ class HCAdminWorldCatalog
             case 93: capture.Put("ai-sites", Vector(1682.549, 0.000, 3819.076), "gapcov-r01", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 94: capture.Put("ai-sites", Vector(1858.066, 0.000, 2252.450), "gapcov-r02", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 95: capture.Put("ai-sites", Vector(3300.729, 0.000, 3931.365), "gapcov-r03", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page12(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 96: capture.Put("ai-sites", Vector(3607.002, 0.000, 2480.606), "gapcov-r04", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 97: capture.Put("ai-sites", Vector(4475.141, 0.000, 2480.778), "gapcov-r05", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 98: capture.Put("ai-sites", Vector(6472.402, 0.000, 2622.699), "gapcov-r06", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -177,6 +1287,12 @@ class HCAdminWorldCatalog
             case 101: capture.Put("ai-sites", Vector(10374.718, 0.000, 2223.792), "gapcov-r09", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 102: capture.Put("ai-sites", Vector(12065.386, 0.000, 3542.128), "gapcov-r10", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 103: capture.Put("ai-sites", Vector(2737.380, 0.000, 5262.554), "gapcov-r11", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page13(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 104: capture.Put("ai-sites", Vector(4395.053, 0.000, 4631.135), "gapcov-r12", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 105: capture.Put("ai-sites", Vector(4929.993, 0.000, 5649.215), "gapcov-r13", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 106: capture.Put("ai-sites", Vector(5851.953, 0.000, 4788.562), "gapcov-r14", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -185,6 +1301,12 @@ class HCAdminWorldCatalog
             case 109: capture.Put("ai-sites", Vector(11298.547, 0.000, 5460.510), "gapcov-r17", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 110: capture.Put("ai-sites", Vector(12706.194, 0.000, 4386.442), "gapcov-r18", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 111: capture.Put("ai-sites", Vector(1979.835, 0.000, 7259.539), "gapcov-r19", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page14(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 112: capture.Put("ai-sites", Vector(3070.022, 0.000, 7910.254), "gapcov-r20", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 113: capture.Put("ai-sites", Vector(4472.053, 0.000, 6375.766), "gapcov-r21", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 114: capture.Put("ai-sites", Vector(4733.014, 0.000, 6818.964), "gapcov-r22", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -193,6 +1315,12 @@ class HCAdminWorldCatalog
             case 117: capture.Put("ai-sites", Vector(8439.666, 0.000, 6652.275), "gapcov-r25", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 118: capture.Put("ai-sites", Vector(9666.760, 0.000, 6570.526), "gapcov-r26", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 119: capture.Put("ai-sites", Vector(11332.100, 0.000, 6616.264), "gapcov-r27", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page15(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 120: capture.Put("ai-sites", Vector(12133.267, 0.000, 7249.626), "gapcov-r28", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 121: capture.Put("ai-sites", Vector(12216.008, 0.000, 6273.206), "gapcov-r29", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 122: capture.Put("ai-sites", Vector(13379.101, 0.000, 6266.919), "gapcov-r30", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -203,7 +1331,7 @@ class HCAdminWorldCatalog
             case 127: capture.Put("ai-sites", Vector(10448.622, 0.000, 9794.951), "gapcov-r35", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page2(HCAdminWorldCapture capture, int index)
+    static void Page16(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -215,6 +1343,12 @@ class HCAdminWorldCatalog
             case 133: capture.Put("ai-sites", Vector(8119.611, 0.000, 11574.534), "gapcov-r41", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 134: capture.Put("ai-sites", Vector(9924.440, 0.000, 10375.169), "gapcov-r42", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 135: capture.Put("ai-sites", Vector(12278.021, 0.000, 10877.330), "gapcov-r43", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page17(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 136: capture.Put("ai-sites", Vector(1440.575, 0.000, 12010.851), "gapcov-r44", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 137: capture.Put("ai-sites", Vector(2825.837, 0.000, 12423.386), "gapcov-r45", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 138: capture.Put("ai-sites", Vector(3432.783, 0.000, 12992.017), "gapcov-r46", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -223,6 +1357,12 @@ class HCAdminWorldCatalog
             case 141: capture.Put("ai-sites", Vector(7566.494, 0.000, 13478.271), "gapcov-r49", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 142: capture.Put("ai-sites", Vector(8082.754, 0.000, 12557.154), "gapcov-r50", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 143: capture.Put("ai-sites", Vector(9496.316, 0.000, 13746.438), "gapcov-r51", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page18(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 144: capture.Put("ai-sites", Vector(11098.130, 0.000, 12306.834), "gapcov-r52", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 145: capture.Put("ai-sites", Vector(12110.052, 0.000, 13778.921), "gapcov-r53", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 146: capture.Put("ai-sites", Vector(13321.191, 0.000, 12968.037), "gapcov-r54", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -231,6 +1371,12 @@ class HCAdminWorldCatalog
             case 149: capture.Put("ai-sites", Vector(6623.529, 0.000, 14374.638), "gapcov-r57", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 150: capture.Put("ai-sites", Vector(9355.399, 0.000, 14617.250), "gapcov-r58", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 151: capture.Put("ai-sites", Vector(10746.131, 0.000, 14420.405), "gapcov-r59", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page19(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 152: capture.Put("ai-sites", Vector(11583.040, 0.000, 14575.111), "gapcov-r60", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 153: capture.Put("ai-sites", Vector(12774.100, 0.000, 14626.057), "gapcov-r61", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 154: capture.Put("ai-sites", Vector(12968.851, 0.000, 15032.086), "gapcov-r62", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -239,6 +1385,12 @@ class HCAdminWorldCatalog
             case 157: capture.Put("ai-sites", Vector(174.522, 0.000, 2380.768), "gapcov-i001", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 158: capture.Put("ai-sites", Vector(301.604, 0.000, 4302.714), "gapcov-i002", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 159: capture.Put("ai-sites", Vector(174.666, 0.000, 7480.198), "gapcov-i003", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page20(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 160: capture.Put("ai-sites", Vector(159.998, 0.000, 10411.233), "gapcov-i004", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 161: capture.Put("ai-sites", Vector(154.137, 0.000, 13219.651), "gapcov-i005", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 162: capture.Put("ai-sites", Vector(212.327, 0.000, 11869.102), "gapcov-i006", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -247,6 +1399,12 @@ class HCAdminWorldCatalog
             case 165: capture.Put("ai-sites", Vector(261.400, 0.000, 3753.940), "gapcov-i009", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 166: capture.Put("ai-sites", Vector(370.816, 0.000, 4642.122), "gapcov-i010", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 167: capture.Put("ai-sites", Vector(559.719, 0.000, 5260.167), "gapcov-i011", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page21(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 168: capture.Put("ai-sites", Vector(260.264, 0.000, 6610.779), "gapcov-i012", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 169: capture.Put("ai-sites", Vector(341.379, 0.000, 9375.440), "gapcov-i013", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 170: capture.Put("ai-sites", Vector(309.914, 0.000, 3020.002), "gapcov-i014", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -255,6 +1413,12 @@ class HCAdminWorldCatalog
             case 173: capture.Put("ai-sites", Vector(513.339, 0.000, 11067.903), "gapcov-i017", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 174: capture.Put("ai-sites", Vector(605.334, 0.000, 12148.545), "gapcov-i018", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 175: capture.Put("ai-sites", Vector(869.494, 0.000, 1974.992), "gapcov-i019", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page22(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 176: capture.Put("ai-sites", Vector(720.061, 0.000, 4617.151), "gapcov-i020", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 177: capture.Put("ai-sites", Vector(1252.354, 0.000, 6504.411), "gapcov-i021", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 178: capture.Put("ai-sites", Vector(980.307, 0.000, 7628.061), "gapcov-i022", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -263,6 +1427,12 @@ class HCAdminWorldCatalog
             case 181: capture.Put("ai-sites", Vector(1059.670, 0.000, 8032.928), "gapcov-i025", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 182: capture.Put("ai-sites", Vector(1237.844, 0.000, 9995.732), "gapcov-i026", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 183: capture.Put("ai-sites", Vector(1085.894, 0.000, 2376.981), "gapcov-i027", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page23(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 184: capture.Put("ai-sites", Vector(1169.673, 0.000, 4575.770), "gapcov-i028", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 185: capture.Put("ai-sites", Vector(1177.551, 0.000, 4984.801), "gapcov-i029", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 186: capture.Put("ai-sites", Vector(1166.726, 0.000, 9566.479), "gapcov-i030", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -273,7 +1443,7 @@ class HCAdminWorldCatalog
             case 191: capture.Put("ai-sites", Vector(1494.017, 0.000, 9084.964), "gapcov-i035", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page3(HCAdminWorldCapture capture, int index)
+    static void Page24(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -285,6 +1455,12 @@ class HCAdminWorldCatalog
             case 197: capture.Put("ai-sites", Vector(1841.349, 0.000, 2197.698), "gapcov-i041", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 198: capture.Put("ai-sites", Vector(1745.991, 0.000, 5072.046), "gapcov-i042", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 199: capture.Put("ai-sites", Vector(1683.155, 0.000, 14939.406), "gapcov-i043", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page25(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 200: capture.Put("ai-sites", Vector(1749.879, 0.000, 11417.841), "gapcov-i044", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 201: capture.Put("ai-sites", Vector(2001.539, 0.000, 7273.384), "gapcov-i045", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 202: capture.Put("ai-sites", Vector(1943.109, 0.000, 9407.992), "gapcov-i046", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -293,6 +1469,12 @@ class HCAdminWorldCatalog
             case 205: capture.Put("ai-sites", Vector(1937.028, 0.000, 8116.525), "gapcov-i049", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 206: capture.Put("ai-sites", Vector(2524.215, 0.000, 9781.005), "gapcov-i050", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 207: capture.Put("ai-sites", Vector(3233.206, 0.000, 12787.395), "gapcov-i051", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page26(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 208: capture.Put("ai-sites", Vector(1945.706, 0.000, 15068.206), "gapcov-i052", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 209: capture.Put("ai-sites", Vector(2123.590, 0.000, 2918.660), "gapcov-i053", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 210: capture.Put("ai-sites", Vector(2225.840, 0.000, 11123.756), "gapcov-i054", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -301,6 +1483,12 @@ class HCAdminWorldCatalog
             case 213: capture.Put("ai-sites", Vector(2574.504, 0.000, 14819.894), "gapcov-i057", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 214: capture.Put("ai-sites", Vector(2194.872, 0.000, 15265.720), "gapcov-i058", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 215: capture.Put("ai-sites", Vector(2440.796, 0.000, 6361.742), "gapcov-i059", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page27(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 216: capture.Put("ai-sites", Vector(2230.437, 0.000, 10118.280), "gapcov-i060", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 217: capture.Put("ai-sites", Vector(2325.468, 0.000, 14382.256), "gapcov-i061", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 218: capture.Put("ai-sites", Vector(2372.958, 0.000, 13852.872), "gapcov-i062", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -309,6 +1497,12 @@ class HCAdminWorldCatalog
             case 221: capture.Put("ai-sites", Vector(2776.965, 0.000, 3522.524), "gapcov-i065", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 222: capture.Put("ai-sites", Vector(2539.922, 0.000, 7563.916), "gapcov-i066", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 223: capture.Put("ai-sites", Vector(2636.260, 0.000, 2210.610), "gapcov-i067", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page28(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 224: capture.Put("ai-sites", Vector(2680.894, 0.000, 2796.143), "gapcov-i068", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 225: capture.Put("ai-sites", Vector(2690.812, 0.000, 6005.411), "gapcov-i069", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 226: capture.Put("ai-sites", Vector(2750.271, 0.000, 3075.043), "gapcov-i070", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -317,6 +1511,12 @@ class HCAdminWorldCatalog
             case 229: capture.Put("ai-sites", Vector(3065.613, 0.000, 7884.310), "gapcov-i073", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 230: capture.Put("ai-sites", Vector(2863.342, 0.000, 4726.649), "gapcov-i074", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 231: capture.Put("ai-sites", Vector(3294.297, 0.000, 15036.813), "gapcov-i075", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page29(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 232: capture.Put("ai-sites", Vector(3314.725, 0.000, 3980.664), "gapcov-i076", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 233: capture.Put("ai-sites", Vector(2890.329, 0.000, 8685.772), "gapcov-i077", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 234: capture.Put("ai-sites", Vector(2950.524, 0.000, 1995.184), "gapcov-i078", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -325,6 +1525,12 @@ class HCAdminWorldCatalog
             case 237: capture.Put("ai-sites", Vector(3006.918, 0.000, 11840.075), "gapcov-i081", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 238: capture.Put("ai-sites", Vector(3323.992, 0.000, 4925.272), "gapcov-i082", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 239: capture.Put("ai-sites", Vector(3096.078, 0.000, 8849.443), "gapcov-i083", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page30(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 240: capture.Put("ai-sites", Vector(3080.032, 0.000, 10317.328), "gapcov-i084", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 241: capture.Put("ai-sites", Vector(3216.723, 0.000, 2580.527), "gapcov-i085", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 242: capture.Put("ai-sites", Vector(3206.712, 0.000, 10760.617), "gapcov-i086", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -333,6 +1539,12 @@ class HCAdminWorldCatalog
             case 245: capture.Put("ai-sites", Vector(3355.816, 0.000, 8663.796), "gapcov-i089", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 246: capture.Put("ai-sites", Vector(3366.168, 0.000, 6449.239), "gapcov-i090", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 247: capture.Put("ai-sites", Vector(3437.385, 0.000, 4553.917), "gapcov-i091", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page31(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 248: capture.Put("ai-sites", Vector(3477.366, 0.000, 5624.846), "gapcov-i092", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 249: capture.Put("ai-sites", Vector(3431.504, 0.000, 11996.080), "gapcov-i093", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 250: capture.Put("ai-sites", Vector(3545.618, 0.000, 14143.536), "gapcov-i094", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -343,7 +1555,7 @@ class HCAdminWorldCatalog
             case 255: capture.Put("ai-sites", Vector(3714.391, 0.000, 5985.109), "gapcov-i099", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page4(HCAdminWorldCapture capture, int index)
+    static void Page32(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -355,6 +1567,12 @@ class HCAdminWorldCatalog
             case 261: capture.Put("ai-sites", Vector(4431.514, 0.000, 4649.448), "gapcov-i105", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 262: capture.Put("ai-sites", Vector(4056.933, 0.000, 11716.562), "gapcov-i106", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 263: capture.Put("ai-sites", Vector(4039.754, 0.000, 3320.499), "gapcov-i107", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page33(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 264: capture.Put("ai-sites", Vector(4152.048, 0.000, 10398.339), "gapcov-i108", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 265: capture.Put("ai-sites", Vector(4306.177, 0.000, 13166.264), "gapcov-i109", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 266: capture.Put("ai-sites", Vector(4133.261, 0.000, 14973.487), "gapcov-i110", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -363,6 +1581,12 @@ class HCAdminWorldCatalog
             case 269: capture.Put("ai-sites", Vector(4275.958, 0.000, 3191.588), "gapcov-i113", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 270: capture.Put("ai-sites", Vector(4285.888, 0.000, 14187.827), "gapcov-i114", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 271: capture.Put("ai-sites", Vector(4379.706, 0.000, 2866.577), "gapcov-i115", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page34(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 272: capture.Put("ai-sites", Vector(4386.311, 0.000, 3941.679), "gapcov-i116", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 273: capture.Put("ai-sites", Vector(4509.829, 0.000, 6656.483), "gapcov-i117", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 274: capture.Put("ai-sites", Vector(4792.877, 0.000, 10451.054), "gapcov-i118", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -371,6 +1595,12 @@ class HCAdminWorldCatalog
             case 277: capture.Put("ai-sites", Vector(4447.631, 0.000, 8235.469), "gapcov-i121", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 278: capture.Put("ai-sites", Vector(4487.595, 0.000, 8805.442), "gapcov-i122", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 279: capture.Put("ai-sites", Vector(4933.890, 0.000, 15086.241), "gapcov-i123", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page35(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 280: capture.Put("ai-sites", Vector(4534.261, 0.000, 3409.240), "gapcov-i124", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 281: capture.Put("ai-sites", Vector(4577.391, 0.000, 8517.837), "gapcov-i125", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 282: capture.Put("ai-sites", Vector(4912.032, 0.000, 5673.090), "gapcov-i126", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -379,6 +1609,12 @@ class HCAdminWorldCatalog
             case 285: capture.Put("ai-sites", Vector(5099.154, 0.000, 12723.922), "gapcov-i129", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 286: capture.Put("ai-sites", Vector(5127.785, 0.000, 2276.780), "gapcov-i130", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 287: capture.Put("ai-sites", Vector(5012.286, 0.000, 13492.782), "gapcov-i131", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page36(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 288: capture.Put("ai-sites", Vector(5132.664, 0.000, 4724.060), "gapcov-i132", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 289: capture.Put("ai-sites", Vector(5156.678, 0.000, 13831.926), "gapcov-i133", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 290: capture.Put("ai-sites", Vector(5210.744, 0.000, 4219.021), "gapcov-i134", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -387,6 +1623,12 @@ class HCAdminWorldCatalog
             case 293: capture.Put("ai-sites", Vector(5359.068, 0.000, 3668.129), "gapcov-i137", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 294: capture.Put("ai-sites", Vector(5274.593, 0.000, 6511.060), "gapcov-i138", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 295: capture.Put("ai-sites", Vector(5287.690, 0.000, 10585.790), "gapcov-i139", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page37(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 296: capture.Put("ai-sites", Vector(5267.283, 0.000, 11099.792), "gapcov-i140", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 297: capture.Put("ai-sites", Vector(5229.717, 0.000, 11500.813), "gapcov-i141", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 298: capture.Put("ai-sites", Vector(5372.092, 0.000, 5467.881), "gapcov-i142", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -395,6 +1637,12 @@ class HCAdminWorldCatalog
             case 301: capture.Put("ai-sites", Vector(5424.832, 0.000, 11937.615), "gapcov-i145", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 302: capture.Put("ai-sites", Vector(5429.017, 0.000, 14530.089), "gapcov-i146", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 303: capture.Put("ai-sites", Vector(5511.736, 0.000, 7293.724), "gapcov-i147", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page38(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 304: capture.Put("ai-sites", Vector(6000.291, 0.000, 10316.754), "gapcov-i148", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 305: capture.Put("ai-sites", Vector(5614.311, 0.000, 13134.247), "gapcov-i149", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 306: capture.Put("ai-sites", Vector(5647.884, 0.000, 6682.797), "gapcov-i150", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -403,6 +1651,12 @@ class HCAdminWorldCatalog
             case 309: capture.Put("ai-sites", Vector(5810.898, 0.000, 4019.917), "gapcov-i153", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 310: capture.Put("ai-sites", Vector(5900.217, 0.000, 4745.932), "gapcov-i154", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 311: capture.Put("ai-sites", Vector(5725.291, 0.000, 6289.374), "gapcov-i155", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page39(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 312: capture.Put("ai-sites", Vector(5841.334, 0.000, 14480.302), "gapcov-i156", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 313: capture.Put("ai-sites", Vector(5768.683, 0.000, 9682.525), "gapcov-i157", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 314: capture.Put("ai-sites", Vector(5894.126, 0.000, 11348.717), "gapcov-i158", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -413,7 +1667,7 @@ class HCAdminWorldCatalog
             case 319: capture.Put("ai-sites", Vector(6046.145, 0.000, 14279.271), "gapcov-i163", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page5(HCAdminWorldCapture capture, int index)
+    static void Page40(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -425,6 +1679,12 @@ class HCAdminWorldCatalog
             case 325: capture.Put("ai-sites", Vector(6714.338, 0.000, 6635.508), "gapcov-i169", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 326: capture.Put("ai-sites", Vector(6684.575, 0.000, 8765.813), "gapcov-i170", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 327: capture.Put("ai-sites", Vector(6775.626, 0.000, 5572.523), "gapcov-i171", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page41(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 328: capture.Put("ai-sites", Vector(6846.707, 0.000, 12595.854), "gapcov-i172", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 329: capture.Put("ai-sites", Vector(6800.745, 0.000, 13278.721), "gapcov-i173", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 330: capture.Put("ai-sites", Vector(6847.742, 0.000, 4478.056), "gapcov-i174", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -433,6 +1693,12 @@ class HCAdminWorldCatalog
             case 333: capture.Put("ai-sites", Vector(7111.694, 0.000, 7683.240), "gapcov-i177", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 334: capture.Put("ai-sites", Vector(7063.044, 0.000, 4267.374), "gapcov-i178", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 335: capture.Put("ai-sites", Vector(7032.852, 0.000, 14539.111), "gapcov-i179", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page42(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 336: capture.Put("ai-sites", Vector(7129.973, 0.000, 6943.783), "gapcov-i180", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 337: capture.Put("ai-sites", Vector(7186.335, 0.000, 10638.514), "gapcov-i181", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 338: capture.Put("ai-sites", Vector(7214.319, 0.000, 8256.218), "gapcov-i182", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -441,6 +1707,12 @@ class HCAdminWorldCatalog
             case 341: capture.Put("ai-sites", Vector(7391.818, 0.000, 9112.117), "gapcov-i185", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 342: capture.Put("ai-sites", Vector(10004.309, 0.000, 13955.006), "gapcov-i186", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 343: capture.Put("ai-sites", Vector(7364.249, 0.000, 6293.063), "gapcov-i187", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page43(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 344: capture.Put("ai-sites", Vector(7589.068, 0.000, 5135.942), "gapcov-i188", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 345: capture.Put("ai-sites", Vector(7488.422, 0.000, 11717.015), "gapcov-i189", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 346: capture.Put("ai-sites", Vector(7568.183, 0.000, 15070.957), "gapcov-i190", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -449,6 +1721,12 @@ class HCAdminWorldCatalog
             case 349: capture.Put("ai-sites", Vector(8130.586, 0.000, 11552.488), "gapcov-i193", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 350: capture.Put("ai-sites", Vector(7985.991, 0.000, 5444.119), "gapcov-i194", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 351: capture.Put("ai-sites", Vector(8129.351, 0.000, 9315.341), "gapcov-i195", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page44(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 352: capture.Put("ai-sites", Vector(8148.186, 0.000, 10958.517), "gapcov-i196", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 353: capture.Put("ai-sites", Vector(8161.335, 0.000, 6190.596), "gapcov-i197", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 354: capture.Put("ai-sites", Vector(8381.287, 0.000, 6672.428), "gapcov-i198", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -457,6 +1735,12 @@ class HCAdminWorldCatalog
             case 357: capture.Put("ai-sites", Vector(8396.363, 0.000, 4958.822), "gapcov-i201", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 358: capture.Put("ai-sites", Vector(8310.965, 0.000, 7539.836), "gapcov-i202", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 359: capture.Put("ai-sites", Vector(8350.783, 0.000, 5463.533), "gapcov-i203", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page45(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 360: capture.Put("ai-sites", Vector(8509.107, 0.000, 14057.290), "gapcov-i204", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 361: capture.Put("ai-sites", Vector(8563.058, 0.000, 4553.761), "gapcov-i205", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 362: capture.Put("ai-sites", Vector(8572.823, 0.000, 8377.761), "gapcov-i206", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -465,6 +1749,12 @@ class HCAdminWorldCatalog
             case 365: capture.Put("ai-sites", Vector(8695.311, 0.000, 4162.765), "gapcov-i209", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 366: capture.Put("ai-sites", Vector(8641.293, 0.000, 6098.448), "gapcov-i210", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 367: capture.Put("ai-sites", Vector(8642.339, 0.000, 9100.580), "gapcov-i211", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page46(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 368: capture.Put("ai-sites", Vector(8659.579, 0.000, 10760.604), "gapcov-i212", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 369: capture.Put("ai-sites", Vector(9136.677, 0.000, 3888.582), "gapcov-i213", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 370: capture.Put("ai-sites", Vector(8966.829, 0.000, 6022.227), "gapcov-i214", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -473,6 +1763,12 @@ class HCAdminWorldCatalog
             case 373: capture.Put("ai-sites", Vector(9148.052, 0.000, 11036.239), "gapcov-i217", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 374: capture.Put("ai-sites", Vector(9349.737, 0.000, 14597.890), "gapcov-i218", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 375: capture.Put("ai-sites", Vector(9573.707, 0.000, 8846.662), "gapcov-i219", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page47(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 376: capture.Put("ai-sites", Vector(9297.015, 0.000, 12067.288), "gapcov-i220", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 377: capture.Put("ai-sites", Vector(10243.147, 0.000, 2168.946), "gapcov-i221", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 378: capture.Put("ai-sites", Vector(9474.850, 0.000, 11557.575), "gapcov-i222", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -483,7 +1779,7 @@ class HCAdminWorldCatalog
             case 383: capture.Put("ai-sites", Vector(9716.749, 0.000, 9343.340), "gapcov-i227", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page6(HCAdminWorldCapture capture, int index)
+    static void Page48(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -495,6 +1791,12 @@ class HCAdminWorldCatalog
             case 389: capture.Put("ai-sites", Vector(10047.165, 0.000, 13326.977), "gapcov-i233", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 390: capture.Put("ai-sites", Vector(10041.434, 0.000, 15297.843), "gapcov-i234", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 391: capture.Put("ai-sites", Vector(10161.662, 0.000, 4088.400), "gapcov-i235", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page49(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 392: capture.Put("ai-sites", Vector(10247.337, 0.000, 3623.354), "gapcov-i236", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 393: capture.Put("ai-sites", Vector(10435.633, 0.000, 9802.388), "gapcov-i237", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 394: capture.Put("ai-sites", Vector(10296.177, 0.000, 10987.715), "gapcov-i238", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -503,6 +1805,12 @@ class HCAdminWorldCatalog
             case 397: capture.Put("ai-sites", Vector(10547.208, 0.000, 7015.711), "gapcov-i241", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 398: capture.Put("ai-sites", Vector(10726.719, 0.000, 8062.144), "gapcov-i242", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 399: capture.Put("ai-sites", Vector(10563.958, 0.000, 5827.781), "gapcov-i243", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page50(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 400: capture.Put("ai-sites", Vector(10591.878, 0.000, 8508.335), "gapcov-i244", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 401: capture.Put("ai-sites", Vector(11172.681, 0.000, 12315.304), "gapcov-i245", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 402: capture.Put("ai-sites", Vector(10722.650, 0.000, 3630.018), "gapcov-i246", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -511,6 +1819,12 @@ class HCAdminWorldCatalog
             case 405: capture.Put("ai-sites", Vector(11370.896, 0.000, 6597.509), "gapcov-i249", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 406: capture.Put("ai-sites", Vector(10879.351, 0.000, 10010.162), "gapcov-i250", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 407: capture.Put("ai-sites", Vector(11265.148, 0.000, 5464.154), "gapcov-i251", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page51(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 408: capture.Put("ai-sites", Vector(10949.339, 0.000, 9093.835), "gapcov-i252", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 409: capture.Put("ai-sites", Vector(11124.030, 0.000, 4091.963), "gapcov-i253", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 410: capture.Put("ai-sites", Vector(11235.438, 0.000, 4605.086), "gapcov-i254", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -519,6 +1833,12 @@ class HCAdminWorldCatalog
             case 413: capture.Put("ai-sites", Vector(11432.871, 0.000, 11364.313), "gapcov-i257", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 414: capture.Put("ai-sites", Vector(11521.691, 0.000, 5037.614), "gapcov-i258", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 415: capture.Put("ai-sites", Vector(11606.954, 0.000, 4276.074), "gapcov-i259", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page52(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 416: capture.Put("ai-sites", Vector(12645.286, 0.000, 9666.201), "gapcov-i260", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 417: capture.Put("ai-sites", Vector(11720.561, 0.000, 3203.548), "gapcov-i261", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 418: capture.Put("ai-sites", Vector(11773.468, 0.000, 10173.751), "gapcov-i262", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -527,6 +1847,12 @@ class HCAdminWorldCatalog
             case 421: capture.Put("ai-sites", Vector(12078.876, 0.000, 3537.623), "gapcov-i265", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 422: capture.Put("ai-sites", Vector(11935.422, 0.000, 12934.843), "gapcov-i266", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 423: capture.Put("ai-sites", Vector(11932.477, 0.000, 13197.644), "gapcov-i267", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page53(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 424: capture.Put("ai-sites", Vector(12106.507, 0.000, 7240.133), "gapcov-i268", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 425: capture.Put("ai-sites", Vector(11979.131, 0.000, 14781.219), "gapcov-i269", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 426: capture.Put("ai-sites", Vector(12238.067, 0.000, 6263.057), "gapcov-i270", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -535,6 +1861,12 @@ class HCAdminWorldCatalog
             case 429: capture.Put("ai-sites", Vector(12311.866, 0.000, 8484.682), "gapcov-i273", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 430: capture.Put("ai-sites", Vector(12302.213, 0.000, 6962.385), "gapcov-i274", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 431: capture.Put("ai-sites", Vector(12458.933, 0.000, 12544.861), "gapcov-i275", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page54(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 432: capture.Put("ai-sites", Vector(12823.748, 0.000, 14766.580), "gapcov-i276", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 433: capture.Put("ai-sites", Vector(12415.628, 0.000, 12980.901), "gapcov-i277", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 434: capture.Put("ai-sites", Vector(12586.144, 0.000, 5721.520), "gapcov-i278", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -543,6 +1875,12 @@ class HCAdminWorldCatalog
             case 437: capture.Put("ai-sites", Vector(12560.857, 0.000, 11755.464), "gapcov-i281", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 438: capture.Put("ai-sites", Vector(12635.380, 0.000, 8753.259), "gapcov-i282", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 439: capture.Put("ai-sites", Vector(12838.811, 0.000, 4434.683), "gapcov-i283", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page55(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 440: capture.Put("ai-sites", Vector(12910.898, 0.000, 6258.927), "gapcov-i284", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 441: capture.Put("ai-sites", Vector(12754.987, 0.000, 12267.442), "gapcov-i285", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 442: capture.Put("ai-sites", Vector(12999.438, 0.000, 5516.483), "gapcov-i286", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -553,7 +1891,7 @@ class HCAdminWorldCatalog
             case 447: capture.Put("ai-sites", Vector(13000.919, 0.000, 11558.035), "gapcov-i291", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page7(HCAdminWorldCapture capture, int index)
+    static void Page56(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -565,6 +1903,12 @@ class HCAdminWorldCatalog
             case 453: capture.Put("ai-sites", Vector(13418.395, 0.000, 6262.887), "gapcov-i297", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 454: capture.Put("ai-sites", Vector(13346.505, 0.000, 11221.103), "gapcov-i298", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 455: capture.Put("ai-sites", Vector(13454.867, 0.000, 12145.372), "gapcov-i299", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page57(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 456: capture.Put("ai-sites", Vector(13556.244, 0.000, 11714.005), "gapcov-i300", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 457: capture.Put("ai-sites", Vector(13803.590, 0.000, 11145.910), "gapcov-i301", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 458: capture.Put("ai-sites", Vector(14121.824, 0.000, 14961.424), "gapcov-i302", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -573,6 +1917,12 @@ class HCAdminWorldCatalog
             case 461: capture.Put("ai-sites", Vector(14654.341, 0.000, 14039.544), "gapcov-i305", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 462: capture.Put("ai-sites", Vector(15147.101, 0.000, 13854.104), "gapcov-i306", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 463: capture.Put("ai-sites", Vector(333.488, 0.000, 9338.109), "gapcov-m001", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page58(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 464: capture.Put("ai-sites", Vector(598.627, 0.000, 13670.118), "gapcov-m002", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 465: capture.Put("ai-sites", Vector(703.594, 0.000, 14585.119), "gapcov-m003", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 466: capture.Put("ai-sites", Vector(764.721, 0.000, 1893.520), "gapcov-m004", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -581,6 +1931,12 @@ class HCAdminWorldCatalog
             case 469: capture.Put("ai-sites", Vector(1238.277, 0.000, 14006.125), "gapcov-m007", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 470: capture.Put("ai-sites", Vector(1679.472, 0.000, 13881.461), "gapcov-m008", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 471: capture.Put("ai-sites", Vector(2140.634, 0.000, 3383.758), "gapcov-m009", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page59(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 472: capture.Put("ai-sites", Vector(2024.904, 0.000, 9830.138), "gapcov-m010", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 473: capture.Put("ai-sites", Vector(2330.378, 0.000, 3712.252), "gapcov-m011", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 474: capture.Put("ai-sites", Vector(2493.708, 0.000, 5169.964), "gapcov-m012", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -589,6 +1945,12 @@ class HCAdminWorldCatalog
             case 477: capture.Put("ai-sites", Vector(2858.467, 0.000, 9752.700), "gapcov-m015", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 478: capture.Put("ai-sites", Vector(3009.415, 0.000, 9979.607), "gapcov-m016", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 479: capture.Put("ai-sites", Vector(3373.379, 0.000, 15210.717), "gapcov-m017", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page60(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 480: capture.Put("ai-sites", Vector(3477.152, 0.000, 12494.744), "gapcov-m018", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 481: capture.Put("ai-sites", Vector(3611.167, 0.000, 2235.704), "gapcov-m019", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 482: capture.Put("ai-sites", Vector(3613.318, 0.000, 11176.254), "gapcov-m020", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -597,6 +1959,12 @@ class HCAdminWorldCatalog
             case 485: capture.Put("ai-sites", Vector(3895.576, 0.000, 10840.174), "gapcov-m023", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 486: capture.Put("ai-sites", Vector(4030.500, 0.000, 11708.590), "gapcov-m024", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 487: capture.Put("ai-sites", Vector(4133.104, 0.000, 10403.866), "gapcov-m025", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page61(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 488: capture.Put("ai-sites", Vector(4109.979, 0.000, 8881.132), "gapcov-m026", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 489: capture.Put("ai-sites", Vector(4202.592, 0.000, 11044.239), "gapcov-m027", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 490: capture.Put("ai-sites", Vector(4525.498, 0.000, 9692.891), "gapcov-m028", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -605,6 +1973,12 @@ class HCAdminWorldCatalog
             case 493: capture.Put("ai-sites", Vector(4746.906, 0.000, 10481.395), "gapcov-m031", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 494: capture.Put("ai-sites", Vector(4637.459, 0.000, 10998.042), "gapcov-m032", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 495: capture.Put("ai-sites", Vector(5075.958, 0.000, 2313.444), "gapcov-m033", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page62(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 496: capture.Put("ai-sites", Vector(5306.667, 0.000, 9846.969), "gapcov-m034", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 497: capture.Put("ai-sites", Vector(4957.334, 0.000, 12991.427), "gapcov-m035", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 498: capture.Put("ai-sites", Vector(5293.949, 0.000, 9363.549), "gapcov-m036", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -613,6 +1987,12 @@ class HCAdminWorldCatalog
             case 501: capture.Put("ai-sites", Vector(6314.114, 0.000, 7788.595), "gapcov-m039", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 502: capture.Put("ai-sites", Vector(7092.175, 0.000, 12722.275), "gapcov-m040", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 503: capture.Put("ai-sites", Vector(7091.228, 0.000, 14532.161), "gapcov-m041", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page63(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 504: capture.Put("ai-sites", Vector(7590.284, 0.000, 2968.345), "gapcov-m042", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 505: capture.Put("ai-sites", Vector(7892.097, 0.000, 14704.481), "gapcov-m043", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 506: capture.Put("ai-sites", Vector(8075.839, 0.000, 9369.662), "gapcov-m044", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -623,7 +2003,7 @@ class HCAdminWorldCatalog
             case 511: capture.Put("ai-sites", Vector(10055.546, 0.000, 1787.368), "gapcov-m049", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
         }
     }
-    static void Page8(HCAdminWorldCapture capture, int index)
+    static void Page64(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -635,6 +2015,12 @@ class HCAdminWorldCatalog
             case 517: capture.Put("ai-sites", Vector(11706.897, 0.000, 14113.311), "gapcov-m055", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 518: capture.Put("ai-sites", Vector(11967.971, 0.000, 12501.878), "gapcov-m056", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 519: capture.Put("ai-sites", Vector(11966.396, 0.000, 9128.639), "gapcov-m057", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page65(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 520: capture.Put("ai-sites", Vector(13107.757, 0.000, 7333.714), "gapcov-m058", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 521: capture.Put("ai-sites", Vector(13106.635, 0.000, 9928.375), "gapcov-m059", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 522: capture.Put("ai-sites", Vector(13135.827, 0.000, 10250.896), "gapcov-m060", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
@@ -643,6 +2029,12 @@ class HCAdminWorldCatalog
             case 525: capture.Put("ai-sites", Vector(13612.993, 0.000, 13748.569), "gapcov-m063", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 526: capture.Put("ai-sites", Vector(13845.034, 0.000, 11159.358), "gapcov-m064", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
             case 527: capture.Put("ai-sites", Vector(14162.715, 0.000, 13154.573), "gapcov-m065", "Authored AI site; faction=Guards; role=patrol; not live occupancy"); break;
+        }
+    }
+    static void Page66(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 528: capture.Put("story-sites", Vector(2512.352, 6.736, 2054.215), "kamenka-supply-cache", "Authored story candidate; not an active event"); break;
             case 529: capture.Put("story-sites", Vector(10676.524, 125.785, 4579.396), "staroye-traffic-cache", "Authored story candidate; not an active event"); break;
             case 530: capture.Put("story-sites", Vector(8393.078, 292.062, 5998.555), "kumyrna-ambush-cache", "Authored story candidate; not an active event"); break;
@@ -651,6 +2043,12 @@ class HCAdminWorldCatalog
             case 533: capture.Put("story-sites", Vector(13979.086, 24.074, 13260.762), "hc42-svetloyarsk", "Authored story candidate; not an active event"); break;
             case 534: capture.Put("story-sites", Vector(12350.084, 14.509, 9727.480), "hc42-berezino", "Authored story candidate; not an active event"); break;
             case 535: capture.Put("story-sites", Vector(3906.535, 314.032, 9023.489), "hc42-vybor", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page67(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 536: capture.Put("story-sites", Vector(11361.016, 44.548, 14386.807), "hc42-novodmitrovsk", "Authored story candidate; not an active event"); break;
             case 537: capture.Put("story-sites", Vector(3483.085, 193.725, 12970.754), "hc42-novaya-petrovka", "Authored story candidate; not an active event"); break;
             case 538: capture.Put("story-sites", Vector(2755.950, 201.837, 5180.818), "hc42-zelenogorsk", "Authored story candidate; not an active event"); break;
@@ -659,6 +2057,12 @@ class HCAdminWorldCatalog
             case 541: capture.Put("story-sites", Vector(13616.199, 45.239, 3089.463), "hc42-skalisty", "Authored story candidate; not an active event"); break;
             case 542: capture.Put("story-sites", Vector(11161.536, 3.284, 2436.457), "hc42-drakon", "Authored story candidate; not an active event"); break;
             case 543: capture.Put("story-sites", Vector(11632.295, 3.479, 3179.353), "hc42-otmel", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page68(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 544: capture.Put("story-sites", Vector(2797.823, 32.073, 1250.676), "hc42-prison-island", "Authored story candidate; not an active event"); break;
             case 545: capture.Put("story-sites", Vector(6705.030, 4.777, 2361.673), "gapcov-chernogorsk", "Authored story candidate; not an active event"); break;
             case 546: capture.Put("story-sites", Vector(6102.691, 60.821, 3275.103), "gapcov-novoselki", "Authored story candidate; not an active event"); break;
@@ -667,6 +2071,12 @@ class HCAdminWorldCatalog
             case 549: capture.Put("story-sites", Vector(10317.011, 6.125, 2005.442), "gapcov-elektrozavodsk", "Authored story candidate; not an active event"); break;
             case 550: capture.Put("story-sites", Vector(9495.415, 305.685, 8928.869), "gapcov-gorka", "Authored story candidate; not an active event"); break;
             case 551: capture.Put("story-sites", Vector(13441.925, 9.126, 6258.638), "gapcov-solnechny", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page69(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 552: capture.Put("story-sites", Vector(6113.484, 305.395, 7865.003), "gapcov-stary-sobor", "Authored story candidate; not an active event"); break;
             case 553: capture.Put("story-sites", Vector(3267.225, 201.551, 4021.879), "gapcov-bor", "Authored story candidate; not an active event"); break;
             case 554: capture.Put("story-sites", Vector(12160.540, 96.604, 13772.723), "gapcov-chernaya-polyana", "Authored story candidate; not an active event"); break;
@@ -675,6 +2085,12 @@ class HCAdminWorldCatalog
             case 557: capture.Put("story-sites", Vector(11317.513, 254.148, 5469.953), "gapcov-msta", "Authored story candidate; not an active event"); break;
             case 558: capture.Put("story-sites", Vector(9715.246, 210.133, 6539.725), "gapcov-shakhovka", "Authored story candidate; not an active event"); break;
             case 559: capture.Put("story-sites", Vector(11300.057, 76.905, 6615.963), "gapcov-dolina", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page70(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 560: capture.Put("story-sites", Vector(12209.513, 179.047, 7246.618), "gapcov-orlovets", "Authored story candidate; not an active event"); break;
             case 561: capture.Put("story-sites", Vector(7129.149, 300.023, 7756.585), "gapcov-novy-sobor", "Authored story candidate; not an active event"); break;
             case 562: capture.Put("story-sites", Vector(5315.166, 337.230, 8642.292), "gapcov-kabanino", "Authored story candidate; not an active event"); break;
@@ -683,6 +2099,12 @@ class HCAdminWorldCatalog
             case 565: capture.Put("story-sites", Vector(8421.036, 359.629, 6604.919), "gapcov-guglovo", "Authored story candidate; not an active event"); break;
             case 566: capture.Put("story-sites", Vector(12161.423, 6.499, 3466.562), "gapcov-kamyshovo", "Authored story candidate; not an active event"); break;
             case 567: capture.Put("story-sites", Vector(9185.697, 227.779, 3897.568), "gapcov-pusta", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page71(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 568: capture.Put("story-sites", Vector(10305.383, 138.747, 9832.975), "gapcov-dubrovka", "Authored story candidate; not an active event"); break;
             case 569: capture.Put("story-sites", Vector(9925.123, 163.614, 10413.835), "gapcov-vyshnaya-dubrovka", "Authored story candidate; not an active event"); break;
             case 570: capture.Put("story-sites", Vector(12338.406, 97.485, 10779.787), "gapcov-khelm", "Authored story candidate; not an active event"); break;
@@ -693,7 +2115,7 @@ class HCAdminWorldCatalog
             case 575: capture.Put("story-sites", Vector(4434.083, 301.179, 6360.817), "gapcov-pogorevka", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page9(HCAdminWorldCapture capture, int index)
+    static void Page72(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -705,6 +2127,12 @@ class HCAdminWorldCatalog
             case 581: capture.Put("story-sites", Vector(2043.439, 259.570, 7292.442), "gapcov-myshkino", "Authored story candidate; not an active event"); break;
             case 582: capture.Put("story-sites", Vector(2768.163, 274.667, 10027.505), "gapcov-lopatino", "Authored story candidate; not an active event"); break;
             case 583: capture.Put("story-sites", Vector(6605.606, 325.213, 6021.668), "gapcov-vyshnoye", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page73(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 584: capture.Put("story-sites", Vector(7756.195, 9.802, 3270.546), "gapcov-prigorodki", "Authored story candidate; not an active event"); break;
             case 585: capture.Put("story-sites", Vector(3380.334, 242.735, 4889.293), "gapcov-drozhino", "Authored story candidate; not an active event"); break;
             case 586: capture.Put("story-sites", Vector(2592.380, 304.672, 6333.501), "gapcov-sosnovka", "Authored story candidate; not an active event"); break;
@@ -713,6 +2141,12 @@ class HCAdminWorldCatalog
             case 589: capture.Put("story-sites", Vector(15086.163, 16.692, 13820.106), "gapcov-berezhki", "Authored story candidate; not an active event"); break;
             case 590: capture.Put("story-sites", Vector(13651.253, 16.180, 14162.179), "gapcov-turovo", "Authored story candidate; not an active event"); break;
             case 591: capture.Put("story-sites", Vector(14185.671, 139.358, 14986.881), "gapcov-belaya-polyana", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page74(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 592: capture.Put("story-sites", Vector(12968.851, 60.258, 15032.086), "gapcov-dobroye", "Authored story candidate; not an active event"); break;
             case 593: capture.Put("story-sites", Vector(9294.901, 240.199, 14629.918), "gapcov-nagornoye", "Authored story candidate; not an active event"); break;
             case 594: capture.Put("story-sites", Vector(9459.210, 97.803, 13835.711), "gapcov-svergino", "Authored story candidate; not an active event"); break;
@@ -721,6 +2155,12 @@ class HCAdminWorldCatalog
             case 597: capture.Put("story-sites", Vector(6392.806, 468.662, 15011.350), "gapcov-krasnoye", "Authored story candidate; not an active event"); break;
             case 598: capture.Put("story-sites", Vector(4994.318, 477.348, 15032.614), "gapcov-stary-yar", "Authored story candidate; not an active event"); break;
             case 599: capture.Put("story-sites", Vector(5947.196, 233.026, 13576.773), "gapcov-polesovo", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page75(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 600: capture.Put("story-sites", Vector(2887.915, 218.423, 12362.281), "gapcov-topolniki", "Authored story candidate; not an active event"); break;
             case 601: capture.Put("story-sites", Vector(5210.229, 164.110, 12682.188), "gapcov-zaprudnoye", "Authored story candidate; not an active event"); break;
             case 602: capture.Put("story-sites", Vector(1563.398, 279.803, 11954.816), "gapcov-sinystok", "Authored story candidate; not an active event"); break;
@@ -729,6 +2169,12 @@ class HCAdminWorldCatalog
             case 605: capture.Put("story-sites", Vector(1516.752, 302.253, 8927.051), "gapcov-bogatyrka", "Authored story candidate; not an active event"); break;
             case 606: capture.Put("story-sites", Vector(340.149, 530.270, 11889.149), "gapcov-svyatoy-roman-ski-resort", "Authored story candidate; not an active event"); break;
             case 607: capture.Put("story-sites", Vector(455.311, 423.537, 11069.988), "gapcov-skvsch-biathlon-arena", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page76(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 608: capture.Put("story-sites", Vector(588.491, 143.303, 5306.908), "gapcov-zvir", "Authored story candidate; not an active event"); break;
             case 609: capture.Put("story-sites", Vector(1237.844, 341.371, 9995.732), "gapcov-zabolotye", "Authored story candidate; not an active event"); break;
             case 610: capture.Put("story-sites", Vector(1155.348, 277.589, 8837.761), "gapcov-galkino", "Authored story candidate; not an active event"); break;
@@ -737,6 +2183,12 @@ class HCAdminWorldCatalog
             case 613: capture.Put("story-sites", Vector(4481.298, 316.631, 8293.980), "gapcov-vybor-military", "Authored story candidate; not an active event"); break;
             case 614: capture.Put("story-sites", Vector(3705.795, 404.211, 6007.256), "gapcov-green-mountain", "Authored story candidate; not an active event"); break;
             case 615: capture.Put("story-sites", Vector(6913.906, 418.728, 11430.704), "gapcov-devils-castle", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page77(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 616: capture.Put("story-sites", Vector(1682.549, 147.218, 3819.076), "gapcov-r01", "Authored story candidate; not an active event"); break;
             case 617: capture.Put("story-sites", Vector(1858.066, 10.821, 2252.450), "gapcov-r02", "Authored story candidate; not an active event"); break;
             case 618: capture.Put("story-sites", Vector(3300.729, 188.548, 3931.365), "gapcov-r03", "Authored story candidate; not an active event"); break;
@@ -745,6 +2197,12 @@ class HCAdminWorldCatalog
             case 621: capture.Put("story-sites", Vector(6472.402, 17.522, 2622.699), "gapcov-r06", "Authored story candidate; not an active event"); break;
             case 622: capture.Put("story-sites", Vector(8014.522, 8.839, 3303.150), "gapcov-r07", "Authored story candidate; not an active event"); break;
             case 623: capture.Put("story-sites", Vector(9123.156, 227.046, 3905.940), "gapcov-r08", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page78(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 624: capture.Put("story-sites", Vector(10374.718, 11.061, 2223.792), "gapcov-r09", "Authored story candidate; not an active event"); break;
             case 625: capture.Put("story-sites", Vector(12065.386, 8.618, 3542.128), "gapcov-r10", "Authored story candidate; not an active event"); break;
             case 626: capture.Put("story-sites", Vector(2737.380, 211.211, 5262.554), "gapcov-r11", "Authored story candidate; not an active event"); break;
@@ -753,6 +2211,12 @@ class HCAdminWorldCatalog
             case 629: capture.Put("story-sites", Vector(5851.953, 136.884, 4788.562), "gapcov-r14", "Authored story candidate; not an active event"); break;
             case 630: capture.Put("story-sites", Vector(7540.303, 216.024, 5107.781), "gapcov-r15", "Authored story candidate; not an active event"); break;
             case 631: capture.Put("story-sites", Vector(10142.844, 250.634, 5489.236), "gapcov-r16", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page79(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 632: capture.Put("story-sites", Vector(11298.547, 254.855, 5460.510), "gapcov-r17", "Authored story candidate; not an active event"); break;
             case 633: capture.Put("story-sites", Vector(12706.194, 182.925, 4386.442), "gapcov-r18", "Authored story candidate; not an active event"); break;
             case 634: capture.Put("story-sites", Vector(1979.835, 246.334, 7259.539), "gapcov-r19", "Authored story candidate; not an active event"); break;
@@ -763,7 +2227,7 @@ class HCAdminWorldCatalog
             case 639: capture.Put("story-sites", Vector(6552.978, 324.425, 6108.516), "gapcov-r24", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page10(HCAdminWorldCapture capture, int index)
+    static void Page80(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -775,6 +2239,12 @@ class HCAdminWorldCatalog
             case 645: capture.Put("story-sites", Vector(13379.101, 10.297, 6266.919), "gapcov-r30", "Authored story candidate; not an active event"); break;
             case 646: capture.Put("story-sites", Vector(2725.559, 276.660, 9872.007), "gapcov-r31", "Authored story candidate; not an active event"); break;
             case 647: capture.Put("story-sites", Vector(3783.557, 315.862, 8855.185), "gapcov-r32", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page81(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 648: capture.Put("story-sites", Vector(5340.382, 337.598, 8565.867), "gapcov-r33", "Authored story candidate; not an active event"); break;
             case 649: capture.Put("story-sites", Vector(9530.657, 307.177, 8826.979), "gapcov-r34", "Authored story candidate; not an active event"); break;
             case 650: capture.Put("story-sites", Vector(10448.622, 121.627, 9794.951), "gapcov-r35", "Authored story candidate; not an active event"); break;
@@ -783,6 +2253,12 @@ class HCAdminWorldCatalog
             case 653: capture.Put("story-sites", Vector(12905.399, 22.929, 8063.432), "gapcov-r38", "Authored story candidate; not an active event"); break;
             case 654: capture.Put("story-sites", Vector(2256.966, 272.394, 11059.499), "gapcov-r39", "Authored story candidate; not an active event"); break;
             case 655: capture.Put("story-sites", Vector(5980.425, 270.240, 10368.508), "gapcov-r40", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page82(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 656: capture.Put("story-sites", Vector(8119.611, 194.881, 11574.534), "gapcov-r41", "Authored story candidate; not an active event"); break;
             case 657: capture.Put("story-sites", Vector(9924.440, 160.942, 10375.169), "gapcov-r42", "Authored story candidate; not an active event"); break;
             case 658: capture.Put("story-sites", Vector(12278.021, 108.033, 10877.330), "gapcov-r43", "Authored story candidate; not an active event"); break;
@@ -791,6 +2267,12 @@ class HCAdminWorldCatalog
             case 661: capture.Put("story-sites", Vector(3432.783, 197.933, 12992.017), "gapcov-r46", "Authored story candidate; not an active event"); break;
             case 662: capture.Put("story-sites", Vector(5877.143, 230.115, 13542.001), "gapcov-r47", "Authored story candidate; not an active event"); break;
             case 663: capture.Put("story-sites", Vector(6276.763, 158.157, 12683.597), "gapcov-r48", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page83(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 664: capture.Put("story-sites", Vector(7566.494, 215.026, 13478.271), "gapcov-r49", "Authored story candidate; not an active event"); break;
             case 665: capture.Put("story-sites", Vector(8082.754, 120.992, 12557.154), "gapcov-r50", "Authored story candidate; not an active event"); break;
             case 666: capture.Put("story-sites", Vector(9496.316, 86.032, 13746.438), "gapcov-r51", "Authored story candidate; not an active event"); break;
@@ -799,6 +2281,12 @@ class HCAdminWorldCatalog
             case 669: capture.Put("story-sites", Vector(13321.191, 100.161, 12968.037), "gapcov-r54", "Authored story candidate; not an active event"); break;
             case 670: capture.Put("story-sites", Vector(13902.917, 26.425, 13233.911), "gapcov-r55", "Authored story candidate; not an active event"); break;
             case 671: capture.Put("story-sites", Vector(4949.582, 477.317, 15098.530), "gapcov-r56", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page84(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 672: capture.Put("story-sites", Vector(6623.529, 378.239, 14374.638), "gapcov-r57", "Authored story candidate; not an active event"); break;
             case 673: capture.Put("story-sites", Vector(9355.399, 240.087, 14617.250), "gapcov-r58", "Authored story candidate; not an active event"); break;
             case 674: capture.Put("story-sites", Vector(10746.131, 60.360, 14420.405), "gapcov-r59", "Authored story candidate; not an active event"); break;
@@ -807,6 +2295,12 @@ class HCAdminWorldCatalog
             case 677: capture.Put("story-sites", Vector(12968.851, 60.258, 15032.086), "gapcov-r62", "Authored story candidate; not an active event"); break;
             case 678: capture.Put("story-sites", Vector(13538.882, 19.656, 14049.250), "gapcov-r63", "Authored story candidate; not an active event"); break;
             case 679: capture.Put("story-sites", Vector(14130.259, 136.969, 14951.493), "gapcov-r64", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page85(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 680: capture.Put("story-sites", Vector(174.522, 103.526, 2380.768), "gapcov-i001", "Authored story candidate; not an active event"); break;
             case 681: capture.Put("story-sites", Vector(301.604, 89.851, 4302.714), "gapcov-i002", "Authored story candidate; not an active event"); break;
             case 682: capture.Put("story-sites", Vector(174.666, 318.041, 7480.198), "gapcov-i003", "Authored story candidate; not an active event"); break;
@@ -815,6 +2309,12 @@ class HCAdminWorldCatalog
             case 685: capture.Put("story-sites", Vector(212.327, 546.976, 11869.102), "gapcov-i006", "Authored story candidate; not an active event"); break;
             case 686: capture.Put("story-sites", Vector(206.484, 386.093, 12506.558), "gapcov-i007", "Authored story candidate; not an active event"); break;
             case 687: capture.Put("story-sites", Vector(306.509, 179.375, 2707.802), "gapcov-i008", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page86(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 688: capture.Put("story-sites", Vector(261.400, 63.320, 3753.940), "gapcov-i009", "Authored story candidate; not an active event"); break;
             case 689: capture.Put("story-sites", Vector(370.816, 141.802, 4642.122), "gapcov-i010", "Authored story candidate; not an active event"); break;
             case 690: capture.Put("story-sites", Vector(559.719, 141.561, 5260.167), "gapcov-i011", "Authored story candidate; not an active event"); break;
@@ -823,6 +2323,12 @@ class HCAdminWorldCatalog
             case 693: capture.Put("story-sites", Vector(309.914, 100.812, 3020.002), "gapcov-i014", "Authored story candidate; not an active event"); break;
             case 694: capture.Put("story-sites", Vector(309.805, 288.981, 8542.848), "gapcov-i015", "Authored story candidate; not an active event"); break;
             case 695: capture.Put("story-sites", Vector(409.215, 415.364, 10372.943), "gapcov-i016", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page87(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 696: capture.Put("story-sites", Vector(513.339, 422.453, 11067.903), "gapcov-i017", "Authored story candidate; not an active event"); break;
             case 697: capture.Put("story-sites", Vector(605.334, 393.070, 12148.545), "gapcov-i018", "Authored story candidate; not an active event"); break;
             case 698: capture.Put("story-sites", Vector(869.494, 6.809, 1974.992), "gapcov-i019", "Authored story candidate; not an active event"); break;
@@ -833,7 +2339,7 @@ class HCAdminWorldCatalog
             case 703: capture.Put("story-sites", Vector(1049.568, 471.158, 13866.909), "gapcov-i024", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page11(HCAdminWorldCapture capture, int index)
+    static void Page88(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -845,6 +2351,12 @@ class HCAdminWorldCatalog
             case 709: capture.Put("story-sites", Vector(1166.726, 268.110, 9566.479), "gapcov-i030", "Authored story candidate; not an active event"); break;
             case 710: capture.Put("story-sites", Vector(1452.989, 284.013, 12020.708), "gapcov-i031", "Authored story candidate; not an active event"); break;
             case 711: capture.Put("story-sites", Vector(1293.392, 294.776, 11507.909), "gapcov-i032", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page89(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 712: capture.Put("story-sites", Vector(1674.247, 143.999, 3834.713), "gapcov-i033", "Authored story candidate; not an active event"); break;
             case 713: capture.Put("story-sites", Vector(1359.973, 173.654, 5350.280), "gapcov-i034", "Authored story candidate; not an active event"); break;
             case 714: capture.Put("story-sites", Vector(1494.017, 294.928, 9084.964), "gapcov-i035", "Authored story candidate; not an active event"); break;
@@ -853,6 +2365,12 @@ class HCAdminWorldCatalog
             case 717: capture.Put("story-sites", Vector(1459.832, 434.616, 15183.610), "gapcov-i038", "Authored story candidate; not an active event"); break;
             case 718: capture.Put("story-sites", Vector(1636.593, 454.721, 14084.357), "gapcov-i039", "Authored story candidate; not an active event"); break;
             case 719: capture.Put("story-sites", Vector(1573.507, 261.911, 10441.133), "gapcov-i040", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page90(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 720: capture.Put("story-sites", Vector(1841.349, 7.116, 2197.698), "gapcov-i041", "Authored story candidate; not an active event"); break;
             case 721: capture.Put("story-sites", Vector(1745.991, 173.861, 5072.046), "gapcov-i042", "Authored story candidate; not an active event"); break;
             case 722: capture.Put("story-sites", Vector(1683.155, 437.375, 14939.406), "gapcov-i043", "Authored story candidate; not an active event"); break;
@@ -861,6 +2379,12 @@ class HCAdminWorldCatalog
             case 725: capture.Put("story-sites", Vector(1943.109, 261.825, 9407.992), "gapcov-i046", "Authored story candidate; not an active event"); break;
             case 726: capture.Put("story-sites", Vector(1895.341, 435.900, 13841.521), "gapcov-i047", "Authored story candidate; not an active event"); break;
             case 727: capture.Put("story-sites", Vector(2100.423, 93.496, 3374.831), "gapcov-i048", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page91(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 728: capture.Put("story-sites", Vector(1937.028, 317.487, 8116.525), "gapcov-i049", "Authored story candidate; not an active event"); break;
             case 729: capture.Put("story-sites", Vector(2524.215, 258.542, 9781.005), "gapcov-i050", "Authored story candidate; not an active event"); break;
             case 730: capture.Put("story-sites", Vector(3233.206, 202.310, 12787.395), "gapcov-i051", "Authored story candidate; not an active event"); break;
@@ -869,6 +2393,12 @@ class HCAdminWorldCatalog
             case 733: capture.Put("story-sites", Vector(2225.840, 266.790, 11123.756), "gapcov-i054", "Authored story candidate; not an active event"); break;
             case 734: capture.Put("story-sites", Vector(2624.345, 198.944, 5266.771), "gapcov-i055", "Authored story candidate; not an active event"); break;
             case 735: capture.Put("story-sites", Vector(2183.421, 346.322, 7874.922), "gapcov-i056", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page92(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 736: capture.Put("story-sites", Vector(2574.504, 449.190, 14819.894), "gapcov-i057", "Authored story candidate; not an active event"); break;
             case 737: capture.Put("story-sites", Vector(2194.872, 436.060, 15265.720), "gapcov-i058", "Authored story candidate; not an active event"); break;
             case 738: capture.Put("story-sites", Vector(2440.796, 311.832, 6361.742), "gapcov-i059", "Authored story candidate; not an active event"); break;
@@ -877,6 +2407,12 @@ class HCAdminWorldCatalog
             case 741: capture.Put("story-sites", Vector(2372.958, 357.456, 13852.872), "gapcov-i062", "Authored story candidate; not an active event"); break;
             case 742: capture.Put("story-sites", Vector(2589.409, 23.665, 1316.949), "gapcov-i063", "Authored story candidate; not an active event"); break;
             case 743: capture.Put("story-sites", Vector(2505.800, 333.186, 8129.780), "gapcov-i064", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page93(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 744: capture.Put("story-sites", Vector(2776.965, 163.199, 3522.524), "gapcov-i065", "Authored story candidate; not an active event"); break;
             case 745: capture.Put("story-sites", Vector(2539.922, 362.535, 7563.916), "gapcov-i066", "Authored story candidate; not an active event"); break;
             case 746: capture.Put("story-sites", Vector(2636.260, 115.285, 2210.610), "gapcov-i067", "Authored story candidate; not an active event"); break;
@@ -885,6 +2421,12 @@ class HCAdminWorldCatalog
             case 749: capture.Put("story-sites", Vector(2750.271, 133.369, 3075.043), "gapcov-i070", "Authored story candidate; not an active event"); break;
             case 750: capture.Put("story-sites", Vector(2715.914, 364.751, 6750.531), "gapcov-i071", "Authored story candidate; not an active event"); break;
             case 751: capture.Put("story-sites", Vector(2785.598, 107.749, 2469.910), "gapcov-i072", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page94(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 752: capture.Put("story-sites", Vector(3065.613, 308.993, 7884.310), "gapcov-i073", "Authored story candidate; not an active event"); break;
             case 753: capture.Put("story-sites", Vector(2863.342, 250.456, 4726.649), "gapcov-i074", "Authored story candidate; not an active event"); break;
             case 754: capture.Put("story-sites", Vector(3294.297, 309.698, 15036.813), "gapcov-i075", "Authored story candidate; not an active event"); break;
@@ -893,6 +2435,12 @@ class HCAdminWorldCatalog
             case 757: capture.Put("story-sites", Vector(2950.524, 4.380, 1995.184), "gapcov-i078", "Authored story candidate; not an active event"); break;
             case 758: capture.Put("story-sites", Vector(3013.054, 369.558, 6721.082), "gapcov-i079", "Authored story candidate; not an active event"); break;
             case 759: capture.Put("story-sites", Vector(3036.265, 279.655, 8448.997), "gapcov-i080", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page95(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 760: capture.Put("story-sites", Vector(3006.918, 249.275, 11840.075), "gapcov-i081", "Authored story candidate; not an active event"); break;
             case 761: capture.Put("story-sites", Vector(3323.992, 239.282, 4925.272), "gapcov-i082", "Authored story candidate; not an active event"); break;
             case 762: capture.Put("story-sites", Vector(3096.078, 286.559, 8849.443), "gapcov-i083", "Authored story candidate; not an active event"); break;
@@ -903,7 +2451,7 @@ class HCAdminWorldCatalog
             case 767: capture.Put("story-sites", Vector(3942.206, 5.102, 2316.993), "gapcov-i088", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page12(HCAdminWorldCapture capture, int index)
+    static void Page96(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -915,6 +2463,12 @@ class HCAdminWorldCatalog
             case 773: capture.Put("story-sites", Vector(3545.618, 238.648, 14143.536), "gapcov-i094", "Authored story candidate; not an active event"); break;
             case 774: capture.Put("story-sites", Vector(3512.655, 325.917, 7331.311), "gapcov-i095", "Authored story candidate; not an active event"); break;
             case 775: capture.Put("story-sites", Vector(3646.690, 299.638, 8069.620), "gapcov-i096", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page97(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 776: capture.Put("story-sites", Vector(3592.234, 334.848, 6943.982), "gapcov-i097", "Authored story candidate; not an active event"); break;
             case 777: capture.Put("story-sites", Vector(4072.127, 335.247, 9124.448), "gapcov-i098", "Authored story candidate; not an active event"); break;
             case 778: capture.Put("story-sites", Vector(3714.391, 425.003, 5985.109), "gapcov-i099", "Authored story candidate; not an active event"); break;
@@ -923,6 +2477,12 @@ class HCAdminWorldCatalog
             case 781: capture.Put("story-sites", Vector(3912.289, 175.355, 3588.458), "gapcov-i102", "Authored story candidate; not an active event"); break;
             case 782: capture.Put("story-sites", Vector(3908.796, 332.757, 10767.011), "gapcov-i103", "Authored story candidate; not an active event"); break;
             case 783: capture.Put("story-sites", Vector(3929.441, 226.649, 14151.770), "gapcov-i104", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page98(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 784: capture.Put("story-sites", Vector(4431.514, 236.989, 4649.448), "gapcov-i105", "Authored story candidate; not an active event"); break;
             case 785: capture.Put("story-sites", Vector(4056.933, 378.659, 11716.562), "gapcov-i106", "Authored story candidate; not an active event"); break;
             case 786: capture.Put("story-sites", Vector(4039.754, 81.119, 3320.499), "gapcov-i107", "Authored story candidate; not an active event"); break;
@@ -931,6 +2491,12 @@ class HCAdminWorldCatalog
             case 789: capture.Put("story-sites", Vector(4133.261, 395.367, 14973.487), "gapcov-i110", "Authored story candidate; not an active event"); break;
             case 790: capture.Put("story-sites", Vector(4220.100, 290.758, 7292.173), "gapcov-i111", "Authored story candidate; not an active event"); break;
             case 791: capture.Put("story-sites", Vector(4240.052, 305.808, 7821.551), "gapcov-i112", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page99(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 792: capture.Put("story-sites", Vector(4275.958, 50.989, 3191.588), "gapcov-i113", "Authored story candidate; not an active event"); break;
             case 793: capture.Put("story-sites", Vector(4285.888, 237.256, 14187.827), "gapcov-i114", "Authored story candidate; not an active event"); break;
             case 794: capture.Put("story-sites", Vector(4379.706, 21.826, 2866.577), "gapcov-i115", "Authored story candidate; not an active event"); break;
@@ -939,6 +2505,12 @@ class HCAdminWorldCatalog
             case 797: capture.Put("story-sites", Vector(4792.877, 340.705, 10451.054), "gapcov-i118", "Authored story candidate; not an active event"); break;
             case 798: capture.Put("story-sites", Vector(4346.081, 197.921, 13722.802), "gapcov-i119", "Authored story candidate; not an active event"); break;
             case 799: capture.Put("story-sites", Vector(4406.552, 311.564, 6028.143), "gapcov-i120", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page100(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 800: capture.Put("story-sites", Vector(4447.631, 315.267, 8235.469), "gapcov-i121", "Authored story candidate; not an active event"); break;
             case 801: capture.Put("story-sites", Vector(4487.595, 322.232, 8805.442), "gapcov-i122", "Authored story candidate; not an active event"); break;
             case 802: capture.Put("story-sites", Vector(4933.890, 475.440, 15086.241), "gapcov-i123", "Authored story candidate; not an active event"); break;
@@ -947,6 +2519,12 @@ class HCAdminWorldCatalog
             case 805: capture.Put("story-sites", Vector(4912.032, 319.797, 5673.090), "gapcov-i126", "Authored story candidate; not an active event"); break;
             case 806: capture.Put("story-sites", Vector(4877.954, 26.840, 2841.608), "gapcov-i127", "Authored story candidate; not an active event"); break;
             case 807: capture.Put("story-sites", Vector(4899.259, 250.627, 11840.107), "gapcov-i128", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page101(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 808: capture.Put("story-sites", Vector(5099.154, 171.621, 12723.922), "gapcov-i129", "Authored story candidate; not an active event"); break;
             case 809: capture.Put("story-sites", Vector(5127.785, 11.056, 2276.780), "gapcov-i130", "Authored story candidate; not an active event"); break;
             case 810: capture.Put("story-sites", Vector(5012.286, 195.884, 13492.782), "gapcov-i131", "Authored story candidate; not an active event"); break;
@@ -955,6 +2533,12 @@ class HCAdminWorldCatalog
             case 813: capture.Put("story-sites", Vector(5210.744, 220.987, 4219.021), "gapcov-i134", "Authored story candidate; not an active event"); break;
             case 814: capture.Put("story-sites", Vector(5365.783, 331.382, 8586.063), "gapcov-i135", "Authored story candidate; not an active event"); break;
             case 815: capture.Put("story-sites", Vector(5214.532, 195.134, 12349.489), "gapcov-i136", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page102(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 816: capture.Put("story-sites", Vector(5359.068, 182.606, 3668.129), "gapcov-i137", "Authored story candidate; not an active event"); break;
             case 817: capture.Put("story-sites", Vector(5274.593, 262.023, 6511.060), "gapcov-i138", "Authored story candidate; not an active event"); break;
             case 818: capture.Put("story-sites", Vector(5287.690, 307.825, 10585.790), "gapcov-i139", "Authored story candidate; not an active event"); break;
@@ -963,6 +2547,12 @@ class HCAdminWorldCatalog
             case 821: capture.Put("story-sites", Vector(5372.092, 308.590, 5467.881), "gapcov-i142", "Authored story candidate; not an active event"); break;
             case 822: capture.Put("story-sites", Vector(6760.584, 7.068, 2761.753), "gapcov-i143", "Authored story candidate; not an active event"); break;
             case 823: capture.Put("story-sites", Vector(5432.954, 334.834, 9273.883), "gapcov-i144", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page103(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 824: capture.Put("story-sites", Vector(5424.832, 218.984, 11937.615), "gapcov-i145", "Authored story candidate; not an active event"); break;
             case 825: capture.Put("story-sites", Vector(5429.017, 349.921, 14530.089), "gapcov-i146", "Authored story candidate; not an active event"); break;
             case 826: capture.Put("story-sites", Vector(5511.736, 310.355, 7293.724), "gapcov-i147", "Authored story candidate; not an active event"); break;
@@ -973,7 +2563,7 @@ class HCAdminWorldCatalog
             case 831: capture.Put("story-sites", Vector(5775.769, 475.984, 15176.331), "gapcov-i152", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page13(HCAdminWorldCapture capture, int index)
+    static void Page104(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -985,6 +2575,12 @@ class HCAdminWorldCatalog
             case 837: capture.Put("story-sites", Vector(5894.126, 241.753, 11348.717), "gapcov-i158", "Authored story candidate; not an active event"); break;
             case 838: capture.Put("story-sites", Vector(6129.589, 301.935, 7749.657), "gapcov-i159", "Authored story candidate; not an active event"); break;
             case 839: capture.Put("story-sites", Vector(6217.434, 156.312, 12677.967), "gapcov-i160", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page105(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 840: capture.Put("story-sites", Vector(5968.885, 208.094, 13133.271), "gapcov-i161", "Authored story candidate; not an active event"); break;
             case 841: capture.Put("story-sites", Vector(6029.672, 195.453, 5584.917), "gapcov-i162", "Authored story candidate; not an active event"); break;
             case 842: capture.Put("story-sites", Vector(6046.145, 338.704, 14279.271), "gapcov-i163", "Authored story candidate; not an active event"); break;
@@ -993,6 +2589,12 @@ class HCAdminWorldCatalog
             case 845: capture.Put("story-sites", Vector(6526.889, 322.875, 6072.109), "gapcov-i166", "Authored story candidate; not an active event"); break;
             case 846: capture.Put("story-sites", Vector(6681.026, 376.984, 14418.225), "gapcov-i167", "Authored story candidate; not an active event"); break;
             case 847: capture.Put("story-sites", Vector(6509.810, 253.106, 4487.004), "gapcov-i168", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page106(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 848: capture.Put("story-sites", Vector(6714.338, 338.413, 6635.508), "gapcov-i169", "Authored story candidate; not an active event"); break;
             case 849: capture.Put("story-sites", Vector(6684.575, 379.464, 8765.813), "gapcov-i170", "Authored story candidate; not an active event"); break;
             case 850: capture.Put("story-sites", Vector(6775.626, 343.621, 5572.523), "gapcov-i171", "Authored story candidate; not an active event"); break;
@@ -1001,6 +2603,12 @@ class HCAdminWorldCatalog
             case 853: capture.Put("story-sites", Vector(6847.742, 198.690, 4478.056), "gapcov-i174", "Authored story candidate; not an active event"); break;
             case 854: capture.Put("story-sites", Vector(6888.885, 376.179, 9877.031), "gapcov-i175", "Authored story candidate; not an active event"); break;
             case 855: capture.Put("story-sites", Vector(6890.831, 402.877, 11367.032), "gapcov-i176", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page107(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 856: capture.Put("story-sites", Vector(7111.694, 295.514, 7683.240), "gapcov-i177", "Authored story candidate; not an active event"); break;
             case 857: capture.Put("story-sites", Vector(7063.044, 193.674, 4267.374), "gapcov-i178", "Authored story candidate; not an active event"); break;
             case 858: capture.Put("story-sites", Vector(7032.852, 354.213, 14539.111), "gapcov-i179", "Authored story candidate; not an active event"); break;
@@ -1009,6 +2617,12 @@ class HCAdminWorldCatalog
             case 861: capture.Put("story-sites", Vector(7214.319, 330.600, 8256.218), "gapcov-i182", "Authored story candidate; not an active event"); break;
             case 862: capture.Put("story-sites", Vector(7213.368, 364.635, 10142.375), "gapcov-i183", "Authored story candidate; not an active event"); break;
             case 863: capture.Put("story-sites", Vector(7232.083, 326.678, 11337.545), "gapcov-i184", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page108(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 864: capture.Put("story-sites", Vector(7391.818, 403.287, 9112.117), "gapcov-i185", "Authored story candidate; not an active event"); break;
             case 865: capture.Put("story-sites", Vector(10004.309, 65.786, 13955.006), "gapcov-i186", "Authored story candidate; not an active event"); break;
             case 866: capture.Put("story-sites", Vector(7364.249, 217.658, 6293.063), "gapcov-i187", "Authored story candidate; not an active event"); break;
@@ -1017,6 +2631,12 @@ class HCAdminWorldCatalog
             case 869: capture.Put("story-sites", Vector(7568.183, 427.118, 15070.957), "gapcov-i190", "Authored story candidate; not an active event"); break;
             case 870: capture.Put("story-sites", Vector(7721.088, 364.204, 14852.361), "gapcov-i191", "Authored story candidate; not an active event"); break;
             case 871: capture.Put("story-sites", Vector(7944.881, 331.921, 6989.637), "gapcov-i192", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page109(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 872: capture.Put("story-sites", Vector(8130.586, 192.927, 11552.488), "gapcov-i193", "Authored story candidate; not an active event"); break;
             case 873: capture.Put("story-sites", Vector(7985.991, 179.161, 5444.119), "gapcov-i194", "Authored story candidate; not an active event"); break;
             case 874: capture.Put("story-sites", Vector(8129.351, 459.203, 9315.341), "gapcov-i195", "Authored story candidate; not an active event"); break;
@@ -1025,6 +2645,12 @@ class HCAdminWorldCatalog
             case 877: capture.Put("story-sites", Vector(8381.287, 360.153, 6672.428), "gapcov-i198", "Authored story candidate; not an active event"); break;
             case 878: capture.Put("story-sites", Vector(8383.085, 323.165, 10526.357), "gapcov-i199", "Authored story candidate; not an active event"); break;
             case 879: capture.Put("story-sites", Vector(8386.815, 7.721, 2474.872), "gapcov-i200", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page110(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 880: capture.Put("story-sites", Vector(8396.363, 141.082, 4958.822), "gapcov-i201", "Authored story candidate; not an active event"); break;
             case 881: capture.Put("story-sites", Vector(8310.965, 460.519, 7539.836), "gapcov-i202", "Authored story candidate; not an active event"); break;
             case 882: capture.Put("story-sites", Vector(8350.783, 205.173, 5463.533), "gapcov-i203", "Authored story candidate; not an active event"); break;
@@ -1033,6 +2659,12 @@ class HCAdminWorldCatalog
             case 885: capture.Put("story-sites", Vector(8572.823, 336.853, 8377.761), "gapcov-i206", "Authored story candidate; not an active event"); break;
             case 886: capture.Put("story-sites", Vector(8529.141, 360.233, 10212.665), "gapcov-i207", "Authored story candidate; not an active event"); break;
             case 887: capture.Put("story-sites", Vector(8540.443, 378.477, 15016.872), "gapcov-i208", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page111(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 888: capture.Put("story-sites", Vector(8695.311, 275.142, 4162.765), "gapcov-i209", "Authored story candidate; not an active event"); break;
             case 889: capture.Put("story-sites", Vector(8641.293, 311.969, 6098.448), "gapcov-i210", "Authored story candidate; not an active event"); break;
             case 890: capture.Put("story-sites", Vector(8642.339, 394.858, 9100.580), "gapcov-i211", "Authored story candidate; not an active event"); break;
@@ -1043,7 +2675,7 @@ class HCAdminWorldCatalog
             case 895: capture.Put("story-sites", Vector(9256.845, 110.098, 4965.349), "gapcov-i216", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page14(HCAdminWorldCapture capture, int index)
+    static void Page112(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1055,6 +2687,12 @@ class HCAdminWorldCatalog
             case 901: capture.Put("story-sites", Vector(9474.850, 239.892, 11557.575), "gapcov-i222", "Authored story candidate; not an active event"); break;
             case 902: capture.Put("story-sites", Vector(9510.905, 318.092, 6009.711), "gapcov-i223", "Authored story candidate; not an active event"); break;
             case 903: capture.Put("story-sites", Vector(9611.962, 208.225, 6569.781), "gapcov-i224", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page113(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 904: capture.Put("story-sites", Vector(9891.394, 168.979, 10421.385), "gapcov-i225", "Authored story candidate; not an active event"); break;
             case 905: capture.Put("story-sites", Vector(9717.415, 230.748, 8347.071), "gapcov-i226", "Authored story candidate; not an active event"); break;
             case 906: capture.Put("story-sites", Vector(9716.749, 277.489, 9343.340), "gapcov-i227", "Authored story candidate; not an active event"); break;
@@ -1063,6 +2701,12 @@ class HCAdminWorldCatalog
             case 909: capture.Put("story-sites", Vector(9786.388, 172.660, 7798.249), "gapcov-i230", "Authored story candidate; not an active event"); break;
             case 910: capture.Put("story-sites", Vector(9804.716, 271.983, 11903.303), "gapcov-i231", "Authored story candidate; not an active event"); break;
             case 911: capture.Put("story-sites", Vector(10123.229, 246.612, 5446.732), "gapcov-i232", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page114(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 912: capture.Put("story-sites", Vector(10047.165, 150.590, 13326.977), "gapcov-i233", "Authored story candidate; not an active event"); break;
             case 913: capture.Put("story-sites", Vector(10041.434, 289.318, 15297.843), "gapcov-i234", "Authored story candidate; not an active event"); break;
             case 914: capture.Put("story-sites", Vector(10161.662, 63.911, 4088.400), "gapcov-i235", "Authored story candidate; not an active event"); break;
@@ -1071,6 +2715,12 @@ class HCAdminWorldCatalog
             case 917: capture.Put("story-sites", Vector(10296.177, 172.641, 10987.715), "gapcov-i238", "Authored story candidate; not an active event"); break;
             case 918: capture.Put("story-sites", Vector(10371.396, 135.576, 7425.677), "gapcov-i239", "Authored story candidate; not an active event"); break;
             case 919: capture.Put("story-sites", Vector(10397.318, 182.337, 9125.389), "gapcov-i240", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page115(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 920: capture.Put("story-sites", Vector(10547.208, 118.707, 7015.711), "gapcov-i241", "Authored story candidate; not an active event"); break;
             case 921: capture.Put("story-sites", Vector(10726.719, 213.314, 8062.144), "gapcov-i242", "Authored story candidate; not an active event"); break;
             case 922: capture.Put("story-sites", Vector(10563.958, 294.329, 5827.781), "gapcov-i243", "Authored story candidate; not an active event"); break;
@@ -1079,6 +2729,12 @@ class HCAdminWorldCatalog
             case 925: capture.Put("story-sites", Vector(10722.650, 145.476, 3630.018), "gapcov-i246", "Authored story candidate; not an active event"); break;
             case 926: capture.Put("story-sites", Vector(10729.842, 277.410, 5308.465), "gapcov-i247", "Authored story candidate; not an active event"); break;
             case 927: capture.Put("story-sites", Vector(10714.802, 182.043, 13653.983), "gapcov-i248", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page116(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 928: capture.Put("story-sites", Vector(11370.896, 74.328, 6597.509), "gapcov-i249", "Authored story candidate; not an active event"); break;
             case 929: capture.Put("story-sites", Vector(10879.351, 71.756, 10010.162), "gapcov-i250", "Authored story candidate; not an active event"); break;
             case 930: capture.Put("story-sites", Vector(11265.148, 255.510, 5464.154), "gapcov-i251", "Authored story candidate; not an active event"); break;
@@ -1087,6 +2743,12 @@ class HCAdminWorldCatalog
             case 933: capture.Put("story-sites", Vector(11235.438, 234.994, 4605.086), "gapcov-i254", "Authored story candidate; not an active event"); break;
             case 934: capture.Put("story-sites", Vector(11412.049, 145.502, 4025.829), "gapcov-i255", "Authored story candidate; not an active event"); break;
             case 935: capture.Put("story-sites", Vector(11503.494, 221.970, 7469.990), "gapcov-i256", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page117(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 936: capture.Put("story-sites", Vector(11432.871, 331.283, 11364.313), "gapcov-i257", "Authored story candidate; not an active event"); break;
             case 937: capture.Put("story-sites", Vector(11521.691, 214.194, 5037.614), "gapcov-i258", "Authored story candidate; not an active event"); break;
             case 938: capture.Put("story-sites", Vector(11606.954, 125.048, 4276.074), "gapcov-i259", "Authored story candidate; not an active event"); break;
@@ -1095,6 +2757,12 @@ class HCAdminWorldCatalog
             case 941: capture.Put("story-sites", Vector(11773.468, 68.332, 10173.751), "gapcov-i262", "Authored story candidate; not an active event"); break;
             case 942: capture.Put("story-sites", Vector(11831.114, 192.759, 4607.210), "gapcov-i263", "Authored story candidate; not an active event"); break;
             case 943: capture.Put("story-sites", Vector(11869.198, 143.484, 12434.562), "gapcov-i264", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page118(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 944: capture.Put("story-sites", Vector(12078.876, 6.796, 3537.623), "gapcov-i265", "Authored story candidate; not an active event"); break;
             case 945: capture.Put("story-sites", Vector(11935.422, 142.399, 12934.843), "gapcov-i266", "Authored story candidate; not an active event"); break;
             case 946: capture.Put("story-sites", Vector(11932.477, 141.215, 13197.644), "gapcov-i267", "Authored story candidate; not an active event"); break;
@@ -1103,6 +2771,12 @@ class HCAdminWorldCatalog
             case 949: capture.Put("story-sites", Vector(12238.067, 36.538, 6263.057), "gapcov-i270", "Authored story candidate; not an active event"); break;
             case 950: capture.Put("story-sites", Vector(12170.706, 83.353, 5037.305), "gapcov-i271", "Authored story candidate; not an active event"); break;
             case 951: capture.Put("story-sites", Vector(12306.660, 103.361, 10830.909), "gapcov-i272", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page119(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 952: capture.Put("story-sites", Vector(12311.866, 49.033, 8484.682), "gapcov-i273", "Authored story candidate; not an active event"); break;
             case 953: capture.Put("story-sites", Vector(12302.213, 188.504, 6962.385), "gapcov-i274", "Authored story candidate; not an active event"); break;
             case 954: capture.Put("story-sites", Vector(12458.933, 144.090, 12544.861), "gapcov-i275", "Authored story candidate; not an active event"); break;
@@ -1113,7 +2787,7 @@ class HCAdminWorldCatalog
             case 959: capture.Put("story-sites", Vector(12904.665, 21.112, 8086.055), "gapcov-i280", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page15(HCAdminWorldCapture capture, int index)
+    static void Page120(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1125,6 +2799,12 @@ class HCAdminWorldCatalog
             case 965: capture.Put("story-sites", Vector(12999.438, 18.833, 5516.483), "gapcov-i286", "Authored story candidate; not an active event"); break;
             case 966: capture.Put("story-sites", Vector(13080.147, 7.096, 7005.845), "gapcov-i287", "Authored story candidate; not an active event"); break;
             case 967: capture.Put("story-sites", Vector(12942.242, 217.527, 12769.667), "gapcov-i288", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page121(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 968: capture.Put("story-sites", Vector(12917.093, 74.035, 13472.209), "gapcov-i289", "Authored story candidate; not an active event"); break;
             case 969: capture.Put("story-sites", Vector(13004.515, 132.682, 5973.542), "gapcov-i290", "Authored story candidate; not an active event"); break;
             case 970: capture.Put("story-sites", Vector(13000.919, 45.114, 11558.035), "gapcov-i291", "Authored story candidate; not an active event"); break;
@@ -1133,6 +2813,12 @@ class HCAdminWorldCatalog
             case 973: capture.Put("story-sites", Vector(13887.142, 7.582, 13427.532), "gapcov-i294", "Authored story candidate; not an active event"); break;
             case 974: capture.Put("story-sites", Vector(13434.146, 4.363, 2829.619), "gapcov-i295", "Authored story candidate; not an active event"); break;
             case 975: capture.Put("story-sites", Vector(13309.985, 63.568, 3235.811), "gapcov-i296", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page122(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 976: capture.Put("story-sites", Vector(13418.395, 6.617, 6262.887), "gapcov-i297", "Authored story candidate; not an active event"); break;
             case 977: capture.Put("story-sites", Vector(13346.505, 28.228, 11221.103), "gapcov-i298", "Authored story candidate; not an active event"); break;
             case 978: capture.Put("story-sites", Vector(13454.867, 66.382, 12145.372), "gapcov-i299", "Authored story candidate; not an active event"); break;
@@ -1141,6 +2827,12 @@ class HCAdminWorldCatalog
             case 981: capture.Put("story-sites", Vector(14121.824, 136.319, 14961.424), "gapcov-i302", "Authored story candidate; not an active event"); break;
             case 982: capture.Put("story-sites", Vector(14037.334, 23.472, 2911.718), "gapcov-i303", "Authored story candidate; not an active event"); break;
             case 983: capture.Put("story-sites", Vector(14126.495, 141.592, 13841.769), "gapcov-i304", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page123(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 984: capture.Put("story-sites", Vector(14654.341, 83.939, 14039.544), "gapcov-i305", "Authored story candidate; not an active event"); break;
             case 985: capture.Put("story-sites", Vector(15147.101, 11.071, 13854.104), "gapcov-i306", "Authored story candidate; not an active event"); break;
             case 986: capture.Put("story-sites", Vector(333.488, 295.050, 9338.109), "gapcov-m001", "Authored story candidate; not an active event"); break;
@@ -1149,6 +2841,12 @@ class HCAdminWorldCatalog
             case 989: capture.Put("story-sites", Vector(764.721, 6.097, 1893.520), "gapcov-m004", "Authored story candidate; not an active event"); break;
             case 990: capture.Put("story-sites", Vector(934.251, 183.547, 7628.705), "gapcov-m005", "Authored story candidate; not an active event"); break;
             case 991: capture.Put("story-sites", Vector(1153.877, 185.340, 7238.128), "gapcov-m006", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page124(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 992: capture.Put("story-sites", Vector(1238.277, 468.742, 14006.125), "gapcov-m007", "Authored story candidate; not an active event"); break;
             case 993: capture.Put("story-sites", Vector(1679.472, 448.664, 13881.461), "gapcov-m008", "Authored story candidate; not an active event"); break;
             case 994: capture.Put("story-sites", Vector(2140.634, 93.306, 3383.758), "gapcov-m009", "Authored story candidate; not an active event"); break;
@@ -1157,6 +2855,12 @@ class HCAdminWorldCatalog
             case 997: capture.Put("story-sites", Vector(2493.708, 192.595, 5169.964), "gapcov-m012", "Authored story candidate; not an active event"); break;
             case 998: capture.Put("story-sites", Vector(2589.823, 23.356, 1286.588), "gapcov-m013", "Authored story candidate; not an active event"); break;
             case 999: capture.Put("story-sites", Vector(2696.343, 363.690, 6762.086), "gapcov-m014", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page125(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1000: capture.Put("story-sites", Vector(2858.467, 272.910, 9752.700), "gapcov-m015", "Authored story candidate; not an active event"); break;
             case 1001: capture.Put("story-sites", Vector(3009.415, 290.881, 9979.607), "gapcov-m016", "Authored story candidate; not an active event"); break;
             case 1002: capture.Put("story-sites", Vector(3373.379, 332.329, 15210.717), "gapcov-m017", "Authored story candidate; not an active event"); break;
@@ -1165,6 +2869,12 @@ class HCAdminWorldCatalog
             case 1005: capture.Put("story-sites", Vector(3613.318, 317.498, 11176.254), "gapcov-m020", "Authored story candidate; not an active event"); break;
             case 1006: capture.Put("story-sites", Vector(3656.566, 361.478, 14937.964), "gapcov-m021", "Authored story candidate; not an active event"); break;
             case 1007: capture.Put("story-sites", Vector(3709.622, 404.067, 5954.500), "gapcov-m022", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page126(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1008: capture.Put("story-sites", Vector(3895.576, 331.328, 10840.174), "gapcov-m023", "Authored story candidate; not an active event"); break;
             case 1009: capture.Put("story-sites", Vector(4030.500, 377.775, 11708.590), "gapcov-m024", "Authored story candidate; not an active event"); break;
             case 1010: capture.Put("story-sites", Vector(4133.104, 340.835, 10403.866), "gapcov-m025", "Authored story candidate; not an active event"); break;
@@ -1173,6 +2883,12 @@ class HCAdminWorldCatalog
             case 1013: capture.Put("story-sites", Vector(4525.498, 340.209, 9692.891), "gapcov-m028", "Authored story candidate; not an active event"); break;
             case 1014: capture.Put("story-sites", Vector(4397.786, 344.109, 10231.076), "gapcov-m029", "Authored story candidate; not an active event"); break;
             case 1015: capture.Put("story-sites", Vector(4523.897, 319.637, 8314.691), "gapcov-m030", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page127(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1016: capture.Put("story-sites", Vector(4746.906, 340.316, 10481.395), "gapcov-m031", "Authored story candidate; not an active event"); break;
             case 1017: capture.Put("story-sites", Vector(4637.459, 325.489, 10998.042), "gapcov-m032", "Authored story candidate; not an active event"); break;
             case 1018: capture.Put("story-sites", Vector(5075.958, 10.568, 2313.444), "gapcov-m033", "Authored story candidate; not an active event"); break;
@@ -1183,7 +2899,7 @@ class HCAdminWorldCatalog
             case 1023: capture.Put("story-sites", Vector(5900.608, 10.632, 2205.973), "gapcov-m038", "Authored story candidate; not an active event"); break;
         }
     }
-    static void Page16(HCAdminWorldCapture capture, int index)
+    static void Page128(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1195,6 +2911,12 @@ class HCAdminWorldCatalog
             case 1029: capture.Put("story-sites", Vector(8075.839, 456.732, 9369.662), "gapcov-m044", "Authored story candidate; not an active event"); break;
             case 1030: capture.Put("story-sites", Vector(8162.415, 475.874, 9106.599), "gapcov-m045", "Authored story candidate; not an active event"); break;
             case 1031: capture.Put("story-sites", Vector(8288.540, 10.483, 3058.579), "gapcov-m046", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page129(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1032: capture.Put("story-sites", Vector(8505.569, 205.297, 13975.790), "gapcov-m047", "Authored story candidate; not an active event"); break;
             case 1033: capture.Put("story-sites", Vector(9573.269, 244.767, 11823.929), "gapcov-m048", "Authored story candidate; not an active event"); break;
             case 1034: capture.Put("story-sites", Vector(10055.546, 7.209, 1787.368), "gapcov-m049", "Authored story candidate; not an active event"); break;
@@ -1203,6 +2925,12 @@ class HCAdminWorldCatalog
             case 1037: capture.Put("story-sites", Vector(10475.527, 7.997, 2354.605), "gapcov-m052", "Authored story candidate; not an active event"); break;
             case 1038: capture.Put("story-sites", Vector(10452.168, 180.622, 9143.599), "gapcov-m053", "Authored story candidate; not an active event"); break;
             case 1039: capture.Put("story-sites", Vector(10955.119, 221.845, 13401.538), "gapcov-m054", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page130(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1040: capture.Put("story-sites", Vector(11706.897, 59.029, 14113.311), "gapcov-m055", "Authored story candidate; not an active event"); break;
             case 1041: capture.Put("story-sites", Vector(11967.971, 141.209, 12501.878), "gapcov-m056", "Authored story candidate; not an active event"); break;
             case 1042: capture.Put("story-sites", Vector(11966.396, 55.997, 9128.639), "gapcov-m057", "Authored story candidate; not an active event"); break;
@@ -1211,6 +2939,12 @@ class HCAdminWorldCatalog
             case 1045: capture.Put("story-sites", Vector(13135.827, 7.130, 10250.896), "gapcov-m060", "Authored story candidate; not an active event"); break;
             case 1046: capture.Put("story-sites", Vector(13317.135, 10.805, 6145.751), "gapcov-m061", "Authored story candidate; not an active event"); break;
             case 1047: capture.Put("story-sites", Vector(13526.521, 21.641, 14199.268), "gapcov-m062", "Authored story candidate; not an active event"); break;
+        }
+    }
+    static void Page131(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1048: capture.Put("story-sites", Vector(13612.993, 7.767, 13748.569), "gapcov-m063", "Authored story candidate; not an active event"); break;
             case 1049: capture.Put("story-sites", Vector(13845.034, 16.808, 11159.358), "gapcov-m064", "Authored story candidate; not an active event"); break;
             case 1050: capture.Put("story-sites", Vector(14162.715, 4.499, 13154.573), "gapcov-m065", "Authored story candidate; not an active event"); break;
@@ -1219,6 +2953,12 @@ class HCAdminWorldCatalog
             case 1053: capture.Put("localities", Vector(6115.910, 0.000, 3256.360), "Novoselki", "Authored locality"); break;
             case 1054: capture.Put("localities", Vector(6754.510, 0.000, 3595.257), "Dubovo", "Authored locality"); break;
             case 1055: capture.Put("localities", Vector(5701.240, 0.000, 2556.110), "Vysotovo", "Authored locality"); break;
+        }
+    }
+    static void Page132(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1056: capture.Put("localities", Vector(2796.000, 0.000, 5166.000), "Zelenogorsk", "Authored locality"); break;
             case 1057: capture.Put("localities", Vector(12372.383, 0.000, 9760.981), "Berezino", "Authored locality"); break;
             case 1058: capture.Put("localities", Vector(10286.680, 0.000, 1992.770), "Elektrozavodsk", "Authored locality"); break;
@@ -1227,6 +2967,12 @@ class HCAdminWorldCatalog
             case 1061: capture.Put("localities", Vector(13487.724, 0.000, 6225.884), "Solnechny", "Authored locality"); break;
             case 1062: capture.Put("localities", Vector(6114.000, 0.000, 7849.000), "Stary Sobor", "Authored locality"); break;
             case 1063: capture.Put("localities", Vector(3909.831, 0.000, 9019.614), "Vybor", "Authored locality"); break;
+        }
+    }
+    static void Page133(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1064: capture.Put("localities", Vector(8168.484, 0.000, 12573.602), "Severograd", "Authored locality"); break;
             case 1065: capture.Put("localities", Vector(3316.406, 0.000, 4070.966), "Bor", "Authored locality"); break;
             case 1066: capture.Put("localities", Vector(13989.740, 0.000, 13263.780), "Svetloyarsk", "Authored locality"); break;
@@ -1235,6 +2981,12 @@ class HCAdminWorldCatalog
             case 1069: capture.Put("localities", Vector(10794.000, 0.000, 8160.000), "Polana", "Authored locality"); break;
             case 1070: capture.Put("localities", Vector(12768.000, 0.000, 4384.000), "Tulga", "Authored locality"); break;
             case 1071: capture.Put("localities", Vector(11333.790, 0.000, 5421.400), "Msta", "Authored locality"); break;
+        }
+    }
+    static void Page134(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1072: capture.Put("localities", Vector(10212.520, 0.000, 5385.050), "Staroye", "Authored locality"); break;
             case 1073: capture.Put("localities", Vector(9728.640, 0.000, 6567.300), "Shakhovka", "Authored locality"); break;
             case 1074: capture.Put("localities", Vector(11285.170, 0.000, 6633.580), "Dolina", "Authored locality"); break;
@@ -1243,6 +2995,12 @@ class HCAdminWorldCatalog
             case 1077: capture.Put("localities", Vector(5300.710, 0.000, 8645.900), "Kabanino", "Authored locality"); break;
             case 1078: capture.Put("localities", Vector(7650.410, 0.000, 5096.460), "Mogilevka", "Authored locality"); break;
             case 1079: capture.Put("localities", Vector(5894.000, 0.000, 4780.000), "Nadezhdino", "Authored locality"); break;
+        }
+    }
+    static void Page135(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1080: capture.Put("localities", Vector(8445.000, 0.000, 6579.000), "Guglovo", "Authored locality"); break;
             case 1081: capture.Put("localities", Vector(12170.000, 0.000, 3458.000), "Kamyshovo", "Authored locality"); break;
             case 1082: capture.Put("localities", Vector(9197.000, 0.000, 3873.000), "Pusta", "Authored locality"); break;
@@ -1253,7 +3011,7 @@ class HCAdminWorldCatalog
             case 1087: capture.Put("localities", Vector(8644.751, 0.000, 11934.115), "Gvozdno", "Authored locality"); break;
         }
     }
-    static void Page17(HCAdminWorldCapture capture, int index)
+    static void Page136(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1265,6 +3023,12 @@ class HCAdminWorldCatalog
             case 1093: capture.Put("localities", Vector(12700.628, 0.000, 14691.312), "Karmanovka", "Authored locality"); break;
             case 1094: capture.Put("localities", Vector(4527.580, 0.000, 2465.320), "Balota", "Authored locality"); break;
             case 1095: capture.Put("localities", Vector(3702.000, 0.000, 2440.000), "Komarovo", "Authored locality"); break;
+        }
+    }
+    static void Page137(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1096: capture.Put("localities", Vector(1981.000, 0.000, 2207.000), "Kamenka", "Authored locality"); break;
             case 1097: capture.Put("localities", Vector(2048.000, 0.000, 7258.000), "Myshkino", "Authored locality"); break;
             case 1098: capture.Put("localities", Vector(1693.980, 0.000, 3858.650), "Pavlovo", "Authored locality"); break;
@@ -1273,6 +3037,12 @@ class HCAdminWorldCatalog
             case 1101: capture.Put("localities", Vector(7760.000, 0.000, 3336.000), "Prigorodki", "Authored locality"); break;
             case 1102: capture.Put("localities", Vector(3374.000, 0.000, 4861.000), "Drozhino", "Authored locality"); break;
             case 1103: capture.Put("localities", Vector(2556.000, 0.000, 6307.000), "Sosnovka", "Authored locality"); break;
+        }
+    }
+    static void Page138(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1104: capture.Put("localities", Vector(12824.880, 0.000, 8097.700), "Nizhnee", "Authored locality"); break;
             case 1105: capture.Put("localities", Vector(5015.000, 0.000, 5607.000), "Pulkovo", "Authored locality"); break;
             case 1106: capture.Put("localities", Vector(15020.000, 0.000, 13905.000), "Berezhki", "Authored locality"); break;
@@ -1281,6 +3051,12 @@ class HCAdminWorldCatalog
             case 1109: capture.Put("localities", Vector(12996.000, 0.000, 15066.000), "Dobroye", "Authored locality"); break;
             case 1110: capture.Put("localities", Vector(9286.000, 0.000, 14677.000), "Nagornoye", "Authored locality"); break;
             case 1111: capture.Put("localities", Vector(9493.520, 0.000, 13875.270), "Svergino", "Authored locality"); break;
+        }
+    }
+    static void Page139(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1112: capture.Put("localities", Vector(6195.878, 0.000, 12761.802), "Ratnoye", "Authored locality"); break;
             case 1113: capture.Put("localities", Vector(6748.741, 0.000, 14430.046), "Kamensk", "Authored locality"); break;
             case 1114: capture.Put("localities", Vector(6411.374, 0.000, 15029.961), "Krasnoye", "Authored locality"); break;
@@ -1289,6 +3065,12 @@ class HCAdminWorldCatalog
             case 1117: capture.Put("localities", Vector(3441.650, 0.000, 14799.550), "Tisy", "Authored locality"); break;
             case 1118: capture.Put("localities", Vector(2913.745, 0.000, 12366.357), "Topolniki", "Authored locality"); break;
             case 1119: capture.Put("localities", Vector(5214.000, 0.000, 12792.000), "Zaprudnoye", "Authored locality"); break;
+        }
+    }
+    static void Page140(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1120: capture.Put("localities", Vector(1538.278, 0.000, 11904.578), "Sinystok", "Authored locality"); break;
             case 1121: capture.Put("localities", Vector(2263.000, 0.000, 11103.000), "Vavilovo", "Authored locality"); break;
             case 1122: capture.Put("localities", Vector(8300.000, 0.000, 6054.000), "Kumyrna", "Authored locality"); break;
@@ -1297,6 +3079,12 @@ class HCAdminWorldCatalog
             case 1125: capture.Put("localities", Vector(638.000, 0.000, 11667.000), "Svyatoy Roman Ski Resort", "Authored locality"); break;
             case 1126: capture.Put("localities", Vector(357.000, 0.000, 11142.000), "Skvsch Biathlon Arena", "Authored locality"); break;
             case 1127: capture.Put("localities", Vector(577.330, 0.000, 5317.420), "Zvir", "Authored locality"); break;
+        }
+    }
+    static void Page141(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1128: capture.Put("localities", Vector(1256.859, 0.000, 9993.260), "Zabolotye", "Authored locality"); break;
             case 1129: capture.Put("localities", Vector(1102.680, 0.000, 8798.270), "Galkino", "Authored locality"); break;
             case 1130: capture.Put("localities", Vector(13715.454, 0.000, 3118.780), "Skalisty", "Authored locality"); break;
@@ -1305,6 +3093,12 @@ class HCAdminWorldCatalog
             case 1133: capture.Put("localities", Vector(2816.601, 0.000, 1277.960), "Prison Island", "Authored locality"); break;
             case 1134: capture.Put("localities", Vector(4600.000, 0.000, 10400.000), "Nw Airfield", "Authored locality"); break;
             case 1135: capture.Put("localities", Vector(1684.980, 0.000, 14219.320), "Tisy Military", "Authored locality"); break;
+        }
+    }
+    static void Page142(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1136: capture.Put("localities", Vector(4485.200, 0.000, 8290.670), "Vybor Military", "Authored locality"); break;
             case 1137: capture.Put("localities", Vector(3700.000, 0.000, 6000.000), "Green Mountain", "Authored locality"); break;
             case 1138: capture.Put("localities", Vector(6900.000, 0.000, 11400.000), "Devils Castle", "Authored locality"); break;
@@ -1313,6 +3107,12 @@ class HCAdminWorldCatalog
             case 1141: capture.Put("shelter-sites", Vector(12818.674, 126.933, 13117.183), "Northeast woodland roof", "Authored shelter; native access/rain verification pending"); break;
             case 1142: capture.Put("shelter-sites", Vector(6826.632, 50.728, 3549.387), "Central coast road roof", "Authored shelter; native access/rain verification pending"); break;
             case 1143: capture.Put("shelter-sites", Vector(10897.796, 7.028, 2815.425), "Southeast coast road roof", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page143(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1144: capture.Put("shelter-sites", Vector(4544.933, 59.827, 3130.591), "balota exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1145: capture.Put("shelter-sites", Vector(14188.152, 131.525, 14838.943), "belaya-polyana exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1146: capture.Put("shelter-sites", Vector(14917.326, 159.153, 14257.607), "berezhki exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1323,7 +3123,7 @@ class HCAdminWorldCatalog
             case 1151: capture.Put("shelter-sites", Vector(6342.816, 10.309, 2502.825), "chernogorsk exterior rest", "Authored shelter; native access/rain verification pending"); break;
         }
     }
-    static void Page18(HCAdminWorldCapture capture, int index)
+    static void Page144(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1335,6 +3135,12 @@ class HCAdminWorldCatalog
             case 1157: capture.Put("shelter-sites", Vector(9656.140, 294.767, 9187.804), "gorka exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1158: capture.Put("shelter-sites", Vector(8855.472, 344.731, 6983.577), "guglovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1159: capture.Put("shelter-sites", Vector(8633.588, 180.257, 12096.203), "gvozdno exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page145(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1160: capture.Put("shelter-sites", Vector(5347.128, 336.546, 8650.952), "kabanino exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1161: capture.Put("shelter-sites", Vector(7731.845, 172.663, 13149.407), "kalinovka exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1162: capture.Put("shelter-sites", Vector(1354.851, 8.170, 2457.874), "kamenka exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1343,6 +3149,12 @@ class HCAdminWorldCatalog
             case 1165: capture.Put("shelter-sites", Vector(12241.136, 95.680, 10614.205), "khelm exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1166: capture.Put("shelter-sites", Vector(4444.753, 317.184, 5074.056), "kozlovka exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1167: capture.Put("shelter-sites", Vector(11212.105, 196.351, 12197.904), "krasnostav exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page146(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1168: capture.Put("shelter-sites", Vector(6220.273, 465.572, 15337.135), "krasnoye exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1169: capture.Put("shelter-sites", Vector(8171.711, 184.209, 5446.869), "kumyrna exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1170: capture.Put("shelter-sites", Vector(2563.892, 261.918, 9221.757), "lopatino exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1351,6 +3163,12 @@ class HCAdminWorldCatalog
             case 1173: capture.Put("shelter-sites", Vector(2543.650, 366.803, 7593.289), "myshkino exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1174: capture.Put("shelter-sites", Vector(5263.218, 295.056, 4857.912), "nadezhdino exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1175: capture.Put("shelter-sites", Vector(9164.732, 294.669, 14844.216), "nagornoye exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page147(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1176: capture.Put("shelter-sites", Vector(12942.089, 13.624, 8130.703), "nizhnee exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1177: capture.Put("shelter-sites", Vector(3689.553, 190.513, 13081.108), "novaya-petrovka exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1178: capture.Put("shelter-sites", Vector(6078.250, 20.931, 2827.880), "novoselki exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1359,6 +3177,12 @@ class HCAdminWorldCatalog
             case 1181: capture.Put("shelter-sites", Vector(13791.622, 43.748, 12868.035), "olsha exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1182: capture.Put("shelter-sites", Vector(12378.511, 105.373, 7740.572), "orlovets exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1183: capture.Put("shelter-sites", Vector(1409.074, 141.004, 4047.022), "pavlovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page148(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1184: capture.Put("shelter-sites", Vector(10677.809, 214.414, 7923.849), "polana exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1185: capture.Put("shelter-sites", Vector(5298.107, 213.978, 13590.946), "polesovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1186: capture.Put("shelter-sites", Vector(5271.449, 308.913, 5515.677), "pulkovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1367,6 +3191,12 @@ class HCAdminWorldCatalog
             case 1189: capture.Put("shelter-sites", Vector(5097.821, 289.098, 6386.414), "rogovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1190: capture.Put("shelter-sites", Vector(8068.223, 121.205, 12586.292), "severograd exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1191: capture.Put("shelter-sites", Vector(9710.350, 216.306, 6487.099), "shakhovka exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page149(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1192: capture.Put("shelter-sites", Vector(80.261, 411.263, 10449.133), "skvsch-biathlon-arena exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1193: capture.Put("shelter-sites", Vector(2057.715, 314.685, 6277.851), "sosnovka exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1194: capture.Put("shelter-sites", Vector(10643.481, 247.556, 6059.514), "staroye exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1375,6 +3205,12 @@ class HCAdminWorldCatalog
             case 1197: capture.Put("shelter-sites", Vector(13980.380, 18.697, 13250.694), "svetloyarsk exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1198: capture.Put("shelter-sites", Vector(196.073, 541.652, 11741.009), "svyatoy-roman-ski-resort exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1199: capture.Put("shelter-sites", Vector(3905.637, 418.406, 15270.591), "tisy exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page150(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1200: capture.Put("shelter-sites", Vector(2171.249, 407.517, 13767.192), "tisy-military exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1201: capture.Put("shelter-sites", Vector(2766.591, 230.616, 12138.327), "topolniki exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1202: capture.Put("shelter-sites", Vector(13331.621, 7.485, 5062.073), "tulga exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1383,6 +3219,12 @@ class HCAdminWorldCatalog
             case 1205: capture.Put("shelter-sites", Vector(3849.562, 311.902, 8854.834), "vybor exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1206: capture.Put("shelter-sites", Vector(4431.202, 315.408, 8233.884), "vybor-military exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1207: capture.Put("shelter-sites", Vector(6155.064, 231.612, 5688.322), "vyshnoye exterior rest", "Authored shelter; native access/rain verification pending"); break;
+        }
+    }
+    static void Page151(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1208: capture.Put("shelter-sites", Vector(5716.401, 58.884, 2425.210), "vysotovo exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1209: capture.Put("shelter-sites", Vector(1029.501, 341.571, 9965.565), "zabolotye exterior rest", "Authored shelter; native access/rain verification pending"); break;
             case 1210: capture.Put("shelter-sites", Vector(5387.128, 161.014, 12627.211), "zaprudnoye exterior rest", "Authored shelter; native access/rain verification pending"); break;
@@ -1393,7 +3235,7 @@ class HCAdminWorldCatalog
             case 1215: capture.Put("civilian-stories", Vector(10020.000, 7.219, 1615.000), "s003", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
         }
     }
-    static void Page19(HCAdminWorldCapture capture, int index)
+    static void Page152(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1405,6 +3247,12 @@ class HCAdminWorldCatalog
             case 1221: capture.Put("civilian-stories", Vector(1990.000, 111.002, 3575.000), "s009", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1222: capture.Put("civilian-stories", Vector(8440.000, 7.886, 2955.000), "s010", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1223: capture.Put("civilian-stories", Vector(4060.000, 2.285, 2150.000), "s011", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
+        }
+    }
+    static void Page153(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1224: capture.Put("civilian-stories", Vector(9965.000, 7.219, 1675.000), "s012", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
             case 1225: capture.Put("civilian-stories", Vector(12750.000, 7.076, 9960.000), "s013", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1226: capture.Put("civilian-stories", Vector(12475.000, 2.899, 3300.000), "s014", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
@@ -1413,6 +3261,12 @@ class HCAdminWorldCatalog
             case 1229: capture.Put("civilian-stories", Vector(690.000, 6.803, 1795.000), "s017", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1230: capture.Put("civilian-stories", Vector(945.000, 6.698, 1980.000), "s018", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1231: capture.Put("civilian-stories", Vector(13130.000, 7.466, 6935.000), "s019", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
+        }
+    }
+    static void Page154(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1232: capture.Put("civilian-stories", Vector(6665.000, 7.396, 2970.000), "s020", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
             case 1233: capture.Put("civilian-stories", Vector(13035.000, 2.764, 9590.000), "s021", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1234: capture.Put("civilian-stories", Vector(6145.000, 84.001, 3785.000), "s022", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
@@ -1421,6 +3275,12 @@ class HCAdminWorldCatalog
             case 1237: capture.Put("civilian-stories", Vector(9630.000, 7.364, 2040.000), "s025", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1238: capture.Put("civilian-stories", Vector(13510.000, 2.377, 11065.000), "s026", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1239: capture.Put("civilian-stories", Vector(6065.000, 59.827, 2535.000), "s027", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
+        }
+    }
+    static void Page155(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1240: capture.Put("civilian-stories", Vector(6210.000, 84.001, 3745.000), "s028", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
             case 1241: capture.Put("civilian-stories", Vector(985.000, 6.539, 2035.000), "s029", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1242: capture.Put("civilian-stories", Vector(12595.000, 2.899, 3410.000), "s030", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
@@ -1429,6 +3289,12 @@ class HCAdminWorldCatalog
             case 1245: capture.Put("civilian-stories", Vector(3895.000, 2.069, 2170.000), "s033", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1246: capture.Put("civilian-stories", Vector(9620.000, 7.364, 1945.000), "s034", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1247: capture.Put("civilian-stories", Vector(13200.000, 7.623, 7120.000), "s035", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
+        }
+    }
+    static void Page156(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1248: capture.Put("civilian-stories", Vector(13060.000, 2.146, 8455.000), "s036", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
             case 1249: capture.Put("civilian-stories", Vector(7920.000, 7.588, 3290.000), "s037", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1250: capture.Put("civilian-stories", Vector(8355.000, 7.916, 2920.000), "s038", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
@@ -1437,6 +3303,12 @@ class HCAdminWorldCatalog
             case 1253: capture.Put("civilian-stories", Vector(425.000, 3.051, 1585.000), "s041", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1254: capture.Put("civilian-stories", Vector(13545.000, 2.377, 10965.000), "s042", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1255: capture.Put("civilian-stories", Vector(11130.000, 137.029, 7090.000), "s043", "Authored overlay: hunter-camp; installation/placement not inferred"); break;
+        }
+    }
+    static void Page157(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1256: capture.Put("civilian-stories", Vector(6230.000, 84.001, 3850.000), "s044", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
             case 1257: capture.Put("civilian-stories", Vector(585.000, 422.570, 10985.000), "s045", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1258: capture.Put("civilian-stories", Vector(830.000, 6.776, 2000.000), "s046", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
@@ -1445,6 +3317,12 @@ class HCAdminWorldCatalog
             case 1261: capture.Put("civilian-stories", Vector(13035.000, 7.581, 10375.000), "s049", "Authored overlay: quarantine-post; installation/placement not inferred"); break;
             case 1262: capture.Put("civilian-stories", Vector(12615.000, 52.685, 13870.000), "s050", "Authored overlay: refugee-camp; installation/placement not inferred"); break;
             case 1263: capture.Put("civilian-stories", Vector(13450.000, 8.065, 6040.000), "s051", "Authored overlay: bandit-roadblock; installation/placement not inferred"); break;
+        }
+    }
+    static void Page158(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1264: capture.Put("civilian-stories", Vector(360.000, 288.981, 8485.000), "s052", "Authored overlay: police-blockade; installation/placement not inferred"); break;
             case 1265: capture.Put("civilian-stories", Vector(13080.000, 1.730, 3730.000), "s053", "Authored overlay: helicopter-lz; installation/placement not inferred"); break;
             case 1266: capture.Put("civilian-stories", Vector(11070.000, 137.029, 7030.000), "s054", "Authored overlay: mass-grave-cleanup; installation/placement not inferred"); break;
@@ -1453,6 +3331,12 @@ class HCAdminWorldCatalog
             case 1269: capture.Put("inland-discoveries", Vector(14820.000, 74.307, 14495.000), "s001", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1270: capture.Put("inland-discoveries", Vector(13895.000, 5.062, 13525.000), "s002", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1271: capture.Put("inland-discoveries", Vector(13935.000, 5.043, 13590.000), "s003", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
+        }
+    }
+    static void Page159(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1272: capture.Put("inland-discoveries", Vector(265.000, 288.981, 8520.000), "s004", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
             case 1273: capture.Put("inland-discoveries", Vector(4640.000, 325.641, 11065.000), "s005", "Authored overlay: medevac-station; installation/placement not inferred"); break;
             case 1274: capture.Put("inland-discoveries", Vector(4390.000, 338.690, 11025.000), "s006", "Authored overlay: radio-relay; installation/placement not inferred"); break;
@@ -1463,7 +3347,7 @@ class HCAdminWorldCatalog
             case 1279: capture.Put("inland-discoveries", Vector(13500.000, 35.085, 13365.000), "s011", "Authored overlay: fob-compound; installation/placement not inferred"); break;
         }
     }
-    static void Page20(HCAdminWorldCapture capture, int index)
+    static void Page160(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1475,6 +3359,12 @@ class HCAdminWorldCatalog
             case 1285: capture.Put("inland-discoveries", Vector(6715.000, 217.752, 13330.000), "s017", "Authored overlay: medevac-station; installation/placement not inferred"); break;
             case 1286: capture.Put("inland-discoveries", Vector(435.000, 423.352, 10960.000), "s018", "Authored overlay: radio-relay; installation/placement not inferred"); break;
             case 1287: capture.Put("inland-discoveries", Vector(6060.000, 227.980, 13420.000), "s019", "Authored overlay: ammo-dump; installation/placement not inferred"); break;
+        }
+    }
+    static void Page161(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1288: capture.Put("inland-discoveries", Vector(2980.000, 273.047, 9675.000), "s020", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1289: capture.Put("inland-discoveries", Vector(4710.000, 340.705, 10585.000), "s021", "Authored overlay: fuel-depot; installation/placement not inferred"); break;
             case 1290: capture.Put("inland-discoveries", Vector(6040.000, 227.980, 13335.000), "s022", "Authored overlay: motor-pool; installation/placement not inferred"); break;
@@ -1483,6 +3373,12 @@ class HCAdminWorldCatalog
             case 1293: capture.Put("inland-discoveries", Vector(4930.000, 339.000, 10090.000), "s025", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1294: capture.Put("inland-discoveries", Vector(1955.000, 250.762, 11305.000), "s026", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1295: capture.Put("inland-discoveries", Vector(9520.000, 85.022, 13600.000), "s027", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
+        }
+    }
+    static void Page162(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1296: capture.Put("inland-discoveries", Vector(4585.000, 339.000, 10705.000), "s028", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
             case 1297: capture.Put("inland-discoveries", Vector(4805.000, 339.000, 10150.000), "s029", "Authored overlay: medevac-station; installation/placement not inferred"); break;
             case 1298: capture.Put("inland-discoveries", Vector(4310.000, 338.690, 10920.000), "s030", "Authored overlay: radio-relay; installation/placement not inferred"); break;
@@ -1491,6 +3387,12 @@ class HCAdminWorldCatalog
             case 1301: capture.Put("inland-discoveries", Vector(13390.000, 21.556, 14275.000), "s033", "Authored overlay: fuel-depot; installation/placement not inferred"); break;
             case 1302: capture.Put("inland-discoveries", Vector(605.000, 422.611, 11045.000), "s034", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1303: capture.Put("inland-discoveries", Vector(14890.000, 74.307, 14505.000), "s035", "Authored overlay: medevac-station; installation/placement not inferred"); break;
+        }
+    }
+    static void Page163(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1304: capture.Put("inland-discoveries", Vector(13845.000, 5.043, 13580.000), "s036", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1305: capture.Put("inland-discoveries", Vector(11960.000, 141.209, 12455.000), "s037", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1306: capture.Put("inland-discoveries", Vector(6050.000, 342.783, 14420.000), "s038", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
@@ -1499,6 +3401,12 @@ class HCAdminWorldCatalog
             case 1309: capture.Put("inland-discoveries", Vector(4580.000, 319.199, 8390.000), "s041", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1310: capture.Put("inland-discoveries", Vector(4885.000, 339.000, 10230.000), "s042", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1311: capture.Put("military-outposts", Vector(5050.000, 339.000, 10015.000), "o01", "Authored overlay: field-hq; installation/placement not inferred"); break;
+        }
+    }
+    static void Page164(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1312: capture.Put("military-outposts", Vector(4450.000, 340.725, 9415.000), "o02", "Authored overlay: forward-outpost; installation/placement not inferred"); break;
             case 1313: capture.Put("military-outposts", Vector(10955.000, 221.813, 13355.000), "o03", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1314: capture.Put("military-outposts", Vector(1845.000, 435.891, 14800.000), "o04", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
@@ -1507,6 +3415,12 @@ class HCAdminWorldCatalog
             case 1317: capture.Put("military-outposts", Vector(1865.000, 7.562, 2100.000), "o07", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1318: capture.Put("military-outposts", Vector(4610.000, 325.503, 10995.000), "o08", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1319: capture.Put("military-outposts", Vector(4620.000, 319.199, 8340.000), "o09", "Authored overlay: comms-post; installation/placement not inferred"); break;
+        }
+    }
+    static void Page165(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1320: capture.Put("military-tents", Vector(4050.000, 376.889, 11865.000), "0", "Authored object: Land_Mil_Tent_Big1_1"); break;
             case 1321: capture.Put("military-tents", Vector(4530.000, 319.370, 8355.000), "1", "Authored object: Land_Mil_Tent_Big1_2"); break;
             case 1322: capture.Put("military-tents", Vector(4505.000, 319.031, 8405.000), "2", "Authored object: Land_Mil_Tent_Big1_3"); break;
@@ -1515,6 +3429,12 @@ class HCAdminWorldCatalog
             case 1325: capture.Put("military-tents", Vector(2145.000, 110.809, 3500.000), "5", "Authored object: Land_Mil_Tent_Big1_1"); break;
             case 1326: capture.Put("military-tents", Vector(2470.000, 5.273, 1275.000), "6", "Authored object: Land_Mil_Tent_Big1_2"); break;
             case 1327: capture.Put("military-zones", Vector(5030.000, 339.000, 9725.000), "s001", "Authored overlay: field-hq; installation/placement not inferred"); break;
+        }
+    }
+    static void Page166(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1328: capture.Put("military-zones", Vector(13500.000, 35.085, 13275.000), "s002", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1329: capture.Put("military-zones", Vector(2235.000, 1.844, 2015.000), "s003", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
             case 1330: capture.Put("military-zones", Vector(1925.000, 435.891, 14835.000), "s004", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
@@ -1523,6 +3443,12 @@ class HCAdminWorldCatalog
             case 1333: capture.Put("military-zones", Vector(3635.000, 8.012, 2325.000), "s007", "Authored overlay: ammo-dump; installation/placement not inferred"); break;
             case 1334: capture.Put("military-zones", Vector(320.000, 288.981, 8645.000), "s008", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1335: capture.Put("military-zones", Vector(930.000, 6.539, 2130.000), "s009", "Authored overlay: fuel-depot; installation/placement not inferred"); break;
+        }
+    }
+    static void Page167(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1336: capture.Put("military-zones", Vector(6760.000, 217.752, 13240.000), "s010", "Authored overlay: motor-pool; installation/placement not inferred"); break;
             case 1337: capture.Put("military-zones", Vector(6850.000, 217.752, 13310.000), "s011", "Authored overlay: fob-compound; installation/placement not inferred"); break;
             case 1338: capture.Put("military-zones", Vector(12020.000, 141.209, 12425.000), "s012", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
@@ -1533,7 +3459,7 @@ class HCAdminWorldCatalog
             case 1343: capture.Put("military-zones", Vector(2180.000, 2.022, 2070.000), "s017", "Authored overlay: medevac-station; installation/placement not inferred"); break;
         }
     }
-    static void Page21(HCAdminWorldCapture capture, int index)
+    static void Page168(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1545,6 +3471,12 @@ class HCAdminWorldCatalog
             case 1349: capture.Put("military-zones", Vector(2205.000, 2.022, 2135.000), "s023", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
             case 1350: capture.Put("military-zones", Vector(355.000, 288.981, 8550.000), "s024", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1351: capture.Put("military-zones", Vector(1445.000, 141.162, 4075.000), "s025", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
+        }
+    }
+    static void Page169(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1352: capture.Put("military-zones", Vector(10860.000, 221.597, 13430.000), "s026", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
             case 1353: capture.Put("military-zones", Vector(6860.000, 217.752, 13220.000), "s027", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
             case 1354: capture.Put("military-zones", Vector(4905.000, 339.000, 10150.000), "s028", "Authored overlay: radio-relay; installation/placement not inferred"); break;
@@ -1553,6 +3485,12 @@ class HCAdminWorldCatalog
             case 1357: capture.Put("military-zones", Vector(8090.000, 256.683, 10855.000), "s031", "Authored overlay: fuel-depot; installation/placement not inferred"); break;
             case 1358: capture.Put("military-zones", Vector(3805.000, 2.158, 2170.000), "s032", "Authored overlay: motor-pool; installation/placement not inferred"); break;
             case 1359: capture.Put("military-zones", Vector(5010.000, 340.287, 10075.000), "s033", "Authored overlay: fob-compound; installation/placement not inferred"); break;
+        }
+    }
+    static void Page170(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1360: capture.Put("military-zones", Vector(13585.000, 2.377, 11050.000), "s034", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
             case 1361: capture.Put("military-zones", Vector(6665.000, 7.396, 2895.000), "s035", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1362: capture.Put("military-zones", Vector(5090.000, 340.439, 9860.000), "s036", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
@@ -1561,6 +3499,12 @@ class HCAdminWorldCatalog
             case 1365: capture.Put("military-zones", Vector(480.000, 3.051, 1535.000), "s039", "Authored overlay: ammo-dump; installation/placement not inferred"); break;
             case 1366: capture.Put("military-zones", Vector(5120.000, 173.325, 12925.000), "s040", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1367: capture.Put("military-zones", Vector(1020.000, 6.765, 2130.000), "s041", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
+        }
+    }
+    static void Page171(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1368: capture.Put("military-zones", Vector(4700.000, 340.478, 10515.000), "s042", "Authored overlay: overrun-camp; installation/placement not inferred"); break;
             case 1369: capture.Put("military-zones", Vector(13565.000, 35.085, 13275.000), "s043", "Authored overlay: medevac-station; installation/placement not inferred"); break;
             case 1370: capture.Put("military-zones", Vector(3900.000, 4.859, 2330.000), "s044", "Authored overlay: radio-relay; installation/placement not inferred"); break;
@@ -1569,6 +3513,12 @@ class HCAdminWorldCatalog
             case 1373: capture.Put("military-zones", Vector(630.000, 6.803, 1870.000), "s047", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
             case 1374: capture.Put("military-zones", Vector(6145.000, 227.980, 13415.000), "s048", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1375: capture.Put("military-zones", Vector(7780.000, 141.778, 12360.000), "s049", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
+        }
+    }
+    static void Page172(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1376: capture.Put("military-zones", Vector(3960.000, 2.158, 2155.000), "s050", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1377: capture.Put("military-zones", Vector(4960.000, 339.000, 10005.000), "s051", "Authored overlay: fuel-depot; installation/placement not inferred"); break;
             case 1378: capture.Put("military-zones", Vector(11025.000, 221.813, 13405.000), "s052", "Authored overlay: motor-pool; installation/placement not inferred"); break;
@@ -1577,6 +3527,12 @@ class HCAdminWorldCatalog
             case 1381: capture.Put("military-zones", Vector(2025.000, 110.957, 3510.000), "s055", "Authored overlay: field-hq; installation/placement not inferred"); break;
             case 1382: capture.Put("military-zones", Vector(5305.000, 319.977, 10030.000), "s056", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1383: capture.Put("military-zones", Vector(10925.000, 221.813, 13470.000), "s057", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
+        }
+    }
+    static void Page173(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1384: capture.Put("military-zones", Vector(2085.000, 110.957, 3585.000), "s058", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
             case 1385: capture.Put("military-zones", Vector(2960.000, 273.047, 9730.000), "s059", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1386: capture.Put("military-zones", Vector(3970.000, 4.859, 2350.000), "s060", "Authored overlay: radio-relay; installation/placement not inferred"); break;
@@ -1585,6 +3541,12 @@ class HCAdminWorldCatalog
             case 1389: capture.Put("military-zones", Vector(5425.000, 333.924, 9860.000), "s063", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
             case 1390: capture.Put("military-zones", Vector(12010.000, 141.209, 12520.000), "s064", "Authored overlay: radio-relay; installation/placement not inferred"); break;
             case 1391: capture.Put("military-zones", Vector(895.000, 6.776, 1920.000), "s065", "Authored overlay: fob-compound; installation/placement not inferred"); break;
+        }
+    }
+    static void Page174(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1392: capture.Put("military-zones", Vector(2900.000, 304.713, 8195.000), "s066", "Authored overlay: crashed-convoy; installation/placement not inferred"); break;
             case 1393: capture.Put("military-zones", Vector(5605.000, 69.383, 2735.000), "s067", "Authored overlay: sniper-overwatch; installation/placement not inferred"); break;
             case 1394: capture.Put("military-zones", Vector(495.000, 3.328, 1620.000), "s068", "Authored overlay: mortar-pit; installation/placement not inferred"); break;
@@ -1593,6 +3555,12 @@ class HCAdminWorldCatalog
             case 1397: capture.Put("roadside-checkpoints", Vector(12790.000, 92.500, 14585.000), "r03", "Authored overlay: checkpoint; installation/placement not inferred"); break;
             case 1398: capture.Put("roadside-checkpoints", Vector(13085.000, 117.464, 13035.000), "r04", "Authored overlay: abandoned-checkpoint; installation/placement not inferred"); break;
             case 1399: capture.Put("roadside-checkpoints", Vector(6060.000, 59.827, 2465.000), "r05", "Authored overlay: checkpoint; installation/placement not inferred"); break;
+        }
+    }
+    static void Page175(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1400: capture.Put("supply-dumps", Vector(1610.000, 452.973, 14170.000), "d01", "Authored overlay: supply-dump; installation/placement not inferred"); break;
             case 1401: capture.Put("supply-dumps", Vector(2370.000, 192.089, 5080.000), "d02", "Authored overlay: supply-dump; installation/placement not inferred"); break;
             case 1402: capture.Put("supply-dumps", Vector(4760.000, 340.705, 10550.000), "d03", "Authored overlay: supply-dump; installation/placement not inferred"); break;
@@ -1603,7 +3571,7 @@ class HCAdminWorldCatalog
             case 1407: capture.Put("supply-dumps", Vector(13845.000, 5.043, 13640.000), "d08", "Authored overlay: ammo-dump; installation/placement not inferred"); break;
         }
     }
-    static void Page22(HCAdminWorldCapture capture, int index)
+    static void Page176(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1615,6 +3583,12 @@ class HCAdminWorldCatalog
             case 1413: capture.Put("vanilla-ce-spawns", Vector(10225.520, 0.000, 2295.496), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1414: capture.Put("vanilla-ce-spawns", Vector(12824.801, 0.000, 10115.755), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1415: capture.Put("vanilla-ce-spawns", Vector(3302.416, 0.000, 15085.145), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page177(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1416: capture.Put("vanilla-ce-spawns", Vector(8050.074, 0.000, 12635.333), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1417: capture.Put("vanilla-ce-spawns", Vector(7512.848, 0.000, 12662.437), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1418: capture.Put("vanilla-ce-spawns", Vector(8453.135, 0.000, 12925.985), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1623,6 +3597,12 @@ class HCAdminWorldCatalog
             case 1421: capture.Put("vanilla-ce-spawns", Vector(2840.062, 0.000, 5291.243), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1422: capture.Put("vanilla-ce-spawns", Vector(6497.130, 0.000, 3666.683), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1423: capture.Put("vanilla-ce-spawns", Vector(3100.357, 0.000, 12648.152), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page178(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1424: capture.Put("vanilla-ce-spawns", Vector(3422.715, 0.000, 12687.710), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1425: capture.Put("vanilla-ce-spawns", Vector(2800.384, 0.000, 12430.113), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1426: capture.Put("vanilla-ce-spawns", Vector(3645.415, 0.000, 13053.005), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1631,6 +3611,12 @@ class HCAdminWorldCatalog
             case 1429: capture.Put("vanilla-ce-spawns", Vector(7566.753, 0.000, 5168.567), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1430: capture.Put("vanilla-ce-spawns", Vector(2682.604, 0.000, 5309.275), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1431: capture.Put("vanilla-ce-spawns", Vector(12045.523, 0.000, 3596.813), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page179(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1432: capture.Put("vanilla-ce-spawns", Vector(12972.756, 0.000, 10216.163), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1433: capture.Put("vanilla-ce-spawns", Vector(10698.356, 0.000, 14456.123), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1434: capture.Put("vanilla-ce-spawns", Vector(12177.540, 0.000, 9860.658), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1639,6 +3625,12 @@ class HCAdminWorldCatalog
             case 1437: capture.Put("vanilla-ce-spawns", Vector(13376.521, 0.000, 6292.044), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1438: capture.Put("vanilla-ce-spawns", Vector(6351.200, 0.000, 3026.584), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1439: capture.Put("vanilla-ce-spawns", Vector(12574.947, 0.000, 13818.471), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page180(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1440: capture.Put("vanilla-ce-spawns", Vector(13517.768, 0.000, 14032.642), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1441: capture.Put("vanilla-ce-spawns", Vector(10748.921, 0.000, 10804.446), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1442: capture.Put("vanilla-ce-spawns", Vector(12144.046, 0.000, 13605.518), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1647,6 +3639,12 @@ class HCAdminWorldCatalog
             case 1445: capture.Put("vanilla-ce-spawns", Vector(9602.132, 0.000, 13731.837), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1446: capture.Put("vanilla-ce-spawns", Vector(11684.735, 0.000, 15060.846), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1447: capture.Put("vanilla-ce-spawns", Vector(11581.688, 0.000, 14659.185), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page181(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1448: capture.Put("vanilla-ce-spawns", Vector(3812.262, 0.000, 8846.743), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1449: capture.Put("vanilla-ce-spawns", Vector(7013.044, 0.000, 2794.621), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1450: capture.Put("vanilla-ce-spawns", Vector(6096.107, 0.000, 3433.972), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1655,6 +3653,12 @@ class HCAdminWorldCatalog
             case 1453: capture.Put("vanilla-ce-spawns", Vector(6373.461, 0.000, 2829.313), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1454: capture.Put("vanilla-ce-spawns", Vector(8705.511, 0.000, 11638.066), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1455: capture.Put("vanilla-ce-spawns", Vector(6807.616, 0.000, 2688.373), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page182(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1456: capture.Put("vanilla-ce-spawns", Vector(2678.105, 0.000, 5594.085), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1457: capture.Put("vanilla-ce-spawns", Vector(5676.147, 0.000, 2372.281), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1458: capture.Put("vanilla-ce-spawns", Vector(5866.410, 0.000, 2201.368), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1663,6 +3667,12 @@ class HCAdminWorldCatalog
             case 1461: capture.Put("vanilla-ce-spawns", Vector(6483.750, 0.000, 2902.655), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1462: capture.Put("vanilla-ce-spawns", Vector(6916.958, 0.000, 3421.918), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
             case 1463: capture.Put("vanilla-ce-spawns", Vector(2529.213, 0.000, 5041.118), "VehicleCivilianSedan", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page183(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1464: capture.Put("vanilla-ce-spawns", Vector(10569.078, 0.000, 2231.894), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1465: capture.Put("vanilla-ce-spawns", Vector(11820.752, 0.000, 9202.174), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1466: capture.Put("vanilla-ce-spawns", Vector(12303.656, 0.000, 9480.824), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1673,7 +3683,7 @@ class HCAdminWorldCatalog
             case 1471: capture.Put("vanilla-ce-spawns", Vector(10181.249, 0.000, 2587.065), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page23(HCAdminWorldCapture capture, int index)
+    static void Page184(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1685,6 +3695,12 @@ class HCAdminWorldCatalog
             case 1477: capture.Put("vanilla-ce-spawns", Vector(11606.829, 0.000, 14763.919), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1478: capture.Put("vanilla-ce-spawns", Vector(9512.074, 0.000, 13663.202), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1479: capture.Put("vanilla-ce-spawns", Vector(11480.652, 0.000, 14897.099), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page185(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1480: capture.Put("vanilla-ce-spawns", Vector(11271.462, 0.000, 12211.911), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1481: capture.Put("vanilla-ce-spawns", Vector(11673.871, 0.000, 14660.336), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1482: capture.Put("vanilla-ce-spawns", Vector(11626.258, 0.000, 14096.237), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1693,6 +3709,12 @@ class HCAdminWorldCatalog
             case 1485: capture.Put("vanilla-ce-spawns", Vector(12944.422, 0.000, 8179.613), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1486: capture.Put("vanilla-ce-spawns", Vector(12109.954, 0.000, 7284.124), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1487: capture.Put("vanilla-ce-spawns", Vector(12750.031, 0.000, 9575.516), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page186(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1488: capture.Put("vanilla-ce-spawns", Vector(12821.676, 0.000, 9904.464), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1489: capture.Put("vanilla-ce-spawns", Vector(7883.861, 0.000, 12785.449), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1490: capture.Put("vanilla-ce-spawns", Vector(6683.017, 0.000, 2677.349), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1701,6 +3723,12 @@ class HCAdminWorldCatalog
             case 1493: capture.Put("vanilla-ce-spawns", Vector(3586.098, 0.000, 12596.461), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1494: capture.Put("vanilla-ce-spawns", Vector(3366.060, 0.000, 12965.847), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1495: capture.Put("vanilla-ce-spawns", Vector(7061.246, 0.000, 12687.485), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page187(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1496: capture.Put("vanilla-ce-spawns", Vector(6918.761, 0.000, 7788.401), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1497: capture.Put("vanilla-ce-spawns", Vector(2719.667, 0.000, 6736.751), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1498: capture.Put("vanilla-ce-spawns", Vector(8207.801, 0.000, 3093.642), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1709,6 +3737,12 @@ class HCAdminWorldCatalog
             case 1501: capture.Put("vanilla-ce-spawns", Vector(2690.496, 0.000, 5378.040), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1502: capture.Put("vanilla-ce-spawns", Vector(1655.894, 0.000, 3837.224), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1503: capture.Put("vanilla-ce-spawns", Vector(6382.877, 0.000, 7562.461), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page188(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1504: capture.Put("vanilla-ce-spawns", Vector(3435.637, 0.000, 12897.413), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1505: capture.Put("vanilla-ce-spawns", Vector(6254.748, 0.000, 3259.489), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1506: capture.Put("vanilla-ce-spawns", Vector(2789.388, 0.000, 5436.479), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1717,6 +3751,12 @@ class HCAdminWorldCatalog
             case 1509: capture.Put("vanilla-ce-spawns", Vector(8216.744, 0.000, 12239.941), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1510: capture.Put("vanilla-ce-spawns", Vector(2225.054, 0.000, 11088.736), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1511: capture.Put("vanilla-ce-spawns", Vector(8074.139, 0.000, 12813.721), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page189(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1512: capture.Put("vanilla-ce-spawns", Vector(6600.938, 0.000, 2533.387), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1513: capture.Put("vanilla-ce-spawns", Vector(6796.648, 0.000, 3542.258), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1514: capture.Put("vanilla-ce-spawns", Vector(3423.349, 0.000, 13142.172), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1725,6 +3765,12 @@ class HCAdminWorldCatalog
             case 1517: capture.Put("vanilla-ce-spawns", Vector(7814.704, 0.000, 12586.812), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1518: capture.Put("vanilla-ce-spawns", Vector(334.105, 0.000, 9440.325), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1519: capture.Put("vanilla-ce-spawns", Vector(10267.063, 0.000, 14096.308), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page190(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1520: capture.Put("vanilla-ce-spawns", Vector(14139.219, 0.000, 13050.479), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1521: capture.Put("vanilla-ce-spawns", Vector(6811.414, 0.000, 2487.961), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1522: capture.Put("vanilla-ce-spawns", Vector(6535.592, 0.000, 2388.385), "VehicleSedan02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1733,6 +3779,12 @@ class HCAdminWorldCatalog
             case 1525: capture.Put("vanilla-ce-spawns", Vector(12302.375, 0.000, 9051.289), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1526: capture.Put("vanilla-ce-spawns", Vector(10182.459, 0.000, 1987.527), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1527: capture.Put("vanilla-ce-spawns", Vector(12091.687, 0.000, 9714.399), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page191(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1528: capture.Put("vanilla-ce-spawns", Vector(10225.520, 0.000, 2295.496), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1529: capture.Put("vanilla-ce-spawns", Vector(12824.801, 0.000, 10115.755), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1530: capture.Put("vanilla-ce-spawns", Vector(3302.416, 0.000, 15085.145), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1743,7 +3795,7 @@ class HCAdminWorldCatalog
             case 1535: capture.Put("vanilla-ce-spawns", Vector(4338.912, 0.000, 13080.067), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page24(HCAdminWorldCapture capture, int index)
+    static void Page192(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1755,6 +3807,12 @@ class HCAdminWorldCatalog
             case 1541: capture.Put("vanilla-ce-spawns", Vector(3645.415, 0.000, 13053.005), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1542: capture.Put("vanilla-ce-spawns", Vector(7585.865, 0.000, 13475.749), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1543: capture.Put("vanilla-ce-spawns", Vector(6299.644, 0.000, 12683.216), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page193(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1544: capture.Put("vanilla-ce-spawns", Vector(7566.753, 0.000, 5168.567), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1545: capture.Put("vanilla-ce-spawns", Vector(2682.604, 0.000, 5309.275), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1546: capture.Put("vanilla-ce-spawns", Vector(12045.523, 0.000, 3596.813), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1763,6 +3821,12 @@ class HCAdminWorldCatalog
             case 1549: capture.Put("vanilla-ce-spawns", Vector(12177.540, 0.000, 9860.658), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1550: capture.Put("vanilla-ce-spawns", Vector(13354.938, 0.000, 5440.334), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1551: capture.Put("vanilla-ce-spawns", Vector(10226.193, 0.000, 4077.481), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page194(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1552: capture.Put("vanilla-ce-spawns", Vector(13376.521, 0.000, 6292.044), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1553: capture.Put("vanilla-ce-spawns", Vector(6351.200, 0.000, 3026.584), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1554: capture.Put("vanilla-ce-spawns", Vector(12574.947, 0.000, 13818.471), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1771,6 +3835,12 @@ class HCAdminWorldCatalog
             case 1557: capture.Put("vanilla-ce-spawns", Vector(12144.046, 0.000, 13605.518), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1558: capture.Put("vanilla-ce-spawns", Vector(11827.104, 0.000, 14276.588), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1559: capture.Put("vanilla-ce-spawns", Vector(11343.359, 0.000, 14458.152), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page195(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1560: capture.Put("vanilla-ce-spawns", Vector(9514.132, 0.000, 13691.837), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1561: capture.Put("vanilla-ce-spawns", Vector(11684.735, 0.000, 15060.846), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1562: capture.Put("vanilla-ce-spawns", Vector(11581.688, 0.000, 14659.185), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1779,6 +3849,12 @@ class HCAdminWorldCatalog
             case 1565: capture.Put("vanilla-ce-spawns", Vector(6096.107, 0.000, 3433.972), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1566: capture.Put("vanilla-ce-spawns", Vector(6351.219, 0.000, 2522.914), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1567: capture.Put("vanilla-ce-spawns", Vector(675.522, 0.000, 1833.068), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page196(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1568: capture.Put("vanilla-ce-spawns", Vector(6373.461, 0.000, 2829.313), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1569: capture.Put("vanilla-ce-spawns", Vector(8705.511, 0.000, 11638.066), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1570: capture.Put("vanilla-ce-spawns", Vector(6807.616, 0.000, 2688.373), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1787,6 +3863,12 @@ class HCAdminWorldCatalog
             case 1573: capture.Put("vanilla-ce-spawns", Vector(5866.410, 0.000, 2201.368), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1574: capture.Put("vanilla-ce-spawns", Vector(3338.138, 0.000, 4957.521), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1575: capture.Put("vanilla-ce-spawns", Vector(6852.668, 0.000, 3072.889), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page197(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1576: capture.Put("vanilla-ce-spawns", Vector(6483.750, 0.000, 2902.655), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1577: capture.Put("vanilla-ce-spawns", Vector(6916.958, 0.000, 3421.918), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1578: capture.Put("vanilla-ce-spawns", Vector(2529.213, 0.000, 5041.118), "VehicleHatchback02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1795,6 +3877,12 @@ class HCAdminWorldCatalog
             case 1581: capture.Put("vanilla-ce-spawns", Vector(3886.951, 0.000, 13213.516), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1582: capture.Put("vanilla-ce-spawns", Vector(4607.622, 0.000, 13640.049), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1583: capture.Put("vanilla-ce-spawns", Vector(1629.345, 0.000, 15056.105), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page198(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1584: capture.Put("vanilla-ce-spawns", Vector(5016.493, 0.000, 13341.447), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1585: capture.Put("vanilla-ce-spawns", Vector(1460.165, 0.000, 11699.333), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1586: capture.Put("vanilla-ce-spawns", Vector(4392.249, 0.000, 14725.830), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1803,6 +3891,12 @@ class HCAdminWorldCatalog
             case 1589: capture.Put("vanilla-ce-spawns", Vector(2452.025, 0.000, 15083.825), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1590: capture.Put("vanilla-ce-spawns", Vector(612.269, 0.000, 14440.186), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1591: capture.Put("vanilla-ce-spawns", Vector(3488.113, 0.000, 15106.688), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page199(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1592: capture.Put("vanilla-ce-spawns", Vector(2532.083, 0.000, 13382.640), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1593: capture.Put("vanilla-ce-spawns", Vector(4049.804, 0.000, 13904.516), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1594: capture.Put("vanilla-ce-spawns", Vector(3178.521, 0.000, 13502.986), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1813,7 +3907,7 @@ class HCAdminWorldCatalog
             case 1599: capture.Put("vanilla-ce-spawns", Vector(1610.004, 0.000, 11090.438), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page25(HCAdminWorldCapture capture, int index)
+    static void Page200(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1825,6 +3919,12 @@ class HCAdminWorldCatalog
             case 1605: capture.Put("vanilla-ce-spawns", Vector(2043.230, 0.000, 10662.374), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1606: capture.Put("vanilla-ce-spawns", Vector(1053.390, 0.000, 10812.615), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1607: capture.Put("vanilla-ce-spawns", Vector(350.116, 0.000, 9787.409), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page201(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1608: capture.Put("vanilla-ce-spawns", Vector(4478.340, 0.000, 12218.993), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1609: capture.Put("vanilla-ce-spawns", Vector(4552.201, 0.000, 11486.540), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1610: capture.Put("vanilla-ce-spawns", Vector(2902.542, 0.000, 11594.443), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1833,6 +3933,12 @@ class HCAdminWorldCatalog
             case 1613: capture.Put("vanilla-ce-spawns", Vector(5393.896, 0.000, 10571.463), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1614: capture.Put("vanilla-ce-spawns", Vector(5970.650, 0.000, 9867.348), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1615: capture.Put("vanilla-ce-spawns", Vector(2560.009, 0.000, 9439.715), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page202(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1616: capture.Put("vanilla-ce-spawns", Vector(405.998, 0.000, 8094.959), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1617: capture.Put("vanilla-ce-spawns", Vector(460.390, 0.000, 10667.038), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1618: capture.Put("vanilla-ce-spawns", Vector(3721.485, 0.000, 10297.698), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1841,6 +3947,12 @@ class HCAdminWorldCatalog
             case 1621: capture.Put("vanilla-ce-spawns", Vector(4810.453, 0.000, 12709.971), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1622: capture.Put("vanilla-ce-spawns", Vector(2333.502, 0.000, 10265.961), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1623: capture.Put("vanilla-ce-spawns", Vector(4065.665, 0.000, 9341.539), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page203(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1624: capture.Put("vanilla-ce-spawns", Vector(3509.764, 0.000, 8003.174), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1625: capture.Put("vanilla-ce-spawns", Vector(5338.701, 0.000, 11767.565), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1626: capture.Put("vanilla-ce-spawns", Vector(1299.362, 0.000, 9946.347), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1849,6 +3961,12 @@ class HCAdminWorldCatalog
             case 1629: capture.Put("vanilla-ce-spawns", Vector(370.531, 0.000, 5023.798), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1630: capture.Put("vanilla-ce-spawns", Vector(917.922, 0.000, 4781.029), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1631: capture.Put("vanilla-ce-spawns", Vector(6289.675, 0.000, 6213.682), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page204(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1632: capture.Put("vanilla-ce-spawns", Vector(6204.925, 0.000, 8301.290), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1633: capture.Put("vanilla-ce-spawns", Vector(907.425, 0.000, 4236.119), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1634: capture.Put("vanilla-ce-spawns", Vector(1410.000, 0.000, 4299.216), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1857,6 +3975,12 @@ class HCAdminWorldCatalog
             case 1637: capture.Put("vanilla-ce-spawns", Vector(5135.984, 0.000, 7630.080), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1638: capture.Put("vanilla-ce-spawns", Vector(1207.821, 0.000, 5279.723), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1639: capture.Put("vanilla-ce-spawns", Vector(1226.762, 0.000, 6535.904), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page205(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1640: capture.Put("vanilla-ce-spawns", Vector(4130.533, 0.000, 7949.016), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1641: capture.Put("vanilla-ce-spawns", Vector(874.107, 0.000, 5498.937), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1642: capture.Put("vanilla-ce-spawns", Vector(3059.183, 0.000, 7348.792), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1865,6 +3989,12 @@ class HCAdminWorldCatalog
             case 1645: capture.Put("vanilla-ce-spawns", Vector(147.875, 0.000, 5967.167), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1646: capture.Put("vanilla-ce-spawns", Vector(2345.891, 0.000, 7780.261), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1647: capture.Put("vanilla-ce-spawns", Vector(4018.187, 0.000, 7302.031), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page206(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1648: capture.Put("vanilla-ce-spawns", Vector(999.781, 0.000, 3598.624), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1649: capture.Put("vanilla-ce-spawns", Vector(2364.617, 0.000, 6718.591), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1650: capture.Put("vanilla-ce-spawns", Vector(8006.187, 0.000, 8178.071), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1873,6 +4003,12 @@ class HCAdminWorldCatalog
             case 1653: capture.Put("vanilla-ce-spawns", Vector(1106.205, 0.000, 7437.663), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1654: capture.Put("vanilla-ce-spawns", Vector(4989.249, 0.000, 8937.190), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1655: capture.Put("vanilla-ce-spawns", Vector(4308.359, 0.000, 8577.781), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page207(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1656: capture.Put("vanilla-ce-spawns", Vector(2509.957, 0.000, 5827.196), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1657: capture.Put("vanilla-ce-spawns", Vector(162.172, 0.000, 7000.999), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1658: capture.Put("vanilla-ce-spawns", Vector(1737.581, 0.000, 7819.769), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1883,7 +4019,7 @@ class HCAdminWorldCatalog
             case 1663: capture.Put("vanilla-ce-spawns", Vector(2759.578, 0.000, 2405.061), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page26(HCAdminWorldCapture capture, int index)
+    static void Page208(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1895,6 +4031,12 @@ class HCAdminWorldCatalog
             case 1669: capture.Put("vanilla-ce-spawns", Vector(2331.123, 0.000, 4049.143), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1670: capture.Put("vanilla-ce-spawns", Vector(1160.677, 0.000, 2613.634), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1671: capture.Put("vanilla-ce-spawns", Vector(3427.893, 0.000, 3295.283), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page209(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1672: capture.Put("vanilla-ce-spawns", Vector(4848.870, 0.000, 4719.773), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1673: capture.Put("vanilla-ce-spawns", Vector(655.948, 0.000, 1965.813), "StaticHeliCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1674: capture.Put("vanilla-ce-spawns", Vector(2593.470, 0.000, 5094.110), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1903,6 +4045,12 @@ class HCAdminWorldCatalog
             case 1677: capture.Put("vanilla-ce-spawns", Vector(2063.100, 0.000, 12153.500), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1678: capture.Put("vanilla-ce-spawns", Vector(8483.960, 0.000, 13343.200), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1679: capture.Put("vanilla-ce-spawns", Vector(8101.210, 0.000, 9333.700), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page210(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1680: capture.Put("vanilla-ce-spawns", Vector(9664.900, 0.000, 11309.240), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1681: capture.Put("vanilla-ce-spawns", Vector(4579.600, 0.000, 10198.000), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1682: capture.Put("vanilla-ce-spawns", Vector(7202.900, 0.000, 11336.240), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1911,6 +4059,12 @@ class HCAdminWorldCatalog
             case 1685: capture.Put("vanilla-ce-spawns", Vector(10223.230, 0.000, 5034.900), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1686: capture.Put("vanilla-ce-spawns", Vector(6736.880, 0.000, 3699.770), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1687: capture.Put("vanilla-ce-spawns", Vector(5676.810, 0.000, 2567.310), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page211(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1688: capture.Put("vanilla-ce-spawns", Vector(5299.900, 0.000, 5314.240), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1689: capture.Put("vanilla-ce-spawns", Vector(11415.500, 0.000, 14596.700), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1690: capture.Put("vanilla-ce-spawns", Vector(3597.260, 0.000, 6937.650), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1919,6 +4073,12 @@ class HCAdminWorldCatalog
             case 1693: capture.Put("vanilla-ce-spawns", Vector(8976.050, 0.000, 7818.340), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1694: capture.Put("vanilla-ce-spawns", Vector(11057.300, 0.000, 13985.300), "StaticSantaCrash", "Stock CE candidate; not a live event or vehicle"); break;
             case 1695: capture.Put("vanilla-ce-spawns", Vector(6560.290, 0.000, 2462.120), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page212(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1696: capture.Put("vanilla-ce-spawns", Vector(1652.660, 0.000, 14230.710), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1697: capture.Put("vanilla-ce-spawns", Vector(3801.060, 0.000, 8847.760), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1698: capture.Put("vanilla-ce-spawns", Vector(9442.320, 0.000, 8829.030), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1927,6 +4087,12 @@ class HCAdminWorldCatalog
             case 1701: capture.Put("vanilla-ce-spawns", Vector(12830.080, 0.000, 10115.180), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1702: capture.Put("vanilla-ce-spawns", Vector(11221.940, 0.000, 12225.890), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1703: capture.Put("vanilla-ce-spawns", Vector(3471.930, 0.000, 12988.330), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page213(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1704: capture.Put("vanilla-ce-spawns", Vector(13933.420, 0.000, 13228.440), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1705: capture.Put("vanilla-ce-spawns", Vector(12022.640, 0.000, 9082.890), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
             case 1706: capture.Put("vanilla-ce-spawns", Vector(10468.540, 0.000, 2373.160), "StaticChristmasTree", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1935,6 +4101,12 @@ class HCAdminWorldCatalog
             case 1709: capture.Put("vanilla-ce-spawns", Vector(3544.051, 0.000, 13316.837), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1710: capture.Put("vanilla-ce-spawns", Vector(5198.470, 0.000, 8283.579), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1711: capture.Put("vanilla-ce-spawns", Vector(5368.120, 0.000, 5514.980), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page214(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1712: capture.Put("vanilla-ce-spawns", Vector(4300.170, 0.000, 8880.824), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1713: capture.Put("vanilla-ce-spawns", Vector(2640.818, 0.000, 2428.489), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1714: capture.Put("vanilla-ce-spawns", Vector(6380.730, 0.000, 10285.702), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1943,6 +4115,12 @@ class HCAdminWorldCatalog
             case 1717: capture.Put("vanilla-ce-spawns", Vector(12777.671, 0.000, 14114.373), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1718: capture.Put("vanilla-ce-spawns", Vector(1527.560, 0.000, 11933.541), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1719: capture.Put("vanilla-ce-spawns", Vector(9589.130, 0.000, 13894.065), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page215(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1720: capture.Put("vanilla-ce-spawns", Vector(6322.370, 0.000, 8143.881), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1721: capture.Put("vanilla-ce-spawns", Vector(915.219, 0.000, 4513.677), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1722: capture.Put("vanilla-ce-spawns", Vector(2399.349, 0.000, 7721.992), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1953,7 +4131,7 @@ class HCAdminWorldCatalog
             case 1727: capture.Put("vanilla-ce-spawns", Vector(3227.688, 0.000, 4530.327), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page27(HCAdminWorldCapture capture, int index)
+    static void Page216(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -1965,6 +4143,12 @@ class HCAdminWorldCatalog
             case 1733: capture.Put("vanilla-ce-spawns", Vector(13695.864, 0.000, 13402.778), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1734: capture.Put("vanilla-ce-spawns", Vector(10044.793, 0.000, 6761.148), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1735: capture.Put("vanilla-ce-spawns", Vector(11426.875, 0.000, 5559.257), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page217(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1736: capture.Put("vanilla-ce-spawns", Vector(5365.280, 0.000, 12746.763), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1737: capture.Put("vanilla-ce-spawns", Vector(12969.141, 0.000, 5545.638), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1738: capture.Put("vanilla-ce-spawns", Vector(10921.165, 0.000, 7750.293), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1973,6 +4157,12 @@ class HCAdminWorldCatalog
             case 1741: capture.Put("vanilla-ce-spawns", Vector(1162.390, 0.000, 10051.423), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1742: capture.Put("vanilla-ce-spawns", Vector(4448.490, 0.000, 2556.613), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1743: capture.Put("vanilla-ce-spawns", Vector(7639.340, 0.000, 3364.872), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page218(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1744: capture.Put("vanilla-ce-spawns", Vector(12704.953, 0.000, 4502.659), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1745: capture.Put("vanilla-ce-spawns", Vector(956.850, 0.000, 5630.502), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1746: capture.Put("vanilla-ce-spawns", Vector(6069.910, 0.000, 2010.811), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1981,6 +4171,12 @@ class HCAdminWorldCatalog
             case 1749: capture.Put("vanilla-ce-spawns", Vector(6972.400, 0.000, 7826.567), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1750: capture.Put("vanilla-ce-spawns", Vector(6658.914, 0.000, 14414.143), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1751: capture.Put("vanilla-ce-spawns", Vector(6894.200, 0.000, 11423.288), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page219(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1752: capture.Put("vanilla-ce-spawns", Vector(10115.519, 0.000, 8512.211), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1753: capture.Put("vanilla-ce-spawns", Vector(10416.681, 0.000, 12511.384), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1754: capture.Put("vanilla-ce-spawns", Vector(4573.761, 0.000, 7261.095), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1989,6 +4185,12 @@ class HCAdminWorldCatalog
             case 1757: capture.Put("vanilla-ce-spawns", Vector(9082.340, 0.000, 3591.036), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1758: capture.Put("vanilla-ce-spawns", Vector(8441.041, 0.000, 6495.190), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1759: capture.Put("vanilla-ce-spawns", Vector(10275.751, 0.000, 5027.682), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page220(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1760: capture.Put("vanilla-ce-spawns", Vector(11994.903, 0.000, 3533.764), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1761: capture.Put("vanilla-ce-spawns", Vector(12757.880, 0.000, 8318.630), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1762: capture.Put("vanilla-ce-spawns", Vector(10684.130, 0.000, 2380.827), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -1997,6 +4199,12 @@ class HCAdminWorldCatalog
             case 1765: capture.Put("vanilla-ce-spawns", Vector(8425.391, 0.000, 11490.679), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1766: capture.Put("vanilla-ce-spawns", Vector(11670.552, 0.000, 12411.197), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1767: capture.Put("vanilla-ce-spawns", Vector(12748.558, 0.000, 14784.180), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page221(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1768: capture.Put("vanilla-ce-spawns", Vector(14612.604, 0.000, 14031.148), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1769: capture.Put("vanilla-ce-spawns", Vector(13977.732, 0.000, 14897.463), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
             case 1770: capture.Put("vanilla-ce-spawns", Vector(1363.390, 0.000, 9308.640), "StaticBonfire", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2005,6 +4213,12 @@ class HCAdminWorldCatalog
             case 1773: capture.Put("vanilla-ce-spawns", Vector(598.000, 0.000, 13669.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1774: capture.Put("vanilla-ce-spawns", Vector(748.000, 0.000, 1876.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1775: capture.Put("vanilla-ce-spawns", Vector(1143.000, 0.000, 2386.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page222(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1776: capture.Put("vanilla-ce-spawns", Vector(1157.000, 0.000, 7239.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1777: capture.Put("vanilla-ce-spawns", Vector(1256.000, 0.000, 11449.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1778: capture.Put("vanilla-ce-spawns", Vector(1427.000, 0.000, 14459.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2013,6 +4227,12 @@ class HCAdminWorldCatalog
             case 1781: capture.Put("vanilla-ce-spawns", Vector(1554.000, 0.000, 13585.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1782: capture.Put("vanilla-ce-spawns", Vector(1661.000, 0.000, 14346.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1783: capture.Put("vanilla-ce-spawns", Vector(1686.000, 0.000, 14171.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page223(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1784: capture.Put("vanilla-ce-spawns", Vector(1819.000, 0.000, 3452.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1785: capture.Put("vanilla-ce-spawns", Vector(1910.000, 0.000, 2254.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1786: capture.Put("vanilla-ce-spawns", Vector(2509.000, 0.000, 5079.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2023,7 +4243,7 @@ class HCAdminWorldCatalog
             case 1791: capture.Put("vanilla-ce-spawns", Vector(3082.000, 0.000, 7979.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page28(HCAdminWorldCapture capture, int index)
+    static void Page224(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2035,6 +4255,12 @@ class HCAdminWorldCatalog
             case 1797: capture.Put("vanilla-ce-spawns", Vector(3710.000, 0.000, 5993.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1798: capture.Put("vanilla-ce-spawns", Vector(3721.000, 0.000, 8920.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1799: capture.Put("vanilla-ce-spawns", Vector(4009.000, 0.000, 11846.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page225(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1800: capture.Put("vanilla-ce-spawns", Vector(4121.494, 0.000, 10414.854), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1801: capture.Put("vanilla-ce-spawns", Vector(4177.432, 0.000, 10988.405), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1802: capture.Put("vanilla-ce-spawns", Vector(4186.000, 0.000, 11041.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2043,6 +4269,12 @@ class HCAdminWorldCatalog
             case 1805: capture.Put("vanilla-ce-spawns", Vector(4432.303, 0.000, 10867.974), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1806: capture.Put("vanilla-ce-spawns", Vector(4463.015, 0.000, 9795.827), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1807: capture.Put("vanilla-ce-spawns", Vector(4531.000, 0.000, 8306.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page226(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1808: capture.Put("vanilla-ce-spawns", Vector(4533.724, 0.000, 9624.238), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1809: capture.Put("vanilla-ce-spawns", Vector(4611.896, 0.000, 10486.911), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1810: capture.Put("vanilla-ce-spawns", Vector(4707.000, 0.000, 6365.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2051,6 +4283,12 @@ class HCAdminWorldCatalog
             case 1813: capture.Put("vanilla-ce-spawns", Vector(4785.966, 0.000, 10582.546), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1814: capture.Put("vanilla-ce-spawns", Vector(4903.000, 0.000, 5682.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1815: capture.Put("vanilla-ce-spawns", Vector(4944.000, 0.000, 2460.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page227(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1816: capture.Put("vanilla-ce-spawns", Vector(4960.647, 0.000, 10440.025), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1817: capture.Put("vanilla-ce-spawns", Vector(4965.000, 0.000, 15113.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1818: capture.Put("vanilla-ce-spawns", Vector(5047.006, 0.000, 9864.299), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2059,6 +4297,12 @@ class HCAdminWorldCatalog
             case 1821: capture.Put("vanilla-ce-spawns", Vector(5413.000, 0.000, 12606.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1822: capture.Put("vanilla-ce-spawns", Vector(5985.000, 0.000, 10342.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1823: capture.Put("vanilla-ce-spawns", Vector(6034.000, 0.000, 7823.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page228(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1824: capture.Put("vanilla-ce-spawns", Vector(6338.000, 0.000, 7800.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1825: capture.Put("vanilla-ce-spawns", Vector(6504.000, 0.000, 2749.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1826: capture.Put("vanilla-ce-spawns", Vector(6666.000, 0.000, 14459.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2067,6 +4311,12 @@ class HCAdminWorldCatalog
             case 1829: capture.Put("vanilla-ce-spawns", Vector(7239.000, 0.000, 7012.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1830: capture.Put("vanilla-ce-spawns", Vector(7254.000, 0.000, 3046.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1831: capture.Put("vanilla-ce-spawns", Vector(7702.000, 0.000, 12630.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page229(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1832: capture.Put("vanilla-ce-spawns", Vector(7817.000, 0.000, 14780.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1833: capture.Put("vanilla-ce-spawns", Vector(7955.000, 0.000, 14634.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1834: capture.Put("vanilla-ce-spawns", Vector(8093.000, 0.000, 9316.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2075,6 +4325,12 @@ class HCAdminWorldCatalog
             case 1837: capture.Put("vanilla-ce-spawns", Vector(8496.000, 0.000, 13976.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1838: capture.Put("vanilla-ce-spawns", Vector(9494.000, 0.000, 8820.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1839: capture.Put("vanilla-ce-spawns", Vector(9555.000, 0.000, 13679.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page230(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1840: capture.Put("vanilla-ce-spawns", Vector(9559.000, 0.000, 11816.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1841: capture.Put("vanilla-ce-spawns", Vector(10122.000, 0.000, 5490.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1842: capture.Put("vanilla-ce-spawns", Vector(10415.000, 0.000, 8911.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2083,6 +4339,12 @@ class HCAdminWorldCatalog
             case 1845: capture.Put("vanilla-ce-spawns", Vector(10698.000, 0.000, 8081.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1846: capture.Put("vanilla-ce-spawns", Vector(10942.000, 0.000, 13392.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1847: capture.Put("vanilla-ce-spawns", Vector(10996.000, 0.000, 12417.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page231(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1848: capture.Put("vanilla-ce-spawns", Vector(11211.000, 0.000, 12238.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1849: capture.Put("vanilla-ce-spawns", Vector(11507.000, 0.000, 14472.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
             case 1850: capture.Put("vanilla-ce-spawns", Vector(11800.000, 0.000, 14311.000), "StaticContaminatedArea", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2093,7 +4355,7 @@ class HCAdminWorldCatalog
             case 1855: capture.Put("vanilla-ce-spawns", Vector(12896.136, 0.000, 4453.045), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page29(HCAdminWorldCapture capture, int index)
+    static void Page232(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2105,6 +4367,12 @@ class HCAdminWorldCatalog
             case 1861: capture.Put("vanilla-ce-spawns", Vector(14025.909, 0.000, 14266.796), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1862: capture.Put("vanilla-ce-spawns", Vector(5230.887, 0.000, 5497.957), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1863: capture.Put("vanilla-ce-spawns", Vector(10793.808, 0.000, 12470.281), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page233(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1864: capture.Put("vanilla-ce-spawns", Vector(9899.779, 0.000, 10340.835), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1865: capture.Put("vanilla-ce-spawns", Vector(5968.524, 0.000, 5654.935), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1866: capture.Put("vanilla-ce-spawns", Vector(12423.814, 0.000, 14895.046), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2113,6 +4381,12 @@ class HCAdminWorldCatalog
             case 1869: capture.Put("vanilla-ce-spawns", Vector(13078.685, 0.000, 13125.546), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1870: capture.Put("vanilla-ce-spawns", Vector(9943.828, 0.000, 15292.682), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1871: capture.Put("vanilla-ce-spawns", Vector(11442.866, 0.000, 11363.061), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page234(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1872: capture.Put("vanilla-ce-spawns", Vector(10081.315, 0.000, 13299.858), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1873: capture.Put("vanilla-ce-spawns", Vector(10539.982, 0.000, 9701.253), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1874: capture.Put("vanilla-ce-spawns", Vector(4391.032, 0.000, 4581.520), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2121,6 +4395,12 @@ class HCAdminWorldCatalog
             case 1877: capture.Put("vanilla-ce-spawns", Vector(6754.292, 0.000, 5595.911), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1878: capture.Put("vanilla-ce-spawns", Vector(9684.398, 0.000, 6776.423), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1879: capture.Put("vanilla-ce-spawns", Vector(8344.581, 0.000, 5456.515), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page235(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1880: capture.Put("vanilla-ce-spawns", Vector(11683.108, 0.000, 6677.019), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1881: capture.Put("vanilla-ce-spawns", Vector(10441.624, 0.000, 14488.532), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1882: capture.Put("vanilla-ce-spawns", Vector(189.898, 0.000, 2375.637), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2129,6 +4409,12 @@ class HCAdminWorldCatalog
             case 1885: capture.Put("vanilla-ce-spawns", Vector(3980.732, 0.000, 14886.438), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1886: capture.Put("vanilla-ce-spawns", Vector(6361.454, 0.000, 15022.159), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1887: capture.Put("vanilla-ce-spawns", Vector(5204.209, 0.000, 14966.819), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page236(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1888: capture.Put("vanilla-ce-spawns", Vector(8554.222, 0.000, 15004.345), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1889: capture.Put("vanilla-ce-spawns", Vector(7517.760, 0.000, 13479.624), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1890: capture.Put("vanilla-ce-spawns", Vector(4441.248, 0.000, 15221.948), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2137,6 +4423,12 @@ class HCAdminWorldCatalog
             case 1893: capture.Put("vanilla-ce-spawns", Vector(2516.460, 0.000, 12860.817), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1894: capture.Put("vanilla-ce-spawns", Vector(1246.005, 0.000, 12014.672), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1895: capture.Put("vanilla-ce-spawns", Vector(1172.970, 0.000, 10002.191), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page237(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1896: capture.Put("vanilla-ce-spawns", Vector(3202.116, 0.000, 13738.081), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1897: capture.Put("vanilla-ce-spawns", Vector(188.869, 0.000, 12533.565), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1898: capture.Put("vanilla-ce-spawns", Vector(173.838, 0.000, 10408.898), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2145,6 +4437,12 @@ class HCAdminWorldCatalog
             case 1901: capture.Put("vanilla-ce-spawns", Vector(5731.217, 0.000, 13565.436), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1902: capture.Put("vanilla-ce-spawns", Vector(698.045, 0.000, 5655.840), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1903: capture.Put("vanilla-ce-spawns", Vector(3374.656, 0.000, 6438.325), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page238(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1904: capture.Put("vanilla-ce-spawns", Vector(731.093, 0.000, 4614.779), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1905: capture.Put("vanilla-ce-spawns", Vector(401.609, 0.000, 5180.115), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1906: capture.Put("vanilla-ce-spawns", Vector(266.370, 0.000, 3771.341), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2153,6 +4451,12 @@ class HCAdminWorldCatalog
             case 1909: capture.Put("vanilla-ce-spawns", Vector(7842.442, 0.000, 11571.215), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1910: capture.Put("vanilla-ce-spawns", Vector(9172.483, 0.000, 11041.203), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1911: capture.Put("vanilla-ce-spawns", Vector(8838.810, 0.000, 12048.776), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page239(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1912: capture.Put("vanilla-ce-spawns", Vector(6900.140, 0.000, 9867.984), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1913: capture.Put("vanilla-ce-spawns", Vector(5261.272, 0.000, 12629.514), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1914: capture.Put("vanilla-ce-spawns", Vector(1204.619, 0.000, 8719.436), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2163,7 +4467,7 @@ class HCAdminWorldCatalog
             case 1919: capture.Put("vanilla-ce-spawns", Vector(1567.008, 0.000, 8987.470), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page30(HCAdminWorldCapture capture, int index)
+    static void Page240(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2175,6 +4479,12 @@ class HCAdminWorldCatalog
             case 1925: capture.Put("vanilla-ce-spawns", Vector(2511.672, 0.000, 11006.207), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1926: capture.Put("vanilla-ce-spawns", Vector(3056.927, 0.000, 7785.317), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1927: capture.Put("vanilla-ce-spawns", Vector(9074.925, 0.000, 8018.091), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page241(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1928: capture.Put("vanilla-ce-spawns", Vector(4802.537, 0.000, 6823.164), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1929: capture.Put("vanilla-ce-spawns", Vector(4706.666, 0.000, 6311.534), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1930: capture.Put("vanilla-ce-spawns", Vector(2797.502, 0.000, 9871.407), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2183,6 +4493,12 @@ class HCAdminWorldCatalog
             case 1933: capture.Put("vanilla-ce-spawns", Vector(1218.172, 0.000, 6215.999), "VehicleOffroadHatchback", "Stock CE candidate; not a live event or vehicle"); break;
             case 1934: capture.Put("vanilla-ce-spawns", Vector(801.262, 0.000, 1919.863), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1935: capture.Put("vanilla-ce-spawns", Vector(1570.476, 0.000, 14051.657), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page242(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1936: capture.Put("vanilla-ce-spawns", Vector(1652.650, 0.000, 14209.894), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1937: capture.Put("vanilla-ce-spawns", Vector(1693.303, 0.000, 13850.991), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1938: capture.Put("vanilla-ce-spawns", Vector(2424.321, 0.000, 5143.495), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2191,6 +4507,12 @@ class HCAdminWorldCatalog
             case 1941: capture.Put("vanilla-ce-spawns", Vector(4482.700, 0.000, 8247.956), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1942: capture.Put("vanilla-ce-spawns", Vector(4496.698, 0.000, 9785.620), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1943: capture.Put("vanilla-ce-spawns", Vector(4604.114, 0.000, 9519.081), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page243(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1944: capture.Put("vanilla-ce-spawns", Vector(4754.870, 0.000, 10482.091), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1945: capture.Put("vanilla-ce-spawns", Vector(4801.035, 0.000, 10663.884), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1946: capture.Put("vanilla-ce-spawns", Vector(4920.057, 0.000, 2595.620), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2199,6 +4521,12 @@ class HCAdminWorldCatalog
             case 1949: capture.Put("vanilla-ce-spawns", Vector(7314.906, 0.000, 3066.312), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1950: capture.Put("vanilla-ce-spawns", Vector(8073.898, 0.000, 9415.976), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1951: capture.Put("vanilla-ce-spawns", Vector(9512.939, 0.000, 11746.782), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page244(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1952: capture.Put("vanilla-ce-spawns", Vector(10195.630, 0.000, 4041.149), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1953: capture.Put("vanilla-ce-spawns", Vector(10425.445, 0.000, 5837.931), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
             case 1954: capture.Put("vanilla-ce-spawns", Vector(11018.029, 0.000, 13380.627), "VehicleOffroad02", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2207,6 +4535,12 @@ class HCAdminWorldCatalog
             case 1957: capture.Put("vanilla-ce-spawns", Vector(8492.219, 0.000, 14207.077), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1958: capture.Put("vanilla-ce-spawns", Vector(2206.328, 0.000, 11108.212), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1959: capture.Put("vanilla-ce-spawns", Vector(4579.461, 0.000, 13194.565), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page245(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1960: capture.Put("vanilla-ce-spawns", Vector(5217.501, 0.000, 12732.264), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1961: capture.Put("vanilla-ce-spawns", Vector(2848.601, 0.000, 12378.596), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1962: capture.Put("vanilla-ce-spawns", Vector(5425.974, 0.000, 12583.287), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2215,6 +4549,12 @@ class HCAdminWorldCatalog
             case 1965: capture.Put("vanilla-ce-spawns", Vector(3375.158, 0.000, 15220.704), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1966: capture.Put("vanilla-ce-spawns", Vector(3428.547, 0.000, 13070.620), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1967: capture.Put("vanilla-ce-spawns", Vector(3019.299, 0.000, 12639.953), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page246(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1968: capture.Put("vanilla-ce-spawns", Vector(7011.834, 0.000, 12675.402), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1969: capture.Put("vanilla-ce-spawns", Vector(7169.686, 0.000, 12720.741), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1970: capture.Put("vanilla-ce-spawns", Vector(4557.872, 0.000, 14628.151), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2223,6 +4563,12 @@ class HCAdminWorldCatalog
             case 1973: capture.Put("vanilla-ce-spawns", Vector(3278.577, 0.000, 13062.666), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1974: capture.Put("vanilla-ce-spawns", Vector(4908.744, 0.000, 15069.742), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1975: capture.Put("vanilla-ce-spawns", Vector(6477.115, 0.000, 14975.002), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page247(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1976: capture.Put("vanilla-ce-spawns", Vector(3424.453, 0.000, 13001.766), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1977: capture.Put("vanilla-ce-spawns", Vector(9228.607, 0.000, 13306.115), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1978: capture.Put("vanilla-ce-spawns", Vector(3412.239, 0.000, 13008.913), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2233,7 +4579,7 @@ class HCAdminWorldCatalog
             case 1983: capture.Put("vanilla-ce-spawns", Vector(3692.911, 0.000, 13100.756), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page31(HCAdminWorldCapture capture, int index)
+    static void Page248(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2245,6 +4591,12 @@ class HCAdminWorldCatalog
             case 1989: capture.Put("vanilla-ce-spawns", Vector(2008.927, 0.000, 7332.499), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1990: capture.Put("vanilla-ce-spawns", Vector(2734.219, 0.000, 6626.499), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1991: capture.Put("vanilla-ce-spawns", Vector(4467.493, 0.000, 8833.809), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page249(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 1992: capture.Put("vanilla-ce-spawns", Vector(4963.833, 0.000, 8141.925), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1993: capture.Put("vanilla-ce-spawns", Vector(8002.761, 0.000, 12563.034), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1994: capture.Put("vanilla-ce-spawns", Vector(7601.313, 0.000, 12607.905), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2253,6 +4605,12 @@ class HCAdminWorldCatalog
             case 1997: capture.Put("vanilla-ce-spawns", Vector(354.778, 0.000, 9446.001), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1998: capture.Put("vanilla-ce-spawns", Vector(1262.280, 0.000, 6332.202), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 1999: capture.Put("vanilla-ce-spawns", Vector(2904.932, 0.000, 7332.972), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page250(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2000: capture.Put("vanilla-ce-spawns", Vector(285.741, 0.000, 9264.222), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2001: capture.Put("vanilla-ce-spawns", Vector(7733.816, 0.000, 12617.568), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2002: capture.Put("vanilla-ce-spawns", Vector(7961.671, 0.000, 12770.607), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2261,6 +4619,12 @@ class HCAdminWorldCatalog
             case 2005: capture.Put("vanilla-ce-spawns", Vector(3817.247, 0.000, 8851.874), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2006: capture.Put("vanilla-ce-spawns", Vector(8134.975, 0.000, 12768.280), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2007: capture.Put("vanilla-ce-spawns", Vector(312.525, 0.000, 9374.224), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page251(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2008: capture.Put("vanilla-ce-spawns", Vector(2514.713, 0.000, 9657.836), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2009: capture.Put("vanilla-ce-spawns", Vector(374.860, 0.000, 9431.859), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2010: capture.Put("vanilla-ce-spawns", Vector(5175.505, 0.000, 8586.655), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2269,6 +4633,12 @@ class HCAdminWorldCatalog
             case 2013: capture.Put("vanilla-ce-spawns", Vector(6982.219, 0.000, 11367.894), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2014: capture.Put("vanilla-ce-spawns", Vector(1053.946, 0.000, 7594.208), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2015: capture.Put("vanilla-ce-spawns", Vector(8061.447, 0.000, 9377.373), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page252(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2016: capture.Put("vanilla-ce-spawns", Vector(3043.518, 0.000, 7991.415), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2017: capture.Put("vanilla-ce-spawns", Vector(3419.988, 0.000, 3971.585), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2018: capture.Put("vanilla-ce-spawns", Vector(7183.959, 0.000, 7666.497), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2277,6 +4647,12 @@ class HCAdminWorldCatalog
             case 2021: capture.Put("vanilla-ce-spawns", Vector(2758.067, 0.000, 5282.434), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2022: capture.Put("vanilla-ce-spawns", Vector(6368.158, 0.000, 7570.419), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2023: capture.Put("vanilla-ce-spawns", Vector(2704.244, 0.000, 5164.371), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page253(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2024: capture.Put("vanilla-ce-spawns", Vector(8692.045, 0.000, 6517.913), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2025: capture.Put("vanilla-ce-spawns", Vector(8173.969, 0.000, 8575.018), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2026: capture.Put("vanilla-ce-spawns", Vector(4403.510, 0.000, 6416.037), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2285,6 +4661,12 @@ class HCAdminWorldCatalog
             case 2029: capture.Put("vanilla-ce-spawns", Vector(5975.680, 0.000, 7895.842), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2030: capture.Put("vanilla-ce-spawns", Vector(2677.786, 0.000, 5622.520), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2031: capture.Put("vanilla-ce-spawns", Vector(7117.682, 0.000, 6924.614), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page254(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2032: capture.Put("vanilla-ce-spawns", Vector(7181.492, 0.000, 8287.336), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2033: capture.Put("vanilla-ce-spawns", Vector(5718.525, 0.000, 6273.703), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2034: capture.Put("vanilla-ce-spawns", Vector(2730.503, 0.000, 5360.530), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2293,6 +4675,12 @@ class HCAdminWorldCatalog
             case 2037: capture.Put("vanilla-ce-spawns", Vector(4717.331, 0.000, 6356.003), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2038: capture.Put("vanilla-ce-spawns", Vector(7169.271, 0.000, 7682.730), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2039: capture.Put("vanilla-ce-spawns", Vector(1696.489, 0.000, 3848.898), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page255(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2040: capture.Put("vanilla-ce-spawns", Vector(2319.593, 0.000, 3715.977), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2041: capture.Put("vanilla-ce-spawns", Vector(8775.321, 0.000, 9101.499), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2042: capture.Put("vanilla-ce-spawns", Vector(8054.138, 0.000, 7073.640), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2303,7 +4691,7 @@ class HCAdminWorldCatalog
             case 2047: capture.Put("vanilla-ce-spawns", Vector(6062.539, 0.000, 7766.815), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page32(HCAdminWorldCapture capture, int index)
+    static void Page256(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2315,6 +4703,12 @@ class HCAdminWorldCatalog
             case 2053: capture.Put("vanilla-ce-spawns", Vector(7512.051, 0.000, 4994.337), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2054: capture.Put("vanilla-ce-spawns", Vector(8407.355, 0.000, 4932.665), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2055: capture.Put("vanilla-ce-spawns", Vector(6166.504, 0.000, 3602.126), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page257(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2056: capture.Put("vanilla-ce-spawns", Vector(5808.653, 0.000, 3115.088), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2057: capture.Put("vanilla-ce-spawns", Vector(6768.842, 0.000, 5807.603), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2058: capture.Put("vanilla-ce-spawns", Vector(7513.016, 0.000, 4672.464), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2323,6 +4717,12 @@ class HCAdminWorldCatalog
             case 2061: capture.Put("vanilla-ce-spawns", Vector(4385.506, 0.000, 4676.536), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2062: capture.Put("vanilla-ce-spawns", Vector(2600.626, 0.000, 3455.653), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2063: capture.Put("vanilla-ce-spawns", Vector(4302.312, 0.000, 5498.163), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page258(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2064: capture.Put("vanilla-ce-spawns", Vector(6487.740, 0.000, 6168.984), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2065: capture.Put("vanilla-ce-spawns", Vector(5856.060, 0.000, 4667.697), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2066: capture.Put("vanilla-ce-spawns", Vector(4905.863, 0.000, 5658.425), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2331,6 +4731,12 @@ class HCAdminWorldCatalog
             case 2069: capture.Put("vanilla-ce-spawns", Vector(5760.577, 0.000, 4141.096), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2070: capture.Put("vanilla-ce-spawns", Vector(6147.849, 0.000, 3468.088), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2071: capture.Put("vanilla-ce-spawns", Vector(6328.271, 0.000, 3335.193), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page259(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2072: capture.Put("vanilla-ce-spawns", Vector(5227.175, 0.000, 3683.198), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2073: capture.Put("vanilla-ce-spawns", Vector(6184.527, 0.000, 3114.820), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2074: capture.Put("vanilla-ce-spawns", Vector(5754.709, 0.000, 3058.300), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2339,6 +4745,12 @@ class HCAdminWorldCatalog
             case 2077: capture.Put("vanilla-ce-spawns", Vector(6496.124, 0.000, 3641.375), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2078: capture.Put("vanilla-ce-spawns", Vector(5358.082, 0.000, 2917.746), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2079: capture.Put("vanilla-ce-spawns", Vector(3210.555, 0.000, 3488.520), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page260(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2080: capture.Put("vanilla-ce-spawns", Vector(1767.649, 0.000, 3524.246), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2081: capture.Put("vanilla-ce-spawns", Vector(7480.644, 0.000, 3174.699), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2082: capture.Put("vanilla-ce-spawns", Vector(8168.903, 0.000, 3115.709), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2347,6 +4759,12 @@ class HCAdminWorldCatalog
             case 2085: capture.Put("vanilla-ce-spawns", Vector(782.449, 0.000, 1914.130), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2086: capture.Put("vanilla-ce-spawns", Vector(874.585, 0.000, 1968.203), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2087: capture.Put("vanilla-ce-spawns", Vector(1945.141, 0.000, 2243.053), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page261(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2088: capture.Put("vanilla-ce-spawns", Vector(6839.468, 0.000, 3043.291), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2089: capture.Put("vanilla-ce-spawns", Vector(1730.679, 0.000, 2202.511), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2090: capture.Put("vanilla-ce-spawns", Vector(3174.349, 0.000, 2577.562), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2355,6 +4773,12 @@ class HCAdminWorldCatalog
             case 2093: capture.Put("vanilla-ce-spawns", Vector(3567.862, 0.000, 2444.041), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2094: capture.Put("vanilla-ce-spawns", Vector(7004.566, 0.000, 3175.185), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2095: capture.Put("vanilla-ce-spawns", Vector(3561.064, 0.000, 2430.077), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page262(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2096: capture.Put("vanilla-ce-spawns", Vector(1892.817, 0.000, 2246.965), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2097: capture.Put("vanilla-ce-spawns", Vector(7027.304, 0.000, 4404.474), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2098: capture.Put("vanilla-ce-spawns", Vector(8243.867, 0.000, 3076.307), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2363,6 +4787,12 @@ class HCAdminWorldCatalog
             case 2101: capture.Put("vanilla-ce-spawns", Vector(6397.214, 0.000, 2861.517), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2102: capture.Put("vanilla-ce-spawns", Vector(6495.152, 0.000, 2680.219), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2103: capture.Put("vanilla-ce-spawns", Vector(7764.286, 0.000, 3166.350), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page263(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2104: capture.Put("vanilla-ce-spawns", Vector(8313.882, 0.000, 3035.127), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2105: capture.Put("vanilla-ce-spawns", Vector(1163.732, 0.000, 2408.620), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2106: capture.Put("vanilla-ce-spawns", Vector(726.368, 0.000, 1893.167), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2373,7 +4803,7 @@ class HCAdminWorldCatalog
             case 2111: capture.Put("vanilla-ce-spawns", Vector(6400.723, 0.000, 2756.946), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page33(HCAdminWorldCapture capture, int index)
+    static void Page264(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2385,6 +4815,12 @@ class HCAdminWorldCatalog
             case 2117: capture.Put("vanilla-ce-spawns", Vector(4507.053, 0.000, 2445.855), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2118: capture.Put("vanilla-ce-spawns", Vector(6285.272, 0.000, 2671.890), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2119: capture.Put("vanilla-ce-spawns", Vector(6372.684, 0.000, 2626.476), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page265(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2120: capture.Put("vanilla-ce-spawns", Vector(6612.405, 0.000, 2574.909), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2121: capture.Put("vanilla-ce-spawns", Vector(4585.657, 0.000, 2589.441), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2122: capture.Put("vanilla-ce-spawns", Vector(6604.041, 0.000, 2582.017), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2393,6 +4829,12 @@ class HCAdminWorldCatalog
             case 2125: capture.Put("vanilla-ce-spawns", Vector(4847.499, 0.000, 2583.645), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2126: capture.Put("vanilla-ce-spawns", Vector(5606.199, 0.000, 2413.149), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2127: capture.Put("vanilla-ce-spawns", Vector(6469.109, 0.000, 2409.992), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page266(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2128: capture.Put("vanilla-ce-spawns", Vector(5784.659, 0.000, 2149.710), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2129: capture.Put("vanilla-ce-spawns", Vector(6497.174, 0.000, 2520.668), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2130: capture.Put("vanilla-ce-spawns", Vector(6558.754, 0.000, 2496.732), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2401,6 +4843,12 @@ class HCAdminWorldCatalog
             case 2133: capture.Put("vanilla-ce-spawns", Vector(5977.049, 0.000, 2210.192), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2134: capture.Put("vanilla-ce-spawns", Vector(8605.009, 0.000, 2625.234), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2135: capture.Put("vanilla-ce-spawns", Vector(9400.407, 0.000, 14554.622), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page267(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2136: capture.Put("vanilla-ce-spawns", Vector(11257.765, 0.000, 14629.972), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2137: capture.Put("vanilla-ce-spawns", Vector(6698.014, 0.000, 2385.001), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2138: capture.Put("vanilla-ce-spawns", Vector(10391.720, 0.000, 15090.455), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2409,6 +4857,12 @@ class HCAdminWorldCatalog
             case 2141: capture.Put("vanilla-ce-spawns", Vector(5892.535, 0.000, 2201.419), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2142: capture.Put("vanilla-ce-spawns", Vector(6354.621, 0.000, 2508.964), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2143: capture.Put("vanilla-ce-spawns", Vector(11420.437, 0.000, 14714.110), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page268(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2144: capture.Put("vanilla-ce-spawns", Vector(11586.502, 0.000, 14616.755), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2145: capture.Put("vanilla-ce-spawns", Vector(12054.275, 0.000, 14417.865), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2146: capture.Put("vanilla-ce-spawns", Vector(9593.439, 0.000, 13758.235), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2417,6 +4871,12 @@ class HCAdminWorldCatalog
             case 2149: capture.Put("vanilla-ce-spawns", Vector(12285.821, 0.000, 13850.325), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2150: capture.Put("vanilla-ce-spawns", Vector(13834.158, 0.000, 13229.552), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2151: capture.Put("vanilla-ce-spawns", Vector(11510.859, 0.000, 14480.636), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page269(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2152: capture.Put("vanilla-ce-spawns", Vector(12052.479, 0.000, 13854.643), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2153: capture.Put("vanilla-ce-spawns", Vector(10889.232, 0.000, 14306.441), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2154: capture.Put("vanilla-ce-spawns", Vector(11585.799, 0.000, 14287.399), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2425,6 +4885,12 @@ class HCAdminWorldCatalog
             case 2157: capture.Put("vanilla-ce-spawns", Vector(13554.053, 0.000, 13807.986), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2158: capture.Put("vanilla-ce-spawns", Vector(13620.053, 0.000, 13764.179), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2159: capture.Put("vanilla-ce-spawns", Vector(11549.583, 0.000, 14095.851), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page270(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2160: capture.Put("vanilla-ce-spawns", Vector(13702.619, 0.000, 13726.777), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2161: capture.Put("vanilla-ce-spawns", Vector(11093.124, 0.000, 12474.971), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2162: capture.Put("vanilla-ce-spawns", Vector(13609.796, 0.000, 13342.585), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2433,6 +4899,12 @@ class HCAdminWorldCatalog
             case 2165: capture.Put("vanilla-ce-spawns", Vector(11806.083, 0.000, 12564.771), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2166: capture.Put("vanilla-ce-spawns", Vector(13387.395, 0.000, 14296.188), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2167: capture.Put("vanilla-ce-spawns", Vector(11839.186, 0.000, 12366.927), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page271(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2168: capture.Put("vanilla-ce-spawns", Vector(9544.305, 0.000, 11813.609), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2169: capture.Put("vanilla-ce-spawns", Vector(12922.544, 0.000, 13897.160), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2170: capture.Put("vanilla-ce-spawns", Vector(11220.062, 0.000, 12206.235), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2443,7 +4915,7 @@ class HCAdminWorldCatalog
             case 2175: capture.Put("vanilla-ce-spawns", Vector(11337.910, 0.000, 14327.182), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page34(HCAdminWorldCapture capture, int index)
+    static void Page272(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2455,6 +4927,12 @@ class HCAdminWorldCatalog
             case 2181: capture.Put("vanilla-ce-spawns", Vector(12934.564, 0.000, 10173.832), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2182: capture.Put("vanilla-ce-spawns", Vector(12314.973, 0.000, 9864.772), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2183: capture.Put("vanilla-ce-spawns", Vector(12859.874, 0.000, 10014.646), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page273(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2184: capture.Put("vanilla-ce-spawns", Vector(10415.552, 0.000, 9131.673), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2185: capture.Put("vanilla-ce-spawns", Vector(10519.248, 0.000, 9137.364), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2186: capture.Put("vanilla-ce-spawns", Vector(10717.743, 0.000, 10771.855), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2463,6 +4941,12 @@ class HCAdminWorldCatalog
             case 2189: capture.Put("vanilla-ce-spawns", Vector(12197.712, 0.000, 9544.164), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2190: capture.Put("vanilla-ce-spawns", Vector(12911.996, 0.000, 9550.462), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2191: capture.Put("vanilla-ce-spawns", Vector(12888.818, 0.000, 9355.654), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page274(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2192: capture.Put("vanilla-ce-spawns", Vector(13895.803, 0.000, 13199.592), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2193: capture.Put("vanilla-ce-spawns", Vector(12644.058, 0.000, 12179.177), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2194: capture.Put("vanilla-ce-spawns", Vector(10413.998, 0.000, 9844.723), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2471,6 +4955,12 @@ class HCAdminWorldCatalog
             case 2197: capture.Put("vanilla-ce-spawns", Vector(11954.006, 0.000, 9002.874), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2198: capture.Put("vanilla-ce-spawns", Vector(12361.780, 0.000, 9677.848), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2199: capture.Put("vanilla-ce-spawns", Vector(12050.420, 0.000, 9073.944), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page275(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2200: capture.Put("vanilla-ce-spawns", Vector(13617.188, 0.000, 11813.143), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2201: capture.Put("vanilla-ce-spawns", Vector(12048.714, 0.000, 9063.695), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2202: capture.Put("vanilla-ce-spawns", Vector(12038.941, 0.000, 9093.127), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2479,6 +4969,12 @@ class HCAdminWorldCatalog
             case 2205: capture.Put("vanilla-ce-spawns", Vector(10401.453, 0.000, 8957.030), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2206: capture.Put("vanilla-ce-spawns", Vector(12999.018, 0.000, 10064.087), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2207: capture.Put("vanilla-ce-spawns", Vector(10666.076, 0.000, 8085.183), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page276(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2208: capture.Put("vanilla-ce-spawns", Vector(13559.873, 0.000, 11703.170), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2209: capture.Put("vanilla-ce-spawns", Vector(12052.384, 0.000, 3483.130), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2210: capture.Put("vanilla-ce-spawns", Vector(10450.702, 0.000, 2512.140), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2487,6 +4983,12 @@ class HCAdminWorldCatalog
             case 2213: capture.Put("vanilla-ce-spawns", Vector(11180.855, 0.000, 6601.666), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2214: capture.Put("vanilla-ce-spawns", Vector(11304.364, 0.000, 6563.951), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2215: capture.Put("vanilla-ce-spawns", Vector(13398.860, 0.000, 6583.558), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page277(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2216: capture.Put("vanilla-ce-spawns", Vector(10166.514, 0.000, 5517.395), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2217: capture.Put("vanilla-ce-spawns", Vector(13393.732, 0.000, 6290.632), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2218: capture.Put("vanilla-ce-spawns", Vector(10551.092, 0.000, 7036.868), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2495,6 +4997,12 @@ class HCAdminWorldCatalog
             case 2221: capture.Put("vanilla-ce-spawns", Vector(13374.970, 0.000, 6147.699), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2222: capture.Put("vanilla-ce-spawns", Vector(13389.863, 0.000, 5416.825), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2223: capture.Put("vanilla-ce-spawns", Vector(10121.823, 0.000, 4113.456), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page278(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2224: capture.Put("vanilla-ce-spawns", Vector(10253.119, 0.000, 3972.182), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2225: capture.Put("vanilla-ce-spawns", Vector(10268.719, 0.000, 2891.614), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2226: capture.Put("vanilla-ce-spawns", Vector(13203.310, 0.000, 3945.398), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2503,6 +5011,12 @@ class HCAdminWorldCatalog
             case 2229: capture.Put("vanilla-ce-spawns", Vector(13101.853, 0.000, 7373.248), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2230: capture.Put("vanilla-ce-spawns", Vector(12844.654, 0.000, 6222.231), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2231: capture.Put("vanilla-ce-spawns", Vector(12038.750, 0.000, 3611.806), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page279(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2232: capture.Put("vanilla-ce-spawns", Vector(13114.995, 0.000, 7321.117), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2233: capture.Put("vanilla-ce-spawns", Vector(10120.651, 0.000, 5466.374), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2234: capture.Put("vanilla-ce-spawns", Vector(11907.705, 0.000, 6433.461), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2513,7 +5027,7 @@ class HCAdminWorldCatalog
             case 2239: capture.Put("vanilla-ce-spawns", Vector(9892.767, 0.000, 6002.938), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page35(HCAdminWorldCapture capture, int index)
+    static void Page280(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2525,6 +5039,12 @@ class HCAdminWorldCatalog
             case 2245: capture.Put("vanilla-ce-spawns", Vector(10510.849, 0.000, 2273.419), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2246: capture.Put("vanilla-ce-spawns", Vector(10472.040, 0.000, 2297.687), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2247: capture.Put("vanilla-ce-spawns", Vector(10306.127, 0.000, 2155.722), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page281(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2248: capture.Put("vanilla-ce-spawns", Vector(10548.052, 0.000, 2369.632), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2249: capture.Put("vanilla-ce-spawns", Vector(9507.559, 0.000, 2015.703), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2250: capture.Put("vanilla-ce-spawns", Vector(10028.015, 0.000, 2009.275), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2533,6 +5053,12 @@ class HCAdminWorldCatalog
             case 2253: capture.Put("vanilla-ce-spawns", Vector(10478.969, 0.000, 2322.481), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2254: capture.Put("vanilla-ce-spawns", Vector(10039.966, 0.000, 1871.311), "StaticPoliceCar", "Stock CE candidate; not a live event or vehicle"); break;
             case 2255: capture.Put("vanilla-ce-spawns", Vector(912.028, 0.000, 7628.304), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page282(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2256: capture.Put("vanilla-ce-spawns", Vector(914.159, 0.000, 7615.238), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2257: capture.Put("vanilla-ce-spawns", Vector(915.196, 0.000, 7616.250), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2258: capture.Put("vanilla-ce-spawns", Vector(915.277, 0.000, 7690.894), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2541,6 +5067,12 @@ class HCAdminWorldCatalog
             case 2261: capture.Put("vanilla-ce-spawns", Vector(918.997, 0.000, 7686.048), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2262: capture.Put("vanilla-ce-spawns", Vector(921.471, 0.000, 7577.172), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2263: capture.Put("vanilla-ce-spawns", Vector(923.031, 0.000, 7577.467), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page283(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2264: capture.Put("vanilla-ce-spawns", Vector(923.317, 0.000, 7568.845), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2265: capture.Put("vanilla-ce-spawns", Vector(924.154, 0.000, 7626.670), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2266: capture.Put("vanilla-ce-spawns", Vector(924.271, 0.000, 7570.790), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2549,6 +5081,12 @@ class HCAdminWorldCatalog
             case 2269: capture.Put("vanilla-ce-spawns", Vector(925.536, 0.000, 7626.287), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2270: capture.Put("vanilla-ce-spawns", Vector(926.714, 0.000, 7612.135), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2271: capture.Put("vanilla-ce-spawns", Vector(926.732, 0.000, 7627.197), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page284(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2272: capture.Put("vanilla-ce-spawns", Vector(931.792, 0.000, 7629.590), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2273: capture.Put("vanilla-ce-spawns", Vector(933.017, 0.000, 7699.465), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2274: capture.Put("vanilla-ce-spawns", Vector(933.796, 0.000, 7618.602), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2557,6 +5095,12 @@ class HCAdminWorldCatalog
             case 2277: capture.Put("vanilla-ce-spawns", Vector(958.895, 0.000, 7584.558), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2278: capture.Put("vanilla-ce-spawns", Vector(959.642, 0.000, 7580.413), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2279: capture.Put("vanilla-ce-spawns", Vector(1003.148, 0.000, 7635.628), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page285(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2280: capture.Put("vanilla-ce-spawns", Vector(1003.984, 0.000, 7637.922), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2281: capture.Put("vanilla-ce-spawns", Vector(1004.495, 0.000, 7627.718), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2282: capture.Put("vanilla-ce-spawns", Vector(1005.503, 0.000, 7628.960), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2565,6 +5109,12 @@ class HCAdminWorldCatalog
             case 2285: capture.Put("vanilla-ce-spawns", Vector(1010.413, 0.000, 7628.455), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2286: capture.Put("vanilla-ce-spawns", Vector(1030.136, 0.000, 7589.873), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2287: capture.Put("vanilla-ce-spawns", Vector(1856.835, 0.000, 2146.780), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page286(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2288: capture.Put("vanilla-ce-spawns", Vector(1863.170, 0.000, 2148.364), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2289: capture.Put("vanilla-ce-spawns", Vector(1865.584, 0.000, 2150.645), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2290: capture.Put("vanilla-ce-spawns", Vector(2031.433, 0.000, 12200.404), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2573,6 +5123,12 @@ class HCAdminWorldCatalog
             case 2293: capture.Put("vanilla-ce-spawns", Vector(2074.643, 0.000, 12166.503), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2294: capture.Put("vanilla-ce-spawns", Vector(2078.188, 0.000, 12188.166), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2295: capture.Put("vanilla-ce-spawns", Vector(2081.757, 0.000, 12180.369), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page287(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2296: capture.Put("vanilla-ce-spawns", Vector(2083.697, 0.000, 12178.030), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2297: capture.Put("vanilla-ce-spawns", Vector(2085.216, 0.000, 12172.872), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2298: capture.Put("vanilla-ce-spawns", Vector(2090.325, 0.000, 12171.112), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2583,7 +5139,7 @@ class HCAdminWorldCatalog
             case 2303: capture.Put("vanilla-ce-spawns", Vector(2094.193, 0.000, 12184.066), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page36(HCAdminWorldCapture capture, int index)
+    static void Page288(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2595,6 +5151,12 @@ class HCAdminWorldCatalog
             case 2309: capture.Put("vanilla-ce-spawns", Vector(2222.847, 0.000, 5150.242), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2310: capture.Put("vanilla-ce-spawns", Vector(2224.422, 0.000, 5156.641), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2311: capture.Put("vanilla-ce-spawns", Vector(2228.509, 0.000, 5157.542), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page289(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2312: capture.Put("vanilla-ce-spawns", Vector(2232.498, 0.000, 5158.349), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2313: capture.Put("vanilla-ce-spawns", Vector(2252.962, 0.000, 5195.429), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2314: capture.Put("vanilla-ce-spawns", Vector(2253.129, 0.000, 5233.552), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2603,6 +5165,12 @@ class HCAdminWorldCatalog
             case 2317: capture.Put("vanilla-ce-spawns", Vector(2260.683, 0.000, 5192.600), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2318: capture.Put("vanilla-ce-spawns", Vector(2261.664, 0.000, 5197.101), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2319: capture.Put("vanilla-ce-spawns", Vector(2267.122, 0.000, 5230.685), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page290(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2320: capture.Put("vanilla-ce-spawns", Vector(2268.324, 0.000, 5224.006), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2321: capture.Put("vanilla-ce-spawns", Vector(2272.767, 0.000, 5219.943), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2322: capture.Put("vanilla-ce-spawns", Vector(2274.035, 0.000, 5197.664), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2611,6 +5179,12 @@ class HCAdminWorldCatalog
             case 2325: capture.Put("vanilla-ce-spawns", Vector(2909.884, 0.000, 12653.813), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2326: capture.Put("vanilla-ce-spawns", Vector(2920.175, 0.000, 12634.267), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2327: capture.Put("vanilla-ce-spawns", Vector(2930.356, 0.000, 12614.589), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page291(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2328: capture.Put("vanilla-ce-spawns", Vector(2936.185, 0.000, 12617.632), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2329: capture.Put("vanilla-ce-spawns", Vector(2947.258, 0.000, 12656.566), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2330: capture.Put("vanilla-ce-spawns", Vector(3454.176, 0.000, 12484.652), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2619,6 +5193,12 @@ class HCAdminWorldCatalog
             case 2333: capture.Put("vanilla-ce-spawns", Vector(3469.686, 0.000, 12491.177), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2334: capture.Put("vanilla-ce-spawns", Vector(3478.142, 0.000, 12493.062), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2335: capture.Put("vanilla-ce-spawns", Vector(3508.764, 0.000, 12494.968), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page292(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2336: capture.Put("vanilla-ce-spawns", Vector(3522.328, 0.000, 12500.949), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2337: capture.Put("vanilla-ce-spawns", Vector(3527.208, 0.000, 12504.574), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2338: capture.Put("vanilla-ce-spawns", Vector(3531.756, 0.000, 12504.542), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2627,6 +5207,12 @@ class HCAdminWorldCatalog
             case 2341: capture.Put("vanilla-ce-spawns", Vector(3606.448, 0.000, 2223.929), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2342: capture.Put("vanilla-ce-spawns", Vector(3609.659, 0.000, 2237.222), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2343: capture.Put("vanilla-ce-spawns", Vector(4119.967, 0.000, 10453.501), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page293(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2344: capture.Put("vanilla-ce-spawns", Vector(4466.851, 0.000, 10817.932), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2345: capture.Put("vanilla-ce-spawns", Vector(4576.931, 0.000, 10866.148), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2346: capture.Put("vanilla-ce-spawns", Vector(4601.864, 0.000, 10887.188), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2635,6 +5221,12 @@ class HCAdminWorldCatalog
             case 2349: capture.Put("vanilla-ce-spawns", Vector(4616.942, 0.000, 10841.038), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2350: capture.Put("vanilla-ce-spawns", Vector(4712.360, 0.000, 10731.115), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2351: capture.Put("vanilla-ce-spawns", Vector(4796.395, 0.000, 10643.911), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page294(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2352: capture.Put("vanilla-ce-spawns", Vector(4827.660, 0.000, 10613.381), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2353: capture.Put("vanilla-ce-spawns", Vector(5031.320, 0.000, 12736.769), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2354: capture.Put("vanilla-ce-spawns", Vector(5034.156, 0.000, 12741.327), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2643,6 +5235,12 @@ class HCAdminWorldCatalog
             case 2357: capture.Put("vanilla-ce-spawns", Vector(5038.929, 0.000, 12736.675), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2358: capture.Put("vanilla-ce-spawns", Vector(5039.411, 0.000, 12739.878), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2359: capture.Put("vanilla-ce-spawns", Vector(5040.127, 0.000, 12750.576), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page295(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2360: capture.Put("vanilla-ce-spawns", Vector(5043.216, 0.000, 12737.730), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2361: capture.Put("vanilla-ce-spawns", Vector(5044.007, 0.000, 12729.295), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2362: capture.Put("vanilla-ce-spawns", Vector(5044.845, 0.000, 12741.670), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2653,7 +5251,7 @@ class HCAdminWorldCatalog
             case 2367: capture.Put("vanilla-ce-spawns", Vector(5053.058, 0.000, 12740.451), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page37(HCAdminWorldCapture capture, int index)
+    static void Page296(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2665,6 +5263,12 @@ class HCAdminWorldCatalog
             case 2373: capture.Put("vanilla-ce-spawns", Vector(5713.756, 0.000, 15196.514), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2374: capture.Put("vanilla-ce-spawns", Vector(5717.460, 0.000, 15205.725), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2375: capture.Put("vanilla-ce-spawns", Vector(5720.728, 0.000, 15200.148), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page297(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2376: capture.Put("vanilla-ce-spawns", Vector(5722.524, 0.000, 15192.549), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2377: capture.Put("vanilla-ce-spawns", Vector(5726.197, 0.000, 15211.128), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2378: capture.Put("vanilla-ce-spawns", Vector(5727.744, 0.000, 15207.010), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2673,6 +5277,12 @@ class HCAdminWorldCatalog
             case 2381: capture.Put("vanilla-ce-spawns", Vector(5754.408, 0.000, 15236.025), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2382: capture.Put("vanilla-ce-spawns", Vector(5764.748, 0.000, 15236.993), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2383: capture.Put("vanilla-ce-spawns", Vector(5764.910, 0.000, 15232.670), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page298(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2384: capture.Put("vanilla-ce-spawns", Vector(5767.381, 0.000, 15239.299), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2385: capture.Put("vanilla-ce-spawns", Vector(5773.839, 0.000, 15240.164), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2386: capture.Put("vanilla-ce-spawns", Vector(5780.312, 0.000, 15235.558), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2681,6 +5291,12 @@ class HCAdminWorldCatalog
             case 2389: capture.Put("vanilla-ce-spawns", Vector(7064.247, 0.000, 2875.119), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2390: capture.Put("vanilla-ce-spawns", Vector(7065.131, 0.000, 2876.728), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2391: capture.Put("vanilla-ce-spawns", Vector(7074.534, 0.000, 2879.310), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page299(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2392: capture.Put("vanilla-ce-spawns", Vector(7075.077, 0.000, 2880.797), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2393: capture.Put("vanilla-ce-spawns", Vector(7076.698, 0.000, 2878.291), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2394: capture.Put("vanilla-ce-spawns", Vector(7081.403, 0.000, 2884.348), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2689,6 +5305,12 @@ class HCAdminWorldCatalog
             case 2397: capture.Put("vanilla-ce-spawns", Vector(7271.192, 0.000, 3297.643), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2398: capture.Put("vanilla-ce-spawns", Vector(7335.409, 0.000, 3331.079), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2399: capture.Put("vanilla-ce-spawns", Vector(7339.506, 0.000, 3331.868), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page300(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2400: capture.Put("vanilla-ce-spawns", Vector(7351.699, 0.000, 3334.415), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2401: capture.Put("vanilla-ce-spawns", Vector(7504.115, 0.000, 3248.217), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2402: capture.Put("vanilla-ce-spawns", Vector(7505.518, 0.000, 3203.712), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2697,6 +5319,12 @@ class HCAdminWorldCatalog
             case 2405: capture.Put("vanilla-ce-spawns", Vector(7694.512, 0.000, 3563.502), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2406: capture.Put("vanilla-ce-spawns", Vector(7733.537, 0.000, 3565.437), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2407: capture.Put("vanilla-ce-spawns", Vector(7738.860, 0.000, 3575.143), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page301(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2408: capture.Put("vanilla-ce-spawns", Vector(7926.263, 0.000, 3079.555), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2409: capture.Put("vanilla-ce-spawns", Vector(7945.959, 0.000, 3121.938), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2410: capture.Put("vanilla-ce-spawns", Vector(7974.992, 0.000, 12624.800), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2705,6 +5333,12 @@ class HCAdminWorldCatalog
             case 2413: capture.Put("vanilla-ce-spawns", Vector(7992.692, 0.000, 3023.815), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2414: capture.Put("vanilla-ce-spawns", Vector(7996.954, 0.000, 12636.394), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2415: capture.Put("vanilla-ce-spawns", Vector(8005.421, 0.000, 3070.933), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page302(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2416: capture.Put("vanilla-ce-spawns", Vector(8009.405, 0.000, 12670.776), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2417: capture.Put("vanilla-ce-spawns", Vector(8025.722, 0.000, 3064.593), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2418: capture.Put("vanilla-ce-spawns", Vector(9740.586, 0.000, 8719.133), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2713,6 +5347,12 @@ class HCAdminWorldCatalog
             case 2421: capture.Put("vanilla-ce-spawns", Vector(9866.914, 0.000, 8739.344), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2422: capture.Put("vanilla-ce-spawns", Vector(9870.403, 0.000, 8730.259), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2423: capture.Put("vanilla-ce-spawns", Vector(9872.507, 0.000, 8744.407), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page303(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2424: capture.Put("vanilla-ce-spawns", Vector(9874.345, 0.000, 8737.953), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2425: capture.Put("vanilla-ce-spawns", Vector(9874.568, 0.000, 8731.386), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2426: capture.Put("vanilla-ce-spawns", Vector(9874.660, 0.000, 8752.678), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2723,7 +5363,7 @@ class HCAdminWorldCatalog
             case 2431: capture.Put("vanilla-ce-spawns", Vector(10114.720, 0.000, 2076.664), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page38(HCAdminWorldCapture capture, int index)
+    static void Page304(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2735,6 +5375,12 @@ class HCAdminWorldCatalog
             case 2437: capture.Put("vanilla-ce-spawns", Vector(10244.227, 0.000, 1848.153), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2438: capture.Put("vanilla-ce-spawns", Vector(10244.733, 0.000, 1856.727), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2439: capture.Put("vanilla-ce-spawns", Vector(10261.448, 0.000, 1897.996), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page305(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2440: capture.Put("vanilla-ce-spawns", Vector(10269.488, 0.000, 1904.517), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2441: capture.Put("vanilla-ce-spawns", Vector(11437.724, 0.000, 7449.452), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2442: capture.Put("vanilla-ce-spawns", Vector(11443.682, 0.000, 7492.142), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2743,6 +5389,12 @@ class HCAdminWorldCatalog
             case 2445: capture.Put("vanilla-ce-spawns", Vector(11456.752, 0.000, 7470.324), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2446: capture.Put("vanilla-ce-spawns", Vector(11474.755, 0.000, 7464.648), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2447: capture.Put("vanilla-ce-spawns", Vector(11490.739, 0.000, 7473.625), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page306(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2448: capture.Put("vanilla-ce-spawns", Vector(11920.603, 0.000, 9074.069), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2449: capture.Put("vanilla-ce-spawns", Vector(11921.516, 0.000, 9041.643), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2450: capture.Put("vanilla-ce-spawns", Vector(11935.489, 0.000, 9090.627), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2751,6 +5403,12 @@ class HCAdminWorldCatalog
             case 2453: capture.Put("vanilla-ce-spawns", Vector(12304.040, 0.000, 14355.506), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2454: capture.Put("vanilla-ce-spawns", Vector(12316.413, 0.000, 14350.617), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2455: capture.Put("vanilla-ce-spawns", Vector(12328.331, 0.000, 14348.315), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page307(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2456: capture.Put("vanilla-ce-spawns", Vector(12370.306, 0.000, 14329.096), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2457: capture.Put("vanilla-ce-spawns", Vector(12387.450, 0.000, 14321.573), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2458: capture.Put("vanilla-ce-spawns", Vector(12390.281, 0.000, 14324.670), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2759,6 +5417,12 @@ class HCAdminWorldCatalog
             case 2461: capture.Put("vanilla-ce-spawns", Vector(12400.443, 0.000, 14324.355), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2462: capture.Put("vanilla-ce-spawns", Vector(12404.090, 0.000, 14316.613), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2463: capture.Put("vanilla-ce-spawns", Vector(12410.552, 0.000, 14330.120), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page308(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2464: capture.Put("vanilla-ce-spawns", Vector(12649.959, 0.000, 14735.853), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2465: capture.Put("vanilla-ce-spawns", Vector(12655.589, 0.000, 14733.943), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2466: capture.Put("vanilla-ce-spawns", Vector(12658.133, 0.000, 14729.114), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2767,6 +5431,12 @@ class HCAdminWorldCatalog
             case 2469: capture.Put("vanilla-ce-spawns", Vector(12659.808, 0.000, 14757.936), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2470: capture.Put("vanilla-ce-spawns", Vector(12660.131, 0.000, 14729.951), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2471: capture.Put("vanilla-ce-spawns", Vector(12664.855, 0.000, 14772.923), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page309(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2472: capture.Put("vanilla-ce-spawns", Vector(12665.764, 0.000, 14723.815), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2473: capture.Put("vanilla-ce-spawns", Vector(12672.936, 0.000, 14744.047), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2474: capture.Put("vanilla-ce-spawns", Vector(12675.498, 0.000, 14719.141), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2775,6 +5445,12 @@ class HCAdminWorldCatalog
             case 2477: capture.Put("vanilla-ce-spawns", Vector(12681.706, 0.000, 14721.888), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2478: capture.Put("vanilla-ce-spawns", Vector(12681.905, 0.000, 14766.480), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2479: capture.Put("vanilla-ce-spawns", Vector(12722.612, 0.000, 9686.021), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page310(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2480: capture.Put("vanilla-ce-spawns", Vector(12728.603, 0.000, 9693.075), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2481: capture.Put("vanilla-ce-spawns", Vector(12730.981, 0.000, 9742.770), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2482: capture.Put("vanilla-ce-spawns", Vector(12732.557, 0.000, 9733.369), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2783,6 +5459,12 @@ class HCAdminWorldCatalog
             case 2485: capture.Put("vanilla-ce-spawns", Vector(12740.045, 0.000, 9734.093), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2486: capture.Put("vanilla-ce-spawns", Vector(12742.205, 0.000, 9682.906), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2487: capture.Put("vanilla-ce-spawns", Vector(12748.316, 0.000, 9690.301), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page311(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2488: capture.Put("vanilla-ce-spawns", Vector(12752.020, 0.000, 9681.228), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2489: capture.Put("vanilla-ce-spawns", Vector(12775.190, 0.000, 8415.394), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2490: capture.Put("vanilla-ce-spawns", Vector(12789.205, 0.000, 9710.327), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2793,7 +5475,7 @@ class HCAdminWorldCatalog
             case 2495: capture.Put("vanilla-ce-spawns", Vector(12802.545, 0.000, 9708.479), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page39(HCAdminWorldCapture capture, int index)
+    static void Page312(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2805,6 +5487,12 @@ class HCAdminWorldCatalog
             case 2501: capture.Put("vanilla-ce-spawns", Vector(12809.081, 0.000, 9740.422), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2502: capture.Put("vanilla-ce-spawns", Vector(12810.362, 0.000, 9638.138), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2503: capture.Put("vanilla-ce-spawns", Vector(12810.777, 0.000, 9707.712), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page313(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2504: capture.Put("vanilla-ce-spawns", Vector(12811.496, 0.000, 9712.031), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2505: capture.Put("vanilla-ce-spawns", Vector(12813.552, 0.000, 9616.257), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2506: capture.Put("vanilla-ce-spawns", Vector(12814.195, 0.000, 9706.514), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2813,6 +5501,12 @@ class HCAdminWorldCatalog
             case 2509: capture.Put("vanilla-ce-spawns", Vector(12815.471, 0.000, 9621.090), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2510: capture.Put("vanilla-ce-spawns", Vector(12816.435, 0.000, 9758.267), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2511: capture.Put("vanilla-ce-spawns", Vector(12816.671, 0.000, 9718.041), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page314(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2512: capture.Put("vanilla-ce-spawns", Vector(12819.227, 0.000, 9724.298), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2513: capture.Put("vanilla-ce-spawns", Vector(12820.098, 0.000, 9620.876), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2514: capture.Put("vanilla-ce-spawns", Vector(12821.428, 0.000, 9605.258), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2821,6 +5515,12 @@ class HCAdminWorldCatalog
             case 2517: capture.Put("vanilla-ce-spawns", Vector(13097.897, 0.000, 10285.821), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2518: capture.Put("vanilla-ce-spawns", Vector(13098.086, 0.000, 10257.783), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2519: capture.Put("vanilla-ce-spawns", Vector(13099.881, 0.000, 10292.017), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page315(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2520: capture.Put("vanilla-ce-spawns", Vector(13103.645, 0.000, 10252.094), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2521: capture.Put("vanilla-ce-spawns", Vector(13109.547, 0.000, 10298.362), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2522: capture.Put("vanilla-ce-spawns", Vector(13109.750, 0.000, 10287.594), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2829,6 +5529,12 @@ class HCAdminWorldCatalog
             case 2525: capture.Put("vanilla-ce-spawns", Vector(13131.990, 0.000, 10264.808), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2526: capture.Put("vanilla-ce-spawns", Vector(13500.830, 0.000, 6286.168), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2527: capture.Put("vanilla-ce-spawns", Vector(13501.354, 0.000, 6290.484), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page316(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2528: capture.Put("vanilla-ce-spawns", Vector(13519.355, 0.000, 6333.373), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2529: capture.Put("vanilla-ce-spawns", Vector(13526.216, 0.000, 6319.156), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2530: capture.Put("vanilla-ce-spawns", Vector(13532.805, 0.000, 6359.085), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2837,6 +5543,12 @@ class HCAdminWorldCatalog
             case 2533: capture.Put("vanilla-ce-spawns", Vector(14129.517, 0.000, 13256.146), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2534: capture.Put("vanilla-ce-spawns", Vector(14130.146, 0.000, 13258.155), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2535: capture.Put("vanilla-ce-spawns", Vector(14133.783, 0.000, 13246.427), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page317(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2536: capture.Put("vanilla-ce-spawns", Vector(14139.397, 0.000, 13335.835), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2537: capture.Put("vanilla-ce-spawns", Vector(14143.719, 0.000, 13343.223), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2538: capture.Put("vanilla-ce-spawns", Vector(14146.842, 0.000, 13339.853), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2845,6 +5557,12 @@ class HCAdminWorldCatalog
             case 2541: capture.Put("vanilla-ce-spawns", Vector(14161.660, 0.000, 13336.805), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2542: capture.Put("vanilla-ce-spawns", Vector(14166.017, 0.000, 13332.188), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2543: capture.Put("vanilla-ce-spawns", Vector(14169.207, 0.000, 13339.807), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page318(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2544: capture.Put("vanilla-ce-spawns", Vector(14169.640, 0.000, 13335.430), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2545: capture.Put("vanilla-ce-spawns", Vector(14170.982, 0.000, 13336.358), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2546: capture.Put("vanilla-ce-spawns", Vector(14179.783, 0.000, 13333.642), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2853,6 +5571,12 @@ class HCAdminWorldCatalog
             case 2549: capture.Put("vanilla-ce-spawns", Vector(14184.242, 0.000, 13337.793), "ItemPlanks", "Stock CE candidate; not a live event or vehicle"); break;
             case 2550: capture.Put("vanilla-ce-spawns", Vector(398.733, 0.000, 5169.232), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2551: capture.Put("vanilla-ce-spawns", Vector(1053.346, 0.000, 6674.236), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page319(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2552: capture.Put("vanilla-ce-spawns", Vector(1147.274, 0.000, 2444.091), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2553: capture.Put("vanilla-ce-spawns", Vector(1295.940, 0.000, 12051.744), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2554: capture.Put("vanilla-ce-spawns", Vector(1428.447, 0.000, 11988.561), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2863,7 +5587,7 @@ class HCAdminWorldCatalog
             case 2559: capture.Put("vanilla-ce-spawns", Vector(1967.702, 0.000, 7327.529), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page40(HCAdminWorldCapture capture, int index)
+    static void Page320(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2875,6 +5599,12 @@ class HCAdminWorldCatalog
             case 2565: capture.Put("vanilla-ce-spawns", Vector(2802.710, 0.000, 5373.021), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2566: capture.Put("vanilla-ce-spawns", Vector(2802.856, 0.000, 12395.301), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2567: capture.Put("vanilla-ce-spawns", Vector(3001.064, 0.000, 12660.386), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page321(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2568: capture.Put("vanilla-ce-spawns", Vector(3033.472, 0.000, 7751.268), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2569: capture.Put("vanilla-ce-spawns", Vector(3055.503, 0.000, 7963.740), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2570: capture.Put("vanilla-ce-spawns", Vector(3115.494, 0.000, 8105.246), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2883,6 +5613,12 @@ class HCAdminWorldCatalog
             case 2573: capture.Put("vanilla-ce-spawns", Vector(3556.089, 0.000, 2426.990), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2574: capture.Put("vanilla-ce-spawns", Vector(3620.470, 0.000, 13091.675), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2575: capture.Put("vanilla-ce-spawns", Vector(3639.971, 0.000, 2535.499), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page322(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2576: capture.Put("vanilla-ce-spawns", Vector(4348.416, 0.000, 13079.049), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2577: capture.Put("vanilla-ce-spawns", Vector(4378.479, 0.000, 4644.832), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2578: capture.Put("vanilla-ce-spawns", Vector(4384.748, 0.000, 2484.370), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2891,6 +5627,12 @@ class HCAdminWorldCatalog
             case 2581: capture.Put("vanilla-ce-spawns", Vector(4753.764, 0.000, 6723.722), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2582: capture.Put("vanilla-ce-spawns", Vector(4848.936, 0.000, 15207.054), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2583: capture.Put("vanilla-ce-spawns", Vector(4879.729, 0.000, 14987.846), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page323(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2584: capture.Put("vanilla-ce-spawns", Vector(4886.542, 0.000, 5633.730), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2585: capture.Put("vanilla-ce-spawns", Vector(4941.740, 0.000, 5656.357), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2586: capture.Put("vanilla-ce-spawns", Vector(5419.611, 0.000, 12644.571), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2899,6 +5641,12 @@ class HCAdminWorldCatalog
             case 2589: capture.Put("vanilla-ce-spawns", Vector(5732.733, 0.000, 4171.086), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2590: capture.Put("vanilla-ce-spawns", Vector(5840.733, 0.000, 4689.516), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2591: capture.Put("vanilla-ce-spawns", Vector(5884.437, 0.000, 4853.529), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page324(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2592: capture.Put("vanilla-ce-spawns", Vector(5909.863, 0.000, 2215.956), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2593: capture.Put("vanilla-ce-spawns", Vector(5917.486, 0.000, 13614.890), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2594: capture.Put("vanilla-ce-spawns", Vector(5954.656, 0.000, 10367.124), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2907,6 +5655,12 @@ class HCAdminWorldCatalog
             case 2597: capture.Put("vanilla-ce-spawns", Vector(6205.932, 0.000, 12662.723), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2598: capture.Put("vanilla-ce-spawns", Vector(6311.297, 0.000, 2148.105), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2599: capture.Put("vanilla-ce-spawns", Vector(6370.127, 0.000, 7568.367), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page325(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2600: capture.Put("vanilla-ce-spawns", Vector(6484.278, 0.000, 2891.623), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2601: capture.Put("vanilla-ce-spawns", Vector(6514.989, 0.000, 3536.447), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2602: capture.Put("vanilla-ce-spawns", Vector(6534.914, 0.000, 6098.192), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2915,6 +5669,12 @@ class HCAdminWorldCatalog
             case 2605: capture.Put("vanilla-ce-spawns", Vector(6598.310, 0.000, 2494.173), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2606: capture.Put("vanilla-ce-spawns", Vector(6748.720, 0.000, 2693.107), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2607: capture.Put("vanilla-ce-spawns", Vector(6813.929, 0.000, 3547.594), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page326(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2608: capture.Put("vanilla-ce-spawns", Vector(6959.840, 0.000, 3525.570), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2609: capture.Put("vanilla-ce-spawns", Vector(7185.650, 0.000, 7675.769), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2610: capture.Put("vanilla-ce-spawns", Vector(7522.385, 0.000, 12655.307), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2923,6 +5683,12 @@ class HCAdminWorldCatalog
             case 2613: capture.Put("vanilla-ce-spawns", Vector(8439.417, 0.000, 6644.139), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2614: capture.Put("vanilla-ce-spawns", Vector(8536.898, 0.000, 12688.814), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2615: capture.Put("vanilla-ce-spawns", Vector(8555.726, 0.000, 11931.352), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page327(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2616: capture.Put("vanilla-ce-spawns", Vector(9430.873, 0.000, 13683.718), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2617: capture.Put("vanilla-ce-spawns", Vector(9443.388, 0.000, 8829.371), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2618: capture.Put("vanilla-ce-spawns", Vector(10110.166, 0.000, 5493.958), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2933,7 +5699,7 @@ class HCAdminWorldCatalog
             case 2623: capture.Put("vanilla-ce-spawns", Vector(10465.662, 0.000, 8861.331), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page41(HCAdminWorldCapture capture, int index)
+    static void Page328(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -2945,6 +5711,12 @@ class HCAdminWorldCatalog
             case 2629: capture.Put("vanilla-ce-spawns", Vector(11940.096, 0.000, 9063.758), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2630: capture.Put("vanilla-ce-spawns", Vector(12059.421, 0.000, 3594.845), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2631: capture.Put("vanilla-ce-spawns", Vector(12093.573, 0.000, 9705.659), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page329(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2632: capture.Put("vanilla-ce-spawns", Vector(12130.661, 0.000, 9770.855), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2633: capture.Put("vanilla-ce-spawns", Vector(12270.224, 0.000, 9524.011), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2634: capture.Put("vanilla-ce-spawns", Vector(12297.069, 0.000, 9058.155), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2953,6 +5725,12 @@ class HCAdminWorldCatalog
             case 2637: capture.Put("vanilla-ce-spawns", Vector(12620.102, 0.000, 9512.162), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2638: capture.Put("vanilla-ce-spawns", Vector(12665.872, 0.000, 9793.280), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2639: capture.Put("vanilla-ce-spawns", Vector(12830.521, 0.000, 10113.676), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page330(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2640: capture.Put("vanilla-ce-spawns", Vector(12839.024, 0.000, 10191.056), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2641: capture.Put("vanilla-ce-spawns", Vector(12866.286, 0.000, 15123.605), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2642: capture.Put("vanilla-ce-spawns", Vector(12922.408, 0.000, 10227.319), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2961,6 +5739,12 @@ class HCAdminWorldCatalog
             case 2645: capture.Put("vanilla-ce-spawns", Vector(13860.133, 0.000, 13128.284), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2646: capture.Put("vanilla-ce-spawns", Vector(14021.486, 0.000, 13184.416), "VehicleMotorbike", "Stock CE candidate; not a live event or vehicle"); break;
             case 2647: capture.Put("vanilla-ce-spawns", Vector(2906.678, 0.000, 9736.077), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page331(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2648: capture.Put("vanilla-ce-spawns", Vector(1577.859, 0.000, 10434.792), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2649: capture.Put("vanilla-ce-spawns", Vector(4986.840, 0.000, 12949.184), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2650: capture.Put("vanilla-ce-spawns", Vector(7041.077, 0.000, 14531.376), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2969,6 +5753,12 @@ class HCAdminWorldCatalog
             case 2653: capture.Put("vanilla-ce-spawns", Vector(5664.543, 0.000, 13129.942), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2654: capture.Put("vanilla-ce-spawns", Vector(4832.318, 0.000, 10236.031), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2655: capture.Put("vanilla-ce-spawns", Vector(5276.042, 0.000, 10581.311), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page332(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2656: capture.Put("vanilla-ce-spawns", Vector(1045.963, 0.000, 9971.117), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2657: capture.Put("vanilla-ce-spawns", Vector(5227.711, 0.000, 11521.334), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2658: capture.Put("vanilla-ce-spawns", Vector(7702.665, 0.000, 12682.482), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2977,6 +5767,12 @@ class HCAdminWorldCatalog
             case 2661: capture.Put("vanilla-ce-spawns", Vector(2009.390, 0.000, 10077.943), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2662: capture.Put("vanilla-ce-spawns", Vector(7735.355, 0.000, 14834.541), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2663: capture.Put("vanilla-ce-spawns", Vector(8857.023, 0.000, 11649.843), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page333(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2664: capture.Put("vanilla-ce-spawns", Vector(4131.821, 0.000, 13122.180), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2665: capture.Put("vanilla-ce-spawns", Vector(2276.999, 0.000, 15255.470), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2666: capture.Put("vanilla-ce-spawns", Vector(1522.324, 0.000, 14049.371), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2985,6 +5781,12 @@ class HCAdminWorldCatalog
             case 2669: capture.Put("vanilla-ce-spawns", Vector(4406.641, 0.000, 13568.414), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2670: capture.Put("vanilla-ce-spawns", Vector(5262.253, 0.000, 6515.276), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2671: capture.Put("vanilla-ce-spawns", Vector(7748.413, 0.000, 5119.577), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page334(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2672: capture.Put("vanilla-ce-spawns", Vector(3575.643, 0.000, 6990.221), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2673: capture.Put("vanilla-ce-spawns", Vector(7791.013, 0.000, 6910.817), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2674: capture.Put("vanilla-ce-spawns", Vector(7076.023, 0.000, 2689.005), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -2993,6 +5795,12 @@ class HCAdminWorldCatalog
             case 2677: capture.Put("vanilla-ce-spawns", Vector(4541.975, 0.000, 4531.494), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2678: capture.Put("vanilla-ce-spawns", Vector(4429.653, 0.000, 8215.292), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2679: capture.Put("vanilla-ce-spawns", Vector(2220.089, 0.000, 5200.036), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page335(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2680: capture.Put("vanilla-ce-spawns", Vector(560.187, 0.000, 5410.157), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2681: capture.Put("vanilla-ce-spawns", Vector(4637.476, 0.000, 9505.053), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2682: capture.Put("vanilla-ce-spawns", Vector(8405.373, 0.000, 6596.035), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3003,7 +5811,7 @@ class HCAdminWorldCatalog
             case 2687: capture.Put("vanilla-ce-spawns", Vector(2206.373, 0.000, 3372.272), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page42(HCAdminWorldCapture capture, int index)
+    static void Page336(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3015,6 +5823,12 @@ class HCAdminWorldCatalog
             case 2693: capture.Put("vanilla-ce-spawns", Vector(6265.715, 0.000, 3786.625), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2694: capture.Put("vanilla-ce-spawns", Vector(10362.692, 0.000, 7419.507), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2695: capture.Put("vanilla-ce-spawns", Vector(9004.064, 0.000, 5989.230), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page337(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2696: capture.Put("vanilla-ce-spawns", Vector(2733.108, 0.000, 5996.250), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2697: capture.Put("vanilla-ce-spawns", Vector(5339.345, 0.000, 8617.465), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2698: capture.Put("vanilla-ce-spawns", Vector(5678.402, 0.000, 2970.321), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3023,6 +5837,12 @@ class HCAdminWorldCatalog
             case 2701: capture.Put("vanilla-ce-spawns", Vector(11327.027, 0.000, 12564.874), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2702: capture.Put("vanilla-ce-spawns", Vector(12031.156, 0.000, 14331.598), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2703: capture.Put("vanilla-ce-spawns", Vector(7414.634, 0.000, 2902.157), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page338(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2704: capture.Put("vanilla-ce-spawns", Vector(9372.827, 0.000, 2017.390), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2705: capture.Put("vanilla-ce-spawns", Vector(13448.586, 0.000, 14281.957), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2706: capture.Put("vanilla-ce-spawns", Vector(12373.673, 0.000, 14194.493), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3031,6 +5851,12 @@ class HCAdminWorldCatalog
             case 2709: capture.Put("vanilla-ce-spawns", Vector(9914.125, 0.000, 6694.113), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2710: capture.Put("vanilla-ce-spawns", Vector(9851.080, 0.000, 8710.079), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2711: capture.Put("vanilla-ce-spawns", Vector(11758.238, 0.000, 6440.637), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page339(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2712: capture.Put("vanilla-ce-spawns", Vector(12659.405, 0.000, 8792.730), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2713: capture.Put("vanilla-ce-spawns", Vector(7043.717, 0.000, 2621.931), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2714: capture.Put("vanilla-ce-spawns", Vector(12046.332, 0.000, 5117.614), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3039,6 +5865,12 @@ class HCAdminWorldCatalog
             case 2717: capture.Put("vanilla-ce-spawns", Vector(2253.828, 0.000, 10861.228), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2718: capture.Put("vanilla-ce-spawns", Vector(4193.801, 0.000, 8920.323), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2719: capture.Put("vanilla-ce-spawns", Vector(6324.340, 0.000, 7708.425), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page340(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2720: capture.Put("vanilla-ce-spawns", Vector(5281.719, 0.000, 5511.827), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2721: capture.Put("vanilla-ce-spawns", Vector(8214.021, 0.000, 9051.356), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2722: capture.Put("vanilla-ce-spawns", Vector(981.095, 0.000, 7679.972), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3047,6 +5879,12 @@ class HCAdminWorldCatalog
             case 2725: capture.Put("vanilla-ce-spawns", Vector(4957.879, 0.000, 13034.268), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2726: capture.Put("vanilla-ce-spawns", Vector(7711.226, 0.000, 3541.844), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2727: capture.Put("vanilla-ce-spawns", Vector(5258.475, 0.000, 9789.591), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page341(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2728: capture.Put("vanilla-ce-spawns", Vector(4812.192, 0.000, 10559.253), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2729: capture.Put("vanilla-ce-spawns", Vector(7203.168, 0.000, 8263.752), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2730: capture.Put("vanilla-ce-spawns", Vector(5081.935, 0.000, 12738.611), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3055,6 +5893,12 @@ class HCAdminWorldCatalog
             case 2733: capture.Put("vanilla-ce-spawns", Vector(3040.474, 0.000, 12342.301), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2734: capture.Put("vanilla-ce-spawns", Vector(3115.171, 0.000, 9212.784), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2735: capture.Put("vanilla-ce-spawns", Vector(1927.796, 0.000, 8118.224), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page342(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2736: capture.Put("vanilla-ce-spawns", Vector(11119.620, 0.000, 11950.379), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2737: capture.Put("vanilla-ce-spawns", Vector(12252.350, 0.000, 10592.278), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2738: capture.Put("vanilla-ce-spawns", Vector(10268.227, 0.000, 9484.835), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3063,6 +5907,12 @@ class HCAdminWorldCatalog
             case 2741: capture.Put("vanilla-ce-spawns", Vector(3588.895, 0.000, 2191.543), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2742: capture.Put("vanilla-ce-spawns", Vector(12739.316, 0.000, 15065.679), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2743: capture.Put("vanilla-ce-spawns", Vector(4962.440, 0.000, 2423.164), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page343(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2744: capture.Put("vanilla-ce-spawns", Vector(12447.697, 0.000, 12526.001), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2745: capture.Put("vanilla-ce-spawns", Vector(9684.466, 0.000, 8900.209), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2746: capture.Put("vanilla-ce-spawns", Vector(11443.111, 0.000, 7523.010), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3073,7 +5923,7 @@ class HCAdminWorldCatalog
             case 2751: capture.Put("vanilla-ce-spawns", Vector(12304.988, 0.000, 14322.949), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page43(HCAdminWorldCapture capture, int index)
+    static void Page344(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3085,6 +5935,12 @@ class HCAdminWorldCatalog
             case 2757: capture.Put("vanilla-ce-spawns", Vector(10257.798, 0.000, 3617.500), "VehicleTruck01", "Stock CE candidate; not a live event or vehicle"); break;
             case 2758: capture.Put("vanilla-ce-spawns", Vector(1716.188, 0.000, 2000.763), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2759: capture.Put("vanilla-ce-spawns", Vector(1748.611, 0.000, 2014.182), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page345(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2760: capture.Put("vanilla-ce-spawns", Vector(2333.723, 0.000, 1982.005), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2761: capture.Put("vanilla-ce-spawns", Vector(2347.215, 0.000, 1973.808), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2762: capture.Put("vanilla-ce-spawns", Vector(2933.020, 0.000, 1941.381), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3093,6 +5949,12 @@ class HCAdminWorldCatalog
             case 2765: capture.Put("vanilla-ce-spawns", Vector(3642.509, 0.000, 2109.568), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2766: capture.Put("vanilla-ce-spawns", Vector(4087.289, 0.000, 2193.692), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2767: capture.Put("vanilla-ce-spawns", Vector(4098.899, 0.000, 2186.443), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page346(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2768: capture.Put("vanilla-ce-spawns", Vector(4313.917, 0.000, 2253.489), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2769: capture.Put("vanilla-ce-spawns", Vector(4403.476, 0.000, 2205.808), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2770: capture.Put("vanilla-ce-spawns", Vector(5879.444, 0.000, 1963.862), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3101,6 +5963,12 @@ class HCAdminWorldCatalog
             case 2773: capture.Put("vanilla-ce-spawns", Vector(6219.329, 0.000, 2018.735), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2774: capture.Put("vanilla-ce-spawns", Vector(6313.021, 0.000, 2195.520), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2775: capture.Put("vanilla-ce-spawns", Vector(6445.173, 0.000, 2164.080), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page347(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2776: capture.Put("vanilla-ce-spawns", Vector(6549.093, 0.000, 2250.669), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2777: capture.Put("vanilla-ce-spawns", Vector(6569.555, 0.000, 2250.365), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2778: capture.Put("vanilla-ce-spawns", Vector(7035.904, 0.000, 2460.038), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3109,6 +5977,12 @@ class HCAdminWorldCatalog
             case 2781: capture.Put("vanilla-ce-spawns", Vector(7811.205, 0.000, 2760.278), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2782: capture.Put("vanilla-ce-spawns", Vector(8080.233, 0.000, 2742.810), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2783: capture.Put("vanilla-ce-spawns", Vector(8198.986, 0.000, 2755.958), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page348(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2784: capture.Put("vanilla-ce-spawns", Vector(8267.050, 0.000, 2461.653), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2785: capture.Put("vanilla-ce-spawns", Vector(8305.828, 0.000, 2592.269), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2786: capture.Put("vanilla-ce-spawns", Vector(8333.264, 0.000, 2366.556), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3117,6 +5991,12 @@ class HCAdminWorldCatalog
             case 2789: capture.Put("vanilla-ce-spawns", Vector(8858.552, 0.000, 2082.439), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2790: capture.Put("vanilla-ce-spawns", Vector(9343.027, 0.000, 1844.759), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2791: capture.Put("vanilla-ce-spawns", Vector(9783.182, 0.000, 1764.527), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page349(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2792: capture.Put("vanilla-ce-spawns", Vector(9783.534, 0.000, 1747.436), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2793: capture.Put("vanilla-ce-spawns", Vector(9954.826, 0.000, 1751.823), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2794: capture.Put("vanilla-ce-spawns", Vector(9957.985, 0.000, 1604.198), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3125,6 +6005,12 @@ class HCAdminWorldCatalog
             case 2797: capture.Put("vanilla-ce-spawns", Vector(10421.438, 0.000, 1734.375), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2798: capture.Put("vanilla-ce-spawns", Vector(10468.315, 0.000, 1833.428), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2799: capture.Put("vanilla-ce-spawns", Vector(10698.852, 0.000, 2123.041), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page350(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2800: capture.Put("vanilla-ce-spawns", Vector(10881.899, 0.000, 2336.180), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2801: capture.Put("vanilla-ce-spawns", Vector(10952.044, 0.000, 2632.240), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2802: capture.Put("vanilla-ce-spawns", Vector(11077.573, 0.000, 2666.339), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3133,6 +6019,12 @@ class HCAdminWorldCatalog
             case 2805: capture.Put("vanilla-ce-spawns", Vector(12378.870, 0.000, 3437.083), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2806: capture.Put("vanilla-ce-spawns", Vector(12945.443, 0.000, 8919.328), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2807: capture.Put("vanilla-ce-spawns", Vector(12989.865, 0.000, 3651.348), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page351(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2808: capture.Put("vanilla-ce-spawns", Vector(13046.506, 0.000, 8468.286), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2809: capture.Put("vanilla-ce-spawns", Vector(13053.779, 0.000, 9485.443), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2810: capture.Put("vanilla-ce-spawns", Vector(13081.018, 0.000, 9893.433), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3143,7 +6035,7 @@ class HCAdminWorldCatalog
             case 2815: capture.Put("vanilla-ce-spawns", Vector(13262.733, 0.000, 3753.452), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page44(HCAdminWorldCapture capture, int index)
+    static void Page352(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3155,6 +6047,12 @@ class HCAdminWorldCatalog
             case 2821: capture.Put("vanilla-ce-spawns", Vector(13528.787, 0.000, 6418.449), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2822: capture.Put("vanilla-ce-spawns", Vector(13549.652, 0.000, 6247.452), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2823: capture.Put("vanilla-ce-spawns", Vector(13554.336, 0.000, 3839.199), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page353(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2824: capture.Put("vanilla-ce-spawns", Vector(13605.369, 0.000, 4432.208), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2825: capture.Put("vanilla-ce-spawns", Vector(14393.814, 0.000, 13210.005), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2826: capture.Put("vanilla-ce-spawns", Vector(14434.454, 0.000, 13260.298), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3163,6 +6061,12 @@ class HCAdminWorldCatalog
             case 2829: capture.Put("vanilla-ce-spawns", Vector(15244.463, 0.000, 13821.070), "VehicleBoat", "Stock CE candidate; not a live event or vehicle"); break;
             case 2830: capture.Put("vanilla-ce-spawns", Vector(4407.099, 0.000, 10235.694), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2831: capture.Put("vanilla-ce-spawns", Vector(4407.497, 0.000, 10240.783), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page354(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2832: capture.Put("vanilla-ce-spawns", Vector(4408.202, 0.000, 10227.108), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2833: capture.Put("vanilla-ce-spawns", Vector(4408.502, 0.000, 10242.607), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2834: capture.Put("vanilla-ce-spawns", Vector(4408.953, 0.000, 10239.821), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3171,6 +6075,12 @@ class HCAdminWorldCatalog
             case 2837: capture.Put("vanilla-ce-spawns", Vector(4410.243, 0.000, 10245.883), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2838: capture.Put("vanilla-ce-spawns", Vector(4410.941, 0.000, 10243.390), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2839: capture.Put("vanilla-ce-spawns", Vector(4411.875, 0.000, 10245.064), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page355(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2840: capture.Put("vanilla-ce-spawns", Vector(4412.099, 0.000, 10225.174), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2841: capture.Put("vanilla-ce-spawns", Vector(4417.963, 0.000, 10225.667), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2842: capture.Put("vanilla-ce-spawns", Vector(4418.630, 0.000, 10223.896), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3179,6 +6089,12 @@ class HCAdminWorldCatalog
             case 2845: capture.Put("vanilla-ce-spawns", Vector(4420.064, 0.000, 10240.121), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2846: capture.Put("vanilla-ce-spawns", Vector(4420.266, 0.000, 10241.659), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2847: capture.Put("vanilla-ce-spawns", Vector(4420.474, 0.000, 10243.169), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page356(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2848: capture.Put("vanilla-ce-spawns", Vector(4424.473, 0.000, 10227.925), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2849: capture.Put("vanilla-ce-spawns", Vector(4425.942, 0.000, 10226.923), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2850: capture.Put("vanilla-ce-spawns", Vector(4426.065, 0.000, 10242.806), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3187,6 +6103,12 @@ class HCAdminWorldCatalog
             case 2853: capture.Put("vanilla-ce-spawns", Vector(4710.881, 0.000, 10332.766), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2854: capture.Put("vanilla-ce-spawns", Vector(4713.376, 0.000, 10332.265), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2855: capture.Put("vanilla-ce-spawns", Vector(4715.753, 0.000, 10331.851), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page357(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2856: capture.Put("vanilla-ce-spawns", Vector(4719.552, 0.000, 10318.417), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2857: capture.Put("vanilla-ce-spawns", Vector(4720.964, 0.000, 10316.430), "StaticAirplaneCrate", "Stock CE candidate; not a live event or vehicle"); break;
             case 2858: capture.Put("vanilla-ce-spawns", Vector(5587.466, 0.000, 2063.353), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3195,6 +6117,12 @@ class HCAdminWorldCatalog
             case 2861: capture.Put("vanilla-ce-spawns", Vector(1256.313, 0.000, 9349.465), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2862: capture.Put("vanilla-ce-spawns", Vector(5428.630, 0.000, 12312.974), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2863: capture.Put("vanilla-ce-spawns", Vector(8802.031, 0.000, 2334.222), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page358(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2864: capture.Put("vanilla-ce-spawns", Vector(13402.112, 0.000, 4303.119), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2865: capture.Put("vanilla-ce-spawns", Vector(13377.262, 0.000, 13919.888), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2866: capture.Put("vanilla-ce-spawns", Vector(1309.973, 0.000, 4991.340), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3203,6 +6131,12 @@ class HCAdminWorldCatalog
             case 2869: capture.Put("vanilla-ce-spawns", Vector(12851.586, 0.000, 8577.874), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2870: capture.Put("vanilla-ce-spawns", Vector(13590.054, 0.000, 11515.854), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2871: capture.Put("vanilla-ce-spawns", Vector(9384.272, 0.000, 13392.446), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page359(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2872: capture.Put("vanilla-ce-spawns", Vector(13213.484, 0.000, 6894.041), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2873: capture.Put("vanilla-ce-spawns", Vector(13363.302, 0.000, 5439.232), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
             case 2874: capture.Put("vanilla-ce-spawns", Vector(2025.067, 0.000, 11378.385), "StaticTrain", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3213,7 +6147,7 @@ class HCAdminWorldCatalog
             case 2879: capture.Put("vanilla-ce-spawns", Vector(8434.497, 0.000, 14003.119), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
         }
     }
-    static void Page45(HCAdminWorldCapture capture, int index)
+    static void Page360(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3225,6 +6159,12 @@ class HCAdminWorldCatalog
             case 2885: capture.Put("vanilla-ce-spawns", Vector(5248.110, 0.000, 6510.306), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2886: capture.Put("vanilla-ce-spawns", Vector(616.200, 0.000, 12121.522), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2887: capture.Put("vanilla-ce-spawns", Vector(6427.380, 0.000, 8027.553), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page361(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2888: capture.Put("vanilla-ce-spawns", Vector(12678.560, 0.000, 4834.562), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2889: capture.Put("vanilla-ce-spawns", Vector(3623.335, 0.000, 8078.458), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2890: capture.Put("vanilla-ce-spawns", Vector(10784.112, 0.000, 6684.350), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3233,6 +6173,12 @@ class HCAdminWorldCatalog
             case 2893: capture.Put("vanilla-ce-spawns", Vector(8387.078, 0.000, 5988.155), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2894: capture.Put("vanilla-ce-spawns", Vector(1203.912, 0.000, 7974.503), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2895: capture.Put("vanilla-ce-spawns", Vector(9834.277, 0.000, 4667.238), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page362(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2896: capture.Put("vanilla-ce-spawns", Vector(4132.739, 0.000, 5649.462), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2897: capture.Put("vanilla-ce-spawns", Vector(2506.352, 0.000, 2043.815), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2898: capture.Put("vanilla-ce-spawns", Vector(1836.243, 0.000, 2110.332), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3241,6 +6187,12 @@ class HCAdminWorldCatalog
             case 2901: capture.Put("vanilla-ce-spawns", Vector(332.324, 0.000, 3059.927), "StaticMilitaryConvoy", "Stock CE candidate; not a live event or vehicle"); break;
             case 2902: capture.Put("vanilla-ce-spawns", Vector(11909.426, 0.000, 6432.040), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2903: capture.Put("vanilla-ce-spawns", Vector(10400.112, 0.000, 2237.542), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page363(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2904: capture.Put("vanilla-ce-spawns", Vector(8757.742, 0.000, 11875.513), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2905: capture.Put("vanilla-ce-spawns", Vector(2686.302, 0.000, 5229.044), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2906: capture.Put("vanilla-ce-spawns", Vector(8138.609, 0.000, 8564.824), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3249,6 +6201,12 @@ class HCAdminWorldCatalog
             case 2909: capture.Put("vanilla-ce-spawns", Vector(13580.554, 0.000, 11766.809), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2910: capture.Put("vanilla-ce-spawns", Vector(3433.691, 0.000, 3953.545), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2911: capture.Put("vanilla-ce-spawns", Vector(6906.814, 0.000, 3086.961), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page364(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2912: capture.Put("vanilla-ce-spawns", Vector(6447.458, 0.000, 2552.698), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2913: capture.Put("vanilla-ce-spawns", Vector(13404.373, 0.000, 14722.688), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2914: capture.Put("vanilla-ce-spawns", Vector(10545.377, 0.000, 10260.771), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3257,6 +6215,12 @@ class HCAdminWorldCatalog
             case 2917: capture.Put("vanilla-ce-spawns", Vector(5744.804, 0.000, 9286.175), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2918: capture.Put("vanilla-ce-spawns", Vector(1894.825, 0.000, 2126.238), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2919: capture.Put("vanilla-ce-spawns", Vector(7517.877, 0.000, 14048.492), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page365(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2920: capture.Put("vanilla-ce-spawns", Vector(12873.966, 0.000, 3729.957), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2921: capture.Put("vanilla-ce-spawns", Vector(4523.444, 0.000, 4489.846), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2922: capture.Put("vanilla-ce-spawns", Vector(11087.840, 0.000, 12478.969), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3265,6 +6229,12 @@ class HCAdminWorldCatalog
             case 2925: capture.Put("vanilla-ce-spawns", Vector(9044.078, 0.000, 4934.135), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2926: capture.Put("vanilla-ce-spawns", Vector(11581.700, 0.000, 14614.000), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2927: capture.Put("vanilla-ce-spawns", Vector(3570.656, 0.000, 13899.145), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page366(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2928: capture.Put("vanilla-ce-spawns", Vector(4711.930, 0.000, 6356.809), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2929: capture.Put("vanilla-ce-spawns", Vector(5828.543, 0.000, 5954.523), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2930: capture.Put("vanilla-ce-spawns", Vector(7729.012, 0.000, 12629.849), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3273,6 +6243,12 @@ class HCAdminWorldCatalog
             case 2933: capture.Put("vanilla-ce-spawns", Vector(10670.524, 0.000, 4568.996), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2934: capture.Put("vanilla-ce-spawns", Vector(6582.245, 0.000, 7508.025), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2935: capture.Put("vanilla-ce-spawns", Vector(5346.021, 0.000, 14484.883), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
+        }
+    }
+    static void Page367(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2936: capture.Put("vanilla-ce-spawns", Vector(9434.659, 0.000, 13915.317), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2937: capture.Put("vanilla-ce-spawns", Vector(13378.349, 0.000, 5439.850), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
             case 2938: capture.Put("vanilla-ce-spawns", Vector(2244.152, 0.000, 12250.476), "StaticPoliceSituation", "Stock CE candidate; not a live event or vehicle"); break;
@@ -3283,7 +6259,7 @@ class HCAdminWorldCatalog
             case 2943: capture.Put("hc-ce-spawns", Vector(13664.461, 0.000, 13842.460), "StaticHCConvoyAmbush", "Packaged HC CE candidate; not live occupancy"); break;
         }
     }
-    static void Page46(HCAdminWorldCapture capture, int index)
+    static void Page368(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3295,6 +6271,12 @@ class HCAdminWorldCatalog
             case 2949: capture.Put("hc-ce-spawns", Vector(3178.521, 0.000, 13502.986), "StaticHCConvoyAmbush", "Packaged HC CE candidate; not live occupancy"); break;
             case 2950: capture.Put("hc-ce-spawns", Vector(6427.827, 0.000, 6284.355), "StaticHCConvoyAmbush", "Packaged HC CE candidate; not live occupancy"); break;
             case 2951: capture.Put("hc-ce-spawns", Vector(1762.899, 0.000, 12215.013), "StaticHCConvoyAmbush", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page369(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2952: capture.Put("hc-ce-spawns", Vector(5338.701, 0.000, 11767.565), "StaticHCConvoyAmbush", "Packaged HC CE candidate; not live occupancy"); break;
             case 2953: capture.Put("hc-ce-spawns", Vector(13165.598, 0.000, 4027.116), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2954: capture.Put("hc-ce-spawns", Vector(917.922, 0.000, 4781.029), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3303,6 +6285,12 @@ class HCAdminWorldCatalog
             case 2957: capture.Put("hc-ce-spawns", Vector(1984.825, 0.000, 2126.238), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2958: capture.Put("hc-ce-spawns", Vector(5779.945, 0.000, 11852.006), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2959: capture.Put("hc-ce-spawns", Vector(11338.114, 0.000, 14814.724), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page370(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2960: capture.Put("hc-ce-spawns", Vector(5806.582, 0.000, 3205.064), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2961: capture.Put("hc-ce-spawns", Vector(13012.065, 0.000, 7367.066), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2962: capture.Put("hc-ce-spawns", Vector(2979.074, 0.000, 5374.772), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3311,6 +6299,12 @@ class HCAdminWorldCatalog
             case 2965: capture.Put("hc-ce-spawns", Vector(5970.650, 0.000, 9867.348), "StaticHCArmorRecovery", "Packaged HC CE candidate; not live occupancy"); break;
             case 2966: capture.Put("hc-ce-spawns", Vector(13237.445, 0.000, 6675.368), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2967: capture.Put("hc-ce-spawns", Vector(2409.519, 0.000, 3719.609), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page371(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2968: capture.Put("hc-ce-spawns", Vector(6475.087, 0.000, 3728.882), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2969: capture.Put("hc-ce-spawns", Vector(1352.280, 0.000, 6332.202), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2970: capture.Put("hc-ce-spawns", Vector(9869.000, 0.000, 10973.100), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3319,6 +6313,12 @@ class HCAdminWorldCatalog
             case 2973: capture.Put("hc-ce-spawns", Vector(4552.201, 0.000, 11486.540), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2974: capture.Put("hc-ce-spawns", Vector(1728.482, 0.000, 10094.251), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2975: capture.Put("hc-ce-spawns", Vector(8089.790, 0.000, 8794.119), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page372(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2976: capture.Put("hc-ce-spawns", Vector(3322.967, 0.000, 10625.593), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2977: capture.Put("hc-ce-spawns", Vector(2809.101, 0.000, 6676.424), "StaticHCSupplyTruck", "Packaged HC CE candidate; not live occupancy"); break;
             case 2978: capture.Put("hc-ce-spawns", Vector(12202.224, 0.000, 15014.096), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3327,6 +6327,12 @@ class HCAdminWorldCatalog
             case 2981: capture.Put("hc-ce-spawns", Vector(1053.390, 0.000, 10812.615), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
             case 2982: capture.Put("hc-ce-spawns", Vector(2161.417, 0.000, 4678.316), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
             case 2983: capture.Put("hc-ce-spawns", Vector(4018.187, 0.000, 7302.031), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page373(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2984: capture.Put("hc-ce-spawns", Vector(6696.018, 0.000, 5754.719), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
             case 2985: capture.Put("hc-ce-spawns", Vector(3700.656, 0.000, 13899.145), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
             case 2986: capture.Put("hc-ce-spawns", Vector(5915.251, 0.000, 2275.621), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3335,6 +6341,12 @@ class HCAdminWorldCatalog
             case 2989: capture.Put("hc-ce-spawns", Vector(2505.887, 0.000, 4958.349), "StaticHCPoliceEvidence", "Packaged HC CE candidate; not live occupancy"); break;
             case 2990: capture.Put("hc-ce-spawns", Vector(6517.380, 0.000, 8027.553), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 2991: capture.Put("hc-ce-spawns", Vector(3533.335, 0.000, 8078.458), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page374(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 2992: capture.Put("hc-ce-spawns", Vector(8106.999, 0.000, 7146.479), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 2993: capture.Put("hc-ce-spawns", Vector(5135.984, 0.000, 7630.080), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 2994: capture.Put("hc-ce-spawns", Vector(10921.165, 0.000, 7750.293), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3343,6 +6355,12 @@ class HCAdminWorldCatalog
             case 2997: capture.Put("hc-ce-spawns", Vector(9924.277, 0.000, 4667.238), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 2998: capture.Put("hc-ce-spawns", Vector(5678.208, 0.000, 10208.027), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 2999: capture.Put("hc-ce-spawns", Vector(3227.688, 0.000, 4530.327), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page375(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3000: capture.Put("hc-ce-spawns", Vector(1503.997, 0.000, 4832.346), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 3001: capture.Put("hc-ce-spawns", Vector(5341.531, 0.000, 3006.211), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
             case 3002: capture.Put("hc-ce-spawns", Vector(2062.410, 0.000, 7450.988), "StaticHCPrisonTransfer", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3353,7 +6371,7 @@ class HCAdminWorldCatalog
             case 3007: capture.Put("hc-ce-spawns", Vector(13977.732, 0.000, 14897.463), "StaticHCBanditCache", "Packaged HC CE candidate; not live occupancy"); break;
         }
     }
-    static void Page47(HCAdminWorldCapture capture, int index)
+    static void Page376(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3365,6 +6383,12 @@ class HCAdminWorldCatalog
             case 3013: capture.Put("hc-ce-spawns", Vector(5416.428, 0.000, 5648.295), "StaticHCBanditCache", "Packaged HC CE candidate; not live occupancy"); break;
             case 3014: capture.Put("hc-ce-spawns", Vector(3184.680, 0.000, 2666.967), "StaticHCBanditCache", "Packaged HC CE candidate; not live occupancy"); break;
             case 3015: capture.Put("hc-ce-spawns", Vector(1207.821, 0.000, 5279.723), "StaticHCBanditCache", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page377(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3016: capture.Put("hc-ce-spawns", Vector(6710.409, 0.000, 14637.134), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3017: capture.Put("hc-ce-spawns", Vector(350.116, 0.000, 9787.409), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3018: capture.Put("hc-ce-spawns", Vector(5140.353, 0.000, 3659.493), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3373,6 +6397,12 @@ class HCAdminWorldCatalog
             case 3021: capture.Put("hc-ce-spawns", Vector(5970.769, 0.000, 4972.972), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3022: capture.Put("hc-ce-spawns", Vector(10760.524, 0.000, 4568.996), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3023: capture.Put("hc-ce-spawns", Vector(8425.391, 0.000, 11490.679), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page378(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3024: capture.Put("hc-ce-spawns", Vector(11999.426, 0.000, 6432.040), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3025: capture.Put("hc-ce-spawns", Vector(8378.737, 0.000, 4847.336), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
             case 3026: capture.Put("hc-ce-spawns", Vector(1460.165, 0.000, 11699.333), "StaticHCSniperExtraction", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3381,6 +6411,12 @@ class HCAdminWorldCatalog
             case 3029: capture.Put("hc-ce-spawns", Vector(9524.659, 0.000, 13915.317), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3030: capture.Put("hc-ce-spawns", Vector(4989.249, 0.000, 8937.190), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3031: capture.Put("hc-ce-spawns", Vector(5220.596, 0.000, 11018.128), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page379(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3032: capture.Put("hc-ce-spawns", Vector(8344.497, 0.000, 14003.119), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3033: capture.Put("hc-ce-spawns", Vector(2902.542, 0.000, 11594.443), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3034: capture.Put("hc-ce-spawns", Vector(11734.539, 0.000, 8980.707), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3389,6 +6425,12 @@ class HCAdminWorldCatalog
             case 3037: capture.Put("hc-ce-spawns", Vector(13537.282, 0.000, 6117.846), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3038: capture.Put("hc-ce-spawns", Vector(2340.269, 0.000, 11938.213), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
             case 3039: capture.Put("hc-ce-spawns", Vector(2462.150, 0.000, 10404.454), "StaticHCFieldHospital", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page380(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3040: capture.Put("hc-ce-spawns", Vector(12519.167, 0.000, 9363.032), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3041: capture.Put("hc-ce-spawns", Vector(6380.730, 0.000, 10285.702), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3042: capture.Put("hc-ce-spawns", Vector(2509.957, 0.000, 5827.196), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3397,6 +6439,12 @@ class HCAdminWorldCatalog
             case 3045: capture.Put("hc-ce-spawns", Vector(405.998, 0.000, 8094.959), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3046: capture.Put("hc-ce-spawns", Vector(4673.944, 0.000, 2606.916), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3047: capture.Put("hc-ce-spawns", Vector(410.192, 0.000, 3820.057), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page381(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3048: capture.Put("hc-ce-spawns", Vector(1703.106, 0.000, 3153.739), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3049: capture.Put("hc-ce-spawns", Vector(328.248, 0.000, 2437.281), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
             case 3050: capture.Put("hc-ce-spawns", Vector(9151.843, 0.000, 13259.135), "StaticHCTransportDown", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3405,6 +6453,12 @@ class HCAdminWorldCatalog
             case 3053: capture.Put("hc-ce-spawns", Vector(9109.445, 0.000, 11616.038), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3054: capture.Put("hc-ce-spawns", Vector(5303.885, 0.000, 12757.521), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3055: capture.Put("hc-ce-spawns", Vector(4284.406, 0.000, 6468.135), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page382(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3056: capture.Put("hc-ce-spawns", Vector(13518.236, 0.000, 5437.328), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3057: capture.Put("hc-ce-spawns", Vector(12757.880, 0.000, 8318.630), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3058: capture.Put("hc-ce-spawns", Vector(9473.696, 0.000, 2099.090), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3413,6 +6467,12 @@ class HCAdminWorldCatalog
             case 3061: capture.Put("hc-ce-spawns", Vector(12288.245, 0.000, 9991.995), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3062: capture.Put("hc-ce-spawns", Vector(11476.917, 0.000, 14148.951), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3063: capture.Put("hc-ce-spawns", Vector(361.245, 0.000, 9215.240), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page383(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3064: capture.Put("hc-ce-spawns", Vector(12783.966, 0.000, 3729.957), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3065: capture.Put("hc-ce-spawns", Vector(4810.453, 0.000, 12709.971), "StaticHCCargoSpill", "Packaged HC CE candidate; not live occupancy"); break;
             case 3066: capture.Put("hc-ce-spawns", Vector(3952.230, 0.000, 11094.624), "StaticHCAPCColumn", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3423,7 +6483,7 @@ class HCAdminWorldCatalog
             case 3071: capture.Put("hc-ce-spawns", Vector(12777.671, 0.000, 14114.373), "StaticHCAPCColumn", "Packaged HC CE candidate; not live occupancy"); break;
         }
     }
-    static void Page48(HCAdminWorldCapture capture, int index)
+    static void Page384(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3435,6 +6495,12 @@ class HCAdminWorldCatalog
             case 3077: capture.Put("hc-ce-spawns", Vector(3517.861, 0.000, 12911.350), "StaticHCAPCColumn", "Packaged HC CE candidate; not live occupancy"); break;
             case 3078: capture.Put("hc-ce-spawns", Vector(3275.310, 0.000, 9366.687), "StaticHCAPCColumn", "Packaged HC CE candidate; not live occupancy"); break;
             case 3079: capture.Put("hc-ce-spawns", Vector(9951.790, 0.000, 6034.926), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page385(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3080: capture.Put("hc-ce-spawns", Vector(5918.543, 0.000, 5954.523), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3081: capture.Put("hc-ce-spawns", Vector(5256.021, 0.000, 14484.883), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3082: capture.Put("hc-ce-spawns", Vector(7618.768, 0.000, 5945.318), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3443,6 +6509,12 @@ class HCAdminWorldCatalog
             case 3085: capture.Put("hc-ce-spawns", Vector(8784.155, 0.000, 9191.064), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3086: capture.Put("hc-ce-spawns", Vector(3540.564, 0.000, 6409.337), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3087: capture.Put("hc-ce-spawns", Vector(2629.020, 0.000, 3090.506), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page386(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3088: capture.Put("hc-ce-spawns", Vector(4130.533, 0.000, 7949.016), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3089: capture.Put("hc-ce-spawns", Vector(907.425, 0.000, 4236.119), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
             case 3090: capture.Put("hc-ce-spawns", Vector(10306.093, 0.000, 9917.225), "StaticHCMedicalEvacuation", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3451,6 +6523,12 @@ class HCAdminWorldCatalog
             case 3093: capture.Put("hc-ce-spawns", Vector(8692.475, 0.000, 2646.438), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3094: capture.Put("hc-ce-spawns", Vector(11355.356, 0.000, 6444.369), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3095: capture.Put("hc-ce-spawns", Vector(2345.891, 0.000, 7780.261), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page387(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3096: capture.Put("hc-ce-spawns", Vector(8006.187, 0.000, 8178.071), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3097: capture.Put("hc-ce-spawns", Vector(2364.617, 0.000, 6718.591), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3098: capture.Put("hc-ce-spawns", Vector(3721.485, 0.000, 10297.698), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3459,6 +6537,12 @@ class HCAdminWorldCatalog
             case 3101: capture.Put("hc-ce-spawns", Vector(460.390, 0.000, 10667.038), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3102: capture.Put("hc-ce-spawns", Vector(4667.531, 0.000, 13098.943), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3103: capture.Put("hc-ce-spawns", Vector(4433.444, 0.000, 4489.846), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page388(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3104: capture.Put("hc-ce-spawns", Vector(9505.038, 0.000, 11732.627), "StaticHCHuntersLastStand", "Packaged HC CE candidate; not live occupancy"); break;
             case 3105: capture.Put("hc-ce-spawns", Vector(10473.510, 0.000, 1772.764), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3106: capture.Put("hc-ce-spawns", Vector(1928.816, 0.000, 11528.619), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3467,6 +6551,12 @@ class HCAdminWorldCatalog
             case 3109: capture.Put("hc-ce-spawns", Vector(9082.340, 0.000, 3591.036), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3110: capture.Put("hc-ce-spawns", Vector(7143.305, 0.000, 9730.669), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3111: capture.Put("hc-ce-spawns", Vector(2759.578, 0.000, 2405.061), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page389(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3112: capture.Put("hc-ce-spawns", Vector(2991.670, 0.000, 10143.977), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3113: capture.Put("hc-ce-spawns", Vector(10044.793, 0.000, 6761.148), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3114: capture.Put("hc-ce-spawns", Vector(1737.581, 0.000, 7819.769), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3475,6 +6565,12 @@ class HCAdminWorldCatalog
             case 3117: capture.Put("hc-ce-spawns", Vector(1650.722, 0.000, 2355.521), "StaticHCSmugglerExchange", "Packaged HC CE candidate; not live occupancy"); break;
             case 3118: capture.Put("hc-ce-spawns", Vector(3206.127, 0.000, 15053.466), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3119: capture.Put("hc-ce-spawns", Vector(2385.404, 0.000, 9651.739), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page390(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3120: capture.Put("hc-ce-spawns", Vector(10827.433, 0.000, 11672.690), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3121: capture.Put("hc-ce-spawns", Vector(612.269, 0.000, 14440.186), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3122: capture.Put("hc-ce-spawns", Vector(4848.870, 0.000, 4719.773), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3483,6 +6579,12 @@ class HCAdminWorldCatalog
             case 3125: capture.Put("hc-ce-spawns", Vector(7311.409, 0.000, 7640.874), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3126: capture.Put("hc-ce-spawns", Vector(10495.985, 0.000, 9050.423), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3127: capture.Put("hc-ce-spawns", Vector(13396.335, 0.000, 14385.743), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page391(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3128: capture.Put("hc-ce-spawns", Vector(1610.004, 0.000, 11090.438), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3129: capture.Put("hc-ce-spawns", Vector(5393.896, 0.000, 10571.463), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
             case 3130: capture.Put("hc-ce-spawns", Vector(2257.371, 0.000, 6329.823), "StaticHCFireResponse", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3493,7 +6595,7 @@ class HCAdminWorldCatalog
             case 3135: capture.Put("hc-ce-spawns", Vector(1990.223, 0.000, 14233.742), "StaticHCSupplyTrailer", "Packaged HC CE candidate; not live occupancy"); break;
         }
     }
-    static void Page49(HCAdminWorldCapture capture, int index)
+    static void Page392(HCAdminWorldCapture capture, int index)
     {
         switch (index)
         {
@@ -3505,6 +6607,12 @@ class HCAdminWorldCatalog
             case 3141: capture.Put("hc-ce-spawns", Vector(1820.858, 0.000, 3596.832), "StaticHCSupplyTrailer", "Packaged HC CE candidate; not live occupancy"); break;
             case 3142: capture.Put("hc-ce-spawns", Vector(2084.925, 0.000, 11061.720), "StaticHCSupplyTrailer", "Packaged HC CE candidate; not live occupancy"); break;
             case 3143: capture.Put("hc-ce-spawns", Vector(2512.352, 0.000, 2054.215), "ItemHCSceneCacheKamenka", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page393(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3144: capture.Put("hc-ce-spawns", Vector(10676.524, 0.000, 4579.396), "ItemHCSceneCacheStaroye", "Packaged HC CE candidate; not live occupancy"); break;
             case 3145: capture.Put("hc-ce-spawns", Vector(8393.078, 0.000, 5998.555), "ItemHCSceneCacheKumyrna", "Packaged HC CE candidate; not live occupancy"); break;
             case 3146: capture.Put("hc-ce-spawns", Vector(5016.493, 0.000, 13341.447), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3513,6 +6621,12 @@ class HCAdminWorldCatalog
             case 3149: capture.Put("hc-ce-spawns", Vector(7666.970, 0.000, 11698.390), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3150: capture.Put("hc-ce-spawns", Vector(4478.340, 0.000, 12218.993), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3151: capture.Put("hc-ce-spawns", Vector(5970.650, 0.000, 9867.348), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page394(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3152: capture.Put("hc-ce-spawns", Vector(1762.899, 0.000, 12215.013), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3153: capture.Put("hc-ce-spawns", Vector(1299.362, 0.000, 9946.347), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3154: capture.Put("hc-ce-spawns", Vector(6204.925, 0.000, 8301.290), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
@@ -3521,6 +6635,12 @@ class HCAdminWorldCatalog
             case 3157: capture.Put("hc-ce-spawns", Vector(8006.187, 0.000, 8178.071), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3158: capture.Put("hc-ce-spawns", Vector(2509.957, 0.000, 5827.196), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
             case 3159: capture.Put("hc-ce-spawns", Vector(1650.722, 0.000, 2355.521), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
+        }
+    }
+    static void Page395(HCAdminWorldCapture capture, int index)
+    {
+        switch (index)
+        {
             case 3160: capture.Put("hc-ce-spawns", Vector(3121.660, 0.000, 4410.962), "VehicleHCExpansionAir", "Packaged HC CE candidate; not live occupancy"); break;
         }
     }

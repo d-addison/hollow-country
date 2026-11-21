@@ -35,6 +35,9 @@ modded class HCAdminModule
     protected int m_WorldRound;
     protected bool m_WorldIsStatic;
     protected int m_WorldCost;
+    protected int m_WorldBuildVisits;
+    protected int m_WorldBuildPeak;
+    protected int m_WorldEmitPeak;
     protected ref array<ref HCAdminMark> m_WorldLoot = new array<ref HCAdminMark>;
     protected float m_WorldLootUntil;
     protected bool m_WorldPulsing;
@@ -167,6 +170,9 @@ modded class HCAdminModule
         m_WorldSend = 0;
         m_WorldChunk = 0;
         m_WorldCost = 0;
+        m_WorldBuildVisits = 0;
+        m_WorldBuildPeak = 0;
+        m_WorldEmitPeak = 0;
     }
 
     protected void HCWorldChoose()
@@ -224,6 +230,12 @@ modded class HCAdminModule
         string summary = "[HC Admin] map_snapshot layers=" + m_WorldCapture.LayerCount().ToString() + " marks=" + reply.Total.ToString();
         summary += " ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCost).ToString() + " ticks=" + m_WorldCost.ToString();
         summary += " static=" + m_WorldIsStatic.ToString() + " truncated=" + reply.Truncated.ToString();
+        if (m_WorldIsStatic)
+        {
+            summary += " build_visits=" + m_WorldBuildVisits.ToString() + " peak_visit_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldBuildPeak).ToString();
+            summary += " peak_emit_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldEmitPeak).ToString() + " peak_put_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCapture.PeakPutTicks).ToString();
+            summary += " reserve_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCapture.CatalogReserveTicks).ToString();
+        }
         Print("" + summary);
         HCWorldCancel();
     }
@@ -245,13 +257,30 @@ modded class HCAdminModule
         if (!HCWorldLive(m_WorldPeer)) { HCWorldCancel(); return; }
         if (!HCServer.HCTickWork().HCTake(1)) { return; }
         int start = TickCount(0);
-        m_WorldWork.HCReset(m_WorldConfig.RowsPerTick, HCPerfConfig.HCGet().SliceMs);
+        int visitStage = m_WorldStage;
+        int visitCursor = m_WorldCursor;
+        float sliceMs = HCPerfConfig.HCGet().SliceMs;
+        // Leave half the static visit for its final non-preemptible row and
+        // bookkeeping. HCContinue checks BETWEEN rows; RowsPerTick is a cap,
+        // not a guarantee that that many rows fit the shared slice.
+        float workMs = sliceMs;
+        if (visitStage == 1) { workMs = sliceMs * 0.5; }
+        m_WorldWork.HCReset(m_WorldConfig.RowsPerTick, workMs);
         if (m_WorldStage == 1)
         {
-            while (m_WorldCursor < HCAdminWorldCatalog.COUNT && m_WorldWork.HCContinue())
+            // Reserve in a separate measured visit before emitting any rows.
+            // This avoids growth/copy of the accumulated capture inside Emit.
+            if (!m_WorldCapture.CatalogReserved) { m_WorldCapture.HCReserveCatalog(); }
+            else
             {
-                HCAdminWorldCatalog.Emit(m_WorldCapture, m_WorldCursor);
-                m_WorldCursor++;
+                while (m_WorldCursor < HCAdminWorldCatalog.COUNT && m_WorldWork.HCContinue())
+                {
+                    int emitStart = TickCount(0);
+                    HCAdminWorldCatalog.Emit(m_WorldCapture, m_WorldCursor);
+                    int emitCost = TickCount(emitStart);
+                    if (emitCost > m_WorldEmitPeak) { m_WorldEmitPeak = emitCost; }
+                    m_WorldCursor++;
+                }
             }
             if (m_WorldCursor >= HCAdminWorldCatalog.COUNT) { m_WorldStatic = m_WorldCapture; m_WorldStage = 7; }
         }
@@ -355,10 +384,25 @@ modded class HCAdminModule
         // Per-visit measured cost; high-resolution units use the shared perf rate.
         int cost = TickCount(start);
         if (m_WorldPeer) { m_WorldCost += cost; }
+        if (visitStage == 1)
+        {
+            m_WorldBuildVisits++;
+            if (cost > m_WorldBuildPeak) { m_WorldBuildPeak = cost; }
+        }
         // Per-visit cost prints only when a visit exceeds the shared slice; the
         // totals live in map_snapshot. A 100 ms pulse must not spam the RPT.
         float visitMs = HCWorkBudget.HCAdminMilliseconds(cost);
-        if (visitMs > HCPerfConfig.HCGet().SliceMs) { Print("[HC Admin] map_refresh stage=" + m_WorldStage.ToString() + " ms=" + visitMs.ToString() + " ticks=" + cost.ToString() + " over_slice=1"); }
+        if (visitMs > sliceMs)
+        {
+            string over = "[HC Admin] map_refresh stage=" + visitStage.ToString() + " ms=" + visitMs.ToString() + " ticks=" + cost.ToString() + " over_slice=1";
+            if (visitStage == 1)
+            {
+                over += " cursor=" + visitCursor.ToString() + " rows=" + (m_WorldCursor - visitCursor).ToString();
+                over += " peak_emit_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldEmitPeak).ToString() + " peak_put_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCapture.PeakPutTicks).ToString();
+                over += " reserve_ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCapture.CatalogReserveTicks).ToString();
+            }
+            Print("" + over);
+        }
     }
 
     protected void HCWorldCancelLoot(HCAdminWorldPeer peer)
