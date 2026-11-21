@@ -122,12 +122,6 @@ class HCWildlifeProviders
     // Weak native handles, never serialized. All authored bodies use
     // ECE_NOPERSISTENCY_WORLD, so none can survive a process restart.
     protected ref array<AnimalBase> m_Carcasses = new array<AnimalBase>;
-    // Retain the site and grant between durability stages. A final claim may
-    // fill SpentSites before creation; this pending job still owns its turn.
-    protected ref HCWildlifeProviderSite m_CreateSite;
-    protected ref HCEventRewardPlan m_CreatePlan;
-    protected int m_CreateStage;
-    protected int m_CreatePeak;
     protected int m_Refills;
     // Conservative retry floor, including failed creation and legacy claims.
     // Actual native deletion is additionally required for every retained body.
@@ -421,71 +415,9 @@ class HCWildlifeProviders
     {
         if (!m_Running || m_Fault || !HCEcologyNative.Authority()) { return null; }
         if (!HCHidden(site.Position)) { return null; }
-        m_CreateSite = site;
-        m_CreatePlan = null;
-        m_CreateStage = 0;
-        return null;
-    }
-
-    void HCCreateSlice()
-    {
-        HCWildlifeProviderSite site = m_CreateSite;
-        if (!site) { return; }
-        if (m_CreateStage == 0)
-        {
-            // The allocation save is the same synchronous safety barrier; no
-            // ledger or native creation shares this grant.
-            if (!HCClaim(site.Id))
-            {
-                m_CreateSite = null;
-                m_RefusedAllocation++;
-                HCRefuse("carcass_allocation_claim_failed");
-                return;
-            }
-            m_CreateStage = 1;
-            return;
-        }
-        if (m_CreateStage == 1)
-        {
-            m_CreatePlan = m_Ledger.Commit(site.Id);
-            if (!m_CreatePlan)
-            {
-                m_CreateSite = null;
-                m_RefusedEconomy++;
-                HCRefuse("carcass_economy_claim_not_issued");
-                return;
-            }
-            m_CreateStage = 2;
-            return;
-        }
-        // Visibility must be fresh at the actual creation, never a retained
-        // observer result. Creation and death stay together so no live animal
-        // gets an intervening simulation frame or moves off its authored point.
-        if (!HCHidden(site.Position))
-        {
-            // This allocation and ledger grant remain spent. Release the
-            // active slot so a visible/camped site cannot starve other sites
-            // or renewal; never retry or commit this allocation a second time.
-            m_CreateSite = null;
-            m_CreatePlan = null;
-            m_CreateStage = 0;
-            return;
-        }
-        m_CreateSite = null;
-        HCEventRewardPlan plan = m_CreatePlan;
-        m_CreatePlan = null;
-        int began = TickCount(0);
-        HCCreateBody(site, plan);
-        int ticks = TickCount(began);
-        if (ticks > m_CreatePeak)
-        {
-            m_CreatePeak = ticks;
-            if (ticks >= 40000) { Print("[HC Wildlife] carcass_native_create_death ticks_max=" + ticks.ToString() + " atomic=1 runtime=PENDING"); }
-        }
-    }
-
-    AnimalBase HCCreateBody(HCWildlifeProviderSite site, HCEventRewardPlan plan)
-    {
+        if (!HCClaim(site.Id)) { m_RefusedAllocation++; HCRefuse("carcass_allocation_claim_failed"); return null; }
+        HCEventRewardPlan plan = m_Ledger.Commit(site.Id);
+        if (!plan) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); return null; }
         int flags = ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD | ECE_INITAI;
         Object created = GetGame().CreateObjectEx(plan.Items.Get(0), site.Position, flags);
         AnimalBase body = AnimalBase.Cast(created);
@@ -525,11 +457,11 @@ class HCWildlifeProviders
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
         bool refill = m_Config.CarcassesEnabled && HCRefillDue();
-        bool pending = m_Config.CarcassesEnabled && m_State && (m_CreateSite || m_State.SpentSites.Count() < m_Config.MaxCarcasses || refill);
+        bool pending = m_Config.CarcassesEnabled && m_State && (m_State.SpentSites.Count() < m_Config.MaxCarcasses || refill);
         if (pending && m_CarcassTurn)
         {
-            // One retained allocation/ledger/creation stage, including fresh
-            // observers at creation. Never reuse stale sight checks.
+            // One atomic creation attempt, including at most 16 current
+            // observers (six native rays each). Never reuse stale sight checks.
             // Cost 8 is the shared budget's object-creation convention; use the
             // named consumer so exhausted earlier modules cannot starve it.
             HCUnitBudget work = HCServer.HCTickWork();
@@ -538,13 +470,6 @@ class HCWildlifeProviders
                 m_CarcassTurn = false;
                 // Completed renewal is its own slice. A surviving body can
                 // block renewal without starving another unspent site.
-                if (m_CreateSite)
-                {
-                    HCCreateSlice();
-                    HCReport(false);
-                    HCObserve();
-                    return;
-                }
                 if (refill)
                 {
                     bool renewed = HCRefill();
