@@ -14,6 +14,9 @@ from tools.setup.winproc import InteropError, Result
 
 class DiagSessionTests(unittest.TestCase):
     def setUp(self):
+        lock = patch.object(diag, 'host_lock', return_value=contextlib.nullcontext())
+        lock.start()
+        self.addCleanup(lock.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

@@ -8,6 +8,8 @@ Exit codes: 0 connect-enabled after settle; 2 install check failed; 3 compile;
 9 input/start/timeout error; 10 persistence corruption; 130 interrupted. No exit path stops the server.
 """
 import argparse
+from contextlib import ExitStack
+from tools.release.host_lock import host_lock, LockRefused
 import math
 from pathlib import Path
 import time
@@ -144,7 +146,10 @@ def main(argv=None):
     args.interop = dict(attempts=args.interop_attempts, timeout=args.interop_timeout,
                         retry_seconds=args.retry_seconds, system32=args.system32, cwd=args.interop_cwd)
     rpt = None
+    lease = ExitStack()
     try:
+        if args.start:
+            lease.enter_context(host_lock('checkstart'))
         # Use PowerShell argument quoting; no shell interpolation on Linux.
         check = ("$env:PYTHONDONTWRITEBYTECODE='1'; Set-Location -LiteralPath " + psquote(args.bundle)
                  + "; if (-not $?) { exit 2 }; & py -3 -m tools.setup.friend_install --bundle "
@@ -198,6 +203,9 @@ def main(argv=None):
             from tools.release.activity_check import summary_line
             print(summary_line(activity_result))
         return CODES.get(outcome, 9)
+    except LockRefused as error:
+        print(str(error))
+        return 9
     except winproc.InteropError:
         print('boot_verdict=interop_unknown')
         return 8
@@ -207,6 +215,8 @@ def main(argv=None):
     except KeyboardInterrupt:
         print('observation interrupted; server state unchanged by observer')
         return 130
+    finally:
+        lease.close()
 
 
 if __name__ == '__main__':

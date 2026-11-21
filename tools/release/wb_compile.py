@@ -666,7 +666,9 @@ def main(argv=None):
     if not 1 <= args.seconds <= 900 or not re.fullmatch(r'[A-Za-z &/]+', args.action_path):
         parser.error('invalid timeout or action path')
     try:
-        report, code = run(args)
+        from tools.release.host_lock import host_lock
+        with host_lock('wb_compile'):
+            report, code = run(args)
     except (OSError, ValueError, subprocess.SubprocessError, winproc.InteropError) as error:
         report, code = {'status': 'unavailable', 'reason': private(error)}, 2
     print(json.dumps(report, sort_keys=True))

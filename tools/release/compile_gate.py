@@ -319,6 +319,14 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
                 base_extra_pbos=[base / 'hollowcountryanims.pbo'])
 
 
+def require_client_idle(allow_client=False):
+    from tools.setup import winproc
+    if not allow_client:
+        state = winproc.process_state('DayZ_x64.exe')
+        if state != 'gone':
+            raise ValueError('compile refused: owner client state=' + state + '; --allow-client required')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tree', type=Path, default=Path.cwd(), help='source checkout (default: current directory)')
@@ -333,6 +341,7 @@ def main():
     parser.add_argument('--addons', type=Path, default=ship_inputs.ADDONS,
                         help='installed DayZ/DayZServer Addons folder (read only; same as release)')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
+    parser.add_argument('--allow-client', action='store_true', help='explicitly permit compilation while the owner client runs')
     args = parser.parse_args()
     if not args.prepare_only:
         args.server_root, args.prefix, reason = prerequisites(args.server_root, args.prefix)
@@ -346,6 +355,10 @@ def main():
         probe.safe(cache)
         cache.mkdir(parents=True, exist_ok=True)
         with contextlib.ExitStack() as stack:
+            from tools.release.host_lock import host_lock
+            stack.enter_context(host_lock('compile_gate'))
+            if not args.prepare_only:
+                require_client_idle(args.allow_client)
             tree = stack.enter_context(source_tree(args.tree.resolve(), args.commit, cache))
             ship_config(tree, bool(args.commit))
             inputs = stack.enter_context(compatibility_inputs(tree, args.workshop.expanduser().resolve(), cache))

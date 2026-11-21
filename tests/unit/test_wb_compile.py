@@ -84,6 +84,11 @@ class DiagnosticsTests(unittest.TestCase):
 
 
 class DriverTests(unittest.TestCase):
+    def setUp(self):
+        lock = patch('tools.release.host_lock.host_lock', return_value=contextlib.nullcontext())
+        lock.start()
+        self.addCleanup(lock.stop)
+
     def test_running_and_unknown_refuse_before_temp_or_launch(self):
         for state in ('running', 'unknown'):
             with self.subTest(state=state), patch.object(wb.winproc, 'process_state', return_value=state), \

@@ -150,7 +150,9 @@ def main(argv=None):
     parser.add_argument('--build-only', action='store_true')
     args = parser.parse_args(argv)
     try:
-        cycle(args)
+        from tools.release.host_lock import host_lock
+        with host_lock('friendcycle'):
+            cycle(args)
     except ValueError as error:
         # ValueError messages here are authored text without paths or identifiers.
         parser.exit(1, 'Friend cycle refused or failed: ' + str(error) + '\n')

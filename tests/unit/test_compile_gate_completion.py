@@ -20,6 +20,8 @@ class CompileCompletionTests(unittest.TestCase):
             root = Path(temp)
             output = io.StringIO()
             stack.enter_context(contextlib.redirect_stdout(output))
+            stack.enter_context(patch('tools.release.host_lock.host_lock', return_value=contextlib.nullcontext()))
+            stack.enter_context(patch.object(compile_gate, 'require_client_idle'))
             stack.enter_context(patch.object(compile_gate, 'prerequisites',
                                              return_value=(root, root, None)))
             stack.enter_context(patch.object(compile_gate, 'source_tree',

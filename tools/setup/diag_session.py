@@ -4,6 +4,8 @@ Run from WSL with python3 -B -m tools.setup.diag_session --tag NAME.
 Only --launch starts processes. --refresh copies loose source only; no restart.
 """
 import argparse
+from contextlib import ExitStack
+from tools.release.host_lock import host_lock, LockRefused
 from dataclasses import dataclass
 import hashlib
 import json
@@ -335,7 +337,10 @@ def main(argv=None):
     parser.add_argument('--core-only', action='store_true',
                         help='load only the base addon (no Workshop dependencies, no AI addon)')
     args = parser.parse_args(argv)
+    lease = ExitStack()
     try:
+        if args.launch or args.refresh:
+            lease.enter_context(host_lock('diag_session'))
         if args.log:
             for line in log_lines(args.log):
                 print(line)
@@ -363,6 +368,9 @@ def main(argv=None):
             print('Native source resolution, boot and debugger attachment remain UNVERIFIED.')
             print(plan.launch_script())
         return 0
+    except LockRefused as error:
+        print(str(error))
+        return 2
     except Refused as error:
         print('Diag session refused: ' + str(error))
         return 2
@@ -371,6 +379,9 @@ def main(argv=None):
         print('Diag session refused: missing/unsafe input, existing runtime, active DayZ, or unavailable Windows interop. '
               'Check prerequisites in docs/tools/DAYZDIAG.md; partial runtimes are preserved.')
         return 2
+
+    finally:
+        lease.close()
 
 
 if __name__ == '__main__':
