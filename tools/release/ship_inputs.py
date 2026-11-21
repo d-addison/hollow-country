@@ -1,4 +1,4 @@
-"""Shared release PBO catalogue and uncached animation build recipe."""
+"""Shared release PBO catalogue, catalog provenance gate and animation build recipe."""
 from pathlib import Path
 import sys
 
@@ -19,8 +19,10 @@ def build_anims(tree, addons, scratch, run):
     """Always rebuild: installed vanilla inputs and all authored inputs are read fresh.
 
     run(command, cwd) is supplied by the caller for bounded, private diagnostics.
+    Both release and compile-gate builds refuse stale admin map inputs offline.
     The installed Addons folder is only read by these generators.
     """
+    run([sys.executable, '-B', '-m', 'tools.package.admin_world_catalog', '--check'], tree)
     output = scratch / 'anims'
     for script in ('build_infected_clips.py', 'build_anims_addon.py'):
         run([sys.executable, '-B', tree / 'tools/anim' / script,
