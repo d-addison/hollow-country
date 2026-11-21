@@ -20,6 +20,7 @@
   "EnableInfectedVariety": true,
   "EnableDebugSnapshot": true,
   "EnableAdminMap": true,
+  "EnableSmokeFixtures": false,
   "EnableCampRespawn": true,
   "EnableTeamPing": true,
   "EnableMelee": true,

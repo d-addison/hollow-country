@@ -34,6 +34,7 @@ JOIN = re.compile(r'\bconnected\b|\bhas joined\b', re.I)
 RELEASE_WAIVERS = {}
 USE_LINE = re.compile(r'\[HC Use\] module=([A-Za-z0-9_.-]{1,64}) '
                       r'feature=([A-Za-z0-9_.-]{1,64}) count=([0-9]{1,10})(?=\s|$)')
+FIXTURE_SUFFIX = re.compile(r' fixture=([0-9]{1,10})(?=\s|$)')
 RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED')
 
 
@@ -48,6 +49,7 @@ class UseActivity:
         self.targets = load_targets()
         self.modules = {}
         self.counts = {}
+        self.fixtures = {}
 
     def observe(self, raw, *, client=False):
         safe = filtered(raw)
@@ -67,10 +69,18 @@ class UseActivity:
         count = int(value)
         if count > 2147483647:
             raise ValueError('use counter overflow')
+        suffix = safe[match.end():]
+        fixture_match = FIXTURE_SUFFIX.search(suffix)
+        fixture = int(fixture_match[1]) if fixture_match else 0
+        if ' fixture=' in suffix and not fixture_match:
+            raise ValueError('invalid fixture counter')
+        if fixture > count:
+            raise ValueError('fixture counter exceeds use count')
         key = (module, feature)
         if key not in self.counts and len(self.counts) >= 512:
             raise ValueError('feature limit')
         self.counts[key] = max(self.counts.get(key, 0), count)
+        self.fixtures[key] = max(self.fixtures.get(key, 0), fixture)
 
     def result(self):
         if not self.modules:
@@ -84,7 +94,7 @@ class UseActivity:
             reason = RELEASE_WAIVERS.get((module, feature)) if count == 0 else None
             status = 'ACTIVE' if count else 'WAIVED' if reason else 'INERT'
             features.append(dict(module=module, feature=feature, count=count,
-                                 status=status, reason=reason))
+                                 status=status, reason=reason, fixture=self.fixtures.get((module, feature), 0)))
         registered = {row['module'] for row in features}
         # An enabled owner with no registration must fail closed, even if an
         # older addon emits readiness but has not yet adopted the use API.
@@ -346,7 +356,8 @@ def print_result(result):
     if result.get('release'):
         for row in result['features']:
             reason = f" reason={row['reason']}" if row['reason'] else ''
-            print(f"{row['module']}/{row['feature']} {row['status']} count={row['count']}{reason}")
+            fixture = f" fixture={row['fixture']}" if row.get('fixture') else ''
+            print(f"{row['module']}/{row['feature']} {row['status']} count={row['count']}{fixture}{reason}")
         print('totals ' + ' '.join(f'{s}={result["totals"][s]}' for s in RELEASE_STATUSES))
         print(summary_line(result))
         return

@@ -17,6 +17,7 @@ class HCModuleReadiness
     protected static ref array<string> s_UseModules = new array<string>();
     protected static ref array<string> s_UseFeatures = new array<string>();
     protected static ref array<int> s_UseCounts = new array<int>();
+    protected static ref array<int> s_UseFixtureCounts = new array<int>();
     protected static bool s_UseScheduled;
     static const int HC_USE_CAP = 256;
 
@@ -32,6 +33,7 @@ class HCModuleReadiness
         s_UseModules.Insert(module);
         s_UseFeatures.Insert(feature);
         s_UseCounts.Insert(0);
+        s_UseFixtureCounts.Insert(0);
         s_UseSlots.Insert(module + "/" + feature, slot);
         HCUseLine(slot);
         if (!s_UseScheduled && GetGame())
@@ -60,10 +62,27 @@ class HCModuleReadiness
         if (count == 0) { HCUseLine(slot); }
     }
 
+    // Real owner outcomes only; selection never calls this API.
+    static void HCUseFixture(string module, string feature)
+    {
+        int slot = HCUseSlot(module, feature);
+        if (slot < 0) { slot = HCRegisterUse(module, feature); }
+        if (slot < 0) { return; }
+        int count = s_UseCounts[slot];
+        int fixtures = s_UseFixtureCounts[slot];
+        if (count < 2147483647)
+        {
+            s_UseCounts[slot] = count + 1;
+            s_UseFixtureCounts[slot] = fixtures + 1;
+        }
+        if (count == 0 || fixtures == 0) { HCUseLine(slot); }
+    }
+
     protected static void HCUseLine(int slot)
     {
         string line = "[HC Use] module=" + s_UseModules[slot] + " feature=" + s_UseFeatures[slot];
         line = line + " count=" + s_UseCounts[slot].ToString();
+        if (s_UseFixtureCounts[slot] > 0) { line += " fixture=" + s_UseFixtureCounts[slot].ToString(); }
         Print("" + line);
     }
 
@@ -88,9 +107,11 @@ class HCModuleReadiness
         s_UseModules.Clear();
         s_UseFeatures.Clear();
         s_UseCounts.Clear();
+        s_UseFixtureCounts.Clear();
         s_UseModules.Reserve(HC_USE_CAP);
         s_UseFeatures.Reserve(HC_USE_CAP);
         s_UseCounts.Reserve(HC_USE_CAP);
+        s_UseFixtureCounts.Reserve(HC_USE_CAP);
     }
 
     static void HCUseShutdown()

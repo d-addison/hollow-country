@@ -107,6 +107,9 @@ class HCAdminCatalog
         HCAdd("camptier", "ai", "Force camp tier", "Persist nearest camp tier; next normal scan reclassifies.", false, true, true, 0, 3, 1, "tier");
         HCAdd("campvisit", "ai", "Request camp visit", "Reports missing physical visitor request hook.", false, true, false, 0, 0, 0, "");
         HCAdd("campraid", "ai", "Request camp raid", "Reports missing physical raid request hook.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_holdout_due", "ai", "Smoke: due funded holdout", "Lead-only R3: select an existing naturally due funded row; no aging or supplies.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_conflict", "ai", "Smoke: distant conflict", "Lead-only R3: prioritize an existing eligible distant opposed cell; normal guards apply.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_materialize", "ai", "Smoke: offered proposal", "Lead-only R3: prioritize an existing unclaimed proposal; real provider outcome required.", false, true, false, 0, 0, 0, "");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");
         HCAdd("event", "world", "Start reviewed event", "Request the nearest reviewed site through normal event admission.", false, true, false, 0, 0, 0, "");
         HCAdd("scene", "world", "Place due scene", "Request the nearest due reviewed scene; maximum two scene leases.", false, true, false, 0, 0, 0, "");

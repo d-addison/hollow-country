@@ -231,6 +231,7 @@ class HCAdminModule : HCModule
             m_Identities.Insert(null);
         }
         m_DebugEnabled = settings.EnableDebugSnapshot;
+        HCAdminFixtures.HCConfigure(settings.EnableSmokeFixtures);
         // Profile directories are admitted once at module start, never per command.
         m_LootMapRootReady = false;
         if (m_DebugEnabled)
@@ -471,6 +472,7 @@ class HCAdminModule : HCModule
         string result = "refused";
         if (ok) { result = "ok"; }
         string line = "[HC Admin] cmd=" + command + " result=" + result + " reason=" + reason;
+        if (command.IndexOf("fx_") == 0) { line += " fixture=1"; }
         Print("" + line);
         HCAdminReply reply = new HCAdminReply;
         reply.Ticket = ticket;
@@ -492,6 +494,12 @@ class HCAdminModule : HCModule
         HCSend(sender, reply);
     }
 
+    // Add-ons install their trusted server fixture provider through admin ownership.
+    static bool HCRegisterFixtureProvider(HCAdminFixtureProvider provider)
+    {
+        return HCAdminFixtures.HCRegister(provider);
+    }
+
     // Test-kit availability: one line per allowlisted command, read-only.
     void HCKit(PlayerIdentity sender, int ticket)
     {
@@ -499,6 +507,7 @@ class HCAdminModule : HCModule
         reply.Ticket = ticket;
         reply.Notice = "Kit: available=0 names the reason. Runtime acceptance pending.";
         HCServer.Get().HCAdminKit(reply);
+        HCAdminFixtures.HCFixtureKit(reply.Lines);
         string summary;
         for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { summary += "\n" + reply.Lines[lineIndex]; }
         if (summary != "") { Print("" + summary); }
@@ -586,6 +595,13 @@ class HCAdminModule : HCModule
     {
         PlayerBase player = HCPlayer(sender);
         if (!player) { HCReply(sender, ticket, command, false, "live-sender-unavailable-or-player-cap=32"); return false; }
+        if (command.IndexOf("fx_") == 0)
+        {
+            string fixtureReason;
+            bool fixtureOK = HCAdminFixtures.HCFixture(command, player.GetPosition(), fixtureReason);
+            HCReply(sender, ticket, command, fixtureOK, fixtureReason);
+            return fixtureOK;
+        }
         if (command == "kit") { HCKit(sender, ticket); return true; }
         if (command == "list") { HCList(sender, ticket, player.GetPosition()); return true; }
         if (command == "snapshot")
@@ -677,6 +693,7 @@ class HCAdminModule : HCModule
         if (m_Permissions) { m_Permissions.HCStop(); }
         m_Permissions = null;
         m_OperatorControls = false;
+        HCAdminFixtures.HCConfigure(false);
         m_Status.HCPublish("off", "server_stopped");
         m_Pending = null;
         m_Capture = null;
