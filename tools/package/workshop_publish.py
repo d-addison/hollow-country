@@ -12,7 +12,8 @@ item with its own allowlist, title and description:
 
 * base, @HollowCountry: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and, optionally,
   meta.cpp.
-* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo with its .bisign, keys/*.bikey and,
+* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo and, optionally, the signed weapon-pack
+  guard addons/hollowcountry_weapon_pack_guards.pbo, each with its .bisign, keys/*.bikey and,
   optionally, mod.cpp and meta.cpp. Load it with -mod after HollowCountry on the server and every client;
   players subscribe to it when the server uses it.
 
@@ -77,6 +78,8 @@ ADDON_DESCRIPTION = (
 PBO_NAME = 'hollowcountry.pbo'
 ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
 ANIMS_PBO_NAME = 'hollowcountryanims.pbo'
+# Signed weapon-pack attachment guard (#302); ships in @HollowCountryExpansionAI beside the addon.
+GUARDS_PBO_NAME = 'hollowcountry_weapon_pack_guards.pbo'
 # Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
 # the meta.cpp name line.
 ITEMS = {
@@ -85,7 +88,7 @@ ITEMS = {
     'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True,
              'extra_pbos': (ANIMS_PBO_NAME,)},
     'addon': {'pbo': ADDON_PBO_NAME, 'title': ADDON_TITLE, 'description': ADDON_DESCRIPTION,
-              'mod_cpp_required': False, 'extra_pbos': ()},
+              'mod_cpp_required': False, 'extra_pbos': (GUARDS_PBO_NAME,)},
 }
 DEFAULT_ITEM = 'base'
 # The real Workshop ids of our two Unlisted items. An item never accepts the other item's id, so a
