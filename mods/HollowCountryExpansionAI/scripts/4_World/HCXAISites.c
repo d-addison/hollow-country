@@ -12,7 +12,7 @@
 // m_Config, :592-597 reads NumberOfAI/NumberOfAIMax on each native Spawn.
 // New work: one cached player list/second, one O(players) identity count;
 // constant scaling per spawn check. Qualification retains one native query,
-// one sample or at most 32 script path segments per admitted visit. Debug: <=66 states, <=64 member slots,
+// one sample or at most 8 script path segments per admitted visit. Debug: <=66 states, <=64 member slots,
 // <=2 qualified routes (<=128 points each), only when snapshot requested.
 // EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
 // EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
@@ -269,6 +269,9 @@ class HCXAISiteState : Managed
     ref array<vector> PatrolPoints = new array<vector>();
     string Key;
     bool Bound;
+    ref HCGapcodeRouteHashState HCBindHash;
+    string HCBindText;
+    int HCBindCursor;
     bool Qualified;
     bool Failed;
     bool Cached;
@@ -873,7 +876,8 @@ class HCXAISiteDirector : Managed
         }
         if (!this.HCSurveyReady()) { return; }
         string refusedSites;
-        m_SurveyWork.HCReset(64, HCPerfConfig.HCGet().SliceMs);
+        // Reserve half the target for the last native sample/path operation.
+        m_SurveyWork.HCReset(64, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         HCXAISiteState nearby = this.HCNearbySurveyState();
         while (m_SurveyCursor < m_Policy.Sites.Count() && m_SurveyWork.HCContinue())
         {
@@ -1061,7 +1065,7 @@ class HCXAISiteDirector : Managed
         // Reserve candidate work separately from maintenance. Otherwise four
         // armed controllers consume every local unit and prevent page growth.
         m_LocalityUnits.HCReset(HCXAISiteDirector.WORK_PER_TICK + HCXAISiteRules.HCAttemptsPerTick(m_Localities));
-        m_LocalityWork.HCReset(HCXAISiteDirector.WORK_PER_TICK, HCPerfConfig.HCGet().SliceMs);
+        m_LocalityWork.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         this.HCScanNearby(now);
         if (m_LocalitySave.HCUrgent && m_LocalitySave.HCDirty && (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_LocalitySave)))
         {
@@ -1636,7 +1640,7 @@ class HCXAISiteDirector : Managed
         while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
         {
             if (!m_States[m_Cursor].Bound && !m_States[m_Cursor].Failed) { this.Bind(m_States[m_Cursor]); }
-            m_Cursor++;
+            if (m_States[m_Cursor].Bound || m_States[m_Cursor].Failed) { m_Cursor++; }
             work++;
         }
         if (m_Cursor < m_States.Count()) { return; }
@@ -1652,6 +1656,21 @@ class HCXAISiteDirector : Managed
     protected void Bind(HCXAISiteState state)
     {
         if (state.Bound || state.Failed) { return; }
+        // Retain geometry and hash progress independently. The provider uses
+        // static hash storage, so the adapter restores ambient state each call.
+        if (state.HCBindHash)
+        {
+            int partBytes = Math.Min(128, state.HCBindText.Length() - state.HCBindCursor);
+            bool lastPart = state.HCBindCursor + partBytes == state.HCBindText.Length();
+            string digest = HCGapcodeRouteHash.HCRoutePart(state.HCBindHash, state.HCBindText.Substring(state.HCBindCursor, partBytes), lastPart);
+            state.HCBindCursor += partBytes;
+            if (!lastPart) { return; }
+            state.Key = digest;
+            state.HCBindHash = null;
+            state.HCBindText = "";
+            state.Bound = true;
+            return;
+        }
         HCXAISite site = state.Site;
         if (site.Kind != "holdout")
         {
@@ -1690,11 +1709,15 @@ class HCXAISiteDirector : Managed
             state.CacheWorld = ExpansionAISpawnBase.GetPlacementPosition(state.HouseObject.ModelToWorld(site.CacheLocal));
             state.CacheOrientation = state.HouseObject.GetOrientation();
         }
-        ExpansionSHA256.Update(HCXAISiteRules.RouteText(site, m_Build));
-        state.Key = ExpansionSHA256.HexDigest();
-        ExpansionSHA256.Reset();
-        if (state.Transient) { state.Key = "transient:" + state.ProposalId; }
-        state.Bound = true;
+        if (state.Transient)
+        {
+            state.Key = "transient:" + state.ProposalId;
+            state.Bound = true;
+            return;
+        }
+        state.HCBindText = HCXAISiteRules.RouteText(site, m_Build);
+        state.HCBindCursor = 0;
+        state.HCBindHash = new HCGapcodeRouteHashState;
     }
     protected HCXAIRouteRow RouteRow(string key)
     {
@@ -1732,7 +1755,7 @@ class HCXAISiteDirector : Managed
         m_Cursor = 0;
     }
     // One retained unit: one authored sample, one native FindPath, or at most
-    // 32 script path segments. Outdoor partial paths resume from their actual end.
+    // 8 script path segments. Outdoor partial paths resume from their actual end.
     protected void QualifyStep(HCXAISiteState state)
     {
         if (state.HCOutdoorSampling) { this.HCOutdoorStep(state); return; }
@@ -1881,7 +1904,7 @@ class HCXAISiteDirector : Managed
         TVectorArray path = state.HCPath;
         int pathPoints = path.Count();
         int processed = 0;
-        while (state.HCPathCursor < pathPoints && processed < 32)
+        while (state.HCPathCursor < pathPoints && processed < 8)
         {
             int index = state.HCPathCursor;
             state.HCPathLength += vector.Distance(path[index - 1], path[index]);

@@ -8,16 +8,16 @@
 // 1 Hz module tick is not the only driver; the module tick still publishes the finished load.
 modded class HCInteriorsModule
 {
-    static const float PACK_SLICE_MS = 10;
+    static const float PACK_SLICE_MS = 2;
     static const int PACK_PUMP_MS = 100;
 
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
         m_PackBudget = new HCPerfSlices("Interiors");
-        Print("[HC PerfControl] Interiors pack slicing admitted; slice_ms<=10 pump_ms=100; runtime=PENDING");
+        Print("[HC PerfControl] Interiors pack slicing admitted; slice_ms<=2 pump_ms=100; runtime=PENDING");
     }
-    protected ref HCPerfBootBudget m_PrepareBudget = new HCPerfBootBudget;
+    protected ref HCWorkBudget m_PrepareBudget = new HCWorkBudget;
     protected ref HCW64InteriorPackBudget m_PackSlice;
     protected bool m_SlicedPack;
     protected bool m_PackPumping;
@@ -36,6 +36,7 @@ modded class HCInteriorsModule
     // One budgeted slice of load steps; returns the raw ticks it took.
     protected int HCPackSlice()
     {
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, 1)) { return 0; }
         int sliceStart = TickCount(0);
         HCPerfConfig config = HCPerfConfig.HCGet();
         m_PrepareBudget.HCReset(config.InteriorPackUnitsPerTick, HCPackSliceMs());
@@ -88,7 +89,6 @@ modded class HCInteriorsModule
         }
         HCSettings settings = HCServer.Get().GetSettings();
         if (!IsEnabled(settings)) { OnStop(); return; }
-        m_PrepareBudget.HCFrame(deltaTime);
         int packTicks = HCPackSlice();
         m_PackSteps.HCAdd(m_LoadStep, packTicks);
         m_PackSteps.HCItem("pack_slice", packTicks);
@@ -111,7 +111,7 @@ modded class HCInteriorsModule
     {
         HCPackPumpStop();
         m_SlicedPack = false;
-        m_PrepareBudget = new HCPerfBootBudget;
+        m_PrepareBudget = new HCWorkBudget;
         super.OnStop();
     }
 }

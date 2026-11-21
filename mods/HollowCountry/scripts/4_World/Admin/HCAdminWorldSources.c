@@ -17,6 +17,61 @@ class HCAdminWorldCapture : HCDebugSnapshot
         CatalogReserveTicks = TickCount(start);
         CatalogReserved = true;
     }
+    // The camp contributor otherwise performs <=24 JSON-detached snapshots in
+    // one callback. The M-map owns this cursor; normal debug exports keep their
+    // original contributor contract and registry ordering.
+    protected int m_CampCursor;
+    protected int m_CampTotal;
+    protected int m_CampShown;
+    int ContributorIndex;
+    int ContributorPeakTicks;
+    override bool HCCaptureNext()
+    {
+        ContributorIndex = m_Cursor;
+        int began = TickCount(0);
+        bool complete = HCWorldCaptureContributor();
+        int cost = TickCount(began);
+        if (cost > ContributorPeakTicks) { ContributorPeakTicks = cost; }
+        return complete;
+    }
+    protected bool HCWorldCaptureContributor()
+    {
+        if (m_Cursor >= m_Contributors.Count()) { return true; }
+        HCDebugContributor contributor = m_Contributors[m_Cursor];
+        HCDebugCampSitesContributor camps = HCDebugCampSitesContributor.Cast(contributor);
+        if (!camps) { return super.HCCaptureNext(); }
+        if (!s_Contributors || s_Contributors.Find(contributor) < 0)
+        {
+            m_Cursor++;
+            m_CampCursor = 0;
+            return m_Cursor >= m_Contributors.Count();
+        }
+        HCHoldouts holdouts = HCHoldouts.Get();
+        if (m_CampCursor == 0)
+        {
+            m_CampTotal = 0;
+            m_CampShown = 0;
+            if (holdouts) { m_CampTotal = holdouts.Count(); }
+        }
+        int work = Math.Min(m_CampTotal, HCDebugSnapshot.CAMP_LAYER_CAP);
+        if (holdouts && m_CampCursor < work)
+        {
+            HCWorldHoldout row = holdouts.Snapshot(m_CampCursor);
+            m_CampCursor++;
+            if (row)
+            {
+                string holdoutDetail = row.State + " / " + row.Routine + " occupants=" + row.Occupants.ToString();
+                AddPoint("holdouts", row.Id, row.HousePos, row.PlaceId, holdoutDetail);
+                string detail = "state=" + row.State + "; ledger state, not a body-presence claim";
+                if (HCAddLayerPoint("camps", row.Id, row.HousePos, row.PlaceId, detail)) { m_CampShown++; }
+            }
+            if (m_CampCursor < work) { return false; }
+        }
+        HCNoteLayer("camps", m_CampTotal, m_CampShown);
+        m_CampCursor = 0;
+        m_Cursor++;
+        return m_Cursor >= m_Contributors.Count();
+    }
     int Limit = 8192;
     protected ref map<string, bool> m_AdminLayers = new map<string, bool>;
     void HCAdminWorldCapture(int worldTime) {}

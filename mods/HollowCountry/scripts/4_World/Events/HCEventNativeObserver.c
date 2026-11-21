@@ -67,7 +67,9 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
         if (!HCServer.HCTickWork().HCTakeFor(consumer, 8)) { return; }
+        int queryBegan = TickCount(0);
         array<Object> nearby = HCEventWorldBinding.Query(mission.Source, 15);
+        HCEventCacheSpawner.HCStockQueryCost(queryBegan, false);
         if (!nearby) { return; }
         ItemBase selected;
         foreach (Object candidate : nearby)

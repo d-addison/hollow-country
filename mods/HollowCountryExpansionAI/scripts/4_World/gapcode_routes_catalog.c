@@ -4,8 +4,10 @@
 // Count/Clear/Find/Insert; EnString.c:199/171 Length/ToLower; EnConvert.c:196 Distance;
 // EnDebug.c:96 Print; 3_Game/tools/JsonFileLoader.c:69 LoadData.
 // Expansion (read only): core/3_Game/DayZExpansion_Core/ExpansionSHA256.c:
-// 51 Reset, 162 Update, 235 HexDigest. Hash one complete page atomically: no
-// shared static hash state survives a tick or can corrupt another hash owner.
+// 51 Reset, 162 Update(input, reset, finalize), 235 HexDigest. The installed
+// protected hash/bits/buffer fields are read/written only by the adapter below.
+// The adapter below retains an independent context between 128-byte parts and
+// restores the provider's incoming static context before returning.
 // Graph format/resolution belongs to HCXAICaravanRoads (its native citations
 // and ai/.../Roads/eAIRoadNetwork.c:684-730, eAIRoadNode.c:281-319 apply).
 // No geometry is distributed here. The private installed graph is page-pinned.
@@ -70,6 +72,50 @@ class HCGapcodeRoutesPins
     ref array<ref HCGapcodeRoutesSourceFile> Files;
 }
 
+// Save/restore only the installed provider's protected hashing context. No hash
+// algorithm is duplicated. Each visit updates <=128 original page bytes; other
+// hash users see exactly their incoming context even between route visits.
+// Installed ExpansionSHA256: protected s_Hash[8], s_TotalBits[2],
+// s_Buffer[64], s_BufferIndex; Update(input, reset, finalize), Reset, HexDigest.
+class HCGapcodeRouteHashState
+{
+    CF_Uint Hash[8];
+    CF_Uint Bits[2];
+    CF_Uint Buffer[64];
+    int Index;
+    bool Started;
+}
+class HCGapcodeRouteHash : ExpansionSHA256
+{
+    static void HCRouteCapture(HCGapcodeRouteHashState state)
+    {
+        for (int hashIndex = 0; hashIndex < 8; hashIndex++) { state.Hash[hashIndex] = s_Hash[hashIndex]; }
+        for (int bitIndex = 0; bitIndex < 2; bitIndex++) { state.Bits[bitIndex] = s_TotalBits[bitIndex]; }
+        for (int byteIndex = 0; byteIndex < 64; byteIndex++) { state.Buffer[byteIndex] = s_Buffer[byteIndex]; }
+        state.Index = s_BufferIndex;
+    }
+    static void HCRouteRestore(HCGapcodeRouteHashState state)
+    {
+        for (int hashIndex = 0; hashIndex < 8; hashIndex++) { s_Hash[hashIndex] = state.Hash[hashIndex]; }
+        for (int bitIndex = 0; bitIndex < 2; bitIndex++) { s_TotalBits[bitIndex] = state.Bits[bitIndex]; }
+        for (int byteIndex = 0; byteIndex < 64; byteIndex++) { s_Buffer[byteIndex] = state.Buffer[byteIndex]; }
+        s_BufferIndex = state.Index;
+    }
+    static string HCRoutePart(HCGapcodeRouteHashState state, string part, bool last)
+    {
+        HCGapcodeRouteHashState ambient = new HCGapcodeRouteHashState;
+        HCRouteCapture(ambient);
+        if (state.Started) { HCRouteRestore(state); }
+        else { Reset(); state.Started = true; }
+        Update(part, false, last);
+        string digest;
+        if (last) { digest = HexDigest(); }
+        else { HCRouteCapture(state); }
+        HCRouteRestore(ambient);
+        return digest;
+    }
+}
+
 class HCGapcodeRoutesCatalog
 {
     ref HCGapcodeRoutesData Data;
@@ -86,6 +132,9 @@ class HCGapcodeRoutesCatalog
     protected int m_HashStride = 1;
     protected int m_HashOffset;
     protected int m_Hashed;
+    protected string m_HashPage;
+    protected int m_HashCursor;
+    protected ref HCGapcodeRouteHashState m_PageHash;
     protected int m_PagesRead;
     protected int m_Cursor;
     protected int m_PinPeakTicks;
@@ -120,6 +169,9 @@ class HCGapcodeRoutesCatalog
     void HCStop()
     {
         this.HCClose();
+        m_PageHash = null;
+        m_HashPage = "";
+        m_HashCursor = 0;
         if (m_OpenedRoadOwner) { HCXAICaravanRoads.HCClose(); m_OpenedRoadOwner = false; }
         m_Enabled = false;
         m_Phase = "off";
@@ -182,7 +234,7 @@ class HCGapcodeRoutesCatalog
         if (index == 2) { return path == "$mission:hollow-country/ai/localities.json"; }
         return index == 3 && path == "$mission:hollow-country/travel/route-surveys.json";
     }
-    // Script SHA-256 costs about 43 ms per 4 KB page (097 boot: 765 pages, one per
+    // Script SHA-256 used to cost about 43 ms per 4 KB page (097 boot: 765 pages, one per
     // tick, 13 minutes of hitches before AIRoles could start). Every page is still
     // read and length-checked; only the first and last page of each file are hashed,
     // plus HASH_SAMPLES strided pages of the external road source. The mission files
@@ -191,7 +243,8 @@ class HCGapcodeRoutesCatalog
     // rotates per boot, so successive boots cover different road pages. A changed
     // source changes its byte count or shifts every page after the edit.
     static const int HASH_SAMPLES = 4;
-    static const int READS_PER_UNIT = 64;
+    static const int READS_PER_UNIT = 8;
+    static const int HASH_BYTES_PER_STEP = 128;
     bool HCPageSampled(int page, int pages)
     {
         if (page == 0 || page == pages - 1) { return true; }
@@ -205,6 +258,22 @@ class HCGapcodeRoutesCatalog
     {
         HCGapcodeRoutesSourceFile sourceFile = m_Pins.Files[m_FileIndex];
         int pages = sourceFile.Pages.Count();
+        if (m_PageHash)
+        {
+            int partBytes = Math.Min(HASH_BYTES_PER_STEP, m_HashPage.Length() - m_HashCursor);
+            bool lastPart = m_HashCursor + partBytes == m_HashPage.Length();
+            string digest = HCGapcodeRouteHash.HCRoutePart(m_PageHash, m_HashPage.Substring(m_HashCursor, partBytes), lastPart);
+            m_HashCursor += partBytes;
+            if (!lastPart) { return; }
+            digest.ToLower();
+            m_PageHash = null;
+            m_HashPage = "";
+            m_HashCursor = 0;
+            if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
+            m_Hashed++;
+            m_PageIndex++;
+            return;
+        }
         if (!m_PinOpen)
         {
             m_PinFile = OpenFile(sourceFile.Path, FileMode.READ);
@@ -228,16 +297,12 @@ class HCGapcodeRoutesCatalog
             bool sampled = this.HCPageSampled(m_PageIndex, pages);
             if (sampled)
             {
-                ExpansionSHA256.Update(page);
-                string digest = ExpansionSHA256.HexDigest();
-                ExpansionSHA256.Reset();
-                digest.ToLower();
-                if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
-                m_Hashed++;
+                m_HashPage = page;
+                m_HashCursor = 0;
+                m_PageHash = new HCGapcodeRouteHashState;
+                return;
             }
             m_PageIndex++;
-            // One hash per unit; the shared work budget decides how many units run.
-            if (sampled) { break; }
         }
         if (m_PageIndex < pages) { return; }
         string trailing;
@@ -359,10 +424,11 @@ class HCGapcodeRoutesCatalog
         // charging its full cap even under starvation, and retain the cursor.
         // The same page/time cap lets cheap source reads reach the next hash
         // without waiting another two seconds per 64 reads. Never run a second
-        // atomic hash in this visit or combine a hash with candidate work.
+        // completed page digest in this visit or combine it with candidate work.
         int limit = Data.limits.page_size;
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
-        m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 4));
+        // Half-slice headroom for the final non-preemptible hash block.
+        m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         m_Slices++;
         int hashedBefore = m_Hashed;
         while (m_Work.HCContinue())
