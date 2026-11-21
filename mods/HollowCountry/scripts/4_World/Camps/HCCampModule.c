@@ -683,8 +683,8 @@ class HCCampModule : HCModule
             m_Players.Clear();
             GetGame().GetPlayers(m_Players);
             if (notice.Kind != 2 && m_Players.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { Tell(notice.Camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier."); }
-            if (notice.Kind == 0) { Print("[HollowCountry] V2 camps recognised camp=" + notice.Camp.Id + " tier=0"); }
             HCModuleReadiness.HCUse("Camps", "camp_recognised");
+            if (notice.Kind == 0) { Print("[HollowCountry] V2 camps recognised camp=" + notice.Camp.Id + " tier=0"); }
             else if (notice.Kind == 1) { Print("[HC Plan] HC-17 containers=promoted_to_hearth camp=" + notice.Camp.Id + " runtime=PENDING"); }
             else { Print("[HC Plan] HC-17 containers=recognised camp=" + notice.Camp.Id + " persistence=native runtime=PENDING"); }
         }
