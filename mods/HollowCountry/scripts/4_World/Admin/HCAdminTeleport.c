@@ -442,6 +442,131 @@ class HCAdminTeleport
         reason = "admin-only; runtime=PENDING";
         return true;
     }
+
+    // Read-only catalogue view for the operator tour below.
+    bool HCCatalogReady() { return m_Enabled && m_Complete && m_Destinations.Count() > 0; }
+    int HCDestinationCount() { return m_Destinations.Count(); }
+    string HCDestinationLabel(int index)
+    {
+        if (index < 0 || index >= m_Destinations.Count()) { return ""; }
+        return m_Destinations[index].Label;
+    }
+    vector HCDestinationPosition(int index)
+    {
+        if (index < 0 || index >= m_Destinations.Count()) { return vector.Zero; }
+        return m_Destinations[index].Position;
+    }
+}
+
+// Owner-only local test tour. Off unless the operator writes
+// $profile:HollowCountry/admin-tour.json with Enabled=true; the bundle never
+// ships that file. It walks one allowlisted admin through the server-built
+// destination catalogue (towns, AI sites, active situations) every
+// DwellSeconds, using HCMove and its guards. No client-supplied coordinates,
+// never a non-admin player, never AI. Bounded: one player scan and at most one
+// catalogue pass per stop.
+class HCAdminTourConfig
+{
+    bool Enabled = false;
+    int StartDelaySeconds = 60;
+    int DwellSeconds = 90;
+    int FirstStop = 0;
+    int MaxStops = 0;
+    string LabelFilter = "";
+}
+
+class HCAdminTour
+{
+    static const string PATH = "$profile:HollowCountry/admin-tour.json";
+    protected ref HCAdminTourConfig m_Config;
+    protected float m_Clock;
+    protected bool m_Started;
+    protected bool m_Done;
+    protected int m_Next;
+    protected int m_Taken;
+
+    bool HCLoad()
+    {
+        if (!FileExist(HCAdminTour.PATH)) { return false; }
+        HCAdminTourConfig decoded;
+        if (!HCV2ThreatStore<HCAdminTourConfig>.CanOpen(HCAdminTour.PATH) || !HCV2ThreatStore<HCAdminTourConfig>.Load(HCAdminTour.PATH, 4096, decoded) || !decoded)
+        {
+            Print("[HC Tour] state=refused reason=config-load runtime=PENDING");
+            return false;
+        }
+        if (!decoded.Enabled) { return false; }
+        // A missing field decodes as zero: fall back to the class defaults.
+        if (decoded.StartDelaySeconds <= 0) { decoded.StartDelaySeconds = 60; }
+        if (decoded.DwellSeconds <= 0) { decoded.DwellSeconds = 90; }
+        decoded.StartDelaySeconds = Math.Clamp(decoded.StartDelaySeconds, 10, 3600);
+        decoded.DwellSeconds = Math.Clamp(decoded.DwellSeconds, 20, 3600);
+        decoded.MaxStops = Math.Clamp(decoded.MaxStops, 0, 256);
+        decoded.LabelFilter.ToLower();
+        m_Config = decoded;
+        m_Next = Math.Max(0, decoded.FirstStop);
+        Print("[HC Tour] state=armed delay=" + decoded.StartDelaySeconds.ToString() + " dwell=" + decoded.DwellSeconds.ToString() + " first=" + m_Next.ToString() + " max=" + decoded.MaxStops.ToString() + " filter=" + decoded.LabelFilter + " runtime=PENDING");
+        return true;
+    }
+
+    // Next catalogue index at or after from whose label matches the filter.
+    protected int HCMatch(HCAdminTeleport teleport, int from)
+    {
+        int count = teleport.HCDestinationCount();
+        for (int i = from; i < count; i++)
+        {
+            if (HCLabelMatches(teleport.HCDestinationLabel(i))) { return i; }
+        }
+        return -1;
+    }
+
+    // Catalogue labels are <=96 characters (HCAdminTeleport.HCAdd).
+    protected bool HCLabelMatches(string label)
+    {
+        if (m_Config.LabelFilter == "") { return true; }
+        if (label.Length() > 96) { return false; }
+        label.ToLower();
+        return label.Contains(m_Config.LabelFilter);
+    }
+
+    void HCStep(HCAdminModule admin, HCAdminTeleport teleport, PlayerIdentity owner, PlayerBase player, float deltaTime)
+    {
+        if (!m_Config || m_Done || !admin || !teleport) { return; }
+        if (!player || !owner) { return; }
+        m_Clock = m_Clock + deltaTime;
+        float wait = m_Config.DwellSeconds;
+        if (!m_Started) { wait = m_Config.StartDelaySeconds; }
+        if (m_Clock < wait) { return; }
+        m_Clock = 0;
+        if (!teleport.HCCatalogReady())
+        {
+            Print("[HC Tour] state=waiting reason=catalogue-pending runtime=PENDING");
+            return;
+        }
+        m_Started = true;
+        int index = HCMatch(teleport, m_Next);
+        if (index < 0 || (m_Config.MaxStops > 0 && m_Taken >= m_Config.MaxStops))
+        {
+            m_Done = true;
+            Print("[HC Tour] state=done stops=" + m_Taken.ToString() + " catalogue=" + teleport.HCDestinationCount().ToString() + " runtime=PENDING");
+            return;
+        }
+        int selected;
+        string reason;
+        bool ok = teleport.HCMove(admin, owner, player, index, selected, reason);
+        // A transient refusal (vehicle, unconscious, restrained) retries the
+        // same stop next dwell; a stop with no safe ground is skipped.
+        if (!ok && reason != "no-safe-ground-or-work-budget")
+        {
+            Print("[HC Tour] stop=" + index.ToString() + " result=retry reason=" + reason + " runtime=PENDING");
+            return;
+        }
+        m_Next = index + 1;
+        m_Taken = m_Taken + 1;
+        vector pos = teleport.HCDestinationPosition(index);
+        string result = "skipped";
+        if (ok) { result = "ok"; }
+        Print("[HC Tour] stop=" + index.ToString() + " n=" + m_Taken.ToString() + " label=\"" + teleport.HCDestinationLabel(index) + "\" x=" + Math.Round(pos[0]).ToString() + " z=" + Math.Round(pos[2]).ToString() + " result=" + result + " reason=" + reason + " runtime=PENDING");
+    }
 }
 
 // Same-layer extension keeps all identity matching, replies and sender-only
@@ -450,6 +575,9 @@ class HCAdminTeleport
 modded class HCAdminModule
 {
     protected ref HCAdminTeleport m_HCTeleport;
+    protected ref HCAdminTour m_HCTour;
+    protected ref array<Man> m_HCTourPlayers;
+    protected float m_HCTourScan;
 
     override void OnStart(HCSettings settings)
     {
@@ -458,6 +586,34 @@ modded class HCAdminModule
         {
             m_HCTeleport = new HCAdminTeleport;
             m_HCTeleport.HCStart(m_OperatorControls);
+            HCAdminTour tour = new HCAdminTour;
+            if (m_OperatorControls && tour.HCLoad())
+            {
+                m_HCTour = tour;
+                m_HCTourPlayers = new array<Man>;
+            }
+        }
+    }
+
+    // The tour scans the online players once every 5 s for the first
+    // allowlisted admin and steps only that player.
+    protected void HCTourTick(float deltaTime)
+    {
+        m_HCTourScan = m_HCTourScan + deltaTime;
+        if (m_HCTourScan < 5) { return; }
+        float elapsed = m_HCTourScan;
+        m_HCTourScan = 0;
+        m_HCTourPlayers.Clear();
+        GetGame().GetPlayers(m_HCTourPlayers);
+        int count = Math.Min(m_HCTourPlayers.Count(), 32);
+        for (int i = 0; i < count; i++)
+        {
+            PlayerBase player = PlayerBase.Cast(m_HCTourPlayers[i]);
+            if (!player || !player.IsAlive()) { continue; }
+            PlayerIdentity identity = player.GetIdentity();
+            if (!identity || !HCAuthorized(identity)) { continue; }
+            m_HCTour.HCStep(this, m_HCTeleport, identity, player, elapsed);
+            return;
         }
     }
 
@@ -477,11 +633,13 @@ modded class HCAdminModule
     {
         super.OnTick(deltaTime);
         if (m_Running && m_HCTeleport) { m_HCTeleport.HCStep(); }
+        if (m_Running && m_HCTeleport && m_HCTour) { HCTourTick(deltaTime); }
     }
 
     override void OnStop()
     {
         m_HCTeleport = null;
+        m_HCTour = null;
         super.OnStop();
     }
 
