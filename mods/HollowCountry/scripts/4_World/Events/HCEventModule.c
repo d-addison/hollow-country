@@ -44,6 +44,7 @@ class HCEventModule : HCModule
     protected float m_RosterElapsed = 0;
     protected int m_RosterCursor = 0;
     protected bool m_BindContinuing;
+    protected bool m_StartupSweep;
     protected ref HCEventMission m_Announcing;
     protected int m_AnnouncingSlot;
     protected bool m_AnnouncingPolice;
@@ -336,6 +337,7 @@ class HCEventModule : HCModule
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
         m_BindContinuing = false;
+        m_StartupSweep = true;
         m_PoliceRetryReady = false;
         m_PoliceRetryAttempts = new array<int>;
         m_PoliceRetryAfter = new array<float>;
@@ -442,12 +444,13 @@ class HCEventModule : HCModule
                 return;
             }
             if (journalTick || m_Runtime.HCPublishPending()) { return; }
-            if (m_BindContinuing || m_RosterElapsed >= 5)
+            if (m_StartupSweep || m_BindContinuing || m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
                 int rosterStarted = TickCount(0);
                 RefreshRoster(context);
                 HCMeasureStep(m_RosterStep, "roster", rosterStarted);
+                HCFinishStartupSweep();
             }
         }
     }
@@ -480,7 +483,7 @@ class HCEventModule : HCModule
 
     protected void HCCompleteAnnouncement(HCEventContext context)
     {
-        int result = m_Runtime.Announce(m_Announcing, context);
+        int result = m_Runtime.HCTakeAnnounceResult(m_Announcing, context);
         if (m_Announcing.Family == HCEventFamily.AI_ENCOUNTER)
         {
             if (result == HCEventCode.OK) { HCStartedSituation("event:" + m_Announcing.Id); }
@@ -507,12 +510,22 @@ class HCEventModule : HCModule
         m_Announcing = null;
         m_AnnouncingPolice = false;
         m_BindContinuing = false;
+        HCFinishStartupSweep();
+    }
+
+    protected void HCFinishStartupSweep()
+    {
+        if (!m_StartupSweep || m_Announcing || m_BindContinuing || m_RosterCursor != 0) { return; }
+        m_StartupSweep = false;
+        int admitted = m_AnnouncedMissions.Count();
+        if (admitted > 0) { Print("[HC Events] admitted missions " + admitted.ToString()); }
+        else { Print("[HC Events] enabled preference, no active missions"); }
     }
 
     void RefreshRoster(HCEventContext context)
     {
         if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0 || m_Announcing || m_Runtime.HCAnnouncePending()) { return; }
-        // One site's one family per five seconds; late CE population can admit
+        // One slot per tick during startup, then per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.
         m_BindContinuing = false;

@@ -405,10 +405,14 @@ class HCScenesModule : HCModule
         HCEventModule events = HCEventModule.Get();
         if (!events || !events.Runtime()) { return; }
         HCEventContext context = events.Context();
-        if (context.Session != lease.ViewSession) { return; }
+        if (context.Session != lease.ViewSession) { lease.ViewEventId = 0; return; }
+        if (events.Runtime().HCPublishPending()) { return; }
         HCEventRuntimeState snapshot = events.Runtime().Snapshot();
         HCEventRecord record = HCEventDirector.FindRecord(snapshot.Director, lease.ViewEventId);
-        if (record && !HCEventDirector.Terminal(record.Status)) { events.Runtime().Cancel(record.Id, context); }
+        if (record && !HCEventDirector.Terminal(record.Status))
+        {
+            if (events.Runtime().Cancel(record.Id, context) != HCEventCode.OK) { return; }
+        }
         lease.ViewEventId = 0;
     }
 
@@ -417,6 +421,8 @@ class HCScenesModule : HCModule
         if (!lease) { return true; }
         lease.Closing = true;
         RetireView(lease);
+        // Keep ownership for the existing Work/CleanupStopped tick to retry.
+        if (lease.ViewEventId != 0) { return false; }
         if (!HCSceneKits.Remove(lease)) { return false; }
         int index = m_Leases.Find(lease);
         if (index >= 0) { m_Leases.Remove(index); }

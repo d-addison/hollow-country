@@ -18,6 +18,7 @@ class HCEventRuntime
     protected ref HCEventObjectiveProvider m_Observer;
     protected ref HCEventAIProvider m_AI;
     protected ref array<ref HCEventSubscription> m_Subscriptions = new array<ref HCEventSubscription>();
+    protected ref map<ref HCEventSubscription, bool> m_PendingLeaves = new map<ref HCEventSubscription, bool>;
     protected bool m_Ready = false;
     protected bool m_Busy = false;
     protected bool m_StopRequested = false;
@@ -75,6 +76,23 @@ class HCEventRuntime
             return false;
         }
         candidate.Revision++;
+        // Reject caller state before the journal can enter its faulted state.
+        if (!HCEventRuntimePolicy.StateValid(candidate))
+        {
+            m_Ready = false;
+            FaultCleanup();
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            return false;
+        }
+        HCEventCodec codec = new HCEventCodec;
+        string image = codec.Encode(candidate);
+        if (image.Length() < 1 || image.Length() > m_Settings.MaxStoreBytes)
+        {
+            m_Ready = false;
+            FaultCleanup();
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            return false;
+        }
         if (!journal.HCBeginSave(candidate))
         {
             m_Ready = false;
@@ -140,6 +158,22 @@ class HCEventRuntime
         m_Ready = false;
         m_Busy = false;
         m_StopRequested = false;
+        m_AnnounceStage = 0;
+        m_StageNextAnnounce = false;
+        m_AnnounceStaged = false;
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        m_AnnounceResult = HCEventCode.BLOCKED;
+        m_AnnounceRepeat = 0;
+        m_AnnounceId = 0;
+        m_AnnounceStarted = false;
+        m_AnnounceMission = null;
+        m_AnnounceContext = null;
+        m_AnnounceCandidate = null;
+        m_PendingPublish = null;
+        m_PendingJournal = null;
+        m_PendingExpiryId = 0;
+        m_PendingLeaves.Clear();
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
         m_RetentionBlockedLine = "";
@@ -230,13 +264,18 @@ class HCEventRuntime
         m_Ready = true;
         return true;
     }
+    // Observations read the last committed state while an announce owns its candidate.
+    bool HCReadAllowed(HCEventContext context)
+    {
+        return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
+    }
     bool Allowed(HCEventContext context)
     {
         if (HCAnnouncePending()) { return false; }
         // Trusted ingress keeps its original immediate durability contract. Never
         // let a synchronous mutation overtake a partially written revision.
         if (m_PendingPublish && !m_Busy && !HCAdvancePublish(true)) { return false; }
-        return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
+        return HCReadAllowed(context);
     }
     bool Publish(HCEventRuntimeState candidate)
     {
@@ -356,14 +395,6 @@ class HCEventRuntime
     }
     int Announce(HCEventMission mission, HCEventContext context)
     {
-        // Consume once through the public method so modded Announce hooks still
-        // observe OK only after provider start and ACTIVE commit readback.
-        if (mission && context && m_AnnounceReceipt == mission.Id && m_AnnounceReceiptSession == context.Session)
-        {
-            m_AnnounceReceipt = "";
-            m_AnnounceReceiptSession = "";
-            return m_AnnounceResult;
-        }
         if (!Allowed(context))
         {
             return HCEventCode.DENIED;
@@ -371,6 +402,12 @@ class HCEventRuntime
         if (!HCEventRuntimePolicy.MissionValid(mission, context.WorldName))
         {
             return HCEventCode.INVALID;
+        }
+        if (m_AnnounceReceipt != "" && m_AnnounceReceipt == mission.Id && m_AnnounceReceiptSession == context.Session)
+        {
+            m_AnnounceReceipt = "";
+            m_AnnounceReceiptSession = "";
+            return m_AnnounceResult;
         }
         int repeatId = 0;
         foreach (HCEventRecord existingRecord : m_State.Director.Records)
@@ -435,6 +472,17 @@ class HCEventRuntime
         }
         return HCEventCode.BLOCKED;
     }
+    // Failed completions never invoke modded Announce hooks. Successful ones
+    // consume through Announce so HCIncidentEmissions retains its durable-OK hook.
+    int HCTakeAnnounceResult(HCEventMission mission, HCEventContext context)
+    {
+        if (!mission || !context || m_AnnounceReceipt == "" || m_AnnounceReceipt != mission.Id || m_AnnounceReceiptSession != context.Session) { return HCEventCode.DENIED; }
+        if (m_AnnounceResult == HCEventCode.OK) { return Announce(mission, context); }
+        int result = m_AnnounceResult;
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        return result;
+    }
     protected int HCAnnounceOperation(HCEventRuntimeState candidate, HCEventMission mission, HCEventContext context, int repeatId)
     {
         HCEventRun run;
@@ -479,7 +527,7 @@ class HCEventRuntime
     protected void HCFinishAnnounce(int result)
     {
         m_AnnounceResult = result;
-        if (m_AnnounceStaged)
+        if (m_AnnounceStaged && !m_StopRequested)
         {
             m_AnnounceReceipt = m_AnnounceMission.Id;
             m_AnnounceReceiptSession = m_AnnounceContext.Session;
@@ -522,7 +570,6 @@ class HCEventRuntime
         else if (m_AnnounceStage == 4 || m_AnnounceStage == 8)
         {
             if (!HCAdvancePublish(drain)) { HCFinishAnnounce(HCEventCode.BLOCKED); return; }
-            HCMeasured("announce_save", started);
             if (m_PendingPublish) { return; }
             if (m_AnnounceStage == 8)
             {
@@ -575,6 +622,7 @@ class HCEventRuntime
             {
                 m_Ready = false;
                 FaultCleanup();
+                Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
                 HCFinishAnnounce(HCEventCode.BLOCKED);
                 return;
             }
@@ -586,6 +634,7 @@ class HCEventRuntime
                 {
                     m_Ready = false;
                     FaultCleanup();
+                    Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
                     HCFinishAnnounce(HCEventCode.BLOCKED);
                     return;
                 }
@@ -625,12 +674,12 @@ class HCEventRuntime
     }
     void ItemDelivered(ItemBase item, PlayerBase participant, EntityAI destination, HCEventContext context)
     {
-        if (!Allowed(context) || !item) { return; }
+        if (!HCReadAllowed(context) || !item) { return; }
         string identity = HCEventNativeObserver.Identity(participant);
         if (identity == "") { return; }
         foreach (HCEventSubscription sub : m_Subscriptions)
         {
-            if (sub.Player == participant && sub.ParticipantId == identity)
+            if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
                 HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
@@ -643,12 +692,12 @@ class HCEventRuntime
     }
     void InfectedKilled(ZombieBase infected, PlayerBase participant, HCEventContext context)
     {
-        if (!Allowed(context) || !infected || infected.IsAlive()) { return; }
+        if (!HCReadAllowed(context) || !infected || infected.IsAlive()) { return; }
         string identity = HCEventNativeObserver.Identity(participant);
         if (identity == "") { return; }
         foreach (HCEventSubscription sub : m_Subscriptions)
         {
-            if (sub.Player == participant && sub.ParticipantId == identity)
+            if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
                 HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
@@ -714,7 +763,7 @@ class HCEventRuntime
     }
     int Leave(int id, PlayerBase player, HCEventContext context)
     {
-        if (!Allowed(context))
+        if (!HCReadAllowed(context))
         {
             return HCEventCode.DENIED;
         }
@@ -724,6 +773,13 @@ class HCEventRuntime
             return HCEventCode.DENIED;
         }
         HCEventSubscription sub = m_Subscriptions[index];
+        if (HCPublishPending())
+        {
+            // At most MaxSubscriptions retained requests, with duplicates coalesced.
+            // Do not publish over the announcement's private candidate.
+            if (!m_PendingLeaves.Contains(sub)) { m_PendingLeaves.Insert(sub, true); }
+            return HCEventCode.OK;
+        }
         HCEventRuntimeState candidate = m_Store.Clone(m_State);
         int result = Operation(candidate, id, HCEventOp.LEAVE, sub.ParticipantId, context);
         if (result != HCEventCode.OK)
@@ -889,6 +945,13 @@ class HCEventRuntime
         {
             return;
         }
+        if (m_PendingLeaves.Count() > 0)
+        {
+            HCEventSubscription leaving = m_PendingLeaves.GetKey(0);
+            m_PendingLeaves.Remove(leaving);
+            Leave(leaving.EventId, leaving.Player, context);
+            return;
+        }
         m_LastNow = context.Now;
         HCEventRuntimeState stable = m_State;
         int runWork = 0;
@@ -987,8 +1050,13 @@ class HCEventRuntime
             while (HCAnnouncePending()) { HCAdvanceAnnounce(true); }
             if (m_PendingPublish) { HCAdvancePublish(true); }
         }
+        // Drain may create a receipt; stopped/quarantined owners must not retain it.
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        m_AnnounceResult = HCEventCode.BLOCKED;
         m_Ready = false;
         m_Subscriptions.Clear();
+        m_PendingLeaves.Clear();
         if (m_Busy)
         {
             return false;
