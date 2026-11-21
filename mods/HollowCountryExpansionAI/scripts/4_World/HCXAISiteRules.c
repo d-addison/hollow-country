@@ -391,11 +391,21 @@ class HCXAISiteRules
         if (ownedSession < 1 || timestamp < 1) { return ""; }
         return "xai-" + ownedSession.ToString() + "-" + timestamp.ToString();
     }
-    // The journal has no generated geometry or effective behaviour. Rebuild
-    // every success, including holdouts, so snaps/skips survive no shortcut.
-    static bool ReuseQualifiedRoute(string kind)
+    static int HCMaxRouteWaypoints() { return 128; }
+    // Empty geometry remains readable for legacy schema-1 journals.
+    static bool HCRouteRowsValid(HCXAIRouteCache cache)
     {
-        return false;
+        if (!cache || cache.SchemaVersion != 1 || !cache.Rows || cache.Rows.Count() > HCMaxCatalogRows()) { return false; }
+        foreach (HCXAIRouteRow row : cache.Rows)
+        {
+            if (!row || row.Key.Length() > 128 || row.SiteId.Length() > 64 || row.ValidityKey.Length() > 256) { return false; }
+            if (row.Waypoints && row.Waypoints.Count() > HCMaxRouteWaypoints()) { return false; }
+        }
+        return true;
+    }
+    static bool ReuseQualifiedRoute(HCXAIRouteRow row, string key, string validity)
+    {
+        return row && row.Qualified && row.Key == key && row.ValidityKey == validity && row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
     }
     static string PointText(vector point)
     {
@@ -408,7 +418,7 @@ class HCXAISiteRules
     // holdout the house class, its position, the house-local points and cache.
     static string RouteText(HCXAISite site, string build)
     {
-        string text = "chain-v5|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
+        string text = "chain-v6|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
         foreach (vector point : site.Waypoints)
         {
             text = text + HCXAISiteRules.PointText(point);
