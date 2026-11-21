@@ -419,9 +419,32 @@ class HCXAISiteRules
         if (validity.Length() > 256) { return ""; }
         return validity;
     }
+    static bool HCRoadFallback(HCXAISite site, string localityId)
+    {
+        return site && localityId != "" && site.Id == "gapcov-" + localityId && site.Kind == "patrol" && !site.Checkpoint && site.Waypoints && site.Waypoints.Count() >= 2;
+    }
+    // Keep schema-1 text intact. Diagnose scalar identity separately from the
+    // route digest; geometry failure must not masquerade as changed validity.
+    static string HCRouteMismatch(HCXAIRouteRow row, string key, string validity)
+    {
+        if (!row || validity == "") { return "policy"; }
+        if (row.ValidityKey != validity)
+        {
+            array<string> saved = new array<string>();
+            array<string> current = new array<string>();
+            row.ValidityKey.Split("|", saved);
+            validity.Split("|", current);
+            if (saved.Count() != 6 || current.Count() != 6) { return "policy"; }
+            if (saved[1] != current[1]) { return "build"; }
+            if (saved[2] != current[2]) { return "world"; }
+            return "policy";
+        }
+        if (row.Key != key) { return "key"; }
+        return "";
+    }
     static bool ReuseRoute(HCXAIRouteRow row, string key, string validity)
     {
-        if (!row || validity == "" || row.Key != key || row.ValidityKey != validity) { return false; }
+        if (HCRouteMismatch(row, key, validity) != "") { return false; }
         if (!row.Qualified) { return true; }
         return row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
     }
