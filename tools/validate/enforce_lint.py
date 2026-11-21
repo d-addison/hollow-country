@@ -38,6 +38,10 @@ DEFAULT_CACHE = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289
 # method named Slot made an unqualified call resolve to that class (native boot 026, commit acab865).
 PINNED_TYPES = frozenset(ENGINE_TYPE_NAMES) | {'Slot', 'PlayerBase', 'DayZPlayer', 'ActionBase', 'House'}
 # Where a pinned name lives, so the layer rule can work without the native cache.
+# Native compile 2026-11-21 (15d39e76): Queue(region) bound to an engine
+# Queue symbol absent from the extracted 1.30 scripts. Retain that observed
+# collision as a pin, just as Slot above, alongside the installed symbol index.
+PINNED_GLOBALS = {'Queue': {0}}
 PINNED_LAYERS = {'Slot': 3, 'PlayerBase': 3, 'ActionBase': 3, 'ItemBase': 3, 'EntityAI': 2, 'DayZPlayer': 2}
 
 RULES = {
@@ -62,6 +66,9 @@ RULES = {
     'HC-E020': 'string assignment with too many + operands (native compile: Formula too complex); build it with +=',
     'HC-E022': 'Expansion AI call outside HCXExpansionBridge.c (dependency invariant boundary)',
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
+    'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
+    'HC-E024': 'typename cannot return null; declare an empty typename and return it',
+    'HC-E025': 'method collides with a native global function or class and is called unqualified; rename it',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -126,6 +133,8 @@ class Project:
         self.sources = sources
         self.native = native or {}
         self.symbols = (symbols or {}).get('classes', {})
+        self.native_globals = dict(PINNED_GLOBALS)
+        self.native_globals.update((symbols or {}).get('globals', {}))
         self._receiver_cache = {}
         self.provider_layers = provider_layers or {}
         self.storage_allowlist = load_storage_allowlist()
@@ -343,6 +352,133 @@ def rule_leading_operator(project, source):
     for match in _LEADING_OPERATOR.finditer(source.code):
         yield _finding('HC-E021', source, match.start(1), '<file>', f'{match.group(1)}: {RULES["HC-E021"]}')
 
+
+
+# Tokens use the same comment/string-masked Source as the structural parser.
+_TOKENS = re.compile(r'[A-Za-z_]\w*|[^\s]')
+
+
+def rule_broken_else(project, source):
+    """Consume complete statements so dangling else binds to the nearest if.
+
+    A block and a braceless statement both consume exactly one if body. Any
+    following statement ends that if's opportunity to consume an else.
+    """
+    for method in _all_methods(source):
+        body = source.body(method)
+        if not re.search(r'\belse\b', body):
+            continue
+        tokens = list(_TOKENS.finditer(body))
+        values = [t[0] for t in tokens]
+        pairs, stack = {}, []
+        for i, value in enumerate(values):
+            if value in {'(', '[', '{'}:
+                stack.append(i)
+            elif value in {')', ']', '}'} and stack:
+                pairs[stack.pop()] = i + 1
+        size = len(tokens)
+
+        def statement(i):
+            if i >= size:
+                return size
+            value = values[i]
+            if value == '{':
+                i += 1
+                while i < size and values[i] != '}':
+                    i = statement(i)
+                return min(i + 1, size)
+            if value in {'if', 'while', 'for', 'foreach', 'switch', 'catch'}:
+                head = i + 1
+                if head < size and values[head] == '(':
+                    end = statement(pairs.get(head, head + 1))
+                    if value == 'if' and end < size and values[end] == 'else':
+                        return statement(end + 1)
+                    return end
+            if value == 'do':
+                end = statement(i + 1)
+                if end + 1 < size and values[end:end + 2] == ['while', '(']:
+                    end = pairs.get(end + 1, end + 2)
+                    return end + (end < size and values[end] == ';')
+                return end
+            if value == 'else':
+                broken.append(method.body_start + tokens[i].start())
+                return statement(i + 1)
+            # Labels must not hide the first statement in a switch arm.
+            label = value in {'case', 'default'} or (i + 1 < size and values[i + 1] == ':')
+            while i < size:
+                value = values[i]
+                if value in {'(', '[', '{'}:
+                    i = pairs.get(i, i + 1)
+                elif value == ';' or (label and value == ':'):
+                    return i + 1
+                elif value in {'}', 'else'}:
+                    return i if value == '}' else statement(i)
+                else:
+                    i += 1
+            return size
+
+        broken = []
+        statement(0)
+        for offset in broken:
+            yield _finding('HC-E023', source, offset, _symbol(method), RULES['HC-E023'])
+
+
+def rule_typename_null(project, source):
+    for method in _all_methods(source):
+        if method.return_type != 'typename':
+            continue
+        for match in re.finditer(r'\breturn\s+(?:null|NULL)\s*;', source.body(method)):
+            yield _finding('HC-E024', source, method.body_start + match.start(),
+                           _symbol(method), RULES['HC-E024'])
+
+
+def rule_native_named_methods(project, source):
+    for definition in source.classes:
+        candidates = [m for m in definition.methods
+                      if m.name != definition.name and not m.name.startswith('~')
+                      and 'override' not in m.modifiers
+                      and (m.name in project.symbols or m.name in project.native_globals)]
+        if not candidates:
+            continue
+        called = set()
+        for link in project.links.get(definition.name, ()):
+            for method in link.methods:
+                tokens = [t[0] for t in _TOKENS.finditer(link.source.body(method))]
+                for i in range(len(tokens) - 1):
+                    if tokens[i + 1] == '(' and (i == 0 or tokens[i - 1] not in {'.', 'new'}):
+                        called.add(tokens[i])
+        for method in candidates:
+            entries = project.symbols.get(method.name, ())
+            layers = [e['layer'] for e in entries]
+            layers += list(project.native_globals.get(method.name, ()))
+            if method.name in called and any(source.layer is None or layer <= source.layer for layer in layers):
+                yield _finding('HC-E025', source, method.offset, _symbol(method),
+                               f'{method.name}: {RULES["HC-E025"]}', native=True)
+
+
+def native_global_functions(path, names):
+    """Supplement the HC-E012 index with candidate global proto/native names.
+
+    The shared index has no globals field. Prefilter headers before parsing so
+    only native files potentially colliding with authored methods need a model.
+    Never include class members, ordinary script functions or commented code.
+    """
+    result = {}
+    if not names:
+        return result
+    header = re.compile(r'\b(?:proto|native)\b[^;{}]*\b('
+                        + '|'.join(re.escape(n) for n in sorted(names)) + r')\s*\(')
+    for layer in es.LAYERS:
+        for file in sorted((Path(path) / layer).rglob('*.c')):
+            text = file.read_text(encoding='utf-8', errors='replace')
+            if not header.search(text):
+                continue
+            source = es.Source(file, text)
+            for signature in source.signatures:
+                if (signature.name in names and signature.modifiers & {'proto', 'native'}
+                        and not any(c.body_start < signature.offset < c.body_end for c in source.classes)):
+                    result.setdefault(signature.name, set()).add(source.layer)
+    return result
 
 # Native boot 075: hcxaibaseraid.c,270 "Expected name, not a keyword 'local'"; compile-xai4-01 refused `owned`.
 # Native boot 098: hcinteriortemplatesstrict.c,464 `string native = ""` -> "Broken expression".
@@ -1466,7 +1602,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
@@ -1577,6 +1713,10 @@ def main(argv=None):
               if symbols is not None else None)
     mods = tuple(sorted(p.parent.name for p in (args.root / 'mods').glob('*/scripts') if p.is_dir()))
     sources = es.mod_sources(args.root, mods=mods)
+    if symbols is not None:
+        names = {m.name for source in sources for c in source.classes for m in c.methods
+                 if m.name != c.name and 'override' not in m.modifiers}
+        symbols = dict(symbols, globals=native_global_functions(path, names))
     provider_layers = {}
     if not args.no_native:
         project = Project(sources, native, symbols)
