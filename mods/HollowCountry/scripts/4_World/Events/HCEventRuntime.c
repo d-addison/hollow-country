@@ -1,7 +1,7 @@
 // W5-PERF-4: <=1 run cleanup/expiry + <=64 subscribed observations + <=1
 // terminal-subscription purge/tick; cursors survive yields. Expiry/CLOSED
 // journal continuations share one 4 ms slice; native calls cannot be preempted.
-// Mutation/ingress and shutdown durability barriers remain synchronous.
+// Ingress refuses during announcements; shutdown drains durable continuations.
 // Timing native evidence: World/HCWorkBudget.c (Game.c:914).
 // Durable orchestrator. The caller owns a fresh trusted session and invokes
 // Tick/Disconnect from server lifecycle hooks. No rewards or network ingress.
@@ -18,6 +18,7 @@ class HCEventRuntime
     protected ref HCEventObjectiveProvider m_Observer;
     protected ref HCEventAIProvider m_AI;
     protected ref array<ref HCEventSubscription> m_Subscriptions = new array<ref HCEventSubscription>();
+    protected ref map<ref HCEventSubscription, bool> m_PendingLeaves = new map<ref HCEventSubscription, bool>;
     protected bool m_Ready = false;
     protected bool m_Busy = false;
     protected bool m_StopRequested = false;
@@ -39,25 +40,59 @@ class HCEventRuntime
     protected int m_PendingExpiryAt;
 
     void HCSetStepTimer(HCStepTimer timer) { m_TickSteps = timer; }
-    bool HCPublishPending() { return m_PendingPublish != null; }
+    // BLOCKED plus HCAnnouncePending is a yield, not an admission failure.
+    protected int m_AnnounceStage;
+    protected bool m_StageNextAnnounce;
+    protected bool m_AnnounceStaged;
+    protected string m_AnnounceReceipt;
+    protected string m_AnnounceReceiptSession;
+    protected int m_AnnounceResult = HCEventCode.BLOCKED;
+    protected int m_AnnounceRepeat;
+    protected int m_AnnounceId;
+    protected bool m_AnnounceStarted;
+    protected ref HCEventMission m_AnnounceMission;
+    protected ref HCEventContext m_AnnounceContext;
+    protected ref HCEventRuntimeState m_AnnounceCandidate;
+    bool HCAnnouncePending() { return m_AnnounceStage > 0; }
+    bool HCPublishPending() { return m_PendingPublish != null || HCAnnouncePending(); }
     bool HCOperational() { return m_Ready; }
+    bool HCCancelPending()
+    {
+        return m_Ready && !m_StopRequested && m_Settings && m_Settings.Enabled && (m_Busy || HCPublishPending());
+    }
     protected void HCMeasured(string stage, int started)
     {
         if (m_TickSteps) { m_TickSteps.HCItem(stage, TickCount(started)); }
     }
 
-    // Only expiry/CLOSED maintenance uses this continuation. Actor/reward and
-    // client mutation barriers remain synchronous; they drain it before writing.
+    // Maintenance and announcements share one journal continuation. Other
+    // mutations refuse throughout announcement ownership, including between saves.
     protected bool HCBeginPublish(HCEventRuntimeState candidate)
     {
         HCEventJournal journal = HCEventJournal.Cast(m_Store);
         if (!journal) { return Publish(candidate); }
-        if (!candidate || candidate.Revision >= 999999999 || m_PendingPublish) { return false; }
+        if (m_PendingPublish) { return false; }
+        if (!candidate || candidate.Revision >= 999999999)
+        {
+            m_Ready = false;
+            FaultCleanup();
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            return false;
+        }
         candidate.Revision++;
+        // Reject caller state before the journal can enter its faulted state.
+        if (!HCEventRuntimePolicy.StateValid(candidate))
+        {
+            m_Ready = false;
+            FaultCleanup();
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            return false;
+        }
         if (!journal.HCBeginSave(candidate))
         {
             m_Ready = false;
             FaultCleanup();
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
             return false;
         }
         m_PendingPublish = candidate;
@@ -97,7 +132,7 @@ class HCEventRuntime
             {
                 m_Ready = false;
                 FaultCleanup();
-                Print("[HC Events] maintenance journal fault; mutations disabled, cleanup remains pending");
+                Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
                 return false;
             }
         }
@@ -118,6 +153,22 @@ class HCEventRuntime
         m_Ready = false;
         m_Busy = false;
         m_StopRequested = false;
+        m_AnnounceStage = 0;
+        m_StageNextAnnounce = false;
+        m_AnnounceStaged = false;
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        m_AnnounceResult = HCEventCode.BLOCKED;
+        m_AnnounceRepeat = 0;
+        m_AnnounceId = 0;
+        m_AnnounceStarted = false;
+        m_AnnounceMission = null;
+        m_AnnounceContext = null;
+        m_AnnounceCandidate = null;
+        m_PendingPublish = null;
+        m_PendingJournal = null;
+        m_PendingExpiryId = 0;
+        m_PendingLeaves.Clear();
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
         m_RetentionBlockedLine = "";
@@ -208,12 +259,18 @@ class HCEventRuntime
         m_Ready = true;
         return true;
     }
+    // Observations read the last committed state while an announce owns its candidate.
+    bool HCReadAllowed(HCEventContext context)
+    {
+        return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
+    }
     bool Allowed(HCEventContext context)
     {
+        if (HCAnnouncePending()) { return false; }
         // Trusted ingress keeps its original immediate durability contract. Never
         // let a synchronous mutation overtake a partially written revision.
         if (m_PendingPublish && !m_Busy && !HCAdvancePublish(true)) { return false; }
-        return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
+        return HCReadAllowed(context);
     }
     bool Publish(HCEventRuntimeState candidate)
     {
@@ -322,8 +379,24 @@ class HCEventRuntime
         request.ParticipantId = participant;
         return HCEventDirector.Command(state.Director, context, request);
     }
+    // Existing admin/scenes callers require an immediate final result. Only the
+    // roster opts into yielding; both paths execute the same durable state machine.
+    int HCAnnounceStaged(HCEventMission mission, HCEventContext context)
+    {
+        m_StageNextAnnounce = true;
+        int result = Announce(mission, context);
+        m_StageNextAnnounce = false;
+        return result;
+    }
     int Announce(HCEventMission mission, HCEventContext context)
     {
+        // A durable completion is a receipt, independent of current admission gates.
+        if (mission && context && m_AnnounceReceipt != "" && m_AnnounceReceipt == mission.Id && m_AnnounceReceiptSession == context.Session)
+        {
+            m_AnnounceReceipt = "";
+            m_AnnounceReceiptSession = "";
+            return m_AnnounceResult;
+        }
         if (!Allowed(context))
         {
             return HCEventCode.DENIED;
@@ -374,11 +447,40 @@ class HCEventRuntime
             }
             return HCEventCode.BLOCKED;
         }
-        HCEventRuntimeState candidate = m_Store.Clone(m_State);
-        if (!candidate)
+        int freezeStarted = TickCount(0);
+        m_AnnounceMission = m_Store.CloneMission(mission);
+        HCMeasured("announce_freeze", freezeStarted);
+        if (!m_AnnounceMission) { return HCEventCode.BLOCKED; }
+        m_AnnounceContext = new HCEventContext;
+        m_AnnounceContext.Server = context.Server;
+        m_AnnounceContext.WorldName = context.WorldName;
+        m_AnnounceContext.Session = context.Session;
+        m_AnnounceContext.Now = context.Now;
+        m_AnnounceRepeat = repeatId;
+        m_AnnounceStarted = false;
+        m_AnnounceResult = HCEventCode.BLOCKED;
+        m_AnnounceStaged = m_StageNextAnnounce;
+        m_AnnounceStage = 1;
+        if (!m_AnnounceStaged)
         {
-            return HCEventCode.BLOCKED;
+            while (HCAnnouncePending()) { HCAdvanceAnnounce(true); }
+            return m_AnnounceResult;
         }
+        return HCEventCode.BLOCKED;
+    }
+    // Failed completions never invoke modded Announce hooks. Successful ones
+    // consume through Announce before admission gates, retaining the durable-OK hook.
+    int HCTakeAnnounceResult(HCEventMission mission, HCEventContext context)
+    {
+        if (!mission || !context || m_AnnounceReceipt == "" || m_AnnounceReceipt != mission.Id || m_AnnounceReceiptSession != context.Session) { return HCEventCode.DENIED; }
+        if (m_AnnounceResult == HCEventCode.OK) { return Announce(mission, context); }
+        int result = m_AnnounceResult;
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        return result;
+    }
+    protected int HCAnnounceOperation(HCEventRuntimeState candidate, HCEventMission mission, HCEventContext context, int repeatId)
+    {
         HCEventRun run;
         if (repeatId > 0)
         {
@@ -415,49 +517,127 @@ class HCEventRuntime
         {
             return HCEventCode.BLOCKED;
         }
-        // Freeze caller-owned mission before persisting or invoking providers.
-        candidate = m_Store.Clone(candidate);
-        if (!Publish(candidate))
-        {
-            return HCEventCode.BLOCKED;
-        }
-        if (repeatId > 0)
-        {
-            int cooldownIndex = m_ReofferIds.Find(repeatId);
-            m_ReofferIds.Remove(cooldownIndex);
-            m_ReofferAfter.Remove(cooldownIndex);
-        }
-        m_LastNow = context.Now;
-        run = m_State.Runs[run.EventId - m_State.Director.PrunedThrough - 1];
-        m_Busy = true;
-        bool started = false;
-        if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
-        {
-            // The stable event slot can repeat, but the AI journal consumes lease
-            // IDs. The persisted proposal time increases on every re-offer.
-            HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
-            int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
-            string aiLease = run.Lease + ":" + aiGeneration.ToString();
-            started = m_AI.Start(aiLease, context.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
-        }
-        else
-        {
-            started = m_Observer.Prepare(run.Lease, m_Store.Clone(m_State).Runs[run.EventId - m_State.Director.PrunedThrough - 1].Objective);
-        }
-        m_Busy = false;
-        if (!started)
-        {
-            Cancel(run.EventId, context);
-            return HCEventCode.BLOCKED;
-        }
-        candidate = m_Store.Clone(m_State);
-        candidate.Runs[run.EventId - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.ACTIVE;
-        if (!Publish(candidate))
-        {
-            return HCEventCode.BLOCKED;
-        }
-        if (repeatId > 0) { Print("[HC Events] mission re-announced after cooldown; " + mission.Id); }
+        m_AnnounceId = run.EventId;
         return HCEventCode.OK;
+    }
+    protected void HCFinishAnnounce(int result)
+    {
+        m_AnnounceResult = result;
+        if (m_AnnounceStaged && !m_StopRequested)
+        {
+            m_AnnounceReceipt = m_AnnounceMission.Id;
+            m_AnnounceReceiptSession = m_AnnounceContext.Session;
+        }
+        m_AnnounceStage = 0;
+        m_AnnounceCandidate = null;
+        m_AnnounceMission = null;
+        m_AnnounceContext = null;
+    }
+    // One clone/operation/provider step per tick. Journal chunks alone share
+    // the four-ms work slice. No candidate becomes visible before readback.
+    protected void HCAdvanceAnnounce(bool drain = false)
+    {
+        int started = TickCount(0);
+        if (m_AnnounceStage == 1)
+        {
+            m_AnnounceCandidate = m_Store.Clone(m_State);
+            HCMeasured("announce_clone", started);
+            if (!m_AnnounceCandidate) { HCFinishAnnounce(HCEventCode.BLOCKED); return; }
+            m_AnnounceStage = 2;
+        }
+        else if (m_AnnounceStage == 2)
+        {
+            int result = HCAnnounceOperation(m_AnnounceCandidate, m_AnnounceMission, m_AnnounceContext, m_AnnounceRepeat);
+            HCMeasured("announce_op", started);
+            if (result != HCEventCode.OK) { HCFinishAnnounce(result); return; }
+            m_AnnounceStage = 3;
+        }
+        else if (m_AnnounceStage == 3 || m_AnnounceStage == 7)
+        {
+            if (!HCBeginPublish(m_AnnounceCandidate))
+            {
+                HCFinishAnnounce(HCEventCode.BLOCKED);
+                return;
+            }
+            m_AnnounceCandidate = null;
+            m_AnnounceStage++;
+            HCMeasured("announce_save", started);
+        }
+        else if (m_AnnounceStage == 4 || m_AnnounceStage == 8)
+        {
+            if (!HCAdvancePublish(drain)) { HCFinishAnnounce(HCEventCode.BLOCKED); return; }
+            if (m_PendingPublish) { return; }
+            if (m_AnnounceStage == 8)
+            {
+                if (m_AnnounceStarted)
+                {
+                    if (m_AnnounceRepeat > 0) { Print("[HC Events] mission re-announced after cooldown; " + m_AnnounceMission.Id); }
+                    HCFinishAnnounce(HCEventCode.OK);
+                }
+                else { HCFinishAnnounce(HCEventCode.BLOCKED); }
+                return;
+            }
+            if (m_AnnounceRepeat > 0)
+            {
+                int cooldownIndex = m_ReofferIds.Find(m_AnnounceRepeat);
+                if (cooldownIndex >= 0)
+                {
+                    m_ReofferIds.Remove(cooldownIndex);
+                    m_ReofferAfter.Remove(cooldownIndex);
+                }
+            }
+            m_LastNow = m_AnnounceContext.Now;
+            m_AnnounceStage = 5;
+        }
+        else if (m_AnnounceStage == 5)
+        {
+            HCEventRun run = m_State.Runs[m_AnnounceId - m_State.Director.PrunedThrough - 1];
+            m_Busy = true;
+            if (m_StopRequested) { m_AnnounceStarted = false; }
+            else if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
+            {
+                HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+                int generation = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
+                string lease = run.Lease + ":" + generation.ToString();
+                m_AnnounceStarted = m_AI.Start(lease, m_AnnounceContext.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
+            }
+            else
+            {
+                HCEventMission frozen = m_Store.CloneMission(run.Objective);
+                if (frozen) { m_AnnounceStarted = m_Observer.Prepare(run.Lease, frozen); }
+            }
+            m_Busy = false;
+            HCMeasured("announce_prepare", started);
+            m_AnnounceStage = 6;
+        }
+        else if (m_AnnounceStage == 6)
+        {
+            m_AnnounceCandidate = m_Store.Clone(m_State);
+            HCMeasured("announce_clone", started);
+            if (!m_AnnounceCandidate)
+            {
+                m_Ready = false;
+                FaultCleanup();
+                Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+                HCFinishAnnounce(HCEventCode.BLOCKED);
+                return;
+            }
+            HCEventRun nextRun = m_AnnounceCandidate.Runs[m_AnnounceId - m_AnnounceCandidate.Director.PrunedThrough - 1];
+            if (m_AnnounceStarted) { nextRun.Phase = HCEventRunPhase.ACTIVE; }
+            else
+            {
+                if (Operation(m_AnnounceCandidate, m_AnnounceId, HCEventOp.CANCEL, "", m_AnnounceContext) != HCEventCode.OK)
+                {
+                    m_Ready = false;
+                    FaultCleanup();
+                    Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+                    HCFinishAnnounce(HCEventCode.BLOCKED);
+                    return;
+                }
+                nextRun.Phase = HCEventRunPhase.CLEANUP;
+            }
+            m_AnnounceStage = 7;
+        }
     }
     void RememberCooldown(HCEventRecord record, int now)
     {
@@ -490,12 +670,12 @@ class HCEventRuntime
     }
     void ItemDelivered(ItemBase item, PlayerBase participant, EntityAI destination, HCEventContext context)
     {
-        if (!Allowed(context) || !item) { return; }
+        if (!HCReadAllowed(context) || !item) { return; }
         string identity = HCEventNativeObserver.Identity(participant);
         if (identity == "") { return; }
         foreach (HCEventSubscription sub : m_Subscriptions)
         {
-            if (sub.Player == participant && sub.ParticipantId == identity)
+            if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
                 HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
@@ -508,12 +688,12 @@ class HCEventRuntime
     }
     void InfectedKilled(ZombieBase infected, PlayerBase participant, HCEventContext context)
     {
-        if (!Allowed(context) || !infected || infected.IsAlive()) { return; }
+        if (!HCReadAllowed(context) || !infected || infected.IsAlive()) { return; }
         string identity = HCEventNativeObserver.Identity(participant);
         if (identity == "") { return; }
         foreach (HCEventSubscription sub : m_Subscriptions)
         {
-            if (sub.Player == participant && sub.ParticipantId == identity)
+            if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
                 HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
@@ -579,7 +759,7 @@ class HCEventRuntime
     }
     int Leave(int id, PlayerBase player, HCEventContext context)
     {
-        if (!Allowed(context))
+        if (!HCReadAllowed(context))
         {
             return HCEventCode.DENIED;
         }
@@ -589,6 +769,13 @@ class HCEventRuntime
             return HCEventCode.DENIED;
         }
         HCEventSubscription sub = m_Subscriptions[index];
+        if (HCPublishPending())
+        {
+            // At most MaxSubscriptions retained requests, with duplicates coalesced.
+            // Do not publish over the announcement's private candidate.
+            if (!m_PendingLeaves.Contains(sub)) { m_PendingLeaves.Insert(sub, true); }
+            return HCEventCode.OK;
+        }
         HCEventRuntimeState candidate = m_Store.Clone(m_State);
         int result = Operation(candidate, id, HCEventOp.LEAVE, sub.ParticipantId, context);
         if (result != HCEventCode.OK)
@@ -638,6 +825,7 @@ class HCEventRuntime
     }
     bool Cleanup(int id, bool staged = false)
     {
+        if (HCAnnouncePending()) { return false; }
         HCEventRun run = m_State.Runs[id - m_State.Director.PrunedThrough - 1];
         if (run.Phase != HCEventRunPhase.CLEANUP)
         {
@@ -669,6 +857,7 @@ class HCEventRuntime
     }
     void Observe(HCEventSubscription sub, HCEventContext context)
     {
+        if (HCAnnouncePending()) { return; }
         HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
         HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
         if (record.Status != HCEventStatus.ACTIVE || run.Phase != HCEventRunPhase.ACTIVE)
@@ -736,6 +925,12 @@ class HCEventRuntime
         // One shared four-millisecond slice, retained across all maintenance
         // stages in this tick. No second slice after completing a journal.
         m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        if (HCAnnouncePending())
+        {
+            HCAdvanceAnnounce();
+            if (HCAnnouncePending()) { m_WorkBudget.HCDeferred("Events", 1); }
+            return;
+        }
         if (m_PendingPublish)
         {
             HCAdvancePublish();
@@ -744,6 +939,14 @@ class HCEventRuntime
         }
         if (!Allowed(context))
         {
+            return;
+        }
+        if (m_PendingLeaves.Count() > 0)
+        {
+            HCEventSubscription leaving = m_PendingLeaves.GetKey(0);
+            m_PendingLeaves.Remove(leaving);
+            // Deferred Leave must be staged before Join returns to service.
+            Leave(leaving.EventId, leaving.Player, context);
             return;
         }
         m_LastNow = context.Now;
@@ -838,10 +1041,19 @@ class HCEventRuntime
         // Reentrant/provider-busy shutdown still revokes admission immediately.
         // Retain state/providers until a later non-busy retry confirms closure.
         // Shutdown is an existing synchronous barrier, never discard an intent.
-        if (m_PendingPublish && !m_Busy) { HCAdvancePublish(true); }
         m_StopRequested = true;
+        if (!m_Busy)
+        {
+            while (HCAnnouncePending()) { HCAdvanceAnnounce(true); }
+            if (m_PendingPublish) { HCAdvancePublish(true); }
+        }
+        // Drain may create a receipt; stopped/quarantined owners must not retain it.
+        m_AnnounceReceipt = "";
+        m_AnnounceReceiptSession = "";
+        m_AnnounceResult = HCEventCode.BLOCKED;
         m_Ready = false;
         m_Subscriptions.Clear();
+        m_PendingLeaves.Clear();
         if (m_Busy)
         {
             return false;

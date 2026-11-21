@@ -44,6 +44,10 @@ class HCEventModule : HCModule
     protected float m_RosterElapsed = 0;
     protected int m_RosterCursor = 0;
     protected bool m_BindContinuing;
+    protected bool m_StartupSweep;
+    protected ref HCEventMission m_Announcing;
+    protected int m_AnnouncingSlot;
+    protected bool m_AnnouncingPolice;
     // One bounded slot per configured site/family, reset on module start.
     // Six fast post-readiness attempts, then indefinitely spaced slow retries.
     // One roster slot per five seconds. With one
@@ -333,6 +337,7 @@ class HCEventModule : HCModule
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
         m_BindContinuing = false;
+        m_StartupSweep = true;
         m_PoliceRetryReady = false;
         m_PoliceRetryAttempts = new array<int>;
         m_PoliceRetryAfter = new array<float>;
@@ -358,41 +363,9 @@ class HCEventModule : HCModule
         // Runtime canonicalizes the nonce with its persisted session generation.
         m_Session = context.Session;
         BindReviewedTargets(observer, m_Config);
-        bool aiReady = AIReady(context);
-        int admitted = 0;
-        // SettingsValid admits at most eight sites; make that startup bound explicit.
-        for (int startupSite = 0; startupSite < 8 && startupSite < m_Config.Sites.Count(); startupSite++)
-        {
-            HCEventSite site = m_Config.Sites[startupSite];
-            string siteWorld;
-            if (site)
-            {
-                siteWorld = site.WorldName;
-                siteWorld.ToLower();
-            }
-            if (!site || siteWorld != context.WorldName)
-            {
-                Print("[HC Events] blocked site: missing or different world identity");
-            }
-            else
-            {
-                array<ref HCEventMission> roster = HCEventRoster.Build(site, aiReady);
-                foreach (HCEventMission mission : roster)
-                {
-                    HCEventCacheSpawner.PoliceObjectiveClass(mission);
-                    int result = HCAnnouncePaced(mission, context);
-                    if (result == HCEventCode.OK)
-                    {
-                        RememberAnnounced(mission.Id);
-                        admitted = admitted + 1;
-                    }
-                    else
-                    {
-                        Print("[HC Events] roster mission not admitted; " + mission.Id + "; code " + result.ToString());
-                    }
-                }
-            }
-        }
+        // Admit through the same bounded roster continuation after startup.
+        // A startup loop must not bind other missions while one save owns the journal.
+        m_BindContinuing = true;
         if (m_Stopping)
         {
             if (!m_Quarantined)
@@ -401,7 +374,7 @@ class HCEventModule : HCModule
             }
             return;
         }
-        // Admit opt-in requests only after runtime and current-world roster.
+        // Runtime barriers refuse opt-in mutations during roster publication.
         m_EventRPC = new HCEventRPC;
         if (!m_EventRPC.Start(this))
         {
@@ -410,21 +383,7 @@ class HCEventModule : HCModule
             return;
         }
         s_Instance = this;
-        if (admitted == 0)
-        {
-            Print("[HC Events] enabled preference, no active missions: review sites/target bindings/provider capabilities");
-        }
-        else
-        {
-            if (HCEventSitesGate.Admitted())
-            {
-                Print("[HC Events] admitted missions " + admitted.ToString() + "; participation is optional; reward caches from finite journaled pool");
-            }
-            else
-            {
-                Print("[HC Events] admitted missions " + admitted.ToString() + "; participation is optional; reward caches unavailable");
-            }
-        }
+        Print("[HC Events] roster admission queued; participation is optional");
     }
     override void OnTick(float deltaTime)
     {
@@ -479,13 +438,19 @@ class HCEventModule : HCModule
             // aggregate out of HCItem so it cannot hide a measured chunk name.
             m_TickSteps.HCAdd(m_RuntimeStep, TickCount(runtimeStarted));
             m_RosterElapsed = m_RosterElapsed + deltaTime;
+            if (m_Announcing && !m_Runtime.HCAnnouncePending())
+            {
+                HCCompleteAnnouncement(context);
+                return;
+            }
             if (journalTick || m_Runtime.HCPublishPending()) { return; }
-            if (m_BindContinuing || m_RosterElapsed >= 5)
+            if (m_StartupSweep || m_BindContinuing || m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
                 int rosterStarted = TickCount(0);
                 RefreshRoster(context);
                 HCMeasureStep(m_RosterStep, "roster", rosterStarted);
+                HCFinishStartupSweep();
             }
         }
     }
@@ -494,11 +459,17 @@ class HCEventModule : HCModule
     // their own owners and are never disabled by this pacing gate.
     int HCAnnouncePaced(HCEventMission mission, HCEventContext context)
     {
+        if (m_Announcing || m_Runtime.HCAnnouncePending()) { return HCEventCode.BLOCKED; }
         if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
             if (!HCPaceSituation("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
         }
-        int result = m_Runtime.Announce(mission, context);
+        int result = m_Runtime.HCAnnounceStaged(mission, context);
+        if (m_Runtime.HCAnnouncePending())
+        {
+            m_Announcing = mission;
+            return result;
+        }
         if (result == HCEventCode.OK && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
             HCStartedSituation("event:" + mission.Id);
@@ -510,10 +481,57 @@ class HCEventModule : HCModule
         return result;
     }
 
+    protected void HCCompleteAnnouncement(HCEventContext context)
+    {
+        int result = m_Runtime.HCTakeAnnounceResult(m_Announcing, context);
+        if (m_Announcing.Family == HCEventFamily.AI_ENCOUNTER)
+        {
+            if (result == HCEventCode.OK) { HCStartedSituation("event:" + m_Announcing.Id); }
+            else { HCCancelSituation("event:" + m_Announcing.Id); }
+        }
+        if (result == HCEventCode.OK)
+        {
+            if (RememberAnnounced(m_Announcing.Id))
+            {
+                Print("[HC Events] mission admitted later; " + m_Announcing.Id + " runtime=PENDING");
+            }
+        }
+        else if (m_AnnouncingPolice)
+        {
+            if (m_PoliceRetryAttempts[m_AnnouncingSlot] < 7) { m_PoliceRetryAttempts[m_AnnouncingSlot] = m_PoliceRetryAttempts[m_AnnouncingSlot] + 1; }
+            HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+            if (policy && m_PoliceRetryAttempts[m_AnnouncingSlot] >= 6) { m_PoliceRetryAfter[m_AnnouncingSlot] = context.Now + policy.PoliceSlowRetrySeconds; }
+            if (m_PoliceRetryAttempts[m_AnnouncingSlot] == 6)
+            {
+                Print("[HC Events] police binding retries exhausted; " + m_Announcing.Id + "; attempts=6; code=" + result.ToString() + " runtime=PENDING");
+            }
+        }
+        m_RosterCursor = (m_AnnouncingSlot + 1) % (m_Config.Sites.Count() * 7);
+        m_Announcing = null;
+        m_AnnouncingPolice = false;
+        m_BindContinuing = false;
+        HCFinishStartupSweep();
+    }
+
+    protected void HCFinishStartupSweep()
+    {
+        if (!m_StartupSweep || m_Announcing || m_BindContinuing || m_RosterCursor != 0) { return; }
+        m_StartupSweep = false;
+        int admitted = m_AnnouncedMissions.Count();
+        if (admitted > 0) { Print("[HC Events] admitted missions " + admitted.ToString()); }
+        else { Print("[HC Events] enabled preference, no active missions"); }
+    }
+
     void RefreshRoster(HCEventContext context)
     {
-        if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0) { return; }
-        // One site's one family per five seconds; late CE population can admit
+        if (m_Config.Sites.Count() == 0)
+        {
+            m_BindContinuing = false;
+            HCFinishStartupSweep();
+            return;
+        }
+        if (!m_Runtime || !m_NativeObserver || m_Announcing || m_Runtime.HCAnnouncePending()) { return; }
+        // One slot per tick during startup, then per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.
         m_BindContinuing = false;
@@ -564,7 +582,7 @@ class HCEventModule : HCModule
                     m_RosterCursor = retrySlot;
                     return;
                 }
-                if (policeRetry && !remembered)
+                if (policeRetry && !remembered && !bound)
                 {
                     if (!bound && HCEventWorldBinding.PoliceWaitingForPlayers()) { return; }
                     if (!bound && HCEventSites.PoliceSupplies(mission) && HCEventCacheSpawner.PoliceReason() == "police_work_budget") { return; }
@@ -585,6 +603,19 @@ class HCEventModule : HCModule
                 }
                 HCEventCacheSpawner.PoliceObjectiveClass(mission);
                 int admission = HCAnnouncePaced(mission, context);
+                if (m_Announcing)
+                {
+                    m_AnnouncingSlot = retrySlot;
+                    m_AnnouncingPolice = policeRetry && !remembered;
+                    m_BindContinuing = true;
+                    m_RosterCursor = retrySlot;
+                    return;
+                }
+                if (policeRetry && !remembered && bound)
+                {
+                    if (m_PoliceRetryAttempts[retrySlot] < 7) { m_PoliceRetryAttempts[retrySlot] = m_PoliceRetryAttempts[retrySlot] + 1; }
+                    if (m_PoliceRetryAttempts[retrySlot] >= 6) { m_PoliceRetryAfter[retrySlot] = context.Now + policePolicy.PoliceSlowRetrySeconds; }
+                }
                 if (admission == HCEventCode.OK)
                 {
                     // Remembered once, so this line appears once per mission id.
@@ -642,6 +673,11 @@ class HCEventModule : HCModule
     }
     override void OnStop()
     {
+        if (m_Announcing)
+        {
+            if (m_Announcing.Family == HCEventFamily.AI_ENCOUNTER) { HCCancelSituation("event:" + m_Announcing.Id); }
+            m_Announcing = null;
+        }
         HCCloseSituations();
         if (m_EventRPC)
         {

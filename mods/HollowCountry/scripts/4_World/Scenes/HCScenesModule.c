@@ -46,6 +46,8 @@ class HCScenesModule : HCModule
     protected ref HCGapcodeStoryIndex m_StoryIndex;
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
+    // At most two leases; release the retry entry with its view identity.
+    protected ref map<HCSceneLease, int> m_ViewRetireAttempts = new map<HCSceneLease, int>;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected ref HCSaveJob m_SaveJob;
     protected int m_StoryOfferPending;
@@ -399,17 +401,43 @@ class HCScenesModule : HCModule
         }
     }
 
+    void HCReleaseView(HCSceneLease lease, string reason)
+    {
+        if (reason != "") { Print("[HollowCountry] V2 scene view released reason=" + reason); }
+        lease.ViewEventId = 0;
+        m_ViewRetireAttempts.Remove(lease);
+    }
+
     void RetireView(HCSceneLease lease)
     {
         if (!lease || lease.ViewEventId == 0) { return; }
         HCEventModule events = HCEventModule.Get();
-        if (!events || !events.Runtime()) { return; }
+        if (!events || !events.Runtime()) { HCReleaseView(lease, "runtime-unavailable"); return; }
+        HCEventRuntime runtime = events.Runtime();
+        if (!runtime.HCOperational()) { HCReleaseView(lease, "runtime-not-operational"); return; }
         HCEventContext context = events.Context();
-        if (context.Session != lease.ViewSession) { return; }
-        HCEventRuntimeState snapshot = events.Runtime().Snapshot();
+        if (context.Session != lease.ViewSession) { HCReleaseView(lease, "session-changed"); return; }
+        int attempts;
+        m_ViewRetireAttempts.Find(lease, attempts);
+        if (attempts >= 12) { HCReleaseView(lease, "retry-cap"); return; }
+        m_ViewRetireAttempts.Set(lease, attempts + 1);
+        // Pending/busy is the only transient refusal; never clone while it owns state.
+        if (runtime.HCCancelPending()) { return; }
+        if (!runtime.HCReadAllowed(context)) { HCReleaseView(lease, "runtime-unavailable"); return; }
+        HCEventRuntimeState snapshot = runtime.Snapshot();
         HCEventRecord record = HCEventDirector.FindRecord(snapshot.Director, lease.ViewEventId);
-        if (record && !HCEventDirector.Terminal(record.Status)) { events.Runtime().Cancel(record.Id, context); }
-        lease.ViewEventId = 0;
+        if (!record) { HCReleaseView(lease, "record-missing"); return; }
+        if (!HCEventDirector.Terminal(record.Status))
+        {
+            int result = runtime.Cancel(record.Id, context);
+            if (result != HCEventCode.OK)
+            {
+                if (runtime.HCOperational() && runtime.HCCancelPending()) { return; }
+                HCReleaseView(lease, "cancel-refused-code-" + result.ToString());
+                return;
+            }
+        }
+        HCReleaseView(lease, "");
     }
 
     bool Cleanup(HCSceneLease lease)
@@ -417,6 +445,8 @@ class HCScenesModule : HCModule
         if (!lease) { return true; }
         lease.Closing = true;
         RetireView(lease);
+        // Keep ownership for the existing Work/CleanupStopped tick to retry.
+        if (lease.ViewEventId != 0) { return false; }
         if (!HCSceneKits.Remove(lease)) { return false; }
         int index = m_Leases.Find(lease);
         if (index >= 0) { m_Leases.Remove(index); }
