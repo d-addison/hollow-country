@@ -3043,6 +3043,29 @@
       },
       "widen": [],
       "floor_exception": null
+    },
+    "Land_Wreck_Tractor": {
+      "evidence": "Issues #326/#327, 321-r1 treatment: Land_Wreck_Tractor copies Land_Wreck_Tractor_DE on the identical pinned installed model; one native point 1.10-1.42 m above the four flags=32 ground points. Relocate these exact raised points from lootFloor to lootHCReceiver, retaining Farm usage and bounded native capacity. The copied floor tag otherwise excludes shelf-tagged Farm equipment; the trailer floor capacity becomes zero. Ground points remain in lootFloor, never duplicated or raised. Native point-specific spawning, fit and reachability remain pending; clipping-box counts exclude surrounding ground loot.",
+      "sources": {
+        "lootFloor": [
+          "-1.801868 0.166862 0.057007"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_Trailer_Closed": {
+      "evidence": "Issues #326/#327, 321-r1 treatment: Land_Wreck_Trailer_Closed copies Land_Wreck_Trailer_Closed_DE on the identical pinned installed model; four native points 0.96 m above the flags=32 ground point. Relocate these exact raised points from lootFloor to lootHCReceiver, retaining Farm usage and bounded native capacity. The copied floor tag otherwise excludes shelf-tagged Farm equipment; the trailer floor capacity becomes zero. Ground points remain in lootFloor, never duplicated or raised. Native point-specific spawning, fit and reachability remain pending; clipping-box counts exclude surrounding ground loot.",
+      "sources": {
+        "lootFloor": [
+          "2.632978 0.096878 -0.573745",
+          "2.730601 0.096878 0.191362",
+          "0.681514 0.096878 0.193508",
+          "-0.274477 0.096878 -0.537029"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
     }
   },
   "collision_support": {
