@@ -71,9 +71,15 @@ def sha(data):
 
 
 class Assets:
-    def __init__(self, folder):
+    def __init__(self, folder, require_visual=False):
         self.members, self.classes = {}, {}
         folder = Path(folder)
+        # Dedicated-server PBOs strip visual detail (Chapel: 144 faces versus
+        # the client surface evidence's face 1452). They are collision inputs,
+        # never evidence that a rendered furniture top has disappeared.
+        if require_visual and (folder.parent / 'DayZServer_x64.exe').is_file() and not (
+                folder.parent / 'DayZ_x64.exe').is_file():
+            raise ValueError('visual audit requires full DayZ client addons; dedicated-server PBOs strip visual meshes')
         # Fire extinguishers are baked building blockers in gear_tools, not
         # furniture candidates. Include their installed model without importing
         # unrelated item/vehicle assets or changing building config precedence.
@@ -723,9 +729,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
 def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=None):
     """Join a complete disjoint scan and re-audit complementary prior points.
 
-    A larger valid point set gets first choice, followed by compatible points
-    from the other set. Caps and spacing are unchanged. Old coordinates never
-    reserve space before passing the current collision and reach gates.
+    Passing prior coordinates get first choice; compatible new points fill the
+    remaining space/cap. Every prior removal records its physical refusal. Old
+    coordinates never reserve space before passing collision and reach gates.
     """
     from tools.package.loot_reach_audit import Audit
     from tools.package.loot_support_audit import Audit as SupportAudit
@@ -782,6 +788,7 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
         auditor = Audit(addons, reader_folder, stock_proto, ROOT)
         collision = SupportAudit(addons, reader_folder, stock_proto)
         refused = Counter()
+        prior_refusals = []
         added = 0
         for name, old in prior['groups'].items():
             context = support_context = None
@@ -813,16 +820,18 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
                             auditor.templates.get(name, []), stop_on_refusal=True) if not reason else ([], None)
                         if reason or failures:
                             refused.update([reason] if reason else failures)
+                            if spec is old:
+                                prior_refusals.append({'group': name, 'point': point,
+                                    'reasons': [reason] if reason else failures})
                         else:
                             valid.append((point, evidence))
                 sets.append(valid)
-            chosen = []
+            chosen = list(sets[1])
             area = (current or {}).get('interior_area_m2')
             if area is None:
                 area = interior_area(name, auditor.stock.get(name), context, auditor.templates.get(name, []))
             cap = surface_cap(area)
-            layouts = sorted(sets, key=len, reverse=True)
-            for point, evidence in layouts[0] + layouts[1]:
+            for point, evidence in sets[0]:
                 if len(chosen) < cap and not near(point, [p for p, _ in chosen]):
                     chosen.append((point, evidence))
             if not chosen:
@@ -839,12 +848,15 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
                 spec['interior_area_m2'] = area
             spec.pop('collision_support', None)
             doc['groups'][name] = spec
+            prior_refusals = [r for r in prior_refusals
+                              if r['group'] != name or r['point'] not in spec['containers']['lootHCSurface']['points']]
         sources['prior_overlay_selection'] = {'sha256': sha(raw), 'net_added_points': added,
             'prior_method': prior['sources']['method'],
             'prior_reach_generation': prior['sources']['reach_generation'],
             'net_points_vs_prior': sum(len(g['surface_sources']) for g in doc['groups'].values())
                                    - sum(len(g['surface_sources']) for g in prior['groups'].values()),
-            'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing; area cap and story categories from the final layout',
+            'method': 're-audit both sets; preserve passing prior coordinates then append compatible new points; spacing and area cap govern additions; physical refusals explain every prior removal',
+            'prior_point_refusals': prior_refusals,
             'refusal_counts': dict(sorted(refused.items()))}
     for name in doc['groups']:
         reason = sources['rejected_groups'].pop(name, None)
@@ -861,13 +873,16 @@ FLOOR_OUTPUT = ROOT / loot.ADDITIONS
 FLOOR_STEP = .50      # walk lattice; one HC floor point per CELLS_PER_POINT m2 reached
 FLOOR_LIFT = .005     # same lift as surface points above their collision plane
 FLOOR_RANGE = float(loot.POINT_SHAPE['floor'][0])
-FLOOR_METHOD = ('hc-floor-v1: native stock points on building Geometry/Roadway floors seed a '
+FLOOR_METHOD = ('hc-floor-v2: native stock points on building Geometry/Roadway floors seed a '
                 '0.50m walk lattice; every cell needs a clear standing body (0.22m radius, 1.8m) '
                 'and a swept same-storey corridor with sampled floor from a reached neighbour '
                 '(closed doors block); points avoid stock spawn discs (stock range + 0.5m), '
-                '1.0m of door leaves and stair steps; wall-side cells first, farthest-point '
-                'spacing 1.5m, one point per 8m2 reached (2..12); collision support/enclosure '
-                'gate before admission; optional props block bodies and points')
+                '1.0m of door leaves and stair steps (highest collision plane at each neighbour, '
+                'never slab undersides); floor item base clears the highest Geometry/Roadway '
+                'footprint sample by 5mm (local height span <=25mm); wall-side cells first, '
+                'farthest-point spacing 1.5m, '
+                'one point per 8m2 reached (2..12); collision support/enclosure gate before admission; '
+                'optional props block bodies and points')
 
 
 def floor_story(group, fallback):
@@ -890,10 +905,11 @@ def floor_story(group, fallback):
     return story or list(fallback)
 
 
-def floor_cells(name, group, context, slots):
-    """Reached floor cells (model frame) of one stock group, or a refusal reason."""
+def floor_cells(name, group, context, slots, diagnostics=None):
+    """Reached floor cells in model frame; optional Counter records first refusals."""
     from tools.package.loot_reach_audit import (
         approach_clear, body_clear, model_point, volume_hit, RADIUS, HEIGHT)
+    diagnostics = diagnostics if diagnostics is not None else Counter()
     _, model, _, scene, bounds, _, footprint = context
     if bounds is None:
         return 'no-building-bounds', None, None
@@ -908,6 +924,7 @@ def floor_cells(name, group, context, slots):
             anchors.append((p[0], found[0], p[2]))
     if not stock:
         anchors = [tuple(a) for a in context[5]]  # memory loot anchors (stock lootmax 0)
+    diagnostics['native_floor_anchors'] = len(anchors)
     if not anchors:
         return 'no-native-floor-anchor', None, None
     storeys = sorted({round(a[1], 2) for a in anchors})
@@ -958,24 +975,56 @@ def floor_cells(name, group, context, slots):
                 if c and approach_clear(scene, here, c, slots):
                     reached[key] = c
                     queue.append(key)
+    diagnostics['reached_cells'] = len(reached)
     if not reached:
         return 'no-reachable-floor-cell', None, None
     wall, inner = [], []
     for (ix, iz, level), c in reached.items():
         if any(math.hypot(c[0] - p[0], c[2] - p[2]) < r + FLOOR_RANGE and abs(c[1] - p[1]) <= loot.STOCK_BAND
                for p, r in stock):
+            diagnostics['stock_spawn_disc'] += 1
             continue
         if any(math.hypot(c[0] - d[0], c[2] - d[2]) <= loot.DOOR_CLEAR and -.5 <= d[1] - c[1] <= 2.5
                for d in doors):
+            diagnostics['door_leaf_clearance'] += 1
             continue
-        # Stair treads are walkable but steps make poor loot spots.
+        # Stair treads are walkable but steps make poor loot spots. A slab
+        # has a top AND an underside: only its highest neighbouring collision
+        # plane can be a walking step. Counting every plane falsely labels an
+        # entire flat room as stairs when its slab is 5cm..1.2m thick. Keep
+        # the uppermost-plane check conservative around actual raised treads.
         if any(.05 < abs(y - c[1]) <= loot.STAIR_RISE
                for dx, dz in ((.25, 0), (-.25, 0), (0, .25), (0, -.25))
-               for y in footprint.floors(c[0] + dx, c[2] + dz, c[1] - loot.STAIR_RISE, c[1] + loot.STAIR_RISE)):
+               for y in footprint.floors(c[0] + dx, c[2] + dz, c[1] - loot.STAIR_RISE, c[1] + loot.STAIR_RISE)[:1]):
+            diagnostics['stair_neighbour'] += 1
             continue
         side = any((ix + dx, iz + dz, level) not in reached for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
         (wall if side else inner).append(c)
+    diagnostics['candidate_cells'] = len(wall) + len(inner)
     return None, (sorted(wall), sorted(inner), len(reached)), [p for p, _ in stock]
+
+
+def floor_candidate(position, support_context):
+    """CE frame point just above a locally evidenced collision floor footprint."""
+    from tools.package.loot_support_audit import FOOTPRINT, CLEARANCE
+    x, y, z = position
+    height = y
+    if support_context is not None:
+        support = support_context[0]
+        samples = []
+        for dx, dz in FOOTPRINT:
+            hits = [h for h, source in support.supports(x+dx, z+dz, y-.025001, y+.025001)
+                    if source['kind'] in CLEARANCE]
+            if not hits:
+                break
+            samples.append(max(hits))
+        # Tilted Geometry/Roadway floors need the item's horizontal base above
+        # their highest footprint sample. Derive that height from real collision
+        # only; never offset by a guessed slope or a visual mesh. The 25mm local
+        # plane tolerance stays the same as the independent support gate's.
+        if len(samples) == len(FOOTPRINT) and max(samples)-min(samples) <= .025:
+            height = max(y, max(samples))
+    return [round(z, 6), round(height + FLOOR_LIFT, 6), round(-x, 6)]
 
 
 def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
@@ -1002,6 +1051,7 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
     covered = set(loot.parse_overlay(Path(surfaces).read_bytes())['groups']) if surfaces else set()
     existing = set(doc['groups'])
     added, refused, refusals, refreshed = {}, {}, Counter(), []
+    group_diagnostics = {}
     ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
     if partition is not None:
         index, count = partition
@@ -1037,7 +1087,9 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
             refused[name] = 'no-building-geometry' if 'geometry' in str(error) else 'scene-error'
             continue
         slots = [slot for _, t in auditor.templates.get(name, []) for slot in t.get('PropSlots', [])]
-        reason, cells, stock_points = floor_cells(name, group, context, slots)
+        detail = Counter()
+        reason, cells, stock_points = floor_cells(name, group, context, slots, detail)
+        group_diagnostics[name] = {'floor_cells': detail, 'support_refusals': Counter()}
         if name in existing:
             # Kept floor groups get the same size-realistic lootmax (owner,
             # 2026-11-20: loot numbers follow the building size everywhere).
@@ -1051,38 +1103,48 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         if reason:
             refused[name] = reason
             continue
-        support_context = support.context(name, spec)
         wall, inner, area_cells = cells
+        if not wall and not inner:
+            refused[name] = 'no-spare-floor-cell'
+            continue
+        support_context = support.context(name, spec)
         area = round(area_cells * FLOOR_STEP * FLOOR_STEP, 2)
         limit = min(loot.MAX_FLOOR_POINTS,
                     max(2, int(area_cells * FLOOR_STEP * FLOOR_STEP) // loot.CELLS_PER_POINT))
-        chosen, witnesses = [], []
-        for pool in (wall, inner):
-            pool = list(pool)
-            while pool and len(chosen) < limit:
-                def spread(c):
-                    return min((math.hypot(c[0] - q[0], c[2] - q[2]) + 2 * abs(c[1] - q[1])
-                                for q in chosen + stock_points), default=1e9)
-                best = max(pool, key=lambda c: (spread(c), tuple(-v for v in c)))
-                pool.remove(best)
+        chosen, witnesses, points = [], [], []
+        for wall_side, pool in ((True, wall), (False, inner)):
+            def spread(c):
+                return min((math.hypot(c[0] - q[0], c[2] - q[2]) + 2 * abs(c[1] - q[1])
+                            for q in chosen + stock_points), default=1e9)
+            def rank(c):
+                return spread(c), tuple(-v for v in c)
+            # Refusal does not change chosen or any remaining score. Re-sort
+            # only after admission, avoiding quadratic ranking over large
+            # roofless floors while retaining the same deterministic choices.
+            ranked = sorted(pool, key=rank)
+            while ranked and len(chosen) < limit:
+                best = ranked.pop()
                 if any(math.hypot(best[0] - q[0], best[2] - q[2]) < loot.FLOOR_SPACING
                        and abs(best[1] - q[1]) <= loot.STOCK_BAND for q in chosen):
                     continue
                 x, y, z = best
-                point = [round(z, 6), round(y + FLOOR_LIFT, 6), round(-x, 6)]
+                point = floor_candidate(best, support_context)
                 why, proof = support.check(name, point, support_context)
                 if why:
                     refusals[why] += 1
+                    group_diagnostics[name]['support_refusals'][why] += 1
                     continue
                 chosen.append(best)
+                points.append(point)
+                ranked.sort(key=rank)
                 witnesses.append({'floor_model': [round(v, 5) for v in best],
-                                  'reached_cells': area_cells, 'wall_side': pool is not inner})
+                                  'reached_cells': area_cells, 'wall_side': wall_side,
+                                  'collision_lift_m': round(point[1] - y - FLOOR_LIFT, 6)})
             if len(chosen) >= 2:
                 break
         if not chosen:
             refused[name] = 'no-supported-floor-point'
             continue
-        points = [[round(c[2], 6), round(c[1] + FLOOR_LIFT, 6), round(-c[0], 6)] for c in chosen]
         floor = family['floor']
         added[name] = {'family': family['family'], 'stock_sha256': spec['stock_sha256'],
                        'building_model': model, 'building_model_sha256': spec['building_model_sha256'],
@@ -1099,8 +1161,9 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         'reader_revision': READER_REVISION, 'reader_sha256': READER_HASHES,
         'kept_groups': len(existing), 'added_groups': len(added), 'area_refreshed_groups': sorted(refreshed),
         'added_points': sum(len(g['containers']['lootHCFloor']['points']) for g in added.values()),
-        'skipped_surface_groups': len(covered - existing),
+        'skipped_surface_groups': sum(g.get('name', '') in covered - existing for g in ordered),
         'refusal_counts': dict(sorted(refusals.items())),
+        'group_diagnostics': group_diagnostics,
         'rejected_groups': dict(sorted(refused.items())),
         'native_acceptance': 'pending'}
     if map_pos is not None:
@@ -1124,7 +1187,7 @@ def merge_floor_partitions(paths, base):
     kept = set(loot.parse_overlay(Path(base).read_bytes())['groups']) if base else set()
     gen_info = doc['sources']['hc_floor_generation']
     gen_info.pop('partition')
-    refusals, rejected = Counter(), {}
+    refusals, rejected, diagnostics = Counter(), {}, {}
     doc['groups'] = {}
     for part in parts:
         info = part['sources']['hc_floor_generation']
@@ -1141,12 +1204,14 @@ def merge_floor_partitions(paths, base):
                 doc['groups'].setdefault(name, spec)
         refusals.update(info['refusal_counts'])
         rejected.update(info['rejected_groups'])
+        diagnostics.update(info.get('group_diagnostics', {}))
     gen_info['added_groups'] = len(set(doc['groups']) - kept)
     gen_info['added_points'] = sum(len(s['containers']['lootHCFloor']['points'])
                                    for n, s in doc['groups'].items() if n not in kept)
     gen_info['skipped_surface_groups'] = sum(p['sources']['hc_floor_generation']['skipped_surface_groups']
                                              for p in parts)
     gen_info['refusal_counts'] = dict(sorted(refusals.items()))
+    gen_info['group_diagnostics'] = dict(sorted(diagnostics.items()))
     gen_info['rejected_groups'] = dict(sorted(rejected.items()))
     gen_info['area_refreshed_groups'] = sorted(n for p in parts for n in
                                                p['sources']['hc_floor_generation'].get('area_refreshed_groups', []))

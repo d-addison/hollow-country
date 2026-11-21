@@ -772,3 +772,430 @@ coverage, doors/stairs and approach access, vicinity/search interaction,
 persistence, restart behaviour and performance remain unproven. Acceptance needs
 one server and at most one client; multiplayer behaviour is not proven. No
 missing engine experiment is accepted by the static checks or the rehearsal.
+
+## Surface-point preservation after fa0c2ac8
+
+Owner: 2026-11-20, full coverage: no place stays vanilla-only. Every removal needs an explicit, reasoned refusal reported by a check. Native acceptance remains pending.
+
+`fa0c2ac8` used dedicated-server PBOs for visual generation/reach checks. Those models strip visual detail: its Chapel root visual LOD has 144 faces, while the prior evidence cites face 1452. The installed full-client Chapel, Office1 and Barracks1 model hashes exactly match `335915c6`; they are not obsolete geometry. Rechecking on server PBOs falsely called existing furniture tops unsupported. Some server collision representations also differ. All 1,292 prior surface coordinates pass the unchanged support/reach rules on the full-client assets, including the seven refused against server collision. The support-v3 slope rule is a relaxation of v2, not a reason to discard these points.
+
+The generator and reach auditor now reject an identifiable dedicated-server-only addon folder as a visual source. Collision auditing can still use such a folder explicitly; it cannot establish rendered support. Use full-client assets for the combined visual/collision qualification. Do not refresh historical visual evidence to server-stripped meshes. The guard recognizes the server executable beside addons; copied addon-only directories still require the operator to identify their source correctly.
+
+Prior-layout merging now preserves passing prior coordinates before adding compatible new points. The preservation utility re-reads both layouts, verifies actual stock proxy transforms, refreshes evidence only through current installed triangles, and records every excluded coordinate. Area/spacing caps govern additions; prior valid coordinates are not silently replaced. No admission margin, native stock coordinate, lootmax policy or item quantity multiplier was relaxed.
+
+### Counts and attribution
+
+| Revision | Surface points | Floor points | Total | All HC types | Placed HC types |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 335915c6 | 1,292 | 443 | 1,735 | 180 | 160 |
+| fa0c2ac8 | 1,079 | 679 | 1,758 | 227 | 201 |
+| Corrected | 1,301 | 679 | 1,980 | 224 | 202 |
+
+Placed coverage is 202 of the previously counted 263 placed stock types, not full coverage. The unfilled types and native experiments remain open. No type loses points relative to `335915c6`, in either overlay. All 1,735 original coordinates survive unchanged. The 58 combined per-type losses in `fa0c2ac8` are eliminated.
+
+Counts below concern **coordinates omitted**, not net point counts: replacing a coordinate can keep a type's count unchanged. There were 889 omissions across all types; 507 belonged to the 64 types whose surface count fell. Every one is restored. The emitted overlay contains the exact coordinates, historical rule results and decisions under `sources.point_preservation`; the check verifies completeness against both hashed input files.
+
+| Original omission cause | All types | 64 types with falling surface counts | Remaining vs 335915c6 |
+| --- | ---: | ---: | ---: |
+| Stripped-server visual reach refusal | 531 | 408 | 0 |
+| Stripped-server collision support refusal | 7 | 7 | 0 |
+| Surface spacing replacement | 319 | 92 | 0 |
+| Surface area-cap replacement | 32 | 0 | 0 |
+| New support-v3 rule, with the same assets | 0 | 0 | 0 |
+| Floor-v2 spacing/discs against new floors | 0 | 0 | 0 |
+| Partition/cache artefact attributed to fa0c2ac8 | 0 | 0 | 0 |
+| Nondeterminism attributed | 0 | 0 | 0 |
+
+The historical reach results were `floating_or_edge_support` for 530 points and `outside_building_bounds` for 21 (20 overlap), hence 531 unique points. Historical collision results were `no_collision_support_within_8cm` for six and `collision_support_footprint_edge` for one. These are false refusals from the asset choice: none remains on the full-client meshes. Floor generation never edits surface coordinates; its surface-overlay option skips already covered groups.
+
+Chapel is restored to **2 surface points**, Fortified Nest Big to **1**, and Slum House6 to **1**; each has zero floor points. All pass fresh full-client support and reach checks.
+
+### Per-type attribution for the 64 surface-count losses
+
+V = stripped-server visual refusal; C = stripped-server collision refusal; S = spacing replacement. Cap replacements are zero in this subset. Counts are omitted coordinates; all are restored.
+
+| Type | Surface 335915 → fa0c → corrected | V | C | S |
+| --- | ---: | ---: | ---: | ---: |
+| Land_Castle_Gate | 1 → 0 → 1 | 1 | 0 | 0 |
+| Land_CementWorks_SiloBig1A | 6 → 4 → 6 | 4 | 0 | 2 |
+| Land_Chapel | 2 → 0 → 2 | 2 | 0 | 0 |
+| Land_Church4 | 5 → 3 → 5 | 3 | 0 | 0 |
+| Land_Church4_Dam | 5 → 3 → 5 | 3 | 0 | 0 |
+| Land_Church4_Lightblue | 5 → 3 → 5 | 3 | 0 | 0 |
+| Land_Church4_Red | 5 → 3 → 5 | 3 | 0 | 0 |
+| Land_Church4_White | 5 → 3 → 5 | 3 | 0 | 0 |
+| Land_Church4_Yellow_Dam | 4 → 3 → 4 | 4 | 0 | 0 |
+| Land_City_PoliceStation | 32 → 30 → 32 | 11 | 0 | 7 |
+| Land_City_PoliceStation_Enoch | 32 → 30 → 32 | 11 | 0 | 7 |
+| Land_City_Stand_Grocery | 3 → 2 → 3 | 3 | 0 | 0 |
+| Land_CoalPlant_Main | 4 → 3 → 4 | 1 | 0 | 3 |
+| Land_Construction_Building | 17 → 0 → 17 | 17 | 0 | 0 |
+| Land_Construction_House2 | 2 → 0 → 2 | 2 | 0 | 0 |
+| Land_Factory_Lathes | 11 → 10 → 11 | 1 | 0 | 0 |
+| Land_Farm_CowshedA | 1 → 0 → 1 | 1 | 0 | 0 |
+| Land_Farm_CowshedB | 9 → 0 → 9 | 9 | 0 | 0 |
+| Land_Farm_CowshedC | 3 → 0 → 3 | 3 | 0 | 0 |
+| Land_FuelStation_Build | 4 → 0 → 4 | 4 | 0 | 0 |
+| Land_FuelStation_Build_Enoch | 4 → 1 → 4 | 4 | 0 | 0 |
+| Land_Garage_Office | 10 → 2 → 10 | 8 | 0 | 1 |
+| Land_Garage_Row_Big | 8 → 2 → 8 | 8 | 0 | 0 |
+| Land_HouseBlock_1F3 | 2 → 0 → 2 | 0 | 2 | 0 |
+| Land_HouseBlock_1F_Corner | 12 → 6 → 12 | 6 | 0 | 4 |
+| Land_HouseBlock_2F6 | 11 → 3 → 11 | 8 | 0 | 0 |
+| Land_HouseBlock_3F_Corner1 | 30 → 19 → 30 | 12 | 0 | 0 |
+| Land_HouseBlock_3F_Corner2 | 16 → 9 → 16 | 9 | 0 | 3 |
+| Land_House_1B01_Pub | 25 → 10 → 25 | 16 | 0 | 8 |
+| Land_House_1W02 | 3 → 2 → 3 | 1 | 0 | 2 |
+| Land_House_1W03 | 9 → 5 → 9 | 5 | 0 | 3 |
+| Land_House_1W04 | 4 → 1 → 4 | 3 | 0 | 1 |
+| Land_House_1W07 | 11 → 8 → 11 | 4 | 0 | 5 |
+| Land_House_1W10 | 7 → 5 → 7 | 2 | 0 | 5 |
+| Land_House_1W10_Brown | 6 → 4 → 6 | 3 | 0 | 3 |
+| Land_House_1W12_Brown | 6 → 5 → 6 | 1 | 0 | 5 |
+| Land_House_1W13_Dam | 6 → 4 → 6 | 3 | 0 | 1 |
+| Land_House_2B01 | 5 → 4 → 5 | 1 | 0 | 4 |
+| Land_House_2B03 | 1 → 0 → 1 | 1 | 0 | 0 |
+| Land_House_2W02 | 7 → 5 → 7 | 2 | 0 | 5 |
+| Land_House_2W04 | 21 → 7 → 21 | 15 | 0 | 1 |
+| Land_House_2W04_Yellow | 18 → 1 → 18 | 17 | 0 | 1 |
+| Land_Mil_Airfield_HQ | 15 → 12 → 15 | 0 | 3 | 1 |
+| Land_Mil_Barracks1 | 20 → 0 → 20 | 20 | 0 | 0 |
+| Land_Mil_Barracks3 | 9 → 3 → 9 | 9 | 0 | 0 |
+| Land_Mil_Barracks5 | 19 → 17 → 19 | 13 | 0 | 2 |
+| Land_Mil_Barracks5_Basement | 7 → 6 → 7 | 5 | 0 | 1 |
+| Land_Mil_ControlTower | 7 → 6 → 7 | 4 | 0 | 0 |
+| Land_Mil_Fortified_Nest_Big | 1 → 0 → 1 | 1 | 0 | 0 |
+| Land_Mil_Tent_Big2_4 | 5 → 4 → 5 | 1 | 0 | 2 |
+| Land_Mil_Tent_Big2_5 | 8 → 6 → 8 | 6 | 0 | 0 |
+| Land_Mil_Tent_Big4 | 4 → 2 → 4 | 4 | 0 | 0 |
+| Land_Office1 | 28 → 5 → 28 | 23 | 0 | 5 |
+| Land_Office2 | 4 → 1 → 4 | 3 | 0 | 1 |
+| Land_Power_Station | 6 → 0 → 6 | 6 | 0 | 0 |
+| Land_Radio_building | 8 → 3 → 8 | 6 | 0 | 0 |
+| Land_Slum_House3 | 2 → 1 → 2 | 2 | 0 | 0 |
+| Land_Slum_House6 | 1 → 0 → 1 | 0 | 1 | 0 |
+| Land_Tisy_Barracks | 28 → 24 → 28 | 19 | 0 | 0 |
+| Land_Tisy_HQ | 13 → 11 → 13 | 1 | 1 | 0 |
+| Land_Tisy_KitchenRoom | 6 → 0 → 6 | 6 | 0 | 0 |
+| Land_Tisy_RadarB_Base | 32 → 31 → 32 | 15 | 0 | 1 |
+| Land_Village_PoliceStation | 31 → 16 → 31 | 23 | 0 | 4 |
+| Land_Village_PoliceStation_Enoch | 31 → 16 → 31 | 23 | 0 | 4 |
+
+### Every per-type count in both files
+
+S/F means `additions-interiors.json` surface points / `additions.json` floor points. Zero means the type has no HC points in that file. This table covers the union of all types in both compared commits and the correction.
+
+| Type | 335915c6 S/F | fa0c2ac8 S/F | Corrected S/F |
+| --- | ---: | ---: | ---: |
+| Land_Airfield_Radar_Tall | 0/1 | 0/1 | 0/1 |
+| Land_Airfield_ServiceHangar_L | 0/12 | 2/12 | 0/12 |
+| Land_Airfield_ServiceHangar_R | 0/12 | 1/12 | 0/12 |
+| Land_Airfield_Small_Control | 32/7 | 32/7 | 32/7 |
+| Land_Airfield_Small_Hangar | 3/0 | 4/0 | 3/0 |
+| Land_Barn_Brick1 | 9/10 | 9/10 | 9/10 |
+| Land_Barn_Brick2 | 0/3 | 0/3 | 0/3 |
+| Land_Barn_Metal_Big | 0/12 | 0/12 | 0/12 |
+| Land_Barn_Wood1 | 0/12 | 0/12 | 0/12 |
+| Land_Barn_Wood2 | 0/12 | 0/12 | 0/12 |
+| Land_Boathouse | 0/0 | 0/5 | 0/5 |
+| Land_Bunker1_Double | 0/0 | 3/0 | 0/0 |
+| Land_Bunker1_Right | 0/0 | 1/0 | 0/0 |
+| Land_Bunker2_Double | 0/0 | 3/0 | 0/0 |
+| Land_Bunker2_Right | 0/0 | 1/0 | 0/0 |
+| Land_BusStation_building | 1/0 | 1/0 | 1/0 |
+| Land_BusStop_City | 0/0 | 0/2 | 0/2 |
+| Land_Camp_House_brown | 3/0 | 3/0 | 3/0 |
+| Land_Camp_House_white | 2/0 | 2/0 | 2/0 |
+| Land_Castle_Bergfrit2 | 0/7 | 0/7 | 0/7 |
+| Land_Castle_Gate | 1/0 | 0/4 | 1/4 |
+| Land_CementWorks_ExpeditionA | 0/1 | 0/1 | 0/1 |
+| Land_CementWorks_ExpeditionC | 0/2 | 0/2 | 0/2 |
+| Land_CementWorks_Hall1 | 0/1 | 2/1 | 2/1 |
+| Land_CementWorks_Hall2_Brick | 1/0 | 3/0 | 1/0 |
+| Land_CementWorks_Hall2_Grey | 0/12 | 0/12 | 0/12 |
+| Land_CementWorks_MillB | 0/0 | 0/12 | 0/12 |
+| Land_CementWorks_MillC | 0/0 | 0/12 | 0/12 |
+| Land_CementWorks_RotFurnace | 0/0 | 0/12 | 0/12 |
+| Land_CementWorks_SiloBig1A | 6/2 | 4/2 | 6/2 |
+| Land_Chapel | 2/0 | 0/0 | 2/0 |
+| Land_Church1_Yellow | 0/7 | 0/7 | 0/7 |
+| Land_Church2_2 | 0/0 | 0/12 | 0/12 |
+| Land_Church3 | 0/12 | 0/12 | 0/12 |
+| Land_Church4 | 5/0 | 3/0 | 5/0 |
+| Land_Church4_Dam | 5/0 | 3/0 | 5/0 |
+| Land_Church4_Lightblue | 5/0 | 3/0 | 5/0 |
+| Land_Church4_Red | 5/0 | 3/0 | 5/0 |
+| Land_Church4_White | 5/0 | 3/0 | 5/0 |
+| Land_Church4_Yellow_Dam | 4/0 | 3/0 | 4/0 |
+| Land_City_FireStation | 6/10 | 14/10 | 6/10 |
+| Land_City_Hospital | 20/2 | 20/2 | 20/2 |
+| Land_City_PoliceStation | 32/11 | 30/11 | 32/11 |
+| Land_City_PoliceStation_Enoch | 32/0 | 30/0 | 32/0 |
+| Land_City_School | 32/2 | 32/2 | 32/2 |
+| Land_City_Stand_FastFood | 2/0 | 2/0 | 2/0 |
+| Land_City_Stand_Grocery | 3/0 | 2/0 | 3/0 |
+| Land_City_Stand_News1 | 2/0 | 2/0 | 2/0 |
+| Land_City_Stand_News2 | 0/0 | 0/1 | 0/1 |
+| Land_City_Store | 28/12 | 28/12 | 28/12 |
+| Land_City_Store_WithStairs | 0/1 | 1/1 | 1/1 |
+| Land_CoalPlant_Main | 4/1 | 3/1 | 4/1 |
+| Land_Construction_Building | 17/0 | 0/12 | 17/12 |
+| Land_Construction_Crane | 0/0 | 0/2 | 0/2 |
+| Land_Construction_House2 | 2/0 | 0/12 | 2/12 |
+| Land_Container_1Aoh | 0/0 | 0/1 | 0/1 |
+| Land_Factory_Lathes | 11/3 | 10/3 | 11/3 |
+| Land_Factory_Small | 0/1 | 0/1 | 0/1 |
+| Land_Farm_CowshedA | 1/4 | 0/4 | 1/4 |
+| Land_Farm_CowshedB | 9/0 | 0/10 | 9/10 |
+| Land_Farm_CowshedC | 3/0 | 0/2 | 3/2 |
+| Land_FuelStation_Build | 4/0 | 0/2 | 4/2 |
+| Land_FuelStation_Build_Enoch | 4/0 | 1/0 | 4/0 |
+| Land_Garage_Big | 0/12 | 0/12 | 0/12 |
+| Land_Garage_Office | 10/4 | 2/4 | 10/4 |
+| Land_Garage_Row_Big | 8/0 | 2/0 | 8/0 |
+| Land_Garage_Row_Small | 2/1 | 6/1 | 2/1 |
+| Land_Garage_Small | 0/1 | 2/1 | 0/1 |
+| Land_Guardhouse | 0/2 | 1/2 | 0/2 |
+| Land_Hotel | 25/0 | 25/0 | 25/0 |
+| Land_Hotel_Damaged | 2/0 | 2/0 | 2/0 |
+| Land_HouseBlock_1F1 | 7/1 | 8/1 | 7/1 |
+| Land_HouseBlock_1F2 | 3/4 | 5/4 | 3/4 |
+| Land_HouseBlock_1F3 | 2/0 | 0/2 | 2/2 |
+| Land_HouseBlock_1F4 | 0/4 | 0/4 | 0/4 |
+| Land_HouseBlock_1F_Corner | 12/0 | 6/0 | 12/0 |
+| Land_HouseBlock_2F1 | 4/0 | 6/0 | 4/0 |
+| Land_HouseBlock_2F2 | 9/0 | 9/0 | 9/0 |
+| Land_HouseBlock_2F3 | 6/0 | 6/0 | 6/0 |
+| Land_HouseBlock_2F4 | 3/7 | 4/7 | 3/7 |
+| Land_HouseBlock_2F5 | 2/0 | 2/0 | 2/0 |
+| Land_HouseBlock_2F6 | 11/7 | 3/7 | 11/7 |
+| Land_HouseBlock_2F7 | 1/0 | 1/0 | 1/0 |
+| Land_HouseBlock_2F8 | 2/0 | 2/0 | 2/0 |
+| Land_HouseBlock_2F9 | 2/3 | 2/3 | 2/3 |
+| Land_HouseBlock_2F_Corner | 0/5 | 0/5 | 0/5 |
+| Land_HouseBlock_3F1 | 0/1 | 2/1 | 0/1 |
+| Land_HouseBlock_3F2 | 12/5 | 13/5 | 12/5 |
+| Land_HouseBlock_3F_Corner1 | 30/12 | 19/12 | 30/12 |
+| Land_HouseBlock_3F_Corner2 | 16/10 | 9/10 | 16/10 |
+| Land_HouseBlock_5F | 12/7 | 14/7 | 13/7 |
+| Land_House_1B01_Pub | 25/0 | 10/0 | 25/0 |
+| Land_House_1W01 | 4/0 | 4/0 | 4/0 |
+| Land_House_1W02 | 3/0 | 2/0 | 3/0 |
+| Land_House_1W03 | 9/4 | 5/4 | 9/4 |
+| Land_House_1W04 | 4/0 | 1/0 | 4/0 |
+| Land_House_1W05 | 1/1 | 1/1 | 1/1 |
+| Land_House_1W05_Yellow | 6/1 | 7/1 | 6/1 |
+| Land_House_1W06 | 1/0 | 1/0 | 1/0 |
+| Land_House_1W07 | 11/6 | 8/6 | 11/6 |
+| Land_House_1W08 | 0/0 | 0/3 | 0/3 |
+| Land_House_1W08_Brown | 1/1 | 1/1 | 1/1 |
+| Land_House_1W09 | 1/0 | 1/0 | 1/0 |
+| Land_House_1W09_Yellow | 9/0 | 10/0 | 9/0 |
+| Land_House_1W10 | 7/0 | 5/0 | 7/0 |
+| Land_House_1W10_Brown | 6/0 | 4/0 | 6/0 |
+| Land_House_1W11 | 0/2 | 0/2 | 0/2 |
+| Land_House_1W12 | 0/4 | 0/4 | 0/4 |
+| Land_House_1W12_Brown | 6/0 | 5/0 | 6/0 |
+| Land_House_1W13_Dam | 6/0 | 4/0 | 6/0 |
+| Land_House_2B01 | 5/0 | 4/0 | 5/0 |
+| Land_House_2B02 | 0/0 | 0/11 | 0/11 |
+| Land_House_2B03 | 1/0 | 0/12 | 1/12 |
+| Land_House_2B04 | 0/9 | 0/9 | 0/9 |
+| Land_House_2W01 | 2/0 | 3/0 | 2/0 |
+| Land_House_2W02 | 7/8 | 5/8 | 7/8 |
+| Land_House_2W03 | 0/5 | 0/5 | 0/5 |
+| Land_House_2W03_Brown | 4/1 | 5/1 | 4/1 |
+| Land_House_2W04 | 21/3 | 7/3 | 21/3 |
+| Land_House_2W04_Yellow | 18/1 | 1/1 | 18/1 |
+| Land_Lighthouse | 0/0 | 0/1 | 0/1 |
+| Land_Lunapark_Autodrome | 0/0 | 0/12 | 0/12 |
+| Land_Lunapark_Carousel_Swan | 0/2 | 0/2 | 0/2 |
+| Land_Lunapark_Shooting_Gallery | 0/0 | 0/2 | 0/2 |
+| Land_Medical_Tent_Big | 0/4 | 0/4 | 0/4 |
+| Land_Medical_Tent_Shower | 0/1 | 0/1 | 0/1 |
+| Land_Mil_ATC_Big | 32/4 | 32/4 | 32/4 |
+| Land_Mil_AircraftShelter | 0/0 | 0/3 | 0/3 |
+| Land_Mil_Airfield_HQ | 15/0 | 12/0 | 15/0 |
+| Land_Mil_Barracks1 | 20/0 | 0/10 | 20/10 |
+| Land_Mil_Barracks2 | 1/0 | 1/0 | 1/0 |
+| Land_Mil_Barracks3 | 9/5 | 3/5 | 9/5 |
+| Land_Mil_Barracks4 | 3/0 | 4/0 | 3/0 |
+| Land_Mil_Barracks5 | 19/0 | 17/0 | 19/0 |
+| Land_Mil_Barracks5_Basement | 7/0 | 6/0 | 7/0 |
+| Land_Mil_Barracks6 | 32/0 | 32/0 | 32/0 |
+| Land_Mil_Barracks6_Old | 32/0 | 32/0 | 32/0 |
+| Land_Mil_Barracks_Round | 1/0 | 1/0 | 1/0 |
+| Land_Mil_ControlTower | 7/0 | 6/0 | 7/0 |
+| Land_Mil_FireStation | 5/11 | 14/11 | 5/11 |
+| Land_Mil_Fortified_Nest_Big | 1/0 | 0/0 | 1/0 |
+| Land_Mil_Fortified_Nest_Watchtower | 7/0 | 7/0 | 7/0 |
+| Land_Mil_GuardTower | 0/0 | 0/2 | 0/2 |
+| Land_Mil_Guardhouse1 | 1/0 | 1/0 | 1/0 |
+| Land_Mil_Guardhouse2 | 2/0 | 2/0 | 2/0 |
+| Land_Mil_Tent_Big1_1 | 1/0 | 1/0 | 1/0 |
+| Land_Mil_Tent_Big1_2 | 0/0 | 1/0 | 1/0 |
+| Land_Mil_Tent_Big1_3 | 0/0 | 0/2 | 0/2 |
+| Land_Mil_Tent_Big1_4 | 1/0 | 1/0 | 1/0 |
+| Land_Mil_Tent_Big1_5 | 2/0 | 2/0 | 2/0 |
+| Land_Mil_Tent_Big2_1 | 7/0 | 8/0 | 7/0 |
+| Land_Mil_Tent_Big2_2 | 1/0 | 1/0 | 1/0 |
+| Land_Mil_Tent_Big2_3 | 3/0 | 4/0 | 3/0 |
+| Land_Mil_Tent_Big2_4 | 5/0 | 4/0 | 5/0 |
+| Land_Mil_Tent_Big2_5 | 8/0 | 6/0 | 8/0 |
+| Land_Mil_Tent_Big3 | 0/1 | 0/1 | 0/1 |
+| Land_Mil_Tent_Big4 | 4/0 | 2/0 | 4/0 |
+| Land_Mine_Building | 0/5 | 0/5 | 0/5 |
+| Land_Misc_DeerStand2 | 0/0 | 0/1 | 0/1 |
+| Land_Misc_FeedShack | 0/0 | 0/2 | 0/2 |
+| Land_Misc_Greenhouse | 0/1 | 0/1 | 0/1 |
+| Land_Misc_Polytunnel | 0/0 | 0/2 | 0/2 |
+| Land_Misc_Scaffolding | 0/0 | 0/3 | 0/3 |
+| Land_Office1 | 28/6 | 5/6 | 28/6 |
+| Land_Office2 | 4/0 | 1/0 | 4/0 |
+| Land_Office_Municipal2 | 32/0 | 32/0 | 32/0 |
+| Land_Pier_Crane_B | 0/0 | 0/4 | 0/4 |
+| Land_Power_Station | 6/8 | 0/8 | 6/8 |
+| Land_Prison_Main | 32/0 | 32/0 | 32/0 |
+| Land_Prison_Side | 32/10 | 32/10 | 32/10 |
+| Land_Quarry_Main | 0/6 | 1/6 | 0/6 |
+| Land_Radio_building | 8/1 | 3/1 | 8/1 |
+| Land_Rail_Station_Big | 0/0 | 0/8 | 0/8 |
+| Land_Rail_Station_Small | 2/0 | 2/0 | 2/0 |
+| Land_Rail_Warehouse_Small | 0/2 | 2/2 | 0/2 |
+| Land_Repair_Center | 0/4 | 0/4 | 0/4 |
+| Land_Ruin_HouseBig1 | 2/0 | 2/0 | 2/0 |
+| Land_Ruin_HouseBig1_NoIvy | 2/0 | 2/0 | 2/0 |
+| Land_Ruin_HouseBig3_Half | 0/0 | 1/0 | 0/0 |
+| Land_Ruin_HouseBig3_NoIvy_Half | 0/0 | 1/0 | 0/0 |
+| Land_Ruin_HouseSmall2 | 0/0 | 1/0 | 1/0 |
+| Land_Ruin_HouseSmall2_NoIvy | 0/0 | 1/0 | 1/0 |
+| Land_Sawmill_Building | 2/0 | 3/0 | 2/0 |
+| Land_Shed_Closed | 15/0 | 15/0 | 15/0 |
+| Land_Shed_Closed2 | 2/0 | 3/0 | 2/0 |
+| Land_Shed_W5 | 0/0 | 0/1 | 0/1 |
+| Land_Shed_W6 | 0/2 | 0/2 | 0/2 |
+| Land_Ship_Big_BackA | 0/3 | 0/3 | 0/3 |
+| Land_Ship_Big_BackB | 0/7 | 0/7 | 0/7 |
+| Land_Ship_Big_Castle | 0/12 | 0/12 | 0/12 |
+| Land_Ship_Big_FrontA | 0/0 | 0/5 | 0/5 |
+| Land_Ship_Big_FrontB | 0/6 | 0/6 | 0/6 |
+| Land_Slum_House1 | 2/0 | 5/0 | 2/0 |
+| Land_Slum_House3 | 2/0 | 1/0 | 2/0 |
+| Land_Slum_House6 | 1/0 | 0/0 | 1/0 |
+| Land_Smokestack_Big | 0/0 | 0/3 | 0/3 |
+| Land_Smokestack_Medium | 0/0 | 0/3 | 0/3 |
+| Land_Tenement_Big | 7/0 | 8/0 | 7/0 |
+| Land_Tenement_Small | 7/0 | 8/0 | 7/0 |
+| Land_Tisy_Barracks | 28/9 | 24/9 | 28/9 |
+| Land_Tisy_Garages | 0/1 | 2/1 | 0/1 |
+| Land_Tisy_Garages2 | 0/5 | 2/5 | 0/5 |
+| Land_Tisy_HQ | 13/5 | 11/5 | 13/5 |
+| Land_Tisy_KitchenRoom | 6/0 | 0/12 | 6/12 |
+| Land_Tisy_RadarB_Base | 32/0 | 31/0 | 32/0 |
+| Land_Tisy_RadarPlatform_Top | 0/12 | 0/12 | 0/12 |
+| Land_Tower_TC2_Base | 0/0 | 0/12 | 0/12 |
+| Land_Train_Wagon_Box | 0/0 | 0/1 | 0/1 |
+| Land_Village_HealthCare | 24/3 | 28/3 | 25/3 |
+| Land_Village_HealthCare_Enoch | 16/0 | 19/0 | 16/0 |
+| Land_Village_PoliceStation | 31/0 | 16/0 | 31/0 |
+| Land_Village_PoliceStation_Enoch | 31/0 | 16/0 | 31/0 |
+| Land_Village_Pub | 17/3 | 17/3 | 17/3 |
+| Land_Village_Store_Enoch | 11/0 | 11/0 | 11/0 |
+| Land_Village_store | 11/0 | 11/0 | 11/0 |
+| Land_Workshop1 | 2/0 | 2/0 | 2/0 |
+| Land_Workshop3 | 4/0 | 5/0 | 5/0 |
+| Land_Workshop4 | 0/0 | 0/3 | 0/3 |
+| Land_Workshop5 | 0/0 | 0/3 | 0/3 |
+| Land_Workshop_FuelStation | 14/0 | 14/0 | 14/0 |
+| Land_Wreck_C130J_Cargo | 0/0 | 0/2 | 0/2 |
+| Land_Wreck_Caravan_MGreen | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_Caravan_WBrown | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_Caravan_WGreen | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_Ikarus | 0/0 | 0/2 | 0/2 |
+| Land_Wreck_offroad02_aban1 | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_offroad02_aban2 | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_sed01_aban1_black | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_sed01_aban1_white | 0/0 | 0/1 | 0/1 |
+| Land_Wreck_sed01_aban1_wine | 0/0 | 0/1 | 0/1 |
+
+### Explicit decisions for fa0c2ac8-only coordinates
+
+Preserving old points also displaces some newer layout coordinates. The check accounts for all 667 candidate coordinates absent from the correction: 426 spacing replacements and 48 cap replacements, plus 192 points without full-client visual footprint support and one without a clear floor approach. Replacement coordinates remain represented by the preserved prior layout. The 193 physical refusals remain excluded. Every coordinate and reason appears in `candidate_not_selected`; no coordinate disappears without a decision. Floors lose zero coordinates against either commit.
+
+The following table covers every type with a falling surface count relative to fa0c2ac8. F = full-client floating/edge refusal; R = no clear floor approach; S = spacing against preserved points; A = area cap. Counts concern all omitted candidate coordinates, including replacements.
+
+| Type | fa0c → corrected surface | F | R | S | A |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Land_Airfield_ServiceHangar_L | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_Airfield_ServiceHangar_R | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_Airfield_Small_Hangar | 4 → 3 | 1 | 0 | 2 | 0 |
+| Land_Bunker1_Double | 3 → 0 | 3 | 0 | 0 | 0 |
+| Land_Bunker1_Right | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_Bunker2_Double | 3 → 0 | 3 | 0 | 0 | 0 |
+| Land_Bunker2_Right | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_CementWorks_Hall2_Brick | 3 → 1 | 2 | 0 | 1 | 0 |
+| Land_City_FireStation | 14 → 6 | 10 | 0 | 1 | 0 |
+| Land_Garage_Row_Small | 6 → 2 | 4 | 0 | 0 | 0 |
+| Land_Garage_Small | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_Guardhouse | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_HouseBlock_1F1 | 8 → 7 | 2 | 0 | 3 | 0 |
+| Land_HouseBlock_1F2 | 5 → 3 | 2 | 0 | 3 | 0 |
+| Land_HouseBlock_2F1 | 6 → 4 | 2 | 0 | 3 | 0 |
+| Land_HouseBlock_2F4 | 4 → 3 | 1 | 0 | 2 | 0 |
+| Land_HouseBlock_3F1 | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_HouseBlock_3F2 | 13 → 12 | 1 | 0 | 5 | 0 |
+| Land_HouseBlock_5F | 14 → 13 | 1 | 0 | 4 | 0 |
+| Land_House_1W05_Yellow | 7 → 6 | 1 | 0 | 0 | 0 |
+| Land_House_1W09_Yellow | 10 → 9 | 1 | 0 | 2 | 0 |
+| Land_House_2W01 | 3 → 2 | 3 | 0 | 0 | 0 |
+| Land_House_2W03_Brown | 5 → 4 | 2 | 0 | 0 | 0 |
+| Land_Mil_Barracks4 | 4 → 3 | 3 | 0 | 1 | 0 |
+| Land_Mil_FireStation | 14 → 5 | 10 | 0 | 1 | 0 |
+| Land_Mil_Tent_Big2_1 | 8 → 7 | 4 | 0 | 2 | 0 |
+| Land_Mil_Tent_Big2_3 | 4 → 3 | 2 | 0 | 2 | 0 |
+| Land_Quarry_Main | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_Rail_Warehouse_Small | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_Ruin_HouseBig3_Half | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_Ruin_HouseBig3_NoIvy_Half | 1 → 0 | 1 | 0 | 0 | 0 |
+| Land_Sawmill_Building | 3 → 2 | 1 | 0 | 1 | 0 |
+| Land_Shed_Closed2 | 3 → 2 | 1 | 0 | 1 | 0 |
+| Land_Slum_House1 | 5 → 2 | 3 | 0 | 0 | 0 |
+| Land_Tenement_Big | 8 → 7 | 3 | 0 | 5 | 0 |
+| Land_Tenement_Small | 8 → 7 | 1 | 0 | 6 | 0 |
+| Land_Tisy_Garages | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_Tisy_Garages2 | 2 → 0 | 2 | 0 | 0 | 0 |
+| Land_Village_HealthCare | 28 → 25 | 3 | 0 | 11 | 0 |
+| Land_Village_HealthCare_Enoch | 19 → 16 | 3 | 0 | 11 | 0 |
+
+### Reproduction and validation
+
+Use the external reader pinned in `interior_points_gen.py`, full-client `DAYZ_CLIENT_ADDONS`, pristine installed `STOCK_PROTO`, and an external scratch directory `HC_WORK`. Do not use a server profile or an old install snapshot as bundle input. The original data is read from the exact committed repo files:
+
+```sh
+git show 335915c6:mission/hollow-country/loot-points/additions-interiors.json > "$HC_WORK/prior.json"
+git show fa0c2ac8:mission/hollow-country/loot-points/additions-interiors.json > "$HC_WORK/candidate.json"
+for index in 0 1 2 3; do
+  agent-run --memory 3G -- python3 -B -m tools.package.loot_point_preserve \
+    --prior "$HC_WORK/prior.json" --candidate "$HC_WORK/candidate.json" \
+    --addons "$DAYZ_CLIENT_ADDONS" --reader "$HC_READER" --stock-proto "$STOCK_PROTO" \
+    --partition "$index" 4 --refresh-models --out "$HC_WORK/preserve-$index.json" &
+done
+wait
+python3 -B -m tools.package.loot_point_preserve \
+  --merge "$HC_WORK/preserve-0.json" "$HC_WORK/preserve-1.json" "$HC_WORK/preserve-2.json" "$HC_WORK/preserve-3.json" \
+  --prior "$HC_WORK/prior.json" --candidate "$HC_WORK/candidate.json" \
+  --out "$HC_WORK/regenerated.json"
+python3 -B -m tools.package.loot_point_preserve --check \
+  --prior "$HC_WORK/prior.json" --candidate "$HC_WORK/candidate.json" \
+  --out mission/hollow-country/loot-points/additions-interiors.json
+```
+
+The checked-in historical omission audit is a hash-bound source receipt for fa0c2ac8, not a qualification of server visuals. To reproduce its annotated receipt too, export `sources.point_preservation.historical_candidate_loss_audit` to a local JSON and pass it as `--loss-audit` at merge. Without it, the coordinate/evidence selection is the same and the complete preservation check still runs; historical labels are not regenerated.
+
+Checks: all 1,735 baseline coordinates remain; read-only receipt check reports zero unreported losses; deleting a Chapel coordinate makes that check fail. Merging the complete partitions in forward and reverse order produces byte-identical output. A dedicated-server visual-source control is refused before scanning. Python syntax passes; the 15 existing focused `tests.slow.test_loot_boost` tests pass. No unit tests or Enforce changes were added.
+
+Fresh full-client reach audit: 1,301 surface points, zero refusals. Fresh floor collision audit: 679 checked, zero refusals. Independent combined collision audit: 1,980 checked, zero refusals. All asset work used `agent-run --memory 3G`, at most four concurrent partitions.
+
+Pristine-mission `loot_boost.plan(..., points=loot_boost.shipped_points())` ran provision, rebalance and finish_receivers. Receivers report 265 introduced receiver/floor containers / 2,194 points, zero containers and zero points without capacity. A separate check also finds positive capacity on every HC-added surface/floor container. Reported unplaced demand is 477 (fa0c2ac8 reported 499); this is an offline estimate, not observed CE spawning. The floor-policy note again includes the owner's full-coverage provenance.
+
+No server/client or native compile gate was run. Lead acceptance still requires one server and at most one client: no `Can't compile`, crash/stall or enabled `[HC Ready]` line with `ready=false`; expected interiors readiness shape is `[HC Ready] module=Interiors enabled=true ready=true reason=<actual reason> runtime=PENDING`. This Python/data change adds no new RPT line and readiness alone cannot prove CE behavior. Inspect actual CE spawning, item support, vicinity pickup/search access and restart retention at Chapel, Fortified Nest Big, Slum House6, Office1, 2W04 Yellow, Pub, police stations, Barracks1, Garage Office and HouseBlock 2F6. Native item fit, doorway/stair access, CE capacity/tag matching, persistence and target-load budgets remain unverified. Never claim multiplayer proven.

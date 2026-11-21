@@ -36,7 +36,7 @@ COLLISION = (('geometry', 1e13), ('roadway', 3e15), ('view-geometry', 6e15))
 CLEARANCE = ('geometry', 'roadway')
 FOOTPRINT = ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12),
              (.085, .085), (.085, -.085), (-.085, .085), (-.085, -.085))
-METHOD = 'collision-support-v2: Geometry/Roadway/View-Geometry support; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
+METHOD = 'collision-support-v3: Geometry/Roadway/View-Geometry support; near-horizontal Geometry/Roadway slopes use local footprint heights, not whole-triangle height span; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
 
 
 class SupportScene(Scene):
@@ -55,8 +55,13 @@ class SupportScene(Scene):
             tri = self.triangles[index]
             normal = cross(subtract(tri[1], tri[0]), subtract(tri[2], tri[0]))
             length = math.sqrt(dot(normal, normal))
+            # A tilted bus floor is a real solid even when a long triangle's
+            # ends differ by 19cm. Geometry/Roadway support depends on its local
+            # 12cm item footprint, checked below, not its whole-triangle span.
+            # Retain the old flat-only restriction on visibility occluders.
             if (length and abs(normal[1]) / length >= .98
-                    and max(v[1] for v in tri) - min(v[1] for v in tri) <= .025):
+                    and (source['kind'] in CLEARANCE
+                         or max(v[1] for v in tri) - min(v[1] for v in tri) <= .025)):
                 for x in range(math.floor(min(v[0] for v in tri)), math.floor(max(v[0] for v in tri)) + 1):
                     for z in range(math.floor(min(v[2] for v in tri)), math.floor(max(v[2] for v in tri)) + 1):
                         self.support_cells.setdefault((x, z), []).append(index)
@@ -214,10 +219,17 @@ class Audit:
         totals = Counter()
         before_groups = len(doc['groups'])
         for name, spec in list(doc['groups'].items()):
+            # Full-file audits must not accumulate decoded proxies or raw P3Ds
+            # across buildings; generation already uses this per-building bound.
+            context = None
+            self.context_cache = None
+            self.props.clear()
+            self.assets.cache.clear()
             print('collision ' + name, file=sys.stderr, flush=True)
             context = self.context(name, spec)
             before = sum(len(c['points']) for c in spec['containers'].values())
             reasons, witnesses = Counter(), {}
+            point_refusals = []
             for cname, container in list(spec['containers'].items()):
                 keep, sources, proofs = [], [], []
                 source_key = 'surface_sources' if cname == 'lootHCSurface' else 'floor_sources'
@@ -228,6 +240,8 @@ class Audit:
                     reason, proof = self.check(name, point, context)
                     if reason:
                         reasons[reason] += 1
+                        point_refusals.append({'container': cname, 'index': index,
+                                               'point': point, 'reason': reason})
                     else:
                         keep.append(point)
                         proofs.append(proof)
@@ -246,7 +260,7 @@ class Audit:
             print(f'collision result {name} before={before} after={after}', file=sys.stderr, flush=True)
             totals.update(reasons)
             rows.append({'group': name, 'before': before, 'after': after, 'dropped': before-after,
-                         'reasons': dict(sorted(reasons.items()))})
+                         'reasons': dict(sorted(reasons.items())), 'point_refusals': point_refusals})
             if spec['containers']:
                 spec['collision_support'] = witnesses
                 spec['building_model'], spec['building_model_sha256'] = context[-2:]
@@ -267,7 +281,8 @@ class Audit:
                 row = current.get(name, {'after': 0, 'reasons': {}})
                 reasons = Counter(old['reasons']) + Counter(row['reasons'])
                 combined.append({'group': name, 'before': old['before'], 'after': row['after'],
-                                 'dropped': old['before']-row['after'], 'reasons': dict(sorted(reasons.items()))})
+                                 'dropped': old['before']-row['after'], 'reasons': dict(sorted(reasons.items())),
+                                 'point_refusals': old.get('point_refusals', []) + row.get('point_refusals', [])})
             rows = combined
             before_groups = prior['before_groups']
             totals = Counter(prior['failure_counts']) + totals
