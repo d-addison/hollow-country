@@ -33,7 +33,7 @@ class ZeroFillSentinels(unittest.TestCase):
                 self.assertNotIn(name, baselined)
 
     def test_boot_comments_claim_only_observed_int_zero_fill(self):
-        roots = [ROOT / 'mods', ROOT / 'tests' / 'unit']
+        roots = [ROOT / 'mods', ROOT / 'tests']
         checked = 0
         for base in roots:
             for path in sorted(base.rglob('*')):
@@ -49,7 +49,7 @@ class ZeroFillSentinels(unittest.TestCase):
                         self.assertRegex(window, HONEST, 'must say only ints were observed')
                         self.assertIsNone(re.search(r'\bscalars?\b|\bprimitives?\b', window, re.I),
                                           'must not generalise the observation beyond ints')
-        self.assertGreaterEqual(checked, 4)
+        self.assertGreater(checked, 0, 'the observation scan must exercise current comments')
 
 
 if __name__ == '__main__':

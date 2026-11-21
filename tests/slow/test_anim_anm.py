@@ -286,15 +286,45 @@ class GraphBuild(unittest.TestCase):
 
 
 class AddonSources(unittest.TestCase):
-    def test_config_repoints_only_the_new_class(self):
+    def test_config_repoints_only_declared_hc_classes(self):
+        from unittest import mock
+        from tools.audit import pbo_config
+        # The shared parser selects fields; request the animation contract fields locally.
+        fields = {'ARRAY_FIELDS': pbo_config.ARRAY_FIELDS + ('units',),
+                  'SCALAR_FIELDS': pbo_config.SCALAR_FIELDS +
+                                   ('graphname', 'defaultinstance', 'startnode', 'skeletonName')}
+        parser_fields = mock.patch.multiple(pbo_config, **fields)
+        parser_fields.start()
+        self.addCleanup(parser_fields.stop)
+        parse_text_config = pbo_config.parse_text_config
         cfg = (ADDON / 'config.cpp').read_text()
-        self.assertIn('class HC_ZmbM_Sitter: ZmbM_HermitSkinny_Beige', cfg)
-        self.assertIn('graphname = "HollowCountryAnims\\anims\\infected\\hc_infected.agr";', cfg)
-        self.assertIn('defaultinstance = "HollowCountryAnims\\anims\\infected\\hc_infected.asi";', cfg)
-        self.assertIn('startnode = "HCMasterControl";', cfg)
-        self.assertIn('skeletonName = "hermit_newbindpose.xob";', cfg)
-        self.assertNotRegex(cfg, r'class ZombieBase\b[^;]')
-        self.assertEqual(cfg.count('class enfanimsys'), 1)
+        parsed = parse_text_config(cfg, ['CfgVehicles', 'CfgPatches'])
+        vehicles = parsed['CfgVehicles']
+        units = set(parsed['CfgPatches'][ADDON.name]['units'])
+        self.assertTrue(units)
+        self.assertLessEqual(units, set(vehicles))
+        overrides = {}
+        # Parse each class body separately so nested engine animation settings are retained.
+        for match in re.finditer(r'\bclass\s+(\w+)(?:\s*:\s*\w+)?\s*\{', cfg):
+            depth, end = 1, match.end()
+            while depth:
+                self.assertLess(end, len(cfg), 'unterminated class')
+                depth += (cfg[end] == '{') - (cfg[end] == '}')
+                end += 1
+            body = cfg[match.end():end - 1]
+            nested = parse_text_config('class Root {' + body + '};', ['Root'])['Root']
+            if 'enfanimsys' in nested:
+                name = match.group(1)
+                self.assertIn(name, units, 'only declared HC variants may override the graph')
+                self.assertTrue(name.startswith('HC_'))
+                overrides[name] = nested['enfanimsys']
+        self.assertTrue(overrides)
+        self.assertEqual(cfg.count('class enfanimsys'), len(overrides))
+        for name, settings in overrides.items():
+            self.assertEqual(ADDON.name + r'\anims\infected\hc_infected.agr', settings['graphname'], name)
+            self.assertEqual(ADDON.name + r'\anims\infected\hc_infected.asi', settings['defaultinstance'], name)
+            self.assertEqual('HCMasterControl', settings['startnode'], name)
+            self.assertEqual('hermit_newbindpose.xob', settings['skeletonName'], name)
 
     def test_repository_holds_no_game_derived_files(self):
         for p in ADDON.rglob('*'):

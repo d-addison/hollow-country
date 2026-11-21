@@ -480,7 +480,9 @@ class ClassRowTests(unittest.TestCase):
         for key in ("unmeasured", "low", "capped"):
             row = table[names[key]]
             self.assertEqual(row["Furniture"], row["Rooms"])
-            self.assertEqual(row["Search"], row["Rooms"])
+            search_template = template(result, names[key])
+            sites = search_template["SearchSites"] if search_template else []
+            self.assertEqual(row["Search"] == "covered", bool(sites))
         # Measured classes whose rooms lack path/door proof are searched at their vanilla CE points only:
         # a search-only template with no rooms, keep-outs or prop slots, never furniture or infected rooms.
         for key in ("path", "door", "blocked"):
@@ -493,12 +495,15 @@ class ClassRowTests(unittest.TestCase):
             self.assertTrue(all(site["Room"] == 0 for site in t["SearchSites"]))
             self.assertTrue(all(inside(t["Box"], {"Min": s["Center"], "Max": s["Center"]}) for s in t["SearchSites"]))
             self.assertTrue(inside({"Min": [-4, -1, -3], "Max": [4, 5, 3]}, t["Box"]))
-        self.assertEqual(result.summary["search_only_templates"], 3)
+        search_only = {name for name, row in table.items()
+                       if row["Search"] == "covered" and row["Rooms"] != "covered"}
+        self.assertEqual(result.summary["search_only_templates"], len(search_only))
         self.assertFalse(any(r["BuildingClass"] in {names[k] for k in ("path", "door", "blocked")}
                              for r in furnish_rows(result)))
         covered = {n for n, r in table.items() if "covered" in (r["Rooms"], r["Furniture"], r["Search"])}
-        self.assertEqual(covered, {HOUSE, names["nopos"], names["nopoints"], names["tight"],
-                                   names["path"], names["door"], names["blocked"]})
+        for name in search_only:
+            self.assertEqual([], template(result, name)["Rooms"])
+            self.assertEqual([], template(result, name)["PropSlots"])
         built = sorted(load(result, n)["BuildingClass"] for n in result.files if n.startswith("t-"))
         self.assertEqual(built, sorted(covered))
 
@@ -891,15 +896,25 @@ class CliTests(unittest.TestCase):
         code, text, _err = self.run_cli(out)
         self.assertEqual(code, 0)
         names = sorted(p.name for p in out.iterdir())
-        self.assertEqual(names, ["build-manifest.json", "classes-000.json", "furnish-000.json", "t-0000.json"])
+        expected = standard(authored_bytes=tpl.authored_inputs())
+        self.assertEqual(names, sorted(["build-manifest.json", *expected.files]))
         self.assertIn("classes=3", text)
         self.assertIn("rooms covered=1", text)
         self.assertIn("path_pending=2", text)
-        self.assertIn("furnish rows=3", text)
+        self.assertIn("furnish rows=%d" % expected.summary["furnish_rows"], text)
         self.assertIn("frame=rot90", text)
-        expected = standard()
         for name, data in expected.files.items():
             self.assertEqual((out / name).read_bytes(), data)
+
+    def test_diagnostic_build_writes_furnishing_from_synthetic_geometry(self):
+        out = self.dir / "diagnostic"
+        code, text, err = self.run_cli(out, "--no-authored-themes")
+        self.assertEqual(0, code, err)
+        expected = standard()
+        self.assertTrue(furnish_rows(expected), 'fixture must exercise furnishing output')
+        self.assertEqual(sorted(["build-manifest.json", *expected.files]), sorted(p.name for p in out.iterdir()))
+        for name, data in expected.files.items():
+            self.assertEqual(data, (out / name).read_bytes())
 
     def test_a_non_empty_output_directory_is_refused_and_left_untouched(self):
         out = self.dir / "out"

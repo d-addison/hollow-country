@@ -19,7 +19,7 @@ from unittest import mock
 from tools.package import hash_cache
 
 ROOT = Path(__file__).resolve().parents[2]
-UNIT = ROOT / 'tests' / 'unit'
+TESTS = ROOT / 'tests'
 # #195: the modules that must isolate the cache are discovered, not listed. A unit test module
 # reaches hash_cache.cached_sha256 (through snafu_optional's whole-PBO hashing) when its source
 # names one of these entry points: verify_install runs the whole-PBO hash of every addon,
@@ -69,11 +69,11 @@ def _tree(path):
 def hashing_modules(unit_dir):
     """Names of the test modules under unit_dir that call a whole-PBO hashing helper (AST, #197)."""
     found = []
-    for path in sorted(Path(unit_dir).glob('*.py')):
+    for path in sorted(Path(unit_dir).rglob('test_*.py')):
         if path.stem in NOT_CALLERS:
             continue
         if _calls_helper(_tree(path)):
-            found.append(path.stem)
+            found.append(path.relative_to(unit_dir).with_suffix('').as_posix())
     return found
 
 
@@ -213,7 +213,7 @@ class OrphanTempSweep(CacheCase):
 
 class ConcurrentWritersMerge(CacheCase):
     """#196: before the atomic replace the writer re-reads the file and merges, so two builds that each
-    added a different key both survive (a narrow race between the re-read and the replace remains)."""
+    added a different key both survive under the OS-held merge lock."""
 
     row = staticmethod(lambda ch, used=1: {'size': 1, 'mtime_ns': 1, 'sha256': ch * 64, 'used': used})
 
@@ -225,7 +225,7 @@ class ConcurrentWritersMerge(CacheCase):
         hash_cache._store(self.cache, first)
         hash_cache._store(self.cache, second)
         self.assertEqual({'/a', '/b'}, set(self.entries()))
-        self.assertEqual([hash_cache.CACHE_FILE], sorted(p.name for p in self.cache.iterdir()))
+        self.assertEqual([hash_cache.CACHE_FILE, hash_cache.LOCK_FILE], sorted(p.name for p in self.cache.iterdir()))
 
     def test_the_newer_use_stamp_wins_per_key_whichever_writer_holds_it(self):
         hash_cache._store(self.cache, {'/k': self.row('a', used=500)})
@@ -363,12 +363,12 @@ class UniqueTempFile(CacheCase):
         self.assertEqual(2, len(set(names)), names)
         for name in names:
             self.assertRegex(name, r'^%s\.%d\.[0-9a-f]{8,}\.tmp$' % (re.escape(hash_cache.CACHE_FILE), os.getpid()))
-        self.assertEqual([hash_cache.CACHE_FILE], sorted(p.name for p in self.cache.iterdir()))
+        self.assertEqual([hash_cache.CACHE_FILE, hash_cache.LOCK_FILE], sorted(p.name for p in self.cache.iterdir()))
 
     def test_a_failed_replace_cleans_its_temp_file_and_is_not_fatal(self):
         with mock.patch.object(os, 'replace', side_effect=OSError('synthetic')):
             hash_cache._store(self.cache, {})
-        self.assertEqual([], sorted(p.name for p in self.cache.iterdir()))
+        self.assertEqual([hash_cache.LOCK_FILE], sorted(p.name for p in self.cache.iterdir()))
 
     def test_two_writers_never_share_a_temp_path(self):
         seen = []
@@ -410,12 +410,9 @@ class UserCacheIsolation(unittest.TestCase):
     def test_every_module_that_reaches_the_cache_isolates_it(self):
         # Discovered (#195): every module that names a whole-PBO hashing helper must use the shared
         # helper (or its own HC_HASH_CACHE_DIR), else it reads and writes the user's cache.
-        found = hashing_modules(UNIT)
-        # The scan is not vacuous: the modules found by spying cached_sha256 in #194 are still found.
-        for known in ('test_snafu_optional', 'test_tactical_flava_optional', 'test_local_test_session',
-                      'test_optional_subset_pins'):
-            self.assertIn(known, found)
-        self.assertEqual([], unisolated(UNIT))
+        found = hashing_modules(TESTS)
+        self.assertTrue(found, 'discover callers across the current test groups')
+        self.assertEqual([], unisolated(TESTS))
 
     def test_a_new_unisolated_caller_is_found_and_fails_the_check(self):
         with tempfile.TemporaryDirectory() as t:
@@ -474,27 +471,70 @@ class SerializedMerge(unittest.TestCase):
                 self.assertEqual(0, proc.wait(timeout=60))
             rows = hash_cache._load(cache)
             self.assertEqual(20, len(rows), 'every writer keeps its rows under contention')
-            self.assertFalse((cache / hash_cache.LOCK_FILE).exists(), 'the lock is released')
+            descriptor = hash_cache._acquire(cache)
+            self.assertIsNotNone(descriptor, 'all writers released ownership')
+            os.close(descriptor)
 
-    def test_a_fresh_foreign_lock_skips_the_store_without_failing(self):
+    def holder(self, cache):
+        import subprocess
+        import sys
+        from concurrent.futures import ThreadPoolExecutor
+        code = """
+import sys
+from pathlib import Path
+from tools.package import hash_cache
+fd = hash_cache._acquire(Path(sys.argv[1]))
+assert fd is not None
+print('locked', flush=True)
+sys.stdin.read()
+"""
+        proc = subprocess.Popen([sys.executable, '-B', '-c', code, str(cache)],
+                                cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        def cleanup():
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=10)
+            proc.stdin.close()
+            proc.stdout.close()
+        self.addCleanup(cleanup)
+        with ThreadPoolExecutor() as pool:
+            ready = pool.submit(proc.stdout.readline)
+            try:
+                self.assertEqual('locked\n', ready.result(timeout=10))
+            except BaseException:
+                proc.kill()
+                raise
+        return proc
+
+    def test_a_foreign_os_lock_skips_the_store_without_failing(self):
         with tempfile.TemporaryDirectory() as t:
             cache = Path(t)
-            (cache / hash_cache.LOCK_FILE).write_text('other')
+            proc = self.holder(cache)
+            lock = cache / hash_cache.LOCK_FILE
+            # Even an old timestamp never permits stealing live ownership.
+            os.utime(lock, ns=(1, 1))
+            inode = lock.stat().st_ino
             with mock.patch.object(hash_cache, 'LOCK_WAIT_NS', 50 * 10 ** 6):
                 hash_cache._store(cache, {'k': {'sha256': '0' * 64, 'used': 1}})
-            self.assertEqual({}, hash_cache._load(cache), 'no write while another build holds the lock')
-            self.assertTrue((cache / hash_cache.LOCK_FILE).exists(), 'a foreign fresh lock is left alone')
+            self.assertEqual({}, hash_cache._load(cache))
+            self.assertIsNone(proc.poll(), 'the other build is still alive')
+            self.assertEqual(inode, lock.stat().st_ino, 'contenders must keep the same lock inode')
+            proc.stdin.close()
+            self.assertEqual(0, proc.wait(timeout=10))
+            hash_cache._store(cache, {'k': {'sha256': '0' * 64, 'used': 1}})
+            self.assertIn('k', hash_cache._load(cache), 'normal exit releases ownership')
 
-    def test_a_stale_lock_from_a_killed_build_is_broken(self):
+    def test_a_killed_build_releases_ownership_without_unlinking(self):
         with tempfile.TemporaryDirectory() as t:
             cache = Path(t)
+            proc = self.holder(cache)
             lock = cache / hash_cache.LOCK_FILE
-            lock.write_text('dead')
-            old = time.time_ns() - hash_cache.LOCK_STALE_NS - 10 ** 9
-            os.utime(lock, ns=(old, old))
+            inode = lock.stat().st_ino
+            proc.kill()
+            proc.wait(timeout=10)
             hash_cache._store(cache, {'k': {'sha256': '0' * 64, 'used': 1}})
             self.assertIn('k', hash_cache._load(cache))
-            self.assertFalse(lock.exists())
+            self.assertEqual(inode, lock.stat().st_ino)
 
 
 class CallerDiscovery(unittest.TestCase):
