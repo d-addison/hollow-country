@@ -249,6 +249,9 @@ class HCC1GroupScaling
 
 class HCC1Variety
 {
+    // #316 pose variation
+    bool EnablePoseVariation = true;
+
     float DormantShare = 0.6666666666666666;
     float RunnerDay = 0.08;
     float RunnerNightIncrement = 0.07;

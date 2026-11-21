@@ -427,6 +427,8 @@ class HCOperatorSettingsRegistry
         HCAdd("CampGroup.TeamPingRadiusMeters", "int", 5, 1, 5, "HCGCCampGroupConfig");
         HCAdd("CampGroup.DebugGroups", "int", 1, 1, 4, "HCGCCampGroupConfig");
         HCAdd("CampGroup.DebugPins", "int", 32, 1, 32, "HCGCCampGroupConfig");
+        // #316 pose variation
+        HCAdd("Variety.EnablePoseVariation", "bool", 1, 0, 1, "HCC1Variety");
         // END GENERATED SETTINGS REGISTRY
     }
 

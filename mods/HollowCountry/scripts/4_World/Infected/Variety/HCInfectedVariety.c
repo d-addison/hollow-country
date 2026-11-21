@@ -379,7 +379,7 @@ class HCInfectedVariety
         // Audit #121: a posed body is the addon class; the pose layer is requested
         // through the fresh entry below, never by editing a native infected.
         bool poseClass = GetGame().ConfigIsExisting("CfgVehicles " + HCInfectedVarietyPolicy.HCPoseClass());
-        int pose = HCInfectedVarietyPolicy.HCPoseFresh(site.Context, s_Made, s_Config.PosedFreshEvery, poseClass);
+        int pose = HCPoseVariation.HCFresh(site.Context, s_Made, s_Config, poseClass);
         string bodyClass = "ZmbM_CitizenASkinny_Brown";
         if (pose > 0) { bodyClass = HCInfectedVarietyPolicy.HCPoseClass(); }
         ZombieBase body = infected.HCLODMaterialize(bodyClass, pos);
@@ -395,7 +395,7 @@ class HCInfectedVariety
         {
             entered = body.HCVarietyFreshPosed(now, site.Id, role, pose);
         }
-        else if (HCInfectedVarietyPolicy.HCStandingFresh(s_Made - 1, s_Config.StandingRiserEvery))
+        else if (pose == -1)
         {
             entered = body.HCVarietyFreshStanding(now, site.Id, role);
         }
