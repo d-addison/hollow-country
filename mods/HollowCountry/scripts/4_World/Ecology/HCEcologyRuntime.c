@@ -77,6 +77,17 @@ class HCEcologyRuntime
 	protected int m_ReportAfter;
 	protected float m_TicksPerMs;
 
+    // Reuse the existing bounded animal registry; no second EEInit cohort.
+    static AnimalBase HCCycleAnimal(inout int cursor)
+    {
+        if (!s_Instance || !s_Instance.m_Running || s_Instance.m_Actors.Count() == 0) { return null; }
+        cursor = cursor % s_Instance.m_Actors.Count();
+        HCEcologyLiveBinding binding = s_Instance.m_Actors[cursor];
+        cursor++;
+        if (!binding || !binding.Live || binding.Live.IsPendingDeletion()) { return null; }
+        return AnimalBase.Cast(binding.Live);
+    }
+
 	// Passive sampler/debug lookup: never allocates or observes native state.
 	static HCEcologyRuntime HCPeek() { return s_Instance; }
 

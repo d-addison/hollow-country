@@ -10,9 +10,9 @@ class HCEcologyDisposition
         s_Reported = true;
         Print("[HC Ecology] observation_path=available; reason=bounded registered cohort and native geometry queries only; runtime acceptance PENDING");
         Print("[HC Ecology] coverage=partial; reason=EEInit cohort capped at configured budgets, not a world census");
-        Print("[HC Ecology] feeding=unsupported; reason=no inspected native feeding transaction; food quantities untouched");
-        Print("[HC Ecology] drinking=unsupported; reason=no inspected native drinking transaction; water quantities untouched");
-        Print("[HC Ecology] migration=unsupported; reason=no animal destination API; infected retarget cadence experimental behind migration marker and owner qualifications; caller integration and runtime acceptance PENDING");
+        Print("[HC Ecology] feeding=native_graze_input; terrain_field_goals=enabled_by_cycle; consumption_transaction=unavailable runtime=PENDING");
+        Print("[HC Ecology] drinking=native_drink_input; inland_shore_goals=enabled_by_cycle; water_quantities=untouched runtime=PENDING");
+        Print("[HC Ecology] migration=native_input_leases_and_owned_pack_waypoints; ce_weights=unchanged runtime=PENDING");
     }
 }
 
@@ -28,6 +28,8 @@ class HCEcologyRuntimeModule : HCModule
 {
     protected static HCEcologyRuntimeModule s_Instance;
     protected ref HCEcologyRuntimeSettings m_Settings;
+    protected ref HCEcologyCycle m_Cycle;
+    protected bool m_MigrationStarted;
     protected ref HCWildlifeScenes m_WildlifeScenes;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCOperationalStatus m_WildlifeStatus = new HCOperationalStatus;
@@ -77,7 +79,7 @@ class HCEcologyRuntimeModule : HCModule
             Print("[HC Plan] HC-49 state=refused refusal=ecology_settings_invalid retained=0 active=0 runtime=PENDING");
             return false;
         }
-        if (!m_Settings.Enabled)
+        if (!m_Settings.Enabled || !settings || !settings.EnableAmbientLife)
         {
             Print("[HC Ecology] explicitly disabled by operator");
             HCEcologyRuntime.CloseCollection();
@@ -98,13 +100,16 @@ class HCEcologyRuntimeModule : HCModule
         m_Started = HCEcologyRuntime.Start(m_Settings, GetGame().GetWorldName(), Session());
         if (m_Started)
         {
-            HCEcologyMigration.Start(GetGame().GetWorldName());
+            m_MigrationStarted = HCEcologyMigration.Start(GetGame().GetWorldName());
+            m_Cycle = new HCEcologyCycle;
+            if (!m_Cycle.Open()) { m_Status.HCPublish("refused", "ecology_cycle_store_or_settings"); }
             HCWildlifeObservation.HCStart(true);
             s_Instance = this;
             m_WildlifeScenes = new HCWildlifeScenes;
             m_WildlifeScenes.HCOpen(true);
             m_WildlifeStatus = m_WildlifeScenes.HCStatus();
-            m_Status.HCPublish("ready", "ecology_observation_started_runtime_pending");
+            if (m_Cycle.Healthy() && (!m_Cycle.NeedsMigration() || m_MigrationStarted)) { m_Status.HCPublish("ready", "ecology_cycle_started_runtime_pending"); }
+            else { m_Status.HCPublish("refused", "ecology_cycle_or_migration_unavailable"); }
             HCEcologyNative.HCHabitatRefusals("ready");
         }
         if (!m_Started)
@@ -123,6 +128,12 @@ class HCEcologyRuntimeModule : HCModule
     override void OnTick(float deltaTime)
     {
         HCEcologyRuntime.Tick(GetGame().GetTime());
+        if (m_Started && m_Cycle)
+        {
+            m_Cycle.Tick();
+            if (!m_Cycle.Healthy()) { m_Status.HCPublish("refused", "ecology_cycle_save_or_clock"); }
+            else if (m_Cycle.NeedsMigration() && (!m_MigrationStarted || !HCEcologyMigration.Operational())) { m_Status.HCPublish("refused", "ecology_migration_store_unavailable"); }
+        }
         if (m_Started) { HCWildlifeObservation.HCTick(GetGame().GetTime()); }
         if (m_Started) { HCReached.Mark("ecology.observation_tick"); }
         if (m_Started && m_WildlifeScenes && m_WildlifeScenes.HCActive())
@@ -135,6 +146,8 @@ class HCEcologyRuntimeModule : HCModule
 
     override void OnStop()
     {
+        if (m_Cycle) { m_Cycle.Close(); }
+        m_Cycle = null;
         if (m_WildlifeScenes) { m_WildlifeScenes.HCClose(); }
         m_WildlifeScenes = null;
         if (s_Instance == this) { s_Instance = null; }

@@ -19,7 +19,11 @@ class HCEcologyMigrationRules
 		if (slot.IntervalSeconds < 60 || slot.IntervalSeconds > 86400) { return false; }
 		if (!UtcValid(slot.NextDueUtc)) { return false; }
 		if (slot.Sequence < 0 || slot.Sequence > 1000000000) { return false; }
-		if (slot.ReservedMembers < 0 || slot.ReservedMembers > 6) { return false; }
+		int ceiling = 6;
+        // Only the environmental town slot admits the existing owner's 40-body
+        // horde ceiling. Sensory migration retains its six-member contract.
+        if (slot.Id == "town-pressure" && slot.PopulationKind == HCEcologyPopulation.INFECTED) { ceiling = HCHordeLimits.MAX_PACK; }
+		if (slot.ReservedMembers < 0 || slot.ReservedMembers > ceiling) { return false; }
 		if (slot.LastOutcome < 0 || slot.LastOutcome > 4) { return false; }
 		if (slot.Pending) { return slot.Sequence > 0 && slot.LastOutcome == 1; }
 		if (slot.LastOutcome == 1) { return false; }
@@ -66,7 +70,9 @@ class HCEcologyMigrationRules
 	static bool CapacityAvailable(HCEcologyMigrationJournal state, HCEcologyMigrationSchedule slot, int members, int ceMaximum)
 	{
 		if (!state || !slot || !JournalValid(state, state.WorldName) || Find(state, slot.Id) != slot) { return false; }
-		if (members < 1 || members > MemberLimit(ceMaximum, 6)) { return false; }
+		int limit = MemberLimit(ceMaximum, 6);
+        if (slot.Id == "town-pressure" && slot.PopulationKind == HCEcologyPopulation.INFECTED) { limit = Math.Min(ceMaximum, HCHordeLimits.MAX_PACK); }
+		if (members < 1 || members > limit) { return false; }
 		int reserved = Math.Max(slot.ReservedMembers, members);
 		int i = 0;
 		while (i < state.Schedules.Count())
