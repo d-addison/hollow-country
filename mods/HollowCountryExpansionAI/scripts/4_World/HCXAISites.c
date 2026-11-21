@@ -427,7 +427,7 @@ class HCXAIRouteSave : HCSaveJob
             if (!Owner.HCRoutesText(text)) { return STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
             // Disposable qualification cache, no inventory/creation barrier.
-            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, false, false)) { return STEP_FAILED; }
+            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();
@@ -2903,28 +2903,164 @@ class HCXAISiteDirector : Managed
         policy.MaxActiveSites = HCAILimits.Get().MaxActiveSites;
         return policy;
     }
+    // A truncated prefix can end at a nested closing brace. Check balanced
+    // containers and strings as well as the shared first/last-line guard.
+    // Balanced-but-corrupt content still requires the native parser and DTO checks.
+    // Work on small windows: native string operations on large stores are capped.
+    static string HCWholeCacheText(string path)
+    {
+        if (!HCGroupIO.HCLooksWholeObject(path, HCWorldStore.MAX_BYTES)) { return ""; }
+        string data = HCWorldStore.Read(path);
+        array<string> stack = new array<string>;
+        bool quoted = false;
+        bool escaped = false;
+        bool ended = false;
+        for (int offset = 0; offset < data.Length(); offset += 4096)
+        {
+            int length = Math.Min(4096, data.Length() - offset);
+            string piece = data.Substring(offset, length);
+            for (int index = 0; index < piece.Length(); index++)
+            {
+                string character = piece.Substring(index, 1);
+                if (quoted)
+                {
+                    if (escaped) { escaped = false; }
+                    else if (character == "\\") { escaped = true; }
+                    else if (character == "\"") { quoted = false; }
+                    continue;
+                }
+                if (character == " " || character == "\n" || character == "\r" || character == "\t") { continue; }
+                if (ended) { return ""; }
+                if (character == "\"") { quoted = true; }
+                else if (character == "{" || character == "[")
+                {
+                    if (stack.Count() >= 128) { return ""; }
+                    stack.Insert(character);
+                }
+                else if (character == "}" || character == "]")
+                {
+                    int depth = stack.Count();
+                    if (depth < 1) { return ""; }
+                    string open = stack[depth - 1];
+                    if ((character == "}" && open != "{") || (character == "]" && open != "[")) { return ""; }
+                    stack.Remove(depth - 1);
+                    ended = stack.Count() == 0;
+                }
+            }
+        }
+        if (quoted || stack.Count() != 0 || !ended) { return ""; }
+        return data;
+    }
+    protected static bool s_HCRoutesRefused;
+    protected static bool s_HCCachesRefused;
+    static void HCRoutesRefused(string reason)
+    {
+        if (s_HCRoutesRefused) { return; }
+        s_HCRoutesRefused = true;
+        Print("[HC XAI] routes refused reason=" + reason);
+    }
+    static void HCCachesRefused(string reason)
+    {
+        if (s_HCCachesRefused) { return; }
+        s_HCCachesRefused = true;
+        Print("[HC XAI] caches refused reason=" + reason);
+    }
+    // Preserve raw bytes (including empty files) to a new bounded slot. Never
+    // rely on CopyFile overwriting an existing target. Native EnSystem.c:417,
+    // 425,443,528,531 supplies the read/close/delete/copy operations.
+    static bool HCPreserveRoute(string path, out string preserved)
+    {
+        preserved = "none";
+        if (!FileExist(path)) { return true; }
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            string target = path + ".torn-" + attempt.ToString();
+            if (FileExist(target)) { continue; }
+            FileHandle original = OpenFile(path, FileMode.READ);
+            if (!original) { return false; }
+            string expected;
+            expected = "";
+            int expectedCount = ReadFile(original, expected, HCWorldStore.MAX_BYTES + 1);
+            CloseFile(original);
+            if (expectedCount < 0 || expectedCount > HCWorldStore.MAX_BYTES || expected.Length() != expectedCount) { return false; }
+            if (!CopyFile(path, target) || !FileExist(target)) { return false; }
+            FileHandle copy = OpenFile(target, FileMode.READ);
+            if (!copy) { return false; }
+            string actual;
+            actual = "";
+            int count = ReadFile(copy, actual, HCWorldStore.MAX_BYTES + 1);
+            CloseFile(copy);
+            if (count != expectedCount || actual != expected) { return false; }
+            // Evidence is a relative file name, never a private profile path.
+            if (target.Length() > 256) { return false; }
+            int slash = target.LastIndexOf("/");
+            preserved = target.Substring(slash + 1, target.Length() - slash - 1);
+            return true;
+        }
+        return false;
+    }
     static HCXAIRouteCache LoadRoutes()
     {
-        // Startup only: interrupted disposable cache publication is requalified.
-        // No item or lease state uses this path. Native EnSystem.c:397/528.
-        string intent = HCXAISiteDirector.ROUTES + ".tmp";
-        if (FileExist(intent) && !DeleteFile(intent)) { return null; }
-        if (!FileExist(HCXAISiteDirector.ROUTES)) { return new HCXAIRouteCache(); }
-        string data = HCWorldStore.Read(HCXAISiteDirector.ROUTES);
-        if (data == "") { return null; }
-        string error;
-        HCXAIRouteCache routes;
-        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
-        return routes;
+        string path = HCXAISiteDirector.ROUTES;
+        // A valid primary is committed. Otherwise prefer newer verified tmp to bak.
+        for (int candidate = 0; candidate < 3; candidate++)
+        {
+            HCXAIRouteCache routes;
+            string error;
+            routes = null;
+            error = "";
+            string source = path;
+            string label = "primary";
+            if (candidate == 1) { source = path + ".tmp"; label = "tmp"; }
+            if (candidate == 2) { source = path + ".bak"; label = "bak"; }
+            string data = HCWholeCacheText(source);
+            if (data == "") { continue; }
+            if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { continue; }
+            if (candidate > 0)
+            {
+                string preserved = "";
+                if (!HCPreserveRoute(path, preserved)) { HCRoutesRefused("preserve_failed"); return null; }
+                if (FileExist(path) && !DeleteFile(path)) { HCRoutesRefused("delete_failed"); return null; }
+                if (!CopyFile(source, path) || HCWholeCacheText(path) != data) { HCRoutesRefused("promote_failed"); return null; }
+                // Readback matches the structurally checked, parsed and validated DTO.
+                if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
+                Print("[HC XAI] routes recovered source=" + label + " preserved=" + preserved);
+            }
+            else if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
+            return routes;
+        }
+        // Route rows are recomputable qualification results, not a barrier:
+        // keep the invalid primary for inspection, then start from empty rows.
+        if (FileExist(path) || FileExist(path + ".tmp") || FileExist(path + ".bak"))
+        {
+            string kept = "none";
+            if (FileExist(path))
+            {
+                if (!HCPreserveRoute(path, kept)) { HCRoutesRefused("preserve_failed"); return null; }
+                if (!DeleteFile(path)) { HCRoutesRefused("delete_failed"); return null; }
+            }
+            if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
+            Print("[HC XAI] routes reset reason=no_valid_image preserved=" + kept);
+        }
+        return new HCXAIRouteCache();
     }
     static HCXAICacheJournal LoadCaches()
     {
-        if (!FileExist(HCXAISiteDirector.CACHES)) { return new HCXAICacheJournal(); }
-        string data = HCWorldStore.Read(HCXAISiteDirector.CACHES);
-        if (data == "") { return null; }
+        string path = HCXAISiteDirector.CACHES;
+        // This journal is the item-creation barrier, never a disposable cache.
+        // SaveCaches writes the primary directly, so bak/tmp cannot prove a commit.
+        if (!FileExist(path))
+        {
+            if (FileExist(path + ".tmp") || FileExist(path + ".bak")) { HCCachesRefused("primary_missing"); return null; }
+            return new HCXAICacheJournal();
+        }
+        string data = HCWholeCacheText(path);
+        if (data == "") { HCCachesRefused("structural_or_size"); return null; }
         string error;
         HCXAICacheJournal caches;
-        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches || caches.SchemaVersion != 1 || !caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
+        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches) { HCCachesRefused("invalid_json"); return null; }
+        if (caches.SchemaVersion != 1) { HCCachesRefused("schema"); return null; }
+        if (!caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { HCCachesRefused("rows"); return null; }
         return caches;
     }
     static HCXAIOwnership LoadOwned()
