@@ -543,7 +543,7 @@ def original_addon_name(name):
     # into $profile:HollowCountry when the operator has no file of its own.
     return bool(re.fullmatch(
         r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout'
-        r'|data/lighting/[A-Za-z0-9_-]+\.txt|data/defaults/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.json)', name))
+        r'|gui/icons/map/[a-z_]+\.paa|data/lighting/[A-Za-z0-9_-]+\.txt|data/defaults/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.json)', name))
 
 
 def addon_prefix(root):
@@ -567,6 +567,8 @@ def collect_addon(root, prefix=PREFIX):
             if path.read_text().strip() != prefix:
                 raise ValueError('prefix file differs from contract')
             continue  # property header is canonical; marker is build metadata
+        if name == 'gui/icons/map/.gitignore':
+            continue  # source-control metadata for the original GUI icon exception
         if name in ('mod.cpp', 'meta.cpp'):
             _text(path.read_bytes())
             continue  # launcher metadata belongs at @HollowCountry/mod.cpp and meta.cpp
@@ -575,6 +577,12 @@ def collect_addon(root, prefix=PREFIX):
         data = path.read_bytes()
         if len(data) > MAX_BYTES:
             raise ValueError('oversize source file')
+        if re.fullmatch(r'gui/icons/map/[a-z_]+\.paa', name):
+            # Original procedural GUI textures; no general binary/asset allowance.
+            if len(data) < 16 or data[:2] != b'\x05\xff':
+                raise ValueError('invalid GUI icon PAA header')
+            files[name] = data
+            continue
         try:
             text = data.decode('utf-8-sig')
         except UnicodeDecodeError as e:
