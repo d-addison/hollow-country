@@ -177,7 +177,14 @@ def surface_model(model):
             or stem in {'misc_pallet', 'misc_pallets1', 'misc_pallets2', 'misc_pallets3',
                         'misc_boxwooden', 'misc_table_large', 'misc_woodtable_indoor',
                         'chapel_table_proxy', 'chapel_table_proxy2', 'table',
-                        'shelfs_small', 'racks', 'tent_ltable', 'tent_pallets'}):
+                        'shelfs_small', 'racks', 'tent_ltable', 'tent_pallets',
+                        # Installed composite room/workshop members identified
+                        # from actual building proxy tables, not guessed aliases.
+                        'tb_lobby', 'school_details', 'showertent_furniture',
+                        'houseb_tenement_dayz_proxy', 'barn_metal_lod1_proxy',
+                        'ind_sawmill_saw', 'misc_woodencrate_5x',
+                        'ruin_housesmall2_proxy'}
+            or re.fullmatch(r'dieselpowerplant_building_accessories_[1-4]', stem)):
         return stem, model
     return None
 
@@ -294,7 +301,10 @@ class Mesh:
                                   (measured_box['Min'][2] + measured_box['Max'][2]) / 2))
             # Sample narrowly spaced alternatives before spacing the final set.
             # This lets the reach check find the accessible edge of a long top.
-            step = .15
+            # A finer proposal lattice recovers supported strips missed between
+            # the old columns. Admission footprints and .60m output spacing do
+            # not change; more samples are never evidence by themselves.
+            step = .10
             for x in range(math.ceil(min(v[0] for v in triangle) / step),
                            math.floor(max(v[0] for v in triangle) / step) + 1):
                 for z in range(math.ceil(min(v[2] for v in triangle) / step),
@@ -391,6 +401,18 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
             raise ValueError('partition requires 0 <= index < count <= 32')
         ordered = ordered[index::count]
     for group in ordered:
+        # Bound decoded prop/scene caches to one building instead of retaining
+        # every visited model for the whole map scan. Output retains only pins,
+        # coordinates and small witnesses, independent of these caches.
+        context = support_context = decoded = baked = mesh = None
+        furniture_meshes.clear()
+        furniture_tops.clear()
+        auditor.props.clear()
+        auditor.meshes.clear()
+        assets.cache.clear()
+        support_auditor.props.clear()
+        support_auditor.assets.cache.clear()
+        support_auditor.context_cache = None
         name = group.get('name', '')
         # Do not inflate building coverage with car wrecks, wells or containers.
         if not name.startswith('Land_') or re.search(r'Wreck|wreck|Container_|Train_|Boat_Small|Misc_Well', name):
@@ -497,7 +519,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         # table under the unchanged .60m separation rule. Every sampled edge
         # still has the same visual footprint, collision and reach requirements.
         by_role = {key: deque(sorted(rows, key=lambda row: (
-                       round(row[0][1], 2), row[0][0], row[0][2], row[0][1])))
+                       round(row[0][1], 2), row[0][2], row[0][0], row[0][1])))
                    for key, rows in by_role.items()}
         chosen, evidence = [], []
         while any(by_role.values()) and len(chosen) < loot.MAX_SURFACE_POINTS:
@@ -549,7 +571,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         'frame': 'stock-mapgroupproto', 'caps': {'surface_per_group': loot.MAX_SURFACE_POINTS,
         'added_container_lootmax': loot.MAX_ADDED_LOOTMAX, 'total_points': loot.MAX_TOTAL_POINTS},
         'sources': {'stock_proto_sha256': sha(stock_bytes),
-        'method': 'ODOL56 visual horizontal face support with 12cm footprint; bounded decoded visual/collision proxy tables, composite interior and exposed cabinet tiers; proxy marker faces excluded; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; edge-first plane ordering with .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support',
+        'method': 'ODOL56 visual horizontal face support with 12cm footprint; bounded decoded visual/collision proxy tables, composite interior and exposed cabinet tiers; proxy marker faces excluded; raw building frame, restored furniture centres; 0.10m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; Z-edge-first plane ordering with .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support',
         'prop_boxes_sha256': sha(auditor.boxes_bytes),
         'reach_generation': {'checked_candidates': audit_checked,
             'refusal_counting': 'collision support/enclosure, then visual/room/clearance/reach; stop on refusal; all checks before spacing/cap; final read-only audit collects all reach reasons',
@@ -638,6 +660,13 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
         refused = Counter()
         added = 0
         for name, old in prior['groups'].items():
+            context = support_context = None
+            auditor.props.clear()
+            auditor.meshes.clear()
+            auditor.assets.cache.clear()
+            collision.props.clear()
+            collision.assets.cache.clear()
+            collision.context_cache = None
             print('merge ' + name, file=sys.stderr, flush=True)
             current = doc['groups'].get(name)
             if current and any(current[key] != old[key] for key in (
@@ -679,6 +708,10 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             spec.pop('collision_support', None)
             doc['groups'][name] = spec
         sources['prior_overlay_selection'] = {'sha256': sha(raw), 'net_added_points': added,
+            'prior_method': prior['sources']['method'],
+            'prior_reach_generation': prior['sources']['reach_generation'],
+            'net_points_vs_prior': sum(len(g['surface_sources']) for g in doc['groups'].values())
+                                   - sum(len(g['surface_sources']) for g in prior['groups'].values()),
             'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing/caps/categories',
             'refusal_counts': dict(sorted(refused.items()))}
     for name in doc['groups']:
