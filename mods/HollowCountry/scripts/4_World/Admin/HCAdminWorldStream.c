@@ -223,6 +223,10 @@ modded class HCAdminModule
         int end = Math.Min(reply.Total, m_WorldSend + chunkRows);
         for (; m_WorldSend < end; m_WorldSend++) { reply.Marks.Insert(m_WorldCapture.Rows[m_WorldSend]); }
         reply.Last = m_WorldSend >= reply.Total;
+        // A bounded reliable transfer can outlast the original 15 s lease.
+        // The client waits for Last before renewing; keep this validated peer
+        // alive during that transfer, then require its next heartbeat as usual.
+        m_WorldPeer.Until = GetGame().GetTickTime() + 15;
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(reply);
         // Identity is checked again immediately before this targeted send.
@@ -231,6 +235,9 @@ modded class HCAdminModule
         if (!reply.Last) { return; }
         m_WorldCost += TickCount(sendStart);
         if (m_WorldIsStatic) { m_WorldPeer.StaticVersion = HCAdminWorldCatalog.VERSION; }
+        // Cadence is measured after completion, so a long transfer cannot
+        // immediately start another snapshot. Static is followed by live rows.
+        m_WorldPeer.Due = GetGame().GetTickTime() + m_WorldConfig.RefreshSeconds;
         if (m_WorldIsStatic) { m_WorldPeer.Due = 0; }
         string summary = "[HC Admin] map_snapshot layers=" + m_WorldCapture.LayerCount().ToString() + " marks=" + reply.Total.ToString();
         summary += " ms=" + HCWorkBudget.HCAdminMilliseconds(m_WorldCost).ToString() + " ticks=" + m_WorldCost.ToString();

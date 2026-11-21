@@ -47,36 +47,38 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
     // A failed marker layout is not retried until the map is opened again.
     protected bool mHCXCreateFailed;
 
-    // Fixed cycle of verified Expansion icon names (ExpansionIcons.c line of
-    // each AddIcon); the layer colour and legend row identify the layer.
-    static string HCXIconName(int index)
+    // Installed Core/core_scripts.pbo 3_Game/DayZExpansion_Core/ExpansionIcons.c:
+    // registry names verified in place; API/name references only, no borrowed text.
+    static string HCXIconName(string layer)
     {
-        switch (index % 16)
-        {
-            case 0: return "Map Marker";      // :150
-            case 1: return "Star";            // :190
-            case 2: return "Square";          // :193
-            case 3: return "Shield";          // :194
-            case 4: return "Ellipse";         // :100
-            case 5: return "Exclamationmark"; // :99
-            case 6: return "Questionmark";    // :174
-            case 7: return "Skull 1";         // :187
-            case 8: return "Trader";          // :206
-            case 9: return "Vehicle Crash";   // :211
-            case 10: return "Water 1";        // :213
-            case 11: return "Radiation";      // :177
-            case 12: return "Infected 1";     // :135
-            case 13: return "Base";           // :62
-            case 14: return "Eye";            // :97
-            case 15: return "Cross";          // :253
-        }
-        return "Map Marker";
+        layer.ToLower();
+        if (layer.IndexOf("infected") >= 0 || layer.IndexOf("horde") >= 0) return "Infected 1"; // :135
+        if (layer.IndexOf("radiation") >= 0 || layer.IndexOf("gas") >= 0) return "Radiation"; // :177
+        if (layer.IndexOf("trader") >= 0) return "Trader"; // :206
+        if (layer.IndexOf("water") >= 0) return "Water 1"; // :213
+        if (layer.IndexOf("loot") >= 0 || layer.IndexOf("ce-spawns") >= 0 || layer == "supply-dumps" || layer == "dead_drops") return "Backpack"; // :52
+        if (layer.IndexOf("crash") >= 0) return "Vehicle Crash"; // :211
+        if (layer.IndexOf("event") >= 0 || layer == "scenes") return "Exclamationmark"; // :99
+        if (layer.IndexOf("vehicle") >= 0 || layer.IndexOf("convoy") >= 0) return "Car 2"; // :70
+        if (layer.IndexOf("camp") >= 0 || layer.IndexOf("base") >= 0 || layer == "holdouts" || layer.IndexOf("shelter") >= 0 || layer.IndexOf("tent") >= 0 || layer.IndexOf("outpost") >= 0) return "Base"; // :62
+        if (layer == "ai" || layer.IndexOf("ai-") == 0 || layer.IndexOf("patrol") >= 0) return "Soldier"; // :202
+        return "Map Marker"; // :150; shared fallback for pins and legend
+    }
+
+    static ExpansionIcon HCXIcon(string layer)
+    {
+        ExpansionIcon icon = ExpansionIcons.Get(HCXIconName(layer));
+        if (!icon) icon = ExpansionIcons.Get("Map Marker"); // ExpansionIcons.c:150,312
+        return icon;
     }
 
     void Open(ExpansionMapMenu menu, Widget root, MapWidget mapWidget)
     {
         Close();
         if (!menu || !root || !mapWidget) return;
+        // Reuse widgets only while Expansion retains the same menu root.
+        // A newly constructed menu cannot reuse widgets parented to its predecessor.
+        if (mHCXRoot != root || mHCXMap != mapWidget) ReleaseWidgets();
         mHCXMenu = menu;
         mHCXRoot = root;
         mHCXMap = mapWidget;
@@ -88,7 +90,7 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
         // The legend lives in Expansion's marker list. If that list is absent
         // (another map mod), markers still draw with every layer on.
         Widget content = root.FindAnyWidget("MarkerListPanelContent");
-        if (content) mHCXSection = GetGame().GetWorkspace().CreateWidgets(HCX_SECTION_LAYOUT, content);
+        if (content && !mHCXSection) mHCXSection = GetGame().GetWorkspace().CreateWidgets(HCX_SECTION_LAYOUT, content);
         if (mHCXSection)
         {
             mHCXSection.SetHandler(this);
@@ -103,6 +105,11 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             HCXHandle(mHCXLootFilter);
             HCXHandle(mHCXLootRun);
             mHCXSection.Show(false);
+        }
+        for (int row = 0; row < mHCXRows.Count(); row++)
+        {
+            mHCXRows[row].SetHandler(this);
+            mHCXRowButtons[row].SetHandler(this);
         }
         // No layout root is passed: the admin client binds no widgets of its own here.
         HCAdminWorldClient.Get().Open(null);
@@ -121,11 +128,29 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             // Close unregisters Event_OnRPC before any in-flight reply can bind.
             HCAdminWorldClient.Get().Close();
         }
-        // Drop every marker from Expansion's list, then delete them; the
-        // ExpansionMapWidgetBase destructor unlinks each widget tree.
+        // Remove every active entry from Expansion's projection loop. Retain
+        // hidden widgets for this menu's next OnShow; no callbacks remain live.
         if (mHCXMenu) mHCXMenu.HCXTrimAdminMarkers(0);
-        mHCXMarkers.Clear();
+        for (int hide = 0; hide < mHCXMarkers.Count(); hide++) mHCXMarkers[hide].HCXSuspend();
         mHCXActive = 0;
+        if (mHCXSection)
+        {
+            mHCXSection.Show(false);
+            mHCXSection.SetHandler(null);
+        }
+        if (mHCXToggle) mHCXToggle.SetHandler(null);
+        if (mHCXLootFilter) mHCXLootFilter.SetHandler(null);
+        if (mHCXLootRun) mHCXLootRun.SetHandler(null);
+        for (int row = 0; row < mHCXRows.Count(); row++)
+        {
+            mHCXRows[row].SetHandler(null);
+            mHCXRowButtons[row].SetHandler(null);
+        }
+    }
+
+    void ReleaseWidgets()
+    {
+        mHCXMarkers.Clear();
         mHCXRows.Clear();
         mHCXRowButtons.Clear();
         mHCXRowNames.Clear();
@@ -195,7 +220,7 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             HCXAdminMapMarker marker = mHCXMarkers[bound];
             // Slots stay stable; only newly active slots join Expansion's loop.
             if (bound >= mHCXActive) mHCXMenu.HCXInsertAdminMarker(marker);
-            marker.HCXBind(index, pin.Mark.Position, admin.PinTitle(pin), HCXIconName(style.IconIndex), style.Color);
+            marker.HCXBind(index, pin.Mark.Position, admin.PinTitle(pin), admin.PinName(pin), HCXIconName(style.Layer), style.Color);
             bound++;
             if (bound > mHCXActive) mHCXActive = bound;
         }
@@ -218,11 +243,18 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             else mHCXTitle.SetText("Admin layers [off]");
         }
         int rows = Math.Min(admin.StyleCount(), HCX_MAX_ROWS);
+        int budget = 4; // Legend layouts are also created over bounded frames.
+        bool complete = true;
         for (int index = 0; index < rows; index++)
         {
             HCAdminWorldStyle style = admin.StyleAt(index);
             if (!style) continue;
-            if (index == mHCXRows.Count() && !HCXAddRow(style)) break;
+            if (index == mHCXRows.Count())
+            {
+                if (budget <= 0) { complete = false; break; }
+                budget--;
+                if (!HCXAddRow(style)) break;
+            }
             TextWidget name = mHCXRowNames[index];
             ImageWidget icon = mHCXRowIcons[index];
             string text = style.Layer + " (" + style.Count.ToString() + ")";
@@ -236,9 +268,14 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             }
             name.SetText(text);
             name.SetColor(textColor);
+            // Cached rows may be rebound after authorization/cache expiry.
+            ExpansionIcon registered = HCXIcon(style.Layer);
+            if (registered) icon.LoadImageFile(0, registered.IconPath);
+            icon.Show(registered != null);
             icon.SetColor(iconColor);
         }
-        mHCXStyleVersion = admin.StyleVersion();
+        for (int hide = 0; hide < mHCXRows.Count(); hide++) mHCXRows[hide].Show(hide < rows);
+        if (complete) mHCXStyleVersion = admin.StyleVersion();
     }
 
     protected bool HCXAddRow(HCAdminWorldStyle style)
@@ -256,9 +293,6 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
         }
         row.SetHandler(this);
         button.SetHandler(this);
-        // One load per row, from the verified Expansion icon registry only.
-        ExpansionIcon registered = ExpansionIcons.Get(HCXIconName(style.IconIndex));
-        if (registered) icon.LoadImageFile(0, registered.IconPath);
         mHCXRows.Insert(row);
         mHCXRowButtons.Insert(button);
         mHCXRowNames.Insert(name);

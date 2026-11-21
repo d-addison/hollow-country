@@ -49,6 +49,14 @@ class HCAdminWorldClient
     protected bool m_Open;
     protected bool m_Subscribed;
     protected bool m_Access;
+    // Cache only a recently authorized player instance, never another login.
+    protected PlayerBase m_CachePlayer;
+    protected bool m_CacheAuthorized;
+    protected bool m_RequestPending;
+    protected float m_RequestAt;
+    protected const float REQUEST_SECONDS = 4;
+    protected const float STALE_SECONDS = 45; // Allows configured 30 s server refresh + capture.
+
     protected bool m_Visible = true;
     protected bool m_Dirty = true;
     // New rows or toggles: collect at once instead of waiting for the throttle.
@@ -111,16 +119,17 @@ class HCAdminWorldClient
         m_Open = true;
         m_Access = false;
         m_Subscribed = false;
-        Authorized = false;
+        Authorized = m_CacheAuthorized && m_CachePlayer && m_CachePlayer == GetGame().GetPlayer() && GetGame().GetTickTime() - m_ReplyAt <= STALE_SECONDS;
+        if (!Authorized) ClearCache();
         s_Session++;
         m_SessionId = s_Session;
         m_Sequence = 0;
         m_Chunk = 0;
         m_SendAt = 0;
+        m_RequestPending = false;
+        m_LootRequest = "";
         m_CollectAt = 0;
         m_Incoming.Clear();
-        DynamicRows.Clear();
-        m_Pins.Clear();
         m_Selected = null;
         m_Dirty = true;
         m_DataDirty = true;
@@ -135,6 +144,11 @@ class HCAdminWorldClient
         request.Session = m_SessionId;
         request.Open = open;
         m_Subscribed = open;
+        if (open)
+        {
+            m_RequestPending = true;
+            m_RequestAt = GetGame().GetTickTime();
+        }
         request.LootFilter = m_LootRequest;
         m_LootRequest = "";
         request.StaticVersion = m_Version;
@@ -159,9 +173,9 @@ class HCAdminWorldClient
         DayZGame.Event_OnRPC.Remove(Receive);
         m_Open = false;
         Authorized = false;
-        DynamicRows.Clear();
+        m_RequestPending = false;
+        m_LootRequest = "";
         m_Incoming.Clear();
-        m_Pins.Clear();
         m_Cells.Clear();
         m_Selected = null;
         m_PinVersion++;
@@ -173,6 +187,24 @@ class HCAdminWorldClient
         m_State = null;
         m_LootFilter = null;
     }
+    protected void ClearCache()
+    {
+        m_CacheAuthorized = false;
+        m_CachePlayer = null;
+        m_Version = 0;
+        StaticRows.Clear();
+        DynamicRows.Clear();
+        m_Pins.Clear();
+        m_Cells.Clear();
+        m_Styles.Clear();
+        m_StyleIndex.Clear();
+        m_Selected = null;
+        m_PinVersion++;
+        m_StyleVersion++;
+        m_DataDirty = true;
+        m_ListDirty = true;
+    }
+
     // The admin view does not need a carried map item: the server checks the
     // allowlist on every request and never replies to anyone else.
     void Tick(MapWidget mapWidget)
@@ -180,17 +212,18 @@ class HCAdminWorldClient
         if (!m_Open || !mapWidget) { return; }
         float now = GetGame().GetTickTime();
         m_Access = true;
-        if (now >= m_SendAt)
+        // One subscription request outstanding. Chunks extend the wait; do
+        // not interrupt a long static transfer with a stale catalog version.
+        if (m_RequestPending && now - m_RequestAt > STALE_SECONDS) m_RequestPending = false;
+        if (!m_RequestPending && now >= m_SendAt)
         {
             Send(true, mapWidget);
-            m_SendAt = now + 4;
+            m_SendAt = now + REQUEST_SECONDS;
         }
-        if (Authorized && now - m_ReplyAt > 30)
+        if (Authorized && (m_CachePlayer != GetGame().GetPlayer() || now - m_ReplyAt > STALE_SECONDS))
         {
             Authorized = false;
-            DynamicRows.Clear();
-            m_Pins.Clear();
-            m_PinVersion++;
+            ClearCache();
             if (m_Panel) { m_Panel.Show(false); }
         }
         // Foreign map layouts can move their viewport without changing zoom.
@@ -236,9 +269,14 @@ class HCAdminWorldClient
         m_Chunk++;
         Authorized = true;
         m_ReplyAt = GetGame().GetTickTime();
+        m_CachePlayer = PlayerBase.Cast(GetGame().GetPlayer());
+        m_CacheAuthorized = true;
+        m_RequestPending = true;
+        m_RequestAt = m_ReplyAt;
         if (m_Panel) { m_Panel.Show(true); }
         if (!reply.Last) { return; }
         if (m_Incoming.Count() != reply.Total) { return; }
+        m_RequestPending = false;
         // Publish atomically only after every reliable chunk arrived in sequence.
         if (reply.IsStatic) { StaticRows = m_Incoming; m_Version = reply.CatalogRevision; }
         else { DynamicRows = m_Incoming; }
@@ -354,19 +392,26 @@ class HCAdminWorldClient
         // Selection survives a refreshed row object with the same identity.
         return m_Selected.Layer == pin.Mark.Layer && m_Selected.Label == pin.Mark.Label && m_Selected.Position == pin.Mark.Position;
     }
-    // Shared label rule: names only when zoomed in with few pins, or selected.
-    string PinTitle(HCAdminWorldPin pin)
+    // Meaning comes only from the source layer/label. Clusters describe the
+    // layer, never pretend the representative row names every member.
+    string PinName(HCAdminWorldPin pin)
     {
         if (!pin || !pin.Mark) { return ""; }
-        bool showLabel = IsSelected(pin) || (m_Scale < LABEL_SCALE && m_Pins.Count() <= LABEL_PINS);
-        string title = "";
-        if (showLabel) { title = "[" + pin.Mark.Layer + "] " + pin.Mark.Label; }
-        if (pin.Count > 1)
-        {
-            title = "x" + pin.Count.ToString();
-            if (showLabel) { title = "[" + pin.Mark.Layer + "] " + pin.Mark.Label + " " + title; }
-        }
-        return title;
+        string layer = pin.Mark.Layer;
+        layer.TrimInPlace();
+        if (layer == "") layer = "Map pin";
+        if (pin.Count > 1) return layer + " x" + pin.Count.ToString();
+        string label = pin.Mark.Label;
+        label.TrimInPlace();
+        if (label == "" || label == "MARKER NAME") return layer;
+        return "[" + layer + "] " + label;
+    }
+    // Normal labels disappear at low zoom/high counts; selection and hover
+    // use PinName so neither can expose placeholder or stale pooled text.
+    string PinTitle(HCAdminWorldPin pin)
+    {
+        if (!pin || !pin.Mark || !PinLabelled(pin)) { return ""; }
+        return PinName(pin);
     }
     bool PinLabelled(HCAdminWorldPin pin)
     {
@@ -400,7 +445,7 @@ class HCAdminWorldClient
         m_PinVersion++;
         m_PoolStart = -1;
         if (pin.Count > 1) { return pin.Mark.Layer + ": " + pin.Count.ToString() + " rows in this cell. Zoom in for individual details."; }
-        return pin.Mark.Layer + " | " + pin.Mark.Label + "\n" + pin.Mark.Detail;
+        return PinName(pin) + "\n" + pin.Mark.Detail;
     }
     // Bounded ground loot query; the server keeps its own caps and cooldown.
     string RequestLoot(string filter, MapWidget mapWidget)
@@ -408,8 +453,8 @@ class HCAdminWorldClient
         if (!Authorized) { return ""; }
         if (!HCAdminLootMap.HCValidFilter(filter)) { return "Enter a valid class or class prefix for a bounded ground loot query."; }
         m_LootRequest = filter;
-        Send(true, mapWidget);
-        m_SendAt = GetGame().GetTickTime() + 4;
+        // Queue behind any snapshot in flight; Tick owns the only open send.
+        m_SendAt = 0;
         return "Loot ground query requested. Existing query caps/cooldown apply; results appear as lootmap pins.";
     }
     // Base HC group map renderer: pooled circle pins from hc_group_icon.layout.

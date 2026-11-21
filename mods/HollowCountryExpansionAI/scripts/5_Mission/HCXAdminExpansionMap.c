@@ -13,6 +13,15 @@ modded class ExpansionMapMenu
 {
     protected ref HCXAdminMapLayers mHCXAdmin;
 
+    void ~ExpansionMapMenu()
+    {
+        if (mHCXAdmin)
+        {
+            mHCXAdmin.Close();
+            mHCXAdmin.ReleaseWidgets();
+        }
+    }
+
     override void OnShow()
     {
         super.OnShow();
