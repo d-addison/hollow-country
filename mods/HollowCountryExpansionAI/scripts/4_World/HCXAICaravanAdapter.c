@@ -490,12 +490,95 @@ modded class HCXAISiteState
     // Stop motion observation; callers invalidating geometry use HCResetJourney.
     void HCStopJourney()
     {
+        HCXJourneyReplans.HCRelease(this);
         HCJourneyWalking = false;
         HCJourneyRecovery = null;
         HCJourneyStarted = 0;
         HCJourneyRecoveryChecks = 0;
         HCJourneyRetry = 0;
         HCJourneyRetryVisits = 0;
+    }
+}
+
+// One server-wide FIFO. No planner exists while waiting; only the head gets
+// one HCCheck/HCStep per core tick. Array work is bounded independently of N.
+class HCXJourneyReplans
+{
+    static const int HC_QUEUE_CAP = 64;
+    protected static ref array<ref HCXJourneyReplanTurn> s_Queue = new array<ref HCXJourneyReplanTurn>;
+    protected static int s_Frame = -1;
+
+    static void HCRelease(HCXAISiteState state)
+    {
+        for (int index = s_Queue.Count() - 1; index >= 0; index--)
+        {
+            if (s_Queue[index].State == state) { s_Queue.RemoveOrdered(index); }
+        }
+    }
+    static void HCClear() { s_Queue.Clear(); s_Frame = -1; }
+
+    static void HCQueue(HCXAISiteState state, eAIGroup group, vector destination)
+    {
+        foreach (HCXJourneyReplanTurn existing : s_Queue)
+        {
+            if (existing.State == state) { return; }
+        }
+        if (s_Queue.Count() >= HC_QUEUE_CAP) { state.HCJourneyRecovery.HCGiveUp("JOURNEY_REPLAN_QUEUE_CAP"); return; }
+        HCXJourneyReplanTurn turn = new HCXJourneyReplanTurn;
+        turn.State = state;
+        turn.Recovery = state.HCJourneyRecovery;
+        turn.Group = group;
+        turn.Destination = destination;
+        turn.Recovery.Reason = "JOURNEY_REPLAN_QUEUED";
+        s_Queue.Insert(turn);
+        Print("[HC XAI] recovery=waiting party=journey reason=JOURNEY_REPLAN_QUEUED runtime=PENDING");
+    }
+
+    static void HCTick()
+    {
+        int now = GetGame().GetTime();
+        if (s_Frame == now) { return; }
+        s_Frame = now;
+        if (s_Queue.Count() == 0) { return; }
+        HCXJourneyReplanTurn turn = s_Queue[0];
+        if (!turn.Active) { turn.Active = true; turn.Started = now; }
+        // Even perpetual admission refusal cannot retain the active slot.
+        if (now < turn.Started || now - turn.Started >= HCXConvoyRoute.HC_PLAN_TIMEOUT_MS)
+        {
+            turn.Recovery.HCGiveUp("JOURNEY_REPLAN_TIMEOUT");
+            turn.State.HCResetJourney();
+            return;
+        }
+        // Separate observation admission leaves HC_WORK_CONVOY_ROUTE for the
+        // planner's existing per-work-unit HCTakeFor and HCWorkBudget deadline.
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 2)) { return; }
+        HCXAISiteState state = turn.State;
+        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || state.Patrol.m_Group != turn.Group || state.HCJourneyRecovery != turn.Recovery || !state.HCJourneyWalking || turn.Recovery.GivenUp)
+        {
+            state.HCResetJourney();
+            return;
+        }
+        HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
+        HCWorldModule world = HCWorldModule.Get();
+        vector destination;
+        HCXAIAdapter adapter = HCXAIService.Adapter();
+        if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination) || destination != turn.Destination || HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId) || (adapter && adapter.HCJourneyBusy(state.ProposalId)))
+        {
+            state.HCResetJourney();
+            return;
+        }
+        DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(turn.Group);
+        if (!turn.Group || HCXExpansionBridge.HCGroupCount(turn.Group) < 1 || state.Patrol.m_HCPendingMembers > 0 || !leader || !leader.IsAlive() || HCXExpansionBridge.HCGroupIsInCombat(turn.Group))
+        {
+            state.HCResetJourney();
+            return;
+        }
+        vector position = leader.GetPosition();
+        if (vector.DistanceSq(position, state.HCJourneyEnd) <= 64) { state.HCResetJourney(); return; }
+        turn.Recovery.HCCheck(turn.Group, position, now, true);
+        if (turn.Recovery.GivenUp) { state.HCResetJourney(); return; }
+        if (turn.Recovery.Replan) { turn.Recovery.Replan.mHCStarted = turn.Started; }
+        if (!turn.Recovery.AwaitingReplan) { HCRelease(state); }
     }
 }
 
@@ -509,6 +592,14 @@ modded class HCXAISiteDirector
         {
             if (released && released.Patrol && released.Patrol.m_Group == party) { released.HCResetJourney(); }
         }
+    }
+
+    // Despawned and the last-member-death path both finish here. Release
+    // before the provider deletes the patrol or removes the director state.
+    override protected void FinishTransient(HCXAISiteState state, bool materialized, int survivors)
+    {
+        state.HCResetJourney();
+        super.FinishTransient(state, materialized, survivors);
     }
 
     override void Spawned(HCXAISitePatrol patrol)
@@ -565,18 +656,19 @@ modded class HCXAISiteDirector
         m_HCJourneyCursor = m_HCJourneyCursor % m_States.Count();
         HCXAISiteState state = m_States[m_HCJourneyCursor];
         m_HCJourneyCursor++;
-        if (!state || !state.Transient || !state.Materialized || state.Completed || !state.Patrol || !state.Patrol.m_Group) { return; }
+        if (!state) { return; }
+        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || !state.Patrol.m_Group) { state.HCResetJourney(); return; }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
         HCWorldModule world = HCWorldModule.Get();
         vector destination;
-        if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
+        if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination)) { state.HCResetJourney(); return; }
         eAIGroup party = state.Patrol.m_Group;
-        if (HCXExpansionBridge.HCGroupCount(party) < 1 || state.Patrol.m_HCPendingMembers > 0) { return; }
+        if (HCXExpansionBridge.HCGroupCount(party) < 1 || state.Patrol.m_HCPendingMembers > 0) { state.HCResetJourney(); return; }
         HCXAIAdapter adapter = HCXAIService.Adapter();
         if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { state.HCResetJourney(); return; }
         if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { state.HCResetJourney(); return; }
         DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(party);
-        if (!leader || !leader.IsAlive()) { return; }
+        if (!leader || !leader.IsAlive()) { state.HCResetJourney(); return; }
         vector position = leader.GetPosition();
         float now = GetGame().GetTickTime();
         bool combat = HCXExpansionBridge.HCGroupIsInCombat(party);
@@ -599,6 +691,7 @@ modded class HCXAISiteDirector
             if (state.HCJourneyRecovery)
             {
                 state.HCJourneyRecovery.HCCheck(party, position, GetGame().GetTime());
+                if (state.HCJourneyRecovery.AwaitingReplan) { HCXJourneyReplans.HCQueue(state, party, destination); }
                 state.HCJourneyRecoveryChecks = Math.Min(state.HCJourneyRecoveryChecks + 1, 24);
             }
             bool gaveUp = state.HCJourneyRecovery && state.HCJourneyRecovery.GivenUp;
@@ -606,7 +699,7 @@ modded class HCXAISiteDirector
             // Preserve the ladder window after an issued rung, but only up to
             // 24 checks. Pending samples/replans cannot defeat that hard cap.
             bool ladderWindow = state.HCJourneyRecovery && state.HCJourneyRecovery.LadderStep > 0 && state.HCJourneyRecoveryChecks < 24;
-            if (state.HCJourneyRecovery && (state.HCJourneyRecovery.Checks > 0 || state.HCJourneyRecovery.Replan || ladderWindow)) { refresh = false; }
+            if (state.HCJourneyRecovery && (state.HCJourneyRecovery.Checks > 0 || state.HCJourneyRecovery.Replan || state.HCJourneyRecovery.AwaitingReplan || ladderWindow)) { refresh = false; }
             if (state.HCJourneyRecoveryChecks >= 24) { refresh = true; }
             if (!gaveUp && !refresh) { return; }
             // Give-up and timed refresh both discard possibly failed geometry.
@@ -617,6 +710,7 @@ modded class HCXAISiteDirector
         if (state.HCJourneyRetryVisits > 0) { state.HCJourneyRetryVisits--; return; }
         if (now < state.HCJourneyRetry || cost != 65) { return; }
         state.HCJourneyRetry = now + 1;
+        HCXJourneyReplans.HCRelease(state);
         state.HCJourneyWalking = false;
         state.HCJourneyRecovery = null;
         if (!world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
@@ -635,6 +729,7 @@ modded class HCXAISiteDirector
         foreach (vector point : path) { HCXExpansionBridge.HCGroupAddWaypoint(party, point); }
         state.HCJourneyRecovery = new HCXAIStuckRecovery;
         state.HCJourneyRecovery.Kind = "journey";
+        state.HCJourneyRecovery.JourneyScheduled = true;
         state.HCJourneyRecovery.HCStart(path, GetGame().GetTime(), 32);
         state.HCJourneyRecoveryChecks = 0;
         state.HCJourneyEnd = state.HCJourneySampled;
