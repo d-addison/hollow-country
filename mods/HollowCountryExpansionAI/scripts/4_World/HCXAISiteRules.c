@@ -403,9 +403,26 @@ class HCXAISiteRules
         }
         return true;
     }
-    static bool ReuseQualifiedRoute(HCXAIRouteRow row, string key, string validity)
+    // Conservative pretty-printed JSON bound: string escaping takes <=6 bytes per
+    // character; each vector has ample room for three native float strings.
+    static int HCRouteRowBytes(HCXAIRouteRow row)
     {
-        return row && row.Qualified && row.Key == key && row.ValidityKey == validity && row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
+        int points = 0;
+        if (row.Waypoints) { points = row.Waypoints.Count(); }
+        return 512 + 6 * (row.Key.Length() + row.SiteId.Length() + row.ValidityKey.Length() + row.Reason.Length()) + points * 256;
+    }
+    static string HCRouteValidity(string build, string world, float maxLeg, int primaryInclude, int primaryExclude, int outdoorInclude, int outdoorExclude)
+    {
+        if (!HCXAIRules.Token(build) || !HCXAIRules.Token(world) || !HCXAIRules.Finite(maxLeg) || maxLeg < 50 || maxLeg > 600) { return ""; }
+        string validity = "chain-v6|" + build + "|" + world + "|" + maxLeg.ToString() + "|" + primaryInclude.ToString() + ":" + primaryExclude.ToString() + ":0|" + outdoorInclude.ToString() + ":" + outdoorExclude.ToString() + ":0";
+        if (validity.Length() > 256) { return ""; }
+        return validity;
+    }
+    static bool ReuseRoute(HCXAIRouteRow row, string key, string validity)
+    {
+        if (!row || validity == "" || row.Key != key || row.ValidityKey != validity) { return false; }
+        if (!row.Qualified) { return true; }
+        return row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
     }
     static string PointText(vector point)
     {
