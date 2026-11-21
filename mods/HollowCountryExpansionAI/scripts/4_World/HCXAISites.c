@@ -3029,10 +3029,18 @@ class HCXAISiteDirector : Managed
             else if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
             return routes;
         }
+        // Route rows are recomputable qualification results, not a barrier:
+        // keep the invalid primary for inspection, then start from empty rows.
         if (FileExist(path) || FileExist(path + ".tmp") || FileExist(path + ".bak"))
         {
-            HCRoutesRefused("no_valid_image");
-            return null;
+            string kept = "none";
+            if (FileExist(path))
+            {
+                if (!HCPreserveRoute(path, kept)) { HCRoutesRefused("preserve_failed"); return null; }
+                if (!DeleteFile(path)) { HCRoutesRefused("delete_failed"); return null; }
+            }
+            if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
+            Print("[HC XAI] routes reset reason=no_valid_image preserved=" + kept);
         }
         return new HCXAIRouteCache();
     }
