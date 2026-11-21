@@ -156,6 +156,14 @@ class HCInteriorTemplatePlacement
         {
             entry.Objects.Clear();
         }
+        HCStoreResolveObjects(entry);
+        return entry;
+    }
+
+    // Publish only completed snapshots. A proximity hold discards private
+    // partial queries; other rows must never consume an unfinished union.
+    static void HCStoreResolveObjects(HCInteriorResolveEntry entry)
+    {
         if (s_ResolveCache.Count() < RESOLVE_CACHE_LIMIT)
         {
             s_ResolveCache.Insert(entry);
@@ -165,7 +173,6 @@ class HCInteriorTemplatePlacement
             s_ResolveCache.Set(s_ResolveNext, entry);
             s_ResolveNext = (s_ResolveNext + 1) % RESOLVE_CACHE_LIMIT;
         }
-        return entry;
     }
 
     // Keep query/filter attribution within the existing resolve stage and
