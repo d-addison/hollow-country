@@ -81,9 +81,6 @@ class HCEventPoliceStockSlice
     ItemBase CargoOwner;
     int CargoNext;
     ref array<ItemBase> CargoItems;
-    vector Position;
-    ref HCEventRewardPlan Plan;
-    int CreateNext;
 }
 class HCEventCacheSpawner
 {
@@ -263,9 +260,16 @@ class HCEventCacheSpawner
                 if (job.CargoOwner)
                 {
                     ItemBase cargoOwner = job.CargoOwner;
+                    // Validate the retained owner before any native inventory access.
+                    if (!HCPhysicalGround(cargoOwner) || vector.DistanceSq(cargoOwner.GetPosition(), mission.Source) > mission.Radius * mission.Radius)
+                    {
+                        job.CargoOwner = null;
+                        job.CargoItems = null;
+                        continue;
+                    }
                     CargoBase cargo;
                     if (cargoOwner.GetInventory()) { cargo = cargoOwner.GetInventory().GetCargo(); }
-                    if (!HCPhysicalGround(cargoOwner) || !cargo)
+                    if (!cargo)
                     {
                         job.CargoOwner = null;
                         job.CargoItems = null;
@@ -291,9 +295,9 @@ class HCEventCacheSpawner
                     }
                     ItemBase item = job.CargoItems[job.CargoNext];
                     job.CargoNext++;
-                    if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
+                    if (!item || item.IsSetForDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
                     if (item.GetHierarchyParent() != cargoOwner || !PoliceItemMatches(item, mission, classes) || PoliceItemUsed(item)) { continue; }
-                    if (mission.Family == HCEventFamily.DELIVERY && !job.DeliveryContainer) { continue; }
+                    if (mission.Family == HCEventFamily.DELIVERY && !PoliceDeliveryValid(mission, job.DeliveryContainer)) { continue; }
                     s_StockSlices.Remove(mission.Id);
                     if (mission.Family == HCEventFamily.DELIVERY) { return RememberPolice(mission, item, job.DeliveryContainer); }
                     return RememberPolice(mission, item, cargoOwner);
@@ -324,13 +328,19 @@ class HCEventCacheSpawner
         {
             // A retained ground item may have been picked up between grants.
             // Refuse that attempt rather than borrowing a different target.
-            if (job.GroundItem && (!HCPhysicalGround(job.GroundItem) || PoliceItemUsed(job.GroundItem)))
+            if (job.GroundItem && (!HCPhysicalGround(job.GroundItem) || PoliceItemUsed(job.GroundItem) || vector.DistanceSq(job.GroundItem.GetPosition(), mission.Source) > mission.Radius * mission.Radius))
             {
                 s_StockSlices.Remove(mission.Id);
                 PoliceRefused("police_target_changed");
                 return null;
             }
-            if (job.GroundItem && (mission.Family != HCEventFamily.DELIVERY || job.DeliveryContainer))
+            if (job.DeliveryContainer && !PoliceDeliveryValid(mission, job.DeliveryContainer))
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_target_changed");
+                return null;
+            }
+            if (job.GroundItem && (mission.Family != HCEventFamily.DELIVERY || PoliceDeliveryValid(mission, job.DeliveryContainer)))
             {
                 s_StockSlices.Remove(mission.Id);
                 return RememberPolice(mission, job.GroundItem, job.DeliveryContainer);
@@ -346,83 +356,52 @@ class HCEventCacheSpawner
                 s_StockSlices.Remove(mission.Id);
                 return PoliceStockTarget(mission, job.OwnedCache);
             }
-            // Isolate navmesh qualification from the durable grant and creation.
-            job.Position = SpawnPosition(mission, mission.Source, true);
-            if (job.Position == vector.Zero) { s_StockSlices.Remove(mission.Id); return null; }
-            job.Stage = 3;
-            PoliceRefused("police_work_budget");
-            return null;
-        }
-        if (job.Stage == 3)
-        {
-            job.Plan = PoliceLedger().Commit(mission.SiteId);
-            if (!job.Plan)
-            {
-                s_StockSlices.Remove(mission.Id);
-                PoliceRefused("police_cache_reserved_or_spent");
-                return null;
-            }
-            job.Stage = 4;
-            return null;
-        }
-        if (job.Stage == 4)
-        {
-            job.OwnedCache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", job.Position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
-            if (!job.OwnedCache)
-            {
-                s_StockSlices.Remove(mission.Id);
-                PoliceRefused("police_cache_create_failed");
-                return null;
-            }
-            job.Stage = 5;
-            return null;
-        }
-        if (!job.OwnedCache)
-        {
+            // No native creation handle or partially initialized cache crosses a grant.
             s_StockSlices.Remove(mission.Id);
-            PoliceRefused("police_cache_create_failed");
+            Barrel_Green created = CreatePoliceStock(mission);
+            if (created) { return PoliceStockTarget(mission, created); }
             return null;
         }
-        if (job.Stage == 5)
+        return null;
+    }
+
+    // Restore the pre-slicing creation order (4b12d4f0) within one PoliceWork grant.
+    // The plan is fixed at three items; only the capped world/cargo scan yields.
+    static Barrel_Green CreatePoliceStock(HCEventMission mission)
+    {
+        vector position = SpawnPosition(mission, mission.Source, true);
+        if (position == vector.Zero) { return null; }
+        HCEventRewardPlan plan = PoliceLedger().Commit(mission.SiteId);
+        if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
+        Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
+        if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
+        HCGroundSnap.Snap(cache);
+        HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
         {
-            HCGroundSnap.Snap(job.OwnedCache);
-            job.Stage = 6;
-            return null;
+            // Reservation already spent; an unrecorded cache is still finite native loot.
+            Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
         }
-        if (job.Stage == 6)
+        // Native: ItemBase/Barrel_ColorBase.c:87 Open, :512 cargo requires IsOpen.
+        cache.Open();
+        foreach (string itemClass : plan.Items)
         {
-            HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
-            if (!owner || !owner.RecordCache(mission.SiteId, job.OwnedCache.GetPosition()))
-            {
-                Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
-            }
-            job.OwnedCache.Open();
-            job.Stage = 7;
-            return null;
-        }
-        if (job.CreateNext < job.Plan.Items.Count())
-        {
-            // The barrel has been accessible between grants. Respect changed
-            // ownership/lid state; never delete it or player-deposited cargo.
+            // Preserve 60a261e3: never delete the cache or its cargo on failure.
             // The durable allocation stays spent, including partial stocking.
-            if (!HCPhysicalGround(job.OwnedCache) || !job.OwnedCache.IsOpen() || !job.OwnedCache.GetInventory())
+            if (!HCPhysicalGround(cache) || !cache.IsOpen() || !cache.GetInventory() || !cache.GetInventory().CreateInInventory(itemClass))
             {
-                s_StockSlices.Remove(mission.Id);
                 PoliceRefused("police_cache_cargo_failed");
                 return null;
             }
-            string itemClass = job.Plan.Items[job.CreateNext];
-            job.CreateNext++;
-            if (!job.OwnedCache.GetInventory().CreateInInventory(itemClass))
-            {
-                s_StockSlices.Remove(mission.Id);
-                PoliceRefused("police_cache_cargo_failed");
-            }
-            return null;
         }
         Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite; refill=never runtime=PENDING");
-        s_StockSlices.Remove(mission.Id);
-        return PoliceStockTarget(mission, job.OwnedCache);
+        return cache;
+    }
+
+    static bool PoliceDeliveryValid(HCEventMission mission, ItemBase container)
+    {
+        if (!HCPhysicalGround(container) || container.GetType() != mission.ContainerClass || !container.GetInventory() || !container.GetInventory().GetCargo()) { return false; }
+        return vector.DistanceSq(container.GetPosition(), mission.Source) <= mission.Radius * mission.Radius && vector.DistanceSq(container.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius;
     }
 
     static HCEventTarget Spawn(HCEventMission mission, vector anchor, string containerClass, bool police)
@@ -458,13 +437,21 @@ class HCEventCacheSpawner
 
     static HCEventTarget PoliceStockTarget(HCEventMission mission, Barrel_Green cache)
     {
+        // OwnedCache can come from an earlier scan grant: validate before dereference.
+        if (!HCPhysicalGround(cache) || !cache.GetInventory() || vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius)
+        {
+            PoliceRefused("police_target_changed");
+            return null;
+        }
         CargoBase cargo = cache.GetInventory().GetCargo();
+        if (!cargo) { PoliceRefused("police_cache_depleted"); return null; }
         int count = cargo.GetItemCount();
         if (count > 16) { count = 16; }
         for (int index = 0; index < count; index++)
         {
             ItemBase item = ItemBase.Cast(cargo.GetItem(index));
-            if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetType() != mission.ItemClass || PoliceItemUsed(item)) { continue; }
+            if (!item || item.IsSetForDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
+            if (item.GetHierarchyParent() != cache || item.GetType() != mission.ItemClass || PoliceItemUsed(item)) { continue; }
             return RememberPolice(mission, item, cache);
         }
         PoliceRefused("police_cache_depleted");
@@ -502,11 +489,11 @@ class HCEventCacheSpawner
     {
         if (!HCEventSites.PoliceSupplies(mission)) { return; }
         HCEventTarget supply = PoliceTarget(mission.Id);
-        if (supply && supply.Item) { mission.ItemClass = supply.Item.GetType(); }
+        if (supply && supply.Item && !supply.Item.IsSetForDeletion()) { mission.ItemClass = supply.Item.GetType(); }
     }
     static bool HCPhysicalGround(ItemBase item)
     {
-        return item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && !item.GetHierarchyParent();
+        return item && !item.IsSetForDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && !item.GetHierarchyParent();
     }
 
     protected static bool s_PhysicalPendingPrinted;
