@@ -126,6 +126,24 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		return HCVarietyCounters.KIND_SIT;
 	}
 
+	// Build 135: the first StartCommand_ScriptInst(HCPoseCommand) near a player
+	// crashed the server (ACCESS_VIOLATION). Until a native fix is proven the
+	// pose command starts only with the operator test file below; without it a
+	// posed class stays a normal standing infected. Checked once per session.
+	static const string HC_POSE_TEST_FILE = "$profile:HollowCountry/acceptance/PoseCommand.enable";
+	static const string HC_POSE_CRASH_REFUSAL = "pose_command_native_crash_pending_fix";
+	static int s_HCPoseAdmitted = -1;
+
+	static bool HCPoseCommandAdmitted()
+	{
+		if (s_HCPoseAdmitted < 0)
+		{
+			s_HCPoseAdmitted = 0;
+			if (FileExist(HC_ZmbM_Sitter.HC_POSE_TEST_FILE)) { s_HCPoseAdmitted = 1; }
+		}
+		return s_HCPoseAdmitted == 1;
+	}
+
 	//! Server: only authored modes admitted by the shared owner may acquire a slot.
 	bool HCRequestPose(int pose)
 	{
@@ -137,6 +155,16 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		{
 			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT);
 			return false;
+		}
+		if (pose != 0 && !HCPoseCommandAdmitted())
+		{
+			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_ADMISSION);
+			if (s_HCLastRefusal != HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL)
+			{
+				s_HCLastRefusal = HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL;
+				Print("[HollowCountryAnims] pose refused reason=" + HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL + " runtime=PENDING");
+			}
+			return false;   // stays a normal standing infected
 		}
 		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
 			return HCRefusePose(pose);
