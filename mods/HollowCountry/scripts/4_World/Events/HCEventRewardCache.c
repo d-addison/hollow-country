@@ -66,10 +66,30 @@ class HCEventPoliceNav
         return found;
     }
 }
+// Retain native query order with a capped cargo handle snapshot per container.
+// No inventory is cloned; fallbacks start only after the full capped scan.
+class HCEventPoliceStockSlice
+{
+    ref array<Object> Nearby;
+    int Next;
+    int Stage;
+    Barrel_Green OwnedCache;
+    vector OwnedPosition;
+    bool HasOwnedPosition;
+    ItemBase GroundItem;
+    ItemBase DeliveryContainer;
+    ItemBase CargoOwner;
+    int CargoNext;
+    ref array<ItemBase> CargoItems;
+    vector Position;
+    ref HCEventRewardPlan Plan;
+    int CreateNext;
+}
 class HCEventCacheSpawner
 {
     // Upper bound for the native physical-stock sphere around a mission source (metres).
     static const float SCAN_RADIUS_MAX = 25;
+    protected static ref map<string, ref HCEventPoliceStockSlice> s_StockSlices = new map<string, ref HCEventPoliceStockSlice>;
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
 
@@ -145,7 +165,7 @@ class HCEventCacheSpawner
         HCEventTarget existing = PoliceTarget(mission.Id);
         if (existing) { return existing; }
         // Keep the CE lookup at the exact origin; only the HC fallback uses navmesh.
-        Spawn(mission, mission.Source, mission.ContainerClass, true);
+        SpawnPoliceSlice(mission);
         return PoliceTarget(mission.Id);
     }
     static HCEventTarget Create(HCEventMission mission)
@@ -199,73 +219,232 @@ class HCEventCacheSpawner
         }
         return position;
     }
+    // One shared admission owner for stock and infected bind continuations.
+    // Their roster slot is serialized by HCEventModule, so they cannot consume
+    // each other's sole starvation grant in the same refresh.
+    static bool PoliceWork()
+    {
+        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_POLICE_BIND, 8);
+    }
+
+    static HCEventTarget SpawnPoliceSlice(HCEventMission mission)
+    {
+        PoliceRefused("police_work_budget");
+        if (!HCPhysicalEnabled()) { PoliceRefused("police_physical_disabled"); return null; }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        if (!policy) { PoliceRefused("police_policy_invalid"); return null; }
+        if (!PoliceWork()) { return null; }
+        HCEventPoliceStockSlice job = s_StockSlices.Get(mission.Id);
+        if (!job)
+        {
+            job = new HCEventPoliceStockSlice;
+            job.Nearby = new array<Object>;
+            array<CargoBase> proxies = new array<CargoBase>;
+            int began = TickCount(0);
+            GetGame().GetObjectsAtPosition3D(mission.Source, Math.Min(mission.Radius, SCAN_RADIUS_MAX), job.Nearby, proxies);
+            HCStockQueryCost(began, true);
+            s_StockSlices.Set(mission.Id, job);
+            return null;
+        }
+        if (job.Stage == 0)
+        {
+            HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+            job.HasOwnedPosition = ledger && ledger.CachePosition(mission.SiteId, job.OwnedPosition);
+            job.Stage = 1;
+            return null;
+        }
+        if (job.Stage == 1)
+        {
+            array<string> classes = HCW38SituationPolicy.PoliceClasses(mission.Family);
+            HCWorkBudget slice = new HCWorkBudget;
+            slice.HCReset(32, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+            while (slice.HCContinue())
+            {
+                if (job.CargoOwner)
+                {
+                    ItemBase cargoOwner = job.CargoOwner;
+                    CargoBase cargo;
+                    if (cargoOwner.GetInventory()) { cargo = cargoOwner.GetInventory().GetCargo(); }
+                    if (!HCPhysicalGround(cargoOwner) || !cargo)
+                    {
+                        job.CargoOwner = null;
+                        job.CargoItems = null;
+                        continue;
+                    }
+                    if (!job.CargoItems)
+                    {
+                        // One grant snapshots at most 64 weak item handles in
+                        // native order. No yield can shift indices mid-copy.
+                        job.CargoItems = new array<ItemBase>;
+                        int cargoCount = Math.Min(cargo.GetItemCount(), policy.PhysicalScanCargo);
+                        for (int cargoIndex = 0; cargoIndex < cargoCount; cargoIndex++)
+                        {
+                            job.CargoItems.Insert(ItemBase.Cast(cargo.GetItem(cargoIndex)));
+                        }
+                        return null;
+                    }
+                    if (job.CargoNext >= job.CargoItems.Count())
+                    {
+                        job.CargoOwner = null;
+                        job.CargoItems = null;
+                        continue;
+                    }
+                    ItemBase item = job.CargoItems[job.CargoNext];
+                    job.CargoNext++;
+                    if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
+                    if (item.GetHierarchyParent() != cargoOwner || !PoliceItemMatches(item, mission, classes) || PoliceItemUsed(item)) { continue; }
+                    if (mission.Family == HCEventFamily.DELIVERY && !job.DeliveryContainer) { continue; }
+                    s_StockSlices.Remove(mission.Id);
+                    if (mission.Family == HCEventFamily.DELIVERY) { return RememberPolice(mission, item, job.DeliveryContainer); }
+                    return RememberPolice(mission, item, cargoOwner);
+                }
+                if (job.Next >= job.Nearby.Count() || job.Next >= policy.PhysicalScanObjects)
+                {
+                    job.Stage = 2;
+                    return null;
+                }
+                ItemBase cache = ItemBase.Cast(job.Nearby[job.Next]);
+                job.Next++;
+                if (!HCPhysicalGround(cache)) { continue; }
+                if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
+                Barrel_Green tagged = Barrel_Green.Cast(cache);
+                if (tagged && job.HasOwnedPosition && vector.DistanceSq(tagged.GetPosition(), job.OwnedPosition) <= 4) { job.OwnedCache = tagged; }
+                if (!job.GroundItem && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { job.GroundItem = cache; }
+                if (cache.GetType() != mission.ContainerClass || !cache.GetInventory() || !cache.GetInventory().GetCargo()) { continue; }
+                if (vector.DistanceSq(cache.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius) { job.DeliveryContainer = cache; }
+                job.CargoOwner = cache;
+                job.CargoNext = 0;
+                job.CargoItems = null;
+                // Isolate the bounded snapshot from object inspection work.
+                return null;
+            }
+            return null;
+        }
+        if (job.Stage == 2)
+        {
+            // A retained ground item may have been picked up between grants.
+            // Refuse that attempt rather than borrowing a different target.
+            if (job.GroundItem && (!HCPhysicalGround(job.GroundItem) || PoliceItemUsed(job.GroundItem)))
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_target_changed");
+                return null;
+            }
+            if (job.GroundItem && (mission.Family != HCEventFamily.DELIVERY || job.DeliveryContainer))
+            {
+                s_StockSlices.Remove(mission.Id);
+                return RememberPolice(mission, job.GroundItem, job.DeliveryContainer);
+            }
+            if (job.Nearby.Count() > policy.PhysicalScanObjects)
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_scan_limit", "; queried=" + job.Nearby.Count().ToString() + "; scan_cap=" + policy.PhysicalScanObjects.ToString());
+                return null;
+            }
+            if (job.OwnedCache)
+            {
+                s_StockSlices.Remove(mission.Id);
+                return PoliceStockTarget(mission, job.OwnedCache);
+            }
+            // Isolate navmesh qualification from the durable grant and creation.
+            job.Position = SpawnPosition(mission, mission.Source, true);
+            if (job.Position == vector.Zero) { s_StockSlices.Remove(mission.Id); return null; }
+            job.Stage = 3;
+            PoliceRefused("police_work_budget");
+            return null;
+        }
+        if (job.Stage == 3)
+        {
+            job.Plan = PoliceLedger().Commit(mission.SiteId);
+            if (!job.Plan)
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_cache_reserved_or_spent");
+                return null;
+            }
+            job.Stage = 4;
+            return null;
+        }
+        if (job.Stage == 4)
+        {
+            job.OwnedCache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", job.Position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
+            if (!job.OwnedCache)
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_cache_create_failed");
+                return null;
+            }
+            job.Stage = 5;
+            return null;
+        }
+        if (!job.OwnedCache)
+        {
+            s_StockSlices.Remove(mission.Id);
+            PoliceRefused("police_cache_create_failed");
+            return null;
+        }
+        if (job.Stage == 5)
+        {
+            HCGroundSnap.Snap(job.OwnedCache);
+            job.Stage = 6;
+            return null;
+        }
+        if (job.Stage == 6)
+        {
+            HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
+            if (!owner || !owner.RecordCache(mission.SiteId, job.OwnedCache.GetPosition()))
+            {
+                Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
+            }
+            job.OwnedCache.Open();
+            job.Stage = 7;
+            return null;
+        }
+        if (job.CreateNext < job.Plan.Items.Count())
+        {
+            // The barrel has been accessible between grants. Respect changed
+            // ownership/lid state; never delete it or player-deposited cargo.
+            // The durable allocation stays spent, including partial stocking.
+            if (!HCPhysicalGround(job.OwnedCache) || !job.OwnedCache.IsOpen() || !job.OwnedCache.GetInventory())
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_cache_cargo_failed");
+                return null;
+            }
+            string itemClass = job.Plan.Items[job.CreateNext];
+            job.CreateNext++;
+            if (!job.OwnedCache.GetInventory().CreateInInventory(itemClass))
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_cache_cargo_failed");
+            }
+            return null;
+        }
+        Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite; refill=never runtime=PENDING");
+        s_StockSlices.Remove(mission.Id);
+        return PoliceStockTarget(mission, job.OwnedCache);
+    }
+
     static HCEventTarget Spawn(HCEventMission mission, vector anchor, string containerClass, bool police)
     {
-        if (police) { PoliceRefused(""); }
-        if (!mission) { if (police) { PoliceRefused("police_mission_invalid"); } return null; }
-        if (!GetGame() || !GetGame().IsServer()) { if (police) { PoliceRefused("police_server_unavailable"); } return null; }
-        if (!HCEventSitesGate.Admitted()) { if (police) { PoliceRefused("police_gate_closed"); } return null; }
-        if (!HCPhysicalEnabled()) { if (police) { PoliceRefused("police_physical_disabled"); } return null; }
+        // Police owns a retained job; ordinary recovery keeps its bounded lookup.
+        if (police) { return SpawnPoliceSlice(mission); }
+        if (!mission || !GetGame() || !GetGame().IsServer() || !HCEventSitesGate.Admitted() || !HCPhysicalEnabled()) { return null; }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
-        if (!policy) { if (police) { PoliceRefused("police_policy_invalid"); } return null; }
         int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
-        if (police) { consumer = HCUnitBudget.HC_WORK_POLICE_BIND; }
-        if (!HCServer.HCTickWork().HCTakeFor(consumer, 8)) { if (police) { PoliceRefused("police_work_budget"); } return null; }
+        if (!policy || !HCServer.HCTickWork().HCTakeFor(consumer, 8)) { return null; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
-        // The native query cost grows with every object in the sphere (a 65 m sphere in a town
-        // cost 441 ms in one unit on build 102); the scan cap below only limits inspection.
-        // Caches sit at the source and police stock falls back to the owned cache, so a
-        // bounded sphere is enough. Native: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D.
-        float scanRadius = Math.Min(mission.Radius, SCAN_RADIUS_MAX);
-        int queryBegan = TickCount(0);
-        GetGame().GetObjectsAtPosition3D(anchor, scanRadius, nearby, proxies);
-        HCStockQueryCost(queryBegan, police);
+        int began = TickCount(0);
+        GetGame().GetObjectsAtPosition3D(anchor, Math.Min(mission.Radius, SCAN_RADIUS_MAX), nearby, proxies);
+        HCStockQueryCost(began, false);
         int remaining = policy.PhysicalScanObjects;
-        bool matchingStock = false;
-        Barrel_Green ownedCache;
-        vector ownedPosition;
-        HCEventPoliceStockLedger stockLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
-        bool hasOwnedPosition = stockLedger && stockLedger.CachePosition(mission.SiteId, ownedPosition);
-        ItemBase groundItem;
-        ItemBase deliveryContainer;
-        array<string> classes;
-        if (police) { classes = HCW38SituationPolicy.PoliceClasses(mission.Family); }
         foreach (Object candidate : nearby)
         {
             if (remaining <= 0) { break; }
-            remaining = remaining - 1;
+            remaining--;
             ItemBase cache = ItemBase.Cast(candidate);
-            if (!HCPhysicalGround(cache)) { continue; }
-            if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
-            if (police)
-            {
-                Barrel_Green tagged = Barrel_Green.Cast(cache);
-                if (tagged && hasOwnedPosition && vector.DistanceSq(tagged.GetPosition(), ownedPosition) <= 4) { ownedCache = tagged; }
-                // Persisted stock has no new-CE callback this boot. Borrow the
-                // actual uncarried item; this path neither clones nor claims CE ownership.
-                if (!groundItem && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { groundItem = cache; }
-                if (cache.GetType() != containerClass || !cache.GetInventory() || !cache.GetInventory().GetCargo()) { continue; }
-                matchingStock = true;
-                // Delivery still means putting the actual item into the native
-                // container at Destination. Empty containers are valid destinations.
-                if (vector.DistanceSq(cache.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius) { deliveryContainer = cache; }
-                CargoBase cargo = cache.GetInventory().GetCargo();
-                int count = cargo.GetItemCount();
-                if (count > policy.PhysicalScanCargo) { count = policy.PhysicalScanCargo; }
-                int index = 0;
-                while (index < count)
-                {
-                    ItemBase item = ItemBase.Cast(cargo.GetItem(index));
-                    index = index + 1;
-                    if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
-                    if (item.GetHierarchyParent() != cache || !PoliceItemMatches(item, mission, classes) || PoliceItemUsed(item)) { continue; }
-                    if (mission.Family == HCEventFamily.DELIVERY && !deliveryContainer) { continue; }
-                    if (mission.Family == HCEventFamily.DELIVERY) { return RememberPolice(mission, item, deliveryContainer); }
-                    return RememberPolice(mission, item, cache);
-                }
-                continue;
-            }
+            if (!HCPhysicalGround(cache) || vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
             if (!HCPhysicalStock(cache) || cache.GetType() != containerClass) { continue; }
             HCEventTarget result = new HCEventTarget;
             result.MissionId = mission.Id;
@@ -273,59 +452,10 @@ class HCEventCacheSpawner
             result.Presence = cache;
             return result;
         }
-        if (police)
-        {
-            if (groundItem && (mission.Family != HCEventFamily.DELIVERY || deliveryContainer)) { return RememberPolice(mission, groundItem, deliveryContainer); }
-            string reason = "police_stock_absent";
-            if (matchingStock) { reason = "police_cargo_item_absent"; }
-            if (groundItem && mission.Family == HCEventFamily.DELIVERY) { reason = "police_delivery_container_absent"; }
-            if (nearby.Count() > policy.PhysicalScanObjects) { reason = "police_scan_limit"; }
-            string details = "; wanted=" + mission.ItemClass + "; container=" + containerClass;
-            details = details + "; queried=" + nearby.Count().ToString() + "; scan_cap=" + policy.PhysicalScanObjects.ToString();
-            // Never create after an incomplete scan: a persisted cache may be omitted.
-            if (nearby.Count() <= policy.PhysicalScanObjects)
-            {
-                if (!ownedCache) { ownedCache = CreatePoliceStock(mission); }
-                if (ownedCache) { return PoliceStockTarget(mission, ownedCache); }
-                if (PoliceReason() != "") { return null; }
-            }
-            PoliceRefused(reason, details);
-        }
         HCPhysicalPending();
         return null;
     }
 
-    static Barrel_Green CreatePoliceStock(HCEventMission mission)
-    {
-        vector position = SpawnPosition(mission, mission.Source, true);
-        if (position == vector.Zero) { return null; }
-        HCEventRewardPlan plan = PoliceLedger().Commit(mission.SiteId);
-        if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
-        Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
-        if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
-        HCGroundSnap.Snap(cache);
-        HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
-        if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
-        {
-            // Reservation already spent; an unrecorded cache is still finite native loot.
-            Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
-        }
-        // Native: ItemBase/Barrel_ColorBase.c:87 Open, :512 cargo requires IsOpen.
-        // Open only the new owned cache before its initial cargo is created.
-        cache.Open();
-        foreach (string itemClass : plan.Items)
-        {
-            if (!cache.GetInventory().CreateInInventory(itemClass))
-            {
-                // Only our unpublished cache is deleted; never borrowed CE stock.
-                GetGame().ObjectDelete(cache);
-                PoliceRefused("police_cache_cargo_failed");
-                return null;
-            }
-        }
-        Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite; refill=never runtime=PENDING");
-        return cache;
-    }
     static HCEventTarget PoliceStockTarget(HCEventMission mission, Barrel_Green cache)
     {
         CargoBase cargo = cache.GetInventory().GetCargo();

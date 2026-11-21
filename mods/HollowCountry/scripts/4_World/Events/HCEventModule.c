@@ -43,6 +43,7 @@ class HCEventModule : HCModule
     protected ref HCEventNativeObserver m_NativeObserver;
     protected float m_RosterElapsed = 0;
     protected int m_RosterCursor = 0;
+    protected bool m_BindContinuing;
     // One bounded slot per configured site/family, reset on module start.
     // Six fast post-readiness attempts, then indefinitely spaced slow retries.
     // One roster slot per five seconds. With one
@@ -331,6 +332,7 @@ class HCEventModule : HCModule
         }
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
+        m_BindContinuing = false;
         m_PoliceRetryReady = false;
         m_PoliceRetryAttempts = new array<int>;
         m_PoliceRetryAfter = new array<float>;
@@ -478,7 +480,7 @@ class HCEventModule : HCModule
             m_TickSteps.HCAdd(m_RuntimeStep, TickCount(runtimeStarted));
             m_RosterElapsed = m_RosterElapsed + deltaTime;
             if (journalTick || m_Runtime.HCPublishPending()) { return; }
-            if (m_RosterElapsed >= 5)
+            if (m_BindContinuing || m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
                 int rosterStarted = TickCount(0);
@@ -514,6 +516,7 @@ class HCEventModule : HCModule
         // One site's one family per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.
+        m_BindContinuing = false;
         int retrySlot = m_RosterCursor;
         int siteIndex = Math.Floor(m_RosterCursor / 7);
         int family = (m_RosterCursor % 7) + 1;
@@ -543,9 +546,8 @@ class HCEventModule : HCModule
                     if (context.Now < m_PoliceRetryAfter[retrySlot]) { return; }
                     policePolicy = HCW38SituationPolicy.HCGet();
                     if (!policePolicy) { return; }
-                    // Physical stock charges its own scan; infected lookup is
-                    // charged here. A budget yield never consumes an attempt.
-                    if (mission.Family == HCEventFamily.INFECTED_CLEAR && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_POLICE_BIND, 8)) { return; }
+                    // Each retained stock/infected stage takes its own grant.
+                    // A budget yield never consumes a finite retry attempt.
                     if (!m_PoliceRetryReady)
                     {
                         m_PoliceRetryReady = true;
@@ -553,6 +555,15 @@ class HCEventModule : HCModule
                     }
                 }
                 bool bound = HCEventWorldBinding.Bind(m_NativeObserver, mission);
+                // Keep the exact roster slot through a yield, including a
+                // refused grant. Neither a continuation nor starvation spends
+                // a finite retry or changes mission order.
+                if (!bound && HCEventWorldBinding.BindReason() == "police_work_budget")
+                {
+                    m_BindContinuing = true;
+                    m_RosterCursor = retrySlot;
+                    return;
+                }
                 if (policeRetry && !remembered)
                 {
                     if (!bound && HCEventWorldBinding.PoliceWaitingForPlayers()) { return; }

@@ -1145,6 +1145,7 @@ class HCXAISiteDirector : Managed
             m_LocalityCursor++;
             if (state.Failed || state.Patrol) { continue; }
             bool createFailed = false;
+            bool pathIssued = false;
             if (!state.Bound) { this.Bind(state); }
             else if (!state.Qualified)
             {
@@ -1156,6 +1157,7 @@ class HCXAISiteDirector : Managed
                 // Local units bound the slice; shared units debit the pool once, only for a real probe.
                 if (state.PathCalls > pathCallsBefore)
                 {
+                    pathIssued = true;
                     m_LocalityUnits.HCCharge(63);
                     HCServer.HCTickWork().HCCharge(63);
                 }
@@ -1181,6 +1183,7 @@ class HCXAISiteDirector : Managed
                 this.HCRecordRouteState(state);
                 refusedThisSlice++;
             }
+            if (pathIssued) { break; }
         }
         if (refusedThisSlice > 0)
         {
@@ -1636,8 +1639,10 @@ class HCXAISiteDirector : Managed
     protected void StepBind()
     {
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
+        HCWorkBudget slice = new HCWorkBudget;
+        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
         {
             if (!m_States[m_Cursor].Bound && !m_States[m_Cursor].Failed) { this.Bind(m_States[m_Cursor]); }
             if (m_States[m_Cursor].Bound || m_States[m_Cursor].Failed) { m_Cursor++; }
@@ -1731,8 +1736,10 @@ class HCXAISiteDirector : Managed
     protected void StepQualify()
     {
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 64)) { return; }
+        HCWorkBudget slice = new HCWorkBudget;
+        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
         {
             HCXAISiteState state = m_States[m_Cursor];
             if (!state.Bound || state.Failed || state.Qualified)
@@ -1740,8 +1747,10 @@ class HCXAISiteDirector : Managed
                 m_Cursor++;
                 continue;
             }
+            int callsBefore = state.PathCalls;
             this.QualifyStep(state);
             work++;
+            if (state.PathCalls > callsBefore) { return; }
         }
         if (m_Cursor < m_States.Count()) { return; }
         int qualified = 0;
@@ -2126,8 +2135,10 @@ class HCXAISiteDirector : Managed
     protected void StepCreate()
     {
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 8)) { return; }
+        HCWorkBudget slice = new HCWorkBudget;
+        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
         {
             HCXAISiteState state = m_States[m_Cursor];
             m_Cursor++;

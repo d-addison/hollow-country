@@ -25,10 +25,11 @@ class HCInteriorPlacementCursor
     protected HCInteriorFurnishRow m_Current;
     protected bool m_Complete;
     protected ref HCInteriorResolveCursor m_Resolve;
+    protected bool m_Resolved;
     protected ref HCWorkBudget m_Budget = new HCPerfSlices("Interiors");
 
     // One deadline/count for the outer furnishing loop, never one per slot.
-    void HCBeginTick() { m_Budget.HCReset(HCPerfConfig.HCGet().InteriorStepsPerTick); }
+    void HCBeginTick() { m_Budget.HCReset(HCPerfConfig.HCGet().InteriorStepsPerTick, Math.Min(HCPerfConfig.HCGet().SliceMs, 2)); }
 
     bool HCComplete() { return m_Complete; }
     int HCLastCost() { return m_LastCost; }
@@ -65,6 +66,7 @@ class HCInteriorPlacementCursor
                 }
             }
             m_Resolve = null;
+            m_Resolved = false;
             m_Slot = 0;
             m_HousePlaced = 0;
         }
@@ -82,6 +84,7 @@ class HCInteriorPlacementCursor
             // Restart live candidate checks after that hold; keep the same
             // cached native snapshot, as before the staged resolver.
             m_Resolve = null;
+            m_Resolved = false;
             if (m_Slot == 0)
             {
                 if (!m_FromDeferred)
@@ -115,8 +118,11 @@ class HCInteriorPlacementCursor
                 m_Yield = true;
                 return;
             }
-            if (!m_Resolve.HCStep(m_Current))
+            if (!m_Resolved)
             {
+                m_Resolved = m_Resolve.HCStep(m_Current);
+                // A completed candidate loop gets no prop inspection/creation
+                // in the same grant. The resolved house and slot stay pinned.
                 m_Yield = true;
                 return;
             }
@@ -135,6 +141,7 @@ class HCInteriorPlacementCursor
             return;
         }
         m_Resolve = null;
+        m_Resolved = false;
         m_Slot = m_Slot + 1;
         if (m_Slot >= m_Current.Props.Count()) { m_Current = null; }
         m_Budget.HCDeferred("Interiors", rows.Count() - m_Next + m_DeferredRemaining);

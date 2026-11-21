@@ -63,6 +63,10 @@ class HCInteriorPackJob
     int Bytes;
     int CachedBytes;
     ref map<string, string> RawFiles = new map<string, string>;
+    // Separate screened reads, native decoding and script census/validation.
+    string LeafContent;
+    int LeafStage;
+    ref HCInteriorTemplate PendingTemplate;
     bool Started;
     bool Ready;
     ref HCInteriorPackRoot Header;
@@ -112,6 +116,9 @@ class HCInteriorPackIndex
         job.Ready = false;
         job.Index = null;
         job.Header = null;
+        job.LeafContent = "";
+        job.LeafStage = 0;
+        job.PendingTemplate = null;
         job.RawFiles.Clear();
         job.CachedBytes = 0;
         job.Pins.Clear();
@@ -144,6 +151,9 @@ class HCInteriorPackIndex
         job.Ready = false;
         job.Header = null;
         job.Index = null;
+        job.LeafContent = "";
+        job.LeafStage = 0;
+        job.PendingTemplate = null;
         job.RawFiles.Clear();
         job.CachedBytes = 0;
         job.Pins.Clear();
@@ -467,6 +477,9 @@ class HCInteriorPackIndex
     static void HCReceipt(HCInteriorPackJob job, int classes, bool enabled)
     {
         HCFinishDuration(job);
+        job.LeafContent = "";
+        job.LeafStage = 0;
+        job.PendingTemplate = null;
         job.RawFiles.Clear(); // All leaf consumers are finished before the admission receipt.
         job.CachedBytes = 0;
         string state = "off";
