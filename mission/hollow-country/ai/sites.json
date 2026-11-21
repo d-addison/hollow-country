@@ -1231,7 +1231,7 @@
       "UnmatchedPrototypeClasses": ["Land_wreck_truck01_aban1_blue","Land_wreck_truck01_aban1_green","Land_wreck_truck01_aban1_orange","Land_wreck_truck01_aban2_blue","Land_wreck_truck01_aban2_green","Land_wreck_truck01_aban2_orange"],
       "Runtime": "PENDING",
       "ExistingContent": {
-        "Sources": {"events/scene-chains.json":"f2cd9497dbcb70a8a3722ca057d11b9153bc2da6f2f5f1ef36962f220d87e041","travel/auditshelter_scenes.json":"c94b2a8c301cd312afadc5cbc74906af860004409c3efcc76243a22a86ce38eb","ai/event-sites.contract.json":"503fb9b6a7df93640f783ce5e9fbacaf371a4b734f5432e56c001e114f5245a6"},
+        "Sources": {"events/scene-chains.json":"f2cd9497dbcb70a8a3722ca057d11b9153bc2da6f2f5f1ef36962f220d87e041","travel/auditshelter_scenes.json":"4f001ea7c205b6b2df847ba1d9d3017efee212c991afd883d7ea676c11c7ba44","ai/event-sites.contract.json":"503fb9b6a7df93640f783ce5e9fbacaf371a4b734f5432e56c001e114f5245a6"},
         "Policy": "Nearest-label source assignment only; original scene identities and transforms unchanged.",
         "Localities": {
           "chernogorsk": {"SceneChains":[],"ShelterScenes":[],"PoliceEventSources":[]},

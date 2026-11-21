@@ -189,6 +189,8 @@ def build(args):
     if out.resolve().is_relative_to(ROOT) or out.resolve().is_relative_to(CACHE / ('build-' + args.build)):
         raise ValueError('Release output must be outside the source/build worktree')
     with worktree(sha, args.build) as tree, tempfile.TemporaryDirectory(prefix='hc-release-') as temp:
+        from tools.package.generated_digests import verify_release
+        verify_release(tree, args.addons.absolute(), Path(getattr(args, 'workshop', WORKSHOP)).absolute())
         scratch = Path(temp)
         target = tree / 'mods/HollowCountry/data/defaults/templates'
         backup = scratch / 'original-templates'

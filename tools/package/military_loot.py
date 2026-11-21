@@ -410,7 +410,7 @@ def other_sources():
     }}, sort_keys=True))
 
 
-def regenerate():
+def regenerate(output=None):
     """Refresh only the committed native/travel types; optional packs stay install-time."""
     path = ROOT / 'mission/hollow-country/ce/types.xml'
     tree = ET.parse(path)
@@ -439,7 +439,7 @@ def regenerate():
     from tools.package import xml_text
     ET.indent(tree, space='  ')
     data = xml_text.document(tree.getroot())
-    path.write_bytes(b'\n'.join(line.rstrip() for line in data.splitlines()) + b'\n')
+    (output if output is not None else path).write_bytes(b'\n'.join(line.rstrip() for line in data.splitlines()) + b'\n')
     print('native/travel fields refreshed=' + str(changed))
 
 
@@ -481,6 +481,7 @@ def main():
     parser.add_argument('--regenerate', action='store_true')
     parser.add_argument('--check', action='store_true', help='validate catalog retention and committed native rows')
     parser.add_argument('--plan', action='store_true', help='with --mission: compare installed and generated Military pools')
+    parser.add_argument('--out', type=Path, help='regenerated types destination')
     args = parser.parse_args()
     if args.plan and not args.mission:
         parser.error('--plan requires --mission')
@@ -492,7 +493,7 @@ def main():
         point_share(args.mission, load_rules()['tisy_bounds'])
         other_sources()
     if args.regenerate:
-        regenerate()
+        regenerate(args.out)
     if args.check:
         entries = apply(list(catalog().values()))
         path = ROOT / 'mission/hollow-country/ce/types.xml'

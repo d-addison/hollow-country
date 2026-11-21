@@ -1,4 +1,4 @@
-"""Read-only aggregate of existing generated-artefact checks; never regenerates."""
+"""Read-only aggregate checks and disposable regeneration; never replaces outputs."""
 import argparse
 from dataclasses import dataclass
 import json
@@ -32,19 +32,25 @@ GENERATORS = (
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
               ('addons', 'inventory_stack')),
     Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
-              'generation validation passed; CLI does not compare committed bytes'),
+              'committed bytes match fresh generation'),
     Generator('loot_point_preserve', ('--check', '--prior', '{prior}', '--candidate', '{candidate}',
                                      '--out', LOOT_OUTPUT)),
     Generator('snafu_optional', ('generate', '--check', '--source', '{source}', '--report', '{snafu_report}'),
-              ('source', 'snafu_report'), 'generation validation passed; CLI does not compare committed bytes'),
+              ('source', 'snafu_report'), 'committed bytes match fresh generation'),
     Generator('tactical_flava_optional', ('generate', '--check', '--source', '{source}', '--report', '{tactical_flava_report}'),
-              ('source', 'tactical_flava_report'), 'generation validation passed; CLI does not compare committed bytes'),
+              ('source', 'tactical_flava_report'), 'committed bytes match fresh generation'),
     Generator('gui_icons', ('check',)),
+    Generator('economy', (), ('source',)),
+    Generator('ai_patrols', (), ('source',)),
+    Generator('anims_config', (), ('addons',)),
     Generator('new_buildings', ('check', '--mission', '{source}'), ('source',),
               'shipped layer dry-run passed; CLI does not regenerate geometry'),
 )
 # The aggregate has --check but is an orchestrator, not a generator. Never recurse.
-EXCLUDED_CHECK_MODULES = {'regenerate_all': 'aggregate orchestrator; would recursively invoke itself'}
+EXCLUDED_CHECK_MODULES = {
+    'regenerate_all': 'aggregate orchestrator; would recursively invoke itself',
+    'generated_digests': 'digest orchestrator; checked separately before release packaging',
+}
 
 
 def diagnostic(result):
@@ -80,7 +86,7 @@ def check_generator(generator, values, timeout):
     missing = missing_inputs(generator, values)
     if missing:
         return 'SKIP', missing
-    # Only materialize historical *inputs*. No generator output is ever written.
+    # Historical inputs and regenerated outputs stay in disposable directories.
     with tempfile.TemporaryDirectory(prefix='hc-regenerate-check-') as scratch:
         arguments = dict(values)
         if generator.name == 'loot_point_preserve':
@@ -94,11 +100,27 @@ def check_generator(generator, values, timeout):
                 arguments[name] = path
         command = [sys.executable, '-B', '-m', 'tools.package.' + generator.name,
                    *(arg.format_map(arguments) for arg in generator.arguments)]
+        if generator.arguments:
+            result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                                    errors='replace', timeout=timeout)
+            if result.returncode:
+                return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
+        command = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--compare', generator.name,
+                   '--timeout', str(timeout)]
+        for key in ('addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'reader', 'image_to_paa'):
+            if values.get(key) is not None:
+                command += ['--' + key.replace('_', '-'), str(values[key])]
+        for census in values.get('native_census', []):
+            command += ['--native-census', str(census)]
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
                                 errors='replace', timeout=timeout)
     if result.returncode:
         return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
-    return 'PASS', generator.success
+    if result.stdout.startswith('SKIP '):
+        return 'SKIP', ('existing validation passed; byte regeneration: ' if generator.arguments else '') + diagnostic(result).split(' ', 2)[-1]
+    if generator.name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional'}:
+        return 'PASS', 'install-time delta generation validated; no committed outputs'
+    return 'PASS', 'committed bytes match fresh generation'
 
 
 def positive_timeout(value):
@@ -117,11 +139,15 @@ def main(argv=None):
     parser.add_argument('--source', type=Path, help='pristine stock mission; default: sibling of Addons under mpmissions/dayzOffline.chernarusplus')
     parser.add_argument('--snafu-report', type=Path, help='existing external verification report')
     parser.add_argument('--tactical-flava-report', type=Path, help='existing external verification report')
+    parser.add_argument('--reader', type=Path, help='pinned geometry reader directory')
+    parser.add_argument('--native-census', type=Path, action='append', default=[])
+    parser.add_argument('--image-to-paa', type=Path, help='installed ImageToPAA converter')
     parser.add_argument('--timeout', type=positive_timeout, default=60, help='seconds per child (default: 60)')
     args = parser.parse_args(argv)
     values = {name: path.expanduser().resolve() if path is not None else None
               for name, path in vars(args).items() if name in
-              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report'}}
+              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'reader', 'image_to_paa'}}
+    values['native_census'] = [p.expanduser().resolve() for p in args.native_census]
     if values['source'] is None:
         values['source'] = values['addons'].parent / 'mpmissions/dayzOffline.chernarusplus'
     counts = {'PASS': 0, 'FAIL': 0, 'SKIP': 0}
