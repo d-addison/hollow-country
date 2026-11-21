@@ -171,6 +171,18 @@ class HCGroupMapLayers
         if (mHCEvents) mHCEvents.ClearItems();
     }
 
+    // Admin layers only, for an allowlisted admin who carries no map item.
+    void DrawAdmin(MapWidget mapWidget, HCGroupSnapshot frame)
+    {
+        mapWidget.ClearUserMarks();
+        mHCUsed = 0;
+        HideNavigation();
+        HideMissions();
+        HCAdminWorldClient.Get().Draw(this, mapWidget, frame.Settings);
+        for (int unused = mHCUsed; unused < mHCPool.Count(); unused++)
+            mHCPool.Get(unused).Show(false);
+    }
+
     void Draw(MapWidget mapWidget, HCGroupSnapshot frame, PlayerBase viewer)
     {
         mapWidget.ClearUserMarks();

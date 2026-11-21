@@ -165,7 +165,7 @@ class HCGroupMapMenu extends UIScriptedMenu
             accessChanged = hasMap != mHCHasMap;
             mHCHasMap = hasMap;
             // Native 1.30.164289: 1_Core/proto/EnWidgets.c:125 Show.
-            if (mHCMapArea) mHCMapArea.Show(hasMap);
+            if (mHCMapArea) mHCMapArea.Show(hasMap || HCAdminWorldClient.Get().Authorized);
             if (mHCMarkerPanel) mHCMarkerPanel.Show(hasMap);
             if (accessChanged && !hasMap)
             {
@@ -175,7 +175,7 @@ class HCGroupMapMenu extends UIScriptedMenu
                 ResetEditor();
             }
         }
-        HCAdminWorldClient.Get().Tick(mHCMap, mHCHasMap);
+        HCAdminWorldClient.Get().Tick(mHCMap);
         if (frame != mHCBound || accessChanged)
         {
             RebuildLists(frame);
@@ -184,6 +184,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         if (mHCRenderTime >= 0.25)
         {
             if (mHCHasMap && mHCLayers) mHCLayers.Draw(mHCMap, frame, viewer);
+            else if (mHCLayers && HCAdminWorldClient.Get().Authorized) mHCLayers.DrawAdmin(mHCMap, frame);
             // Native 1.30.164289: 1_Core/proto/EnWidgets.c:443 SetItem.
             // Position frames update Members in place; refresh status at existing UI cadence.
             if (mHCMembers)
@@ -332,7 +333,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     override bool OnClick(Widget w, int x, int y, int button)
     {
         if (!w) return false;
-        if (mHCHasMap && HCAdminWorldClient.Get().Click(w, mHCMap, x, y)) return true;
+        if ((mHCHasMap || HCAdminWorldClient.Get().Authorized) && HCAdminWorldClient.Get().Click(w, mHCMap, x, y)) return true;
         if (mHCHasMap && mHCInfo && mHCInfo.OnClick(w)) return true;
         string action = w.GetName();
         if (action == "HCClose") { Close(); return true; }

@@ -134,18 +134,13 @@ class HCAdminWorldClient
         m_State = null;
         m_LootFilter = null;
     }
-    void Tick(MapWidget mapWidget, bool hasMap)
+    // The admin view does not need a carried map item: the server checks the
+    // allowlist on every request and never replies to anyone else.
+    void Tick(MapWidget mapWidget)
     {
         if (!m_Open || !mapWidget) { return; }
         float now = GetGame().GetTickTime();
-        m_Access = hasMap;
-        if (!hasMap)
-        {
-            if (m_Subscribed) { Send(false, mapWidget); }
-            Authorized = false;
-            if (m_Panel) { m_Panel.Show(false); }
-            return;
-        }
+        m_Access = true;
         if (now >= m_SendAt)
         {
             Send(true, mapWidget);
