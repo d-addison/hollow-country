@@ -77,11 +77,29 @@ records (`verified: false`) contain current input/output hashes for inspection,
 not certification, and always refuse release. A changed input with unchanged
 fresh output can safely receive a new receipt; a stale output cannot.
 
-The economy contract selects the shipped `contextual-pilot` profile, roster and
-default item policy, comparing its committed `ce/types.xml` and CE append file.
-Its full delta inventory comes from `economy.DELTA_FILES`. Firearms and both
-optional weapon packs generate install-time deltas outside Git, rather than
-committed files in this tree. Their declared delta inventories and freshly
+The production boundaries are not one generator per similarly named file:
+
+- Committed `mission/hollow-country/ce/types.xml` and its CE append file are
+  authored travel/CE inputs (`travel.validate`, first introduced by `cedceebc`).
+  `military_loot.regenerate` patches the committed types in place, preserving
+  other authored rows; `7aa4c46b` refreshed those fields and `837c6e8d` later
+  removed the Makarov rows. The checker reproduces this patch in a temporary
+  destination and compares the final bytes. No later economy writer owns it.
+- `economy.generate` selects the shipped `contextual-pilot` profile, roster and
+  default item policy to build a separate install-time delta. The launcher
+  (`local_test_session.economy_delta`) and `economy` installation/composition
+  consume that delta alongside the authored CE, rather than replacing it.
+  Comparing it to the authored travel types or append file is invalid. Its full
+  external delta inventory comes from `economy.DELTA_FILES`.
+- `ai_patrols sites` created the original seed. Subsequent authored route,
+  tuning and HC43 edits are retained inputs. Since `175a4e12`, the final writer
+  is `tools.audit.gapcov_regions --write`: it preserves legacy rows and rebuilds
+  `gapcov-` rows plus regional metadata. The adapter copies repository mission
+  inputs into a temporary tree and runs that final stage, comparing only its
+  final sites bytes; localities/story companion writes also stay temporary.
+
+Firearms and both optional weapon packs also generate install-time deltas
+outside Git, rather than committed files in this tree. Their declared delta inventories and freshly
 generated hashes are recorded under `external_outputs`; these entries do not
 claim that a delta was committed, installed, or packaged. A successful aggregate
 check for these generators means generation validation, not a committed-output
@@ -102,3 +120,22 @@ The digest CLI accepts the same environment defaults; explicit flags override
 them. These paths stay local and must never be put into the receipt file.
 Run the strict digest CLI with the exact intended installed inputs before a
 release. Offline freshness does not establish DayZ runtime behaviour.
+
+## Geometry validation versus regeneration
+
+The original `loot_point_preserve --check` compares historical point-loss
+receipts, and `new_buildings check` dry-runs the shipped layer against stock
+mission XML. Neither loads an ODOL reader. These existing checks still run
+first. A subsequent SKIP saying `existing validation passed; byte regeneration:
+pinned geometry reader unavailable` means that validation passed but fresh
+geometry generation could not run: the new stage needs `--reader` or
+`HC_GENERATED_READER` in addition to the old checks' inputs. Installed Addons
+alone do not configure a reader. This is not evidence that an installed reader
+failed, nor a byte-freshness pass. Strict installed-input verification still
+refuses it. Configure the pinned reader explicitly on the lead host to run the
+additional stage; original native censuses must also be supplied if used.
+
+Byte mismatches report entry additions/removals/changes and example names;
+JSON also reports changed metadata paths. Zero changed entries can still fail
+for stale metadata or serialization. Never update outputs or receipts solely
+to silence these findings.

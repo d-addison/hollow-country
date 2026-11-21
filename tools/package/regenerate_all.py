@@ -117,8 +117,8 @@ def check_generator(generator, values, timeout):
     if result.returncode:
         return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
     if result.stdout.startswith('SKIP '):
-        return 'SKIP', diagnostic(result).split(' ', 2)[-1]
-    if generator.name in {'firearms', 'snafu_optional', 'tactical_flava_optional'}:
+        return 'SKIP', ('existing validation passed; byte regeneration: ' if generator.arguments else '') + diagnostic(result).split(' ', 2)[-1]
+    if generator.name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional'}:
         return 'PASS', 'install-time delta generation validated; no committed outputs'
     return 'PASS', 'committed bytes match fresh generation'
 

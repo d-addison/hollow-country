@@ -8,10 +8,12 @@ import importlib
 import io
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 
 from tools.release.ship_inputs import ADDONS
 from tools.release.rpt_summary import filtered
@@ -63,10 +65,8 @@ def contracts():
         Contract('new_buildings', 'tools.package.new_buildings', (str(new_buildings.PATH),),
                  ('config/map-overlays/**/*.json', 'mission/hollow-country/ce/hc-event-sites.json',
                   'config/loot-*.json', 'tools/package/*.json', 'tools/package/interior_themes/*.json')),
-        Contract('economy', 'tools.package.economy',
-                 ('mission/hollow-country/ce/types.xml', 'mission/hollow-country/cfgeconomycore.append.xml'),
-                 common, delta),
-        Contract('ai_patrols', 'tools.package.ai_patrols', ('mission/hollow-country/ai/sites.json',)),
+        Contract('economy', 'tools.package.economy', (), common, delta),
+        Contract('ai_patrols', 'tools.audit.gapcov_regions', ('mission/hollow-country/ai/sites.json',)),
         Contract('anims_config', 'tools.anim.ce_variants',
                  ('mods/HollowCountryAnims/config.cpp', 'mission/hollow-country/infected/variants.json')),
     )
@@ -143,6 +143,13 @@ def installed_snapshot(contract, values):
         for rel in ('mapgrouppos.xml', 'mapgroupproto.xml'):
             path = require_file(source / rel if source else None, 'stock mission ' + rel)
             identities['stock/' + rel] = file_sha(path)
+    if name == 'ai_patrols':
+        # gapcov_regions also consumes optional CE/territory anchor metadata.
+        # Bind its complete file list so additions/removals invalidate receipts.
+        paths = [source / 'cfgeventspawns.xml', *sorted((source / 'env').glob('*territories.xml'))]
+        for path in paths:
+            if path.is_file():
+                identities['stock/' + path.relative_to(source).as_posix()] = file_sha(path)
     if name in {'snafu_optional', 'tactical_flava_optional'}:
         key = 'snafu_report' if name == 'snafu_optional' else 'tactical_flava_report'
         report = require_file(values.get(key), 'weapon pack verification report')
@@ -250,8 +257,9 @@ def regenerate(contract, values, scratch):
         if name == 'economy':
             files = module.generate(source, load('mission/hollow-country/economy-profiles/contextual-pilot.json'),
                                     roster=load('tools/package/firearms_roster.json'))
-            return {**{p: files[p.removeprefix('mission/hollow-country/')] for p in contract.outputs},
-                    **{'external/' + p: data for p, data in files.items()}}
+            if set(files) != set(contract.external_outputs):
+                raise ValueError('declared install-time output inventory differs')
+            return {'external/' + p: data for p, data in files.items()}
         if name == 'firearms':
             files = module.generate(source, load('tools/package/firearms_roster.json'))
         else:
@@ -263,8 +271,13 @@ def regenerate(contract, values, scratch):
         # These deltas are not committed or included in the release PBOs.
         return {'external/' + p: data for p, data in files.items()}
     if name == 'ai_patrols':
-        data = module.generate_sites(module.read_text(source / 'mapgrouppos.xml'), module.read_text(source / 'mapgroupproto.xml'))
-        return {contract.outputs[0]: (json.dumps(data, indent=2) + '\n').encode()}
+        # The legacy ai_patrols seed is now authored (routes/tuning/HC43). The
+        # final producer preserves it and rebuilds only gapcov regional rows.
+        # Copy all repository inputs; the writer's three outputs stay disposable.
+        shutil.copytree(ROOT / 'mission/hollow-country', scratch / 'mission/hollow-country')
+        if module.main(['--repo', str(scratch), '--stock-mission', str(source), '--write']):
+            raise ValueError('regional AI sites generation refused')
+        return {p: (scratch / p).read_bytes() for p in contract.outputs}
     if name == 'anims_config':
         # Reproduce both outputs of ce_variants.main, including its policy derivation.
         policy = load('mission/hollow-country/infected/variants.json')
@@ -305,6 +318,43 @@ def regenerate(contract, values, scratch):
     raise ValueError('no regeneration adapter: ' + name)
 
 
+def difference_summary(path, committed, fresh):
+    """Bounded entry-level evidence; formatting-only drift remains a byte failure."""
+    def xml_entry(node):
+        return (node.tag, sorted(node.attrib.items()), (node.text or '').strip(),
+                sorted(xml_entry(child) for child in node))
+
+    try:
+        if path.endswith('.xml'):
+            before, after = [
+                {node.get('name'): xml_entry(node) for node in ET.fromstring(raw)}
+                for raw in (committed, fresh)]
+        elif path.endswith('.json'):
+            docs = [json.loads(raw) for raw in (committed, fresh)]
+            before, after = [{row['Id']: row for row in doc['Sites']} for doc in docs]
+            metadata = []
+            def fields(left, right, prefix=''):
+                if isinstance(left, dict) and isinstance(right, dict):
+                    for key in sorted(left.keys() | right.keys()):
+                        if key == 'Sites' and not prefix:
+                            continue
+                        fields(left.get(key), right.get(key), prefix + '/' + key)
+                elif left != right:
+                    metadata.append(prefix)
+            fields(*docs)
+        else:
+            return 'byte/format difference'
+        added = sorted(after.keys() - before.keys())
+        removed = sorted(before.keys() - after.keys())
+        changed = sorted(k for k in before.keys() & after.keys() if before[k] != after[k])
+        examples = ','.join((changed + added + removed)[:5])
+        detail = ('; metadata=' + ','.join(metadata[:3])) if path.endswith('.json') and metadata else ''
+        return f'entries added={len(added)} removed={len(removed)} changed={len(changed)}' + detail + (
+            '; examples=' + examples if examples else '; formatting or document metadata differs')
+    except (ValueError, KeyError, TypeError, ET.ParseError):
+        return 'byte/structure difference'
+
+
 def fresh_record(contract, values):
     before = local_snapshot(contract)
     installed = installed_snapshot(contract, values)
@@ -319,7 +369,7 @@ def fresh_record(contract, values):
         raise ValueError('declared output inventory differs')
     for path, data in fresh.items():
         if (ROOT / path).read_bytes() != data:
-            raise ValueError('committed bytes differ: ' + path)
+            raise ValueError('committed bytes differ: ' + path + '; ' + difference_summary(path, (ROOT / path).read_bytes(), data))
     if before != local_snapshot(contract) or installed != installed_snapshot(contract, values):
         raise ValueError('inputs changed during regeneration')
     return {'inputs': before, 'installed': installed,
