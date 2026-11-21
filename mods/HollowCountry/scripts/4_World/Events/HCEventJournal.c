@@ -50,15 +50,39 @@ class HCEventJournalIO
         CloseFindFile(handle);
         return names;
     }
+    string HCPath(string name) { return m_Root + "/" + name; }
     bool Exists(string name) { return FileExist(m_Root + "/" + name); }
-    string Read(string name, int limit)
+    // Optional retained read supplies one <=4096-byte verification chunk.
+    // Synchronous callers retain their existing read contract.
+    protected FileHandle m_ReadHandle;
+    protected bool m_ReadOpen;
+    protected int m_ReadCount;
+    int HCReadCount() { return m_ReadCount; }
+    void HCCloseRead()
+    {
+        if (m_ReadOpen) { CloseFile(m_ReadHandle); m_ReadOpen = false; }
+    }
+    string Read(string name, int limit, bool retained = false)
     {
         string text;
-        FileHandle handle = OpenFile(m_Root + "/" + name, FileMode.READ);
+        FileHandle handle;
+        if (retained && m_ReadOpen) { handle = m_ReadHandle; }
+        else { handle = OpenFile(m_Root + "/" + name, FileMode.READ); }
+        m_ReadCount = -1;
         if (!handle) return "";
         int count = ReadFile(handle, text, limit + 1);
-        CloseFile(handle);
-        if (count < 1 || count > limit || text.Length() > limit) return "";
+        m_ReadCount = count;
+        if (retained && count > 0)
+        {
+            m_ReadHandle = handle;
+            m_ReadOpen = true;
+        }
+        else
+        {
+            CloseFile(handle);
+            m_ReadOpen = false;
+        }
+        if (count < 1 || text.Length() != count || (!retained && count > limit)) return "";
         return text;
     }
     bool WriteNew(string name, string text, int limit)
@@ -230,6 +254,148 @@ class HCEventJournal : HCEventPersistence
         }
         return m_Codec.Decode(m_Codec.Encode(state));
     }
+    // Maintenance continuation: no revision becomes visible before commit readback.
+    // Existing mutation/ingress barriers can drain this same continuation synchronously.
+    protected ref HCEventRuntimeState m_Pending;
+    protected ref HCStagedSaveImage m_Writer;
+    protected int m_SaveStage = -1;
+    protected string m_NextImage;
+    protected string m_NextReceipt;
+    protected bool m_CheckOpen;
+    protected int m_CheckOffset;
+    string HCStageName()
+    {
+        if (m_SaveStage == 0) { return "journal_validate"; }
+        if (m_SaveStage == 1) { return "journal_inventory"; }
+        if (m_SaveStage == 2) { return "journal_prior_image"; }
+        if (m_SaveStage == 3) { return "journal_prior_intent"; }
+        if (m_SaveStage == 4) { return "journal_prior_commit"; }
+        if (m_SaveStage == 5) { return "journal_encode"; }
+        if (m_SaveStage == 6) { return "journal_receipt"; }
+        if (m_SaveStage == 7) { return "journal_write_intent"; }
+        if (m_SaveStage == 8) { return "journal_write_image"; }
+        if (m_SaveStage == 9) { return "journal_write_commit"; }
+        if (m_SaveStage == 10) { return "journal_prune_intent"; }
+        if (m_SaveStage == 11) { return "journal_prune_image"; }
+        if (m_SaveStage == 12) { return "journal_prune_commit"; }
+        return "journal_publish";
+    }
+
+    bool HCBeginSave(HCEventRuntimeState state)
+    {
+        if (m_Fault || m_SaveStage >= 0 || !state) { return false; }
+        m_Pending = state;
+        m_SaveStage = 0;
+        return true;
+    }
+
+    protected int HCStageFault()
+    {
+        m_IO.HCCloseRead();
+        m_CheckOpen = false;
+        m_Writer = null;
+        m_Pending = null;
+        m_SaveStage = -1;
+        Fault();
+        return HCSaveJob.STEP_FAILED;
+    }
+
+    // One <=4096-byte read/compare per call, including open/close at ends.
+    protected int HCCheckPrior(string name, string expected)
+    {
+        if (!m_CheckOpen) { m_CheckOpen = true; m_CheckOffset = 0; }
+        string piece = m_IO.Read(name, HCStagedSaveImage.HC_CHUNK_BYTES - 1, true);
+        int count = m_IO.HCReadCount();
+        if (count < 0 || count != piece.Length() || m_CheckOffset + count > expected.Length()) { return HCSaveJob.STEP_FAILED; }
+        if (count == 0)
+        {
+            if (m_CheckOffset != expected.Length() || m_CheckOffset < 1) { return HCSaveJob.STEP_FAILED; }
+            m_CheckOpen = false;
+            return HCSaveJob.STEP_DONE;
+        }
+        if (piece != expected.Substring(m_CheckOffset, count)) { return HCSaveJob.STEP_FAILED; }
+        m_CheckOffset += count;
+        return HCSaveJob.STEP_MORE;
+    }
+
+    int HCStepSave()
+    {
+        if (m_Fault || m_SaveStage < 0 || !m_Pending) { return HCStageFault(); }
+        int result = HCSaveJob.STEP_DONE;
+        if (m_SaveStage == 0)
+        {
+            if (!HCEventRuntimePolicy.StateValid(m_Pending) || m_Pending.Director.WorldName != m_World || m_Pending.Revision != m_Latest + 1) { return HCStageFault(); }
+        }
+        else if (m_SaveStage == 1)
+        {
+            if (Highest() != m_Latest) { return HCStageFault(); }
+        }
+        else if (m_SaveStage >= 2 && m_SaveStage <= 4 && m_Latest > 0)
+        {
+            string prefix = "image-";
+            string expected = m_Image;
+            if (m_SaveStage == 3) { prefix = "intent-"; expected = m_Receipt; }
+            if (m_SaveStage == 4) { prefix = "commit-"; expected = m_Receipt; }
+            result = HCCheckPrior(Name(prefix, m_Latest), expected);
+        }
+        else if (m_SaveStage == 5)
+        {
+            m_NextImage = m_Codec.Encode(m_Pending);
+            if (m_NextImage.Length() < 1 || m_NextImage.Length() > m_Settings.MaxStoreBytes) { return HCStageFault(); }
+        }
+        else if (m_SaveStage == 6)
+        {
+            HCEventJournalReceipt receipt = new HCEventJournalReceipt;
+            receipt.Revision = m_Pending.Revision;
+            receipt.WorldName = m_World;
+            receipt.Length = m_NextImage.Length();
+            receipt.Hash = m_Codec.Digest(m_NextImage);
+            m_NextReceipt = m_Codec.EncodeReceipt(receipt);
+        }
+        else if (m_SaveStage >= 7 && m_SaveStage <= 9)
+        {
+            if (!m_Writer)
+            {
+                string writePrefix = "intent-";
+                string text = m_NextReceipt;
+                int limit = 2048;
+                if (m_SaveStage == 8) { writePrefix = "image-"; text = m_NextImage; limit = m_Settings.MaxStoreBytes; }
+                if (m_SaveStage == 9) { writePrefix = "commit-"; }
+                m_Writer = new HCStagedSaveImage;
+                if (!m_Writer.BeginNew(m_IO.HCPath(Name(writePrefix, m_Pending.Revision)), text, limit)) { return HCStageFault(); }
+                return HCSaveJob.STEP_MORE;
+            }
+            result = m_Writer.HCStepImage();
+            if (result == HCSaveJob.STEP_DONE) { m_Writer = null; }
+        }
+        else if (m_SaveStage >= 10 && m_SaveStage <= 12)
+        {
+            int old = m_Pending.Revision - 8;
+            if (old > 0)
+            {
+                string oldPrefix = "intent-";
+                if (m_SaveStage == 11) { oldPrefix = "image-"; }
+                if (m_SaveStage == 12) { oldPrefix = "commit-"; }
+                string obsolete = Name(oldPrefix, old);
+                if (m_IO.Exists(obsolete) && !m_IO.Remove(obsolete)) { return HCStageFault(); }
+            }
+        }
+        else if (m_SaveStage == 13)
+        {
+            m_Latest = m_Pending.Revision;
+            m_Image = m_NextImage;
+            m_Receipt = m_NextReceipt;
+            m_NextImage = "";
+            m_NextReceipt = "";
+            m_Pending = null;
+            m_SaveStage = -1;
+            return HCSaveJob.STEP_DONE;
+        }
+        if (result == HCSaveJob.STEP_FAILED) { return HCStageFault(); }
+        if (result == HCSaveJob.STEP_DONE) { m_SaveStage++; }
+        return HCSaveJob.STEP_MORE;
+    }
+
     override bool Save(HCEventRuntimeState state)
     {
         if (m_Fault || !HCEventRuntimePolicy.StateValid(state) || state.Director.WorldName != m_World)

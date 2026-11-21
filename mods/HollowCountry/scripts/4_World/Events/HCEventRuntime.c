@@ -1,6 +1,7 @@
 // W5-PERF-4: <=1 run cleanup/expiry + <=64 subscribed observations + <=1
-// terminal-subscription purge/tick; cursors survive yields. 4 ms cooperative
-// guard between jobs; synchronous journal/provider calls cannot be preempted.
+// terminal-subscription purge/tick; cursors survive yields. Expiry/CLOSED
+// journal continuations share one 4 ms slice; native calls cannot be preempted.
+// Mutation/ingress and shutdown durability barriers remain synchronous.
 // Timing native evidence: World/HCWorkBudget.c (Game.c:914).
 // Durable orchestrator. The caller owns a fresh trusted session and invokes
 // Tick/Disconnect from server lifecycle hooks. No rewards or network ingress.
@@ -31,6 +32,77 @@ class HCEventRuntime
     protected ref array<int> m_ReofferIds = new array<int>();
     protected ref array<int> m_ReofferAfter = new array<int>();
     protected string m_Refusal;
+    protected ref HCEventRuntimeState m_PendingPublish;
+    protected ref HCEventJournal m_PendingJournal;
+    protected ref HCStepTimer m_TickSteps;
+    protected int m_PendingExpiryId;
+    protected int m_PendingExpiryAt;
+
+    void HCSetStepTimer(HCStepTimer timer) { m_TickSteps = timer; }
+    bool HCPublishPending() { return m_PendingPublish != null; }
+    bool HCOperational() { return m_Ready; }
+    protected void HCMeasured(string stage, int started)
+    {
+        if (m_TickSteps) { m_TickSteps.HCItem(stage, TickCount(started)); }
+    }
+
+    // Only expiry/CLOSED maintenance uses this continuation. Actor/reward and
+    // client mutation barriers remain synchronous; they drain it before writing.
+    protected bool HCBeginPublish(HCEventRuntimeState candidate)
+    {
+        HCEventJournal journal = HCEventJournal.Cast(m_Store);
+        if (!journal) { return Publish(candidate); }
+        if (!candidate || candidate.Revision >= 999999999 || m_PendingPublish) { return false; }
+        candidate.Revision++;
+        if (!journal.HCBeginSave(candidate))
+        {
+            m_Ready = false;
+            FaultCleanup();
+            return false;
+        }
+        m_PendingPublish = candidate;
+        m_PendingJournal = journal;
+        return true;
+    }
+
+    protected bool HCAdvancePublish(bool drain = false)
+    {
+        int result = HCSaveJob.STEP_MORE;
+        while (m_PendingPublish && result == HCSaveJob.STEP_MORE)
+        {
+            if (!drain && !m_WorkBudget.HCContinue()) { break; }
+            int started = TickCount(0);
+            string stage = m_PendingJournal.HCStageName();
+            result = m_PendingJournal.HCStepSave();
+            if (drain)
+            {
+                if (m_TickSteps) { m_TickSteps.HCDeferred(TickCount(started)); }
+            }
+            else { HCMeasured(stage, started); }
+            if (result == HCSaveJob.STEP_DONE)
+            {
+                m_State = m_PendingPublish;
+                if (m_PendingExpiryId > 0)
+                {
+                    RememberCooldown(HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId), m_PendingExpiryAt);
+                }
+            }
+            if (result != HCSaveJob.STEP_MORE)
+            {
+                m_PendingPublish = null;
+                m_PendingJournal = null;
+                m_PendingExpiryId = 0;
+            }
+            if (result == HCSaveJob.STEP_FAILED)
+            {
+                m_Ready = false;
+                FaultCleanup();
+                Print("[HC Events] maintenance journal fault; mutations disabled, cleanup remains pending");
+                return false;
+            }
+        }
+        return true;
+    }
 
     // Reason of the last refused Start (cleared at each Start). Start runs once
     // per module start, so each refusal logs one line; no player identity.
@@ -138,6 +210,9 @@ class HCEventRuntime
     }
     bool Allowed(HCEventContext context)
     {
+        // Trusted ingress keeps its original immediate durability contract. Never
+        // let a synchronous mutation overtake a partially written revision.
+        if (m_PendingPublish && !m_Busy && !HCAdvancePublish(true)) { return false; }
         return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
     }
     bool Publish(HCEventRuntimeState candidate)
@@ -561,7 +636,7 @@ class HCEventRuntime
         Cleanup(id);
         return HCEventCode.OK;
     }
-    bool Cleanup(int id)
+    bool Cleanup(int id, bool staged = false)
     {
         HCEventRun run = m_State.Runs[id - m_State.Director.PrunedThrough - 1];
         if (run.Phase != HCEventRunPhase.CLEANUP)
@@ -587,6 +662,7 @@ class HCEventRuntime
         {
             HCEventRuntimeState candidate = m_Store.Clone(m_State);
             candidate.Runs[id - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLOSED;
+            if (staged) { return HCBeginPublish(candidate); }
             return Publish(candidate);
         }
         return true;
@@ -657,13 +733,21 @@ class HCEventRuntime
     }
     void Tick(HCEventContext context)
     {
+        // One shared four-millisecond slice, retained across all maintenance
+        // stages in this tick. No second slice after completing a journal.
+        m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        if (m_PendingPublish)
+        {
+            HCAdvancePublish();
+            if (m_PendingPublish) { m_WorkBudget.HCDeferred("Events", 1); }
+            return;
+        }
         if (!Allowed(context))
         {
             return;
         }
         m_LastNow = context.Now;
         HCEventRuntimeState stable = m_State;
-        m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
         int runWork = 0;
         while (runWork < 1 && stable.Runs.Count() > 0 && m_WorkBudget.HCContinue())
         {
@@ -678,17 +762,31 @@ class HCEventRuntime
             HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, run.EventId);
             if (!HCEventDirector.Terminal(record.Status) && context.Now >= record.Expires)
             {
+                int expiryStarted = TickCount(0);
                 HCEventRuntimeState candidate = m_Store.Clone(m_State);
+                HCMeasured("expiry_clone", expiryStarted);
                 if (Operation(candidate, run.EventId, HCEventOp.EXPIRE, "", context) == HCEventCode.OK)
                 {
                     candidate.Runs[run.EventId - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
-                    Publish(candidate);
+                    if (HCBeginPublish(candidate) && m_PendingPublish)
+                    {
+                        m_PendingExpiryId = run.EventId;
+                        m_PendingExpiryAt = context.Now;
+                        // Revisit this row for cleanup after commit, preserving
+                        // expiry-before-release without another full run sweep.
+                        m_RunCursor = m_RunCursor - 1;
+                    }
+                    // Release only on a future tick, after durable expiry.
+                    return;
                 }
             }
             if (m_Ready)
             {
                 RememberCooldown(HCEventDirector.FindRecord(m_State.Director, run.EventId), context.Now);
-                Cleanup(run.EventId);
+                int cleanupStarted = TickCount(0);
+                Cleanup(run.EventId, true);
+                HCMeasured("cleanup_prepare", cleanupStarted);
+                if (m_PendingPublish) { return; }
             }
         }
         int work = 0;
@@ -739,6 +837,8 @@ class HCEventRuntime
     {
         // Reentrant/provider-busy shutdown still revokes admission immediately.
         // Retain state/providers until a later non-busy retry confirms closure.
+        // Shutdown is an existing synchronous barrier, never discard an intent.
+        if (m_PendingPublish && !m_Busy) { HCAdvancePublish(true); }
         m_StopRequested = true;
         m_Ready = false;
         m_Subscriptions.Clear();
