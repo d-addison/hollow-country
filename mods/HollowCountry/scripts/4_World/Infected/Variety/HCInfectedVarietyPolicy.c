@@ -3,6 +3,16 @@
 // :427 Floor, :540 Clamp, :553 Min, :566 Max. Limits remain provisional.
 class HCInfectedVarietyPolicy
 {
+    // Native 3_Game/Global/Game.c:539 ConfigGetInt, :612 ConfigIsExisting; marker covers
+    // legacy and generated outfit children without depending on Anims scripts.
+    static bool HCIsPosedType(string typeName)
+    {
+        string path = "CfgVehicles " + typeName + " hcSpawnPose";
+        if (!GetGame().ConfigIsExisting(path)) { return false; }
+        int kind = GetGame().ConfigGetInt(path);
+        return kind >= 1 && kind <= 4;
+    }
+
     // Hold for a non-calm (aggro'd) native crawler before the next rest roll.
     // lod.json VarietyNonCalmHoldSeconds; the default equals the shipped 600 s
     // failed-roll cooldown (ZombieBase.HC_VARIETY_RETRY_SECONDS), so behaviour is

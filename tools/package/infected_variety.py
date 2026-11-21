@@ -449,6 +449,10 @@ def _backups(receipt):
 
 def _summary(policy):
     # Install-time levers have no runtime script hook; retain these lines in install logs.
+    for event, coverage in sorted(policy.get('ce_pose_coverage', {}).items()):
+        print('[HC Variety] ce_variants phase=install event=' + event
+              + ' rows=' + str(coverage['rows']) + ' weight=' + str(coverage['weight'])
+              + '/' + str(coverage['stock_weight']) + ' population_delta=0 runtime=PENDING')
     for lever, switch in (('composition_ce', 'EnableComposition'), ('accessories', 'EnableAccessories')):
         print('[HC Variety] ' + lever + ' enabled=' + str(int(enabled(policy, switch)))
               + ' phase=install restart_required=1 runtime=PENDING')

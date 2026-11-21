@@ -218,10 +218,12 @@ class HCInfectedVarietyModule : HCModule
     }
 
     // #279: which CE variant classes the loaded addons define as public (scope 2).
-    // Five config reads once at start; the CE events themselves are mission data.
+    // One bounded generated units list at startup; mission CE owns populations.
+    // Native 3_Game/Global/Game.c:558 ConfigGetTextArray, :539 ConfigGetInt.
     protected void HCPrintCEVariantClasses()
     {
-        array<string> names = {"HC_ZmbM_Sitter", "HC_ZmbM_Sleeper", "HC_ZmbM_Riser", "HC_ZmbM_Feeder", "HC_ZmbM_Crawler"};
+        array<string> names = new array<string>;
+        GetGame().ConfigGetTextArray("CfgPatches HollowCountryAnims units", names);
         int present = 0;
         string missing = "";
         foreach (string name : names)
@@ -230,7 +232,7 @@ class HCInfectedVarietyModule : HCModule
             else { missing = missing + " " + name; }
         }
         if (missing == "") { missing = " none"; }
-        Print("[HC Variety] ce_variant_classes public=" + present.ToString() + "/5 missing=" + missing.Trim() + " max_posed=" + HCInfectedVariety.HCMaxPosed().ToString() + " runtime=PENDING");
+        Print("[HC Variety] ce_variant_classes public=" + present.ToString() + "/" + names.Count().ToString() + " missing=" + missing.Trim() + " max_posed=" + HCInfectedVariety.HCMaxPosed().ToString() + " runtime=PENDING");
     }
 
     override void OnStop()

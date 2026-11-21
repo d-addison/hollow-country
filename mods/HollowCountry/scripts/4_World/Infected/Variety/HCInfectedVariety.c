@@ -133,6 +133,7 @@ class HCInfectedVariety
     protected static ref map<int, bool> s_Used = new map<int, bool>;
     protected static ref map<int, bool> s_Tried = new map<int, bool>;
     protected static bool s_Running;
+    protected static bool s_PosesOptedOut;
     protected static bool s_Pending;
     protected static bool s_Admin;
     protected static vector s_Request;
@@ -146,6 +147,8 @@ class HCInfectedVariety
     static void HCStart(bool preference)
     {
         s_Running = false;
+        // Restart-bound operator marker; never poll the filesystem from pose entry.
+        s_PosesOptedOut = FileExist("$profile:HollowCountry/acceptance/infected_poses.disable");
         s_Pending = false;
         s_Config = null;
         s_Fault = "";
@@ -192,7 +195,7 @@ class HCInfectedVariety
 
     static bool HCPosesOptedOut()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_poses.disable");
+        return s_PosesOptedOut;
     }
 
     static bool HCOperatorEnabled(bool preference)
