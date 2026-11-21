@@ -34,6 +34,11 @@ class HCGroundCELoot
     protected static int s_Ineligible;
     protected static int s_Peak;
     protected static string s_LastReceipt;
+    protected static float s_LastReceiptAt;
+    protected static string s_LastCEStats;
+    protected static float s_LastCEStatsAt;
+    protected static string s_LastPlacedStats;
+    protected static float s_LastPlacedStatsAt;
 
     static bool Eligible(ItemBase item)
     {
@@ -136,17 +141,36 @@ class HCGroundCELoot
         line += " overflow=0 enqueued=" + s_Enqueued.ToString();
         line += " processed=" + s_Processed.ToString() + " pending=" + s_Count.ToString();
         line += " peak=" + s_Peak.ToString() + " ineligible=" + s_Ineligible.ToString();
-        // Print the first receipt and then only receipts whose counters changed.
-        string receipt = line + " " + HCGroundSnap.Placed.Snapped.ToString() + " " + HCGroundSnap.Placed.AlreadyOk.ToString() + " " + HCGroundSnap.Placed.NoSupport.ToString();
-        if (receipt != s_LastReceipt)
+        // Each of the three lines has an independent change/heartbeat receipt.
+        float receiptNow = GetGame().GetTickTime();
+        if (line != s_LastReceipt || receiptNow < s_LastReceiptAt || receiptNow - s_LastReceiptAt >= 1800)
         {
-            s_LastReceipt = receipt;
+            s_LastReceipt = line;
+            s_LastReceiptAt = receiptNow;
             Print("" + line);
+        }
+        string ceStats = s_Stats.Snapped.ToString() + " " + s_Stats.AlreadyOk.ToString();
+        ceStats += " " + s_Stats.NoSupport.ToString() + " " + s_Stats.NoHit.ToString() + " " + s_Stats.ContactAboveStart.ToString();
+        ceStats += " " + s_Stats.ContactBelowFinish.ToString() + " " + s_Stats.CorrectionOutOfRange.ToString() + " " + s_Stats.ReprobeLifted.ToString();
+        ceStats += " " + s_Stats.MaxCorrection.ToString();
+        if (ceStats != s_LastCEStats || receiptNow < s_LastCEStatsAt || receiptNow - s_LastCEStatsAt >= 1800)
+        {
+            s_LastCEStats = ceStats;
+            s_LastCEStatsAt = receiptNow;
             s_Stats.Summary("ce");
+        }
+        string placedStats = HCGroundSnap.Placed.Snapped.ToString() + " " + HCGroundSnap.Placed.AlreadyOk.ToString();
+        placedStats += " " + HCGroundSnap.Placed.NoSupport.ToString() + " " + HCGroundSnap.Placed.NoHit.ToString() + " " + HCGroundSnap.Placed.ContactAboveStart.ToString();
+        placedStats += " " + HCGroundSnap.Placed.ContactBelowFinish.ToString() + " " + HCGroundSnap.Placed.CorrectionOutOfRange.ToString() + " " + HCGroundSnap.Placed.ReprobeLifted.ToString();
+        placedStats += " " + HCGroundSnap.Placed.MaxCorrection.ToString();
+        if (placedStats != s_LastPlacedStats || receiptNow < s_LastPlacedStatsAt || receiptNow - s_LastPlacedStatsAt >= 1800)
+        {
+            s_LastPlacedStats = placedStats;
+            s_LastPlacedStatsAt = receiptNow;
             HCGroundSnap.Placed.Summary("hc_placements");
         }
         // Constant work once per minute, including when CE only restores storage;
-        // unchanged receipts are not reprinted.
+        // unchanged receipts print at most once per 30 minutes.
         // A zero ce_calls receipt distinguishes no observed callback from rejection.
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
     }

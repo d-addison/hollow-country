@@ -18,6 +18,8 @@ class HCXAIFortificationSite
 }
 class HCXAIFortification
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     static const int SITE_CAP = 32;
     static const int SITE_PARTS = 3;
     static const int GLOBAL_CAP = 96;
@@ -85,7 +87,15 @@ class HCXAIFortification
     {
         int reserved;
         if (m_State && m_State.Reserved) { reserved = m_State.Reserved.Count(); }
-        Print("[HC Plan] HC-17 construction=on kits=fence,watchtower,flag,shelter ai_fortified=" + m_Placed.ToString() + " ai_reserved=" + reserved.ToString() + " ai_sites=" + m_Seen.Count().ToString() + " ai_queue=" + m_Queue.Count().ToString() + " ai_no_room=" + m_NoRoom.ToString() + " ai_deferred=" + m_Deferred.ToString() + " ai_spawn_failed=" + m_SpawnFailed.ToString() + " ai_claim_refused=" + m_ClaimRefused.ToString() + " ai_cap_refused=" + m_CapRefused.ToString() + " ai_store_fault=" + m_Fault.ToString() + " ai_cap=96 per_site=3 count_scope=session restart=spent_slots_not_replayed runtime=PENDING");
+        string statusLine = "[HC Plan] HC-17 construction=on kits=fence,watchtower,flag,shelter ai_fortified=" + m_Placed.ToString() + " ai_reserved=" + reserved.ToString() + " ai_sites=" + m_Seen.Count().ToString() + " ai_queue=" + m_Queue.Count().ToString() + " ai_no_room=" + m_NoRoom.ToString() + " ai_deferred=" + m_Deferred.ToString() + " ai_spawn_failed=" + m_SpawnFailed.ToString() + " ai_claim_refused=" + m_ClaimRefused.ToString() + " ai_cap_refused=" + m_CapRefused.ToString() + " ai_store_fault=" + m_Fault.ToString() + " ai_cap=96 per_site=3 count_scope=session restart=spent_slots_not_replayed runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
         m_LogAfter = GetGame().GetTickTime() + 60;
     }
     void Step()

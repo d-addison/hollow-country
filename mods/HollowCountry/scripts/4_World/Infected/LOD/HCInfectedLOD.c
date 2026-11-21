@@ -468,6 +468,8 @@ modded class HCInfectedModule
 
 class HCInfectedLODModule : HCModule
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected static HCInfectedLODModule s_Instance;
     protected bool m_Running;
     protected bool m_Herds;
@@ -517,6 +519,8 @@ class HCInfectedLODModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
+        m_StatusLogLine = "";
+        m_StatusLogAt = 0;
         string reason;
         m_Refusal = "";
         m_Config = HCInfectedLODConfig.Load(reason);
@@ -905,7 +909,15 @@ class HCInfectedLODModule : HCModule
         line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString();
         line = line + " rays_per_min=" + m_Rays.ToString() + " ray_peak=" + m_RayPeak.ToString() + " ray_budget=" + (m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER).ToString();
         line = line + " runtime=PENDING";
-        Print("" + line);
+        string statusLine = "" + line;
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
         m_Rays = 0;
         m_RayPeak = 0;
         m_Materialized = 0;

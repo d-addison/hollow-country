@@ -25,6 +25,8 @@ class HCTeamPingRow
 }
 class HCTeamPingModule : HCModule
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected static HCTeamPingModule s_Instance;
     protected ref array<ref HCTeamPingRow> m_Rows;
     protected bool m_AdmissionPrinted;
@@ -35,7 +37,6 @@ class HCTeamPingModule : HCModule
     protected int m_PruneCursor;
     protected int m_Expired;
     protected int m_Refused;
-    protected float m_LogAfter;
     protected string m_LastRefusal = "none";
     void HCTeamPingModule() { m_Status.HCPublish("off", "not_started"); }
     override HCOperationalStatus HCGetOperationalStatus()
@@ -63,6 +64,8 @@ class HCTeamPingModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || !GetGame().IsServer() || s_Instance) { return; }
+        m_StatusLogLine = "";
+        m_StatusLogAt = 0;
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !groups.HCPresentationReady())
         {
@@ -222,11 +225,17 @@ class HCTeamPingModule : HCModule
             m_LastRefusal = reason;
         }
         float now = GetGame().GetTickTime();
-        if (now >= 0 && now < m_LogAfter) { return; }
-        m_LogAfter = now + HCGCCampGroupConfig.Get().TeamPingLogSeconds;
         string state = HCGetOperationalStatus().HCState();
         string head = "[HC Plan] HC-26 group_recipients=" + recipients.ToString() + " expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal;
-        Print(head + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING");
+        string statusLine = head + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = now;
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
         m_LastRefusal = "none";
     }
     override void OnStop()
@@ -236,7 +245,6 @@ class HCTeamPingModule : HCModule
         if (groups) { groups.HCPingPreference(false); }
         m_Rows = null;
         m_Status.HCPublish("off", "server_stop_requested");
-        m_LogAfter = 0;
         HCReport("none", 0);
         // FULL replaces cached Places, including when Groups remains enabled.
         if (groups) { groups.Broadcast(); }

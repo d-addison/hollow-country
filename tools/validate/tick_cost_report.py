@@ -84,6 +84,8 @@ def perf_rules(path):
     the same window's calibration (even when Perf follows Step), then the most
     recent calibration, then the first calibration, then 10000 ticks/ms.
     Clock time starts at the first timestamp in the RPT and handles midnight.
+    R3 counts the peak in any 60-minute span; untimestamped records cannot
+    establish a span and are excluded from R3.
     """
     with tempfile.TemporaryDirectory(prefix="hc-perf-rules-") as temp:
         with closing(sqlite3.connect(str(Path(temp) / "rules.sqlite"))) as db:
@@ -101,7 +103,7 @@ def perf_rules(path):
                 CREATE TABLE steps(owner TEXT, w INTEGER, heaviest TEXT, line INTEGER);
                 CREATE INDEX steps_window ON steps(owner,w);
                 CREATE TABLE saves(job TEXT, op TEXT, w INTEGER, line INTEGER, cost REAL);
-                CREATE TABLE repeated(line TEXT PRIMARY KEY, n INTEGER);
+                CREATE TABLE repeated(line TEXT, seconds REAL);
             """)
             last_ready = last_window = 0
             previous_clock = start_clock = None
@@ -119,11 +121,11 @@ def perf_rules(path):
                         start_clock = current
                     elapsed = day + current - start_clock
                 script = SCRIPT.search(line)
-                if script and not PERIODIC.search(script[1]):
+                if script and elapsed is not None and not PERIODIC.search(script[1]):
                     # Keep the original body as the key: no digit collapsing or
                     # redaction before equality/counting. Only safe previews leave disk.
-                    db.execute("INSERT INTO repeated VALUES(?,1) ON CONFLICT(line) DO UPDATE SET n=n+1",
-                               (line[script.start():],))
+                    db.execute("INSERT INTO repeated VALUES(?,?)",
+                               (line[script.start():], elapsed))
                 marker = re.search(r"\[HC (Ready|TickCost|Perf|Step|Save)\]", line)
                 if not marker:
                     continue
@@ -213,7 +215,15 @@ def perf_rules(path):
             for owner, stage, heaviest, ms, window in db.execute(query, (last_ready,)):
                 yield (f"perf_rule=R2 owner={owner} stage={stage} heaviest={heaviest} "
                        f"ms={ms:.3f} window={window if window is not None else 'unknown'}")
-            for line, count in db.execute("SELECT line,n FROM repeated WHERE n>20 ORDER BY line"):
+            # Peak identical receipts in any inclusive 60-minute span. A long
+            # server session may legitimately accumulate many 30-minute heartbeats.
+            repeat_query = """WITH spans AS (
+                SELECT line, COUNT(*) OVER (
+                    PARTITION BY line ORDER BY seconds
+                    RANGE BETWEEN 3600 PRECEDING AND CURRENT ROW) AS n
+                FROM repeated
+            ) SELECT line,MAX(n) FROM spans GROUP BY line HAVING MAX(n)>20 ORDER BY line"""
+            for line, count in db.execute(repeat_query):
                 safe = safe_rule(line)
                 if safe is None:
                     safe = "[private line omitted]"

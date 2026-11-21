@@ -20,6 +20,8 @@
 // (AIPatrolSettings.json, quests, player-recruited AI) and reads "expansion".
 class HCXAILive
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     static const int PAGE_POINTS = 64;
     static const int PAGES = 2;
     protected int m_Cursor;
@@ -125,8 +127,8 @@ class HCXAILive
         return false;
     }
 
-    // "[HC XAI] live groups=N units=M expansion=a hc=b" every 300 s (first at
-    // 60 s); expansion/hc count groups by source, so a + b == N. "" otherwise.
+    // Sample every 300 s (first at 60 s); emit changes or a 30-minute heartbeat.
+    // expansion/hc count groups by source, so a + b == N. "" otherwise.
     string Report(float deltaTime)
     {
         m_Elapsed = m_Elapsed + deltaTime;
@@ -153,7 +155,12 @@ class HCXAILive
             if (HCXAILive.Source(group) == "hc-site") { hc++; }
             else { expansion++; }
         }
-        return "[HC XAI] live groups=" + groups.ToString() + " units=" + units.ToString() + " expansion=" + expansion.ToString() + " hc=" + hc.ToString();
+        string statusLine = "[HC XAI] live groups=" + groups.ToString() + " units=" + units.ToString() + " expansion=" + expansion.ToString() + " hc=" + hc.ToString();
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine == m_StatusLogLine && statusNow >= m_StatusLogAt && statusNow - m_StatusLogAt < 1800) { return ""; }
+        m_StatusLogLine = statusLine;
+        m_StatusLogAt = statusNow;
+        return statusLine;
     }
 }
 

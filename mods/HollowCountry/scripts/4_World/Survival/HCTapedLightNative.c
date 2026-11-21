@@ -54,6 +54,8 @@ class HCTapedLightAdmission
 // recorded native or two-client verdict (Qualified stays false): runtime=PENDING.
 class HCTapedLightStartup : HCModule
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected bool m_Printed;
     protected float m_SummaryElapsed;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -78,11 +80,21 @@ class HCTapedLightStartup : HCModule
     {
         int weaponPairs = HCTapedLightCatalog.Rows().Count();
         bool admitted = HCTapedLightAdmission.Admitted();
-        Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client " + HCTapedLightRuntime.ActivitySummary() + " runtime=PENDING");
+        string statusLine = "[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client " + HCTapedLightRuntime.ActivitySummary() + " runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = GetGame().GetTickTime();
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
     }
     override void OnStart(HCSettings settings)
     {
         if (m_Printed) { return; }
+        m_StatusLogLine = "";
+        m_StatusLogAt = 0;
         m_Printed = true;
         bool admitted = HCTapedLightAdmission.Admitted();
         if (admitted) { m_Status.HCPublish("ready", "admitted_unverified"); }

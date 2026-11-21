@@ -36,6 +36,8 @@ class HCDeathPinState
 
 class HCDeathPins
 {
+    protected string m_StatusLogLine;
+    protected float m_StatusLogAt;
     protected static const string PATH = "$profile:HollowCountry/Groups/death-pins.json";
     protected ref HCDeathPinState m_State;
     protected static HCDeathPins s_Instance;
@@ -43,7 +45,6 @@ class HCDeathPins
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected int m_PruneCursor;
     protected int m_Expired;
-    protected float m_LogAfter;
     protected string m_LastRefusal = "none";
     static HCDeathPins Get() { return s_Instance; }
 
@@ -194,11 +195,17 @@ class HCDeathPins
     {
         if (reason != "none") { m_LastRefusal = reason; }
         float now = GetGame().GetTickTime();
-        if (now >= 0 && now < m_LogAfter) { return; }
-        m_LogAfter = now + 60;
         string state = "ready";
         if (!m_State) { state = "refused"; }
-        Print("[HC Plan] HC-26 group_recipients=0 expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal + " state=" + state + " component=death_pins runtime=PENDING");
+        string statusLine = "[HC Plan] HC-26 group_recipients=0 expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal + " state=" + state + " component=death_pins runtime=PENDING";
+        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
+        float statusNow = now;
+        if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
+        {
+            Print("" + statusLine);
+            m_StatusLogLine = statusLine;
+            m_StatusLogAt = statusNow;
+        }
         m_LastRefusal = "none";
     }
     void HCStop()
