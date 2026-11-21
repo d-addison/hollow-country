@@ -3491,7 +3491,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3509,7 +3511,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3528,6 +3532,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier2" />
   </type>
   <type name="SKS_Woodland">
@@ -3542,6 +3547,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier2" />
   </type>
   <type name="Izh18">
@@ -3555,7 +3561,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3573,7 +3581,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3591,7 +3601,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3609,7 +3621,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3627,7 +3641,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3645,7 +3661,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3663,7 +3681,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3681,7 +3701,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3699,7 +3721,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3718,6 +3742,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3734,10 +3759,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3754,6 +3779,7 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="SKS_Desert">
@@ -3768,6 +3794,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier2" />
   </type>
   <type name="SKS_Green">
@@ -3781,6 +3808,7 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="SKS_Winter">
@@ -3795,6 +3823,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Mosin9130_Black">
@@ -3808,7 +3837,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3826,7 +3857,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3845,6 +3878,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Mp133Shotgun">
@@ -3858,7 +3892,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -3876,10 +3912,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3897,6 +3933,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Colt1911">
@@ -3910,10 +3947,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3930,10 +3967,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3950,10 +3987,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3970,10 +4007,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -3990,10 +4027,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -4010,10 +4047,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -4030,10 +4067,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -4051,6 +4088,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="AK74">
@@ -4065,6 +4103,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="MP5K">
@@ -4079,6 +4118,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -4096,6 +4136,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier2" />
   </type>
   <type name="SVD">
@@ -4110,6 +4151,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Mag_CZ527_5rnd">
@@ -4741,7 +4783,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4759,7 +4803,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4777,7 +4823,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4795,7 +4843,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4813,7 +4863,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4831,7 +4883,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4886,6 +4940,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier4" />
   </type>
   <type name="AKS74U">
@@ -4900,6 +4955,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier4" />
   </type>
   <type name="ASVAL">
@@ -4914,6 +4970,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier4" />
   </type>
   <type name="Aug">
@@ -4927,8 +4984,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
-    <usage name="Military" />
     <usage name="ContaminatedArea" />
+    <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
@@ -4944,6 +5002,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="CZ550">
@@ -4957,7 +5016,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -4976,6 +5037,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -4992,10 +5054,12 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5012,10 +5076,12 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5032,10 +5098,12 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5052,10 +5120,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5072,10 +5140,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="1" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5092,10 +5160,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5112,10 +5180,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5132,8 +5200,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
-    <usage name="Military" />
     <usage name="ContaminatedArea" />
+    <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
@@ -5149,6 +5218,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier2" />
   </type>
   <type name="Longhorn">
@@ -5183,6 +5253,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="M4A1">
@@ -5196,8 +5267,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
-    <usage name="Military" />
     <usage name="ContaminatedArea" />
+    <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
@@ -5228,10 +5300,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5248,10 +5320,10 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
     <usage name="Town" />
     <usage name="Village" />
-    <usage name="Police" />
-    <usage name="Military" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5269,6 +5341,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5286,6 +5359,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5303,6 +5377,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
@@ -5317,7 +5392,9 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Farm" />
     <usage name="Hunting" />
+    <usage name="Town" />
     <usage name="Village" />
     <value name="Tier1" />
     <value name="Tier2" />
@@ -5336,6 +5413,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Scout">
@@ -5349,6 +5427,7 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
     <tag name="shelves" />
+    <usage name="Police" />
     <usage name="Prison" />
   </type>
   <type name="Scout_Chernarus">
@@ -5363,6 +5442,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier2" />
     <value name="Tier3" />
   </type>
@@ -5378,6 +5458,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Police" />
+    <usage name="Prison" />
     <value name="Tier1" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5395,6 +5476,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="Vikhr">
@@ -5409,6 +5491,7 @@
     <category name="weapons" />
     <tag name="shelves" />
     <usage name="Military" />
+    <usage name="Police" />
     <value name="Tier3" />
   </type>
   <type name="AmmoBox_00buck_10rnd">
