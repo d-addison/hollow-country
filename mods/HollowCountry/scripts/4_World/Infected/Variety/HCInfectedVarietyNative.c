@@ -352,7 +352,6 @@ modded class HCInfectedVarietyModule
         super.OnStart(settings);
         if (GetGame().IsServer())
         {
-            HCIndividualLocomotionRegistry.HCRegisterLocomotion();
             int enabled = 0;
             if (m_Running && m_Variety && HCInfectedTuning.Variety().Variety.EnableIndividualLocomotion) { enabled = 1; }
             Print("[HC Variety] individual_locomotion enabled=" + enabled.ToString() + " stance=0..3 speed_inputs=1,2,3 runner_budget=existing runtime=PENDING");
@@ -440,16 +439,6 @@ modded class HCNativeInfectedPack
             if (!walker || !walker.IsAlive()) { continue; }
             walker.HCVarietyAssign(0, walker.HCVarietyPlace());
         }
-    }
-}
-
-// Scoped registration reuses the shared registry without changing its 3_Game link.
-class HCIndividualLocomotionRegistry : HCOperatorSettingsRegistry
-{
-    static void HCRegisterLocomotion()
-    {
-        HCInit();
-        HCAdd("HCC1Variety.EnableIndividualLocomotion", "bool", 1, 0, 1, "HCC1Variety");
     }
 }
 

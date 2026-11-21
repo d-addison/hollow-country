@@ -166,8 +166,10 @@ def check_world_runtime(rows):
     rules = {r['key'].removeprefix('WorldRuntime.'): r for r in rows}
     errors = []
     if fields.keys() != rules.keys(): errors.append('WorldRuntime registry/native key set differs')
-    compiled = re.findall(r'^        HCAdd\([^\n]+;', source, re.M)
-    if compiled != render_native_registry(rows).splitlines():
+    # The save-throughput row is registered from its own scoped file (6b8185d9).
+    throughput = (ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCSaveThroughputSettingsRegistry.c').read_text()
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', source + throughput, re.M)
+    if sorted(compiled) != sorted(render_native_registry(rows).splitlines()):
         errors.append('WorldRuntime compiled registry differs')
     for key, row in rules.items():
         if row['owner'] != 'HCWorldRuntimeConfig' or fields.get(key) != (row['type'], row['default']):

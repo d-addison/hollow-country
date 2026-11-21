@@ -13,7 +13,7 @@ class HCInfectedVarietyActivity
     {
         int enabled;
         if (HCEnabled()) { enabled = 1; }
-        Print("[HC Variety] activity_variation enabled=" + enabled.ToString() + " routes=authored bias=pack_key policy_hook=PENDING runtime=PENDING");
+        Print("[HC Variety] activity_variation enabled=" + enabled.ToString() + " routes=authored bias=pack_key policy_hook=dormant_place runtime=PENDING");
     }
 
     // Modulo before negation avoids signed minimum overflow. Empty keys retain
@@ -26,7 +26,7 @@ class HCInfectedVarietyActivity
         return (bucket - 1000) / 1000.0;
     }
 
-    // +/- 0.08 dormant and +/- 0.02 runner probability, bounded by existing
+    // +/- 0.08 dormant probability per sleep place, bounded by existing
     // tuning and caps at the caller. Never promote or wake an actor here.
     static float HCDormantChance(string packKey, float nightness, float rain)
     {
@@ -34,14 +34,6 @@ class HCInfectedVarietyActivity
         float chance = HCInfectedVarietyPolicy.DormantChance(nightness, rain);
         if (!HCEnabled()) { return chance; }
         return Math.Clamp(chance + HCBias(packKey) * 0.08, tuning.DormantMin, tuning.DormantMax);
-    }
-
-    static float HCRunnerChance(string packKey, float nightness)
-    {
-        HCC1Variety tuning = HCInfectedTuning.Variety().Variety;
-        float chance = tuning.RunnerDay + tuning.RunnerNightIncrement * Math.Clamp(nightness, 0, 1);
-        if (!HCEnabled()) { return Math.Clamp(chance, 0, 1); }
-        return Math.Clamp(chance - HCBias(packKey) * 0.02, 0, 1);
     }
 }
 

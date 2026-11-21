@@ -112,7 +112,7 @@ modded class ZombieBase
         HCPoseSeed();
         // Existing unused sleep deadline now expires on the native tick clock;
         // no Timer/CallLater, and no animation-rate or get-up duration changes.
-        m_HCVarietySleepUntil = GetGame().GetTickTime() + 30 + 30 * HCPoseVariation.HCUnit(m_HCPoseVariationSeed);
+        m_HCVarietySleepUntil = GetGame().GetTickTime() + 600 + 1200 * HCPoseVariation.HCUnit(m_HCPoseVariationSeed);
     }
 
     override bool HCVarietySleep(float now, bool permitted)
@@ -163,7 +163,10 @@ modded class HCInfectedModule
                 if (!observer || !observer.IsAlive()) { continue; }
                 if (vector.DistanceSq(observer.GetPosition(), candidate.GetPosition()) > 9) { continue; }
                 if (!checkGeometry) { return true; }
-                return m_AlertChain.HCVarietyClear(observer.GetPosition(), candidate);
+                // One ray at most: a blocked first observer falls through to
+                // the existing standing test instead of deciding alone.
+                if (m_AlertChain.HCVarietyClear(observer.GetPosition(), candidate)) { return true; }
+                break;
             }
         }
         return super.HCVarietyNearStanding(players, actor, candidate, checkGeometry);

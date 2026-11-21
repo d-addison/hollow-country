@@ -486,7 +486,7 @@ modded class HCInfectedModule
             // Authored context already qualifies this actor. Avoid binding a
             // room merely to establish an equivalent context result.
             if (HCInfectedVariety.HCContext(entity.GetPosition()) == "" && !HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity)) { continue; }
-            bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
+            bool permitted = Math.RandomFloat01() < HCInfectedVarietyActivity.HCDormantChance(entity.HCVarietyPlace(), nightness, rain);
             if (entity.HCVarietySleep(now, permitted))
             {
                 m_HCVarietyDormant++;
