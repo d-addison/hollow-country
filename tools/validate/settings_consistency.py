@@ -9,6 +9,8 @@ import json
 import re
 from pathlib import Path
 
+from tools.release.acceptance_targets import load_targets
+
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / 'tools/validate/shared_settings.json'
 NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c'
@@ -419,6 +421,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
     try:
+        load_targets()
         errors = check_consistency()
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]

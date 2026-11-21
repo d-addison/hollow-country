@@ -8,6 +8,9 @@ import unittest
 from unittest.mock import patch
 
 from tools.release import activity_check as audit
+from tools.release import acceptance_targets as policy
+
+TARGETS = policy.load_targets()
 
 
 def ready(module, enabled=True):
@@ -44,7 +47,7 @@ class UseActivityTests(unittest.TestCase):
         result = self.report([ready(module)] + [use(module, f, c) for f, c in samples])
         expected = {f for f, c in samples if c == 0}
         self.assertEqual({r['feature'] for r in result['features'] if r['status'] == 'INERT'}, expected)
-        self.assertEqual(result['count'], len(expected))
+        self.assertEqual(result['count'], len(expected) if TARGETS['activity_requires_active_for_default_on'] else 0)
 
     def test_server_and_client_merge_independent_cumulative_counters(self):
         module, feature = 'Navigation', 'map_open'
@@ -89,6 +92,15 @@ class UseActivityTests(unittest.TestCase):
     def test_disabled_and_unknown_owner_counters_do_not_establish_admission(self):
         result = self.report([ready('Off', False), use('Off', 'spawned', 0), use('Unknown', 'spawned', 1)])
         self.assertEqual(result['features'], [])
+
+    def test_active_requirement_uses_loaded_policy(self):
+        samples = [ready('World'), use('World', 'step_done', 0)]
+        for required in (False, True):
+            with self.subTest(required=required), patch.object(audit, 'load_targets', return_value=dict(
+                    TARGETS, activity_requires_active_for_default_on=required)):
+                result = self.report(samples)
+                self.assertEqual(bool(result['count']), required)
+                self.assertEqual(result['features'][0]['status'], 'INERT')
 
     def test_missing_readiness_is_input_error(self):
         with self.assertRaises(ValueError):
@@ -170,6 +182,13 @@ class ActivityCLITests(unittest.TestCase):
             code = audit.main([str(self.root / 'not-present.RPT'), '--release'])
         self.assertEqual(code, 6)
         self.assertNotIn('not-present', output.getvalue())
+
+    def test_missing_policy_is_release_input_error(self):
+        with patch.object(policy, 'DEFAULT_TARGETS', self.root / 'missing-targets.json'):
+            code, output = self.cli([ready('World'), use('World', 'step_done', 1)], None, '--release')
+        self.assertEqual(code, 6)
+        self.assertIn('acceptance targets', output)
+        self.assertNotIn('missing-targets.json', output)
 
     def test_legacy_mode_and_exit_codes_are_preserved(self):
         module, feature = 'Synthetic', 'processed'

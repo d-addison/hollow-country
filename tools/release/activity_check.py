@@ -11,6 +11,7 @@ import math
 from pathlib import Path
 import re
 
+from tools.release.acceptance_targets import load_targets, TargetsError
 from tools.release.rpt_summary import filtered, lines, HC
 from tools.setup.server_report import _EVENT, _PLAYER_ENABLED
 
@@ -44,6 +45,7 @@ class UseActivity:
     The caller runs this audit at the end of the release scenario window.
     """
     def __init__(self):
+        self.targets = load_targets()
         self.modules = {}
         self.counts = {}
 
@@ -93,7 +95,7 @@ class UseActivity:
         features.sort(key=lambda row: (row['module'], row['feature']))
         totals = {status: 0 for status in RELEASE_STATUSES}
         totals.update(Counter(row['status'] for row in features))
-        failures = totals['INERT']
+        failures = totals['INERT'] if self.targets['activity_requires_active_for_default_on'] else 0
         return dict(features=features, totals=totals, count=failures,
                     activity='inert' if failures else 'waived' if totals['WAIVED'] else 'ok',
                     release=True, readiness_observed=True)
@@ -376,6 +378,9 @@ def main(argv=None):
             result = scan_release(args.rpt, client_rpt=args.client_rpt)
         else:
             result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt)
+    except TargetsError as error:
+        print(json.dumps(dict(error=str(error))) if args.json else str(error))
+        return 6
     except (OSError, ValueError, TypeError, KeyError, re.error):
         # Never echo a private filename, malformed RPT text or regex exception.
         if args.json:

@@ -11,6 +11,7 @@ import sys
 import time
 
 from tools.release import activity_check, checkstart, friendcycle, rpt_summary
+from tools.release.acceptance_targets import load_targets, TargetsError
 from tools.release.host_lock import host_lock, LockRefused
 from tools.setup import winproc
 from tools.validate.tick_cost_report import perf_rules
@@ -53,31 +54,43 @@ def capture(function, argv):
         raise Refused('tool failed')
 
 
-def audit(path, *, client=False):
+def audit(path, *, client=False, targets=None):
     """Reuse the common summary and perf parser; add only release-specific rules."""
+    targets = load_targets() if targets is None else targets
     summary = rpt_summary.Summary(path)
     try:
         summary.scan()
-        if summary.failures or (not client and
-                (summary.outcome != 'connect_enabled' or not summary.ready_last or not all(summary.ready_last.values()))):
+        # Count SCRIPT (E) below; compile markers and other failures stay unconditional.
+        if summary.failures - {'compile_failed'} or (not client and
+                (not summary.connected or not summary.ready_last or not all(summary.ready_last.values()))):
             raise Refused('RPT boot/error/readiness check failed')
     finally:
         summary.close()
+    script_errors = vmes = missing_textures = 0
     for line in rpt_summary.lines(path):
+        if rpt_summary.COMPILE_MARKER.search(line):
+            raise Refused('RPT compile failure')
+        script_errors += bool(rpt_summary.SCRIPT_ERROR.search(line))
+        if script_errors > targets['max_script_errors']:
+            raise Refused('RPT script error limit exceeded')
         if re.search(r'\bVME\b|Virtual Machine Exception', line, re.I):
-            raise Refused('RPT VME')
+            vmes += 1
+            if vmes > targets['client_max_vme' if client else 'max_vme_server']:
+                raise Refused('RPT VME limit exceeded')
         if '[HC SelfTest]' in line and re.search(r'\bpass=false\b', line):
             raise Refused('self-test failed')
         if re.search(r'quarantin', line, re.I):
             raise Refused('store quarantine observed')
         if client and re.search(r"can.t load|missing texture|cannot load.*texture", line, re.I):
-            raise Refused('client texture error')
+            missing_textures += 1
+            if missing_textures > targets['client_max_missing_textures']:
+                raise Refused('client texture error limit exceeded')
     if not client:
         for rule in perf_rules(path):
             if 'perf_rule=R2 ' in rule:
                 value = re.search(r'\bms=([0-9.]+)', rule)
-                if value is None or float(value[1]) > 20:
-                    raise Refused('perf R2 over 20 ms')
+                if value is None or float(value[1]) > targets['perf_r2_max_ms']:
+                    raise Refused(f"perf R2 over {targets['perf_r2_max_ms']:g} ms")
 
 
 def client_profiles():
@@ -94,8 +107,9 @@ def client_profiles():
 
 
 class NativeSteps:
-    def __init__(self, args):
+    def __init__(self, args, targets=None):
         self.args = args
+        self.targets = load_targets() if targets is None else targets
         self.rpt = None
         self.client_rpt = None
         self.started = False
@@ -141,7 +155,7 @@ class NativeSteps:
         if len(fresh) != 1:
             raise Refused('fresh server RPT ambiguous or missing')
         path = fresh.pop()
-        audit(path)
+        audit(path, targets=self.targets)
         return path
 
     def stop(self):
@@ -173,7 +187,7 @@ class NativeSteps:
         self.client_before = set(self.client_dir.glob('*.RPT'))
         self.install(self.args.bundle)
         emit(CHECKLIST)
-        self.rpt = self.boot(self.args.bundle, 30)
+        self.rpt = self.boot(self.args.bundle, self.targets['soak_minutes'])
         fresh = set(self.client_dir.glob('*.RPT')) - self.client_before
         if len(fresh) == 1:
             self.client_rpt = fresh.pop()
@@ -197,7 +211,7 @@ class NativeSteps:
             raise Refused('six distinct smoke signal mappings required; see RELEASE_GATE.md')
         deadline = time.monotonic() + self.args.client_timeout
         while True:
-            audit(self.client_rpt, client=True)
+            audit(self.client_rpt, client=True, targets=self.targets)
             # Delegate shared [HC Use] parsing to the activity checker. Release
             # mode owns the signal format and reports per-feature active counts.
             result = activity_check.scan(self.rpt, client_rpt=self.client_rpt)
@@ -205,8 +219,8 @@ class NativeSteps:
                       if row.get('scope') == 'client' and row.get('status') == 'ACTIVE'
                       and row.get('value', 0) is not None and row['value'] > 0}
             if required <= active:
-                audit(self.rpt)
-                audit(self.client_rpt, client=True)
+                audit(self.rpt, targets=self.targets)
+                audit(self.client_rpt, client=True, targets=self.targets)
                 return
             if time.monotonic() >= deadline:
                 raise Refused('client smoke timeout')
@@ -215,9 +229,11 @@ class NativeSteps:
 
 def run_gate(args, steps=None):
     verdict = dict(commit=args.commit, passed=False, steps=[])
-    steps = steps or NativeSteps(args)
-    current = 'host_lock'
+    current = 'acceptance_targets'
     try:
+        targets = load_targets()
+        steps = steps or NativeSteps(args, targets)
+        current = 'host_lock'
         with host_lock('release_gate'):
             try:
                 for current in ('compile', 'manifest', 'upgrade', 'soak', 'activity', 'client'):
@@ -230,7 +246,7 @@ def run_gate(args, steps=None):
         verdict['passed'] = True
     except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError, winproc.InteropError, KeyboardInterrupt) as error:
         verdict['failed_step'] = current
-        verdict['reason'] = str(error) if isinstance(error, (Refused, LockRefused)) else 'required evidence unavailable or failed'
+        verdict['reason'] = str(error) if isinstance(error, (Refused, LockRefused, TargetsError)) else 'required evidence unavailable or failed'
     return verdict
 
 
