@@ -42,6 +42,14 @@ vanilla), so Diag still strict-compiles every base script:
 ```sh
 python3 -B -m tools.setup.diag_session --launch --tag edit-003 --core-only
 ```
+
+Observed 2026-11-21 (session full-005, core-only): the Diag server compiled the GameLib,
+Game (491 files) and World (2613 files) modules with HollowCountry included, with no
+script errors. Then it logged `Player dpid=2 added`, counted down
+`[Server] :: termination in: 10..1` and exited cleanly before loading the mission, so
+5_Mission was not Diag-compiled and no `[HC Ready]` line was printed. The countdown
+is not in vanilla or HollowCountry scripts. The cause and the Diag server boot remain
+UNVERIFIED.
 The session receipt records them under `without`. Retail boots (checkstart) still
 load every dependency.
 
