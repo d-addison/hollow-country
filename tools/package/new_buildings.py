@@ -11,7 +11,7 @@ There are two kinds of group in ``mission/hollow-country/loot-points/new-buildin
   mapgroupproto.xml, renamed. It refuses the copy if the source group no longer matches its pin.
 * ``generated``: points are made offline from installed ODOL LODs. A floor point must have floor
   support, a roof above it, clear standing space, and a walk connection to a door or ladder memory
-  point. These checks reuse the loot_reach_audit scene and body checks. Surface points come from
+  point or an audited native standing seed. These checks reuse the loot_reach_audit scene and body checks. Surface points come from
   interior_points_gen.generate with its collision, room and reach audits, run on a synthetic proto
   seeded with those floor points. Usage, categories and tags are taken from a named stock analog
   group.
@@ -22,11 +22,11 @@ stock mapgrouppos row except the small boats (see sources.world.validation). Row
 when the mission's mapgrouppos.xml is the pinned stock file, so any other map or game build
 changes nothing.
 
-Nothing here observes DayZ. CE spawning on these groups, ExportProxyData agreement and the loot
-density all stay pending a native run.
+Optional native censuses supply standing evidence through the shared admission parser. CE spawning,
+ExportProxyData agreement, reachability and loot density stay pending a native treatment run.
 
-Generate (offline, heavy): ``python3 -B -m tools.package.new_buildings generate --addons <server>/addons
---mission <stock chernarus mission> --reader <pinned ODOL reader> --out <file>``.
+Generate (offline, heavy): ``python3 -B -m tools.package.new_buildings generate --addons <full-client>/addons
+--mission <stock chernarus mission> --reader <pinned ODOL reader> --scratch <fresh directory> [--native-census <file>] --out <file>``.
 """
 import argparse
 import hashlib
@@ -80,6 +80,10 @@ SELECTION = {
     'Land_CementWorks_SiloBig1B': {'kind': 'generated', 'analog': 'Land_CementWorks_SiloBig1A'},
     'Land_CementWorks_MillA': {'kind': 'generated', 'analog': 'Land_CementWorks_MillB'},
     'Land_Castle_Donjon': {'kind': 'generated', 'analog': 'Land_Castle_Bergfrit2'},
+    'Land_HouseBlock_2F1': {'kind': 'generated', 'analog': 'Land_HouseBlock_2F1'},
+    'Land_Mil_Barracks2': {'kind': 'generated', 'analog': 'Land_Mil_Barracks2'},
+    'Land_Wreck_Harverster': {'kind': 'generated', 'analog': 'Land_Wreck_Tractor_DE'},
+    'Land_Wreck_Harvester_head_trailer': {'kind': 'generated', 'analog': 'Land_Wreck_Trailer_Closed_DE'},
     'Land_Wreck_C130J_2': {'kind': 'generated', 'analog': 'Land_Wreck_C130J_Cargo'},
 }
 
@@ -483,7 +487,74 @@ def _walk_scene(model, scene):
     return walk
 
 
-def floor_points(auditor, name, pin):
+def native_inputs(paths):
+    """Reuse the template/profile admission parser; retain raw hashes, never raw censuses."""
+    from tools.package import interior_templates as templates
+    from tools.audit import interior_points as pts
+    docs = sorted((templates.load_census(Path(p).read_bytes()) for p in paths), key=lambda d: d['run'])
+    if len({d['run'] for d in docs}) != len(docs):
+        raise ValueError('two censuses share one native_run_id')
+    seen = {}
+    for doc in docs:
+        templates._check_house_conflicts(doc['houses'], seen)
+        verdicts = {r['verdict'] for r in pts.frame_verdict(doc['doc'])['classes'].values()
+                    if r['verdict'] is not None}
+        if verdicts != {'rot90'}:
+            raise ValueError('native census needs unambiguous rot90 frame calibration')
+    by_class = {}
+    for doc in docs:
+        for row in doc['doc']['placements']:
+            name = row['class']
+            item = by_class.setdefault(name, {'hits': [], 'runs': [], 'refusals': []})
+            provenance = {'native_run_id': doc['run'], 'observed_hit_count': len(row['hits']), 'hit_count': 0}
+            item['runs'].append(provenance)
+            if not pts._usable(row):
+                item['refusals'].append('missing object or capped native observation')
+                continue
+            codes = pts._row_codes(row, 'player', name)
+            no_door = pts._control_state(row, 'player') == 'no-door'
+            door_ok = pts._gate_passed(row, 'player') and pts._door_run_problem(row.get('door_run')) is None
+            for hit, code in zip(row['hits'], codes):
+                # Unknown no-door paths provide standing evidence only. A tested failed path never admits.
+                if (code == 1 and door_ok) or (code == -1 and no_door):
+                    item['hits'].append(tuple(hit[:4]))
+                    provenance['hit_count'] += 1
+            if row['hits'] and not (no_door or door_ok):
+                item['refusals'].append('native player entry/door control not admitted')
+    return docs, by_class
+
+
+def _floor_audit(x, y, z, footprint, visual, scene, solid, stats, native=False):
+    """Shared support/roof/enclosure/loader audits; native standing replaces only body_clear."""
+    from tools.package import loot_reach_audit as reach
+    if not all(any(abs(h - y) <= SUPPORT_TOLERANCE for h in footprint.floors(x + dx, z + dz, y - .1, y + .1))
+               for dx, dz in ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12))):
+        return False, False
+    stats['supported'] += 1
+    if not native and not reach.body_clear(scene, (x, y, z)):
+        return False, False
+    stats['standing'] += 1
+    ceilings = [h[0] for h in visual.hits(x, z) if h[0] > y + .10]
+    if ceilings and min(ceilings) - y < CEILING[0]:
+        return True, False
+    if not (ceilings and min(ceilings) - y <= CEILING[1]) and scene.clear(
+            (x, y + CEILING[0], z), (x, y + CEILING[1], z)):
+        return True, False
+    stats['roofed'] += 1
+    walls = sum(not solid.clear((x, y + 1.0, z),
+                               (x + ENCLOSURE[0] * math.cos(t * math.tau / 8), y + 1.0,
+                                z + ENCLOSURE[0] * math.sin(t * math.tau / 8))) for t in range(8))
+    if walls < ENCLOSURE[1]:
+        return True, False
+    stats['enclosed'] += 1
+    if any(not scene.clear((x + dx, y + .025, z + dz), (x + dx, y + .525, z + dz))
+           for dx, dz in ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12))):
+        return True, False
+    stats['eligible'] += 1
+    return True, True
+
+
+def floor_points(auditor, name, pin, native=None):
     """(CE-frame floor points, evidence) for one class from its installed ODOL LODs; raises on no model."""
     from tools.package import interior_points_gen as ipg
     from tools.package import loot_reach_audit as reach
@@ -507,45 +578,39 @@ def floor_points(auditor, name, pin):
     if bounds is None:
         return [], dict(stats, refusal='no-bounds')
     cells, eligible = {}, set()
+    native = native or {'hits': [], 'runs': []}
+    native_stats = {key: 0 for key in ('supported', 'standing', 'roofed', 'enclosed', 'eligible', 'clearance_rejected')}
+    native_points = []
+    for x, y, z, clearance in sorted(set(tuple(h) for h in native['hits'])):
+        if clearance < CEILING[0]:
+            native_stats['clearance_rejected'] += 1
+            continue
+        standing, admitted = _floor_audit(x, y, z, footprint, visual, scene, solid, native_stats, native=True)
+        if admitted:
+            native_points.append((x, y, z))
+    stats['native'] = dict(native_stats, runs=native['runs'], hit_count=len(native['hits']),
+                           audited_points=len(native_points), path='standing seeds; entry reach pending for no-door')
     lo, hi = bounds['Min'], bounds['Max']
     for i in range(math.floor(lo[0] / GRID), math.floor(hi[0] / GRID) + 1):
         for k in range(math.floor(lo[2] / GRID), math.floor(hi[2] / GRID) + 1):
             x, z = (i + .5) * GRID, (k + .5) * GRID
             for y in footprint.floors(x, z, lo[1] - 1, hi[1] + 1):
                 stats['cells'] += 1
-                if not all(any(abs(h - y) <= SUPPORT_TOLERANCE for h in footprint.floors(x + dx, z + dz, y - .1, y + .1))
-                           for dx, dz in ((.12, 0), (-.12, 0), (0, .12), (0, -.12))):
-                    continue
-                stats['supported'] += 1
-                if not reach.body_clear(scene, (x, y, z)):
-                    continue
-                # Every standing cell joins the walk graph (open courtyards and naves connect rooms);
-                # only roofed, enclosed cells with a clear loader box may hold a point.
-                stats['standing'] += 1
-                cells.setdefault((i, k), []).append(y)
-                # Roof: the building's own visual LOD, or collision/proxy interior shells above the body.
-                ceilings = [h[0] for h in visual.hits(x, z) if h[0] > y + .10]
-                if ceilings and min(ceilings) - y < CEILING[0]:
-                    continue
-                if not (ceilings and min(ceilings) - y <= CEILING[1]) and scene.clear(
-                        (x, y + CEILING[0], z), (x, y + CEILING[1], z)):
-                    continue
-                stats['roofed'] += 1
-                walls = sum(not solid.clear((x, y + 1.0, z), (x + ENCLOSURE[0] * math.cos(t * math.tau / 8), y + 1.0,
-                                                               z + ENCLOSURE[0] * math.sin(t * math.tau / 8)))
-                            for t in range(8))
-                if walls < ENCLOSURE[1]:
-                    continue
-                stats['enclosed'] += 1
-                if any(not scene.clear((x + dx, y + .025, z + dz), (x + dx, y + .525, z + dz))
-                       for dx, dz in ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12))):
-                    continue
-                stats['eligible'] += 1
-                eligible.add((i, k, y))
+                standing, admitted = _floor_audit(x, y, z, footprint, visual, scene, solid, stats)
+                if standing:
+                    cells.setdefault((i, k), []).append(y)
+                if admitted:
+                    eligible.add((i, k, y))
     # Walk from entry memory points over standing cells; neighbours need a clear body corridor.
     seeds = [(i, k, y) for (i, k), ys in cells.items() for y in ys
              if any(math.hypot((i + .5) * GRID - e[0], (k + .5) * GRID - e[2]) <= ENTRY_REACH[0]
                     and ENTRY_REACH[1] <= e[1] - y <= ENTRY_REACH[2] for e in entries)]
+    # Native points are independently audited standing seeds. Nearby grid cells still need a clear corridor.
+    seeds += [(i, k, y) for (i, k), ys in cells.items() for y in ys
+              if any(math.hypot((i + .5) * GRID - x, (k + .5) * GRID - z) <= GRID
+                     and abs(y - ny) <= SUPPORT_TOLERANCE
+                     and reach.approach_clear(scene, (x, ny, z), ((i + .5) * GRID, y, (k + .5) * GRID))
+                     for x, ny, z in native_points)]
     seen, queue = set(seeds), list(seeds)
     while queue:
         i, k, y = queue.pop()
@@ -563,13 +628,18 @@ def floor_points(auditor, name, pin):
     stats['connected'] = len(seen)
     stats['connected_eligible'] = len(seen & eligible)
     candidates = []
-    for i, k, y in seen & eligible:
-        x, z = (i + .5) * GRID, (k + .5) * GRID
+    raw_candidates = list(native_points) + [((i + .5) * GRID, y, (k + .5) * GRID) for i, k, y in seen & eligible]
+    for x, y, z in raw_candidates:
         if any(abs(x - d[0]) <= DOOR_CLEAR and abs(z - d[2]) <= DOOR_CLEAR and -0.6 <= d[1] - y <= 1.6 for d in doors):
             continue
         candidates.append((round(z, 6), round(y + .005, 6), round(-x, 6)))  # CE frame = (z, y, -x)
     stats['door_clear'] = len(candidates)
-    limit = min(MAX_CONTAINER_POINTS, max(1, int(len(seen & eligible) * GRID * GRID / FLOOR_AREA_PER_POINT)))
+    # Native samples count only where the finer offline grid did not already cover their area.
+    extra = sum(not any(math.hypot(x - (i + .5) * GRID, z - (k + .5) * GRID) <= GRID
+                        and abs(y - gy) <= SUPPORT_TOLERANCE for i, k, gy in seen & eligible)
+                for x, y, z in native_points)
+    area = len(seen & eligible) * GRID * GRID + extra * GRID * GRID
+    limit = min(MAX_CONTAINER_POINTS, max(1, int(area / FLOOR_AREA_PER_POINT)))
     chosen = loot._spread(candidates, [], FLOOR_SPACING, limit)
     stats['chosen'] = len(chosen)
     return [list(p) for p in chosen], stats
@@ -656,12 +726,13 @@ def exclusions(instances, stock_pos):
     return kept, dropped
 
 
-def generate(addons, mission, reader_folder, scratch):
+def generate(addons, mission, reader_folder, scratch, native_censuses=()):
     """The new-buildings layer as bytes; heavy (reads the world and ODOL models)."""
     from tools.audit import pbo_config as pbo
     from tools.package import interior_points_gen as ipg
     from tools.package import loot_reach_audit as reach
     from tools.package import loot_boost as loot
+    docs, native = native_inputs(native_censuses)
     mission, scratch = Path(mission), Path(scratch)
     stock_proto_bytes = (mission / 'mapgroupproto.xml').read_bytes()
     stock_pos = (mission / 'mapgrouppos.xml').read_bytes()
@@ -671,7 +742,7 @@ def generate(addons, mission, reader_folder, scratch):
     world, world_sha = read_world(addons)
     validation = validate_world(world, stock_pos)
     print('world validation', json.dumps(validation), file=sys.stderr, flush=True)
-    assets = ipg.Assets(addons)
+    assets = ipg.Assets(addons, require_visual=True)
     config = {k.casefold(): k for k in assets.classes}
     instances = {}
     for cls, model, x, y, z, m in world:
@@ -685,6 +756,10 @@ def generate(addons, mission, reader_folder, scratch):
     groups, refused, evidence = {}, {}, {}
     synthetic, pins = ET.Element('prototype'), {}
     for name, rule in SELECTION.items():
+        sample = native.get(name)
+        if sample and not any(r['observed_hit_count'] for r in sample['runs']):
+            refused[name] = 'native census: no standable hits (run %s)' % ','.join(sorted({r['native_run_id'] for r in sample['runs']}))
+            continue
         if name.casefold() in stock_names:
             refused[name] = 'stock already has this group'
             continue
@@ -718,13 +793,30 @@ def generate(addons, mission, reader_folder, scratch):
     floors = {}
     for name, (g, model, model_sha) in pins.items():
         print('floor ' + name, file=sys.stderr, flush=True)
-        points, stats = floor_points(auditor, name, loot.group_pin(g))
+        points, stats = floor_points(auditor, name, loot.group_pin(g), native.get(name))
         evidence[name] = {'floor': stats}
+        if native.get(name):
+            evidence[name]['native_provenance'] = native[name]['runs']
+            evidence[name]['native_refusals'] = native[name]['refusals']
+        if name == 'Land_Office_Municipal1':
+            heights = [h[1] for h in native.get(name, {}).get('hits', [])]
+            ground = min(heights) if heights else min((p[1] for p in points), default=0)
+            upper = [p for p in points if p[1] > ground + CEILING[0]]
+            evidence[name]['upper_floors'] = {'points': len(upper),
+                'native_upper_hits': sum(y > ground + CEILING[0] for y in heights),
+                'ground_height': ground, 'reason': (
+                'native-seeded points above ground storey' if upper else
+                'no upper-floor point passed support/roof/standing/entry-connection checks')}
         auditor.props.clear()
         auditor.meshes.clear()
         auditor.assets.cache.clear()
         if not points:
-            refused[name] = 'no floor point passed support/roof/standing/entry-connection checks'
+            reason = 'no floor point passed support/roof/standing/entry-connection checks'
+            ns = stats.get('native', {})
+            if native.get(name):
+                reason += '; native audits: ' + ', '.join('%s=%s' % (key, ns.get(key, 0)) for key in
+                    ('hit_count', 'clearance_rejected', 'supported', 'roofed', 'enclosed', 'eligible'))
+            refused[name] = reason
             continue
         floors[name] = points
     # Surface points: interior_points_gen on a proto whose new groups carry the floor points above.
@@ -764,6 +856,8 @@ def generate(addons, mission, reader_folder, scratch):
                      'orientation': 'roll=-atan2(aside.y, up.y), pitch=atan2(dir.y, |dir.xz|), yaw=atan2(dir.x, dir.z), '
                                     'a=atan2(dir.z, dir.x); position = classed-object xyz'},
            'sources': {'stock_proto_sha256': sha(stock_proto_bytes),
+                       'native_censuses': [{'native_run_id': d['run'], 'sha256': d['sha']} for d in docs],
+                       'native_method': 'native model-frame standing hits (rot90 calibration); shared support/roof/enclosure/loader audits; audited standing seeds widen entry evidence only; no-door reach remains pending',
                        'reader_revision': ipg.READER_REVISION, 'reader_sha256': ipg.READER_HASHES,
                        'surface_method': surfaces['sources'].get('method'),
                        'floor_method': ('ODOL geometry+roadway floors on a %.1f m grid; 12 cm footprint support; '
@@ -789,12 +883,13 @@ def main(argv=None):
     g.add_argument('--mission', required=True, type=Path, help='stock dayzOffline.chernarusplus folder (read-only)')
     g.add_argument('--reader', required=True, type=Path, help='pinned DayZObjectBuilder ODOL reader folder')
     g.add_argument('--scratch', required=True, type=Path, help='fresh scratch folder for synthetic protos')
+    g.add_argument('--native-census', type=Path, action='append', default=[], help='native interior census (repeatable, read-only)')
     g.add_argument('--out', required=True, type=Path)
     c = sub.add_parser('check', help='parse the shipped layer and dry-run it against a mission copy')
     c.add_argument('--mission', required=True, type=Path)
     args = parser.parse_args(argv)
     if args.command == 'generate':
-        data = generate(args.addons, args.mission, args.reader, args.scratch)
+        data = generate(args.addons, args.mission, args.reader, args.scratch, args.native_census)
         args.out.write_bytes(data)
         print('wrote %s (%s)' % (args.out, sha(data)))
         return 0
