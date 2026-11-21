@@ -41,9 +41,21 @@ class HCGroupMapLayers
         mHCUsed = 0;
     }
 
+    // Preserve unchanged admin slots between group redraws. A changed group
+    // prefix forces the admin view to bind its slots again from the same pool.
+    int HCUsed() { return mHCUsed; }
+    bool HCKeep(int count)
+    {
+        if (count < 0 || mHCUsed + count > mHCPool.Count()) { return false; }
+        mHCUsed += count;
+        return true;
+    }
+
     void Pin(MapWidget mapWidget, vector position, string title, int color, string texture, HCGroupSettings settings)
     {
-        if (!mHCOverlay || mHCUsed >= 602) return;
+        int cap = 602;
+        if (HCAdminWorldClient.Get().Authorized) { cap = cap + HCAdminWorldWire.DRAW; }
+        if (!mHCOverlay || mHCUsed >= cap) return;
         float left, top, width, height;
         mHCOverlay.GetScreenPos(left, top);
         mHCOverlay.GetScreenSize(width, height);
@@ -211,6 +223,7 @@ class HCGroupMapLayers
                 Pin(mapWidget, member.Position, "[Team] " + member.Name, ARGB(255,86,180,233), texture, frame.Settings);
             }
         }
+        HCAdminWorldClient.Get().Draw(this, mapWidget, frame.Settings);
         for (int unused = mHCUsed; unused < mHCPool.Count(); unused++)
             mHCPool.Get(unused).Show(false);
     }
