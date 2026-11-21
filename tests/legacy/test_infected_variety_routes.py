@@ -8,6 +8,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
+from tests.legacy.infected_variety_fixtures import transfers, weight_deltas, write_mission
 from tools.package import infected_variety
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,25 +49,23 @@ class StockSubstitutionTests(unittest.TestCase):
                     self.assertEqual(total(old), total(self.after[name]))
 
     def test_donors_stay_positive_and_destination_gains_match_authored_shares(self):
-        given = {}
-        for row in self.policy['substitutions']:
-            key = row['event'], row['from']
-            given[key] = given.get(key, 0) + row['share']
-            def weight(events, name):
-                child = events[row['event']].find(f'./children/child[@type="{name}"]')
-                return int(child.get('min')) if child is not None else 0
-            self.assertEqual(weight(self.after, row['to']) - weight(self.before, row['to']), row['share'])
-        for (event, donor), shares in given.items():
-            with self.subTest(event=event, donor=donor):
-                old = self.before[event].find(f'./children/child[@type="{donor}"]')
-                new = self.after[event].find(f'./children/child[@type="{donor}"]')
-                self.assertGreater(int(new.get('min')), 0)
-                self.assertEqual(int(old.get('min')) - shares, int(new.get('min')))
+        rows = transfers(self.policy)
+        self.assertTrue(rows)
+        for (event, child), delta in weight_deltas(self.policy).items():
+            with self.subTest(event=event, child=child):
+                def weight(events):
+                    node = events[event].find(f'./children/child[@type="{child}"]')
+                    return int(node.get('min')) if node is not None else 0
+                self.assertEqual(weight(self.before) + delta, weight(self.after))
+        for row in rows:
+            donor = self.after[row['event']].find(f'./children/child[@type="{row["from"]}"]')
+            self.assertGreater(int(donor.get('min')), 0)
 
     def test_untargeted_events_and_nonchild_metadata_are_preserved(self):
-        targets = {r['event'] for r in self.policy['substitutions']}
+        targets = {r['event'] for r in transfers(self.policy)}
         def structure(node):
             return node.tag, node.attrib, (node.text or '').strip(), [structure(c) for c in node]
+        self.assertTrue(self.before.keys() - targets)
         for name, old in self.before.items():
             new = self.after[name]
             if name not in targets:
@@ -79,11 +78,13 @@ class StockSubstitutionTests(unittest.TestCase):
     def test_install_and_rollback_restore_pinned_stock_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             mission = Path(temp)
-            events = mission / 'db/events.xml'
-            events.parent.mkdir()
-            events.write_bytes(self.stock)
-            with patch.object(infected_variety, 'POLICY', POLICY):
+            originals = write_mission(mission, self.policy, self.stock)
+            events = mission / infected_variety.TARGET
+            policy_path = mission / 'synthetic-policy.json'
+            policy_path.write_text(json.dumps(self.policy))
+            with patch.object(infected_variety, 'POLICY', policy_path):
                 infected_variety.install(mission)
                 self.assertEqual(self.output, events.read_bytes())
                 infected_variety.rollback(mission)
-            self.assertEqual(self.stock, events.read_bytes())
+            for name, data in originals.items():
+                self.assertEqual(data, (mission / name).read_bytes())

@@ -7,6 +7,10 @@ import unittest
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
+from tests.legacy.infected_variety_fixtures import (
+    synthetic_events, transfers, weight_deltas, write_mission,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/infected/variants.json'
 
@@ -18,23 +22,12 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.mission = self.root / 'mission'
-        (self.mission / 'db').mkdir(parents=True)
-        self.events = self.mission / 'db/events.xml'
-        # Deliberately small synthetic events, NOT copied vanilla configuration.
+        self.events = self.mission / self.tool.TARGET
         self.policy = json.loads(POLICY.read_text())
-        rows = []
-        for name in dict.fromkeys(s['event'] for s in self.policy['substitutions']):
-            donors = dict.fromkeys(s['from'] for s in self.policy['substitutions'] if s['event'] == name)
-            # A donor may feed several rows; it keeps min 8 after giving all its shares.
-            given = {d: sum(s['share'] for s in self.policy['substitutions'] if s['event'] == name and s['from'] == d) for d in donors}
-            children = ''.join(f'\n      <child min="{8 + given[d]}" max="0" lootmin="0" lootmax="5" type="{d}" />' for d in donors)
-            rows.append(f'  <event name="{name}"><nominal>42</nominal><active>1</active><children>{children}\n    </children></event>')
-        self.original = ('<?xml version="1.0" encoding="UTF-8"?>\r\n<!-- synthetic comment retained -->\r\n<events>\r\n' + '\r\n'.join(rows) + '\r\n  <event name="Unrelated"><active>0</active></event>\r\n</events>\r\n').encode()
-        self.events.write_bytes(self.original)
+        self.original = synthetic_events(self.policy)
+        self.originals = write_mission(self.mission, self.policy, self.original)
         self.stock = self.root / 'installed-stock-events.xml'
         self.stock.write_bytes(self.original)
-        import hashlib
-        self.policy['evidence']['stock_events_sha256'] = hashlib.sha256(self.original).hexdigest()
         self.policy_path = self.root / 'synthetic-policy.json'
         self.policy_path.write_text(json.dumps(self.policy))
         self.patch = patch.object(self.tool, 'POLICY', self.policy_path)
@@ -48,6 +41,7 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         before = ET.fromstring(self.original)
         self.install()
         after = ET.fromstring(self.events.read_bytes())
+        self.assertEqual([e.get('name') for e in before], [e.get('name') for e in after])
         for old, new in zip(before, after):
             self.assertEqual(old.attrib, new.attrib)
             self.assertEqual(sum(int(c.get('min')) for c in old.findall('./children/child')),
@@ -56,16 +50,23 @@ class InfectedVarietyInstallTests(unittest.TestCase):
                              sum(int(c.get('max')) for c in new.findall('./children/child')))
             self.assertEqual([(c.tag, c.text, c.attrib) for c in old if c.tag != 'children'],
                              [(c.tag, c.text, c.attrib) for c in new if c.tag != 'children'])
-        for row in self.policy['substitutions']:
+        self.assertTrue(transfers(self.policy))
+        deltas = weight_deltas(self.policy)
+        for (name, child), delta in deltas.items():
+            old_event = next(e for e in before if e.get('name') == name)
+            new_event = next(e for e in after if e.get('name') == name)
+            def weight(event):
+                node = event.find(f'./children/child[@type="{child}"]')
+                return int(node.get('min')) if node is not None else 0
+            self.assertEqual(weight(old_event) + delta, weight(new_event))
+        for row in transfers(self.policy):
             event = next(e for e in after if e.get('name') == row['event'])
-            self.assertEqual(str(row['share']), event.find(f'./children/child[@type="{row["to"]}"]').get('min'))
-            donor = event.find(f'./children/child[@type="{row["from"]}"]')
-            old_event = next(e for e in before if e.get('name') == row['event'])
-            old_donor = old_event.find(f'./children/child[@type="{row["from"]}"]')
-            given = sum(r['share'] for r in self.policy['substitutions']
-                        if (r['event'], r['from']) == (row['event'], row['from']))
-            self.assertEqual(int(old_donor.get('min')) - given, int(donor.get('min')))
-            self.assertGreater(int(donor.get('min')), 0)
+            self.assertGreater(int(event.find(f'./children/child[@type="{row["from"]}"]').get('min')), 0)
+        targets = {r['event'] for r in transfers(self.policy)}
+        untouched = [(old, new) for old, new in zip(before, after) if old.get('name') not in targets]
+        self.assertTrue(untouched)
+        for old, new in untouched:
+            self.assertEqual(ET.tostring(old), ET.tostring(new))
         self.assertIn(b'<!-- synthetic comment retained -->', self.events.read_bytes())
 
     def test_non_stock_event_refuses_before_receipt_or_mutation(self):
@@ -92,7 +93,8 @@ class InfectedVarietyInstallTests(unittest.TestCase):
                 self.tool.install(self.mission, None, off=True)
             else:
                 self.tool.rollback(self.mission)
-            self.assertEqual(self.original, self.events.read_bytes())
+            for name, data in self.originals.items():
+                self.assertEqual(data, (self.mission / name).read_bytes())
             self.assertFalse((self.mission / self.tool.MANAGED).exists())
         self.tool.install(self.mission, None, off=True)
         self.assertEqual(self.original, self.events.read_bytes())
@@ -102,28 +104,38 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         import hashlib
         self.install()
         receipt = json.loads((self.mission / self.tool.MANAGED / 'receipt.json').read_bytes())
-        row = receipt['files']['db/events.xml']
-        self.assertEqual(self.original, base64.b64decode(row['before']))
-        self.assertEqual(hashlib.sha256(self.original).hexdigest(), row['before_sha256'])
-        self.assertEqual(hashlib.sha256(self.events.read_bytes()).hexdigest(), row['after'])
-        self.assertEqual('PENDING', receipt['runtime_acceptance'])
+        expected_files = set(self.originals) - {self.tool.PRESETS}
+        self.assertEqual(expected_files, set(receipt['files']))
+        for name, row in receipt['files'].items():
+            original = self.originals[name]
+            self.assertEqual(original, base64.b64decode(row['before']))
+            self.assertEqual(hashlib.sha256(original).hexdigest(), row['before_sha256'])
+            self.assertEqual(hashlib.sha256((self.mission / name).read_bytes()).hexdigest(), row['after'])
+        self.assertEqual(self.policy['runtime_acceptance'], receipt['runtime_acceptance'])
 
     def test_double_quoted_declaration_and_byte_exact_original_restoration(self):
         data = self.original.replace(b'<?xml version="1.0" encoding="UTF-8"?>', b"<?xml version='1.0' encoding='utf-8'?>")
         self.events.write_bytes(data)
         self.install()
-        self.assertTrue(self.events.read_bytes().startswith(b'<?xml version="1.0" encoding="UTF-8"?>'))
+        self.assertTrue(self.events.read_bytes().startswith(self.tool.xml_text.DECLARATION.rstrip(b'\n')))
         self.tool.rollback(self.mission)
         self.assertEqual(data, self.events.read_bytes())
 
     def test_rollback_refuses_operator_drift_and_retains_receipt(self):
-        self.install()
-        data = self.events.read_bytes() + b'<!-- operator edit -->'
-        self.events.write_bytes(data)
-        with self.assertRaisesRegex(ValueError, 'drift'):
-            self.tool.rollback(self.mission)
-        self.assertEqual(data, self.events.read_bytes())
-        self.assertTrue((self.mission / self.tool.MANAGED / 'receipt.json').exists())
+        for name in set(self.originals) - {self.tool.PRESETS}:
+            with self.subTest(file=name):
+                self.install()
+                installed = {n: (self.mission / n).read_bytes() for n in self.originals}
+                path = self.mission / name
+                drift = installed[name] + b'<!-- operator edit -->'
+                path.write_bytes(drift)
+                with self.assertRaisesRegex(ValueError, 'drift'):
+                    self.tool.rollback(self.mission)
+                for n, data in installed.items():
+                    self.assertEqual(drift if n == name else data, (self.mission / n).read_bytes())
+                self.assertTrue((self.mission / self.tool.MANAGED / 'receipt.json').exists())
+                path.write_bytes(installed[name])
+                self.tool.rollback(self.mission)
 
     def test_missing_receipt_with_substituted_target_refuses(self):
         # Review P2-1: an operator-deleted receipt must not report success
@@ -144,12 +156,15 @@ class InfectedVarietyInstallTests(unittest.TestCase):
 
     def test_interrupted_switch_is_recoverable(self):
         real_atomic = self.tool.atomic
-        def fail_target(path, data, managed):
-            if path == self.events:
-                raise OSError('synthetic interruption before events switch')
-            real_atomic(path, data, managed)
-        with patch.object(self.tool, 'atomic', side_effect=fail_target):
-            with self.assertRaises(OSError):
-                self.install()
-        self.tool.rollback(self.mission)
-        self.assertEqual(self.original, self.events.read_bytes())
+        for name in set(self.originals) - {self.tool.PRESETS}:
+            with self.subTest(file=name):
+                def fail_target(path, data, managed):
+                    if path == self.mission / name:
+                        raise OSError('synthetic interruption before file switch')
+                    real_atomic(path, data, managed)
+                with patch.object(self.tool, 'atomic', side_effect=fail_target):
+                    with self.assertRaises(OSError):
+                        self.install()
+                self.tool.rollback(self.mission)
+                for original_name, data in self.originals.items():
+                    self.assertEqual(data, (self.mission / original_name).read_bytes())
