@@ -1,3 +1,9 @@
+// Narrow journal status seam for runtime refusal wording; no journal mutation.
+modded class HCEventJournal
+{
+    bool HCRuntimeFaulted() { return m_Fault; }
+}
+
 // W5-PERF-4: <=1 run cleanup/expiry + <=64 subscribed observations + <=1
 // terminal-subscription purge/tick; cursors survive yields. Expiry/CLOSED
 // journal continuations share one 4 ms slice; native calls cannot be preempted.
@@ -38,6 +44,55 @@ class HCEventRuntime
     protected ref HCStepTimer m_TickSteps;
     protected int m_PendingExpiryId;
     protected int m_PendingExpiryAt;
+    protected ref HCEventSubscription m_PendingLeave;
+    protected ref array<int> m_SceneRetirements = new array<int>;
+
+    protected ref array<int> m_FailedSceneRetirements = new array<int>;
+
+    bool HCTakeSceneRetirementFailure(int id)
+    {
+        int index = m_FailedSceneRetirements.Find(id);
+        if (index < 0) { return false; }
+        m_FailedSceneRetirements.RemoveOrdered(index);
+        return true;
+    }
+    protected void HCRefuseSceneRetirement(int id, string reason)
+    {
+        m_SceneRetirements.RemoveOrdered(0);
+        // Combined pending/failure ownership is capped at the two scene leases.
+        m_FailedSceneRetirements.Insert(id);
+        Print("[HC Events] scene retirement abandoned reason=" + reason + "; Scenes release view and keep props");
+    }
+
+    // Two scene leases at most; retain cancellation ownership after retry-cap release.
+    bool HCQueueSceneRetirement(int id)
+    {
+        if (!m_Ready || id < 1) { return false; }
+        if (m_SceneRetirements.Find(id) >= 0) { return true; }
+        if (m_SceneRetirements.Count() + m_FailedSceneRetirements.Count() >= 2) { return false; }
+        m_SceneRetirements.Insert(id);
+        return true;
+    }
+    bool HCAnnounceOwned() { return HCAnnouncePending() || m_AnnounceReceipt != ""; }
+    protected void HCPublishRefused()
+    {
+        HCEventJournal journal = HCEventJournal.Cast(m_Store);
+        if (journal && journal.HCRuntimeFaulted())
+        {
+            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+        }
+        else { Print("[HC Events] store limit or candidate refused; mutations disabled, cleanup remains pending"); }
+    }
+    protected void HCFinishLeave(HCEventSubscription leaving)
+    {
+        int eventId = leaving.EventId;
+        PlayerBase player = leaving.Player;
+        m_Subscriptions.RemoveItem(leaving);
+        m_PendingLeaves.Remove(leaving);
+        m_Busy = true;
+        m_Observer.Forget(m_State.Runs[eventId - m_State.Director.PrunedThrough - 1].Lease, player);
+        m_Busy = false;
+    }
 
     void HCSetStepTimer(HCStepTimer timer) { m_TickSteps = timer; }
     // BLOCKED plus HCAnnouncePending is a yield, not an admission failure.
@@ -46,6 +101,7 @@ class HCEventRuntime
     protected bool m_AnnounceStaged;
     protected string m_AnnounceReceipt;
     protected string m_AnnounceReceiptSession;
+    protected int m_AnnounceReceiptTicks;
     protected int m_AnnounceResult = HCEventCode.BLOCKED;
     protected int m_AnnounceRepeat;
     protected int m_AnnounceId;
@@ -76,7 +132,7 @@ class HCEventRuntime
         {
             m_Ready = false;
             FaultCleanup();
-            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            HCPublishRefused();
             return false;
         }
         candidate.Revision++;
@@ -85,14 +141,14 @@ class HCEventRuntime
         {
             m_Ready = false;
             FaultCleanup();
-            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            HCPublishRefused();
             return false;
         }
         if (!journal.HCBeginSave(candidate))
         {
             m_Ready = false;
             FaultCleanup();
-            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            HCPublishRefused();
             return false;
         }
         m_PendingPublish = candidate;
@@ -117,6 +173,7 @@ class HCEventRuntime
             if (result == HCSaveJob.STEP_DONE)
             {
                 m_State = m_PendingPublish;
+                if (m_PendingLeave) { HCFinishLeave(m_PendingLeave); }
                 if (m_PendingExpiryId > 0)
                 {
                     RememberCooldown(HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId), m_PendingExpiryAt);
@@ -127,12 +184,13 @@ class HCEventRuntime
                 m_PendingPublish = null;
                 m_PendingJournal = null;
                 m_PendingExpiryId = 0;
+                m_PendingLeave = null;
             }
             if (result == HCSaveJob.STEP_FAILED)
             {
                 m_Ready = false;
                 FaultCleanup();
-                Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+                HCPublishRefused();
                 return false;
             }
         }
@@ -158,6 +216,7 @@ class HCEventRuntime
         m_AnnounceStaged = false;
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         m_AnnounceResult = HCEventCode.BLOCKED;
         m_AnnounceRepeat = 0;
         m_AnnounceId = 0;
@@ -169,6 +228,9 @@ class HCEventRuntime
         m_PendingJournal = null;
         m_PendingExpiryId = 0;
         m_PendingLeaves.Clear();
+        m_PendingLeave = null;
+        m_SceneRetirements.Clear();
+        m_FailedSceneRetirements.Clear();
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
         m_RetentionBlockedLine = "";
@@ -284,7 +346,7 @@ class HCEventRuntime
         {
             m_Ready = false;
             FaultCleanup();
-            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+            HCPublishRefused();
             return false;
         }
         m_State = candidate;
@@ -379,10 +441,10 @@ class HCEventRuntime
         request.ParticipantId = participant;
         return HCEventDirector.Command(state.Director, context, request);
     }
-    // Existing admin/scenes callers require an immediate final result. Only the
-    // roster opts into yielding; both paths execute the same durable state machine.
+    // All live callers yield through the same durable announcement slot.
     int HCAnnounceStaged(HCEventMission mission, HCEventContext context)
     {
+        if (HCPublishPending() || HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
         m_StageNextAnnounce = true;
         int result = Announce(mission, context);
         m_StageNextAnnounce = false;
@@ -395,8 +457,10 @@ class HCEventRuntime
         {
             m_AnnounceReceipt = "";
             m_AnnounceReceiptSession = "";
+            m_AnnounceReceiptTicks = 0;
             return m_AnnounceResult;
         }
+        if (HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
         if (!Allowed(context))
         {
             return HCEventCode.DENIED;
@@ -477,6 +541,7 @@ class HCEventRuntime
         int result = m_AnnounceResult;
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         return result;
     }
     protected int HCAnnounceOperation(HCEventRuntimeState candidate, HCEventMission mission, HCEventContext context, int repeatId)
@@ -525,6 +590,7 @@ class HCEventRuntime
         m_AnnounceResult = result;
         if (m_AnnounceStaged && !m_StopRequested)
         {
+            m_AnnounceReceiptTicks = 0;
             m_AnnounceReceipt = m_AnnounceMission.Id;
             m_AnnounceReceiptSession = m_AnnounceContext.Session;
         }
@@ -618,7 +684,7 @@ class HCEventRuntime
             {
                 m_Ready = false;
                 FaultCleanup();
-                Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+                HCPublishRefused();
                 HCFinishAnnounce(HCEventCode.BLOCKED);
                 return;
             }
@@ -630,7 +696,7 @@ class HCEventRuntime
                 {
                     m_Ready = false;
                     FaultCleanup();
-                    Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
+                    HCPublishRefused();
                     HCFinishAnnounce(HCEventCode.BLOCKED);
                     return;
                 }
@@ -656,6 +722,21 @@ class HCEventRuntime
         int cooldownIndex = m_ReofferIds.Find(record.Id);
         if (cooldownIndex < 0) { return false; }
         return now >= m_ReofferAfter[cooldownIndex];
+    }
+    int HCMissionEventId(string missionId)
+    {
+        foreach (HCEventRecord record : m_State.Director.Records)
+        {
+            if (record.Session == m_State.Director.Session && record.Definition.Id == missionId) { return record.Id; }
+        }
+        return 0;
+    }
+    // Read only the last committed record; never clone for a view status check.
+    int HCCommittedEventStatus(int id)
+    {
+        HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, id);
+        if (!record) { return -1; }
+        return record.Status;
     }
     bool HasMission(string missionId)
     {
@@ -925,6 +1006,17 @@ class HCEventRuntime
         // One shared four-millisecond slice, retained across all maintenance
         // stages in this tick. No second slice after completing a journal.
         m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        if (m_AnnounceReceipt != "")
+        {
+            m_AnnounceReceiptTicks++;
+            if (m_AnnounceReceiptTicks >= 120)
+            {
+                m_AnnounceReceipt = "";
+                m_AnnounceReceiptSession = "";
+                m_AnnounceReceiptTicks = 0;
+                Print("[HC Events] announcement receipt timed out; slot released after 120 ticks");
+            }
+        }
         if (HCAnnouncePending())
         {
             HCAdvanceAnnounce();
@@ -941,12 +1033,39 @@ class HCEventRuntime
         {
             return;
         }
+        if (m_SceneRetirements.Count() > 0)
+        {
+            int retiring = m_SceneRetirements[0];
+            HCEventRecord retiringRecord = HCEventDirector.FindRecord(m_State.Director, retiring);
+            if (!retiringRecord) { HCRefuseSceneRetirement(retiring, "record-missing"); return; }
+            if (HCEventDirector.Terminal(retiringRecord.Status)) { m_SceneRetirements.RemoveOrdered(0); return; }
+            int retireStarted = TickCount(0);
+            HCEventRuntimeState retirement = m_Store.Clone(m_State);
+            HCMeasured("retire_clone", retireStarted);
+            if (!retirement) { HCRefuseSceneRetirement(retiring, "clone-refused"); return; }
+            int retireResult = Operation(retirement, retiring, HCEventOp.CANCEL, "", context);
+            if (retireResult != HCEventCode.OK) { HCRefuseSceneRetirement(retiring, "cancel-code-" + retireResult.ToString()); return; }
+            retirement.Runs[retiring - retirement.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+            if (HCBeginPublish(retirement)) { m_SceneRetirements.RemoveOrdered(0); m_LastNow = context.Now; }
+            else { HCRefuseSceneRetirement(retiring, "publish-refused"); }
+            return;
+        }
         if (m_PendingLeaves.Count() > 0)
         {
             HCEventSubscription leaving = m_PendingLeaves.GetKey(0);
-            m_PendingLeaves.Remove(leaving);
-            // Deferred Leave must be staged before Join returns to service.
-            Leave(leaving.EventId, leaving.Player, context);
+            if (Binding(leaving.EventId, leaving.Player) < 0) { m_PendingLeaves.Remove(leaving); return; }
+            int leaveStarted = TickCount(0);
+            HCEventRuntimeState departure = m_Store.Clone(m_State);
+            HCMeasured("leave_clone", leaveStarted);
+            if (!departure) { return; }
+            int leaveResult = Operation(departure, leaving.EventId, HCEventOp.LEAVE, leaving.ParticipantId, context);
+            if (leaveResult != HCEventCode.OK) { m_PendingLeaves.Remove(leaving); return; }
+            if (HCBeginPublish(departure))
+            {
+                if (m_PendingPublish) { m_PendingLeave = leaving; }
+                else { HCFinishLeave(leaving); }
+                m_LastNow = context.Now;
+            }
             return;
         }
         m_LastNow = context.Now;
@@ -1050,10 +1169,14 @@ class HCEventRuntime
         // Drain may create a receipt; stopped/quarantined owners must not retain it.
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         m_AnnounceResult = HCEventCode.BLOCKED;
         m_Ready = false;
         m_Subscriptions.Clear();
         m_PendingLeaves.Clear();
+        m_PendingLeave = null;
+        m_SceneRetirements.Clear();
+        m_FailedSceneRetirements.Clear();
         if (m_Busy)
         {
             return false;
