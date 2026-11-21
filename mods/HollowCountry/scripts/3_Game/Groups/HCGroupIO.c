@@ -39,6 +39,42 @@ class HCGroupIO
         return count > 0 && count <= limit && text.Length() > 0 && text.Length() <= limit;
     }
 
+    // Torn-file shape check before the native JSON parser sees the file: the
+    // first non-blank line opens with "{" and the last non-blank line ends
+    // with "}". Line-based like the vanilla loader (3_Game/tools/
+    // JsonFileLoader.c:118 FGets >= 0; EnSystem.c:501, -1 ends the file) so it
+    // never runs Trim/Substring over a whole large image: that check refused
+    // valid 73-176 KB stores on boot 136. Bounded by bytes and line count.
+    static bool HCLooksWholeObject(string path, int limit)
+    {
+        if (limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        string line;
+        string first = "";
+        string last = "";
+        int bytes = 0;
+        int lines = 0;
+        int read = FGets(handle, line);
+        while (read >= 0)
+        {
+            bytes = bytes + read;
+            lines++;
+            if (bytes > limit || lines > limit) { CloseFile(handle); return false; }
+            string piece = line.Trim();
+            if (piece != "")
+            {
+                if (first == "") { first = piece; }
+                last = piece;
+            }
+            read = FGets(handle, line);
+        }
+        CloseFile(handle);
+        if (first.Length() < 1 || last.Length() < 1) { return false; }
+        if (first.Substring(0, 1) != "{") { return false; }
+        return last.Substring(last.Length() - 1, 1) == "}";
+    }
+
     static bool WriteNew(string path, string text, int limit)
     {
         if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }

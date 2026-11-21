@@ -41,10 +41,9 @@ class HCV2ThreatStore<Class T>
     static bool HCWholeImage(string path)
     {
         if (!FileExist(path)) { return false; }
+        if (!HCGroupIO.HCLooksWholeObject(path, HCGroupIO.HC_RAW_READ_CAP)) { return false; }
         string text;
         if (!HCGroupIO.HCReadRaw(path, HCGroupIO.HC_RAW_READ_CAP, text)) { return false; }
-        string trimmed = text.Trim();
-        if (trimmed.Length() < 2 || trimmed.Substring(0, 1) != "{" || trimmed.Substring(trimmed.Length() - 1, 1) != "}") { return false; }
         T probe;
         string error;
         return JsonFileLoader<T>.LoadData(text, probe, error) && probe != null;

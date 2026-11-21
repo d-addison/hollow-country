@@ -370,9 +370,8 @@ class HCXAILocalitySave : HCSaveJob
         if (!FileExist(path)) { return false; }
         // A torn write (empty or cut-off file after a crash) goes straight to
         // the backup: the native parser would log it as SCRIPT (E) JSON ERROR.
+        if (!HCGroupIO.HCLooksWholeObject(path, HCWorldStore.MAX_BYTES)) { return false; }
         string text = HCWorldStore.Read(path);
-        string trimmed = text.Trim();
-        if (trimmed.Length() < 2 || trimmed.Substring(0, 1) != "{" || trimmed.Substring(trimmed.Length() - 1, 1) != "}") { return false; }
         string error;
         if (!JsonFileLoader<HCXAILocalityRotation>.LoadData(text, Data, error) ||!Data || Data.SchemaVersion != 1 || Data.WorldName != world || !Data.Rows || Data.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || Data.SelectionSerial < 0 || Data.NextId.Length() > 48) { return false; }
         map<string, bool> ids = new map<string, bool>();
