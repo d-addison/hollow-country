@@ -23,6 +23,9 @@ class HCXAdminMapMarker : ExpansionMapWidgetBase
     protected int mHCXPin = -1;
     protected string mHCXIconName;
     protected string mHCXTitle;
+    // The Expansion marker layout ships placeholder text ("MARKER NAME"), so the
+    // first bind always writes the name, even when an unlabelled pin passes "".
+    protected bool mHCXNamed;
 
     void HCXAdminMapMarker(Widget parent, MapWidget mapWidget, bool autoInit = true)
     {
@@ -53,8 +56,9 @@ class HCXAdminMapMarker : ExpansionMapWidgetBase
             ExpansionIcon icon = ExpansionIcons.Get(iconName);
             if (icon) SetIcon(icon);
         }
-        if (title != mHCXTitle)
+        if (!mHCXNamed || title != mHCXTitle)
         {
+            mHCXNamed = true;
             mHCXTitle = title;
             SetName(title);
         }
