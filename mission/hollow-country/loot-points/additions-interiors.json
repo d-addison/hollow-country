@@ -98738,7 +98738,7 @@
   "schema": 1,
   "sources": {
     "collision_support": {
-      "floor_policy_sha256": "abe847a977c6b840237b3ba5d271724e4cfbad35eb745c89fc3a3dbc50573c47",
+      "floor_policy_sha256": "32fed593e8f5747211f6e2effe9e5a03712ae699c3ac4413559a79bcbf8dc27a",
       "method": "collision-support-v2: Geometry/Roadway/View-Geometry support; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback",
       "native_acceptance": "pending",
       "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
@@ -99715,6 +99715,7 @@
             "reasons": {}
           }
         ],
+        "input_sha256": "320c7bb8688c0bc10eca9b70dc2d0417d7ce4de9ca2f8dfebf1f5c684ae06b3b",
         "refused_points": 0
       },
       "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"

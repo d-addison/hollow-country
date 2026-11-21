@@ -870,6 +870,26 @@ FLOOR_METHOD = ('hc-floor-v1: native stock points on building Geometry/Roadway f
                 'gate before admission; optional props block bodies and points')
 
 
+def floor_story(group, fallback):
+    """Floor categories the stock group itself authors for its floor spots, minus firearms.
+
+    Bohemia's own floor containers tell each place's story (a wreck carries food,
+    a deer stand tools and clothes, a barracks tools and containers), so HC floor
+    points follow them. Any modded item the economy files under those categories
+    spawns there too; nothing is limited to a vanilla item list.
+    """
+    story = []
+    for container in group.findall('container'):
+        tags = {t.get('name') for t in container.findall('tag')}
+        if 'floor' not in container.get('name', '').lower() and 'floor' not in tags and tags:
+            continue
+        for category in container.findall('category'):
+            value = category.get('name')
+            if value and value.lower() not in loot.KEPT_CATEGORIES and value not in story:
+                story.append(value)
+    return story or list(fallback)
+
+
 def floor_cells(name, group, context, slots):
     """Reached floor cells (model frame) of one stock group, or a refusal reason."""
     from tools.package.loot_reach_audit import (
@@ -1001,10 +1021,10 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
             continue
         if map_pos is not None and not placements[name] and name not in existing:
             continue
-        family = loot.family_of(name, policy)
-        if family is None:
-            refused[name] = 'no-loot-family'
-            continue
+        # Every lootable place takes part (owner, 2026-11-20): a building outside
+        # the families policy takes its floor story from its own stock containers.
+        family = loot.family_of(name, policy) or {
+            'family': 'stock_story', 'floor': {'categories': ['clothes', 'tools'], 'tags': ['floor']}}
         model = pbo.normalize_path(pbo.resolve_field(assets.classes, name, 'model') or '')
         if model not in assets.members:
             refused[name] = 'missing-model'
@@ -1021,9 +1041,12 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         if name in existing:
             # Kept floor groups get the same size-realistic lootmax (owner,
             # 2026-11-20: loot numbers follow the building size everywhere).
+            kept = doc['groups'][name]
             if cells:
-                doc['groups'][name]['interior_area_m2'] = round(cells[2] * FLOOR_STEP * FLOOR_STEP, 2)
-                refreshed.append(name)
+                kept['interior_area_m2'] = round(cells[2] * FLOOR_STEP * FLOOR_STEP, 2)
+            if 'lootHCFloor' in kept['containers']:
+                kept['containers']['lootHCFloor']['categories'] = floor_story(group, family['floor']['categories'])
+            refreshed.append(name)
             continue
         if reason:
             refused[name] = reason
@@ -1064,7 +1087,7 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         added[name] = {'family': family['family'], 'stock_sha256': spec['stock_sha256'],
                        'building_model': model, 'building_model_sha256': spec['building_model_sha256'],
                        'containers': {'lootHCFloor': {'lootmax': loot.added_lootmax(len(points), area),
-                           'categories': list(floor['categories']), 'tags': list(floor['tags']),
+                           'categories': floor_story(group, floor['categories']), 'tags': list(floor['tags']),
                            'points': points}},
                        'floor_sources': witnesses, 'interior_area_m2': area}
         if map_pos is not None:
