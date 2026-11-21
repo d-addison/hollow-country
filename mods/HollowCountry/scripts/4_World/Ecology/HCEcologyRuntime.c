@@ -31,6 +31,7 @@ class HCEcologyRuntime
 	protected ref array<ref HCEcologyLiveBinding> m_Actors = new array<ref HCEcologyLiveBinding>;
 	protected ref array<ref HCEcologyLiveBinding> m_Resources = new array<ref HCEcologyLiveBinding>;
 	protected int m_DiagRows;
+	protected int m_DiagRearms;
 	protected ref array<ref HCEcologyRouteIntent> m_Intents = new array<ref HCEcologyRouteIntent>;
 	protected ref HCEcologyRuntimeSettings m_Settings;
 	protected ref HCEcologyRuntimeStore m_Store;
@@ -134,6 +135,9 @@ class HCEcologyRuntime
 	{
 		if (!s_Instance || !entity || !s_Instance.m_Collecting) { return; }
 		int callbackStart = TickCount(0);
+		// #330: carcass creation kills animals; re-arm the prune window log so it
+		// covers the prune that follows (at most 5 re-arms per process).
+		if (s_Instance.m_DiagRearms < 5 && AnimalBase.Cast(entity) && !entity.IsAlive()) { s_Instance.HCDiagRearm(entity); }
 		s_Instance.Remove(entity);
 		s_Instance.m_CallbackMaxTicks = Math.Max(s_Instance.m_CallbackMaxTicks, TickCount(callbackStart));
 	}
@@ -459,6 +463,16 @@ class HCEcologyRuntime
 	// #330 diagnostic, first 40 prune slices per process: one line per registry
 	// window (resources, then actors if the slice reaches them) naming the rows the
 	// slice may visit, printed before any Live access, then one slice_end line.
+	protected void HCDiagRearm(EntityAI entity)
+	{
+		m_DiagRearms++;
+		m_DiagRows = 0;
+		string line = "[HC Diag] prune rearm reason=animal_killed type=" + entity.GetType();
+		line += " rearm=" + m_DiagRearms.ToString() + " resources=" + m_Resources.Count().ToString() + " actors=" + m_Actors.Count().ToString();
+		line += " stage=" + m_Stage.ToString() + " kind=" + m_PruneKind.ToString() + " cursor=" + m_PruneCursor.ToString();
+		Print("" + line);
+	}
+
 	protected void HCDiagPruneWindow(int allowance)
 	{
 		if (m_PruneKind > 1 || allowance <= 0) { return; }
