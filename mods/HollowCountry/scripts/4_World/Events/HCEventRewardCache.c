@@ -66,7 +66,7 @@ class HCEventPoliceNav
         return found;
     }
 }
-// Retain native query order, including the cargo index inside one container.
+// Retain native query order with a capped cargo handle snapshot per container.
 // No inventory is cloned; fallbacks start only after the full capped scan.
 class HCEventPoliceStockSlice
 {
@@ -80,7 +80,7 @@ class HCEventPoliceStockSlice
     ItemBase DeliveryContainer;
     ItemBase CargoOwner;
     int CargoNext;
-    int CargoCount;
+    ref array<ItemBase> CargoItems;
     vector Position;
     ref HCEventRewardPlan Plan;
     int CreateNext;
@@ -265,12 +265,31 @@ class HCEventCacheSpawner
                     ItemBase cargoOwner = job.CargoOwner;
                     CargoBase cargo;
                     if (cargoOwner.GetInventory()) { cargo = cargoOwner.GetInventory().GetCargo(); }
-                    if (!HCPhysicalGround(cargoOwner) || !cargo || job.CargoNext >= job.CargoCount || job.CargoNext >= cargo.GetItemCount())
+                    if (!HCPhysicalGround(cargoOwner) || !cargo)
                     {
                         job.CargoOwner = null;
+                        job.CargoItems = null;
                         continue;
                     }
-                    ItemBase item = ItemBase.Cast(cargo.GetItem(job.CargoNext));
+                    if (!job.CargoItems)
+                    {
+                        // One grant snapshots at most 64 weak item handles in
+                        // native order. No yield can shift indices mid-copy.
+                        job.CargoItems = new array<ItemBase>;
+                        int cargoCount = Math.Min(cargo.GetItemCount(), policy.PhysicalScanCargo);
+                        for (int cargoIndex = 0; cargoIndex < cargoCount; cargoIndex++)
+                        {
+                            job.CargoItems.Insert(ItemBase.Cast(cargo.GetItem(cargoIndex)));
+                        }
+                        return null;
+                    }
+                    if (job.CargoNext >= job.CargoItems.Count())
+                    {
+                        job.CargoOwner = null;
+                        job.CargoItems = null;
+                        continue;
+                    }
+                    ItemBase item = job.CargoItems[job.CargoNext];
                     job.CargoNext++;
                     if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
                     if (item.GetHierarchyParent() != cargoOwner || !PoliceItemMatches(item, mission, classes) || PoliceItemUsed(item)) { continue; }
@@ -295,7 +314,9 @@ class HCEventCacheSpawner
                 if (vector.DistanceSq(cache.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius) { job.DeliveryContainer = cache; }
                 job.CargoOwner = cache;
                 job.CargoNext = 0;
-                job.CargoCount = Math.Min(cache.GetInventory().GetCargo().GetItemCount(), policy.PhysicalScanCargo);
+                job.CargoItems = null;
+                // Isolate the bounded snapshot from object inspection work.
+                return null;
             }
             return null;
         }
@@ -381,11 +402,19 @@ class HCEventCacheSpawner
         }
         if (job.CreateNext < job.Plan.Items.Count())
         {
+            // The barrel has been accessible between grants. Respect changed
+            // ownership/lid state; never delete it or player-deposited cargo.
+            // The durable allocation stays spent, including partial stocking.
+            if (!HCPhysicalGround(job.OwnedCache) || !job.OwnedCache.IsOpen() || !job.OwnedCache.GetInventory())
+            {
+                s_StockSlices.Remove(mission.Id);
+                PoliceRefused("police_cache_cargo_failed");
+                return null;
+            }
             string itemClass = job.Plan.Items[job.CreateNext];
             job.CreateNext++;
             if (!job.OwnedCache.GetInventory().CreateInInventory(itemClass))
             {
-                GetGame().ObjectDelete(job.OwnedCache);
                 s_StockSlices.Remove(mission.Id);
                 PoliceRefused("police_cache_cargo_failed");
             }

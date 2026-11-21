@@ -461,7 +461,16 @@ class HCWildlifeProviders
         // Visibility must be fresh at the actual creation, never a retained
         // observer result. Creation and death stay together so no live animal
         // gets an intervening simulation frame or moves off its authored point.
-        if (!HCHidden(site.Position)) { return; }
+        if (!HCHidden(site.Position))
+        {
+            // This allocation and ledger grant remain spent. Release the
+            // active slot so a visible/camped site cannot starve other sites
+            // or renewal; never retry or commit this allocation a second time.
+            m_CreateSite = null;
+            m_CreatePlan = null;
+            m_CreateStage = 0;
+            return;
+        }
         m_CreateSite = null;
         HCEventRewardPlan plan = m_CreatePlan;
         m_CreatePlan = null;
