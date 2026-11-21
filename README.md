@@ -57,9 +57,9 @@ Both story schedulers now use free window capacity; all 74 shelter scenes remain
 | **Horde migration** | World history assigns movement along authored patrol waypoints. | `EnableWorld=true`; `EnableHordes=true`. | *In-game test pending* |
 | **Doors and door pressure** | Door policies let eligible infected open or pressure doors without blocking player routes; wreck and vehicle ancestry is excluded from door scans. | `EnableInfected=true`. | *In-game test pending* |
 | **Climbing and vulnerable positions** | Chasing infected can attempt a native vault toward an unreachable target 0.5–2.2 m above and within 2.5 m horizontally, using bounded obstacle rays and native landing. Four concurrent attempts and a six-second cooldown bound the work. Ladder traversal has no native command and remains deferred; shadow diagnostics only. | `EnableInfected=true`. | *In-game test pending* |
-| **Postures and visual variety** | Appearance substitutions and role policies use native stance, idle and crawler wake modes. Calm crawlers can rest in catalogued rooms or near tracked corpses; gunfire and native wake logic interrupt rest. Bounded crawler groups idle at authored wrecks, roadsides, churches, gas stations and buildings; fresh bodies appear out of sight under a cap that counts corpses. Standing idle bodies and bounded corridor movement for waking groups are included; routes release on visibility, combat, expiry or ownership loss. A few infected per town spawn through the vanilla CE already sitting, sleeping, lying or kneeling over a meal, or crawling, and get up when they notice you or are hit (2-6% of town event weights). All 57 substitutions retain a positive donor weight and unchanged event totals. Legacy `MaxTracked=24` migrates in memory to 256; other operator values remain. Distant idle tracking recycles at most one eligible record per scan without deleting or moving infected, and herds use separate lease capacity. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `infected_variety.disable`; `EnableGroupScaling=true` controls group-size scaling; LOD `VarietyNonCalmHoldSeconds=600`; variety `StandingRiserEvery=2`, `EnableMigration=true`, `PosedFreshEvery=3`, `MaxPosed=24` (0 off). | *In-game test pending* |
+| **Postures and visual variety** | Appearance substitutions and role policies use native stance, idle and crawler wake modes. Calm crawlers can rest in catalogued rooms or near tracked corpses; gunfire and native wake logic interrupt rest. Bounded crawler groups idle at authored wrecks, roadsides, churches, gas stations and buildings; fresh bodies appear out of sight under a cap that counts corpses. Standing idle bodies and bounded corridor movement for waking groups are included; routes release on visibility, combat, expiry or ownership loss. A few infected per town spawn through the vanilla CE already crawling (small shares of the town event weights). The sitting, sleeping, lying and kneeling classes are withdrawn from the CE until a server crash in the pose command is fixed ([#315](https://github.com/d-addison/hollow-country/issues/315)). Every substitution keeps a positive donor weight and unchanged event totals. Legacy `MaxTracked=24` migrates in memory to 256; other operator values remain. Distant idle tracking recycles at most one eligible record per scan without deleting or moving infected, and herds use separate lease capacity. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `infected_variety.disable`; `EnableGroupScaling=true` controls group-size scaling; LOD `VarietyNonCalmHoldSeconds=600`; variety `StandingRiserEvery=2`, `EnableMigration=true`, `PosedFreshEvery=3`, `MaxPosed=24` (0 off). | *In-game test pending* |
 | **Melee against infected** | Heavy hits to the head can kill outright, heavy leg hits cripple and repeated arm hits weaken attacks; head and leg bonuses apply to infected only. Poise replaces stun locks with a short stagger immunity. Blocks cost stamina and can be broken or countered, swing cost follows weapon weight, and players can turn while swinging. Attacking from a block plays the bash in place as a no-damage shove that knocks infected back. | `EnableMelee=true`; melee profile `HeadExecute`, `LegCripple`, `ArmWeaken`, `InfectedPoise`, `StaggerImmunitySeconds=1.5`, `WeightStamina`. | *In-game test pending* |
-| **Sitters** | Original sitting, sleeping, lying-rise and kneeling-feed animations supply the poses and their get-up transitions. The CE spawns them as HC infected classes, and every third fresh-body selection also uses the posed addon, all within the server-wide cap. | `EnableInfectedVariety=true`; `MaxPosed=24`; admin `sitter` uses normal admission. | *In-game test pending* |
+| **Sitters** | Original sitting, sleeping, lying-rise and kneeling-feed animations supply the poses and their get-up transitions, within the server-wide cap. **Paused:** starting a pose crashed the server on build 135, so the posed classes are out of the CE and poses only start with the acceptance file `acceptance/PoseCommand.enable` ([#315](https://github.com/d-addison/hollow-country/issues/315)). | `EnableInfectedVariety=true`; `MaxPosed=24`; admin `sitter` uses normal admission. | *Blocked: #315* |
 | **Death reactions** | Death selection changes the native default to an impulse reaction while preserving corpse access. The engine exposes no infected ragdoll API. | `infected_deaths.disable` turns it off. | *In-game test pending* |
 | **Distance-based infected work** | Infected LOD reduces distant work. Eight inland ChernarusPlus seeds support virtual herds that materialise near players under observer checks. Older settings migrate to schema 3 and add seeds to empty lists; non-empty custom lists and schema-2 opt-outs are preserved. | `EnableInfected=true`; profile `HollowCountry/Infected/lod.json`: `EnableLOD=true`, `EnableVirtualHerds=true`; distance and population defaults are listed below. | *In-game test pending* |
 
@@ -1449,6 +1449,22 @@ The following profiles tune their existing owners. Values are `key=default`; nes
 | `ClearanceHeightM` | `2` |
 | `MaxSlopeDeltaM` | `0.4` |
 | `BoundaryMarginM` | `2` |
+
+</details>
+
+<details>
+<summary>admin-tour.json (owner test tool, off by default)</summary>
+
+[Validation](mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c). When the file is present and `Enabled=true`, the first connected authorized admin is moved through the admin teleport catalogue, one stop every `DwellSeconds`. Each stop uses the admin teleport's normal safe-ground checks. The RPT logs `[HC Tour]` lines. It is not for players and is not shipped enabled.
+
+| Key | Default |
+| :--- | :--- |
+| `Enabled` | `false` |
+| `StartDelaySeconds` | `60` |
+| `DwellSeconds` | `90` |
+| `FirstStop` | `0` |
+| `MaxStops` | `0` (all) |
+| `LabelFilter` | `""` (all) |
 
 </details>
 
