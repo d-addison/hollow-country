@@ -15,8 +15,8 @@
       "reason": "Existing native marker-type lookup selects a texture at runtime. Static header index cannot enumerate returned values; client marker check pending. Not accepted."
     },
     {
-      "reference": "mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminMapLayers.c:261: runtime texture expression needs native review: registered.IconPath",
-      "reason": "Existing registered provider icon path is selected at runtime. Provider values need client exercise; static resolution skipped, not accepted."
+      "reference": "mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminMapLayers.c:273: runtime texture expression needs native review: registered.IconPath",
+      "reason": "HCXIconName selects from a fixed set of Expansion registry names with Map Marker as fallback. Static file resolution cannot evaluate registered.IconPath; client legend/marker checks against the installed registry remain pending. Not accepted."
     }
   ],
   "procedural_layout_allowlist": []

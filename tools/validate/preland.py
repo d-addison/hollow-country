@@ -17,7 +17,7 @@ from tools.validate import layout_lint
 ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
-          'settings_consistency', 'wiring_audit', 'regenerate_all')
+          'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests')
 
 
 # This list is the CI contract, not a blanket permission to skip a whole gate.
@@ -32,6 +32,17 @@ CI_EXCLUSIONS = {
     'regenerate_all.snafu_optional': 'requires a pristine stock mission and external verification report',
     'regenerate_all.tactical_flava_optional': 'requires a pristine stock mission and external verification report',
     'regenerate_all.new_buildings': 'requires a pristine installed stock mission',
+    'regenerate_all.loot_point_preserve': 'requires a pristine installed stock mission',
+    'regenerate_all.gui_icons': 'requires the Windows DayZ Tools ImageToPAA converter',
+    'regenerate_all.anims_config': 'requires the installed stock zombie addon',
+    **{'regenerate_all.' + name: 'requires a pristine installed stock mission'
+       for name in ('economy', 'ai_patrols')},
+    'generated_digests.inventory_sizes': 'requires installed vanilla and Workshop provider Addons',
+    **{'generated_digests.' + name: 'requires a pristine installed stock mission'
+       for name in ('firearms', 'loot_point_preserve', 'snafu_optional',
+                    'tactical_flava_optional', 'new_buildings', 'economy', 'ai_patrols')},
+    'generated_digests.anims_config': 'requires the installed stock zombie addon',
+    'generated_digests.gui_icons': 'requires the Windows DayZ Tools ImageToPAA converter',
     **{'wiring_audit.' + name: reason for name, reason in OFFLINE_EXCLUSIONS.items()},
     'wiring_audit.external_classes': 'installed vanilla/Workshop class caches are absent; repository wiring still runs',
 }
@@ -42,8 +53,18 @@ CI_NOTICES = {
     'enforce_lint': (r'^enforce_lint: .* native=no$',),
     'regenerate_all': (
         r'^SKIP inventory_sizes (?:required addons directory unavailable|installed inventory provider Addons directory unavailable)$',
-        r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|new_buildings) required source directory unavailable$',
+        r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|new_buildings|economy|ai_patrols) required source directory unavailable$',
+        r'^SKIP loot_point_preserve existing validation passed; byte regeneration: stock mission mapgrouppos\.xml unavailable$',
+        r'^SKIP gui_icons existing validation passed; byte regeneration: ImageToPAA (?:converter|Windows interop) unavailable$',
+        r'^SKIP anims_config required addons directory unavailable$',
         r'^regenerate_all: pass checked=\d+ failed=0 skipped=\d+$',
+    ),
+    'generated_digests': (
+        r'^SKIP inventory_sizes inventory provider Addons unavailable$',
+        r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|economy) stock mission cfgeconomycore\.xml unavailable$',
+        r'^SKIP (?:loot_point_preserve|new_buildings|ai_patrols) stock mission mapgrouppos\.xml unavailable$',
+        r'^SKIP anims_config stock zombie addon unavailable$',
+        r'^SKIP gui_icons ImageToPAA (?:converter|Windows interop) unavailable$',
     ),
     'wiring_audit': (
         *(r'^EXCLUDED ' + re.escape(name + ': ' + reason) + r'$'
@@ -134,7 +155,7 @@ def execute(args, paths, scratch):
     rows = []
     failed = False
     incomplete = False
-    checks = [('tools.package.' + name if name == 'regenerate_all' else 'tools.validate.' + name, name)
+    checks = [('tools.package.' + name if name in {'regenerate_all', 'generated_digests'} else 'tools.validate.' + name, name)
               for name in CHECKS]
     if args.wb:
         checks.append(('tools.release.wb_compile', 'wb_compile'))
@@ -154,11 +175,12 @@ def execute(args, paths, scratch):
         scope = 'full tree'
         if name == 'enforce_lint':
             arguments = ['--no-native'] if ci else ['--native-scripts', str(args.native_scripts.expanduser())]
-        elif name == 'regenerate_all':
+        elif name in {'regenerate_all', 'generated_digests'}:
             arguments = ['--check']
             if ci:
                 arguments += ['--addons', str(scratch / 'addons'), '--workshop', str(scratch / 'workshop'),
-                              '--source', str(scratch / 'stock')]
+                              '--source', str(scratch / 'stock'),
+                              '--image-to-paa', str(scratch / 'ImageToPAA.exe')]
             if args.strict:
                 arguments += ['--require-installed']
         elif name == 'wiring_audit' and ci:
@@ -178,7 +200,10 @@ def execute(args, paths, scratch):
             result = run_check(module, arguments)
             code = result.code
             gaps = incomplete_lines(name, result.output, ci=ci and not args.strict)
-            if (args.strict or ci) and (gaps or code == SKIPPED):
+            if name == 'generated_digests' and re.search(r'^FAIL\b', result.output, re.M):
+                status = 'FAIL (digest receipt verification)'
+                failed = True
+            elif (args.strict or ci) and (gaps or code == SKIPPED):
                 status = 'FAIL (skipped/unavailable coverage)'
                 failed = True
             elif name == 'cfgconvert_check' and code == SKIPPED:

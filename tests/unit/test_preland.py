@@ -29,6 +29,29 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual([*preland.CHECKS, 'wb_compile'], [m.rsplit('.', 1)[1] for m, _ in calls])
         self.assertEqual(['--native-scripts', str(preland.NATIVE)], calls[0][1])
         self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
+        self.assertIn(('tools.package.generated_digests', ['--check']), calls)
+
+    def test_digest_failures_fail_even_with_zero_exit(self):
+        self.assertEqual(1, self.invoke(missing={'generated_digests'})[0])
+        self.assertEqual(1, self.invoke(codes={'generated_digests': 1})[0])
+        for args in ([], ['--profile', 'ci']):
+            with self.subTest(args=args):
+                code, _, output = self.invoke(args, outputs={
+                    'generated_digests': 'FAIL firearms committed input/source/output digest differs'})
+                self.assertEqual(1, code)
+                self.assertIn('generated_digests | FAIL', output)
+
+    def test_ci_digest_skips_require_exact_installed_input_notices(self):
+        notice = 'SKIP inventory_sizes inventory provider Addons unavailable'
+        self.assertEqual(0, self.invoke(['--profile', 'ci'],
+                                       outputs={'generated_digests': notice})[0])
+        self.assertEqual(1, self.invoke(['--profile', 'ci', '--strict'],
+                                       outputs={'generated_digests': notice})[0])
+        for detail in ('receipt pending', 'receipt missing', 'changed inputs',
+                       'inventory provider Addons unavailable unexpected'):
+            with self.subTest(detail=detail):
+                self.assertEqual(1, self.invoke(['--profile', 'ci'], outputs={
+                    'generated_digests': 'SKIP inventory_sizes ' + detail})[0])
 
     def test_regeneration_is_required_and_propagates_failure(self):
         self.assertEqual(1, self.invoke(missing={'regenerate_all'})[0])
@@ -60,10 +83,12 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(paths, by_name['cfgconvert_check'])
         self.assertEqual([], by_name['layout_lint'])
         self.assertEqual(['--check'], by_name['regenerate_all'])
+        self.assertEqual(['--check'], by_name['generated_digests'])
         with patch.object(preland, 'changed_files', return_value=[]):
             _, calls, _ = self.invoke(['--changed', 'HEAD'])
         self.assertIn('tools.validate.enforce_perf', [m for m, _ in calls])
         self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
+        self.assertIn(('tools.package.generated_digests', ['--check']), calls)
 
     def test_changed_query_keeps_deleted_includes_without_git_mutation(self):
         import subprocess
@@ -83,8 +108,14 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(['--no-native'], by_name['enforce_lint'])
         self.assertEqual(['--no-texture-index'], by_name['layout_lint'])
         self.assertEqual(['--offline'], by_name['wiring_audit'])
-        for flag in ('--addons', '--workshop', '--source'):
-            self.assertIn(flag, by_name['regenerate_all'])
+        for name in ('regenerate_all', 'generated_digests'):
+            for flag in ('--addons', '--workshop', '--source', '--image-to-paa'):
+                self.assertIn(flag, by_name[name])
+            tool = Path(by_name[name][by_name[name].index('--image-to-paa') + 1])
+            addons = Path(by_name[name][by_name[name].index('--addons') + 1])
+            self.assertEqual(addons.parent, tool.parent)
+            self.assertFalse(tool.exists(), 'CI must not discover an installed Windows converter')
+            self.assertEqual('--check', by_name[name][0])
         for name, reason in preland.CI_EXCLUSIONS.items():
             self.assertIn(name + ': ' + reason, output)
 
@@ -97,10 +128,15 @@ class PrelandTests(unittest.TestCase):
                 self.assertEqual(1, self.invoke(['--strict'], codes={name: preland.SKIPPED})[0])
         _, calls, _ = self.invoke(['--strict'])
         self.assertIn(('tools.package.regenerate_all', ['--check', '--require-installed']), calls)
+        self.assertIn(('tools.package.generated_digests', ['--check', '--require-installed']), calls)
 
     def test_strict_rejects_zero_exit_coverage_gaps_without_changing_default(self):
         cases = {
             'regenerate_all': 'SKIP inventory_sizes required addons directory unavailable',
+            'generated_digests': ('SKIP loot_point_preserve pinned geometry reader unavailable\n'
+                                  'SKIP snafu_optional weapon pack verification report unavailable\n'
+                                  'SKIP tactical_flava_optional weapon pack verification report unavailable\n'
+                                  'SKIP new_buildings pinned geometry reader unavailable'),
             'layout_lint': 'layout_lint: NOTICE installed texture index unavailable; skipping unresolved vanilla file checks (build)',
             'enforce_lint': 'enforce_lint: pass findings=0 native=no',
             'wiring_audit': 'NOTE External class-index roots missing: CfgVehicles',
@@ -133,6 +169,37 @@ class PrelandTests(unittest.TestCase):
                 self.assertEqual(1, self.invoke(['--profile', 'ci'], outputs={name: output})[0])
         self.assertEqual(1, self.invoke(['--profile', 'ci'], missing={'layout_lint'})[0])
         self.assertEqual(1, self.invoke(['--profile', 'ci'], codes={'regenerate_all': preland.SKIPPED})[0])
+
+    def test_ci_current_regeneration_skips_require_exact_installed_inputs(self):
+        notices = [
+            'SKIP loot_point_preserve existing validation passed; byte regeneration: stock mission mapgrouppos.xml unavailable',
+            'SKIP gui_icons existing validation passed; byte regeneration: ImageToPAA converter unavailable',
+            'SKIP gui_icons existing validation passed; byte regeneration: ImageToPAA Windows interop unavailable',
+            'SKIP anims_config required addons directory unavailable',
+            'SKIP economy required source directory unavailable',
+            'SKIP ai_patrols required source directory unavailable',
+        ]
+        for notice in notices:
+            with self.subTest(notice=notice):
+                lines = [notice]
+                output = '\n'.join([*lines,
+                    f'regenerate_all: pass checked=0 failed=0 skipped={len(lines)}'])
+                self.assertEqual(0, self.invoke(['--profile', 'ci'],
+                    outputs={'regenerate_all': output})[0])
+                self.assertEqual(1, self.invoke(['--profile', 'ci', '--strict'],
+                    outputs={'regenerate_all': output})[0])
+                self.assertEqual(0, self.invoke(outputs={'regenerate_all': output})[0])
+                for invalid in (notice + ' unexpected',
+                                notice.replace('SKIP ', 'SKIP unknown_', 1)):
+                    self.assertEqual(1, self.invoke(['--profile', 'ci'],
+                        outputs={'regenerate_all': invalid})[0])
+        for notice in (
+            'SKIP gui_icons existing validation passed; byte regeneration: receipt unavailable',
+            'SKIP loot_point_preserve existing validation passed; byte regeneration: pinned geometry reader unavailable',
+        ):
+            with self.subTest(notice=notice):
+                self.assertEqual(1, self.invoke(['--profile', 'ci'],
+                    outputs={'regenerate_all': notice})[0])
 
     def test_ci_accepts_only_declared_stock_exclusions(self):
         notices = '\n'.join(f'EXCLUDED {name}: {reason}'
