@@ -36,7 +36,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "AA12_Mag"
   },
   {
@@ -56,7 +56,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_HK416_Mag"
   },
   {
@@ -76,7 +76,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M110_Mag"
   },
   {
@@ -96,7 +96,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M200_Mag"
   },
   {
@@ -116,7 +116,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M249_Mag"
   },
   {
@@ -138,7 +138,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M700_Mag"
   },
   {
@@ -158,7 +158,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M82_Mag"
   },
   {
@@ -179,7 +179,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_MP7_40Rnd"
   },
   {
@@ -199,7 +199,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Mag_FAL_50Rnd"
   },
   {
@@ -221,7 +221,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_VEPR_10rnd"
   },
   {
@@ -242,7 +242,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Vityaz_Mag"
   },
   {
@@ -262,7 +262,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Modified_SA58_30RND_BK"
   },
   {
@@ -282,7 +282,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Modified_SA58_30RND_DT"
   },
   {
@@ -302,7 +302,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Modified_SA58_30RND_WBK"
   },
   {
@@ -322,7 +322,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SA58_30RND_BK"
   },
   {
@@ -342,7 +342,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SA58_30RND_DT"
   },
   {
@@ -362,7 +362,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SA58_30RND_WBK"
   },
   {
@@ -382,7 +382,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SA58_DrumMag"
   },
   {
@@ -402,7 +402,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SG550_Mag"
   },
   {
@@ -423,7 +423,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAPS_20rdMag"
   },
   {
@@ -443,7 +443,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_100RND_Mag"
   },
   {
@@ -463,7 +463,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_30RND_Mag"
   },
   {
@@ -483,7 +483,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_40RND_Mag"
   },
   {
@@ -503,7 +503,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_60RND_Mag"
   },
   {
@@ -523,7 +523,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUASh12_20rdMag"
   },
   {
@@ -543,7 +543,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAUG_30rdMag"
   },
   {
@@ -563,7 +563,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAX50_Mag"
   },
   {
@@ -583,7 +583,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAlligator_5rdMag"
   },
   {
@@ -603,7 +603,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUDVL10M2_5rdMag"
   },
   {
@@ -623,7 +623,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGM6Lynx_5rdMag"
   },
   {
@@ -643,7 +643,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGevar_10rdMag"
   },
   {
@@ -663,7 +663,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUHoneyBadger_30rdMag_Black"
   },
   {
@@ -683,7 +683,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUHoneyBadger_30rdMag_Tan"
   },
   {
@@ -703,7 +703,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKH9_30rdMag"
   },
   {
@@ -723,7 +723,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_10rdMag"
   },
   {
@@ -743,7 +743,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_25rdMag"
   },
   {
@@ -768,7 +768,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM1A_20rdMag"
   },
   {
@@ -788,7 +788,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM24_Mag"
   },
   {
@@ -808,7 +808,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM96_5rdMag"
   },
   {
@@ -828,7 +828,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Mag"
   },
   {
@@ -848,7 +848,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDAR_30rndMagB"
   },
   {
@@ -868,7 +868,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDAR_30rndMagT"
   },
   {
@@ -888,7 +888,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDAR_60rndMagB"
   },
   {
@@ -908,7 +908,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDAR_60rndMagT"
   },
   {
@@ -928,7 +928,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUMk12_20rdMag"
   },
   {
@@ -948,7 +948,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUP90_50rdMag"
   },
   {
@@ -969,7 +969,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUPPSKN_30rdMag"
   },
   {
@@ -990,7 +990,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUPPSh_71rdMag"
   },
   {
@@ -1010,7 +1010,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURPD_100rdMag"
   },
   {
@@ -1030,7 +1030,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURSASS_Mag"
   },
   {
@@ -1050,7 +1050,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSRSA2_10rdMag"
   },
   {
@@ -1071,7 +1071,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSten_32rdMag"
   },
   {
@@ -1091,7 +1091,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUT5000_Mag"
   },
   {
@@ -1111,7 +1111,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUTac21_5rdMag"
   },
   {
@@ -1132,7 +1132,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUThompsonMk2_30rdMag"
   },
   {
@@ -1153,7 +1153,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUUzi_32rdMag"
   },
   {
@@ -1174,7 +1174,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUUzi_72rdMag"
   },
   {
@@ -1195,7 +1195,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVECTOR_45acp_Mag"
   },
   {
@@ -1216,7 +1216,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVECTOR_9mm_Mag"
   },
   {
@@ -1236,7 +1236,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVSSK_5rdMag"
   },
   {
@@ -1256,7 +1256,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK103_Mag"
   },
   {
@@ -1276,7 +1276,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK12_Mag"
   },
   {
@@ -1296,7 +1296,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK308_Mag"
   },
   {
@@ -1316,7 +1316,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AS50_Mag"
   },
   {
@@ -1336,7 +1336,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AWM_Mag"
   },
   {
@@ -1357,7 +1357,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Agram_32rnd_Mag"
   },
   {
@@ -1377,7 +1377,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_BMAG300_Black"
   },
   {
@@ -1397,7 +1397,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_BMAG300_Tan"
   },
   {
@@ -1417,7 +1417,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_BMAG556_Black"
   },
   {
@@ -1437,7 +1437,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_BMAG556_Tan"
   },
   {
@@ -1457,7 +1457,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_Bren_30rdMag"
   },
   {
@@ -1477,7 +1477,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG30300_Black"
   },
   {
@@ -1497,7 +1497,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG30300_Tan"
   },
   {
@@ -1517,7 +1517,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG30556_Black"
   },
   {
@@ -1537,7 +1537,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG30556_Tan"
   },
   {
@@ -1557,7 +1557,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG40300_Black"
   },
   {
@@ -1577,7 +1577,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG40300_Tan"
   },
   {
@@ -1597,7 +1597,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG40556_Black"
   },
   {
@@ -1617,7 +1617,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG40556_Tan"
   },
   {
@@ -1637,7 +1637,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG60300_Black"
   },
   {
@@ -1657,7 +1657,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG60300_Tan"
   },
   {
@@ -1677,7 +1677,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG60556_Black"
   },
   {
@@ -1697,7 +1697,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CMAG60556_Tan"
   },
   {
@@ -1717,7 +1717,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_FRF2_Mag"
   },
   {
@@ -1738,7 +1738,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Fort12_12rnd_Mag"
   },
   {
@@ -1758,7 +1758,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_G3A3_20rdMag"
   },
   {
@@ -1778,7 +1778,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_KAC_Mag"
   },
   {
@@ -1803,7 +1803,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M14_Mag"
   },
   {
@@ -1824,7 +1824,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M1918A2_Mag"
   },
   {
@@ -1844,7 +1844,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M300Mag"
   },
   {
@@ -1864,7 +1864,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_M60_100rdMag"
   },
   {
@@ -1884,7 +1884,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M76_Mag"
   },
   {
@@ -1905,7 +1905,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MP9_30rnd_Mag"
   },
   {
@@ -1926,7 +1926,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MPX_30rnd_Mag"
   },
   {
@@ -1946,7 +1946,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Mar10_15rnd_Mag"
   },
   {
@@ -1966,7 +1966,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PDW_45ACP_Mag"
   },
   {
@@ -1986,7 +1986,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PDW_9mm_Mag"
   },
   {
@@ -2007,7 +2007,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PL14HQP_Mag"
   },
   {
@@ -2027,7 +2027,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PMAG556_Black"
   },
   {
@@ -2047,7 +2047,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PMAG556_Grey"
   },
   {
@@ -2067,7 +2067,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PMAG556_OD"
   },
   {
@@ -2087,7 +2087,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PMAG556_Tan"
   },
   {
@@ -2107,7 +2107,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Black_Mag"
   },
   {
@@ -2127,7 +2127,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Green_Mag"
   },
   {
@@ -2147,7 +2147,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Tan_Mag"
   },
   {
@@ -2167,7 +2167,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SKS_10Rnd_Mag"
   },
   {
@@ -2187,7 +2187,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SKS_30Rnd_Mag"
   },
   {
@@ -2207,7 +2207,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SR25_Mag"
   },
   {
@@ -2227,7 +2227,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SR3Vikhr_Mag"
   },
   {
@@ -2247,7 +2247,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Saint_Mag"
   },
   {
@@ -2267,7 +2267,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_ScarH_100RND_Mag_Black"
   },
   {
@@ -2287,7 +2287,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_ScarH_100RND_Mag_Tan"
   },
   {
@@ -2307,7 +2307,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_U100_Mag"
   },
   {
@@ -2327,7 +2327,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNHK417_Mag"
   },
   {
@@ -2347,7 +2347,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Auto_Shotgun_Mag"
   },
   {
@@ -2368,7 +2368,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_M9_Mag"
   },
   {
@@ -2389,7 +2389,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Mp443_Mag"
   },
   {
@@ -2410,7 +2410,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Springfield_Mag"
   },
   {
@@ -2431,7 +2431,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_USP_Mag"
   },
   {
@@ -2451,7 +2451,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SR3_Vikhr_Mag"
   },
   {
@@ -2471,7 +2471,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_PKP_250RND_Mag"
   },
   {
@@ -2491,7 +2491,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_BK"
   },
   {
@@ -2511,7 +2511,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_DKMC"
   },
   {
@@ -2531,7 +2531,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_OD"
   },
   {
@@ -2551,7 +2551,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_Snow"
   },
   {
@@ -2571,7 +2571,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_Tan"
   },
   {
@@ -2592,7 +2592,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Tec9_Mag"
   },
   {
@@ -2612,7 +2612,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "VR80_Magazine_10rd"
   },
   {
@@ -2632,7 +2632,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "VR80_Magazine_5rd"
   },
   {
@@ -2653,7 +2653,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Ammo_3006"
   },
   {
@@ -2673,7 +2673,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Ammo_408Chey"
   },
   {
@@ -2693,7 +2693,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Ammo_50Cal"
   },
   {
@@ -2713,7 +2713,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_127x55mm"
   },
   {
@@ -2733,7 +2733,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_127x55mmAP"
   },
   {
@@ -2753,7 +2753,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_145Cal"
   },
   {
@@ -2773,7 +2773,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_300ACC"
   },
   {
@@ -2793,7 +2793,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_338"
   },
   {
@@ -2814,7 +2814,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_44"
   },
   {
@@ -2836,7 +2836,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_45_70mm"
   },
   {
@@ -2857,7 +2857,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_46x30"
   },
   {
@@ -2878,7 +2878,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_500_SW"
   },
   {
@@ -2898,7 +2898,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_5_7x28mm"
   },
   {
@@ -2919,7 +2919,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Ammo_762x25"
   },
   {
@@ -13872,7 +13872,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_BenelliM4",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -13900,7 +13900,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_HK416",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -13940,7 +13940,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M110_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -13971,7 +13971,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M110_Green",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14002,7 +14002,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M110_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14034,7 +14034,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M1Garand",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14059,7 +14059,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M200",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14087,7 +14087,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M200_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14115,7 +14115,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M200Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14143,7 +14143,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M200SNOW",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14171,7 +14171,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M249",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14201,7 +14201,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M700",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14229,7 +14229,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M82_Barret",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14257,7 +14257,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_MP7",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14286,7 +14286,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Vepr",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -14315,7 +14315,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_Vityaz",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -14342,7 +14342,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "AA12_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14372,7 +14372,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "ACR_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14412,7 +14412,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "HK416_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14452,7 +14452,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNHK417_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14483,7 +14483,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "IA2_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14523,7 +14523,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "MK18_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14563,7 +14563,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNSA58_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14595,7 +14595,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SCAR_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14635,7 +14635,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SG550_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14663,7 +14663,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SG552_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14691,7 +14691,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Spas12_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14720,7 +14720,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Tec9_Gun",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -14747,7 +14747,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "VR80_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14778,7 +14778,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK103A",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -14806,7 +14806,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK12A",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -14837,7 +14837,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK19",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14863,7 +14863,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AK308",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14891,7 +14891,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Auto_Shotgun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14922,7 +14922,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Glock19",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -14949,7 +14949,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_M870",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14978,7 +14978,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_M9",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15006,7 +15006,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Mp443",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15033,7 +15033,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PDW_9mm",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15060,7 +15060,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PDW_45ACP",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -15088,7 +15088,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_PL14HQP",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15115,7 +15115,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Black",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15145,7 +15145,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Green",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15175,7 +15175,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_RPK16_Tan",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15206,7 +15206,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_Springfield",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15235,7 +15235,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_TP82S",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15264,7 +15264,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SN_USP",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -15291,7 +15291,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AEK545_Gun",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15322,7 +15322,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SN_AKM",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -15348,7 +15348,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AWM_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15375,7 +15375,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CZ805_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15403,7 +15403,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_KAC_Gun",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15443,7 +15443,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Agram_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15470,7 +15470,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AS50_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15497,7 +15497,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_CALI_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15538,7 +15538,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Fort12_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15566,7 +15566,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MP9_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15594,7 +15594,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MPX_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15621,7 +15621,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_PKP_Black_GUN",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -15649,7 +15649,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_PKP_NBlack_GUN",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -15677,7 +15677,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAX50_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15704,7 +15704,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM24_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15731,7 +15731,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Atac_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15758,7 +15758,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Digi_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15785,7 +15785,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Ger_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15812,7 +15812,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Mc_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15839,7 +15839,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15866,7 +15866,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM98B_Wood_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15893,7 +15893,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURSASS_Wood_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -15925,7 +15925,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURSASS_od_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -15957,7 +15957,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURSASS_dkmc_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -15989,7 +15989,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUT5000_Dkmcc_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16016,7 +16016,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUT5000_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16043,7 +16043,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUT5000_Wood_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16071,7 +16071,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVECTOR_9mm_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -16099,7 +16099,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVECTOR_45acp_GUN",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -16126,7 +16126,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SR25_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16158,7 +16158,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_ADAR_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16198,7 +16198,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AR15_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16238,7 +16238,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUDSASA58_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16270,7 +16270,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_LVOA556_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16310,7 +16310,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M300BK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16338,7 +16338,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M300TAN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16366,7 +16366,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M300Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16394,7 +16394,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4300AC_10_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16433,7 +16433,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4300AC_14_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16472,7 +16472,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4300AC_16_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16511,7 +16511,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4300AC_14DV_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16550,7 +16550,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_M4556_Modular10_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16590,7 +16590,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "M4_6933_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16630,7 +16630,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4556_Modular14_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16670,7 +16670,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M4556_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16710,7 +16710,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_M4556_Modular14DV_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16750,7 +16750,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "GCGN_M4A1",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16790,7 +16790,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARSBR_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16835,7 +16835,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARSBR_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16880,7 +16880,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARSBR_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16925,7 +16925,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARCAR_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16970,7 +16970,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARCAR_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17015,7 +17015,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARCAR_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17060,7 +17060,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARRIF_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17105,7 +17105,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARRIF_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17150,7 +17150,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFUMDARRIF_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17195,7 +17195,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MK4710Gun",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -17223,7 +17223,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MK4716Gun",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -17251,7 +17251,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Saint556_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17291,7 +17291,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Saint_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17319,7 +17319,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AR15SPRBK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17358,7 +17358,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_AR15SPRTAN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17397,7 +17397,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17436,7 +17436,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAR15_SPR_Tan_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17475,7 +17475,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUVSSK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17503,7 +17503,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17531,7 +17531,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_Tan_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17559,7 +17559,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_Grey_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17587,7 +17587,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKivaari_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17615,7 +17615,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_MAR10_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17642,7 +17642,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_Black_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17679,7 +17679,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_DKMC_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17716,7 +17716,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_OD_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17753,7 +17753,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_Snow_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17790,7 +17790,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "Snafu_ScarH_Tan_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17827,7 +17827,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSR3_Vikhr",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -17856,7 +17856,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SR3_Vikhr_Gun",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -17885,7 +17885,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_AK5C",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17911,7 +17911,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_BR18",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17937,7 +17937,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_Bren",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -17966,7 +17966,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUChiappaRhino",
    "vanilla_ammo": [
     "Ammo_357"
@@ -17991,7 +17991,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_G3A3",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18019,7 +18019,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_M60",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18048,7 +18048,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUPPSh",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18075,7 +18075,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_RDB",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18101,7 +18101,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFURPD",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -18130,7 +18130,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSten",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -18158,7 +18158,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSWM629",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18184,7 +18184,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUMagnum500",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18209,7 +18209,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAlligator",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18237,7 +18237,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAPS",
    "vanilla_ammo": [
     "Ammo_380"
@@ -18264,7 +18264,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUTAR21_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18304,7 +18304,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUTAR21_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18344,7 +18344,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUTAR21_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18384,7 +18384,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUASh12",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18411,7 +18411,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAUG",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18452,7 +18452,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUAUG_BK",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18493,7 +18493,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUDVL10M2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18520,7 +18520,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUFAMAS",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18560,7 +18560,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGevar_Grey",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18587,7 +18587,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGevar_Black",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18614,7 +18614,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGevar_Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18641,7 +18641,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGevar_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18668,7 +18668,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUGM6Lynx",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18695,7 +18695,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUHoneyBadger_Black",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18735,7 +18735,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUHoneyBadger_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18775,7 +18775,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUKH9",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -18804,7 +18804,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM1A_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18835,7 +18835,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM1A_Green",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18866,7 +18866,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM1A_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18895,7 +18895,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUM96",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18924,7 +18924,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUMarlin1895",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18949,7 +18949,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUMk12",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18990,7 +18990,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUP90",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19018,7 +19018,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUPPSKN",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19046,7 +19046,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSA80",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -19086,7 +19086,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUSRSA2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19113,7 +19113,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUTac21",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19141,7 +19141,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUThompsonMk2",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -19169,7 +19169,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFUUzi",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -19198,7 +19198,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M1918A2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19225,7 +19225,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "SNAFU_M70",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19253,7 +19253,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_U100",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -19294,7 +19294,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M14",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19323,7 +19323,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M76",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19351,7 +19351,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_SKS",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19382,7 +19382,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_Trenchgun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -19410,7 +19410,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_FRF2",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19440,7 +19440,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "SNAFU_M48",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -23005,5 +23005,5 @@
    "HC61_FULL_PACK_NOT_ADMITTED"
   ]
  },
- "test_abundance_multiplier": 3.0
+ "test_abundance_multiplier": 2.0
 }

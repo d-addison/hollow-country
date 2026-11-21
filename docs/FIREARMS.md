@@ -39,16 +39,91 @@ support. Shared ammo pools and integral magazines mean item ratios are not per-g
 loadout guarantees.
 
 Both optional allowlists now store the inspected pack’s **own shipped CE nominal/min**
-where a row exists. `test_abundance_multiplier: 3.0` applies to guns, magazines and
+where a row exists. `test_abundance_multiplier: 2.0` applies to guns, magazines and
 ammo by default, including the friend installer’s `apply_weapon_packs` path.
 CLI `--nominal-scale 1` selects the pack baseline; explicit nominal/tier scales remain
 bounded to 0.25–4 effective scale. Existing optics/attachment budgets remain unchanged.
 Some concrete verified classes have no shipped CE row: their prior authored baselines
-remain explicit exceptions, listed in the rehearsal below. Shipped zero-nominal rows
-remain zero; alternative verified magazines provide compatible support. Optional
+remain explicit exceptions, listed in the rehearsal below. Every selected weapon
+and support class retains a positive nominal and a usage route. A deliberate zero requires a reason in the shared zero allowlist; generation
+and installed-layer checks refuse silent zeroing or empty usage. Optional
 family and shared aggregate validation ceilings cover the supported 4× maximum;
 ceilings are validation bounds, not extra spawned items. Both packs still require
 matching local verification and ordinary Workshop dependencies; nothing is repacked.
+
+## #314 role routes and fill burst (2026-11-21)
+
+The pack default is now 2× rather than 3×. `military_loot.apply` allocates the
+existing military ceilings first, then expands routes. A Military firearm gains
+Police access without escaping its shared scarcity budget or assigned military
+tier. This changes CE rows only; no point geometry or container capacities change.
+
+Role routes derive from the selected weapon's existing role/usage and class family,
+then from magazine, ammo, `optic_requires` and attachment `fits` edges. Hunting
+weapons and archery gain Farm/Town/Village and tiers 1–4; police-role weapons and
+Police-only native families gain Prison (the native Scout establishes the prison
+firearm role). Recolours share their family's routes. Support receives the union
+of carrier routes and tiers while retaining existing routes. Ammo compatibility
+alone does not turn a military rifle into a hunting rifle: receiver role matters.
+The explicit role-to-usage rules are in `military_loot.role_routes`; there is no
+per-pack firearm-name exception table. Custom library policies stay unchanged.
+
+Pack types retain native firearm semantics: category `weapons`, no item tag
+restriction. This admits matching vanilla floor/shelf/ground containers; adding
+a new category or a restrictive shelf tag would incorrectly remove valid points.
+Native variants preserve their donor's category/tags. The offline coverage census
+checks positive nominals, map-count flags, usage, category, explicit tag intersection,
+placed group tiers and positive point/container/group capacity. It does not test
+item fit or engine random selection. Use `python3 -B -m tools.package.ce_slot_pressure
+<mission> --coverage` for the census and uncovered container records.
+
+Offline rehearsal retains the current local build-138 registration order and all
+other type layers, substituting only owned CE rows. Coverage below uses the stock
+native point geometry; pressure uses the current installed geometry. All 726 selected
+modded classes remain positive and have at least one compatible placed vanilla
+group/container/tier. A class may appear in multiple usages; these are eligibility
+counts, not spawned populations.
+
+| Vanilla usage | Before | After |
+| --- | ---: | ---: |
+| Coast | 0 | 0 |
+| ContaminatedArea | 0 | 0 |
+| Farm | 1 | 208 |
+| Firefighter | 0 | 0 |
+| Historical | 0 | 0 |
+| Hunting | 40 | 209 |
+| Industrial | 0 | 0 |
+| Lunapark | 0 | 0 |
+| Medic | 0 | 0 |
+| Military | 693 | 693 |
+| Office | 0 | 0 |
+| Police | 128 | 691 |
+| Prison | 0 | 130 |
+| School | 0 | 0 |
+| SeasonalEvent | 0 | 0 |
+| Town | 28 | 210 |
+| Village | 41 | 210 |
+
+The installed geometry gives the same coverage counts except Police before is 133.
+
+Peak `ce_slot_pressure` estimate: **0.681 before → 0.668 after**, below the **0.80**
+limit, with no pressure problems. The new peak is 14,185 nominal / approximately
+21,220 slots; this is a shared broad route set, not a military-only count. A separate
+fresh scratch install verified all 501 SNAFU and 204 TF classes against the real
+installed dependencies, generated/installed both layers, and passed the exact
+`check_weapon_packs` receipt and reverse-rollback check used by `friend_install --check`.
+The actual deployed mission was not modified; the lead must reapply the new bundle
+before running the complete friend-install check. No DayZ process was started.
+
+The census deliberately reports zero for usages with no selected firearm/support
+analogue; it does not assign guns to medical, school, office, industrial, firefighter
+or coastal points merely to fill a table. The inspected native `weapons` rows also
+have no positive stock routes in those usages. Non-weapon categories in hunting
+or police groups remain outside these firearm tools' scope. Native fill experiments
+remain pending: compare minute 0–1 `LootRespawner ... is hard to place, performance
+drops` counts against build 135's 24,382; inspect deer stands/cabins, police and
+military points with one server and at most one client. No runtime claim follows
+from the offline pressure gate passing.
 
 <!-- HC21-GENERATED-BEGIN -->
 ## Current authored family policy

@@ -890,9 +890,45 @@ class MilitaryLootBudget(unittest.TestCase):
         self.assertEqual(first, military.apply(entries))
         for before, after in zip(entries, first):
             if not military.budgeted(before):
-                self.assertEqual(before, after)
+                # Route expansion follows allocation and must preserve the
+                # entire civilian/non-budgeted scarcity policy.
+                self.assertEqual(before['set'], after['set'])
+                self.assertTrue(set(before['usage']) <= set(after['usage']))
             elif after['set']['nominal']:
                 self.assertGreater(after['set']['min'], 0)
+
+    def test_role_routes_follow_weapon_support_edges(self):
+        from tools.package import military_loot as military
+        entries = military.catalog()
+        projected = {e['class']: e for e in military.apply(list(entries.values()))}
+        for name, weapon in entries.items():
+            if weapon['kind'] != 'weapon':
+                continue
+            actual = projected[name]
+            if military.item_kind(weapon) == 'firearm' and 'Military' in weapon['usage']:
+                self.assertIn('Police', actual['usage'], name)
+            if 'Hunting' in weapon['usage'] or military.item_kind(weapon) == 'archery':
+                self.assertTrue({'Hunting', 'Farm', 'Town', 'Village'} <= set(actual['usage']), name)
+                self.assertEqual(set(actual['value']), {'Tier1', 'Tier2', 'Tier3', 'Tier4'})
+            for field in ('magazines', 'ammo', 'vanilla_ammo', 'snafu_ammo'):
+                for child in weapon.get(field, []):
+                    if child in projected:
+                        self.assertTrue(set(actual['usage']) <= set(projected[child]['usage']), child)
+        for name, entry in entries.items():
+            for carrier in entry.get('fits', []):
+                self.assertTrue(set(projected[carrier]['usage']) <= set(projected[name]['usage']), name)
+
+    def test_shipped_rows_without_usage_fail_retention(self):
+        from tools.package import military_loot as military
+        entry = next(iter(military.catalog().values()))
+        missing = copy.deepcopy(entry)
+        missing['usage'] = []
+        missing.pop('set_usage', None)
+        for strip_field in (False, True):
+            if strip_field:
+                missing.pop('usage')
+            with self.assertRaisesRegex(ValueError, 'no usage'):
+                military.check_retained([entry], [missing])
 
     def test_configuration_change_reallocates_the_shared_pool(self):
         from tools.package import military_loot as military

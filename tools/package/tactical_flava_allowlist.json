@@ -38,7 +38,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AK101_Plastic30Rnd"
   },
   {
@@ -58,7 +58,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AK74_45Rnd"
   },
   {
@@ -78,7 +78,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AK74_Bakelit30Rnd"
   },
   {
@@ -98,7 +98,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AK74_Plastic30Rnd"
   },
   {
@@ -118,7 +118,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AK74_Plum30Rnd"
   },
   {
@@ -143,7 +143,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_10Rnd"
   },
   {
@@ -163,7 +163,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_30Rnd"
   },
   {
@@ -183,7 +183,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_Bakelit40Rnd"
   },
   {
@@ -203,7 +203,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_PMAG30Rnd"
   },
   {
@@ -223,7 +223,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_PMAG30Rnd_Banana"
   },
   {
@@ -243,7 +243,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_Plastic30Rnd"
   },
   {
@@ -263,7 +263,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_AKM_Steel40Rnd"
   },
   {
@@ -283,7 +283,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_Anzio20_3Rnd"
   },
   {
@@ -304,7 +304,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_FiveSeven_20Rnd"
   },
   {
@@ -329,7 +329,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M14_10Rnd"
   },
   {
@@ -349,7 +349,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M14_20Rnd"
   },
   {
@@ -369,7 +369,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M240_50Rnd"
   },
   {
@@ -389,7 +389,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M249_200Rnd"
   },
   {
@@ -414,7 +414,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG10Rnd"
   },
   {
@@ -434,7 +434,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG20Rnd"
   },
   {
@@ -454,7 +454,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG30Rnd"
   },
   {
@@ -474,7 +474,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG30Rnd_FDE"
   },
   {
@@ -494,7 +494,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG40Rnd"
   },
   {
@@ -514,7 +514,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_PMAG40Rnd_FDE"
   },
   {
@@ -534,7 +534,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_M4_STANAG_30Rnd"
   },
   {
@@ -554,7 +554,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_MAR10_10Rnd"
   },
   {
@@ -575,7 +575,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_MP443_18Rnd"
   },
   {
@@ -595,7 +595,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_OTs_14_Groza_20Rnd"
   },
   {
@@ -615,7 +615,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_PKM_100Rnd"
   },
   {
@@ -635,7 +635,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_Black"
   },
   {
@@ -655,7 +655,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_FDE"
   },
   {
@@ -675,7 +675,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_Shd"
   },
   {
@@ -695,7 +695,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_25Rnd_Black"
   },
   {
@@ -715,7 +715,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_25Rnd_FDE"
   },
   {
@@ -735,7 +735,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_30Rnd_Black"
   },
   {
@@ -755,7 +755,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_30Rnd_FDE"
   },
   {
@@ -775,7 +775,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_Drum50Rnd"
   },
   {
@@ -795,7 +795,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SCAR_H_PMAG25Rnd_Black"
   },
   {
@@ -815,7 +815,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SR25_20Rnd"
   },
   {
@@ -835,7 +835,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_SVCh308_10Rnd"
   },
   {
@@ -855,7 +855,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "TF_Mag_SWORD_Mk18_10Rnd"
   },
   {
@@ -877,7 +877,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Mag_VPO190_4Rnd"
   },
   {
@@ -897,7 +897,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Ammo_20mm"
   },
   {
@@ -917,7 +917,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Ammo_20mm_HE"
   },
   {
@@ -937,7 +937,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Ammo_338LM"
   },
   {
@@ -957,7 +957,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "TF_Ammo_40mm_HEDP"
   },
   {
@@ -978,7 +978,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Ammo_57"
   },
   {
@@ -5130,7 +5130,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_ADAR2_15",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5164,7 +5164,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK101",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5192,7 +5192,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK102",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5220,7 +5220,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK103",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5254,7 +5254,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK104",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5288,7 +5288,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK105",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5319,7 +5319,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK105_Bullpup",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5350,7 +5350,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AK74M",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5381,7 +5381,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AKM",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5415,7 +5415,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AKMN",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5449,7 +5449,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AKS74U",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5480,7 +5480,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AN94",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5511,7 +5511,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AN94M",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5542,7 +5542,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_Anzio20",
    "vanilla_ammo": [
     "TF_Ammo_20mm",
@@ -5571,7 +5571,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_FiveSeven",
    "vanilla_ammo": [
     "TF_Ammo_57"
@@ -5598,7 +5598,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M14_DMR",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5627,7 +5627,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M14_EBR",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5656,7 +5656,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M14_STD",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5689,7 +5689,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M1A_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5720,7 +5720,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M1A_OD",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5751,7 +5751,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M1A_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -5780,7 +5780,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M4A1",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5814,7 +5814,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M4A1_CQBR",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5848,7 +5848,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M79",
    "vanilla_ammo": [
     "TF_Ammo_40mm_HEDP",
@@ -5879,7 +5879,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M79_AOR1",
    "vanilla_ammo": [
     "TF_Ammo_40mm_HEDP",
@@ -5910,7 +5910,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_MAR10",
    "vanilla_ammo": [
     "TF_Ammo_338LM"
@@ -5937,7 +5937,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_L_FDE",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5971,7 +5971,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_L_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6005,7 +6005,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_L_CQC_FDE",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6039,7 +6039,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_L_CQC_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6073,7 +6073,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_H_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6109,7 +6109,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_H_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6145,7 +6145,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_H_CQC_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6181,7 +6181,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_H_CQC_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6217,7 +6217,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_20_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6253,7 +6253,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_20_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6289,7 +6289,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SCAR_20_Shd",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6325,7 +6325,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_MK47_CQBR",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6359,7 +6359,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_MK47",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6394,7 +6394,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_MP443",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -6421,7 +6421,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_OTs_12_Tiss",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -6449,7 +6449,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_OTs_14_Groza",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -6479,7 +6479,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_VPO136",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6515,7 +6515,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_VPO190",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -6543,7 +6543,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_AEK999",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -6571,7 +6571,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M16A4",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6605,7 +6605,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M240",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6633,7 +6633,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_M249",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6661,7 +6661,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_PKM",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -6689,7 +6689,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_PKP",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -6717,7 +6717,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SR25",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6745,7 +6745,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SVCh308",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6773,7 +6773,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_SVCh",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -6799,7 +6799,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "TF_M24",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6825,7 +6825,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 2; runtime pending.",
    "class": "TF_SWORD_Mk18_Mjolnir",
    "vanilla_ammo": [
     "TF_Ammo_338LM"
@@ -8342,5 +8342,5 @@
    "HC61_FULL_PACK_NOT_ADMITTED"
   ]
  },
- "test_abundance_multiplier": 3.0
+ "test_abundance_multiplier": 2.0
 }
