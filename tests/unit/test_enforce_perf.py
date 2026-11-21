@@ -4,7 +4,11 @@ Each case feeds a small synthetic Enforce source to check(); nothing here
 establishes DayZ behaviour. Every precision rule has a clearing case and a
 neighbouring case that must keep flagging.
 """
+from contextlib import redirect_stdout
+import io
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 from tools.validate import enforce_perf as perf
@@ -277,6 +281,57 @@ class M
         self.assertEqual(findings(src, 'HC-P008'), [])
         self.assertEqual([f.key for f in findings(src.replace('m_Migrated = true; ', ''), 'HC-P008')],
                          ['m_Store.Save#1'])
+
+
+class BaselineRatchetTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / 'mods/HollowCountry/scripts/4_World/Fixture.c'
+        self.source.parent.mkdir(parents=True)
+        self.source.write_text('class Fixture\n{\n    void OnTick(float dt)\n    {\n        FileExist("fixture");\n    }\n}')
+        self.live = perf.check(es.mod_sources(self.root), self.root)
+        self.assertTrue(self.live)
+        self.kept = [perf.asdict(f) for f in self.live]
+        self.stale = dict(self.kept[0], symbol='Removed.OnTick')
+        self.baseline = {'version': 1, 'note': 'keep review metadata', 'findings': [*self.kept, self.stale]}
+        self.path = self.root / 'baseline.json'
+        self.path.write_text(json.dumps(self.baseline))
+
+    def run_cli(self, *args):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = perf.main(['--root', str(self.root), '--baseline', str(self.path), *args])
+        return result, output.getvalue()
+
+    def test_stale_report_and_strict_are_read_only(self):
+        before = self.path.read_bytes()
+        result, output = self.run_cli()
+        self.assertEqual(result, 0)
+        self.assertIn(self.stale['symbol'], output)
+        self.assertEqual(self.run_cli('--strict-baseline')[0], 1)
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_ratchet_preserves_entries_and_never_admits_new_findings(self):
+        self.source.write_text(self.source.read_text().replace('FileExist("fixture");', 'FileExist("fixture"); OpenFile("fixture", FileMode.READ);'))
+        self.assertEqual(self.run_cli('--ratchet', '--strict-baseline')[0], 1)
+        self.assertEqual(json.loads(self.path.read_text()), dict(self.baseline, findings=self.kept))
+        before = self.path.read_bytes()
+        self.run_cli('--ratchet')
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_selected_paths_use_full_live_graph_for_staleness(self):
+        other = self.source.with_name('Other.c')
+        other.write_text('class Other\n{\n    void OnTick(float dt)\n    {\n        FileExist("other");\n    }\n}')
+        all_live = perf.check(es.mod_sources(self.root), self.root)
+        self.path.write_text(json.dumps(dict(self.baseline, findings=[perf.asdict(f) for f in all_live])))
+        self.assertEqual(self.run_cli('--strict-baseline', str(self.source))[0], 0)
+
+    def test_legacy_alias_can_prune_to_empty(self):
+        self.source.write_text('class Fixture {}')
+        self.assertEqual(self.run_cli('--prune-baseline', '--strict-baseline')[0], 0)
+        self.assertEqual(json.loads(self.path.read_text())['findings'], [])
 
 
 if __name__ == '__main__':

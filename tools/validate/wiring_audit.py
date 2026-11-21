@@ -897,7 +897,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vanilla-mission', help='read-only stock mission under the approved cache or checkout')
     parser.add_argument('--json', action='store_true', help='machine-readable summaries, findings and coverage notes')
-    parser.add_argument('--update-baseline', action='store_true', help='prune resolved baseline entries; new findings require explicit review')
+    parser.add_argument('--ratchet', '--update-baseline', dest='ratchet', action='store_true', help='prune resolved baseline entries; new findings require explicit review')
+    parser.add_argument('--strict-baseline', action='store_true', help='fail when baseline entries no longer match live findings')
     args = parser.parse_args(argv)
     try:
         path = ROOT / 'config/wiring-audit.json'
@@ -933,9 +934,12 @@ def main(argv=None):
             if identity(f) in accepted:
                 raise ValueError('duplicate baseline identity')
             accepted[identity(f)] = f['reason']
-        if args.update_baseline:
-            baseline = {'schema': 1, 'findings': [dict(f, reason=accepted.get(identity(f), rules['baseline_reason'])) for f in findings if identity(f) in accepted and f['id'] not in ('W009', 'W010')]}
+        live = {identity(f) for f in findings}
+        stale_entries = [f for f in baseline['findings'] if identity(f) not in live]
+        if args.ratchet:
+            baseline['findings'] = [f for f in baseline['findings'] if identity(f) in live]
             baseline_path.write_text(json.dumps(baseline, indent=2) + '\n')
+            stale_entries = []
             accepted = {identity(f): f['reason'] for f in baseline['findings']}
         for f in findings:
             f['new'] = f['id'] in ('W009', 'W010') or identity(f) not in accepted
@@ -948,17 +952,19 @@ def main(argv=None):
         stale = len(set(accepted) - {identity(f) for f in findings})
         if args.json:
             print(json.dumps({'schema': 1, 'summary': summary, 'notes': audit.notes,
-                              'stale_baseline_entries': stale, 'findings': findings}, indent=2))
+                              'stale_baseline_entries': stale, 'stale_baseline': stale_entries, 'findings': findings}, indent=2))
         else:
             for c in CHECKS:
                 print(f'{c} total={totals[c]} new={news[c]}' + ('' if rules['checks'][c] else ' disabled'))
             for note in audit.notes:
                 print('NOTE ' + note)
             if stale:
-                print(f'NOTE stale_baseline_entries={stale}; --update-baseline prunes resolved findings')
+                print(f'NOTE stale_baseline_entries={stale}; --ratchet prunes resolved findings')
+            for f in stale_entries:
+                print(f"STALE {f['id']} {f['subject']} {f['file']}")
             for f in findings:
                 print(f"{'NEW' if f['new'] else 'BASELINE'} {f['id']} {f['subject']} {f['file']}:{f['line']} {f['why']}")
-        return int(any(news.values()))
+        return int(any(news.values()) or (args.strict_baseline and stale > 0))
     except (OSError, ValueError, SyntaxError, ImportError, TypeError, KeyError, AttributeError, re.error, ET.ParseError, pickle.UnpicklingError, EOFError, RecursionError) as error:
         # Paths from third-party exceptions can contain home directories.
         message = str(error).replace(str(Path.home()), '~')

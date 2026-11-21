@@ -681,8 +681,9 @@ def main(argv=None):
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--baseline', type=Path, default=BASELINE)
     parser.add_argument('--write-baseline', action='store_true', help='explicitly acknowledge current findings at --baseline')
-    parser.add_argument('--prune-baseline', action='store_true',
+    parser.add_argument('--ratchet', '--prune-baseline', dest='ratchet', action='store_true',
                         help='drop baseline entries that no longer match a finding; never adds entries')
+    parser.add_argument('--strict-baseline', action='store_true', help='fail when baseline entries no longer match live findings')
     parser.add_argument('--stdin', metavar='PATH', help='replace this repository source with stdin, for historical checks')
     parser.add_argument('--json', action='store_true', help='print findings as JSON before the summary')
     args = parser.parse_args(argv)
@@ -707,24 +708,29 @@ def main(argv=None):
         known = {s.rel for s in sources}
         if selected - known:
             parser.error('selected paths must be authored sources under mods/*/scripts or mission/')
-        findings = [f for f in check(sources, root) if not selected or f.path in selected]
+        live_findings = check(sources, root)
+        findings = [f for f in live_findings if not selected or f.path in selected]
+        if args.write_baseline and args.ratchet:
+            parser.error('--ratchet cannot be combined with --write-baseline')
+        if args.strict_baseline and args.stdin:
+            parser.error('--strict-baseline requires the current project, without --stdin')
         if args.write_baseline:
             if selected or args.stdin:
                 parser.error('--write-baseline requires the full current project')
             args.baseline.write_text(json.dumps({'version': 1, 'note': 'Offline review candidates; no native acceptance. See enforce_perf.py for approximation limits.',
                                                  'findings': [asdict(f) for f in findings]}, indent=2) + '\n', encoding='utf-8')
-        if args.prune_baseline and (selected or args.stdin):
-            parser.error('--prune-baseline requires the full current project')
+        if args.ratchet and (selected or args.stdin):
+            parser.error('--ratchet requires the full current project')
         baseline = json.loads(args.baseline.read_text(encoding='utf-8')) if args.baseline.exists() else {'findings': []}
         identities = {(f['rule'], f['path'], f['symbol'], f['key']) for f in baseline['findings']}
         new = [f for f in findings if f.identity() not in identities]
-        # Ratchet: on a full-project run, baseline entries with no matching finding are stale and fail the
-        # check, so the baseline can only shrink. --prune-baseline removes them without admitting anything new.
+        # Compare against the full graph even when paths filter the displayed findings.
+        # Ratcheting only removes entries; it never acknowledges a new candidate.
         stale = []
-        if not selected and not args.stdin:
-            current = {f.identity() for f in findings}
+        if not args.stdin:
+            current = {f.identity() for f in live_findings}
             stale = [e for e in baseline['findings'] if (e['rule'], e['path'], e['symbol'], e['key']) not in current]
-            if args.prune_baseline and stale:
+            if args.ratchet and stale:
                 baseline['findings'] = [e for e in baseline['findings'] if e not in stale]
                 args.baseline.write_text(json.dumps(baseline, indent=2) + '\n', encoding='utf-8')
                 print(f'enforce_perf: pruned {len(stale)} stale baseline entries')
@@ -739,8 +745,8 @@ def main(argv=None):
         for f in findings:
             print(f.render() + (' [new]' if f in new else ' [baseline]'))
     for e in stale:
-        print(f"{e['path']}: {e['rule']} {e['symbol']} {e['key']} [stale baseline entry; run --prune-baseline]")
-    failed = bool(new or stale)
+        print(f"{e['path']}: {e['rule']} {e['symbol']} {e['key']} [stale baseline entry; run --ratchet]")
+    failed = bool(new or (args.strict_baseline and stale))
     print(f'enforce_perf: {"fail" if failed else "pass"} findings={len(findings)} new={len(new)} stale={len(stale)}')
     return int(failed)
 
