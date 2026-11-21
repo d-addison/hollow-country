@@ -398,6 +398,7 @@ def main():
             # end at World (line 73), which cannot establish Mission compilation.
             # Require the observed Mission marker; this is still not boot acceptance.
             status_ok = report['status'] in {'initialized', 'timeout'}
+            status = report['status']
             # The probe's shared classifier stops at any SCRIPT (E). Once Mission
             # loaded, a stop caused only by missing-data JSON reports is not a
             # compile failure; a crash or failed self-test still is.
@@ -405,6 +406,7 @@ def main():
                     and not re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b|Core native self-test FAILED'
                                       r'|\bFile [^\n]*\.(?:cpp|hpp|bin), line \d+:|Member already defined', text)):
                 status_ok = True
+                status = 'mission-loaded-runtime-json'
                 print('compile_gate: probe stopped on runtime JSON report after Mission loaded')
             passed = ('World' in modules and 'Mission' in modules
                       and not script_errors and not errors and not dumps
@@ -413,7 +415,7 @@ def main():
                 print('compile_gate: Mission loaded with zero compile errors; runtime acceptance pending')
             elif 'Mission' not in modules:
                 print('compile_gate: Mission load not observed; compile completion unproven')
-            print('compile_gate: ' + ('PASS' if passed else 'FAIL') + ' status=' + report['status'])
+            print('compile_gate: ' + ('PASS' if passed else 'FAIL') + ' status=' + status)
             print('compile_gate: logs=' + private(experiment))
             return 0 if passed else 1
     except (OSError, ValueError, subprocess.SubprocessError, tarfile.TarError) as error:
