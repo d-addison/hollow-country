@@ -226,7 +226,7 @@ class HCXAITradeAdapter : HCTradeInventory
         LeftItem = leftFound;
         RightItem = rightFound;
         if (Walker && row.LeftLease == PlannedLeft && Walker.LeftActor != LeftActor) { HCClear(); return false; }
-        if (HCInventoryBound(row)) { return true; }
+        if (HCInventoryBound(row)) { row.Fixture = Producer && Producer.Fixture; return true; }
         HCClear();
         return false;
     }
@@ -347,6 +347,86 @@ modded class HCXAIAdapter
 // IsAlive. No native create, split, refund, loot reward or teleport call.
 class HCXAITradeProducer
 {
+    protected static HCXAITradeProducer s_FixtureOwner;
+    bool Fixture;
+
+    // Prefer the two nearest finite-reserve camp rows. Refuse if that pair's
+    // normal relationship check fails; never enumerate the quadratic pair set.
+    // An already retained plan keeps its pair and all ordinary cadence guards.
+    static bool HCFixtureTrade(vector pos, bool apply, out string reason)
+    {
+        reason = "EnableSmokeFixtures-off";
+        if (!HCAdminFixtures.HCEnabled()) { return false; }
+        HCXAITradeProducer owner = s_FixtureOwner;
+        HCAITrade trade = HCAITrade.HCGet();
+        reason = "no-existing-funded-pair";
+        if (!owner || !owner.m_Port || !owner.m_Recipe || !owner.m_Losses || !trade || owner.m_Failed || owner.m_Travelling || owner.m_Returning || owner.Fixture) { return false; }
+        HCOperationalStatus status = trade.HCGetOperationalStatus();
+        if (!status || status.HCState() != "ready" || trade.HCTrading()) { reason = "trade-not-ready"; return false; }
+        if (owner.m_Losses.Rows.Count() >= owner.m_Recipe.MaxLossReceipts || !HCTradeOfferPolicy.HCDue(HCWorldClock.UTC(), owner.m_LastOffer, owner.m_Recipe.OfferIntervalSeconds)) { reason = "trade-cadence-or-receipt-cap"; return false; }
+        HCHoldouts camps = HCHoldouts.Get();
+        HCWorldModule world = HCWorldModule.Get();
+        if (!camps || !world) { reason = "camp-owner-unavailable"; return false; }
+        string leftLease = owner.m_LeftLease;
+        string rightLease = owner.m_RightLease;
+        int leftIndex = -1;
+        int rightIndex = -1;
+        if (!owner.m_Planning)
+        {
+            HCXAISiteDirector director = HCXAISiteDirector.Active();
+            HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
+            if (!director || director.Phase() != "run" || !roads || roads.Phase != "idle") { reason = "trade-owner-not-idle"; return false; }
+            array<ref HCXAISiteState> states = director.States();
+            HCWorkBudget work = new HCWorkBudget;
+            work.HCReset(states.Count(), HCPerfConfig.HCGet().SliceMs);
+            float nearest = float.MAX;
+            float second = float.MAX;
+            for (int index = 0; index < states.Count(); index++)
+            {
+                if (!work.HCContinue()) { reason = "fixture-budget"; return false; }
+                HCXAISiteState state = states[index];
+                if (!state || !state.Transient || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
+                eAIGroup group = state.Patrol.m_Group;
+                if (!group || HCXExpansionBridge.HCGroupCount(group) < owner.m_Recipe.MinimumCampMembers) { continue; }
+                HCAICampRoutineView home = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(state.ProposalId));
+                if (!home || !home.Home || home.Home.Id == "" || home.Supply <= owner.m_Recipe.MinimumCampReserve) { continue; }
+                float distance = vector.DistanceSq(pos, home.Home.HousePos);
+                if (distance < nearest)
+                {
+                    second = nearest; rightIndex = leftIndex; rightLease = leftLease;
+                    nearest = distance; leftIndex = index; leftLease = state.ProposalId;
+                }
+                else if (distance < second) { second = distance; rightIndex = index; rightLease = state.ProposalId; }
+            }
+            if (leftIndex < 0 || rightIndex < 0) { return false; }
+        }
+        if (leftIndex > rightIndex && rightIndex >= 0)
+        {
+            int swapIndex = leftIndex; leftIndex = rightIndex; rightIndex = swapIndex;
+            string swapLease = leftLease; leftLease = rightLease; rightLease = swapLease;
+        }
+        HCAICampRoutineView left = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(leftLease));
+        HCAICampRoutineView right = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(rightLease));
+        if (!left || !right || !left.Home || !right.Home) { return false; }
+        int relation = owner.HCRelationship(left.Home.Id, right.Home.Id, world.Relation(left.Home.FactionId, right.Home.FactionId));
+        if (!HCTradeOfferPolicy.HCEligible(left.Home.Id, right.Home.Id, relation, left.Supply, right.Supply, owner.m_Recipe.MinimumCampReserve)) { reason = "funded-pair-no-longer-eligible"; return false; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_TRADE_PRODUCER, 1)) { reason = "fixture-budget"; return false; }
+        if (apply)
+        {
+            owner.Fixture = true;
+            if (!owner.m_Planning)
+            {
+                owner.m_LeftIndex = leftIndex;
+                owner.m_RightIndex = rightIndex;
+                owner.HCCandidate();
+                if (!owner.m_Planning) { owner.Fixture = false; reason = "normal-pairing-refused"; return false; }
+            }
+            else { owner.HCPlan(); }
+        }
+        reason = "eligible-camp-pair-normal-pairing-requested";
+        return true;
+    }
+
     ref HCXAITradeAdapter m_Port;
     ref HCTradeRecipe m_Recipe;
     ref HCTradeLossData m_Losses;
@@ -373,6 +453,7 @@ class HCXAITradeProducer
 
     void HCOpen(HCXAITradeAdapter port)
     {
+        s_FixtureOwner = this;
         m_Port = port;
         port.Producer = this;
         Print("[HC Plan] HC-35 producer=started funded_pairs=bounded existing_cargo=only runtime=PENDING");
@@ -382,7 +463,9 @@ class HCXAITradeProducer
         if (m_Failed && m_Port) { m_Port.ProducerFault = reason; }
         if (m_Refusal == reason) { return; }
         m_Refusal = reason;
-        Print("[HC Plan] HC-35 producer=waiting reason=" + reason + " runtime=PENDING");
+        string line = "[HC Plan] HC-35 producer=waiting reason=" + reason + " runtime=PENDING";
+        if (Fixture) { line += " fixture=1"; }
+        Print("" + line);
     }
     bool HCLoad()
     {
@@ -601,7 +684,9 @@ class HCXAITradeProducer
         m_LastOffer = HCWorldClock.UTC();
         if (!trade || !trade.HCBegin(m_LeftLease, m_RightLease)) { HCClearTrip(); return; }
         m_Planning = false; m_Travelling = true;
-        Print("[HC Caravan] departure=funded_pair road_waypoints=requested actual_cargo=retained runtime=PENDING");
+        string departure = "[HC Caravan] departure=funded_pair road_waypoints=requested actual_cargo=retained runtime=PENDING";
+        if (Fixture) { departure += " fixture=1"; }
+        Print("" + departure);
     }
     void HCClearTrip()
     {
@@ -611,6 +696,7 @@ class HCXAITradeProducer
             if (m_Port.Walker.m_PartnerGroup) { return; }
         }
         if (!HCSettleJourney()) { return; }
+        Fixture = false;
         m_Planning = false; m_Travelling = false; m_Returning = false;
         m_Carrier = null; m_Partner = null; m_Outbound = null; m_Inbound = null;
         m_Port.Walker = null; m_Port.HCResetScans(); m_Port.HCClear();
@@ -664,5 +750,5 @@ class HCXAITradeProducer
         if (status.HCState() != "ready" || trade.HCTrading() || !HCTradeOfferPolicy.HCDue(HCWorldClock.UTC(), m_LastOffer, m_Recipe.OfferIntervalSeconds)) { return; }
         HCCandidate();
     }
-    void HCClose() { if (m_Port) { m_Port.Producer = null; } m_Port = null; m_Store = null; m_Losses = null; }
+    void HCClose() { if (s_FixtureOwner == this) { s_FixtureOwner = null; } Fixture = false; if (m_Port) { m_Port.Producer = null; } m_Port = null; m_Store = null; m_Losses = null; }
 }

@@ -9,13 +9,13 @@
     {
       "module": "AIIncidents",
       "feature": "response_started",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:519",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:598",
       "trigger": "HCStartLease borrows a real group and starts a usable response; only then inserts lease.",
-      "exercise": "not_deterministic",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], wait for a real patrol. 2. Fire a real unsuppressed round into safe ground nearby. 3. Withdraw on foot and let an eligible non-busy group respond to the recorded incident. 4. Check response_started; a gunshot alone is insufficient.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Create a real recorded incident near a real eligible HC patrol through normal gameplay. Run fx_incident from the lead admin position. The nearest recorded incident and nearest eligible group are queued for at most 60 seconds; the normal role scheduler must pass its busy checks and revalidate perception, range, cooldown, cap and claim before HCStartLease. Require the real response_started line with fixture=1. Selection alone earns nothing.",
       "est_minutes": 5,
       "prerequisites": "Expansion AI director running; EnableWorld/EnableEncounters; incident response policy permits group/range/type.",
-      "deterministic_exercise_proposal": "Stage a real patrol with a legal approach to a real shot location; repeat at its configured response range. If scheduling prevents admission, proposed incident selector must offer only that existing incident/group through HCXAIIncidentResponse.HCStartLease, retaining claims, perception and caps (proposal family A)."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_incident. Create a real recorded incident near a real eligible HC patrol through normal gameplay. Run fx_incident from the lead admin position. The nearest recorded incident and nearest eligible group are queued for at most 60 seconds; the normal role scheduler must pass its busy checks and revalidate perception, range, cooldown, cap and claim before HCStartLease. Require the real response_started line with fixture=1. Selection alone earns nothing."
     },
     {
       "module": "AIRoles",
@@ -40,24 +40,24 @@
     {
       "module": "AITactics",
       "feature": "tactic_chosen",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:553",
-      "trigger": "StartScan begins a real smoke/lure inventory scan after perceived tactical conditions. It does not prove deployment.",
-      "exercise": "not_deterministic",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], let a real HC AI perceive a hostile target or infected. 2. Use cover without closing or obstructing doors. 3. Wait for its smoke/lure decision and check tactic_chosen.",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:677",
+      "trigger": "A normal tactical evaluation selects real stock and a smoke throw/drop or lure throw succeeds. Inventory scan probes do not earn credit.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Let an existing HC group perceive a real hostile threat or infected. Run fx_tactic; the nearest living owned member with real perception is prioritized for the next normal evaluation. Keep real stock, cooldown and policy guards. Require tactic_chosen with fixture=1 after a successful real throw or smoke drop; an inventory scan alone earns nothing.",
       "est_minutes": 5,
       "prerequisites": "Tactics active; LOS-gated threat or infected; ordinary cooldown and policy.",
-      "deterministic_exercise_proposal": "Stage an existing equipped HC group and an infected in open mutual sight; preserve real smoke/lure inventory and threat rules. Proposed family A selector may schedule evaluation of that group only, never invent perception or count a scan probe."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_tactic. Let an existing HC group perceive a real hostile threat or infected. Run fx_tactic; the nearest living owned member with real perception is prioritized for the next normal evaluation. Keep real stock, cooldown and policy guards. Require tactic_chosen with fixture=1 after a successful real throw or smoke drop; an inventory scan alone earns nothing."
     },
     {
       "module": "AITrade",
       "feature": "trade_completed",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c:529",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c:535",
       "trigger": "Right reciprocal inventory transfer returns result=2; phase becomes complete/reciprocal_confirmed.",
-      "exercise": "not_deterministic",
-      "steps": "1. Identify two naturally funded friendly AI camps on an installed road corridor. 2. Ensure one carries genuine BandageDressing surplus and the other genuine TunaCan surplus. 3. Observe the existing caravan walk, mutual greeting and both custody transfers. 4. Require trade_completed; player barter is not this counter.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected.",
       "est_minutes": 15,
       "prerequisites": "ai/trade-recipes.json: bandage-for-food; MinimumCampReserve=4, MinimumCampMembers=2; OfferIntervalSeconds=900; healthy trade journal, route and inventory bindings.",
-      "deterministic_exercise_proposal": "Prepare the two real camps before the measured run using normal finite supply acquisition. The authored caravans.json has placeholder camp labels and empty SurveySha256, not a qualified fixture. If no live pair qualifies, family A proposes selecting a real camp pair and requesting normal trade pairing; never inject supplies, acknowledge gestures or fabricate custody. No bounded 45-minute guarantee."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_trade. Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected."
     },
     {
       "module": "AdminMap",
@@ -407,13 +407,13 @@
     {
       "module": "MaterializerBridge",
       "feature": "party_materialized",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:76",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:99",
       "trigger": "SiteSpawned receives nonempty known custody proposal identity not already counted and records real spawn.",
-      "exercise": "not_deterministic",
-      "steps": "1. Approach the outskirts of Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] while a real transient proposal is offered. 2. Allow out-of-sight creation with body budget available. 3. Require party_materialized; ordinary permanent patrol spawn is insufficient.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing.",
       "est_minutes": 5,
       "prerequisites": "EnableEncounters; known HCWorldMaterializer identity, director transient admission, free custody/body cap.",
-      "deterministic_exercise_proposal": "Family A selects an eligible existing world proposal at a real named place, schedules its normal Offer; keeps identity, budget, observer and provider checks. No fabricated proposal or no-ID SiteSpawned callback."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_materialize. Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing."
     },
     {
       "module": "Melee",
@@ -674,24 +674,24 @@
     {
       "module": "optional-expansion-human-ai",
       "feature": "convoy_astar",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:43",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:103",
       "trigger": "HCXConvoyRoute finishes real road A* reconstruction with legal nonempty path and length.",
-      "exercise": "not_deterministic",
-      "steps": "1. On Chernogorsk scavenger corridor, observe a real provider vehicle convoy departure. 2. Let its planner consume installed road graph normally. 3. Require convoy_astar; foot caravan alone or standalone graph probe is insufficient.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. GAP: HCXConvoyRoute owns the A* outcome counter and log in an unowned file, so fixture=1 propagation for convoy_astar is not implemented. The unowned HCXAICaravanAdapter journey FIFO queue diagnostic also needs per-item fixture attribution. This entry remains unverified and cannot pass fixture acceptance until those hooks land. No sample or stuck outcome is forced.",
       "est_minutes": 5,
       "prerequisites": "Real eligible convoy/vehicle/driver/lease and installed road data; route length/node/approach limits. caravans.json placeholder corridor is not a proven convoy.",
-      "deterministic_exercise_proposal": "Select a real existing eligible convoy and its installed road endpoints in the Chernogorsk area. Proposed family A bounded convoy selector queues that normal journey only, not HCFinish/HCRouteUsed; emit route-node diagnostics for physical setup, preserving budgets and A* bounds."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_convoy_stuck. Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. GAP: HCXConvoyRoute owns the A* outcome counter and log in an unowned file, so fixture=1 propagation for convoy_astar is not implemented. The unowned HCXAICaravanAdapter journey FIFO queue diagnostic also needs per-item fixture attribution. This entry remains unverified and cannot pass fixture acceptance until those hooks land. No sample or stuck outcome is forced."
     },
     {
       "module": "optional-expansion-human-ai",
       "feature": "stuck_recovery",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:112",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:178",
       "trigger": "Observer sees 3 low-progress samples (default 5 s interval, <3 m), then a real reissue/forward/replan rung succeeds and calls HCRecovered.",
-      "exercise": "not_deterministic",
-      "steps": "1. Locate a real convoy using the authorized snapshot position/phase, then observe its travelled road segment in-world (snapshot does not expose its full path); compare gapcov-road-chernogorsk road_node_ids [19811,19813,19819,19816,19817,19823,19820,19822] in mission/hollow-country/travel/route-surveys.json gapcov_routes.routes; these are native-pending candidates, not an active convoy guarantee. 2. Park an empty real car across an open road segment, leaving pedestrian/door access and an alternate road. 3. Withdraw on foot, allow convoy to approach obstruction. 4. Wait >=15 s low progress plus normal recovery work; require stuck_recovery, then drive obstruction away.",
+      "exercise": "admin_action",
+      "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. It marks only the nearest eligible observer, preserving all samples, timestamps and ladder state. Allow normal motion observation and recovery (journey rung 3 still uses the FIFO). Require a real recovery_step and stuck_recovery with fixture=1. Moving normally may produce no recovery; do not teleport or fabricate a stuck sample.",
       "est_minutes": 5,
       "prerequisites": "Running real convoy/journey recovery observer; default 3 checks, 5 s spacing, <3 m progress; successful recovery rung, not merely blocked motion.",
-      "deterministic_exercise_proposal": "Use a route node from installed repo-derived road survey candidates (see script appendix), validate actual runtime route before parking. A car may be avoided, so no determinism claimed yet. Family A proposes selecting an existing stalled real lease for its normal observer tick; never freeze inputs, teleport, alter movement or call HCRecovered directly. Native setup qualification remains required. HCXAdminWorldSources.c:13-21 exposes only position/phase/reason; a route-node display would itself be a new read-only proposal through the same authenticated snapshot, never an existing menu claim."
+      "deterministic_exercise_proposal": "Implemented-unverified: fx_convoy_stuck. Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. It marks only the nearest eligible observer, preserving all samples, timestamps and ladder state. Allow normal motion observation and recovery (journey rung 3 still uses the FIFO). Require a real recovery_step and stuck_recovery with fixture=1. Moving normally may produce no recovery; do not teleport or fabricate a stuck sample."
     },
     {
       "module": "v2-expansion-living-world",

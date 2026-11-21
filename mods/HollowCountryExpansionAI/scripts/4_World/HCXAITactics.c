@@ -276,6 +276,7 @@ class HCXAITacticsConfig
 // Per-group ledger: fire events (ring), cooldowns, caps and scan back-off.
 class HCXTacticsGroup
 {
+    bool Fixture;
     int GroupId;
     eAIGroup Group;
     int WindowStart;
@@ -298,6 +299,7 @@ class HCXTacticsBackoff
 
 class HCXTacticsPending
 {
+    bool Fixture;
     ItemBase Item;
     eAIBase Actor;
     bool Smoke;
@@ -360,6 +362,46 @@ class HCXAITactics
     protected static int s_FireEvents;
     protected static int s_Logged;
     protected static float s_SummaryAfter;
+
+    // Read-only probe; selection only changes which actor the normal poll visits next.
+    static bool HCFixtureTactic(vector pos, bool apply, out string reason)
+    {
+        reason = "EnableSmokeFixtures-off";
+        if (!HCAdminFixtures.HCEnabled()) { return false; }
+        reason = "tactics-unavailable";
+        if (!s_Running || !s_Config || s_Scan) { return false; }
+        array<eAIBase> actors = HCXExpansionBridge.HCBaseGetAll();
+        if (!actors) { return false; }
+        HCWorkBudget work = new HCWorkBudget;
+        work.HCReset(actors.Count(), HCPerfConfig.HCGet().SliceMs);
+        int chosen = -1;
+        float nearest = float.MAX;
+        HCXTacticsView saved = s_View;
+        s_View = new HCXTacticsView;
+        for (int index = 0; index < actors.Count(); index++)
+        {
+            if (!work.HCContinue()) { s_View = saved; reason = "fixture-budget"; return false; }
+            eAIBase actor = actors[index];
+            if (!actor || !HCXStance.Owns(actor) || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseIsUnconscious(actor)) { continue; }
+            Perceive(actor);
+            if (!s_View.Seen && s_View.Infected < 1) { continue; }
+            float gap = vector.DistanceSq(pos, HCXExpansionBridge.HCBaseGetPosition(actor));
+            if (gap < nearest) { nearest = gap; chosen = index; }
+        }
+        s_View = saved;
+        reason = "no-perceived-threat";
+        if (chosen < 0) { return false; }
+        reason = "normal-evaluation";
+        if (apply)
+        {
+            HCXTacticsGroup rec = HCFind(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actors[chosen]));
+            if (!rec) { reason = "group-untracked"; return false; }
+            rec.Fixture = true;
+            s_Cursor = chosen;
+            s_NextCheckMs = GetGame().GetTime();
+        }
+        return true;
+    }
 
     static bool Running() { return s_Running; }
 
@@ -433,23 +475,34 @@ class HCXAITactics
     }
 
     // Print once per change (the per-class HCRefuse pattern).
-    protected static void HCRefuse(string reason)
+    protected static void HCRefuse(string reason, bool fixture = false)
     {
         s_Refused++;
         if (reason == s_Refusal) { return; }
         s_Refusal = reason;
-        Print("[HCX Tactics] refused reason=" + reason + " runtime=PENDING");
+        string line = "[HCX Tactics] refused reason=" + reason + " runtime=PENDING";
+        if (fixture || (s_ScanGroup && s_ScanGroup.Fixture)) { line += " fixture=1"; }
+        Print("" + line);
     }
 
-    protected static HCXTacticsGroup Track(eAIGroup group, int nowMs)
+    protected static HCXTacticsGroup HCFind(eAIGroup group)
     {
-        if (!group || !s_Config) { return null; }
+        if (!group) { return null; }
         int id = HCXExpansionBridge.HCGroupGetID(group);
         for (int index = 0; index < s_Groups.Count(); index++)
         {
             HCXTacticsGroup known = s_Groups.Get(index);
             if (known && known.GroupId == id) { return known; }
         }
+        return null;
+    }
+
+    protected static HCXTacticsGroup Track(eAIGroup group, int nowMs)
+    {
+        if (!group || !s_Config) { return null; }
+        HCXTacticsGroup known = HCFind(group);
+        if (known) { return known; }
+        int id = HCXExpansionBridge.HCGroupGetID(group);
         if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups)) { s_Groups.RemoveOrdered(0); }
         HCXTacticsGroup created = new HCXTacticsGroup();
         created.GroupId = id;
@@ -550,11 +603,17 @@ class HCXAITactics
         s_ScanSmoke = smoke;
         s_ScanAim = aim;
         s_ScanStartedMs = nowMs;
-        HCModuleReadiness.HCUse("AITactics", "tactic_chosen");
+        if (rec.Fixture)
+        {
+            HCModuleReadiness.HCUseFixture("AITactics", "tactic_chosen");
+            Print("[HCX Tactics] tactic_chosen fixture=1");
+        }
+        else { HCModuleReadiness.HCUse("AITactics", "tactic_chosen"); }
     }
 
     protected static void EndScan()
     {
+        if (s_ScanGroup) { s_ScanGroup.Fixture = false; }
         s_Scan = null;
         s_ScanActor = null;
         s_ScanGroup = null;
@@ -659,6 +718,7 @@ class HCXAITactics
     protected static void Enqueue(ItemBase item, eAIBase actor, bool smoke, int nowMs)
     {
         HCXTacticsPending pending = new HCXTacticsPending();
+        pending.Fixture = s_ScanGroup && s_ScanGroup.Fixture;
         pending.Item = item;
         pending.Actor = actor;
         pending.Smoke = smoke;
@@ -729,7 +789,7 @@ class HCXAITactics
             if (action == "remove_lost")
             {
                 s_Lost++;
-                if (!gone) { HCXAITactics.HCRefuse("throw_not_observed"); }
+                if (!gone) { HCXAITactics.HCRefuse("throw_not_observed", pending.Fixture); }
             }
             if (action == "remove_activated")
             {
@@ -779,6 +839,11 @@ class HCXAITactics
             if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseIsUnconscious(actor) || !HCXStance.Owns(actor)) { continue; }
             evaluated++;
             HCXAITactics.Evaluate(actor, nowMs);
+            if (HCAdminFixtures.HCEnabled() && !s_Scan)
+            {
+                HCXTacticsGroup evaluatedGroup = HCFind(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor));
+                if (evaluatedGroup) { evaluatedGroup.Fixture = false; }
+            }
         }
         if (s_Groups.Count() > 0)
         {
