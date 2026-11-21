@@ -15,10 +15,25 @@
 // 1_Core/proto/EnMath.c:427 Floor.
 // No create/move/delete/CE replenishment call is used by this adapter; the reward
 // cache is created by HCEventCacheSpawner (4_World/Events/HCEventRewardCache.c).
+// One weak-handle snapshot per mission; native query and script inspection get
+// separate grants. Preserve distance/id ranking over the complete 60 m result.
+class HCEventInfectedBindSlice
+{
+    ref array<Object> Objects;
+    vector Origin;
+    int Next;
+    ZombieBase Selected;
+    float Nearest;
+    float NearestCandidateSq = -1;
+    int InfectedCount;
+    int LiveCount;
+    bool Complete;
+}
 class HCEventWorldBinding
 {
     // Bind diagnostics: the last Select/Query refusal and the last reported
     // reason per mission (at most 64), so retries log only state changes.
+    protected static ref map<string, ref HCEventInfectedBindSlice> s_InfectedSlices = new map<string, ref HCEventInfectedBindSlice>;
     protected static string s_FailReason;
     protected static string s_FailDetails;
     protected static bool s_StartupReported;
@@ -36,6 +51,8 @@ class HCEventWorldBinding
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
     {
         if (!observer || !settings || !HCEventRuntimePolicy.SettingsValid(settings)) { return; }
+        // A new observer must not inherit a previous lifecycle's CE snapshot.
+        s_InfectedSlices.Clear();
         string current = world;
         current.ToLower();
         int checked = 0;
@@ -185,7 +202,7 @@ class HCEventWorldBinding
         string reason = s_FailReason;
         // BindCandidate resets this at entry. Keep the result through the caller's
         // retry accounting: logging must not erase a waiting-for-player refusal.
-        if (reason == "") { return false; }
+        if (reason == "" || reason == "police_work_budget") { return false; }
         if (!s_BindReported)
         {
             s_BindReported = new array<string>();
@@ -308,6 +325,65 @@ class HCEventWorldBinding
         s_FailDetails = "; activation_radius_m=200; attempts_spent=0";
         return BindFailed(mission);
     }
+    static bool BindInfectedSlice(HCEventNativeObserver observer, HCEventMission mission)
+    {
+        s_FailReason = "police_work_budget";
+        if (!HCEventCacheSpawner.PoliceWork()) { return false; }
+        HCEventInfectedBindSlice job = s_InfectedSlices.Get(mission.Id);
+        if (!job)
+        {
+            float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);
+            if (groundY != groundY) { s_FailReason = "ground_unavailable"; return BindFailed(mission); }
+            job = new HCEventInfectedBindSlice;
+            job.Origin = Vector(mission.Source[0], groundY, mission.Source[2]);
+            int began = TickCount(0);
+            s_FailReason = "";
+            job.Objects = QueryBounded(job.Origin, 60);
+            HCEventCacheSpawner.HCStockQueryCost(began, true);
+            if (!job.Objects) { return BindFailed(mission); }
+            s_InfectedSlices.Set(mission.Id, job);
+            s_FailReason = "police_work_budget";
+            return false;
+        }
+        if (!job.Complete)
+        {
+            HCWorkBudget slice = new HCWorkBudget;
+            slice.HCReset(256, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+            while (job.Next < job.Objects.Count() && slice.HCContinue())
+            {
+                ZombieBase infected = ZombieBase.Cast(job.Objects[job.Next]);
+                job.Next++;
+                if (!infected || infected.IsPendingDeletion()) { continue; }
+                job.InfectedCount++;
+                float distance = vector.DistanceSq(infected.GetPosition(), job.Origin);
+                if (job.NearestCandidateSq < 0 || distance < job.NearestCandidateSq) { job.NearestCandidateSq = distance; }
+                if (infected.IsAlive()) { job.LiveCount++; }
+                if (!infected.HCEventEconomyCandidate() || !infected.IsAlive()) { continue; }
+                if (!job.Selected || distance < job.Nearest || (distance == job.Nearest && infected.GetID() < job.Selected.GetID()))
+                {
+                    job.Selected = infected;
+                    job.Nearest = distance;
+                }
+            }
+            job.Complete = job.Next >= job.Objects.Count();
+            return false;
+        }
+        s_InfectedSlices.Remove(mission.Id);
+        if (!job.Selected)
+        {
+            s_FailReason = "no_candidate; constraint=no_ce_infected_in_radius";
+            if (job.LiveCount == 0) { s_FailReason = "no_candidate; constraint=no_live_infected_in_radius"; }
+            if (job.InfectedCount == 0) { s_FailReason = "no_candidate; constraint=no_infected_in_radius"; }
+            s_FailDetails = CandidateDetails("ZombieBase", job.NearestCandidateSq, 60);
+            return BindFailed(mission);
+        }
+        // Registration rechecks the retained native handle; never replace the
+        // winner with a later/spawned candidate while resuming this snapshot.
+        s_FailReason = "registration_refused";
+        if (!observer.RegisterInfected(mission.Id, job.Selected)) { return BindFailed(mission); }
+        s_FailReason = "";
+        return true;
+    }
     static bool BindCandidate(HCEventNativeObserver observer, HCEventMission mission)
     {
         s_FailDetails = "";
@@ -330,75 +406,9 @@ class HCEventWorldBinding
             radius = 60;
         }
         s_FailDetails = "; wanted=" + wanted + "; nearest_candidate_m=unknown_query_refused; radius_m=" + radius.ToString();
-        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
-        {
-            // Native: 3_Game/Global/Game.c:1176 SurfaceY(x, z). A police source is a model
-            // origin standing about 7 m above its ground, so a sphere centred on it reaches
-            // only about 13 m on the ground. Centre on the ground and search 60 m;
-            // the density-scaled (8192-object) overflow refusal remains authoritative.
-            float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);
-            if (groundY != groundY)
-            {
-                s_FailReason = "ground_unavailable";
-                return BindFailed(mission);
-            }
-            origin = Vector(mission.Source[0], groundY, mission.Source[2]);
-            radius = 60;
-        }
-        array<Object> nearby = null;
-        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
-        {
-            nearby = QueryBounded(origin, radius);
-        }
-        else
-        {
-            nearby = Query(origin, radius);
-        }
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR) { return BindInfectedSlice(observer, mission); }
+        array<Object> nearby = Query(origin, radius);
         if (!nearby) { return BindFailed(mission); }
-        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
-        {
-            // Native: EnConvert.c:210 DistanceSq; EnEntity.c:518 unique GetID.
-            // Query order is unspecified: nearest to the ground centre first, native entity id breaks ties.
-            ZombieBase selected;
-            float nearest = 0;
-            float nearestCandidateSq = -1;
-            int infectedCount = 0;
-            int liveCount = 0;
-            foreach (Object candidate : nearby)
-            {
-                ZombieBase infected = ZombieBase.Cast(candidate);
-                if (infected && !infected.IsPendingDeletion())
-                {
-                    infectedCount = infectedCount + 1;
-                    float candidateSq = vector.DistanceSq(infected.GetPosition(), origin);
-                    if (nearestCandidateSq < 0 || candidateSq < nearestCandidateSq) { nearestCandidateSq = candidateSq; }
-                    if (infected.IsAlive()) { liveCount = liveCount + 1; }
-                }
-                if (infected && infected.HCEventEconomyCandidate() && infected.IsAlive() && !infected.IsPendingDeletion())
-                {
-                    float distance = vector.DistanceSq(infected.GetPosition(), origin);
-                    if (!selected || distance < nearest || (distance == nearest && infected.GetID() < selected.GetID()))
-                    {
-                        selected = infected;
-                        nearest = distance;
-                    }
-                }
-            }
-            if (!selected)
-            {
-                s_FailReason = "no_candidate; constraint=no_ce_infected_in_radius";
-                if (liveCount == 0) { s_FailReason = "no_candidate; constraint=no_live_infected_in_radius"; }
-                if (infectedCount == 0) { s_FailReason = "no_candidate; constraint=no_infected_in_radius"; }
-                s_FailDetails = CandidateDetails(wanted, nearestCandidateSq, radius);
-                return BindFailed(mission);
-            }
-            if (!observer.RegisterInfected(mission.Id, selected))
-            {
-                s_FailReason = "registration_refused";
-                return BindFailed(mission);
-            }
-            return true;
-        }
         bool economy = true;
         if (mission.Family == HCEventFamily.PRESENCE)
         {
