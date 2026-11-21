@@ -8,7 +8,7 @@
 // 1_Core/proto/EnSystem.c:397,525 FileExist/MakeDirectory;
 // EnScript.c:380,407 Count/Insert; EnString.c:171,199 ToLower/Length;
 // EnConvert.c:30 int.ToString; EnDebug.c:96 Print; gameplay.c:636 GetGame.
-// Reuses HCGroupClock.CalendarUtc, HCV2ThreatStore.CanOpen and HCGroupIO:
+// Reuses HCGroupClock.CalendarUtc, HCRecoveryGate and HCGroupIO (shape-checked open):
 // native JSON 3_Game/tools/JsonFileLoader.c:85 MakeData; native file sequence
 // EnSystem.c:417,425,443,462,528,531 Open/Read/Close/FPrint/Delete/CopyFile.
 // No installed rename API: verified temp/backup/copy is NOT atomic rename.
@@ -51,9 +51,7 @@ class HCDebugSnapshotModule : HCModule
         string worldName = GetGame().GetWorldName();
         worldName.ToLower();
         if (worldName != "chernarusplus") { HCRefuse(); return; }
-        if (!HCV2ThreatStore<HCDebugDocument>.CanOpen(PATH)) { HCRefuse(); return; }
-        string root = "$profile:HollowCountry/debug";
-        if (!FileExist(root) && !MakeDirectory(root)) { HCRefuse(); return; }
+        if (!HCOpenExport(PATH)) { HCRefuse(); return; }
         m_Builtins = new array<ref HCDebugContributor>;
         HCDebugPlayersContributor players = new HCDebugPlayersContributor;
         HCKeep(players);
@@ -78,6 +76,47 @@ class HCDebugSnapshotModule : HCModule
     {
         m_Builtins.Insert(contributor);
         HCDebugSnapshot.HCRegister(contributor);
+    }
+
+    // #322: snapshot.json is a write-only diagnostic export, rewritten every
+    // cycle by the custom staged encoder, so it never round-trips through
+    // JsonFileLoader<HCDebugDocument>. HCV2ThreatStore.CanOpen recovers by that
+    // typed parse, refused whole .tmp/.bak images after a crash mid-write and
+    // left the module refused for good. A shape check (HCGroupIO, the same
+    // torn-file test the stores use) is enough here: promote a whole .tmp, else
+    // a whole .bak, else let the next cycle regenerate. A torn primary is kept
+    // as .torn; no gameplay state depends on this file.
+    protected bool HCOpenExport(string path)
+    {
+        if (!HCRecoveryGate.HCAllowRead(path)) { return false; }
+        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return false; }
+        string root = "$profile:HollowCountry/debug";
+        if (!FileExist(root) && !MakeDirectory(root)) { return false; }
+        string tmp = path + ".tmp";
+        string bak = path + ".bak";
+        bool hasTmp = FileExist(tmp);
+        bool hasBak = FileExist(bak);
+        bool primaryWhole = FileExist(path) && HCGroupIO.HCLooksWholeObject(path, MAX_BYTES);
+        if (!hasTmp && (primaryWhole || !hasBak)) { return true; }
+        string action = "dropped_unpromoted_tmp";
+        if (!primaryWhole)
+        {
+            if (FileExist(path))
+            {
+                CopyFile(path, path + ".torn");
+                if (!DeleteFile(path)) { return false; }
+            }
+            if (hasTmp && HCGroupIO.HCLooksWholeObject(tmp, MAX_BYTES) && CopyFile(tmp, path)) { action = "promoted_tmp"; }
+            else if (hasBak && HCGroupIO.HCLooksWholeObject(bak, MAX_BYTES) && CopyFile(bak, path)) { action = "restored_bak"; }
+            else
+            {
+                action = "regenerate";
+                if (hasBak && !DeleteFile(bak)) { return false; }
+            }
+        }
+        if (hasTmp && !DeleteFile(tmp)) { return false; }
+        Print("[HC Store] crash_recovery file=snapshot.json action=" + action + " scope=debug_export runtime=PENDING");
+        return true;
     }
 
     protected void HCRefuse()
