@@ -41,6 +41,26 @@ class UseActivityTests(unittest.TestCase):
         self.assertEqual(row['status'], 'ACTIVE')
         self.assertEqual(result['count'], 0)
 
+    def test_fixture_counts_merge_as_maxima_and_remain_active(self):
+        module, feature = 'Materializer', 'actors_materialized'
+        samples = [(3, 1), (4, 2), (4, 2)]
+        result = self.report([ready(module)] + [
+            use(module, feature, count).rstrip() + f' fixture={fixture}\n'
+            for count, fixture in samples], [use(module, feature, 6)])
+        row, = result['features']
+        self.assertEqual(row['count'], 6)
+        self.assertEqual(row['fixture'], max(f for _, f in samples))
+        self.assertEqual(row['status'], 'ACTIVE')
+        output = StringIO()
+        with redirect_stdout(output):
+            audit.print_result(result)
+        self.assertIn(f"ACTIVE count={row['count']} fixture={row['fixture']}", output.getvalue())
+
+    def test_invalid_fixture_suffix_fails_closed(self):
+        for suffix in (' fixture=-1', ' fixture=bad', ' fixture=2'):
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                self.report([ready('Materializer'), use('Materializer', 'actors_materialized', 1).rstrip() + suffix])
+
     def test_every_zero_registration_fails_without_player_waiting(self):
         module = 'Navigation'
         samples = [('map_open', 0), ('pin_drawn', 2), ('menu_open', 0)]

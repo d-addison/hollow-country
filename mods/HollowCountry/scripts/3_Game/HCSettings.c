@@ -200,6 +200,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableEncounters", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableInfectedVariety", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableDebugSnapshot", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableSmokeFixtures", "bool", 0, 0, 1, "HCSettings");
         HCAdd("EnableAdminMap", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableCampRespawn", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTeamPing", "bool", 1, 0, 1, "HCSettings");
@@ -520,6 +521,8 @@ class HCSettings
     // W5 preferences (#121-#131): additive and default on; each module still gates itself.
     bool EnableInfectedVariety = true;
     bool EnableDebugSnapshot = true;
+    // Lead-only R3 smoke; off on friend servers. Never changes feature admission.
+    bool EnableSmokeFixtures = false;
     bool EnableAdminMap = true;
     bool EnableCampRespawn = true;
     bool EnableTeamPing = true;
@@ -562,6 +565,7 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableEncounters")) { settings.EnableEncounters = defaults.EnableEncounters; }
         if (!HCJsonFields.Has(content, "EnableInfectedVariety")) { settings.EnableInfectedVariety = defaults.EnableInfectedVariety; }
         if (!HCJsonFields.Has(content, "EnableDebugSnapshot")) { settings.EnableDebugSnapshot = defaults.EnableDebugSnapshot; }
+        if (!HCJsonFields.Has(content, "EnableSmokeFixtures")) { settings.EnableSmokeFixtures = defaults.EnableSmokeFixtures; }
         if (!HCJsonFields.Has(content, "EnableAdminMap")) { settings.EnableAdminMap = defaults.EnableAdminMap; }
         if (!HCJsonFields.Has(content, "EnableCampRespawn")) { settings.EnableCampRespawn = defaults.EnableCampRespawn; }
         if (!HCJsonFields.Has(content, "EnableTeamPing")) { settings.EnableTeamPing = defaults.EnableTeamPing; }
@@ -646,6 +650,7 @@ class HCSettings
         Print("[HC Settings] effective EnableEncounters=" + EnableEncounters.ToString());
         Print("[HC Settings] effective EnableInfectedVariety=" + EnableInfectedVariety.ToString());
         Print("[HC Settings] effective EnableDebugSnapshot=" + EnableDebugSnapshot.ToString());
+        Print("[HC Settings] effective EnableSmokeFixtures=" + EnableSmokeFixtures.ToString());
         Print("[HC Settings] effective EnableAdminMap=" + EnableAdminMap.ToString());
         Print("[HC Settings] effective EnableCampRespawn=" + EnableCampRespawn.ToString());
         Print("[HC Settings] effective EnableTeamPing=" + EnableTeamPing.ToString());

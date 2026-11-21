@@ -25,6 +25,8 @@ class HCWorldProposal
     int ActorCap;
     string Kind;
     ref HCAIPartyIdentity Identity;
+    // Runtime diagnostic carried to add-on consumers; never a custody decision.
+    bool Fixture;
 }
 
 class HCWorldProposalLease
@@ -38,6 +40,7 @@ class HCWorldProposalLease
     bool Materialized;
     int Survivors;
     bool OutcomeApplied;
+    bool Fixture;
 }
 
 // w29-debugmap #194: detached read-only row for the `materializer-proposals`
@@ -514,7 +517,11 @@ class HCWorldMaterializer : HCModule
             if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { Print("[HC AI] custody fold-back strength failed runtime=PENDING"); return; }
             m_Materialized++;
             m_Activity.HCHit("materialized");
-            HCModuleReadiness.HCUse("Materializer", "actors_materialized");
+            if (lease.Fixture) { HCModuleReadiness.HCUseFixture("Materializer", "actors_materialized"); }
+            else { HCModuleReadiness.HCUse("Materializer", "actors_materialized"); }
+            string outcome = "[HC AI] materializer outcome=folded-back";
+            if (lease.Fixture) { outcome += " fixture=1"; }
+            Print("" + outcome);
         }
         else { m_Traces++; m_Activity.HCHit("traces"); }
     }
@@ -536,6 +543,39 @@ class HCWorldMaterializer : HCModule
         }
     }
 
+    // Existing naturally offered, short (<=2 actors), unclaimed lease only.
+    // No new Offer/Result: Next still performs the normal durable claim.
+    bool HCFixtureProposal(vector pos, bool apply, out string reason)
+    {
+        reason = "materializer-custody-or-owner-unavailable";
+        if (!m_Running || !m_CustodyReady) { return false; }
+        int selected = -1;
+        float best = 0;
+        m_WorkBudget.HCReset(m_Active.Count());
+        for (int i = 0; i < m_Active.Count(); i++)
+        {
+            if (!m_WorkBudget.HCContinue()) { reason = "materializer-selection-budget"; return false; }
+            HCWorldProposalLease lease = m_Active[i];
+            if (!lease || !lease.Proposal || lease.Claimed || lease.Finished || lease.OutcomeApplied || lease.Fixture) { continue; }
+            if (lease.Proposal.ActorCap < 1 || lease.Proposal.ActorCap > 2 || HCWorldMaterializer.NoProvider(false, m_Clock - lease.Created)) { continue; }
+            if (!HCCustodyAllows(lease.Proposal.Identity)) { continue; }
+            float distance = vector.DistanceSq(pos, lease.Proposal.Position);
+            if (selected < 0 || distance < best) { best = distance; selected = i; }
+        }
+        reason = "no-short-unclaimed-offered-proposal";
+        if (selected < 0) { return false; }
+        if (apply)
+        {
+            HCWorldProposalLease chosen = m_Active[selected];
+            m_Active[selected] = m_Active[0];
+            m_Active[0] = chosen;
+            chosen.Fixture = true;
+            chosen.Proposal.Fixture = true;
+        }
+        reason = "offered-proposal-prioritized-normal-next-claim";
+        return true;
+    }
+
     // Hands a detached place-only DTO to at most one provider. Claiming keeps
     // the slot/body reservation until Result; polling alone cannot release it.
     static bool Next(out HCWorldProposal p)
@@ -554,6 +594,7 @@ class HCWorldMaterializer : HCModule
             copy.ActorCap = candidate.Proposal.ActorCap;
             copy.Kind = candidate.Proposal.Kind;
             copy.Identity = candidate.Proposal.Identity;
+            copy.Fixture = candidate.Fixture;
             if (!s_Instance.HCClaim(candidate)) { continue; }
             p = copy;
             return true;

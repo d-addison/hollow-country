@@ -186,13 +186,14 @@
     {
       "module": "FactionConflict",
       "feature": "outcome_recorded",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:730",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:795",
       "trigger": "Far, unleased opposed factions pass budget and reserve/publish a data clash fact; no physical fight counts here.",
-      "exercise": "not_deterministic",
-      "steps": "1. Keep player in Chernogorsk while distant opposed territory evolves during soak. 2. Inspect factual outcome only through server counter. 3. If absent, locate a genuinely opposed distant cell and leave its area; do not fight locally expecting this data-only branch.",
+      "exercise": "admin_action",
+      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_conflict -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing distant opposed pair/cell with no pending territory receipt, claimed lease or provider fight and eligible cooldown/daily fact budget. Normal HCConflictStep retains quota, budget and all outcome guards.",
       "est_minutes": 30,
       "prerequisites": "World recovery ready; two opposed faction records, clash budget, unleased distant place; ResolveEqualStrength policy.",
-      "deterministic_exercise_proposal": "Prepare real opposed territorial history through normal world simulation. Family A selector may prioritize an existing eligible distant cell/pair for HCConflictStep, retaining opposition, distance, lease, cooldown and fact persistence; never edit strengths/history or count a local combat offer."
+      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_conflict. Nearest existing distant opposed pair/cell with no pending territory receipt, claimed lease or provider fight and eligible cooldown/daily fact budget. Normal HCConflictStep retains quota, budget and all outcome guards. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
+      "implementation_status": "implemented-unverified"
     },
     {
       "module": "Forage",
@@ -247,13 +248,14 @@
     {
       "module": "Holdouts",
       "feature": "camp_committed",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:628",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:558",
       "trigger": "HCAdvanceOccupancy genuinely changes funded camp founding/upkeep/growth and persists that transition.",
-      "exercise": "not_deterministic",
-      "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], use authorized Map snapshot to find a real holdout house. 2. Walk within 100 m. 3. Pause -> AI & Camps -> holdout -> Run. 4. Require camp_committed, not only world publication.",
+      "exercise": "admin_action",
+      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_holdout_due -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing allocated funded populated row with naturally due upkeep, affordable growth or alert-clear; elapsed lockouts, available site and linked cache. Normal occupancy, loot/cap and verified-save guards remain.",
       "est_minutes": 5,
       "prerequisites": "EnableEncounters; finite camp resources and occupied-place capacity; due founding/upkeep/growth, not locked/raided/quarantined.",
-      "deterministic_exercise_proposal": "Select a naturally due funded row; HCAdminDirectors.c:441 already evaluates nearest normal transition. If none due, soak until legitimate timer; proposed family A selector can choose a due row but cannot age it, fund it, or invent a camp transition."
+      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_holdout_due. Nearest existing allocated funded populated row with naturally due upkeep, affordable growth or alert-clear; elapsed lockouts, available site and linked cache. Normal occupancy, loot/cap and verified-save guards remain. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
+      "implementation_status": "implemented-unverified"
     },
     {
       "module": "HordeMigration",
@@ -393,13 +395,14 @@
     {
       "module": "Materializer",
       "feature": "actors_materialized",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:517",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520",
       "trigger": "Resolve folds back a genuinely materialized ended lease, releases budget and successfully writes world fact plus strength adjustment.",
-      "exercise": "not_deterministic",
-      "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], allow real transient party creation. 2. Observe its physical lifecycle through completion or real combat. 3. Leave its area normally if needed for safe retirement. 4. Wait for provider end callback and require actors_materialized, not initial spawn.",
+      "exercise": "admin_action",
+      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
       "est_minutes": 10,
       "prerequisites": "WorldMaterializer and Expansion bridge; genuine materialized lease; world faction/fact stores healthy; observer-safe body absence confirmed.",
-      "deterministic_exercise_proposal": "Use a short naturally offered transient situation with a reachable end. Family A proposes selection/diagnostic of an existing short proposal, never Result(true) or forced deletion/end; timeout/refusal without bodies cannot count."
+      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_materialize. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
+      "implementation_status": "implemented-unverified"
     },
     {
       "module": "MaterializerBridge",

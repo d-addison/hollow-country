@@ -172,6 +172,14 @@ class HCFactionConflict : HCModule
         world.HCConflictStep(m_ConflictConfig, s_CombatPort);
     }
 
+    static bool HCFixtureConflict(vector pos, bool apply, out string reason)
+    {
+        reason = "conflict-owner-unavailable";
+        HCWorldModule world = HCWorldModule.Get();
+        if (!s_Active || !s_Instance || !s_Instance.m_Healthy || !world) { return false; }
+        return world.HCFixtureConflict(pos, apply, s_Instance.m_ConflictConfig, s_CombatPort, reason);
+    }
+
     // Read only the validated <=128-row journal. Pending sites cannot produce
     // another fight or pressure outcome before their territory receipt publishes.
     static bool HCTerritoryPending(string place)
@@ -627,6 +635,7 @@ modded class HCWorldModule
     protected int m_ConflictLeft;
     protected int m_ConflictRight = 1;
     protected int m_ConflictFrame = -1;
+    protected string m_FixtureConflict;
 
     // False on unknown, invalid or over-cap roster: uncertainty stays near.
     bool HCConflictFar(HCWorldPlace place, HCConflictConfig config)
@@ -677,6 +686,52 @@ modded class HCWorldModule
         return false;
     }
 
+    // Fixed authored faction catalog; one bounded pass over candidate place/pair
+    // rows. Only cursors change, never history, quota, claims or strength.
+    bool HCFixtureConflict(vector pos, bool apply, HCConflictConfig config, HCFactionCombatPort port, out string reason)
+    {
+        reason = "conflict-owner-unavailable-or-selection-pending";
+        if (!m_Running || !m_Data || !config || !config.Enabled || !HCRecoveryGate.HCReady("world") || m_FixtureConflict != "") { return false; }
+        int now = HCWorldClock.UTC();
+        if (now < m_Data.Meta.Epoch) { reason = "conflict-clock-unavailable"; return false; }
+        int selected = -1;
+        int selectedLeft = -1;
+        int selectedRight = -1;
+        float best = 0;
+        int factions = m_Data.Factions.Count();
+        if (factions != HCWorldLimits.FACTIONS) { reason = "conflict-faction-catalog-invalid"; return false; }
+        m_WorkBudget.HCReset(m_Data.Places.Count() * (factions * factions + 1));
+        for (int i = 0; i < m_Data.Places.Count(); i++)
+        {
+            if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
+            HCWorldPlace place = m_Data.Places[i];
+            if (HCFactionConflict.HCTerritoryPending(place.Id) || !HCConflictFar(place, config) || HCConflictLeased(place.Id)) { continue; }
+            if ((port && port.HCActiveAt(place.Id)) || !HCConflictBudget(config, place.Id, now)) { continue; }
+            string cell = HCFactionConflict.Cell(place.Position);
+            for (int left = 0; left < factions - 1; left++)
+            {
+                for (int right = left + 1; right < factions; right++)
+                {
+                    if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
+                    if (!HCConflictPolicy.HCOpposed(m_Data.Factions[left], m_Data.Factions[right], cell)) { continue; }
+                    float distance = vector.DistanceSq(pos, place.Position);
+                    if (selected < 0 || distance < best) { best = distance; selected = i; selectedLeft = left; selectedRight = right; }
+                }
+            }
+        }
+        reason = "no-eligible-distant-opposed-cell";
+        if (selected < 0) { return false; }
+        if (apply)
+        {
+            m_ConflictPlace = selected;
+            m_ConflictLeft = selectedLeft;
+            m_ConflictRight = selectedRight;
+            m_FixtureConflict = m_Data.Places[selected].Id + "/" + m_Data.Factions[selectedLeft].Id + "/" + m_Data.Factions[selectedRight].Id;
+        }
+        reason = "distant-opposed-cell-queued-normal-conflict-step";
+        return true;
+    }
+
     // One place/pair per core tick, persistent round-robin cursor. No global
     // scans for bodies, targeting override, spawn, loot or simulated casualties.
     void HCConflictStep(HCConflictConfig config, HCFactionCombatPort port)
@@ -699,12 +754,20 @@ modded class HCWorldModule
         HCWorldPlace place = m_Data.Places[m_ConflictPlace];
         HCWorldFaction left = m_Data.Factions[m_ConflictLeft];
         HCWorldFaction right = m_Data.Factions[m_ConflictRight];
+        string fixtureKey = place.Id + "/" + left.Id + "/" + right.Id;
+        bool fixture = m_FixtureConflict == fixtureKey;
+        if (fixture) { m_FixtureConflict = ""; }
         m_ConflictPlace++;
         if (m_ConflictPlace >= m_Data.Places.Count()) { m_ConflictRight++; }
         if (HCFactionConflict.HCTerritoryPending(place.Id)) { return; }
         if (!HCConflictBudget(config, place.Id, now)) { return; }
         string cell = HCFactionConflict.Cell(place.Position);
         bool far = HCConflictFar(place, config);
+        if (fixture && (!far || !HCConflictPolicy.HCOpposed(left, right, cell)))
+        {
+            Print("[HC Plan] HC-37 fixture-selection-invalidated fixture=1");
+            return;
+        }
         if (!HCConflictPolicy.HCOpposed(left, right, cell))
         {
             if (far && !HCConflictLeased(place.Id)) { HCConflictPressure(place, cell, now, config); }
@@ -726,8 +789,11 @@ modded class HCWorldModule
         if (!AddFact("faction_clash", place.Id, 1)) { return; }
         if (winner == left.Id) { HCConflictPublish(left, right, place, cell); }
         if (winner == right.Id) { HCConflictPublish(right, left, place, cell); }
-        Print("[HC Plan] HC-37 data_outcome place=" + place.Id + " winner=" + winner + " bodies=0 loot=0 runtime=PENDING");
-        HCModuleReadiness.HCUse("FactionConflict", "outcome_recorded");
+        string outcomeLine = "[HC Plan] HC-37 data_outcome place=" + place.Id + " winner=" + winner + " bodies=0 loot=0 runtime=PENDING";
+        if (fixture) { outcomeLine += " fixture=1"; }
+        Print("" + outcomeLine);
+        if (fixture) { HCModuleReadiness.HCUseFixture("FactionConflict", "outcome_recorded"); }
+        else { HCModuleReadiness.HCUse("FactionConflict", "outcome_recorded"); }
     }
 
     protected void HCConflictPublish(HCWorldFaction winner, HCWorldFaction loser, HCWorldPlace place, string cell)

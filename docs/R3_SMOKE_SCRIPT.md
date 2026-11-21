@@ -232,8 +232,8 @@ forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
 ## Conditional setups and smallest proposed hooks
 
 Every JSON `not_deterministic` entry has an explicit physical/setup proposal.
-These are **unimplemented proposals outside this worker's scope**, not tools the
-owner can currently click. Existing physical worlds, ordinary actions and
+The family A commands below are **implemented-unverified**; other hooks remain
+unimplemented proposals. No command establishes runtime acceptance. Existing physical worlds, ordinary actions and
 existing HC controls must be tried first. A selectable evaluator does not turn an
 ineligible setup into a deterministic test; the lead must qualify it in-engine.
 
@@ -242,6 +242,37 @@ ineligible setup into a deterministic test; the lead must qualify it in-engine.
 | A: select existing eligible work | `mods/HollowCountry/scripts/3_Game/Admin/HCAdminCatalog.c`, `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c`, and relevant owning class named by each JSON source; dependency operations stay in `mods/HollowCountryExpansionAI/scripts/4_World/HCXExpansionBridge.c` | New explicitly default-off smoke-fixture preference; existing authenticated `HCAuthorized` / `HollowCountry.Admin` ingress, replay guard, throttle, one-command queue and shared HCWorkBudget. Select one **existing** eligible incident/group, world proposal, due holdout, opposition cell, fact/scene, picker lease, trade pair, or convoy; schedule its normal owner work. Return reason-coded refusal. No budget/cooldown/LOS/stock/journal bypass, fake facts or direct HCUse calls. |
 | B: prioritize real measurement | `mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c` and admin catalog/ingress above if exposed | Default-off region/class-priority input, marker still required, existing bounded native ray/summary work retained. Report actual geometry. No synthetic measurement or visual qualification from sample count. |
 | C: finite physical fixture | Admin catalog/ingress above, a proposed bounded fixture owner under `mods/HollowCountry/scripts/4_World/Admin/`, optional-pack native creation through appropriate owners | Default off, existing admin permission, one fixture receipt/cap and shared work admission. Ground/collision/observer-safe empty vehicle, real otter/bike, or a low physical test obstacle; no attached loot, CE duplication, player/AI position writes or inventory grants. Native EEInit, attack/vault/physics must still do the real work. It establishes only the exercised feature, not CE availability or natural frequency. |
+
+Family A base fixtures are **implemented-unverified**. On a private lead test
+profile only, set `EnableSmokeFixtures=true` before boot (default false; off on
+friend servers). Authenticated Pause -> AI & Camps exposes `fx_holdout_due`,
+`fx_conflict`, and `fx_materialize`; `kit` reports eligibility/refusal. Each uses
+the existing replay/throttle/single-command core-tick queue. A command's `ok`
+means selection only. Retain `[HC Admin] cmd=fx_... fixture=1`, the real owner
+outcome with `fixture=1`, and its `[HC Use] ... fixture=<n>` receipt. Fixture
+counts remain ACTIVE; there are no waivers. All native checks remain pending.
+
+- `fx_holdout_due`: nearest existing allocated, unrefunded populated camp with
+  positive supply, a naturally due upkeep/growth/alert-clear step, elapsed
+  lockouts, available site and linked cache. Queues normal occupancy stages;
+  cache, loot, caps and verified-save guards still decide the outcome.
+- `fx_conflict`: nearest existing distant opposed pair/cell, with no pending
+  territory receipt, claimed materializer lease, active provider fight or fact
+  cooldown/daily-cap exclusion. Prioritizes normal `HCConflictStep`; durable
+  quota admission is still required there. Selection may refuse its work budget.
+- `fx_materialize`: nearest existing naturally offered unclaimed unexpired
+  proposal with 1–2 actors and allowed custody. Prioritizes normal `Next`/claim;
+  provider spawn guards remain authoritative. Observe its ordinary journey end
+  and successful fold-back; never force Result, end, deletion or death.
+
+Pending integration outside batch A: add-on fixture providers register through
+`HCAdminModule.HCRegisterFixtureProvider` and report off-state kit refusals using
+`HCAdminFixtures.HCEnabled()`. Add-on commands still need shared catalog entries.
+`HCWorldProposal.Fixture` reaches the normal provider claim; Expansion-side
+spawn/outcome logs and counters must consume that flag in their owning batch.
+Batch A does not establish that every provider-side line is fixture-tagged.
+Generated digest receipts also need lead regeneration after integration; they
+are outside this worker's owned files. These are blockers, never waivers.
 
 Detailed priority setups:
 
@@ -351,13 +382,13 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `ClientUI/map_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c:35`.
 - [ ] `Crafting/recipe_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c:30`.
 - [ ] `DeadDrops/cache_bound` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:245`.
-- [ ] `FactionConflict/outcome_recorded` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:730`.
+- [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:795`.
 - [ ] `Forage/item_picked` — `client_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c:460`.
 - [ ] `Forage/item_spawned` — `admin_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c:721`.
 - [ ] `Grade/grade_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c:123`.
 - [ ] `Groups/group_mutated` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c:587`.
 - [ ] `Groups/menu_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c:477`.
-- [ ] `Holdouts/camp_committed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:628`.
+- [ ] `Holdouts/camp_committed` — `admin_action`, **implemented-unverified**, `fx_holdout_due`; `mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:558`.
 - [ ] `HordeMigration/route_advanced` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c:642`.
 - [ ] `InfectedDoors/door_action` — `client_action`; `mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c:570`.
 - [ ] `InfectedLOD/herd_materialized` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c:885`.
@@ -371,7 +402,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176`.
 - [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.
 - [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c:123`.
-- [ ] `Materializer/actors_materialized` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:517`.
+- [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520`.
 - [ ] `MaterializerBridge/party_materialized` — `not_deterministic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:76`.
 - [ ] `Melee/hit_processed` — `client_action`; `mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c:93`.
 - [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c:117`.

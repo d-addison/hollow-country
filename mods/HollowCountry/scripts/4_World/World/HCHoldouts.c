@@ -211,6 +211,7 @@ class HCHoldouts : HCModule
     // when the row's exposed ledger fields change. Bounded by the row count.
     protected ref array<ref HCWorldHoldout> m_ViewHomes = new array<ref HCWorldHoldout>;
     protected ref array<string> m_ViewKeys = new array<string>;
+    protected ref map<string, bool> m_FixtureRows = new map<string, bool>;
     protected int m_Next;
     protected int m_TickPhase;
     protected int m_TickMeasuredStage;
@@ -549,7 +550,15 @@ class HCHoldouts : HCModule
         if (state == "ready") { m_CampRefusals.Set(row.Ledger.Id, ""); }
         string line = "[HC Plan] HC-16 camp=" + row.Ledger.Id + " level=" + row.Camp.Level.ToString();
         line += " supply=" + row.Camp.Supply.ToString() + " roles=0 state=" + state;
+        bool fixture = m_FixtureRows.Count() > 0 && m_FixtureRows.Contains(row.Ledger.Id);
+        if (fixture) { line += " fixture=1"; }
         Print(line + " refusal=" + refusal + " runtime=PENDING");
+        if (state == "ready" && refusal == "EAT_FIRE_REPAIR_UNPROVEN")
+        {
+            if (fixture) { HCModuleReadiness.HCUseFixture("Holdouts", "camp_committed"); }
+            else { HCModuleReadiness.HCUse("Holdouts", "camp_committed"); }
+            if (fixture) { m_FixtureRows.Remove(row.Ledger.Id); }
+        }
     }
 
     bool HCStepCamp(int index, int now)
@@ -625,7 +634,6 @@ class HCHoldouts : HCModule
         m_CampCommitPending = false;
         if (m_CampFoundedPending) { m_FoundedWindow++; }
         m_CampFoundedPending = false;
-        HCModuleReadiness.HCUse("Holdouts", "camp_committed");
         HCLogCamp(row, "ready", "EAT_FIRE_REPAIR_UNPROVEN");
         return true;
     }
@@ -741,6 +749,44 @@ class HCHoldouts : HCModule
     }
 
     // Existing admin and tick entry points share the same funding barrier.
+    // Queue only an already allocated funded camp with a naturally due step.
+    // Existing tick stages retain cache/site/loot/cap and persistence barriers.
+    bool HCFixtureDue(vector pos, bool apply, out string reason)
+    {
+        reason = "holdout-owner-busy-or-unavailable";
+        if (!m_Ready || !m_State || m_Dirty || m_Store.SaveInFlight() || m_TickPhase != 0) { return false; }
+        int now = HCWorldClock.UTC();
+        int selected = -1;
+        float best = 0;
+        m_WorkBudget.HCReset(Count());
+        for (int i = 0; i < Count(); i++)
+        {
+            if (!m_WorkBudget.HCContinue()) { reason = "holdout-selection-budget"; return false; }
+            HCHoldoutRow row = m_State.Rows[i];
+            HCAICampLife camp = row.Camp;
+            HCAICampPolicy policy = m_State.CampPolicy;
+            if (!camp.Allocated || camp.Refunded || camp.Level < 0 || camp.Population < 1 || camp.Supply < 1) { continue; }
+            if (row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT") { continue; }
+            if (now < 1 || now < row.Ledger.Since || now < camp.LastStage || now < camp.LastUpkeep || now < camp.ReoccupyAfter || now < row.Ledger.ReoccupyAfter) { continue; }
+            bool upkeep = now - camp.LastUpkeep >= policy.UpkeepSeconds;
+            bool growth = camp.Level < 3 && now - camp.LastStage >= policy.GrowthSeconds && camp.Supply >= HCAICampLifecycle.HCCost(camp.Level + 1, policy);
+            bool alert = row.Ledger.State == "ALERT" && now - row.Ledger.Since >= 3600;
+            if (!upkeep && !growth && !alert) { continue; }
+            if (!SiteAvailable(row) || row.Cache.Phase != 2) { continue; }
+            float distance = vector.DistanceSq(pos, row.Ledger.HousePos);
+            if (selected < 0 || distance < best) { best = distance; selected = i; }
+        }
+        reason = "no-due-funded-row";
+        if (selected < 0) { return false; }
+        if (apply)
+        {
+            m_FixtureRows.Set(m_State.Rows[selected].Ledger.Id, true);
+            m_Next = selected;
+        }
+        reason = "due-funded-row-queued-normal-occupancy";
+        return true;
+    }
+
     bool HCAdvanceOccupancy(int index, int now)
     {
         return HCStepCamp(index, now);
@@ -1095,7 +1141,9 @@ class HCHoldouts : HCModule
     protected void HCLogRaid(HCHoldoutRow row)
     {
         int raidLockout = m_State.CampPolicy.RaidLockoutSeconds;
-        Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=" + raidLockout.ToString() + "s runtime=PENDING");
+        string line = "[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=" + raidLockout.ToString() + "s runtime=PENDING";
+        if (m_FixtureRows.Contains(row.Ledger.Id)) { line += " fixture=1"; }
+        Print("" + line);
     }
 
     // A release with a new interior template pack must not stop holdouts for
@@ -1388,10 +1436,11 @@ class HCHoldouts : HCModule
         if (m_TickPhase == 5)
         {
             string previousState = row.Ledger.State;
-            HCStepCamp(index, now);
+            HCAdvanceOccupancy(index, now);
             if (!m_Ready) { return; }
             if (m_CampReserveSaved) { m_TickAfterSave = 5; m_TickPhase = 12; return; }
             if (m_Dirty || m_Store.SaveInFlight()) { m_TickAfterSave = 15; m_TickPhase = 12; return; }
+            if (m_FixtureRows.Count() > 0) { m_FixtureRows.Remove(row.Ledger.Id); }
             m_BodyNext = m_Bodies.Count() - 1;
             m_TickPhase = 6;
             // With no bodies or occupied inventory work, finish bookkeeping
@@ -1523,6 +1572,7 @@ class HCHoldouts : HCModule
         HCSyncLights();
         m_Bodies.Clear();
         m_CampRefusals.Clear();
+        m_FixtureRows.Clear();
         m_ViewHomes.Clear();
         m_ViewKeys.Clear();
         if (s_Instance == this) s_Instance = null;
