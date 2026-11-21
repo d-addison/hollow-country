@@ -90,6 +90,10 @@ class HCGapcodeRoutesCatalog
     protected int m_Cursor;
     protected int m_PinPeakTicks;
     protected int m_Pending;
+    protected int m_Slices;
+    protected int m_Units;
+    protected int m_ResolvePeakTicks;
+    protected float m_Started;
     protected bool m_OpenedRoadOwner;
     protected string m_Reason;
     protected string m_Phase = "off";
@@ -132,6 +136,7 @@ class HCGapcodeRoutesCatalog
     }
     void HCOpen()
     {
+        m_Started = GetGame().GetTickTime();
         m_Enabled = !FileExist("$profile:HollowCountry/acceptance/gapcode_routes.disable");
         Print(HCV2Admission.Line("RegionalRoadCandidates", m_Enabled, "GAPCOV-NATIVE-ROUTES", false) + " runtime=PENDING");
         if (!m_Enabled) { return; }
@@ -342,19 +347,27 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
-        // ROADS has its own fair admission and one 4 ms loading slice per tick.
+        // ROADS has its own fair admission and one 4 ms loading slice per frame.
         // Pump independently of AI_ROUTES so source checks and node parsing overlap.
         HCXAICaravanRoads roads = this.HCGraph();
         if (!roads || m_Phase == "failed") { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
         if (roads.Phase == "loading") { roads.HCStep(); }
-        // One shared admission and one retained source/resolve unit per visit.
-        // AI_ROUTES stays independent from site qualification under exhaustion.
-        // Each sampled source hash is <=4096 bytes and remains atomic.
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 1)) { return; }
-        m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
+        // #275: the owner visits every other core tick. One row per visit
+        // paced 88 cheap bindings over 176 s even after the graph was loaded
+        // (131: graph 33.496 s, source checks ~71 s). Admit one bounded page,
+        // charging its full cap even under starvation, and retain the cursor.
+        // The same page/time cap lets cheap source reads reach the next hash
+        // without waiting another two seconds per 64 reads. Never run a second
+        // atomic hash in this visit or combine a hash with candidate work.
+        int limit = Data.limits.page_size;
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
+        m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 4));
+        m_Slices++;
+        int hashedBefore = m_Hashed;
+        while (m_Work.HCContinue())
         {
-            if (!m_Work.HCContinue()) { return; }
+            m_Units++;
             if (m_Phase == "pinning")
             {
                 int pinBegan = TickCount(0);
@@ -363,8 +376,13 @@ class HCGapcodeRoutesCatalog
                 if (pinTicks > m_PinPeakTicks)
                 {
                     m_PinPeakTicks = pinTicks;
-                    if (pinTicks >= 40000) { Print("[HC Routes] source_page_ticks_max=" + pinTicks.ToString() + " runtime=PENDING"); }
+                    if (pinTicks >= 40000)
+                    {
+                        Print("[HC Routes] source_page_ticks_max=" + pinTicks.ToString() + " runtime=PENDING");
+                        return;
+                    }
                 }
+                if (m_Hashed != hashedBefore || m_Phase != "pinning") { return; }
             }
             else
             {
@@ -374,7 +392,10 @@ class HCGapcodeRoutesCatalog
                 if (roads.Nodes.Count() != Data.graph.nodes || roads.Config.RoadDataPath != Data.sources.road_virtual_path || Data.graph.max_degree > roads.Config.MaxRoadDegree)
                 { this.HCRefuse("ROUTE_GRAPH_SOURCE_MISMATCH"); return; }
                 if (!localities || !localities.Localities || !policy || !policy.Sites) { m_Reason = "ROUTE_SITE_OWNER_MISSING"; return; }
+                int resolveBegan = TickCount(0);
                 this.HCResolve(localities, policy, roads);
+                int resolveTicks = TickCount(resolveBegan);
+                if (resolveTicks > m_ResolvePeakTicks) { m_ResolvePeakTicks = resolveTicks; }
                 if (m_Phase == "failed") { return; }
                 if (m_Cursor == Data.routes.Count())
                 {
@@ -382,7 +403,11 @@ class HCGapcodeRoutesCatalog
                     m_Reason = "";
                     if (m_Pending > 0) { m_Reason = "ROUTE_CANDIDATES_PENDING_ACCESS_OR_BINDING"; }
                     string line = "[HC Routes] catalog=loaded candidates=" + m_Cursor.ToString();
-                    Print(line + " pending=" + m_Pending.ToString() + " page_cap=" + Data.limits.page_size.ToString() + " runtime=PENDING");
+                    line += " pending=" + m_Pending.ToString() + " page_cap=" + limit.ToString();
+                    line += " slices=" + m_Slices.ToString() + " units=" + m_Units.ToString();
+                    float elapsed = GetGame().GetTickTime() - m_Started;
+                    line += " elapsed_s=" + elapsed.ToString() + " resolve_ticks_max=" + m_ResolvePeakTicks.ToString();
+                    Print(line + " runtime=PENDING");
                     return;
                 }
             }
