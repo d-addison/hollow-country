@@ -44,6 +44,7 @@ import tempfile
 from tools.package import ce_coverage
 from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
+from tools.setup.friend_install import normalize_profile, globals_upgrade_problem, globals_recovery
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
 from tools.package import economy, gameplay, loot_boost, map_overlay, hc_events
@@ -74,6 +75,8 @@ MISSION_EXCLUDE_FILES = ('*.backup', '*.next', 'receipt.json', 'verification.jso
 # marker ships: the V1/V2 features are on by default, an operator's own .disable opt-outs stay local, and the
 # xai_diagnostic_spawn.enable diagnostic must never reach a friend's server.
 PROFILE_INCLUDE = (
+    'HollowCountry/Groups/settings.json',
+    'HollowCountry/Infected/lod.json',
     'HollowCountry/settings.json',
     'HollowCountry/stamina.json',
     'HollowCountry/interiors.json',
@@ -228,6 +231,50 @@ TEMPLATE_INDEX = 'HollowCountry/templates/index.json'
 RUNTIME_STATE_ALLOWLIST = ()
 
 
+# These authored defaults mirror HCGroupSettings (3_Game/Groups/HCGroupData.c)
+# and HCInfectedLODConfig (4_World/Infected/LOD/HCInfectedLODStore.c).
+# No group state, herd journal or installed profile bytes enter this catalogue.
+BASELINE_PROFILES = {
+    'HollowCountry/Groups/settings.json': {
+        'SchemaVersion': 2, 'Enabled': True, 'HCTeamPingEnabled': False,
+        'WorldIcons': True, 'MapIcons': True, 'RequireGPS': False,
+        'RequireLOS': False, 'RequireRadio': False, 'NavigationLayer': True,
+        'DiscoveryLayer': True, 'MissionLayer': True, 'ShareDiscovery': True,
+        'MaxLOSRaysPerTick': 56, 'MaxDiscoveries': 64, 'MaxExplorers': 256,
+        'DiscoveryIntervalSeconds': 5.0, 'IconScale': 1.0, 'LabelScale': 1.0,
+        'MaxGroups': 32, 'MaxMembers': 8, 'MaxMarkers': 64, 'MaxInvites': 64,
+        'MaxRequestsPerSecond': 4, 'MaxStoreBytes': 262144, 'KeepRevisions': 8,
+        'InviteSeconds': 120, 'MarkerRetentionSeconds': 604800,
+        'PositionIntervalSeconds': 2.0, 'PositionStaleSeconds': 10.0,
+        'MaxIconDistance': 1000.0,
+    },
+    'HollowCountry/Infected/lod.json': {
+        'SchemaVersion': 3, 'EnableLOD': True, 'EnableVirtualHerds': True,
+        'FullRange': 300, 'IdleRange': 1000, 'MinSpawnDistance': 120,
+        'MaterializeRange': 900, 'FoldRange': 1000, 'VisibilityRange': 1500,
+        'ClassifyPerTick': 12, 'MaxMaterialized': 12, 'MaxPerHerd': 6,
+        'MaxObservers': 6, 'RegrowSeconds': 1800, 'PosedBudget': 12,
+        'PosedFullBudget': 12, 'PosedIdleBudget': 12,
+        'VarietyNonCalmHoldSeconds': 600, 'HerdWorld': 'chernarusplus',
+        'MemberTypes': [],
+        'Herds': [dict(Id=name, X=x, Z=z, Radius=60, HeadCount=12) for name, x, z in (
+            ('bor-farm', 3100.955811, 4238.387207),
+            ('sosnovka-woods', 3560.896484, 7004.783203),
+            ('pulkovo-fields', 5271.449219, 5515.677246),
+            ('dolina-ridge', 9710.349609, 6487.099121),
+            ('polana-farm', 10677.808594, 7923.848633),
+            ('sinystok-woods', 1987.282837, 12965.870117),
+            ('kamensk-woods', 7428.081543, 12732.728516),
+            ('northeast-woods', 12818.673828, 13117.182617))
+        ],
+    },
+}
+
+
+def profile_bytes(source):
+    return normalize_profile(source if isinstance(source, bytes) else source.read_bytes())
+
+
 def repo_profile_sources():
     """Complete release profile catalogue; installed profile presence never selects defaults."""
     sources = {
@@ -248,6 +295,8 @@ def repo_profile_sources():
         sources['HollowCountry/templates/' + path.relative_to(SOURCE / 'interiors/templates').as_posix()] = path
     if TEMPLATE_INDEX not in sources:
         sources['HollowCountry/interiors.json'] = SOURCE / 'interiors/interiors.json'
+    sources.update({rel: (json.dumps(data, indent=4) + '\n').encode('utf-8')
+                    for rel, data in BASELINE_PROFILES.items()})
     return sources
 
 
@@ -310,31 +359,20 @@ def profile_history(source):
         if re.fullmatch(r'[0-9a-f]{40,64}', line):
             revision = line
         elif line and revision:
-            hashes.add(hashlib.sha256(git('show', revision + ':' + line)).hexdigest())
+            hashes.add(hashlib.sha256(normalize_profile(git('show', revision + ':' + line))).hexdigest())
     if not hashes:
         raise Refused('profile_history_unavailable: no tracked revisions for ' + source)
     return hashes
 
 
 def _source_match(rel, data, sources):
-    """Compare the shipped profile bytes with the current repo source bytes.
-
-    Earlier hashes come from git (repo bytes) while the shipped bytes come from the
-    mod-written local profile. A line-ending-only difference means no history hash can
-    ever match the installed file, so the build refuses (fixable: normalise the profile).
-    Any other difference is a legitimately measured/edited local profile: history is then
-    labelled best-effort instead of refusing. Returns 'exact', 'none' or 'content'.
-    """
-    current = next(((lts.ROOT / source).read_bytes() for source in sources
+    """Compare authored text after transport-only BOM/CRLF normalization."""
+    current = next((profile_bytes(lts.ROOT / source) for source in sources
                     if (lts.ROOT / source).is_file()), None)
     if current is None:
         return 'none'
-    if current == data:
+    if current == normalize_profile(data):
         return 'exact'
-    if current.replace(b'\r\n', b'\n') == data.replace(b'\r\n', b'\n'):
-        raise Refused('profile_line_endings_differ: %s differs from its repo source only by line endings '
-                      '(CRLF vs LF), so earlier shipped hashes could never match; normalise it to the '
-                      'repo bytes and build again' % rel)
     return 'content'
 
 
@@ -344,13 +382,14 @@ def profile_defaults(rows):
     source_map = repo_profile_sources()
     for rel, path in rows:
         source = source_map.get(rel)
-        sources = PROFILE_SOURCES.get(rel, (source.relative_to(lts.ROOT).as_posix(),) if source else ())
+        sources = PROFILE_SOURCES.get(rel, (source.relative_to(lts.ROOT).as_posix(),)
+                                      if isinstance(source, Path) else ())
         if rel.startswith('ExpansionMod/Loadouts/HollowCountry_'):
             name = PurePosixPath(rel).name
             candidates = ('mods/HollowCountryExpansionAI/data/defaults/loadouts/' + name,
                           'mission/hollow-country/ai/loadouts/' + name)
             sources = tuple(source for source in candidates if (lts.ROOT / source).is_file())
-        data = path.read_bytes()
+        data = profile_bytes(path)
         current = hashlib.sha256(data).hexdigest()
         hashes = {current}
         match = _source_match(rel, data, sources) if sources else 'none'
@@ -524,7 +563,8 @@ def fresh_economy(mission, scratch_root=None):
             return ({name: overlays.read(delta / name) for name in files}, baseline,
                     overlays.read(scratch / 'cfggameplay.json'))
     except (OSError, ValueError, KeyError, TypeError) as error:
-        raise Refused('HC-22 economy regeneration failed: %s' % error) from error
+        recovery = '\n' + '\n'.join(globals_recovery(Path(mission))) if globals_upgrade_problem(Path(mission)) else ''
+        raise Refused('HC-22 economy regeneration failed: %s%s' % (error, recovery)) from error
 
 
 def repo_revision():
@@ -599,7 +639,7 @@ def freshness_report(stage, mission):
     expected = {}
     expected.update({'mission/' + path.relative_to(lts.ROOT / 'mission').as_posix(): overlays.read(path)
                      for path in SOURCE.rglob('*') if path.is_file()})
-    expected.update({'profiles/' + rel: overlays.read(path) for rel, path in repo_profile_sources().items()})
+    expected.update({'profiles/' + rel: profile_bytes(path) for rel, path in repo_profile_sources().items()})
     regenerated, baseline, vanilla_gameplay = fresh_economy(mission, stage.parent)
     expected.update({'mission-overlay/' + rel: data for rel, data in mission_images(regenerated).items()})
     expected['mission-patches.json'] = mission_patches(regenerated, baseline, vanilla_gameplay, stage.parent)
@@ -752,7 +792,7 @@ def build(args):
             plan.append(('mission/hollow-country/' + rel, overlays.read(path)))
     p_keep, p_drop = profile_files(args.profiles)
     defaults = profile_defaults(p_keep)
-    plan += [('profiles/' + rel, path) for rel, path in p_keep]
+    plan += [('profiles/' + rel, profile_bytes(path)) for rel, path in p_keep]
     mods = [(Path(args.mod), True)] + ([(Path(args.addon), False)] if args.addon else [])
     keys = {}
     for mod, need_key in mods:

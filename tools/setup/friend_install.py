@@ -49,7 +49,7 @@ import shutil
 import sys
 import tempfile
 
-from tools.package import hc_events, map_overlay, infected_variety, snafu_optional, tactical_flava_optional
+from tools.package import loot_boost, hc_events, map_overlay, infected_variety, snafu_optional, tactical_flava_optional
 from tools.package import optional_overlays as overlays
 from tools.setup import workshop_sync as ws
 
@@ -103,6 +103,11 @@ def shown(value):
     if home and home not in ('/', '\\'):
         text = text.replace(home, '~')
     return STEAM64_SHOWN.sub('<id>', text)
+
+
+def normalize_profile(data):
+    """Only transport differences: retain whitespace and real operator edits."""
+    return data.removeprefix(b'\xef\xbb\xbf').replace(b'\r\n', b'\n')
 
 
 def sha256_bytes(data):
@@ -444,9 +449,11 @@ def classify_file(ctx, rel, source):
     return ('upgrade' if current == recorded else 'drift'), want
 
 
-# Shipped as a partial key set: Expansion owns the rest of the file and rewrites a partial file with its
-# own upgrade defaults, so an existing file gets these keys merged in (other fields kept) instead of replaced.
-MERGE_PROFILES = {'profiles/ExpansionMod/Settings/AISettings.json'}
+# HC configuration adds missing keys only. Expansion owns the rest of AISettings
+# and receives the HC-owned merge policy there; never replace an entire operator object.
+MISSING_ONLY_PROFILES = {'profiles/HollowCountry/Groups/settings.json',
+                         'profiles/HollowCountry/Infected/lod.json'}
+MERGE_PROFILES = {'profiles/ExpansionMod/Settings/AISettings.json'} | MISSING_ONLY_PROFILES
 
 
 def merge_value(live, want):
@@ -473,7 +480,8 @@ def merged_profile(target, source):
         return None
     if not isinstance(live, dict) or not isinstance(want, dict):
         return None
-    changed = [k for k, v in want.items() if k not in live or not same_value(live[k], v)]
+    missing_only = any(target.as_posix().endswith('/' + rel) for rel in MISSING_ONLY_PROFILES)
+    changed = [k for k, v in want.items() if k not in live or (not missing_only and not same_value(live[k], v))]
     for key in changed:
         live[key] = merge_value(live.get(key), want[key])
     return (json.dumps(live, indent=4) + '\n').encode('utf-8'), changed
@@ -495,7 +503,8 @@ def classify_profile(ctx, rel, source, adopt=False):
     known = set(ctx.manifest.get('profile_defaults', {}).get(rel, {}).get('shipped_sha256', []))
     known.update(ctx.receipt.get('profile_defaults', {}).get(rel, []))
     recorded = ctx.receipt['files'].get(rel)
-    if current == recorded or current in known:
+    normalized = sha256_bytes(normalize_profile((ctx.server / rel).read_bytes()))
+    if current == recorded or current in known or normalized in known:
         return 'upgrade', want
     if adopt:
         return 'confirm', want
@@ -533,8 +542,8 @@ def analyze(ctx):
     own_folders = [i['folder'] for i in items if i['publish'] and bundle_walk(ctx.bundle, ctx.manifest, i['folder'])]
     ctx.own_folders = own_folders
     ctx.third_items = [i for i in items if i['id'] and not i['publish']]
-    if not args.check:
-        a.running = ws.server_running()
+    if not args.check and not args.assume_stopped:
+        a.running = ws.server_running(ctx.server)
     # mod folders and keys
     if 'mods' not in ctx.skip:
         keys = {}
@@ -880,7 +889,7 @@ def rollback_run(ctx, root, data):
 
 
 def recover_runs(ctx, runs):
-    require_stopped(ctx, ws.server_running())
+    require_stopped(ctx, False if ctx.args.assume_stopped else ws.server_running(ctx.server))
     for root, data in runs:
         try:
             rollback_run(ctx, root, data)
@@ -909,6 +918,8 @@ def plan_server(ctx, a):
 
 
 def plan_stopped(ctx, a):
+    if ctx.args.assume_stopped:
+        return 'ok', ['process check skipped (--assume-stopped); operator asserts target is stopped'], None
     if a.running:
         return 'blocked', ['a DayZ server process is running; stop it yourself before --apply (this tool never '
                            'stops anything)'], None
@@ -1096,6 +1107,52 @@ def run_overlay(ctx, argv):
     return code, out.getvalue(), err.getvalue()
 
 
+def globals_upgrade_problem(mission):
+    """Inspect receipt-owned globals before writes; never relax rollback ownership."""
+    managed = mission / loot_boost.MANAGED
+    if not managed.exists():
+        return None
+    try:
+        loot_boost._preflight(managed)
+        receipt = loot_boost._receipt(managed)
+        if receipt is None:
+            return 'loot boost receipt unreadable'
+        rows = [row for row in receipt['files'] if row['name'] == loot_boost.GLOBALS]
+        for row in rows:
+            current = sha256_file(mission / loot_boost.GLOBALS)
+            if current not in (row['before'], row['after']):
+                return 'db/globals.xml drifted since the loot boost (operator tuning is preserved; upgrade blocked)'
+    except (OSError, ValueError, KeyError, TypeError):
+        return 'loot boost globals evidence unreadable'
+    return None
+
+
+def globals_recovery(mission):
+    """Executable PowerShell recovery on an absent copy; original tuning stays backed up."""
+    quote = lambda path: "'" + str(path).replace("'", "''") + "'"
+    copy = mission.with_name(mission.name + '.hc-recovery')
+    lines = ['Stop only the target server. Save the desired db/globals.xml values; recovery restores originals.',
+             'Run these PowerShell commands from this bundle; recovery destination must not exist:',
+             '$MISSION = ' + quote(mission), '$RECOVERY = ' + quote(copy),
+             "if (Test-Path -LiteralPath $RECOVERY) { throw 'Recovery destination already exists' }",
+             'Copy-Item -Recurse -LiteralPath $MISSION -Destination $RECOVERY -ErrorAction Stop']
+    for writer, module, option in (
+            (hc_events, 'hc_events', '--mission'),
+            (tactical_flava_optional, 'tactical_flava_optional', '--target'),
+            (snafu_optional, 'snafu_optional', '--target'),
+            (map_overlay, 'map_overlay', '--target'),
+            (infected_variety, 'infected_variety', '--mission')):
+        if (mission / writer.MANAGED).exists():
+            lines.append('py -3 -m tools.package.%s rollback %s "$RECOVERY"' % (module, option))
+            lines.append("if ($LASTEXITCODE -ne 0) { throw 'Rollback refused; keep both copies' }")
+    lines += ['py -3 -m tools.package.optional_overlays restore-originals --mission "$RECOVERY"',
+              "if ($LASTEXITCODE -ne 0) { throw 'Recovery refused; keep both copies' }",
+              'After success, move the original mission aside, put the recovery copy at the original path,',
+              'rerun --plan-only, --apply --yes and --check; reapply reviewed globals tuning afterwards.',
+              'Keep the original mission as the backup. Never delete receipts to bypass drift.']
+    return lines
+
+
 def plan_overlay(ctx, a):
     if 'overlay' in ctx.skip:
         return 'skipped', ['you asked to skip this step'], None
@@ -1104,6 +1161,9 @@ def plan_overlay(ctx, a):
         return 'blocked', ['mission folder %s was not found; start the server once with the stock mission or '
                            'check the folder' % shown(mission)], None
     lines = ['mission: %s' % shown(mission)]
+    problem = globals_upgrade_problem(mission)
+    if problem:
+        return 'blocked', lines + [problem] + globals_recovery(mission), None
     installed = (mission / overlays.BUNDLE_MANAGED).exists()
     want = overlay_fingerprint(ctx)
     if installed and ctx.receipt.get('overlay') == want:
@@ -1543,8 +1603,10 @@ def plan_profiles(ctx, a):
         lines.append('unsupported holdouts schema; kept %s; inspect before starting the server' % HOLDOUT_PATH)
     for rel, _s, action, _h in a.profiles:
         if action == 'merge':
-            lines.append('merge the Hollow Country keys into %s (other Expansion fields kept, backup first)' % rel)
-        elif action == 'new' and rel in MERGE_PROFILES:
+            lines.append('merge the Hollow Country keys into %s (operator fields kept for HC settings, backup first)' % rel)
+        elif action == 'same' and rel in MERGE_PROFILES:
+            lines.append('%s: baseline keys present; operator fields kept' % rel)
+        elif action == 'new' and rel in MERGE_PROFILES - MISSING_ONLY_PROFILES:
             lines.append('WARN  profile_defaults  %s is partial; start the server once so Expansion writes the full '
                          'file, stop it, then run --apply again to merge the keys' % rel)
     lines += cot_lines(a)
@@ -1723,6 +1785,13 @@ def run_check(ctx):
         say('%s  %s  %s' % ('FAIL' if problems else 'PASS', name, '; '.join(problems) if problems else good))
 
     say('Check of %s against the bundle (read only)' % shown(server))
+    if 'overlay' not in ctx.skip:
+        mission = map_mission(ctx)
+        problem = globals_upgrade_problem(mission)
+        result('globals_upgrade', [problem] if problem else [], 'receipt-owned globals have no drift')
+        if problem:
+            for line in globals_recovery(mission):
+                say(line)
     missing = []
     for folder in expected:
         addons = server / folder / 'addons'
@@ -1862,6 +1931,8 @@ def resolve_steamcmd(ctx):
 
 def require_stopped(ctx, running):
     args = ctx.args
+    if args.assume_stopped:
+        return
     if running:
         raise Refused('server_running', 'a DayZ server process is running; stop it yourself first (this tool never '
                       'stops anything)')
@@ -1876,6 +1947,11 @@ def pre_apply(ctx, a):
     """Every refusal that can be known before the first write."""
     args = ctx.args
     require_stopped(ctx, a.running)
+    if 'overlay' not in ctx.skip:
+        mission = map_mission(ctx)
+        problem = globals_upgrade_problem(mission)
+        if problem:
+            raise Refused('globals_drift', '\n'.join([problem] + globals_recovery(mission)))
     if 'workshop' not in ctx.skip and a.fetch:
         resolve_steamcmd(ctx)
         if not ctx.steam_user:
