@@ -113,11 +113,27 @@ def agreement(row, gate):
         return 'inconclusive'
     if gate and row['native_parent']['status'] not in {'passed', 'compile_failed'}:
         return 'inconclusive'
-    if parent['status'] != 'compile_failed' or fix['status'] != 'passed':
+    if parent['status'] != 'compile_failed':
         return 'disagree'
-    if gate and row['native_parent']['status'] != parent['status']:
-        return 'disagree'
+    # Corpus fixes are chained: a fix commit may still fail on the next corpus
+    # error. It agrees when the parent's first error is gone, never when it stays.
+    if fix['status'] == 'compile_failed':
+        if not fix.get('first_error') or not parent.get('first_error'):
+            return 'inconclusive'
+        if same_error(fix['first_error'], parent['first_error']):
+            return 'disagree'
+    if gate:
+        native = row['native_parent']
+        if native['status'] != parent['status']:
+            return 'disagree'
+        if native.get('first_error') and parent.get('first_error') and (
+                native['first_error'].get('file', '').lower() != parent['first_error'].get('file', '').lower()):
+            return 'disagree'
     return 'agree' if gate else 'expected_only'
+
+
+def same_error(left, right):
+    return (left.get('file', '').lower(), left.get('line')) == (right.get('file', '').lower(), right.get('line'))
 
 
 def write_reports(out, report):

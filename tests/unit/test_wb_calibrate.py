@@ -94,6 +94,18 @@ class VerdictTests(unittest.TestCase):
             self.assertEqual(calib.agreement(row, True), expected)
         row['native_parent'] = receipt('compile_failed')
         row['wb_fix'] = receipt('compile_failed')
+        self.assertEqual(calib.agreement(row, True), 'inconclusive')
+
+    def test_chained_fix_agrees_when_parent_error_is_gone(self):
+        first = {'file': 'HollowCountry/scripts/3_Game/a.c', 'line': 47}
+        later = {'file': 'HollowCountry/scripts/3_Game/b.c', 'line': 8}
+        row = {'wb_parent': receipt('compile_failed', first), 'wb_fix': receipt('compile_failed', later),
+               'native_parent': receipt('compile_failed', dict(first, file=first['file'].upper()))}
+        self.assertEqual(calib.agreement(row, True), 'agree')
+        row['wb_fix'] = receipt('compile_failed', dict(first))
+        self.assertEqual(calib.agreement(row, True), 'disagree')
+        row['wb_fix'] = receipt('passed')
+        row['native_parent'] = receipt('compile_failed', later)
         self.assertEqual(calib.agreement(row, True), 'disagree')
 
 
