@@ -688,7 +688,16 @@ def _floor_policy(floor_policy):
     return (parsed if parsed['enabled'] else None), _sha(raw)
 
 
-def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False):
+def _new_buildings(proto, positions, buildings):
+    """(proto, mapgrouppos, report) with groups/rows for placed stock buildings that have none (new_buildings)."""
+    from tools.package import new_buildings
+    raw = new_buildings.shipped() if buildings is SHIPPED else buildings
+    if raw is None:
+        return proto, positions, {'applied': False, 'reason': 'no new buildings layer'}
+    return new_buildings.apply(proto, positions, raw)
+
+
+def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False, buildings=SHIPPED):
     """All edits computed in memory from the mission's current bytes; nothing written."""
     from tools.package import loot_floor_policy
     mission = _target(mission)
@@ -714,7 +723,11 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     counts['globals'] = knobs
     outputs.append((GLOBALS, before, after))
     proto_before = economy.read_plain(mission, PROTO)
-    proto_after, report = scale_proto(proto_before, multiplier, overlay, _limits(mission) if overlay else None)
+    positions = economy.child(mission, 'mapgrouppos.xml')
+    pos_before = positions.read_bytes() if positions.is_file() else None
+    # Unlooted stock buildings first, so the boost and floor policy treat their groups like any other.
+    proto_base, pos_after, counts['new_buildings'] = _new_buildings(proto_before, pos_before, buildings)
+    proto_after, report = scale_proto(proto_base, multiplier, overlay, _limits(mission) if overlay else None)
     counts['mapgroupproto'] = report
     if policy is not None:
         proto_after, receivers = loot_floor_policy.provision_receivers(proto_after, policy)
@@ -727,9 +740,10 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         floor = {'enabled': False}
     counts['floor_policy'] = floor
     outputs.append((PROTO, proto_before, proto_after))
-    positions = economy.child(mission, 'mapgrouppos.xml')
-    if policy is not None and positions.is_file():
-        budget = economy.placement_budget(type_layers, proto_after, positions.read_bytes())
+    if pos_after is not None:
+        outputs.append(('mapgrouppos.xml', pos_before, pos_after))
+    if policy is not None and pos_after is not None:
+        budget = economy.placement_budget(type_layers, proto_after, pos_after)
         pressure = [k for k, v in budget['by_usage_tag'].items()
                     if not k.startswith('*/') and k.endswith('/' + policy['shelf_tag'])
                     and v['nominal'] > v['point_slots']]
@@ -747,7 +761,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         if shared['nominal'] > available:
             pressure.append(shared_key)
         if pressure and not _limit_shelves and multiplier > 1:
-            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=True)
+            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=True, buildings=buildings)
             limited['counts']['placement_budget']['before_shelf_limit'] = budget
             limited['counts']['placement_budget']['trigger_usages'] = pressure
             return limited
