@@ -71,6 +71,15 @@ modded class HCAdminModule
         m_Status.HCPublish("ready", "allowlist_loaded_m_map_stream_native_admin_client_pending");
     }
 
+    // The teleport layer re-derives readiness on every poll; keep its state
+    // and fault, and name the M-map stream in a ready reason.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCOperationalStatus status = super.HCGetOperationalStatus();
+        if (m_Running && status && status.HCState() == "ready") { status.HCPublish("ready", "allowlist_loaded_teleport_catalog_m_map_stream_native_admin_client_pending"); }
+        return status;
+    }
+
     void HCWorldReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
         if (rpcType != HCAdminWorldWire.REQUEST || !GetGame() || !GetGame().IsServer()) { return; }
