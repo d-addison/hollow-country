@@ -565,6 +565,7 @@ class HCXAIAdapter extends HCModule
             lease.Retiring = true;
             return;
         }
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "actor_spawned");
         bool complete = true;
         foreach (HCXAIActorSlot candidate : lease.Slots)
         {

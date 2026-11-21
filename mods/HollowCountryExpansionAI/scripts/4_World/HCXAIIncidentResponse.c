@@ -516,6 +516,7 @@ class HCXAIIncidentResponse : HCModule
             return false;
         }
         m_Leases.Insert(lease);
+        HCModuleReadiness.HCUse("AIIncidents", "response_started");
         HCNote("lease_start", lease);
         return true;
     }

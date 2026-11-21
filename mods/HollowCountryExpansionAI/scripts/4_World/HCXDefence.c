@@ -307,6 +307,7 @@ class HCXDefence
         }
         HCXGrudge grudge = Record(group, attacker, HCXExpansionBridge.HCBaseGetPosition(victim), HCXDefencePolicy.KIND_HIT, nowMs);
         if (grudge) { grudge.NoteSeed(victim, nowMs); }
+        HCModuleReadiness.HCUse("AISelfDefence", "hit_reaction");
         s_Hits++;
         if (!s_FirstHit)
         {
