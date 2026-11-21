@@ -419,6 +419,10 @@ class HCXAISiteRules
         if (validity.Length() > 256) { return ""; }
         return validity;
     }
+    static bool HCRoadFallback(HCXAISite site, string localityId)
+    {
+        return site && localityId != "" && site.Id == "gapcov-" + localityId && site.Kind == "patrol" && !site.Checkpoint && site.Waypoints && site.Waypoints.Count() >= 2;
+    }
     // Keep schema-1 text intact. Diagnose scalar identity separately from the
     // route digest; geometry failure must not masquerade as changed validity.
     static string HCRouteMismatch(HCXAIRouteRow row, string key, string validity)
