@@ -158,3 +158,86 @@ resulting release build: no `Can't compile`, crash/stall or mapgroupproto/mapgro
 errors, and no enabled module with `[HC Ready] ... ready=false`. That release boot
 is separate from this stock-mission loot-layer treatment. No native or multiplayer
 acceptance is established by the offline tests or this tooling.
+
+## Issues #326 / #327 wreck route follow-up
+
+Source baseline: `06dfe441`. The external `321-r1/evidence.json` records treatment
+commit `9666daf78e617a6af82e134b1a12af22bb927db6`; its XML is observation input,
+not a native CE export. Packaging at `06dfe441` reproduces the staged tractor,
+trailer, C130J_2 and Office_Municipal1 group elements. The full prototype file
+need not be byte-identical across those commits.
+
+Both wreck names are correct: the native census has `found=true`, matching
+`type`, and `distance=0` at all three sampled placements per class. Independently,
+the hash-pinned WRP has 49 tractor / 48 trailer classed objects (47 / 46 retained
+by existing placement exclusions). Its model paths equal installed config and
+the respective `_DE` donor model paths. There is no evidence for renaming or
+rotating the copied points. Stock CE coordinates convert to the probe's
+`CoordToLocal` frame as `(-z, y, x)`; copying between the identical models keeps
+that frame. `stock-group-missing` describes the stock comparison denominator,
+not a CE loading failure.
+
+The actual staged containers explain the routing failure:
+
+```xml
+<!-- Tractor: group lootmax=10, Farm; food/tools/clothes/weapons -->
+<container name="lootFloor" lootmax="2"><tag name="floor" /> ... </container>
+<!-- Closed trailer: group lootmax=10, Farm; weapons only -->
+<container name="lootFloor" lootmax="0"><tag name="floor" /> ... </container>
+```
+
+Both stock donors have group/container `lootmax=5` and five points; there is no
+group/container minimum to increase. The normal boost/floor policy creates the
+above capacities. In staged `db/types.xml`, all 15 positive-nominal Farm weapon
+types and all 10 positive-nominal Farm food types have `shelves`, with none
+tagged `floor`. Of 41 positive-nominal Farm tool types, 31 have `shelves` and
+six have `floor`. Clothing remains eligible, explaining why tractor spawning
+is possible while its useful small equipment route is missing. Nominal/min
+changes or new usage flags are unnecessary.
+
+The probe counts a clipping box plus 0.25 m, not every stock ground point.
+Tractor bounds are `[-1.14773,-1.39593,-1.89118]` to
+`[1.14773,1.39593,1.89118]`; two ground point centres remain outside even with
+the margin. Trailer bounds are `[-0.973605,-1,-2.53514]` to
+`[0.973605,1,2.53514]`; its ground point centre is outside the margin.
+Tractor placement 20 has `sphere_loose=1`, `box_loose=0` and
+`JumpsuitPants_Grey@-1.79977,-1.07033,-0.189382`, consistent with the surrounding
+ground route (not proof of association with one point). The other two tractors
+and all three trailers have zero sphere counts. None is truncated or radius
+clamped. Thus #326 combines a measurement limitation and restricted routing;
+its zero box count is not proof that CE never spawned anything.
+
+The fix uses `floor-policy.json`'s existing exact receiver mechanism. It
+relocates the tractor's one unflagged raised donor point (1.10–1.42 m above the
+four `flags="32"` ground points), and the trailer's four unflagged raised donor
+points (0.96 m above its ground point), from `lootFloor` to `lootHCReceiver`.
+The shelf receiver inherits Farm usage and the shared contextual equipment
+categories. Its bounded final capacity is one / four respectively. Every
+selected point centre is inside the probe's box plus margin. All five original
+coordinates/ranges/heights/flags remain exactly once per group; no point is
+raised, duplicated or removed. The ground source remains separate (trailer
+capacity zero is intentional because its remaining weapons-only ground route
+has no floor-tagged types). Donor groups and all nominal/min values are unchanged.
+Physical fit, point-specific spawning and reachability remain unverified.
+
+The worker did not stage: `/mnt/d` is read-only by task instruction, and the
+generator requires a clean committed checkout. After the writer commits and
+the lead has that clean commit, stage a fresh batch in WSL:
+
+```sh
+python3 -B tools/setup/interior_census_batch.py --issue 317 --tag 326-r1 --treatment-per-class 3
+```
+
+Then run the treatment once in Windows PowerShell 5.1:
+
+```powershell
+& 'D:\HollowCountryLocal\interior-batch-326-r1\Start-CEProbeServer.ps1' -Kind ce-probe -Runtime 'D:\HollowCountryLocal\ce-probe-326-r1-treatment'
+```
+
+Expected staging remains `treatment staged targets=29 ... runtime=PENDING`.
+Require `[HC CE Probe] rows=29 found=29`, `[HC CE Probe] COMPLETE` and launcher
+`Outcome: sentinel-seen.` Inspect all six wreck placements, including sphere
+samples and the exact raised points; no fixed positive item count is promised
+by CE. `stock-group-missing` will remain expected in the stock-denominator
+report. Keep #326/#327 native acceptance pending until the lead reviews actual
+loot and reachability; do not rerun against existing storage/profiles.

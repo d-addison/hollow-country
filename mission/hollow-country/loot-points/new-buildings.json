@@ -1309,7 +1309,7 @@
    "stock_sha256": "62e05ea4da53492ac6ec73a49b9cb3dd16034cf6d7038438d8c5e7e09bb3f74a",
    "model": "dz\\structures_bliss\\wrecks\\vehicles\\wreck_tractor.p3d",
    "model_sha256": "b9b2c9d3b3ec59a14d4a421a0967618a3acf46674d8f6086bbd1804573def1bf",
-   "basis": "stock group authored for the same installed p3d (copied at install)",
+   "basis": "stock group authored for the same installed p3d (copied at install); #326/#327: floor-policy.json relocates exact raised donor points to lootHCReceiver for shelf-tagged Farm equipment; ground points stay separate; native acceptance pending",
    "positions": [
     [
      1708.673828,
@@ -1742,7 +1742,7 @@
    "stock_sha256": "d9ca749299e1c2a4cd51a725720861e602ed4844fc0b7aac5741b60a0475c5e0",
    "model": "dz\\structures\\wrecks\\vehicles\\wreck_trailer_closed.p3d",
    "model_sha256": "ddc534f5e2321a7e44fb95ad8b6c9adf3f5686daec9e376bf9dc071d2c300e23",
-   "basis": "stock group authored for the same installed p3d (copied at install)",
+   "basis": "stock group authored for the same installed p3d (copied at install); #326/#327: floor-policy.json relocates exact raised donor points to lootHCReceiver for shelf-tagged Farm equipment; ground points stay separate; native acceptance pending",
    "positions": [
     [
      607.032715,
