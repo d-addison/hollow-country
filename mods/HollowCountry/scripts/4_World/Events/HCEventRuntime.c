@@ -47,12 +47,29 @@ class HCEventRuntime
     protected ref HCEventSubscription m_PendingLeave;
     protected ref array<int> m_SceneRetirements = new array<int>;
 
+    protected ref array<int> m_FailedSceneRetirements = new array<int>;
+
+    bool HCTakeSceneRetirementFailure(int id)
+    {
+        int index = m_FailedSceneRetirements.Find(id);
+        if (index < 0) { return false; }
+        m_FailedSceneRetirements.RemoveOrdered(index);
+        return true;
+    }
+    protected void HCRefuseSceneRetirement(int id, string reason)
+    {
+        m_SceneRetirements.RemoveOrdered(0);
+        // Combined pending/failure ownership is capped at the two scene leases.
+        m_FailedSceneRetirements.Insert(id);
+        Print("[HC Events] scene retirement abandoned reason=" + reason + "; Scenes release view and keep props");
+    }
+
     // Two scene leases at most; retain cancellation ownership after retry-cap release.
     bool HCQueueSceneRetirement(int id)
     {
         if (!m_Ready || id < 1) { return false; }
         if (m_SceneRetirements.Find(id) >= 0) { return true; }
-        if (m_SceneRetirements.Count() >= 2) { return false; }
+        if (m_SceneRetirements.Count() + m_FailedSceneRetirements.Count() >= 2) { return false; }
         m_SceneRetirements.Insert(id);
         return true;
     }
@@ -68,10 +85,12 @@ class HCEventRuntime
     }
     protected void HCFinishLeave(HCEventSubscription leaving)
     {
+        int eventId = leaving.EventId;
+        PlayerBase player = leaving.Player;
         m_Subscriptions.RemoveItem(leaving);
         m_PendingLeaves.Remove(leaving);
         m_Busy = true;
-        m_Observer.Forget(m_State.Runs[leaving.EventId - m_State.Director.PrunedThrough - 1].Lease, leaving.Player);
+        m_Observer.Forget(m_State.Runs[eventId - m_State.Director.PrunedThrough - 1].Lease, player);
         m_Busy = false;
     }
 
@@ -82,6 +101,7 @@ class HCEventRuntime
     protected bool m_AnnounceStaged;
     protected string m_AnnounceReceipt;
     protected string m_AnnounceReceiptSession;
+    protected int m_AnnounceReceiptTicks;
     protected int m_AnnounceResult = HCEventCode.BLOCKED;
     protected int m_AnnounceRepeat;
     protected int m_AnnounceId;
@@ -196,6 +216,7 @@ class HCEventRuntime
         m_AnnounceStaged = false;
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         m_AnnounceResult = HCEventCode.BLOCKED;
         m_AnnounceRepeat = 0;
         m_AnnounceId = 0;
@@ -209,6 +230,7 @@ class HCEventRuntime
         m_PendingLeaves.Clear();
         m_PendingLeave = null;
         m_SceneRetirements.Clear();
+        m_FailedSceneRetirements.Clear();
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
         m_RetentionBlockedLine = "";
@@ -435,6 +457,7 @@ class HCEventRuntime
         {
             m_AnnounceReceipt = "";
             m_AnnounceReceiptSession = "";
+            m_AnnounceReceiptTicks = 0;
             return m_AnnounceResult;
         }
         if (HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
@@ -518,6 +541,7 @@ class HCEventRuntime
         int result = m_AnnounceResult;
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         return result;
     }
     protected int HCAnnounceOperation(HCEventRuntimeState candidate, HCEventMission mission, HCEventContext context, int repeatId)
@@ -566,6 +590,7 @@ class HCEventRuntime
         m_AnnounceResult = result;
         if (m_AnnounceStaged && !m_StopRequested)
         {
+            m_AnnounceReceiptTicks = 0;
             m_AnnounceReceipt = m_AnnounceMission.Id;
             m_AnnounceReceiptSession = m_AnnounceContext.Session;
         }
@@ -705,6 +730,13 @@ class HCEventRuntime
             if (record.Session == m_State.Director.Session && record.Definition.Id == missionId) { return record.Id; }
         }
         return 0;
+    }
+    // Read only the last committed record; never clone for a view status check.
+    int HCCommittedEventStatus(int id)
+    {
+        HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, id);
+        if (!record) { return -1; }
+        return record.Status;
     }
     bool HasMission(string missionId)
     {
@@ -974,6 +1006,17 @@ class HCEventRuntime
         // One shared four-millisecond slice, retained across all maintenance
         // stages in this tick. No second slice after completing a journal.
         m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        if (m_AnnounceReceipt != "")
+        {
+            m_AnnounceReceiptTicks++;
+            if (m_AnnounceReceiptTicks >= 120)
+            {
+                m_AnnounceReceipt = "";
+                m_AnnounceReceiptSession = "";
+                m_AnnounceReceiptTicks = 0;
+                Print("[HC Events] announcement receipt timed out; slot released after 120 ticks");
+            }
+        }
         if (HCAnnouncePending())
         {
             HCAdvanceAnnounce();
@@ -994,14 +1037,17 @@ class HCEventRuntime
         {
             int retiring = m_SceneRetirements[0];
             HCEventRecord retiringRecord = HCEventDirector.FindRecord(m_State.Director, retiring);
-            if (!retiringRecord || HCEventDirector.Terminal(retiringRecord.Status)) { m_SceneRetirements.RemoveOrdered(0); return; }
+            if (!retiringRecord) { HCRefuseSceneRetirement(retiring, "record-missing"); return; }
+            if (HCEventDirector.Terminal(retiringRecord.Status)) { m_SceneRetirements.RemoveOrdered(0); return; }
+            int retireStarted = TickCount(0);
             HCEventRuntimeState retirement = m_Store.Clone(m_State);
-            if (!retirement) { return; }
-            if (Operation(retirement, retiring, HCEventOp.CANCEL, "", context) == HCEventCode.OK)
-            {
-                retirement.Runs[retiring - retirement.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
-                if (HCBeginPublish(retirement)) { m_SceneRetirements.RemoveOrdered(0); m_LastNow = context.Now; }
-            }
+            HCMeasured("retire_clone", retireStarted);
+            if (!retirement) { HCRefuseSceneRetirement(retiring, "clone-refused"); return; }
+            int retireResult = Operation(retirement, retiring, HCEventOp.CANCEL, "", context);
+            if (retireResult != HCEventCode.OK) { HCRefuseSceneRetirement(retiring, "cancel-code-" + retireResult.ToString()); return; }
+            retirement.Runs[retiring - retirement.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+            if (HCBeginPublish(retirement)) { m_SceneRetirements.RemoveOrdered(0); m_LastNow = context.Now; }
+            else { HCRefuseSceneRetirement(retiring, "publish-refused"); }
             return;
         }
         if (m_PendingLeaves.Count() > 0)
@@ -1123,12 +1169,14 @@ class HCEventRuntime
         // Drain may create a receipt; stopped/quarantined owners must not retain it.
         m_AnnounceReceipt = "";
         m_AnnounceReceiptSession = "";
+        m_AnnounceReceiptTicks = 0;
         m_AnnounceResult = HCEventCode.BLOCKED;
         m_Ready = false;
         m_Subscriptions.Clear();
         m_PendingLeaves.Clear();
         m_PendingLeave = null;
         m_SceneRetirements.Clear();
+        m_FailedSceneRetirements.Clear();
         if (m_Busy)
         {
             return false;

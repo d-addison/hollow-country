@@ -457,12 +457,15 @@ class HCEventModule : HCModule
     // Only HC-owned AI starts consume the situation budget. Native CE events,
     // existing infected objectives and passive recovery/delivery offers keep
     // their own owners and are never disabled by this pacing gate.
+    protected string m_AnnounceRefusal;
+
     int HCAnnouncePaced(HCEventMission mission, HCEventContext context)
     {
-        if (m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
+        m_AnnounceRefusal = "";
+        if (m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { m_AnnounceRefusal = "event-slot-busy; retry"; return HCEventCode.BLOCKED; }
         if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            if (!HCPaceSituation("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
+            if (!HCPaceSituation("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { m_AnnounceRefusal = "situation-pacing-refused; retry"; return HCEventCode.BLOCKED; }
         }
         int result = m_Runtime.HCAnnounceStaged(mission, context);
         if (m_Runtime.HCAnnouncePending())

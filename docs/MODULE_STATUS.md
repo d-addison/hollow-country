@@ -594,7 +594,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Polish | `hint_shown`, `sound_played` |
 | Progression | `familiarity_gained` |
 | Radio | `report_delivered` |
-| Scenes | `scene_placed`, `retire_retry_cap` |
+| Scenes | `scene_placed`; `retire_retry_cap` is a fault-path counter, lazily registered on first hit |
 | SearchBinding | `supply_bound` |
 | SettlementDecay | `prop_placed` |
 | Shelters | `shelter_placed`, `pathgraph_refresh` (native routing verification pending) |
@@ -610,3 +610,14 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | WorldIncidents | `incident_recorded` |
 | WorldSaves | `stage_written` |
 | WreckSalvage | `part_created` |
+
+Events/scenes review follow-up (implemented-unverified): queued view retirement
+makes one measured clone/cancel attempt, then drops deterministic refusals with
+one diagnostic; Scenes releases that view and retains its props on give-up.
+Announcement receipts expire after 120 runtime ticks, and Scenes drains its own
+receipts from Work independently of dwell. Admin busy requests refuse explicitly;
+staged completions remain keyed to the stored admin mission identity, and pacing
+refusals appear in admin status. Scenes retirement reads committed status without
+cloning. The approximately 290-second Scenes readiness delay remains unresolved;
+no startup row/time ceiling is claimed. Lead native compile to Mission, boot/use
+receipts and one-server/at-most-one-client checks remain pending.
