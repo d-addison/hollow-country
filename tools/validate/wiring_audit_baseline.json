@@ -3744,6 +3744,22 @@
       "line": 654,
       "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
       "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventInfectedBindSlice",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventWorldBinding.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local resumable stage state for the staged tick consumer (p-spikes2); same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventPoliceStockSlice",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 71,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local resumable stage state for the staged tick consumer (p-spikes2); same-file references intentionally do not satisfy W004."
     }
   ]
 }
