@@ -217,6 +217,7 @@ class HCXZoneGuards : HCModule
     }
     void ActorSpawned(int count)
     {
+        if (count > 0) { HCModuleReadiness.HCUse("ZoneGuards", "guards_posted"); }
         if (count > 0 && m_ActorsSpawned <= 2147483647 - count) { m_ActorsSpawned += count; }
     }
     // Ownership counts cover one bounded rolling director sweep, not live actors.

@@ -10,8 +10,10 @@ class HCModuleReadiness
     protected static ref array<bool> s_BootReady = new array<bool>();
     protected static ref array<bool> s_LatePrinted = new array<bool>();
 
-    // Bounded mission counters. Parallel arrays avoid building a composite
-    // string key (or allocating a map) on every gameplay action. Counts saturate.
+    // Bounded mission counters. Registration builds the slot cache; repeated
+    // actions use a hash lookup instead of scanning the inventory. Counts saturate.
+    // Native EnScript.c map Find/Insert/Clear; keys cannot contain slash (HCReached.Token).
+    protected static ref map<string, int> s_UseSlots = new map<string, int>();
     protected static ref array<string> s_UseModules = new array<string>();
     protected static ref array<string> s_UseFeatures = new array<string>();
     protected static ref array<int> s_UseCounts = new array<int>();
@@ -30,6 +32,7 @@ class HCModuleReadiness
         s_UseModules.Insert(module);
         s_UseFeatures.Insert(feature);
         s_UseCounts.Insert(0);
+        s_UseSlots.Insert(module + "/" + feature, slot);
         HCUseLine(slot);
         if (!s_UseScheduled && GetGame())
         {
@@ -42,12 +45,8 @@ class HCModuleReadiness
 
     protected static int HCUseSlot(string module, string feature)
     {
-        int slot = 0;
-        while (slot < s_UseCounts.Count())
-        {
-            if (s_UseModules[slot] == module && s_UseFeatures[slot] == feature) { return slot; }
-            slot++;
-        }
+        int slot;
+        if (s_UseSlots.Find(module + "/" + feature, slot)) { return slot; }
         return -1;
     }
 
@@ -85,6 +84,7 @@ class HCModuleReadiness
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCSummary);
         }
         s_UseScheduled = false;
+        s_UseSlots.Clear();
         s_UseModules.Clear();
         s_UseFeatures.Clear();
         s_UseCounts.Clear();

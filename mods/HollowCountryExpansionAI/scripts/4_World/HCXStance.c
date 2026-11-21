@@ -94,6 +94,13 @@ modded class HCXDefence
 }
 
 
+// Actor-local latch: count admission once, after the existing fairness/provider
+// checks succeed. Merely revisiting an actor on a tick is not a use.
+modded class eAIBase
+{
+    bool HCXLivingUseAdmitted;
+}
+
 class HCXLivingModule : HCModule
 {
     protected ref HCXCheckpointProps m_Checkpoints;
@@ -171,6 +178,11 @@ class HCXLivingModule : HCModule
         else
         {
             actor.HCXLivingRefused = false;
+            if (HCXEmoteObservation.Ready() && !actor.HCXLivingUseAdmitted)
+            {
+                actor.HCXLivingUseAdmitted = true;
+                HCModuleReadiness.HCUse("v2-expansion-living-world", "actor_admitted");
+            }
         }
     }
     override void OnStop()

@@ -550,6 +550,7 @@ class HCXAITactics
         s_ScanSmoke = smoke;
         s_ScanAim = aim;
         s_ScanStartedMs = nowMs;
+        HCModuleReadiness.HCUse("AITactics", "tactic_chosen");
     }
 
     protected static void EndScan()

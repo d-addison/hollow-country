@@ -73,6 +73,7 @@ class HCXMaterializerBridge : HCModule
         if (s_Instance.m_Started.Find(proposalId) >= 0 || s_Instance.m_Started.Count() >= HCAIPartyCustody.MAX_ROWS) { return; }
         s_Instance.m_Started.Insert(proposalId);
         s_Instance.m_Spawned++;
+        HCModuleReadiness.HCUse("MaterializerBridge", "party_materialized");
         HCReached.Mark("materializer_bridge.spawn");
     }
     static void SiteEnded(string proposalId, bool materialized, int survivors)

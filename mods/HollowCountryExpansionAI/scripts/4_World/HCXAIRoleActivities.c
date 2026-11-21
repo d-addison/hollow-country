@@ -677,6 +677,7 @@ class HCXAIRoleActivities : HCModule
                 lease.Held = activity == "hold";
                 lease.Previous = previous;
                 m_Leases.Insert(lease);
+                HCModuleReadiness.HCUse("AIRoles", "activity_started");
             }
             HCRefuse(state, groupIndex, role, activity, reason, now);
         }

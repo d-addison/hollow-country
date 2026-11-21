@@ -222,7 +222,11 @@ class HCXAILiveModule : HCModule
         if (!m_Live) { return; }
         string line = m_Live.Report(deltaTime);
         HCReached.Mark("ai_live_map.report_tick");
-        if (line != "") { Print("" + line); }
+        if (line != "")
+        {
+            Print("" + line);
+            HCModuleReadiness.HCUse("hcxai-live-map", "report_published");
+        }
     }
 
     override void OnStop()
