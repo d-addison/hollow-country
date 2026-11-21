@@ -212,8 +212,11 @@ class HCEcologyCycle
         {
             int sample = home.Survey % 256;
             home.Survey++;
-            float bearing = (sample % 16) * Math.PI / 8;
-            float radius = 16 + (sample / 16) * 16;
+            // Integer steps first: Enforce refuses '%' inside a float expression.
+            int column = sample % 16;
+            int ring = sample / 16;
+            float bearing = column * Math.PI / 8;
+            float radius = 16 + ring * 16;
             vector point = center + Vector(Math.Sin(bearing) * radius, 0, Math.Cos(bearing) * radius);
             if (!InWorld(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { continue; }
             point[1] = GetGame().SurfaceY(point[0], point[2]);
