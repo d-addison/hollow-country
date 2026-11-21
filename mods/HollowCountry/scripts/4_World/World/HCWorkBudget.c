@@ -378,7 +378,7 @@ modded class HCModuleRegistry
 // Shared image transaction. Native scripts-1.30.164289/1_Core/proto/EnSystem.c:
 // 397 FileExist, 417 OpenFile (WRITE/READ), 425 sequential ReadFile, 443 CloseFile,
 // 462 FPrint, 528 DeleteFile. No rename/fsync API is exposed by this snapshot.
-// Retained handles transfer at most 64 KiB per stage. The .tmp intent stays until
+// Retained handles transfer at most 4 KiB per stage. The .tmp intent stays until
 // primary readback completes; interrupted promotion remains fail-closed.
 class HCStagedSaveImage
 {
@@ -390,9 +390,9 @@ class HCStagedSaveImage
     static const int HC_IMAGE_CREATE = 1;
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
-    // Six streaming passes at 8 MiB in 4 KiB chunks; primary promotion now
-    // yields between read/write/handle operations as well. Include EOF/setup.
-    static const int HC_MAX_STAGES = 16000;
+    // At 8 MiB: eight chunk stages per 4 KiB (including optional prior and
+    // separate backup/primary reads and writes), plus probes/EOF/handles.
+    static const int HC_MAX_STAGES = 17000;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;
@@ -408,6 +408,11 @@ class HCStagedSaveImage
     protected bool m_ReadOpen;
     protected bool m_WriteOpen;
     protected int m_Offset;
+    protected int m_OpenStage;
+    protected bool m_SourceAbsent;
+    protected bool m_TargetExists;
+    protected bool m_StreamDone;
+    protected string m_Piece;
     protected int m_PrimaryOpenStage;
     protected bool m_PrimaryDone;
     protected string m_PrimaryPiece;
@@ -420,6 +425,11 @@ class HCStagedSaveImage
         if (m_WriteOpen) { CloseFile(m_Write); m_WriteOpen = false; }
         m_Opened = false;
         m_Offset = 0;
+        m_OpenStage = 0;
+        m_SourceAbsent = false;
+        m_TargetExists = false;
+        m_StreamDone = false;
+        m_Piece = "";
         m_PrimaryOpenStage = 0;
         m_PrimaryDone = false;
         m_PrimaryPiece = "";
@@ -427,8 +437,10 @@ class HCStagedSaveImage
 
     protected int HCFail()
     {
-        HCClose();
+        // The failing stage may already have made its native call. Drain retained
+        // handles on subsequent stages before exposing terminal failure.
         m_Failed = true;
+        if (m_ReadOpen || m_WriteOpen) { return HCSaveJob.STEP_MORE; }
         return HCSaveJob.STEP_FAILED;
     }
 
@@ -479,7 +491,25 @@ class HCStagedSaveImage
     // 5 clear_intent. Old primary is retained until temp verification succeeds.
     int HCStepImage()
     {
-        if (m_Failed || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCFail(); }
+        if (m_Failed)
+        {
+            if (m_ReadOpen)
+            {
+                HCSaveJob.HCOperation = "failed_close_read";
+                CloseFile(m_Read);
+                m_ReadOpen = false;
+                return HCSaveJob.STEP_MORE;
+            }
+            if (m_WriteOpen)
+            {
+                HCSaveJob.HCOperation = "failed_close_write";
+                CloseFile(m_Write);
+                m_WriteOpen = false;
+                return HCSaveJob.STEP_MORE;
+            }
+            return HCSaveJob.STEP_FAILED;
+        }
+        if (!Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCFail(); }
         if (m_Mode == HC_IMAGE_CREATE && m_Phase == 2)
         {
             m_Phase = -1;
@@ -529,8 +559,15 @@ class HCStagedSaveImage
                 }
                 if (m_PrimaryOpenStage == 1)
                 {
+                    HCSaveJob.HCOperation = "copy_primary_check_target";
+                    m_TargetExists = FileExist(m_Path);
                     m_PrimaryOpenStage = 2;
-                    if (FileExist(m_Path))
+                    return HCSaveJob.STEP_MORE;
+                }
+                if (m_PrimaryOpenStage == 2)
+                {
+                    m_PrimaryOpenStage = 3;
+                    if (m_TargetExists)
                     {
                         HCSaveJob.HCOperation = "copy_primary_delete_target";
                         if (!DeleteFile(m_Path)) { return HCFail(); }
@@ -594,45 +631,99 @@ class HCStagedSaveImage
             HCSaveJob.HCOperation = "clear_intent";
             string intent = m_Temporary;
             if (m_Mode == HC_IMAGE_REMOVE) { intent = m_Path; }
+            if (m_Mode == HC_IMAGE_REMOVE && m_OpenStage == 0)
+            {
+                HCSaveJob.HCOperation = "clear_intent_check_target";
+                m_TargetExists = FileExist(intent);
+                m_OpenStage = 1;
+                return HCSaveJob.STEP_MORE;
+            }
             bool removed = true;
-            if (m_Mode != HC_IMAGE_REMOVE || FileExist(intent)) { removed = DeleteFile(intent); }
+            if (m_Mode != HC_IMAGE_REMOVE || m_TargetExists) { removed = DeleteFile(intent); }
             if (!removed) { return HCFail(); }
+            HCClose();
             m_Phase = -1;
             m_Text = "";
             m_ExpectedPrior = "";
             return HCSaveJob.STEP_DONE;
         }
         if (m_Mode == HC_IMAGE_CREATE && m_Phase == 1) { source = m_Path; }
+        // Probe/delete/open/read/write/close each yield after ONE native file
+        // call. A backup chunk retains its read bytes until a separate write
+        // stage; filesystem stalls cannot be preempted, only attributed.
+        string operation = HCSaveJob.HCOperation;
         if (!m_Opened)
         {
-            if ((m_CheckPrior || m_Phase == 2) && source != "" && !FileExist(source))
+            if (m_OpenStage == 0)
             {
-                // Absent prior is legitimate only for an originally fresh store.
-                if (m_CheckPrior && compare) { return HCFail(); }
-                source = "";
-                target = "";
+                m_OpenStage = 1;
+                if ((m_CheckPrior || m_Phase == 2) && source != "")
+                {
+                    HCSaveJob.HCOperation = operation + "_check_source";
+                    m_SourceAbsent = !FileExist(source);
+                    // Absent prior is legitimate only for an originally fresh store.
+                    if (m_SourceAbsent && m_CheckPrior && compare) { return HCFail(); }
+                    return HCSaveJob.STEP_MORE;
+                }
             }
-            if (source != "")
+            if (m_SourceAbsent) { source = ""; target = ""; }
+            if (m_OpenStage == 1)
             {
-                m_Read = OpenFile(source, FileMode.READ);
-                m_ReadOpen = false;
-                if (m_Read) { m_ReadOpen = true; }
-                if (!m_ReadOpen) { return HCFail(); }
+                m_OpenStage = 2;
+                if (target != "" && m_Phase != 0)
+                {
+                    HCSaveJob.HCOperation = operation + "_check_target";
+                    m_TargetExists = FileExist(target);
+                    return HCSaveJob.STEP_MORE;
+                }
             }
-            if (target != "")
+            if (m_OpenStage == 2)
             {
-                if (m_Phase != 0 && FileExist(target) && !DeleteFile(target)) { return HCFail(); }
-                m_Write = OpenFile(target, FileMode.WRITE);
-                m_WriteOpen = false;
-                if (m_Write) { m_WriteOpen = true; }
-                if (!m_WriteOpen) { return HCFail(); }
+                m_OpenStage = 3;
+                if (m_TargetExists)
+                {
+                    HCSaveJob.HCOperation = operation + "_delete_target";
+                    if (!DeleteFile(target)) { return HCFail(); }
+                    return HCSaveJob.STEP_MORE;
+                }
+            }
+            if (m_OpenStage == 3)
+            {
+                m_OpenStage = 4;
+                if (source != "")
+                {
+                    HCSaveJob.HCOperation = operation + "_open_read";
+                    m_Read = OpenFile(source, FileMode.READ);
+                    if (!m_Read) { return HCFail(); }
+                    m_ReadOpen = true;
+                    return HCSaveJob.STEP_MORE;
+                }
+            }
+            if (m_OpenStage == 4)
+            {
+                m_OpenStage = 5;
+                if (target != "")
+                {
+                    HCSaveJob.HCOperation = operation + "_open_write";
+                    m_Write = OpenFile(target, FileMode.WRITE);
+                    if (!m_Write) { return HCFail(); }
+                    m_WriteOpen = true;
+                    return HCSaveJob.STEP_MORE;
+                }
             }
             m_Opened = true;
         }
-        bool done = false;
-        string piece;
-        if (m_ReadOpen)
+        if (m_Piece != "")
         {
+            HCSaveJob.HCOperation = operation + "_write";
+            FPrint(m_Write, m_Piece);
+            m_Piece = "";
+            return HCSaveJob.STEP_MORE;
+        }
+        string piece;
+        if (!m_StreamDone && m_ReadOpen)
+        {
+            HCSaveJob.HCOperation = operation + "_read";
             int count = ReadFile(m_Read, piece, HC_CHUNK_BYTES);
             if (count < 0 || count != piece.Length() || m_Offset + count > m_Limit) { return HCFail(); }
             if (compare)
@@ -647,21 +738,39 @@ class HCStagedSaveImage
             if (count == 0)
             {
                 if (m_Offset < 1 || (compare && m_Offset != expected.Length())) { return HCFail(); }
-                done = true;
+                m_StreamDone = true;
             }
+            if (m_WriteOpen) { m_Piece = piece; }
+            m_Offset = m_Offset + count;
+            return HCSaveJob.STEP_MORE;
         }
-        else if (m_WriteOpen)
+        if (!m_StreamDone && m_WriteOpen)
         {
             int remaining = m_Text.Length() - m_Offset;
             int length = Math.Min(remaining, HC_CHUNK_BYTES);
             piece = m_Text.Substring(m_Offset, length);
             if (piece.Length() != length) { return HCFail(); }
-            done = length == remaining;
+            HCSaveJob.HCOperation = operation + "_write";
+            FPrint(m_Write, piece);
+            m_Offset = m_Offset + length;
+            m_StreamDone = length == remaining;
+            return HCSaveJob.STEP_MORE;
         }
-        else { done = true; }
-        if (m_WriteOpen && piece.Length() > 0) { FPrint(m_Write, piece); }
-        m_Offset = m_Offset + piece.Length();
-        if (!done) { return HCSaveJob.STEP_MORE; }
+        if (m_ReadOpen)
+        {
+            HCSaveJob.HCOperation = operation + "_close_read";
+            CloseFile(m_Read);
+            m_ReadOpen = false;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_WriteOpen)
+        {
+            HCSaveJob.HCOperation = operation + "_close_write";
+            CloseFile(m_Write);
+            m_WriteOpen = false;
+            return HCSaveJob.STEP_MORE;
+        }
+        HCSaveJob.HCOperation = operation + "_done";
         HCClose();
         if (m_CheckPrior) { m_CheckPrior = false; }
         else { m_Phase++; }
@@ -682,7 +791,7 @@ class HCStagedSaveImage
 
     bool Finish()
     {
-        if (m_Failed) { return false; }
+        // Even a faulted in-flight image must drain its handles through stages.
         int result = HCSaveJob.STEP_MORE;
         int stages;
         while (Active() && result == HCSaveJob.STEP_MORE && stages < HC_MAX_STAGES)
@@ -690,6 +799,6 @@ class HCStagedSaveImage
             result = HCStepImage();
             stages++;
         }
-        return !Active() && result != HCSaveJob.STEP_FAILED;
+        return !m_Failed && !Active() && result != HCSaveJob.STEP_FAILED;
     }
 }
