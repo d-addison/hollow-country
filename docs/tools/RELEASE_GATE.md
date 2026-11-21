@@ -15,24 +15,35 @@ commit must be a full lowercase SHA; abbreviated refs and HEAD are refused.
 No publishing, committing or merging occurs. Bundles must remain unchanged
 throughout the run. Use an isolated test server with retained storage for upgrades.
 
+Owner targets live in [`config/acceptance-targets.json`](../../config/acceptance-targets.json).
+The shared `tools.release.acceptance_targets.load_targets` loader rejects missing or
+unknown keys, invalid types and invalid ranges. Missing/invalid policy refuses the
+gate before native work and refuses release activity checks. Preland settings
+consistency also validates this policy. Boot settle and benchmark fields record
+the current checkstart default and provisional owner load; they do not change
+checkstart or establish measured benchmark acceptance.
+
 Order:
 
 1. Compile that commit using `compile_gate`; require PASS with
    `mission-loaded-runtime-json` explicitly. Other successful compile statuses
    do not satisfy this release contract.
 2. Require the candidate `BUILD_MANIFEST.json` commit to match exactly.
-3. If supplied, install the previous bundle, boot for a minute, gracefully stop,
-   install the candidate with the same server/storage, boot and stop. Refuse
-   error/readiness failures and store quarantine evidence. Without the previous
-   bundle this optional experiment is omitted; no upgrade is claimed.
-4. Install the candidate and run `checkstart --start --settle-minutes 30` with a
-   45-minute overall deadline. Audit its one fresh RPT through `rpt_summary` and
-   `tick_cost_report.perf_rules`: no script errors, VMEs, failed self-tests,
-   quarantine, failed/absent readiness or R2 cost above 20 ms.
-5. Run `activity_check --release` on the server and fresh client RPT together.
+3. Install the previous bundle, boot for a minute, gracefully stop, install the
+   candidate with the same server/storage, boot and stop. Refuse error/readiness
+   failures and store quarantine evidence. While
+   `upgrade_from_previous_release_required` is true, a missing `--previous-bundle`
+   refuses the release; only with it false is the step omitted (no upgrade claimed).
+4. Install the candidate and run `checkstart --start` with `--settle-minutes`
+   from `soak_minutes` and an overall deadline of that duration plus 15 minutes. Audit its one fresh RPT through `rpt_summary` and
+   `tick_cost_report.perf_rules`: apply `max_script_errors`, `max_vme_server` and `perf_r2_max_ms` from the
+   targets file. Failed self-tests, quarantine and failed/absent readiness refuse.
+5. Run `activity_check --release` on the server and fresh client RPT together;
+   `activity_requires_active_for_default_on` controls whether INERT features fail.
 6. Print the one-tester checklist and wait up to 900 seconds (configurable with
    `--client-timeout`, maximum 3600) for all mapped client features to be ACTIVE
-   with positive counts. Refuse client VMEs, script failures or missing textures.
+   with positive counts. Apply `client_max_vme`, `max_script_errors` and `client_max_missing_textures`
+   from the targets file to client errors.
 
 The tester should join during the soak, open the M map, inventory, group menu
 and admin window, and enter an AI site and event radius. The checklist is also

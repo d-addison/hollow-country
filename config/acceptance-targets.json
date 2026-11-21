@@ -1,0 +1,17 @@
+{
+  "release_gate_doc": "Owner release targets. Durations are minutes, error limits are counts, and perf R2 is milliseconds. Upgrade boots retain their separate one-minute observation.",
+  "soak_minutes": 30,
+  "max_script_errors": 0,
+  "max_vme_server": 0,
+  "perf_r2_max_ms": 20,
+  "client_max_vme": 0,
+  "client_max_missing_textures": 0,
+  "activity_requires_active_for_default_on": true,
+  "upgrade_from_previous_release_required": true,
+  "boot_check_doc": "Recorded checkstart default; checkstart itself retains its current CLI default. This is separate from release soak and upgrade observation durations.",
+  "settle_minutes": 0,
+  "benchmark_doc": "Owner target load. Budgets remain provisional until measured at this load; this metadata does not establish multiplayer acceptance.",
+  "target_players_min": 3,
+  "target_players_max": 6,
+  "budgets_provisional": true
+}
