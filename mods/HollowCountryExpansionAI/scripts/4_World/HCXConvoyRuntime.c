@@ -353,8 +353,14 @@ class HCXConvoyRun
             mHCProgressPos = position;
             mHCProgressAt = now;
         }
-        else if (HCConvoyRules.HCStalled(mHCPolicy, moved, now - mHCProgressAt)) { HCStop("CONVOY_STALLED", now); return; }
+        else if (HCDriveStalled(moved, now)) { HCStop("CONVOY_STALLED", now); return; }
         if (now - mHCPhaseAt > mHCPolicy.MaxDriveSeconds * 1000) { HCStop("CONVOY_DRIVE_TIMEOUT", now); return; }
+    }
+
+    // Recovery may replace the stall policy; safety, arrival and timeout stay here.
+    bool HCDriveStalled(float moved, int now)
+    {
+        return HCConvoyRules.HCStalled(mHCPolicy, moved, now - mHCProgressAt);
     }
 
     void HCStop(string reason, int now)
