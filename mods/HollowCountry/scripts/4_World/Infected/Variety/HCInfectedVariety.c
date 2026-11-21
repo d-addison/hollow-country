@@ -317,7 +317,7 @@ class HCInfectedVariety
         return HCLODPolicy.SpawnHidden(nearest, s_Config.MinSpawnDistance, observers, occluded, s_Config.MaxObservers);
     }
 
-    static void HCStep(float now, float scale)
+    static void HCStep(float now, float scale, HCWorkBudget workBudget)
     {
         if (!s_Running || !HCInfectedVarietyModule.VarietyActive()) { return; }
         HCInfectedModule infected = HCInfectedModule.Instance;
@@ -354,6 +354,7 @@ class HCInfectedVariety
             s_Tried.Clear();
         }
         if (!infected.HCVarietyFreshRoom(scale)) { s_Pending = false; HCRefuse("normal_infected_or_posed_cap"); return; }
+        if (!workBudget.HCContinue()) { return; }
         if (s_Selected < 0) { s_Selected = HCNearestCandidate(); }
         if (s_Selected < 0) { s_Pending = false; HCRefuse("no_admissible_place"); return; }
         HCInfectedVarietySite site = s_Config.Sites[s_Selected];
@@ -372,7 +373,9 @@ class HCInfectedVariety
             HCRefuse("place_observed_or_clearance_refused");
             return;
         }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY, 8)) { return; }
+        // A yield discards these visibility/clearance observations. The next
+        // tick repeats admission before creating a CE-owned body.
+        if (!workBudget.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY, 8)) { return; }
         // Audit #121: a posed body is the addon class; the pose layer is requested
         // through the fresh entry below, never by editing a native infected.
         bool poseClass = GetGame().ConfigIsExisting("CfgVehicles " + HCInfectedVarietyPolicy.HCPoseClass());

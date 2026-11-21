@@ -224,6 +224,12 @@ modded class ZombieBase
         }
         if (!HCInfectedVarietyModule.VarietyActive()) { HCVarietyRelease(); return consumed; }
         if (!IsAlive() || IsBeingBackstabbed()) { HCVarietyWake(); return consumed; }
+        // Native perception wakes immediately even while the owner's census
+        // or cap repair is between slices. Never wait for the adoption cursor.
+        if (m_HCVarietyDormant && controller && controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM)
+        {
+            if (HCVarietyWake()) { HCInfectedVarietyModule.HCRecordWake(); }
+        }
         if (consumed || pCurrentCommandFinished || pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE) { return consumed; }
         if (!controller || m_HCVarietyDormant || IsCrawling()) { return consumed; }
         int mind = controller.GetMindState();
@@ -335,10 +341,14 @@ modded class HCInfectedVarietyModule
 
     override void OnTick(float deltaTime)
     {
+        int tickStarted = TickCount(0);
         super.OnTick(deltaTime);
-        if (!m_Running) { return; }
+        if (!m_Running || !(deltaTime > 0) || deltaTime > 300) { return; }
+        int statusStarted = TickCount(0);
         HCRefreshVarietyStatus();
-        if (m_HCPostures) { m_HCPostures.HCSlice(); }
+        if (m_HCPostures && m_VarietyWork.HCContinue()) { m_HCPostures.HCSlice(); }
+        HCMeasureVariety(-1, "posture_admission", statusStarted);
+        m_VarietySteps.HCEndTick(TickCount(tickStarted));
     }
 
     override HCOperationalStatus HCGetOperationalStatus()
