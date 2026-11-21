@@ -73,6 +73,32 @@ class HCEventCacheSpawner
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
 
+    protected static int s_PoliceQueryPeak;
+    protected static int s_CacheQueryPeak;
+    // The native query allocates the entire sphere before returning. Isolate
+    // its peak from inspection/cargo/ledger work without changing stock order,
+    // overflow refusal, radius, retry semantics or the durability barrier.
+    static void HCStockQueryCost(int began, bool police)
+    {
+        int cost = TickCount(began);
+        string consumer = "SITUATIONS";
+        if (police)
+        {
+            if (cost <= s_PoliceQueryPeak) { return; }
+            s_PoliceQueryPeak = cost;
+            consumer = "POLICE_BIND";
+        }
+        else
+        {
+            if (cost <= s_CacheQueryPeak) { return; }
+            s_CacheQueryPeak = cost;
+        }
+        if (cost >= 40000)
+        {
+            Print("[HC Events] stock_query consumer=" + consumer + " ticks_max=" + cost.ToString() + " atomic=1 runtime=PENDING");
+        }
+    }
+
     protected static string s_PoliceReason;
     protected static string s_PoliceDetails;
 
@@ -192,7 +218,9 @@ class HCEventCacheSpawner
         // Caches sit at the source and police stock falls back to the owned cache, so a
         // bounded sphere is enough. Native: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D.
         float scanRadius = Math.Min(mission.Radius, SCAN_RADIUS_MAX);
+        int queryBegan = TickCount(0);
         GetGame().GetObjectsAtPosition3D(anchor, scanRadius, nearby, proxies);
+        HCStockQueryCost(queryBegan, police);
         int remaining = policy.PhysicalScanObjects;
         bool matchingStock = false;
         Barrel_Green ownedCache;

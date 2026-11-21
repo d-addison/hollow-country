@@ -87,6 +87,7 @@ class HCGapcodeStoryIndex
     protected FileHandle m_Input;
     protected bool m_InputOpen;
     protected bool m_Loading;
+    protected bool m_Reading;
     protected ref array<string> m_Lines = new array<string>;
     protected int m_LineCursor;
     protected int m_LoadBatches;
@@ -129,24 +130,9 @@ class HCGapcodeStoryIndex
         m_Input = OpenFile("$mission:hollow-country/events/story-sites.json", FileMode.READ);
         if (m_Input) { m_InputOpen = true; }
         if (!m_InputOpen) { HCRefuse("HC42_INDEX_MISSING"); return; }
-        // Native EnSystem.c:501 FGets; cache the capped source during startup.
-        // Parsing and native preflight retain their existing per-tick budgets.
-        string cachedLine;
-        int read = FGets(m_Input, cachedLine);
-        while (read > 0)
-        {
-            m_Bytes = m_Bytes + read;
-            if (cachedLine.Length() > m_Limits.MaxLineBytes || m_Bytes > m_Limits.MaxFileBytes)
-            {
-                HCRefuse("HC42_INDEX_INVALID");
-                m_Lines.Clear();
-                return;
-            }
-            m_Lines.Insert(cachedLine);
-            read = FGets(m_Input, cachedLine);
-        }
-        CloseFile(m_Input);
-        m_InputOpen = false;
+        // Cache and parse on separate bounded visits; startup must not drain
+        // the whole index before STORY_INDEX can account for its work.
+        m_Reading = true;
         m_Loading = true;
         Print(HCV2Admission.Line("HC-42 indexed stories", true, "HC42_KIT_SITE_SURVEY", false) + " runtime=PENDING");
     }
@@ -155,6 +141,7 @@ class HCGapcodeStoryIndex
     {
         if (m_InputOpen) { CloseFile(m_Input); m_InputOpen = false; }
         m_Loading = false;
+        m_Reading = false;
         m_Lines.Clear();
     }
 
@@ -267,14 +254,34 @@ class HCGapcodeStoryIndex
             // STORY_INDEX, not SITUATIONS: Events claims that slot's starved take every tick.
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
             m_LoadBatches++;
-            m_Work.HCReset(m_Limits.ReadLinesPerTick);
+            // Retain the configured row ceiling; leave room for the final JSON row.
+            m_Work.HCReset(m_Limits.ReadLinesPerTick, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
             string line;
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
             {
-                // The loop already caps rows, so an early refusal is the 4 ms
+                // The loop already caps rows, so an early refusal is the 2 ms
                 // cooperative guard. Count it to distinguish time from line caps
                 // in the native completion receipt; one JSON row is atomic.
                 if (!m_Work.HCContinue()) { m_LoadGuardYields++; return; }
+                if (m_Reading)
+                {
+                    int read = FGets(m_Input, line);
+                    if (read > 0)
+                    {
+                        m_Bytes = m_Bytes + read;
+                        if (line.Length() > m_Limits.MaxLineBytes || m_Bytes > m_Limits.MaxFileBytes)
+                        {
+                            HCRefuse("HC42_INDEX_INVALID");
+                            return;
+                        }
+                        m_Lines.Insert(line);
+                        continue;
+                    }
+                    CloseFile(m_Input);
+                    m_InputOpen = false;
+                    m_Reading = false;
+                    return; // Never combine the last read with the first decode.
+                }
                 if (m_LineCursor >= m_Lines.Count())
                 {
                     HCStop();

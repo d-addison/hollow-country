@@ -215,7 +215,12 @@ modded class HCAdminModule
         reply.DrawLimit = m_WorldConfig.MaxDraw;
         reply.Total = m_WorldCapture.Rows.Count();
         reply.Truncated = m_WorldCapture.Dropped;
-        int end = Math.Min(reply.Total, m_WorldSend + HCAdminWorldWire.CHUNK);
+        // The existing client accepts at most 128 chunks. Keep every row and
+        // the wire contract: small captures use 8; larger ones use the minimum
+        // rows needed to fit that ceiling (3161 static marks need 25).
+        int chunkRows = Math.Max(8, (reply.Total + 127) / 128);
+        chunkRows = Math.Min(chunkRows, HCAdminWorldWire.CHUNK);
+        int end = Math.Min(reply.Total, m_WorldSend + chunkRows);
         for (; m_WorldSend < end; m_WorldSend++) { reply.Marks.Insert(m_WorldCapture.Rows[m_WorldSend]); }
         reply.Last = m_WorldSend >= reply.Total;
         ScriptRPC rpc = new ScriptRPC;
@@ -395,6 +400,11 @@ modded class HCAdminModule
         if (visitMs > sliceMs)
         {
             string over = "[HC Admin] map_refresh stage=" + visitStage.ToString() + " ms=" + visitMs.ToString() + " ticks=" + cost.ToString() + " over_slice=1";
+            if (visitStage == 2)
+            {
+                over += " contributor=" + m_WorldCapture.ContributorIndex.ToString();
+                over += " contributor_ticks_max=" + m_WorldCapture.ContributorPeakTicks.ToString();
+            }
             if (visitStage == 1)
             {
                 over += " cursor=" + visitCursor.ToString() + " rows=" + (m_WorldCursor - visitCursor).ToString();
