@@ -1,0 +1,69 @@
+{
+  "converter": "ImageToPAA",
+  "converter_sha256": "0b786037fc708931bcc85088ba69648bcf57463bcf3b1d3a21a35f29b9c2344a",
+  "generator": "tools.package.gui_icons",
+  "icons": {
+    "ai_group": {
+      "paa": "mods/HollowCountry/gui/icons/map/ai_group.paa",
+      "paa_sha256": "fccac1d3656882e5a382f1aa8a1395a24c7cc5cb3b285cf6d803cd98f03cc7f8",
+      "source": "art/gui-icons/ai_group.png",
+      "source_sha256": "892cadf15f3bfab56413f67309d4bd8aa5897dad13d30dd88cb6ca34ebf67e7c"
+    },
+    "event": {
+      "paa": "mods/HollowCountry/gui/icons/map/event.paa",
+      "paa_sha256": "9dfa04914803eb1e473247c7944279c729411bc23f2cc55bf32defa0d63f2fff",
+      "source": "art/gui-icons/event.png",
+      "source_sha256": "ea41b7c6c42b05c3344d1ceb3cc217520ce6ab7b734c43cf7d42fd70d82bec10"
+    },
+    "group_member": {
+      "paa": "mods/HollowCountry/gui/icons/map/group_member.paa",
+      "paa_sha256": "88b3a24b45a3fdfb4e64bd885f58adc63976e1545d2db3b28761eb624d2c0d17",
+      "source": "art/gui-icons/group_member.png",
+      "source_sha256": "25ef72b345188f6ed4c8cdf1ce9d5f781207ed4a7f2d52757f069050bbf77152"
+    },
+    "loot": {
+      "paa": "mods/HollowCountry/gui/icons/map/loot.paa",
+      "paa_sha256": "524405f1ec1d0724a72ca62974ecca7a4218d6d5d88088ee7ffff345fa10ba18",
+      "source": "art/gui-icons/loot.png",
+      "source_sha256": "ed2b293de5926fc16bed9a4f9f40880ec0928792d69987da3b3c90cbd0517c6e"
+    },
+    "player": {
+      "paa": "mods/HollowCountry/gui/icons/map/player.paa",
+      "paa_sha256": "025c76b558b7de9478160d1915d4cbe541ceabf03c9a3635e5fe8f8923fdfaff",
+      "source": "art/gui-icons/player.png",
+      "source_sha256": "4cd8063e88e12fc65ea7031d24b28151fb8172f5facd7b87d89bbeda3dccc9a2"
+    },
+    "poi": {
+      "paa": "mods/HollowCountry/gui/icons/map/poi.paa",
+      "paa_sha256": "d2638c7d3f376670decd04bd3ebb09fe4150406cb65bed51aa59c2dc4bcabede",
+      "source": "art/gui-icons/poi.png",
+      "source_sha256": "b1bc779f37629963c5ad8db1c70cb031def69dc62d80784e86c98e8a1889076e"
+    },
+    "police": {
+      "paa": "mods/HollowCountry/gui/icons/map/police.paa",
+      "paa_sha256": "1944748a97039aa868c32cadef8adddc0c56debfbcd4ca6a3fbc8292dc5cecee",
+      "source": "art/gui-icons/police.png",
+      "source_sha256": "580c7029af4b3e5bd6e4b1f2e1ba11a5b179c54202b1388b1ad0eb3b8d6d52a7"
+    },
+    "shelter": {
+      "paa": "mods/HollowCountry/gui/icons/map/shelter.paa",
+      "paa_sha256": "cf2c9fc4def962a491b5695172b67335edd8080c7665fcae0346d7ba13a00e13",
+      "source": "art/gui-icons/shelter.png",
+      "source_sha256": "02397f6ab2c1ba749e43ccbcd9e2d9f5bceb39d1ba96ba2ac8313a8b739b82d4"
+    },
+    "vehicle": {
+      "paa": "mods/HollowCountry/gui/icons/map/vehicle.paa",
+      "paa_sha256": "fd8989d16ee883005b71dc229388f0023996f0254e07b1a78e2d9f22437c158a",
+      "source": "art/gui-icons/vehicle.png",
+      "source_sha256": "8443af9ca9871d7c1cd8bfa3316c6741cc8cc85dda68f19e456636ac27e5d6c4"
+    },
+    "wreck": {
+      "paa": "mods/HollowCountry/gui/icons/map/wreck.paa",
+      "paa_sha256": "0e94724cbaf11ab048a1a863afcee22e212075d58c7fd406ec5106957fd1ed18",
+      "source": "art/gui-icons/wreck.png",
+      "source_sha256": "f401861c874d63bf2d7491c3ddebda3ae465905b5bddd66e5d0120315a30a21e"
+    }
+  },
+  "schema": 1,
+  "size": 64
+}
