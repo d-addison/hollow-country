@@ -249,6 +249,8 @@ class HCC1GroupScaling
 
 class HCC1Variety
 {
+    // #316 composition
+    bool EnableComposition = true;
     float DormantShare = 0.6666666666666666;
     float RunnerDay = 0.08;
     float RunnerNightIncrement = 0.07;

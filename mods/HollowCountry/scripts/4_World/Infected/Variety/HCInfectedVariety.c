@@ -46,6 +46,11 @@ class HCInfectedVarietyConfig
     float AutomaticIntervalSeconds = 600;
     ref array<ref HCInfectedVarietySite> Sites = new array<ref HCInfectedVarietySite>;
 
+    // #316 composition
+    string CompositionDefaultContext;
+    ref array<ref HCInfectedCompositionPalette> CompositionPalettes = new array<ref HCInfectedCompositionPalette>;
+    ref array<ref HCInfectedCompositionBinding> CompositionBindings = new array<ref HCInfectedCompositionBinding>;
+
     ref HCC1GroupScaling GroupScaling = new HCC1GroupScaling;
     ref HCC1Variety Variety = new HCC1Variety;
     protected static bool s_HCTuningInvalidLogged;
@@ -74,6 +79,9 @@ class HCInfectedVarietyConfig
     {
         if (!HCJsonFields.Has(content, "GroupScaling")) { GroupScaling = new HCC1GroupScaling; }
         if (!HCJsonFields.Has(content, "Variety")) { Variety = new HCC1Variety; }
+        // #316 composition: inspect the nested block, preserving explicit false.
+        if (!Variety) { Variety = new HCC1Variety; }
+        if (!HCJsonFields.Check(content, "EnableComposition", 2, false)) { Variety.EnableComposition = true; }
     }
 
     void HCApplyOptionalDefaults(string content, bool posesOptedOut)
@@ -145,13 +153,25 @@ class HCInfectedVariety
         Print(HCV2Admission.Line("InfectedVarietyPlaces", enabled, "W60-native-fresh-variants", false) + " runtime=PENDING");
         if (!enabled)
         {
+            Print("[HC Variety] composition enabled=0 reason=variety_owner_off runtime=PENDING");
             s_Fault = "operator_preference";
             if (preference) { s_Fault = "infected_variety_disabled"; }
             Print("[HC Variety] state=off reason=" + s_Fault + " runtime=PENDING");
             return;
         }
-        if (!HCLoadConfig()) { return; }
+        if (!HCLoadConfig())
+        {
+            Print("[HC Variety] composition enabled=0 state=config_refused runtime=PENDING");
+            return;
+        }
         s_Running = true;
+        int compositionEnabled;
+        int compositionPalettes;
+        int compositionBindings;
+        if (s_Config.Variety.EnableComposition) { compositionEnabled = 1; }
+        if (s_Config.CompositionPalettes) { compositionPalettes = s_Config.CompositionPalettes.Count(); }
+        if (s_Config.CompositionBindings) { compositionBindings = s_Config.CompositionBindings.Count(); }
+        Print("[HC Variety] composition enabled=" + compositionEnabled.ToString() + " palettes=" + compositionPalettes.ToString() + " bindings=" + compositionBindings.ToString() + " max_candidates=16 max_leases=24 member_types=operator_override runtime=PENDING");
         Print("[HC Variety] fresh_crawlers=admitted_unverified standing_risers=native_standing_idle places=authored_CE opt_out=acceptance/infected_variety.disable runtime=PENDING");
         int posedEvery;
         if (s_Config) { posedEvery = s_Config.PosedFreshEvery; }
@@ -226,9 +246,153 @@ class HCInfectedVariety
             }
         }
         config.HCNormalizeTunables();
+        if (config.Variety.EnableComposition && !HCValidateComposition(config))
+        {
+            s_Fault = "composition_palette_invalid";
+            HCRefuse(s_Fault);
+            return false;
+        }
         s_Config = config;
         Print("[HC Variety] max_posed=" + config.MaxPosed.ToString() + " bounds=0..64 opt_out=MaxPosed=0 runtime=PENDING");
         return true;
+    }
+
+    // #316 composition. Native 1_Core/proto/EnString.c:113 Substring,
+    // :240 IndexOf, :396 Split; Game.c:449 ConfigGetText, :539 ConfigGetInt;
+    // EnMath.c:38 RandomInt. Derived family keeps sex/model roles, drops colour.
+    static string HCCompositionFamily(string type)
+    {
+        array<string> parts = new array<string>;
+        type.Split("_", parts);
+        if (parts.Count() < 2) { return type; }
+        string family = parts[0] + "_" + parts[1];
+        if (parts.Count() > 2)
+        {
+            string role = parts[2];
+            role.ToLower();
+            if (role == "normal" || role == "heavy" || role == "officer") { family = family + "_" + role; }
+        }
+        return family;
+    }
+
+    static string HCCompositionSilhouette(string type)
+    {
+        if (type.IndexOf("Fat") >= 0 || type.IndexOf("Heavy") >= 0) { return "heavy"; }
+        if (type.IndexOf("Skinny") >= 0) { return "skinny"; }
+        if (type.IndexOf("Old") >= 0) { return "old"; }
+        return "normal";
+    }
+
+    static HCInfectedCompositionPalette HCCompositionPalette(HCInfectedVarietyConfig config, string context)
+    {
+        foreach (HCInfectedCompositionPalette palette : config.CompositionPalettes)
+        {
+            if (palette.Context == context) { return palette; }
+        }
+        return null;
+    }
+
+    static bool HCValidateComposition(HCInfectedVarietyConfig config)
+    {
+        if (!config.CompositionPalettes || config.CompositionPalettes.Count() != 5) { return false; }
+        if (!config.CompositionBindings || config.CompositionBindings.Count() > 16) { return false; }
+        map<string, bool> contexts = new map<string, bool>;
+        contexts.Set("settlement", false);
+        contexts.Set("industrial", false);
+        contexts.Set("military", false);
+        contexts.Set("medic", false);
+        contexts.Set("rural", false);
+        foreach (HCInfectedCompositionPalette palette : config.CompositionPalettes)
+        {
+            if (!palette || !contexts.Contains(palette.Context) || contexts.Get(palette.Context)) { return false; }
+            contexts.Set(palette.Context, true);
+            if (!HCValidateCompositionMembers(palette)) { return false; }
+        }
+        if (!HCCompositionPalette(config, config.CompositionDefaultContext)) { return false; }
+        map<string, bool> herdIds = new map<string, bool>;
+        for (int index = 0; index < config.CompositionBindings.Count(); index++)
+        {
+            HCInfectedCompositionBinding binding = config.CompositionBindings[index];
+            if (!binding || binding.HerdId.Length() < 1 || binding.HerdId.Length() > 48 || !HCCompositionPalette(config, binding.Context)) { return false; }
+            if (herdIds.Contains(binding.HerdId)) { return false; }
+            herdIds.Set(binding.HerdId, true);
+        }
+        return true;
+    }
+
+    static bool HCValidateCompositionMembers(HCInfectedCompositionPalette palette)
+    {
+        if (!palette.Members || palette.Members.Count() < 1 || palette.Members.Count() > 16) { return false; }
+        map<string, bool> types = new map<string, bool>;
+        foreach (HCInfectedCompositionMember member : palette.Members)
+        {
+            if (!member || member.Type.Length() < 5 || member.Type.Length() > 64 || member.Weight < 1 || member.Weight > 16) { return false; }
+            if (types.Contains(member.Type)) { return false; }
+            types.Set(member.Type, true);
+            if (member.Type.IndexOf("ZmbM_") != 0 && member.Type.IndexOf("ZmbF_") != 0) { return false; }
+            string path = "CfgVehicles " + member.Type;
+            if (!GetGame().ConfigIsExisting(path) || !GetGame().IsKindOf(member.Type, "ZombieBase") || GetGame().ConfigGetInt(path + " scope") != 2) { return false; }
+            if (!GetGame().ConfigGetText(path + " model", member.Model) || member.Model == "") { return false; }
+            member.Model.ToLower();
+            member.Family = HCCompositionFamily(member.Type);
+            member.Sex = member.Type.Substring(0, 4);
+            member.Silhouette = HCCompositionSilhouette(member.Type);
+        }
+        return true;
+    }
+
+    static bool HCCompositionEnabled()
+    {
+        return s_Running && s_Config && s_Config.Variety.EnableComposition;
+    }
+
+    // Weighted bag without replacement across the current herd leases. Build
+    // only after visibility/placement admission: <=16 candidates x <=24 handles.
+    // Model exclusion also catches differently named outfits sharing a mesh.
+    // If exhausted, defer materialization rather than repeat an outfit.
+    static string HCCompositionDraw(string herdId, array<string> used)
+    {
+        if (!HCCompositionEnabled() || !used || used.Count() > 24) { return ""; }
+        string context = s_Config.CompositionDefaultContext;
+        foreach (HCInfectedCompositionBinding binding : s_Config.CompositionBindings)
+        {
+            if (binding.HerdId == herdId) { context = binding.Context; break; }
+        }
+        HCInfectedCompositionPalette palette = HCCompositionPalette(s_Config, context);
+        if (!palette) { return ""; }
+        map<string, bool> families = new map<string, bool>;
+        map<string, bool> models = new map<string, bool>;
+        map<string, bool> sexes = new map<string, bool>;
+        map<string, bool> silhouettes = new map<string, bool>;
+        foreach (string usedType : used)
+        {
+            families.Set(HCCompositionFamily(usedType), true);
+            string model;
+            GetGame().ConfigGetText("CfgVehicles " + usedType + " model", model);
+            model.ToLower();
+            models.Set(model, true);
+            if (usedType.Length() >= 4) { sexes.Set(usedType.Substring(0, 4), true); }
+            silhouettes.Set(HCCompositionSilhouette(usedType), true);
+        }
+        array<int> weights = new array<int>;
+        int total;
+        foreach (HCInfectedCompositionMember member : palette.Members)
+        {
+            int weight = member.Weight;
+            if (families.Contains(member.Family) || models.Contains(member.Model)) { weight = 0; }
+            if (!sexes.Contains(member.Sex)) { weight = weight * 3; }
+            if (!silhouettes.Contains(member.Silhouette)) { weight = weight * 2; }
+            weights.Insert(weight);
+            total = total + weight;
+        }
+        if (total == 0) { return ""; }
+        int draw = Math.RandomInt(0, total);
+        for (int candidate = 0; candidate < weights.Count(); candidate++)
+        {
+            draw = draw - weights[candidate];
+            if (draw < 0) { return palette.Members[candidate].Type; }
+        }
+        return "";
     }
 
     // HollowCountryAnims depends on this owner, never the reverse. No IO per request.

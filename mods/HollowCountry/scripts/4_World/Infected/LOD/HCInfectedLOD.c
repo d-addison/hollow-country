@@ -857,7 +857,20 @@ class HCInfectedLODModule : HCModule
         if (pointNearest > m_Config.MinSpawnDistance) { HCInfectedLOD.Observers(players, pos, null, m_Config.VisibilityRange, m_Config.MaxObservers, observers, occluded, m_Sight); }
         if (!HCLODPolicy.SpawnHidden(pointNearest, m_Config.MinSpawnDistance, observers, occluded, m_Config.MaxObservers)) { m_RefusedSight++; return; }
         if (!HCAdminPlacement.HCClear(pos)) { m_RefusedPlace++; return; }
-        string type = m_Config.MemberType(Math.RandomInt(0, m_Config.MemberTypeCount()));
+        string type;
+        if (HCInfectedVariety.HCCompositionEnabled() && m_Config.MemberTypes.Count() == 0)
+        {
+            // Existing bounded lease ledger, including retained stop/start bodies;
+            // no census or new per-creature timer. Explicit MemberTypes stays authoritative.
+            array<string> usedTypes = new array<string>;
+            foreach (HCLODLease existingLease : m_Leases)
+            {
+                if (existingLease.HerdId == herd.Id && existingLease.Body) { usedTypes.Insert(existingLease.Body.GetType()); }
+            }
+            type = HCInfectedVariety.HCCompositionDraw(herd.Id, usedTypes);
+            if (type == "") { return; }
+        }
+        else { type = m_Config.MemberType(Math.RandomInt(0, m_Config.MemberTypeCount())); }
         ZombieBase body = infected.HCLODMaterialize(type, pos);
         if (!body) { m_RefusedPlace++; return; }
         HCLODLease lease = new HCLODLease;
