@@ -3084,6 +3084,6 @@
       "Land_Shed_W6",
       "Land_Tisy_RadarPlatform_Top"
     ],
-    "note": "Open construction/scaffolds, stock-looted open hangars/sheds/watch platforms, and (owner 2026-11-20, full coverage: no place stays vanilla-only) deer stands, feed shacks, polytunnels, trail roofs, bus stops, kiosks, fairground rides, canvas tents, open boats and vehicle wrecks: roof/wall enclosure exempt; real collision support and a stock loot witness within 3m horizontally and 0.35m vertically remain mandatory. Closed sheds, barns, ruins and courtyards have no blanket exemption. Static evidence only; native CE/support acceptance pending."
+    "note": "Open construction/scaffolds, stock-looted open hangars/sheds/watch platforms, and deer stands, feed shacks, polytunnels, trail roofs, bus stops, kiosks, fairground rides, canvas tents, open boats and vehicle wrecks: roof/wall enclosure exempt; real collision support and a stock loot witness within 3m horizontally and 0.35m vertically remain mandatory. Closed sheds, barns, ruins and courtyards have no blanket exemption. Terrain-only sheds receive no synthetic support plane. Gentle Geometry/Roadway slopes still require a locally supported item footprint and derived clearance above its highest sample; visibility occluders retain the flat-only rule. Static evidence only; native CE/support acceptance pending."
   }
 }

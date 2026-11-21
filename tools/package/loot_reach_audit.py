@@ -515,6 +515,14 @@ class Audit:
                 container = spec['containers'].get('lootHCSurface')
                 if container is None:
                     continue
+                # Keep the independent full-file audit within the same memory
+                # bound as generation: decoded furniture/mesh caches belong to
+                # one building, not the entire map. Admission rules are unchanged.
+                context = None
+                self.props.clear()
+                self.meshes.clear()
+                self.lifts.clear()
+                self.assets.cache.clear()
                 print('audit ' + name, file=sys.stderr, flush=True)
                 context = self.scene(name, spec)
                 if name not in optional_classes:
