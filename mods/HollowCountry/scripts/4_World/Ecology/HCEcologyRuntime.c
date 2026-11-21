@@ -404,7 +404,13 @@ class HCEcologyRuntime
 		m_Units.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK);
 		m_Work.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK, HCEcologyRuntimeRules.SLICE_MS);
 		int visited = 0;
-		HCDiagPruneWindow();
+		// #330: one eligibility decision per slice covers every diag line it prints.
+		bool diag = m_DiagRows < 40 && m_PruneKind <= 1;
+		if (diag)
+		{
+			m_DiagRows++;
+			HCDiagPruneWindow(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK);
+		}
 		// Capture a reverse window at cycle start. New registrations cannot
 		// extend this pass indefinitely; deletions normalize the next cursor.
 		while (m_PruneKind < 3)
@@ -419,6 +425,8 @@ class HCEcologyRuntime
 				m_PruneKind++;
 				if (m_PruneKind == 1) { m_PruneCursor = m_Actors.Count() - 1; }
 				if (m_PruneKind == 2) { m_PruneCursor = m_Intents.Count() - 1; }
+				// Name the actor window before this slice touches its first actor row.
+				if (diag && m_PruneKind == 1) { HCDiagPruneWindow(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK - visited); }
 				continue;
 			}
 			// Always allow the first bounded row; then consult both shared caps.
@@ -439,7 +447,7 @@ class HCEcologyRuntime
 				entries.Remove(index);
 			}
 		}
-		if (m_DiagRows < 40) { Print("[HC Diag] prune slice_end kind=" + m_PruneKind.ToString() + " cursor=" + m_PruneCursor.ToString()); }
+		if (diag) { Print("[HC Diag] prune slice_end kind=" + m_PruneKind.ToString() + " cursor=" + m_PruneCursor.ToString()); }
 		m_Visited = visited;
 		m_Deferred = Math.Max(0, m_PruneCursor + 1);
 		if (m_PruneKind == 0) { m_Deferred += m_Actors.Count() + m_Intents.Count(); }
@@ -448,17 +456,16 @@ class HCEcologyRuntime
 		m_Stage = HCEcologyRuntimeRules.STAGE_SAMPLE;
 	}
 
-	// #330 diagnostic, first 40 prune slices per process: one line naming the
-	// registry rows this slice may visit, printed before any Live access, then
-	// one slice_end line. The last line before a native fault brackets the row.
-	protected void HCDiagPruneWindow()
+	// #330 diagnostic, first 40 prune slices per process: one line per registry
+	// window (resources, then actors if the slice reaches them) naming the rows the
+	// slice may visit, printed before any Live access, then one slice_end line.
+	protected void HCDiagPruneWindow(int allowance)
 	{
-		if (m_DiagRows >= 40 || m_PruneKind > 1) { return; }
-		m_DiagRows++;
+		if (m_PruneKind > 1 || allowance <= 0) { return; }
 		array<ref HCEcologyLiveBinding> rows = m_Resources;
 		if (m_PruneKind == 1) { rows = m_Actors; }
 		int last = Math.Min(m_PruneCursor, rows.Count() - 1);
-		int first = Math.Max(0, last - HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK + 1);
+		int first = Math.Max(0, last - allowance + 1);
 		string line = "[HC Diag] prune slice kind=" + m_PruneKind.ToString();
 		line += " from=" + last.ToString() + " to=" + first.ToString() + " rows=";
 		for (int i = last; i >= first; i--)
