@@ -11,6 +11,31 @@
 // HCSaveScheduler (World/HCWorkBudget.c). Caps: 16 herds, 64 head per herd,
 // 16 member classes, 16384 journal bytes, 65536 config bytes. Only herd ids,
 // centres and counts are stored: no player identities, entities or loot.
+// #316 composition: authored in variety-runtime.json. Limits are 5 palettes,
+// 16 members per palette and 16 explicit herd bindings. No actor census.
+class HCInfectedCompositionMember
+{
+    string Type;
+    int Weight;
+    // Derived once on validation, never authored identities.
+    string Family;
+    string Model;
+    string Sex;
+    string Silhouette;
+}
+
+class HCInfectedCompositionPalette
+{
+    string Context;
+    ref array<ref HCInfectedCompositionMember> Members = new array<ref HCInfectedCompositionMember>;
+}
+
+class HCInfectedCompositionBinding
+{
+    string HerdId;
+    string Context;
+}
+
 class HCInfectedLODHerdSeed
 {
     string Id;

@@ -637,5 +637,271 @@
   "CorridorRangeMetres": 80,
   "MaxMigrationMetres": 480,
   "MigrationLifetimeSeconds": 60,
-  "MigrationScanSeconds": 5
+  "MigrationScanSeconds": 5,
+  "_316_composition": "// #316 composition",
+  "Variety": {
+    "EnableComposition": true,
+    "DormantShare": 0.6666666666666666,
+    "RunnerDay": 0.08,
+    "RunnerNightIncrement": 0.07,
+    "DormantBase": 0.55,
+    "DormantNightReduction": 0.25,
+    "DormantRainReduction": 0.15,
+    "DormantMin": 0.1,
+    "DormantMax": 0.6,
+    "WakeBase": 0.8,
+    "WakeNightIncrement": 0.2,
+    "WakeRainReduction": 0.3,
+    "WakeMin": 0.4,
+    "WakeMax": 1.0
+  },
+  "CompositionDefaultContext": "rural",
+  "CompositionBindings": [],
+  "CompositionPalettes": [
+    {
+      "Context": "settlement",
+      "Members": [
+        {
+          "Type": "ZmbF_CitizenANormal_Blue",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbF_CitizenBSkinny",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbF_Clerk_Normal_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_JournalistNormal_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_ShortSkirt_beige",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_SurvivorNormal_Red",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_CitizenASkinny_Brown",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_CitizenBFat_Blue",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_ClerkFat_Grey",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_CommercialPilotOld_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_JournalistSkinny",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_MotobikerFat_Black",
+          "Weight": 1
+        }
+      ]
+    },
+    {
+      "Context": "industrial",
+      "Members": [
+        {
+          "Type": "ZmbF_BlueCollarFat_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_MechanicNormal_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_ConstrWorkerNormal_Beige",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_HandymanNormal_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_HeavyIndustryWorker",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_MechanicSkinny_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_OffshoreWorker_Orange",
+          "Weight": 2
+        }
+      ]
+    },
+    {
+      "Context": "military",
+      "Members": [
+        {
+          "Type": "ZmbM_PatrolNormal_Summer",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_SoldierNormal",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_usSoldier_normal_Woodland",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_usSoldier_Heavy_Woodland",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_usSoldier_Officer_Desert",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_usSoldier_Heavy_Desert",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_usSoldier_normal_Desert",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_PoliceWomanNormal",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_NBC_Yellow",
+          "Weight": 1
+        }
+      ]
+    },
+    {
+      "Context": "medic",
+      "Members": [
+        {
+          "Type": "ZmbF_DoctorSkinny",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_NurseFat",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbF_ParamedicNormal_Blue",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbF_PatientOld",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_DoctorFat",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_NBC_Yellow",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_ParamedicNormal_Green",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_PatientSkinny",
+          "Weight": 1
+        }
+      ]
+    },
+    {
+      "Context": "rural",
+      "Members": [
+        {
+          "Type": "ZmbF_JoggerSkinny_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_MilkMaidOld_Beige",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_VillagerOld_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbF_HikerSkinny_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_FarmerFat_Brown",
+          "Weight": 2
+        },
+        {
+          "Type": "ZmbM_Jacket_beige",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_JoggerSkinny_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_VillagerOld_Blue",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_FishermanOld_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_HermitSkinny_Beige",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_HikerSkinny_Green",
+          "Weight": 1
+        },
+        {
+          "Type": "ZmbM_HunterOld_Summer",
+          "Weight": 1
+        }
+      ]
+    }
+  ],
+  "CompositionEvidence": {
+    "StockEventsSHA256": "4089710dfa15515261167dc769206059b426ab9c7a28b06cb3af505195f869a6",
+    "ContextEvents": {
+      "settlement": [
+        "InfectedCity",
+        "InfectedCityTier1"
+      ],
+      "industrial": [
+        "InfectedIndustrial"
+      ],
+      "military": [
+        "InfectedArmy",
+        "InfectedArmyHard",
+        "InfectedArmyDesert",
+        "InfectedPolice",
+        "InfectedNBCYellow"
+      ],
+      "medic": [
+        "InfectedMedic"
+      ],
+      "rural": [
+        "InfectedVillage",
+        "InfectedVillageTier1",
+        "InfectedSolitude"
+      ]
+    },
+    "Policy": "Positive stock CE children only; no CE edits or population changes. Existing inland herd seeds use rural; explicit herd-id bindings select other contexts. MemberTypes overrides retain their existing selection."
+  }
 }
