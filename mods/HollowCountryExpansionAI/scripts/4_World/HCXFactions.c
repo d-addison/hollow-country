@@ -59,10 +59,7 @@ class HCXFactions
     // then a crash in the patrol update), so admission needs a registered name.
     static bool Registered(string factionName)
     {
-        if (factionName == "") { return false; }
-        typename factionType = eAIFaction.GetType(factionName);
-        if (!factionType) { return false; }
-        return eAIRegisterFaction.s_FactionIDs.Contains(factionType);
+        return HCXExpansionBridge.HCFactionRegistered(factionName);
     }
     // The provider faction a site runs under once encounters are armed.
     static string EncounterFaction(HCXAISite site)
@@ -86,7 +83,7 @@ class HCXFaction : eAIFaction
     override bool IsFriendly(notnull eAIFaction other)
     {
         string otherId = HCXFactions.Id(other);
-        if (otherId == "") { return other.IsGuard() || other.IsPassive(); }
+        if (otherId == "") { return HCXExpansionBridge.HCFactionIsGuard(other) || HCXExpansionBridge.HCFactionIsPassive(other); }
         return HCXFactions.Relation(Id(), otherId) >= 0;
     }
     override string GetDisplayName() { return Id(); }

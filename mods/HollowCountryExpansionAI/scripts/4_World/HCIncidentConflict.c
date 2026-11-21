@@ -19,8 +19,8 @@ modded class HCXFactionCombatAdapter
             array<eAIGroup> groups = m_Groups;
             foreach (eAIGroup group : groups)
             {
-                if (!group || group.Count() < 1) { continue; }
-                DayZPlayerImplement participant = group.GetMember(0);
+                if (!group || HCXExpansionBridge.HCGroupCount(group) < 1) { continue; }
+                DayZPlayerImplement participant = HCXExpansionBridge.HCGroupGetMember(group, 0);
                 if (!participant) { continue; }
                 HCIncidentEmissions.HCPublish("scene", participant.GetPosition(), null);
                 break;

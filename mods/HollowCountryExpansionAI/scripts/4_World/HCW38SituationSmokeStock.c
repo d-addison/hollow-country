@@ -10,7 +10,7 @@ class HCW38SituationSmokeStock : HCXTradeInventoryScan
 {
     override ItemBase HCStep(int limit)
     {
-        if (!Actor || !Actor.IsAlive()) { HCRetire(); return null; }
+        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
         if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }

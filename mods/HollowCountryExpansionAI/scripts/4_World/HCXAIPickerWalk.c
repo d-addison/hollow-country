@@ -65,7 +65,7 @@ class HCXAIPickerWalk : HCScavengeInventory
     {
         if (m_WalkRefusal != "") { return m_WalkRefusal; }
         // No actor between trips: the walk provider itself is installed.
-        if (Actor && !Actor.GetGroup()) { return "PICKER_ACTOR_GROUP_MISSING"; }
+        if (Actor && !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(Actor)) { return "PICKER_ACTOR_GROUP_MISSING"; }
         return "";
     }
 
@@ -73,7 +73,7 @@ class HCXAIPickerWalk : HCScavengeInventory
     {
         m_WalkRefusal = "";
         if (!HCLive() || !Survey) { m_WalkRefusal = "PICKER_WALK_NOT_LIVE"; return false; }
-        eAIGroup group = Actor.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(Actor);
         if (!group) { m_WalkRefusal = "PICKER_ACTOR_GROUP_MISSING"; return false; }
         if (m_Group && m_Group != group) { m_WalkRefusal = "PICKER_ACTOR_GROUP_CHANGED"; return false; }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(LeaseId);
@@ -83,19 +83,19 @@ class HCXAIPickerWalk : HCScavengeInventory
         array<vector> points = new array<vector>();
         route.HCLegPoints(returning, points);
         if (points.Count() < 1 || points.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_ROUTE_LEG_INVALID"; return false; }
-        array<vector> previous = group.GetWaypoints();
+        array<vector> previous = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (!m_Group && previous.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_PATROL_WAYPOINT_CAP"; return false; }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_WALK, HCUnitBudget.HC_WORK_AI_SITES, 1)) { m_WalkRefusal = "PICKER_WALK_WORK_BUDGET"; return false; }
         if (!m_Group)
         {
             m_PreviousPoints.Clear();
             for (int priorIndex = 0; priorIndex < previous.Count(); priorIndex++) { m_PreviousPoints.Insert(previous[priorIndex]); }
-            m_PreviousBehavior = group.GetWaypointBehaviour();
+            m_PreviousBehavior = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
             m_Group = group;
         }
-        group.ClearWaypoints();
-        for (int legIndex = 0; legIndex < points.Count(); legIndex++) { group.AddWaypoint(points[legIndex]); }
-        group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCGroupClearWaypoints(group);
+        for (int legIndex = 0; legIndex < points.Count(); legIndex++) { HCXExpansionBridge.HCGroupAddWaypoint(group, points[legIndex]); }
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.ONCE);
         return true;
     }
 
@@ -106,11 +106,11 @@ class HCXAIPickerWalk : HCScavengeInventory
     override bool HCWalkTo(vector point)
     {
         if (!m_Group || !HCLive() || !Survey) { return false; }
-        if (Actor.GetGroup() != m_Group) { return false; }
+        if (HCXExpansionBridge.HCDayZPlayerImplementGetGroup(Actor) != m_Group) { return false; }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_WALK, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return false; }
-        m_Group.ClearWaypoints();
-        m_Group.AddWaypoint(point);
-        m_Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCGroupClearWaypoints(m_Group);
+        HCXExpansionBridge.HCGroupAddWaypoint(m_Group, point);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, eAIWaypointBehavior.ONCE);
         return true;
     }
 
@@ -118,16 +118,16 @@ class HCXAIPickerWalk : HCScavengeInventory
     override int HCPartyMembers()
     {
         if (!Actor) { return -1; }
-        eAIGroup group = Actor.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(Actor);
         if (!group) { return -1; }
-        return group.Count();
+        return HCXExpansionBridge.HCGroupCount(group);
     }
 
     override bool HCPartyInCombat()
     {
         if (!Actor) { return false; }
-        eAIGroup group = Actor.GetGroup();
-        return group && group.IsInCombat();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(Actor);
+        return group && HCXExpansionBridge.HCGroupIsInCombat(group);
     }
 
     // Terminal custody, uncertain checkpoint or stop: resume the same group's
@@ -138,10 +138,10 @@ class HCXAIPickerWalk : HCScavengeInventory
     {
         if (m_Group)
         {
-            m_Group.ClearWaypoints();
+            HCXExpansionBridge.HCGroupClearWaypoints(m_Group);
             array<vector> restorePoints = m_PreviousPoints;
-            for (int restoreIndex = 0; restoreIndex < restorePoints.Count(); restoreIndex++) { m_Group.AddWaypoint(restorePoints[restoreIndex]); }
-            m_Group.SetWaypointBehaviour(m_PreviousBehavior);
+            for (int restoreIndex = 0; restoreIndex < restorePoints.Count(); restoreIndex++) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, restorePoints[restoreIndex]); }
+            HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_PreviousBehavior);
         }
         m_Group = null;
         m_PreviousPoints.Clear();

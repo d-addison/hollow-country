@@ -301,42 +301,42 @@ class HCXAICaravanAdapter : HCCaravanInventory
     bool HCPrepare(string lease, PlayerBase carrier, vector destination)
     {
         eAIBase actor = eAIBase.Cast(carrier);
-        if (!HCReady() || !actor || !actor.GetGroup() || actor.GetIdentity()) { return false; }
-        m_Group = actor.GetGroup(); m_Lease = lease;
+        if (!HCReady() || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || HCXExpansionBridge.HCBaseGetIdentity(actor)) { return false; }
+        m_Group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor); m_Lease = lease;
         LeftActor = actor;
-        m_From = actor.GetPosition(); m_To = destination;
+        m_From = HCXExpansionBridge.HCBaseGetPosition(actor); m_To = destination;
         m_Original.Clear();
-        array<vector> original = m_Group.GetWaypoints();
+        array<vector> original = HCXExpansionBridge.HCGroupGetWaypoints(m_Group);
         if (original.Count() > Corridor.MaxRouteNodes) { return false; }
         foreach (vector point : original) { m_Original.Insert(point); }
-        m_Behaviour = m_Group.GetWaypointBehaviour();
+        m_Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(m_Group);
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         return roads.HCPlan(m_From, m_To);
     }
     bool HCHoldPartner(PlayerBase partner)
     {
         eAIBase actor = eAIBase.Cast(partner);
-        if (!actor || !actor.IsAlive() || !actor.GetGroup() || actor.GetGroup() == m_Group || actor.GetGroup().IsInCombat()) { return false; }
-        eAIGroup partnerGroup = actor.GetGroup();
-        array<vector> waypoints = partnerGroup.GetWaypoints();
+        if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) == m_Group || HCXExpansionBridge.HCGroupIsInCombat(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor))) { return false; }
+        eAIGroup partnerGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor);
+        array<vector> waypoints = HCXExpansionBridge.HCGroupGetWaypoints(partnerGroup);
         if (waypoints.Count() > Corridor.MaxRouteNodes) { return false; }
         m_PartnerGroup = partnerGroup;
         m_PartnerOriginal.Clear();
         foreach (vector waypoint : waypoints) { m_PartnerOriginal.Insert(waypoint); }
-        m_PartnerBehaviour = m_PartnerGroup.GetWaypointBehaviour();
-        m_To = actor.GetPosition();
-        m_PartnerGroup.ClearWaypoints();
-        m_PartnerGroup.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
-        m_PartnerGroup.AddWaypoint(m_To);
+        m_PartnerBehaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(m_PartnerGroup);
+        m_To = HCXExpansionBridge.HCBaseGetPosition(actor);
+        HCXExpansionBridge.HCGroupClearWaypoints(m_PartnerGroup);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_PartnerGroup, eAIWaypointBehavior.HALT);
+        HCXExpansionBridge.HCGroupAddWaypoint(m_PartnerGroup, m_To);
         return true;
     }
     void HCReleasePartner()
     {
-        if (!m_PartnerGroup || m_PartnerGroup.IsInCombat()) { return; }
-        m_PartnerGroup.ClearWaypoints();
-        m_PartnerGroup.SetWaypointBehaviour(m_PartnerBehaviour);
+        if (!m_PartnerGroup || HCXExpansionBridge.HCGroupIsInCombat(m_PartnerGroup)) { return; }
+        HCXExpansionBridge.HCGroupClearWaypoints(m_PartnerGroup);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_PartnerGroup, m_PartnerBehaviour);
         array<vector> waypoints = m_PartnerOriginal;
-        foreach (vector waypoint : waypoints) { m_PartnerGroup.AddWaypoint(waypoint); }
+        foreach (vector waypoint : waypoints) { HCXExpansionBridge.HCGroupAddWaypoint(m_PartnerGroup, waypoint); }
         m_PartnerGroup = null;
     }
 
@@ -346,32 +346,32 @@ class HCXAICaravanAdapter : HCCaravanInventory
     {
         HCReleasePartner();
         if (!m_Group) { return true; }
-        if (m_Group.IsInCombat()) { return false; }
-        m_Group.ClearWaypoints();
-        m_Group.SetWaypointBehaviour(m_Behaviour);
+        if (HCXExpansionBridge.HCGroupIsInCombat(m_Group)) { return false; }
+        HCXExpansionBridge.HCGroupClearWaypoints(m_Group);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_Behaviour);
         array<vector> original = m_Original;
-        foreach (vector point : original) { m_Group.AddWaypoint(point); }
+        foreach (vector point : original) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, point); }
         return true;
     }
     bool HCRequest(bool returning)
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
-        if (!HCReady() || !m_Group || m_Group.IsInCombat() || !roads || roads.Phase != "ready") { return false; }
+        if (!HCReady() || !m_Group || HCXExpansionBridge.HCGroupIsInCombat(m_Group) || !roads || roads.Phase != "ready") { return false; }
         // Path is destination -> source. Installed Expansion
         // eAIState_TraversingWaypoints treats HALT as final at the CURRENT
         // waypoint, so multi-point paths use ONCE, which advances to the last
         // waypoint and stops there. No combat/speed override or forced recovery.
-        m_Group.ClearWaypoints();
-        m_Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCGroupClearWaypoints(m_Group);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, eAIWaypointBehavior.ONCE);
         if (returning)
         {
-            for (int back = 0; back < roads.Path.Count(); back++) { m_Group.AddWaypoint(roads.Path[back]); }
-            m_Group.AddWaypoint(m_From);
+            for (int back = 0; back < roads.Path.Count(); back++) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, roads.Path[back]); }
+            HCXExpansionBridge.HCGroupAddWaypoint(m_Group, m_From);
         }
         else
         {
-            for (int forward = 0; forward < roads.Path.Count(); forward++) { m_Group.AddWaypoint(roads.Path[roads.Path.Count() - 1 - forward]); }
-            m_Group.AddWaypoint(m_To);
+            for (int forward = 0; forward < roads.Path.Count(); forward++) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, roads.Path[roads.Path.Count() - 1 - forward]); }
+            HCXExpansionBridge.HCGroupAddWaypoint(m_Group, m_To);
         }
         return true;
     }
@@ -399,7 +399,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
         if (returning) { destination = m_From; }
         return vector.DistanceSq(LeftActor.GetPosition(), destination) <= Corridor.ArrivalRangeMeters * Corridor.ArrivalRangeMeters;
     }
-    override bool HCFleeObserved(HCCaravanState row) { return m_Group && m_Group.IsInCombat(); }
+    override bool HCFleeObserved(HCCaravanState row) { return m_Group && HCXExpansionBridge.HCGroupIsInCombat(m_Group); }
 }
 
 // #256: one current physical party per director visit, one bounded native
@@ -429,15 +429,15 @@ modded class HCXAISiteDirector
         vector destination;
         if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
         eAIGroup party = state.Patrol.m_Group;
-        if (party.Count() < 1 || state.Patrol.m_HCPendingMembers > 0) { return; }
+        if (HCXExpansionBridge.HCGroupCount(party) < 1 || state.Patrol.m_HCPendingMembers > 0) { return; }
         HCXAIAdapter adapter = HCXAIService.Adapter();
         if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { return; }
         if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { return; }
-        DayZPlayerImplement leader = party.GetFormationLeader();
+        DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(party);
         if (!leader || !leader.IsAlive()) { return; }
         vector position = leader.GetPosition();
         world.HCJourneyObserved(identity.HCPartyId(), position);
-        if (party.IsInCombat()) { state.HCJourneyWalking = false; return; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(party)) { state.HCJourneyWalking = false; return; }
         // Installed eAIDynamicPatrol.c:760-765 measures despawn distance
         // from the formation leader, so visible travelling parties stay live.
         float now = GetGame().GetTickTime();
@@ -462,10 +462,10 @@ modded class HCXAISiteDirector
         float length = 0;
         for (int index = 1; index < path.Count(); index++) { length += vector.Distance(path[index - 1], path[index]); }
         if (length > 240) { return; }
-        party.ClearWaypoints();
+        HCXExpansionBridge.HCGroupClearWaypoints(party);
         // ONCE walks the whole navmesh path; HALT would stop at path[0].
-        party.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
-        foreach (vector point : path) { party.AddWaypoint(point); }
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(party, eAIWaypointBehavior.ONCE);
+        foreach (vector point : path) { HCXExpansionBridge.HCGroupAddWaypoint(party, point); }
         state.HCJourneyEnd = sampled;
         state.HCJourneyWalking = true;
         state.HCJourneyStarted = now;

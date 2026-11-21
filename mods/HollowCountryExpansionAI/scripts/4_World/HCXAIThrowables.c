@@ -73,7 +73,7 @@ class HCXTacticsScan : HCXTradeInventoryScan
 
     override ItemBase HCStep(int limit)
     {
-        if (!Actor || !Actor.IsAlive()) { HCRetire(); return null; }
+        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
         if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
@@ -132,7 +132,7 @@ class HCXAIThrowables
     {
         if (!actor || !item || !GetGame() || !GetGame().IsServer()) { return "throw_refused"; }
         if (item.GetHierarchyRootPlayer() != actor || item.IsRuined()) { return "throw_refused"; }
-        vector origin = actor.GetPosition();
+        vector origin = HCXExpansionBridge.HCBaseGetPosition(actor);
         vector flat = target - origin;
         flat[1] = 0;
         if (flat.Length() < 0.5) { return "throw_refused"; }
@@ -157,7 +157,7 @@ class HCXAIThrowables
     {
         if (!actor || !item || !GetGame() || !GetGame().IsServer()) { return false; }
         if (item.GetHierarchyRootPlayer() != actor) { return false; }
-        return actor.ServerDropEntity(item);
+        return HCXExpansionBridge.HCBaseServerDropEntity(actor, item);
     }
 
     static bool Held(ItemBase item)

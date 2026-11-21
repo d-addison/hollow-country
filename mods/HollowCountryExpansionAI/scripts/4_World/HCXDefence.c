@@ -176,7 +176,7 @@ class HCXDefence
     protected static HCXGrudge Find(eAIGroup group, PlayerBase attacker)
     {
         if (!group || !attacker) { return null; }
-        int groupId = group.GetID();
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         for (int index = 0; index < s_Grudges.Count(); index++)
         {
             HCXGrudge grudge = s_Grudges.Get(index);
@@ -204,7 +204,7 @@ class HCXDefence
             s_Evicted++;
         }
         grudge = new HCXGrudge();
-        grudge.GroupId = group.GetID();
+        grudge.GroupId = HCXExpansionBridge.HCGroupGetID(group);
         grudge.Group = group;
         grudge.Attacker = attacker;
         grudge.Until = until;
@@ -223,8 +223,8 @@ class HCXDefence
         if (!s_Running || !ai || !player || !state) { return false; }
         // A downed or dead player is never pursued further.
         if (!player.IsAlive() || player.IsUnconscious()) { return false; }
-        eAIGroup group = ai.GetGroup();
-        if (!group || group == player.GetGroup()) { return false; }
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai);
+        if (!group || group == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(player)) { return false; }
         HCXGrudge grudge = Find(group, player);
         if (!grudge || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { return false; }
         int nowMs = GetGame().GetTime();
@@ -237,7 +237,7 @@ class HCXDefence
             lastLos = grudge.LosAt.Get(slot);
             seededAt = grudge.SeedAt.Get(slot);
         }
-        float distance = vector.Distance(ai.GetPosition(), grudge.Origin);
+        float distance = vector.Distance(HCXExpansionBridge.HCBaseGetPosition(ai), grudge.Origin);
         if (!HCXDefencePolicy.Active(nowMs, grudge.Until, distance, state.m_LOS, lastLos, seededAt)) { return false; }
         s_Applied++;
         if (!s_FirstApplied)
@@ -255,19 +255,19 @@ class HCXDefence
     {
         if (!info || !actor) { return; }
         bool created;
-        eAITarget target = info.AddAI(actor, holdMs, false, created);
+        eAITarget target = HCXExpansionBridge.HCTargetInformationAddAI(info, actor, holdMs, false, created);
         if (!target) { return; }
-        if (!created) { target.UpdateFoundAtTime(); }
+        if (!created) { HCXExpansionBridge.HCTargetUpdateFoundAtTime(target); }
         if (threat > target.m_ThreatLevelActive)
         {
             if (!target.m_SearchOnLOSLost)
             {
-                target.SetInitial(threat, at);
+                HCXExpansionBridge.HCTargetSetInitial(target, threat, at);
                 target.m_SearchOnLOSLost = true;
             }
             else
             {
-                target.SetThreat(threat);
+                HCXExpansionBridge.HCTargetSetThreat(target, threat);
             }
         }
     }
@@ -277,11 +277,11 @@ class HCXDefence
     // hit is a first stray round on a friendly during a rescue.
     static void OnHit(eAIBase victim, EntityAI source)
     {
-        if (!s_Running || !victim || !victim.IsAlive() || !HCXStance.Owns(victim)) { return; }
+        if (!s_Running || !victim || !HCXExpansionBridge.HCBaseIsAlive(victim) || !HCXStance.Owns(victim)) { return; }
         PlayerBase attacker = AttackerOf(source);
         if (!attacker) { return; }
-        eAIGroup group = victim.GetGroup();
-        if (!group || group == attacker.GetGroup()) { return; }
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(victim);
+        if (!group || group == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(attacker)) { return; }
         int nowMs = GetGame().GetTime();
         HCXGrudge prior = Find(group, attacker);
         int priorUntil = 0;
@@ -292,10 +292,10 @@ class HCXDefence
         {
             int infectedShooter = InfectedNear(attacker.GetPosition(), nowMs);
             int infectedActor = 0;
-            if (infectedShooter == 0) { infectedActor = InfectedNear(victim.GetPosition(), nowMs); }
-            if (HCXDefencePolicy.RescueHitExcused(true, infectedShooter + infectedActor, victim.IsDamageDestroyed(), nowMs, priorUntil))
+            if (infectedShooter == 0) { infectedActor = InfectedNear(HCXExpansionBridge.HCBaseGetPosition(victim), nowMs); }
+            if (HCXDefencePolicy.RescueHitExcused(true, infectedShooter + infectedActor, HCXExpansionBridge.HCBaseIsDamageDestroyed(victim), nowMs, priorUntil))
             {
-                Record(group, attacker, victim.GetPosition(), HCXDefencePolicy.KIND_RESCUE, nowMs);
+                Record(group, attacker, HCXExpansionBridge.HCBaseGetPosition(victim), HCXDefencePolicy.KIND_RESCUE, nowMs);
                 s_RescueHits++;
                 if (!s_FirstExcuse)
                 {
@@ -305,13 +305,13 @@ class HCXDefence
                 return;
             }
         }
-        HCXGrudge grudge = Record(group, attacker, victim.GetPosition(), HCXDefencePolicy.KIND_HIT, nowMs);
+        HCXGrudge grudge = Record(group, attacker, HCXExpansionBridge.HCBaseGetPosition(victim), HCXDefencePolicy.KIND_HIT, nowMs);
         if (grudge) { grudge.NoteSeed(victim, nowMs); }
         s_Hits++;
         if (!s_FirstHit)
         {
             s_FirstHit = true;
-            Print("[HCX Defence] first player hit on group " + group.GetName() + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_HIT).ToString() + "ms");
+            Print("[HCX Defence] first player hit on group " + HCXExpansionBridge.HCGroupGetName(group) + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_HIT).ToString() + "ms");
         }
     }
 
@@ -324,24 +324,24 @@ class HCXDefence
         if (!s_Running || !victim || !HCXStance.Owns(victim)) { return; }
         PlayerBase attacker = AttackerOf(EntityAI.Cast(killer));
         if (!attacker) { return; }
-        eAIGroup group = victim.GetGroup();
-        if (!group || group == attacker.GetGroup()) { return; }
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(victim);
+        if (!group || group == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(attacker)) { return; }
         int nowMs = GetGame().GetTime();
-        vector origin = victim.GetPosition();
+        vector origin = HCXExpansionBridge.HCBaseGetPosition(victim);
         HCXGrudge grudge = Record(group, attacker, origin, HCXDefencePolicy.KIND_KILL, nowMs);
         if (!grudge) { return; }
         s_Kills++;
-        eAITargetInformation info = attacker.GetTargetInformation();
+        eAITargetInformation info = HCXExpansionBridge.HCDayZPlayerImplementGetTargetInformation(attacker);
         if (info)
         {
-            int limit = group.Count();
+            int limit = HCXExpansionBridge.HCGroupCount(group);
             if (limit > 16) { limit = 16; }
             for (int seat = 0; seat < limit; seat++)
             {
-                eAIBase mate = eAIBase.Cast(group.GetMember(seat));
-                if (!mate || mate == victim || !mate.IsAlive() || mate.IsUnconscious()) { continue; }
-                if (vector.Distance(mate.GetPosition(), origin) > HCXDefencePolicy.ORIGIN_REACH) { continue; }
-                if (!info.GetTargetForAI(mate)) { continue; }
+                eAIBase mate = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, seat));
+                if (!mate || mate == victim || !HCXExpansionBridge.HCBaseIsAlive(mate) || HCXExpansionBridge.HCBaseIsUnconscious(mate)) { continue; }
+                if (vector.Distance(HCXExpansionBridge.HCBaseGetPosition(mate), origin) > HCXDefencePolicy.ORIGIN_REACH) { continue; }
+                if (!HCXExpansionBridge.HCTargetInformationGetTargetForAI(info, mate)) { continue; }
                 SeedTarget(info, mate, HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_KILL), 1.0, origin);
                 grudge.NoteSeed(mate, nowMs);
             }
@@ -349,7 +349,7 @@ class HCXDefence
         if (!s_FirstKill)
         {
             s_FirstKill = true;
-            Print("[HCX Defence] first group member killed by a player group=" + group.GetName() + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_KILL).ToString() + "ms");
+            Print("[HCX Defence] first group member killed by a player group=" + HCXExpansionBridge.HCGroupGetName(group) + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_KILL).ToString() + "ms");
         }
     }
 
@@ -448,11 +448,11 @@ class HCXDefence
     // information at the heard position (shot or impact), then lets Hostile lift it.
     protected static void Provoke(eAIBase actor, PlayerBase shooter, int nowMs, vector heardAt)
     {
-        eAIGroup group = actor.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor);
         if (!group) { return; }
-        eAITargetInformation info = shooter.GetTargetInformation();
+        eAITargetInformation info = HCXExpansionBridge.HCDayZPlayerImplementGetTargetInformation(shooter);
         if (!info) { return; }
-        HCXGrudge grudge = Record(group, shooter, actor.GetPosition(), HCXDefencePolicy.KIND_MISS, nowMs);
+        HCXGrudge grudge = Record(group, shooter, HCXExpansionBridge.HCBaseGetPosition(actor), HCXDefencePolicy.KIND_MISS, nowMs);
         if (!grudge) { return; }
         SeedTarget(info, actor, HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_MISS), HCXDefencePolicy.FIGHT_THREAT, heardAt);
         grudge.NoteSeed(actor, nowMs);
@@ -460,7 +460,7 @@ class HCXDefence
         if (!s_FirstMiss)
         {
             s_FirstMiss = true;
-            Print("[HCX Defence] first near miss on group " + group.GetName() + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_MISS).ToString() + "ms");
+            Print("[HCX Defence] first near miss on group " + HCXExpansionBridge.HCGroupGetName(group) + " grudge=" + HCXDefencePolicy.HoldMs(HCXDefencePolicy.KIND_MISS).ToString() + "ms");
         }
     }
 
@@ -487,7 +487,7 @@ class HCXDefence
         if (!gate) { s_Refused++; return; }
         if (!WindowAllows(nowMs, gate.Next)) { return; }
         gate.Next = nowMs + HCXDefencePolicy.SHOT_SPACING_MS;
-        array<eAIBase> actors = eAIBase.eAI_GetAll();
+        array<eAIBase> actors = HCXExpansionBridge.HCBaseGetAll();
         if (!actors || actors.Count() == 0) { return; }
         bool loud = !weapon.IsKindOf("Archery_Base");
         ItemBase suppressor = weapon.GetAttachedSuppressor();
@@ -508,10 +508,10 @@ class HCXDefence
         {
             if (!s_Budget.HCContinue() || candidates >= 3) { break; }
             eAIBase actor = actors.Get(actorIndex);
-            if (!actor || !actor.IsAlive() || actor.IsUnconscious() || !HCXStance.Owns(actor)) { continue; }
-            eAIGroup group = actor.GetGroup();
-            if (!group || group == shooter.GetGroup() || provoked.Contains(group.GetID())) { continue; }
-            vector chest = actor.GetPosition() + Vector(0, 1.1, 0);
+            if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseIsUnconscious(actor) || !HCXStance.Owns(actor)) { continue; }
+            eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor);
+            if (!group || group == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(shooter) || provoked.Contains(HCXExpansionBridge.HCGroupGetID(group))) { continue; }
+            vector chest = HCXExpansionBridge.HCBaseGetPosition(actor) + Vector(0, 1.1, 0);
             vector toActor = chest - eye;
             float shooterDistance = toActor.Length();
             if (shooterDistance > 250) { continue; }
@@ -530,13 +530,13 @@ class HCXDefence
             if (nowMs < gate.ExcusedUntil) { s_Excused++; break; }
             if (infectedShooter < 0) { infectedShooter = InfectedNear(shooterPos, nowMs); }
             int infectedActor = 0;
-            if (infectedShooter == 0) { infectedActor = InfectedNear(actor.GetPosition(), nowMs); }
+            if (infectedShooter == 0) { infectedActor = InfectedNear(HCXExpansionBridge.HCBaseGetPosition(actor), nowMs); }
             if (HCXDefencePolicy.Excused(infectedShooter, infectedActor))
             {
                 NoteExcuse(gate, nowMs);
                 break;
             }
-            provoked.Set(group.GetID(), true);
+            provoked.Set(HCXExpansionBridge.HCGroupGetID(group), true);
             Provoke(actor, shooter, nowMs, shooterPos);
         }
     }
@@ -546,10 +546,10 @@ class HCXDefence
     static void OnImpact(eAIBase actor, EntityAI source, vector position)
     {
         if (!s_Running || !actor || position == vector.Zero) { return; }
-        if (vector.Distance(actor.GetPosition() + Vector(0, 1.0, 0), position) > HCXDefencePolicy.PASS_RADIUS) { return; }
-        if (!actor.IsAlive() || actor.IsUnconscious() || !HCXStance.Owns(actor)) { return; }
+        if (vector.Distance(HCXExpansionBridge.HCBaseGetPosition(actor) + Vector(0, 1.0, 0), position) > HCXDefencePolicy.PASS_RADIUS) { return; }
+        if (!HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseIsUnconscious(actor) || !HCXStance.Owns(actor)) { return; }
         PlayerBase shooter = AttackerOf(source);
-        if (!shooter || actor.GetGroup() == shooter.GetGroup()) { return; }
+        if (!shooter || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(shooter)) { return; }
         int nowMs = GetGame().GetTime();
         HCXShotGate gate = Gate(shooter);
         if (!gate) { s_Refused++; return; }
@@ -558,7 +558,7 @@ class HCXDefence
         gate.NextImpact = nowMs + HCXDefencePolicy.SHOT_SPACING_MS;
         int infectedShooter = InfectedNear(shooter.GetPosition(), nowMs);
         int infectedActor = 0;
-        if (infectedShooter == 0) { infectedActor = InfectedNear(actor.GetPosition(), nowMs); }
+        if (infectedShooter == 0) { infectedActor = InfectedNear(HCXExpansionBridge.HCBaseGetPosition(actor), nowMs); }
         if (HCXDefencePolicy.Excused(infectedShooter, infectedActor))
         {
             NoteExcuse(gate, nowMs);
@@ -635,24 +635,7 @@ class HCXDefenceModule : HCModule
     override void OnStop() { HCXDefence.Stop(); }
 }
 
-modded class eAIBase
-{
-    override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
-    {
-        super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
-        if (GetGame() && GetGame().IsServer()) { HCXDefence.OnHit(this, source); }
-    }
-    override void EEKilled(Object killer)
-    {
-        super.EEKilled(killer);
-        if (GetGame() && GetGame().IsServer()) { HCXDefence.OnKill(this, killer); }
-    }
-    override void eAI_OnNoiseEvent(EntityAI source, vector position, float lifetime, eAINoiseParams params, float strengthMultiplier)
-    {
-        super.eAI_OnNoiseEvent(source, position, lifetime, params, strengthMultiplier);
-        if (params && source && params.m_Type == eAINoiseType.BULLETIMPACT) { HCXDefence.OnImpact(this, source, position); }
-    }
-}
+
 
 modded class Weapon_Base
 {
@@ -680,3 +663,4 @@ modded class HCModuleRegistry
         Register(new HCXDefenceModule());
     }
 }
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

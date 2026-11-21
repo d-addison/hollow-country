@@ -444,7 +444,7 @@ class HCXAITactics
     protected static HCXTacticsGroup Track(eAIGroup group, int nowMs)
     {
         if (!group || !s_Config) { return null; }
-        int id = group.GetID();
+        int id = HCXExpansionBridge.HCGroupGetID(group);
         for (int index = 0; index < s_Groups.Count(); index++)
         {
             HCXTacticsGroup known = s_Groups.Get(index);
@@ -463,7 +463,7 @@ class HCXAITactics
     {
         if (!HCXStance.Owns(ai)) { return; }
         int nowMs = GetGame().GetTime();
-        HCXTacticsGroup rec = HCXAITactics.Track(ai.GetGroup(), nowMs);
+        HCXTacticsGroup rec = HCXAITactics.Track(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai), nowMs);
         if (!rec) { return; }
         rec.Fire.Set(rec.FireNext, nowMs);
         rec.FireNext++;
@@ -483,7 +483,7 @@ class HCXAITactics
     static void OnImpact(eAIBase ai, vector position)
     {
         if (!s_Running || !ai || !s_Config) { return; }
-        if (vector.Distance(ai.GetPosition(), position) > s_Config.NearMissMeters) { return; }
+        if (vector.Distance(HCXExpansionBridge.HCBaseGetPosition(ai), position) > s_Config.NearMissMeters) { return; }
         HCXAITactics.NoteFire(ai);
     }
 
@@ -500,11 +500,11 @@ class HCXAITactics
 
     protected static bool DownedMate(eAIGroup group, eAIBase actor)
     {
-        if (!group.IsInCombat()) { return false; }
-        int total = group.Count();
+        if (!HCXExpansionBridge.HCGroupIsInCombat(group)) { return false; }
+        int total = HCXExpansionBridge.HCGroupCount(group);
         for (int slot = 0; slot < total && slot < HCXAITacticsPolicy.MEMBER_SCAN_MAX; slot++)
         {
-            PlayerBase mate = PlayerBase.Cast(group.GetMember(slot));
+            PlayerBase mate = PlayerBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, slot));
             if (mate && mate != actor && mate.IsAlive() && mate.IsUnconscious()) { return true; }
         }
         return false;
@@ -515,22 +515,22 @@ class HCXAITactics
     protected static void Perceive(eAIBase actor)
     {
         s_View.HCClear();
-        array<ref eAITarget> targets = actor.GetTargets();
+        array<ref eAITarget> targets = HCXExpansionBridge.HCBaseGetTargets(actor);
         if (!targets) { return; }
-        vector here = actor.GetPosition();
+        vector here = HCXExpansionBridge.HCBaseGetPosition(actor);
         for (int slot = 0; slot < targets.Count() && slot < HCXAITacticsPolicy.TARGET_SCAN_MAX; slot++)
         {
             eAITarget target = targets.Get(slot);
             if (!target || !target.m_Info || !target.m_LOS) { continue; }
-            vector at = target.GetPosition();
+            vector at = HCXExpansionBridge.HCTargetGetPosition(target);
             float meters = vector.Distance(here, at);
-            if (target.m_Info.IsZombie())
+            if (HCXExpansionBridge.HCTargetInformationIsZombie(target.m_Info))
             {
                 s_View.Infected++;
                 if (meters < s_View.Nearest) { s_View.Nearest = meters; s_View.NearestAt = at; }
                 continue;
             }
-            if (target.m_Info.IsNoise() || target.m_Info.IsItem() || target.m_ThreatLevelActive <= 0) { continue; }
+            if (HCXExpansionBridge.HCTargetInformationIsNoise(target.m_Info) || HCXExpansionBridge.HCTargetInformationIsItem(target.m_Info) || target.m_ThreatLevelActive <= 0) { continue; }
             s_View.HumanSeen = true;
             if (meters < s_View.ThreatMeters) { s_View.ThreatMeters = meters; s_View.ThreatAt = at; s_View.Seen = true; }
         }
@@ -561,7 +561,7 @@ class HCXAITactics
 
     protected static void Evaluate(eAIBase actor, int nowMs)
     {
-        eAIGroup group = actor.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor);
         HCXTacticsGroup rec = HCXAITactics.Track(group, nowMs);
         if (!rec) { return; }
         if (HCXAITacticsPolicy.WindowExpired(nowMs, rec.WindowStart, s_Config.CapWindowSec * 1000))
@@ -601,7 +601,7 @@ class HCXAITactics
     {
         eAIBase actor = s_ScanActor;
         HCXTacticsGroup rec = s_ScanGroup;
-        vector here = actor.GetPosition();
+        vector here = HCXExpansionBridge.HCBaseGetPosition(actor);
         float meters = vector.Distance(here, s_ScanAim);
         float reach = HCXAITacticsPolicy.ThrowMeters(meters, s_Config.SmokeThrowMeters, s_Config.SmokeThreatFractionPct);
         vector heading = s_ScanAim - here;
@@ -633,7 +633,7 @@ class HCXAITactics
     {
         eAIBase actor = s_ScanActor;
         HCXTacticsGroup rec = s_ScanGroup;
-        vector here = actor.GetPosition();
+        vector here = HCXExpansionBridge.HCBaseGetPosition(actor);
         vector toward = s_ScanAim - here;
         toward[1] = 0;
         toward = toward.Normalized();
@@ -670,7 +670,7 @@ class HCXAITactics
     protected static void StepScan(int nowMs)
     {
         if (!s_Scan) { return; }
-        if (!s_ScanActor || !s_ScanActor.IsAlive() || nowMs - s_ScanStartedMs > HCXAITacticsPolicy.SCAN_TIMEOUT_MS)
+        if (!s_ScanActor || !HCXExpansionBridge.HCBaseIsAlive(s_ScanActor) || nowMs - s_ScanStartedMs > HCXAITacticsPolicy.SCAN_TIMEOUT_MS)
         {
             HCXAITactics.EndScan();
             return;
@@ -744,8 +744,8 @@ class HCXAITactics
                     string faction = "";
                     if (pending.Actor)
                     {
-                        eAIGroup smokeGroup = pending.Actor.GetGroup();
-                        if (smokeGroup) { faction = HCXFactions.HCWorldId(HCXFactions.Id(smokeGroup.GetFaction())); }
+                        eAIGroup smokeGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(pending.Actor);
+                        if (smokeGroup) { faction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(smokeGroup))); }
                     }
                     incidents.HCPublishAs("signal_smoke", pending.Item.GetPosition(), 0, 0, pending.Item, faction);
                 }
@@ -764,7 +764,7 @@ class HCXAITactics
     // Visits a bounded number of AI per check, rotating, then one ledger sweep.
     protected static void PollActors(int nowMs)
     {
-        array<eAIBase> all = eAIBase.eAI_GetAll();
+        array<eAIBase> all = HCXExpansionBridge.HCBaseGetAll();
         if (!all) { return; }
         int total = all.Count();
         if (total < 1) { return; }
@@ -775,7 +775,7 @@ class HCXAITactics
             if (!s_Budget.HCContinue()) { s_Deferred++; break; }
             eAIBase actor = all.Get(s_Cursor);
             s_Cursor++;
-            if (!actor || !actor.IsAlive() || actor.IsUnconscious() || !HCXStance.Owns(actor)) { continue; }
+            if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseIsUnconscious(actor) || !HCXStance.Owns(actor)) { continue; }
             evaluated++;
             HCXAITactics.Evaluate(actor, nowMs);
         }
@@ -862,20 +862,7 @@ class HCXAITacticsModule : HCModule
     override void OnStop() { HCXAITactics.Stop(); }
 }
 
-modded class eAIBase
-{
-    override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
-    {
-        super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
-        if (GetGame() && GetGame().IsServer()) { HCXAITactics.OnHit(this, source); }
-    }
 
-    override void eAI_OnNoiseEvent(EntityAI source, vector position, float lifetime, eAINoiseParams params, float strengthMultiplier)
-    {
-        super.eAI_OnNoiseEvent(source, position, lifetime, params, strengthMultiplier);
-        if (params && source && params.m_Type == eAINoiseType.BULLETIMPACT) { HCXAITactics.OnImpact(this, position); }
-    }
-}
 
 modded class HCModuleRegistry
 {
@@ -886,3 +873,4 @@ modded class HCModuleRegistry
         Register(tacticsModule);
     }
 }
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

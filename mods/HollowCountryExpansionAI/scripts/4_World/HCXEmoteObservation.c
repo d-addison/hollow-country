@@ -28,47 +28,7 @@ modded class HCXAISitePolicy
 // One weak target per actor, no global player map or discovery. Only observed
 // surrender sets this latch. Retained maintenance and native control paths use
 // the observation, never poll unseen players' gesture/surrender state.
-modded class eAIBase
-{
-    protected PlayerBase m_HCXCeaseTarget;
-    protected int m_HCXCeaseUntil;
 
-    bool HCXSignalBlocked(PlayerBase player = null)
-    {
-        if (!GetGame() || !GetGame().IsServer() || !m_HCXCeaseTarget || GetGame().GetTime() >= m_HCXCeaseUntil) { return false; }
-        if (player) { return player == m_HCXCeaseTarget; }
-        eAITarget target = GetTarget();
-        return target && target.GetEntity() == m_HCXCeaseTarget;
-    }
-    bool HCXSignalCease(PlayerBase player)
-    {
-        if (!player) { return false; }
-        m_HCXCeaseTarget = player;
-        m_HCXCeaseUntil = GetGame().GetTime() + 2000;
-        eAITarget target = GetTarget();
-        if (target && target.GetEntity() == player) { RaiseWeapon(false); }
-        return HCXSignalBlocked(player);
-    }
-    void HCXSignalRelease(PlayerBase player)
-    {
-        if (player == m_HCXCeaseTarget) { m_HCXCeaseTarget = null; m_HCXCeaseUntil = 0; }
-    }
-    override bool CanRaiseWeapon()
-    {
-        if (HCXSignalBlocked()) { return false; }
-        return super.CanRaiseWeapon();
-    }
-    override void RaiseWeapon(bool up = true)
-    {
-        if (up && HCXSignalBlocked()) { up = false; }
-        super.RaiseWeapon(up);
-    }
-    override bool eAI_CanFire(Weapon_Base weapon)
-    {
-        if (HCXSignalBlocked()) { RaiseWeapon(false); return false; }
-        return super.eAI_CanFire(weapon);
-    }
-}
 modded class EmoteManager
 {
     protected int m_HCSignalSerial;
@@ -129,17 +89,17 @@ class HCXNativeSignalProvider : HCXSignalProvider
     }
     override bool Emote(eAIBase actor, int gesture)
     {
-        if (!actor || !actor.GetEmoteManager()) { return false; }
-        actor.RaiseWeapon(false);
-        if (!actor.GetEmoteManager().CanPlayEmote(gesture)) { return false; }
-        int before = actor.GetEmoteManager().HCSignalSerial();
-        actor.Expansion_SetEmote(gesture, true, 1500);
-        actor.Expansion_PlayEmote();
-        return actor.GetEmoteManager().HCSignalSerial() > before && actor.GetEmoteManager().HCSignalGesture() == gesture;
+        if (!actor || !HCXExpansionBridge.HCBaseGetEmoteManager(actor)) { return false; }
+        HCXExpansionBridge.HCBaseRaiseWeapon(actor, false);
+        if (!HCXExpansionBridge.HCBaseGetEmoteManager(actor).CanPlayEmote(gesture)) { return false; }
+        int before = HCXExpansionBridge.HCBaseGetEmoteManager(actor).HCSignalSerial();
+        HCXExpansionBridge.HCBaseExpansion_SetEmote(actor, gesture, true, 1500);
+        HCXExpansionBridge.HCBaseExpansion_PlayEmote(actor);
+        return HCXExpansionBridge.HCBaseGetEmoteManager(actor).HCSignalSerial() > before && HCXExpansionBridge.HCBaseGetEmoteManager(actor).HCSignalGesture() == gesture;
     }
     override void Tick(eAIBase actor)
     {
-        if (actor && actor.HCXSignalBlocked()) { actor.RaiseWeapon(false); }
+        if (actor && actor.HCXSignalBlocked()) { HCXExpansionBridge.HCBaseRaiseWeapon(actor, false); }
     }
 }
 class HCXEmoteObservation
@@ -265,19 +225,19 @@ class HCXEmoteObservation
     }
     static void Remember(eAIBase actor, PlayerBase player, string faction = "")
     {
-        if (!s_Running || !GetGame() || !GetGame().IsServer() || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return; }
-        if (actor.GetGroup() == player.GetGroup()) { return; }
-        if (!s_Store.ValidKey(actor.GetGroup().GetName()) || !s_Store.ValidKey(player.GetIdentity().GetId())) { return; }
+        if (!s_Running || !GetGame() || !GetGame().IsServer() || !s_Store || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || !player || !player.GetIdentity()) { return; }
+        if (HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(player)) { return; }
+        if (!s_Store.ValidKey(HCXExpansionBridge.HCGroupGetName(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor))) || !s_Store.ValidKey(player.GetIdentity().GetId())) { return; }
         // Repeated EEHitBy callbacks for an existing receipt are a cheap no-op.
         // Explicit later Remember calls on the store can refresh retention.
-        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId()) && (faction == "" || s_Store.HasFaction(faction, player.GetIdentity().GetId()))) { return; }
+        if (s_Store.Has(HCXExpansionBridge.HCGroupGetName(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)), player.GetIdentity().GetId()) && (faction == "" || s_Store.HasFaction(faction, player.GetIdentity().GetId()))) { return; }
         if (!HCXEmoteObservation.EventWork())
         {
             HCXEmoteObservation.RefuseControl("betrayal_event_cap");
             return;
         }
         int eventUtc = HCGroupClock.Utc();
-        bool saved = s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), eventUtc);
+        bool saved = s_Store.Remember(HCXExpansionBridge.HCGroupGetName(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)), player.GetIdentity().GetId(), eventUtc);
         if (saved && faction != "") { saved = s_Store.RememberFaction(faction, player.GetIdentity().GetId(), eventUtc); }
         if (!saved && !s_Store.Healthy() && !s_StoreRefused)
         {
@@ -287,9 +247,9 @@ class HCXEmoteObservation
     }
     static bool Grudge(eAIBase actor, PlayerBase player)
     {
-        if (!s_Running || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return false; }
-        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId())) { return true; }
-        string faction = HCXFactions.Id(actor.GetGroup().GetFaction());
+        if (!s_Running || !s_Store || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || !player || !player.GetIdentity()) { return false; }
+        if (s_Store.Has(HCXExpansionBridge.HCGroupGetName(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)), player.GetIdentity().GetId())) { return true; }
+        string faction = HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)));
         return s_Store.HasFaction(faction, player.GetIdentity().GetId());
     }
     static bool Surrender(eAIBase actor, PlayerBase player, bool observed)
@@ -350,3 +310,4 @@ class HCXEmoteObservation
         return false;
     }
 }
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

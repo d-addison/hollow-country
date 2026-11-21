@@ -15,7 +15,7 @@ class HCXWarningShot
 {
     static bool Fire(eAIBase actor, PlayerBase player, Weapon_Base weapon)
     {
-        vector origin = actor.GetPosition() + Vector(0, 1.6, 0);
+        vector origin = HCXExpansionBridge.HCBaseGetPosition(actor) + Vector(0, 1.6, 0);
         vector approach = player.GetPosition() - origin;
         approach[1] = 0;
         approach.Normalize();
@@ -63,7 +63,7 @@ class HCXWarningShot
             // and its trajectory remains this server's native Fire call.
             // Shot id 0: the provider packs muzzle and shot id into one int and its
             // client id check is disabled, so a large id would only corrupt the muzzle.
-            actor.eAI_FireWeaponOnClient(muzzle, 0);
+            HCXExpansionBridge.HCBaseFireWeaponOnClient(actor, muzzle, 0);
             weapon.RandomizeFSMState();
             weapon.Synchronize();
             Print("[HollowCountry] Stance warning_shot fired offset=12m runtime=PENDING");

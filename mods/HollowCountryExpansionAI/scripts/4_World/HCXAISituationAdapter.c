@@ -35,10 +35,10 @@ class HCXSituationAnchor
                 s_Cursors.Set(lease, cursor);
             }
         }
-        if (!party || !party.Patrol || !party.Patrol.m_Group || party.Patrol.m_Group.Count() == 0) { return false; }
-        eAIBase leader = eAIBase.Cast(party.Patrol.m_Group.GetMember(0));
-        if (!leader || !leader.IsAlive()) { return false; }
-        anchor = leader.GetPosition();
+        if (!party || !party.Patrol || !party.Patrol.m_Group || HCXExpansionBridge.HCGroupCount(party.Patrol.m_Group) == 0) { return false; }
+        eAIBase leader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(party.Patrol.m_Group, 0));
+        if (!leader || !HCXExpansionBridge.HCBaseIsAlive(leader)) { return false; }
+        anchor = HCXExpansionBridge.HCBaseGetPosition(leader);
         return HCEventRuntimePolicy.PositionValid(anchor);
     }
 }

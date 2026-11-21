@@ -332,7 +332,7 @@ class HCXAIRoleLease
 
     void HCRelease()
     {
-        if (Held && Group && Group.GetWaypointBehaviour() == eAIWaypointBehavior.HALT) { Group.SetWaypointBehaviour(Previous); }
+        if (Held && Group && HCXExpansionBridge.HCGroupGetWaypointBehaviour(Group) == eAIWaypointBehavior.HALT) { HCXExpansionBridge.HCGroupSetWaypointBehaviour(Group, Previous); }
         Held = false;
     }
 }
@@ -503,11 +503,11 @@ class HCXAIRoleActivities : HCModule
             if (state.PatrolPoints.Count() < 1) { return "PATROL_ROUTE_ABSENT"; }
             if (activity == "patrol")
             {
-                if (group.GetWaypointBehaviour() == eAIWaypointBehavior.HALT) { return "PATROL_HALTED"; }
-                array<vector> route = group.GetWaypoints();
+                if (HCXExpansionBridge.HCGroupGetWaypointBehaviour(group) == eAIWaypointBehavior.HALT) { return "PATROL_HALTED"; }
+                array<vector> route = HCXExpansionBridge.HCGroupGetWaypoints(group);
                 if (!route || route.Count() < 1) { return "PATROL_ROUTE_ABSENT"; }
             }
-            if (activity == "hold") { group.SetWaypointBehaviour(eAIWaypointBehavior.HALT); }
+            if (activity == "hold") { HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.HALT); }
             return "";
         }
         if (activity == "raid")
@@ -525,8 +525,8 @@ class HCXAIRoleActivities : HCModule
         if (activity == "encounter")
         {
             if (!partner || !partner.Site || !partner.Patrol || !partner.Patrol.m_Group) { return "ENCOUNTER_PARTNER_ABSENT"; }
-            string leftFaction = HCXFactions.HCWorldId(HCXFactions.Id(group.GetFaction()));
-            string rightFaction = HCXFactions.HCWorldId(HCXFactions.Id(partner.Patrol.m_Group.GetFaction()));
+            string leftFaction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group)));
+            string rightFaction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(partner.Patrol.m_Group)));
             if (state.HCW70Place == "")
             {
                 HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
@@ -571,7 +571,7 @@ class HCXAIRoleActivities : HCModule
             HCReached.Mark("ai_roles.lease");
             bool expired = HCWorldClock.UTC() >= expiring.Until;
             if (expired && expiring.HCProviderBusy()) { expired = false; }
-            if (expired || !expiring.Group || expiring.Group.Count() < 1)
+            if (expired || !expiring.Group || HCXExpansionBridge.HCGroupCount(expiring.Group) < 1)
             {
                 expiring.HCRelease();
                 m_Leases.RemoveOrdered(m_LeaseCursor);
@@ -599,8 +599,8 @@ class HCXAIRoleActivities : HCModule
             int now = HCWorldClock.UTC();
             if (!state.Site || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
             eAIGroup group = state.Patrol.m_Group;
-            if (!group || group.Count() < 1 || this.HCHasGroupLease(group)) { continue; }
-            if (group.IsInCombat()) { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
+            if (!group || HCXExpansionBridge.HCGroupCount(group) < 1 || this.HCHasGroupLease(group)) { continue; }
+            if (HCXExpansionBridge.HCGroupIsInCombat(group)) { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
             // Never steal a reserved route/cargo controller. Native combat
             // remains free to act during every role lease.
             if (HCBaseRaid.HCOwns(state.ProposalId)) { continue; }
@@ -644,27 +644,27 @@ class HCXAIRoleActivities : HCModule
                 if (camp.Home.State == "ALERT") { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
             }
             bool infected = false;
-            eAIBase actor = eAIBase.Cast(group.GetMember(0));
-            if (actor && actor.IsAlive() && !actor.GetIdentity() && actor.TargetCount() > 0 && actor.GetThreatToSelf() > 0)
+            eAIBase actor = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, 0));
+            if (actor && HCXExpansionBridge.HCBaseIsAlive(actor) && !HCXExpansionBridge.HCBaseGetIdentity(actor) && HCXExpansionBridge.HCBaseTargetCount(actor) > 0 && HCXExpansionBridge.HCBaseGetThreatToSelf(actor) > 0)
             {
-                eAITarget perceived = actor.GetTarget();
+                eAITarget perceived = HCXExpansionBridge.HCBaseGetTarget(actor);
                 if (perceived)
                 {
-                    ZombieBase perceivedInfected = ZombieBase.Cast(perceived.GetEntity());
+                    ZombieBase perceivedInfected = ZombieBase.Cast(HCXExpansionBridge.HCTargetGetEntity(perceived));
                     float perceivedRangeSq = m_Config.PerceivedInfectedMeters * m_Config.PerceivedInfectedMeters;
-                    if (perceivedInfected && vector.DistanceSq(actor.GetPosition(), perceivedInfected.GetPosition()) <= perceivedRangeSq) { infected = true; }
+                    if (perceivedInfected && vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(actor), perceivedInfected.GetPosition()) <= perceivedRangeSq) { infected = true; }
                 }
             }
             int year; int month; int day; int hour; int minute;
             GetGame().GetWorld().GetDate(year, month, day, hour, minute);
             bool night = HCXAIRolePolicy.HCNight(hour, m_Config.NightStartHour, m_Config.NightEndHour);
-            string faction = HCXFactions.HCWorldId(HCXFactions.Id(group.GetFaction()));
+            string faction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group)));
             string role = HCXAIRolePolicy.HCDerive(m_Config.Rules, faction, state.Site.Kind, state.Site.Loadout, homeId);
             string activity = HCXAIRolePolicy.HCChoose(m_Config.Activities, role, need, now < state.HCW70DangerUntil, infected, night, state.HCW70Ticket);
             state.HCW70Ticket = (state.HCW70Ticket + 1) % m_Config.TicketCycle;
             HCXAISiteState partner = states[m_Cursor % states.Count()];
             if (partner == state || !partner || partner.Completed || partner.Failed || !partner.Qualified) { partner = null; }
-            eAIWaypointBehavior previous = group.GetWaypointBehaviour();
+            eAIWaypointBehavior previous = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
             string reason = HCStart(director, state, partner, group, activity, home, now);
             state.HCW70NextAt = now + m_Config.RetrySeconds;
             if (reason == "")

@@ -187,7 +187,7 @@ class HCXZoneGuards : HCModule
         if (!m_Started || m_Refusal != "" || !zone.Initialised) { return false; }
         if (zone.Row.State == "held")
         {
-            return !zone.Row.Wiped && zone.Site && !zone.Site.Failed && zone.Site.Patrol && !zone.Site.Patrol.m_HCFinished && zone.Site.Patrol.m_Group && zone.Site.Patrol.m_Group.Count() > 0;
+            return !zone.Row.Wiped && zone.Site && !zone.Site.Failed && zone.Site.Patrol && !zone.Site.Patrol.m_HCFinished && zone.Site.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(zone.Site.Patrol.m_Group) > 0;
         }
         if (zone.Row.State == "overrun")
         {
@@ -264,12 +264,12 @@ class HCXZoneGuards : HCModule
         {
             if (!zone.Site || !zone.Site.Patrol || zone.Site.Patrol.m_Group != group || zone.Row.State != "held") { continue; }
             int alive;
-            for (int i = 0; i < group.Count() && i < 6; i++)
+            for (int i = 0; i < HCXExpansionBridge.HCGroupCount(group) && i < 6; i++)
             {
-                DayZPlayerImplement member = group.GetMember(i);
+                DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(group, i);
                 if (member && member.IsAlive()) { alive++; }
             }
-            if (alive == 0 || group.Count() == 1)
+            if (alive == 0 || HCXExpansionBridge.HCGroupCount(group) == 1)
             {
                 zone.Row.Wiped = true;
                 Change(zone, "abandoned", HCEscalationClock.Day());

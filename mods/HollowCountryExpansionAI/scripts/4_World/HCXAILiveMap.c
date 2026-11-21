@@ -34,7 +34,7 @@ class HCXAILive
     {
         if (group)
         {
-            string groupName = group.GetName();
+            string groupName = HCXExpansionBridge.HCGroupGetName(group);
             if (groupName.Length() >= 3 && groupName.Substring(0, 3) == "HC:") { return "hc-site"; }
         }
         return "expansion";
@@ -44,11 +44,11 @@ class HCXAILive
     static string FactionName(eAIGroup group)
     {
         if (!group) { return "unknown"; }
-        eAIFaction faction = group.GetFaction();
+        eAIFaction faction = HCXExpansionBridge.HCGroupGetFaction(group);
         if (!faction) { return "unknown"; }
         string localId = HCXFactions.Id(faction);
         if (localId != "") { return localId; }
-        string typeName = faction.Type().ToString();
+        string typeName = HCXExpansionBridge.HCFactionType(faction).ToString();
         if (typeName.Length() > 10 && typeName.Substring(0, 10) == "eAIFaction")
         {
             int rest = typeName.Length() - 10;
@@ -59,7 +59,7 @@ class HCXAILive
 
     static string WeaponName(eAIBase ai)
     {
-        EntityAI held = ai.GetEntityInHands();
+        EntityAI held = HCXExpansionBridge.HCBaseGetEntityInHands(ai);
         if (!held) { return "none"; }
         return held.GetType();
     }
@@ -67,28 +67,28 @@ class HCXAILive
     // One live grouped unit becomes one "ai-units" point; false when skipped.
     static bool Emit(HCDebugSnapshot snapshot, eAIBase ai)
     {
-        if (!snapshot || !ai || !ai.IsAlive()) { return false; }
-        eAIGroup group = ai.GetGroup();
+        if (!snapshot || !ai || !HCXExpansionBridge.HCBaseIsAlive(ai)) { return false; }
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai);
         if (!group) { return false; }
-        int size = group.Count();
+        int size = HCXExpansionBridge.HCGroupCount(group);
         string state = "patrol";
-        if (group.IsInCombat()) { state = "combat"; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(group)) { state = "combat"; }
         if (eAINPCBase.Cast(ai)) { state = "npc"; }
         string source = HCXAILive.Source(group);
         string faction = HCXAILive.FactionName(group);
         string weapon = HCXAILive.WeaponName(ai);
-        int slot = group.GetIndex(ai);
-        string id = "g" + group.GetID().ToString() + ":" + slot.ToString();
+        int slot = HCXExpansionBridge.HCGroupGetIndex(group, ai);
+        string id = "g" + HCXExpansionBridge.HCGroupGetID(group).ToString() + ":" + slot.ToString();
         string label = faction + " x" + size.ToString() + " " + state + " [" + source + "]";
-        string detail = "source=" + source + " faction=" + faction + " group=" + group.GetID().ToString() + " size=" + size.ToString() + " state=" + state + " weapon=" + weapon + " name=" + group.GetName();
-        snapshot.AddPoint("ai-units", id, ai.GetPosition(), label, detail);
+        string detail = "source=" + source + " faction=" + faction + " group=" + HCXExpansionBridge.HCGroupGetID(group).ToString() + " size=" + size.ToString() + " state=" + state + " weapon=" + weapon + " name=" + HCXExpansionBridge.HCGroupGetName(group);
+        snapshot.AddPoint("ai-units", id, HCXExpansionBridge.HCBaseGetPosition(ai), label, detail);
         return true;
     }
 
     // Page 0 fixes the window for the capture and moves the cursor; page 1 reuses it.
     void Describe(HCDebugSnapshot snapshot, int page)
     {
-        int total = eAIBase.eAI_GetAll().Count();
+        int total = HCXExpansionBridge.HCBaseGetAll().Count();
         if (total > HCAILimits.Get().MaxObservedAI) { total = HCAILimits.Get().MaxObservedAI; }
         if (!snapshot || total <= 0)
         {
@@ -110,7 +110,7 @@ class HCXAILive
         {
             int index = (m_Base + offset + step) % total;
             step++;
-            HCXAILive.Emit(snapshot, eAIBase.Get(index));
+            HCXAILive.Emit(snapshot, HCXExpansionBridge.HCBaseGet(index));
         }
     }
 
@@ -118,11 +118,11 @@ class HCXAILive
     static bool Leads(eAIGroup group, eAIBase ai)
     {
         int slot = 0;
-        while (slot < group.Count() && slot < 64)
+        while (slot < HCXExpansionBridge.HCGroupCount(group) && slot < 64)
         {
-            eAIBase member = eAIBase.Cast(group.GetMember(slot));
+            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, slot));
             slot++;
-            if (member && member.IsAlive()) { return member == ai; }
+            if (member && HCXExpansionBridge.HCBaseIsAlive(member)) { return member == ai; }
         }
         return false;
     }
@@ -139,15 +139,15 @@ class HCXAILive
         int groups = 0;
         int expansion = 0;
         int hc = 0;
-        int total = eAIBase.eAI_GetAll().Count();
+        int total = HCXExpansionBridge.HCBaseGetAll().Count();
         if (total > HCAILimits.Get().MaxObservedAI) { total = HCAILimits.Get().MaxObservedAI; }
         int index = 0;
         while (index < total)
         {
-            eAIBase ai = eAIBase.Get(index);
+            eAIBase ai = HCXExpansionBridge.HCBaseGet(index);
             index++;
-            if (!ai || !ai.IsAlive()) { continue; }
-            eAIGroup group = ai.GetGroup();
+            if (!ai || !HCXExpansionBridge.HCBaseIsAlive(ai)) { continue; }
+            eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai);
             if (!group) { continue; }
             units++;
             if (!HCXAILive.Leads(group, ai)) { continue; }

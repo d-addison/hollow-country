@@ -90,19 +90,19 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
     override bool HCOwns(string lease, string faction, Object actor, string placeId, string survey)
     {
         eAIBase body = eAIBase.Cast(actor);
-        if (!body || !body.IsAlive() || body.GetIdentity()) { return false; }
+        if (!body || !HCXExpansionBridge.HCBaseIsAlive(body) || HCXExpansionBridge.HCBaseGetIdentity(body)) { return false; }
         if (!HCSurveyState(placeId, survey)) { return false; }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(lease);
         if (!HCAIPartyIdentity.HCValid(identity) || !HCLeaseAtPlace(lease, placeId)) { return false; }
         HCXAISiteState owner = HCLeaseState(lease);
         if (!owner) { return false; }
-        eAIGroup group = body.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(body);
         if (!group || group != owner.Patrol.m_Group) { return false; }
-        if (HCXFactions.HCWorldId(HCXFactions.Id(group.GetFaction())) != faction || faction == "") { return false; }
+        if (HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group))) != faction || faction == "") { return false; }
         if (m_Groups.Find(group) >= 0) { return true; }
         if (m_Groups.Count() >= HCXFactionCombatAdapter.MAX_RECORDED_GROUPS) { return false; }
         m_Groups.Insert(group);
-        m_InitialDeceased.Insert(group.DeceasedCount());
+        m_InitialDeceased.Insert(HCXExpansionBridge.HCGroupDeceasedCount(group));
         return true;
     }
 
@@ -114,8 +114,8 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         for (int index = 0; index < m_Groups.Count(); index++)
         {
             eAIGroup group = m_Groups[index];
-            if (group && group.IsInCombat()) { m_SeenCombat = true; return false; }
-            if (group && group.DeceasedCount() > m_InitialDeceased[index]) { m_SeenCombat = true; }
+            if (group && HCXExpansionBridge.HCGroupIsInCombat(group)) { m_SeenCombat = true; return false; }
+            if (group && HCXExpansionBridge.HCGroupDeceasedCount(group) > m_InitialDeceased[index]) { m_SeenCombat = true; }
         }
         return m_SeenCombat;
     }
@@ -132,7 +132,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         if (!state || !state.Transient || !state.Qualified || state.Failed || state.Completed) { return false; }
         if (!state.Patrol || !state.Patrol.m_HCLive || !state.Patrol.m_Group) { return false; }
         if (!HCLeaseAtPlace(state.ProposalId, place)) { return false; }
-        return HCXFactions.HCWorldId(HCXFactions.Id(state.Patrol.m_Group.GetFaction())) == faction;
+        return HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(state.Patrol.m_Group))) == faction;
     }
 
     override bool HCActiveAt(string placeId)
@@ -150,11 +150,11 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
 
     protected void HCOfferBodies(eAIGroup group, array<Object> actors)
     {
-        int count = group.Count();
+        int count = HCXExpansionBridge.HCGroupCount(group);
         if (count < 1 || count > HCAILimits.SIZE_CEILING) { return; }
         for (int actorIndex = 0; actorIndex < count; actorIndex++)
         {
-            DayZPlayerImplement actor = group.GetMember(actorIndex);
+            DayZPlayerImplement actor = HCXExpansionBridge.HCGroupGetMember(group, actorIndex);
             if (!actor || !actor.IsAlive() || actor.GetIdentity()) { actors.Clear(); return; }
             actors.Insert(actor);
         }

@@ -26,9 +26,9 @@ modded class HCXEmoteObservation
 {
     static int HCCampDanger(eAIBase actor, map<string, bool> members)
     {
-        if (!HCXEmoteObservation.Ready() || !actor || !actor.GetGroup()) { return -1; }
-        string faction = HCXFactions.Id(actor.GetGroup().GetFaction());
-        return s_Store.HCCampDanger(actor.GetGroup().GetName(), faction, members);
+        if (!HCXEmoteObservation.Ready() || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)) { return -1; }
+        string faction = HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)));
+        return s_Store.HCCampDanger(HCXExpansionBridge.HCGroupGetName(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)), faction, members);
     }
 }
 
@@ -38,12 +38,12 @@ modded class HCXDefence
     // and can seed targets. A retained, unexpired non-rescue grudge vetoes.
     static bool HCCampDanger(eAIBase actor, map<string, bool> members)
     {
-        if (!s_Running || !actor || !actor.GetGroup()) { return false; }
+        if (!s_Running || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)) { return false; }
         int nowMs = GetGame().GetTime();
         if (nowMs < 0) { return true; }
         foreach (HCXGrudge grudge : s_Grudges)
         {
-            if (!grudge || grudge.Group != actor.GetGroup() || grudge.Until <= nowMs || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { continue; }
+            if (!grudge || grudge.Group != HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || grudge.Until <= nowMs || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { continue; }
             if (!grudge.Attacker || !grudge.Attacker.GetIdentity()) { return true; }
             if (members.Contains(grudge.Attacker.GetIdentity().GetId())) { return true; }
         }

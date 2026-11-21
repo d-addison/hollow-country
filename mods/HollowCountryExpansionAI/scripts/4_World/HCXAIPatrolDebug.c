@@ -22,16 +22,16 @@ class HCXAIPatrolDebug : HCDebugContributor
             visited++;
             if (!state || !state.Qualified || !state.Patrol) { continue; }
             eAIGroup group = state.Patrol.m_Group;
-            if (!group || group.Count() == 0) { continue; }
-            string faction = HCXFactions.Id(group.GetFaction());
+            if (!group || HCXExpansionBridge.HCGroupCount(group) == 0) { continue; }
+            string faction = HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group));
             if (faction == "") { faction = state.Site.Faction; }
             string activity = "patrol";
-            if (group.IsInCombat()) { activity = "combat"; }
+            if (HCXExpansionBridge.HCGroupIsInCombat(group)) { activity = "combat"; }
             string detail = "faction=" + faction + " state=" + activity + " kind=" + state.Site.Kind;
             int memberIndex = 0;
-            while (memberIndex < group.Count() && memberSlots < 64)
+            while (memberIndex < HCXExpansionBridge.HCGroupCount(group) && memberSlots < 64)
             {
-                DayZPlayerImplement member = group.GetMember(memberIndex);
+                DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(group, memberIndex);
                 memberSlots++;
                 if (member && member.IsAlive())
                 {

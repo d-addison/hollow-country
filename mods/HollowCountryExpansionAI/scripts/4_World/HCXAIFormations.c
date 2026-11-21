@@ -359,7 +359,7 @@ class HCXAIStyleFormation : eAIFormation
         m_HCConfig = config;
         m_HCSeed = seed;
         // Seeded jitter replaces the native per-refresh random looseness.
-        SetLooseness(0.0);
+        HCXExpansionBridge.HCFormationSetLooseness(this, 0.0);
     }
 
     void HCSetMode(int mode)
@@ -628,11 +628,11 @@ class HCXAIFormationController
     {
         if (now >= style.PauseUntil) { return true; }
         eAIGroup group = style.GroupRef;
-        if (!group || group.IsInCombat()) { return true; }
+        if (!group || HCXExpansionBridge.HCGroupIsInCombat(group)) { return true; }
         for (int i = 0; i < style.Halted.Count(); i++)
         {
             eAIBase ai = style.Halted[i];
-            if (ai && ai.GetThreatToSelf() >= m_Config.ThreatPercent * 0.01) { return true; }
+            if (ai && HCXExpansionBridge.HCBaseGetThreatToSelf(ai) >= m_Config.ThreatPercent * 0.01) { return true; }
         }
         return false;
     }
@@ -642,7 +642,7 @@ class HCXAIFormationController
         for (int i = 0; i < style.Halted.Count(); i++)
         {
             eAIBase ai = style.Halted[i];
-            if (ai) { ai.eAI_SetHalt(false); }
+            if (ai) { HCXExpansionBridge.HCBaseSetHalt(ai, false); }
         }
         style.Halted.Clear();
         style.PauseUntil = 0;
@@ -681,12 +681,12 @@ class HCXAIFormationController
     protected void StepGroup(HCXAISiteState state, int now)
     {
         eAIGroup group = state.Patrol.m_Group;
-        if (group.Count() < 1)
+        if (HCXExpansionBridge.HCGroupCount(group) < 1)
         {
             ForgetStyle(state);
             return;
         }
-        DayZPlayerImplement leader = group.GetFormationLeader();
+        DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(group);
         if (!leader || !leader.IsAlive()) { return; }
         HCXAIGroupStyle style = state.HCStyle;
         if (!style || style.GroupRef != group)
@@ -702,13 +702,13 @@ class HCXAIFormationController
         }
         style.NextEvalAt = now + m_Config.RefreshSeconds;
         style.Evals++;
-        bool combat = group.IsInCombat();
+        bool combat = HCXExpansionBridge.HCGroupIsInCombat(group);
         if (combat) { style.RegroupUntil = now + m_Config.RegroupSeconds; }
         bool regroup = false;
         if (!combat && now < style.RegroupUntil) { regroup = true; }
         vector at = leader.GetPosition();
         int mode = ContextOf(state, at, combat, regroup);
-        if (group.Count() >= m_Config.MinMembers) { ApplyFormation(group, style, mode); }
+        if (HCXExpansionBridge.HCGroupCount(group) >= m_Config.MinMembers) { ApplyFormation(group, style, mode); }
         style.Mode = mode;
         if (combat) { return; }
         ApplyPace(group, style, mode, now);
@@ -722,11 +722,11 @@ class HCXAIFormationController
         {
             HCXAIStyleFormation fresh = new HCXAIStyleFormation();
             fresh.HCConfigure(m_Config, style.Seed);
-            group.SetFormation(fresh);
+            HCXExpansionBridge.HCGroupSetFormation(group, fresh);
             style.FormRef = fresh;
             style.Styled = true;
         }
-        else if (group.GetFormation() != style.FormRef)
+        else if (HCXExpansionBridge.HCGroupGetFormation(group) != style.FormRef)
         {
             // Another owner installed its own formation: never fight it.
             style.Styled = false;
@@ -748,14 +748,14 @@ class HCXAIFormationController
             style.PaceEpoch++;
             style.PaceEpochStart = now;
         }
-        for (int i = 0; i < group.Count(); i++)
+        for (int i = 0; i < HCXExpansionBridge.HCGroupCount(group); i++)
         {
-            eAIBase ai = eAIBase.Cast(group.GetMember(i));
-            if (!ai || !ai.IsAlive()) { continue; }
+            eAIBase ai = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, i));
+            if (!ai || !HCXExpansionBridge.HCBaseIsAlive(ai)) { continue; }
             int speed = eAIMovementSpeed.WALK;
             if (HCXAIFormationRules.IsJog(m_Config, mode, style.Seed, i, style.PaceEpoch)) { speed = eAIMovementSpeed.JOG; }
             // The under-threat limit is passed through unchanged.
-            if (ai.GetMovementSpeedLimit() != speed) { ai.SetMovementSpeedLimits(speed, ai.GetMovementSpeedLimitUnderThreat()); }
+            if (HCXExpansionBridge.HCBaseGetMovementSpeedLimit(ai) != speed) { HCXExpansionBridge.HCBaseSetMovementSpeedLimits(ai, speed, HCXExpansionBridge.HCBaseGetMovementSpeedLimitUnderThreat(ai)); }
         }
     }
 
@@ -786,10 +786,10 @@ class HCXAIFormationController
     // (eAIBase.c:7598). eAIBase.c:2028 GetThreatToSelf.
     protected bool ThreatFelt(eAIGroup group)
     {
-        for (int t = 0; t < group.Count(); t++)
+        for (int t = 0; t < HCXExpansionBridge.HCGroupCount(group); t++)
         {
-            eAIBase watcher = eAIBase.Cast(group.GetMember(t));
-            if (watcher && watcher.IsAlive() && watcher.GetThreatToSelf() >= m_Config.ThreatPercent * 0.01) { return true; }
+            eAIBase watcher = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, t));
+            if (watcher && HCXExpansionBridge.HCBaseIsAlive(watcher) && HCXExpansionBridge.HCBaseGetThreatToSelf(watcher) >= m_Config.ThreatPercent * 0.01) { return true; }
         }
         return false;
     }
@@ -797,11 +797,11 @@ class HCXAIFormationController
     // Halts only members whose native halt is not already set by something else.
     protected bool BeginPause(eAIGroup group, HCXAIGroupStyle style, int seconds, int now)
     {
-        for (int i = 0; i < group.Count(); i++)
+        for (int i = 0; i < HCXExpansionBridge.HCGroupCount(group); i++)
         {
-            eAIBase ai = eAIBase.Cast(group.GetMember(i));
-            if (!ai || !ai.IsAlive() || ai.m_eAI_Halt) { continue; }
-            ai.eAI_SetHalt(true);
+            eAIBase ai = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, i));
+            if (!ai || !HCXExpansionBridge.HCBaseIsAlive(ai) || ai.m_eAI_Halt) { continue; }
+            HCXExpansionBridge.HCBaseSetHalt(ai, true);
             style.Halted.Insert(ai);
         }
         if (style.Halted.Count() < 1)
@@ -823,7 +823,7 @@ class HCXAIFormationController
     // observed whether the patrol advances the index on arrival or after it.
     protected int JunctionIndex(eAIGroup group, vector at, int lastIndex)
     {
-        array<vector> route = group.GetWaypoints();
+        array<vector> route = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (!route || route.Count() < 3) { return -1; }
         int current = group.m_CurrentWaypointIndex;
         float reach = m_Config.JunctionRadius * m_Config.JunctionRadius;

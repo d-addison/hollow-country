@@ -36,22 +36,4 @@ class HCXWarningShout
         return true;
     }
 }
-
-modded class eAIBase
-{
-    bool HCWarningActor;
-    int HCXLastWarning = -60000;
-
-    // Native 1.30: PlayerBase.c:6924 MessageStatus, :7779 RequestSoundEvent
-    // (sound API also used by the preceding #276 adapter).
-    bool HCXWarnPlayer(PlayerBase player, int now)
-    {
-        if (!HCWarningActor || now - HCXLastWarning < HCXWarningShout.COOLDOWN_MS) { return false; }
-        if (!HCXWarningShout.AdmitPlayer(player, now)) { return false; }
-        HCXLastWarning = now;
-        RequestSoundEvent(EPlayerSoundEventID.MELEE_ATTACK_HEAVY);
-        player.MessageStatus("Stay back. Lower your weapon and move away.");
-        Print("[HollowCountry] Stance warning: shout + text; keep back 40m; runtime=PENDING");
-        return true;
-    }
-}
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

@@ -37,8 +37,8 @@ class HCGapBodySceneProducer : HCBodyStoryProducer
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         HCWorldModule world = HCWorldModule.Get();
         if (!stories || !director || director.Phase() != "run" || !world || !corpse) { return; }
-        if (corpse.IsAlive() || corpse.GetIdentity() || !stories.HCCanObserveOwnedDeath()) { return; }
-        eAIGroup group = corpse.GetGroup();
+        if (HCXExpansionBridge.HCBaseIsAlive(corpse) || HCXExpansionBridge.HCBaseGetIdentity(corpse) || !stories.HCCanObserveOwnedDeath()) { return; }
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(corpse);
         if (!group) { return; }
         array<ref HCXAISiteState> sites = director.States();
         foreach (HCXAISiteState site : sites)
@@ -63,11 +63,11 @@ class HCGapBodySceneProducer : HCBodyStoryProducer
         int survivors;
         int total;
         bool countedCorpse;
-        int members = group.Count();
+        int members = HCXExpansionBridge.HCGroupCount(group);
         if (members > proposal.ActorCap || site.Patrol.m_HCPendingMembers > 0) { return false; }
         for (int memberIndex = 0; memberIndex < members; memberIndex++)
         {
-            DayZPlayerImplement member = group.GetMember(memberIndex);
+            DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(group, memberIndex);
             if (!member) { continue; }
             total++;
             if (member == corpse) { countedCorpse = true; }
@@ -103,16 +103,4 @@ modded class HCModuleRegistry
         super.RegisterModules();
     }
 }
-
-modded class eAIBase
-{
-    protected bool m_HCGapBodyDeathSent;
-    override void EEKilled(Object killer)
-    {
-        super.EEKilled(killer);
-        if (m_HCGapBodyDeathSent || !GetGame() || !GetGame().IsServer()) { return; }
-        m_HCGapBodyDeathSent = true;
-        if (!HCBodyStories.Get()) { return; } // EnableLeads opt-out
-        HCGapBodySceneProducer.HCObserve(this);
-    }
-}
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

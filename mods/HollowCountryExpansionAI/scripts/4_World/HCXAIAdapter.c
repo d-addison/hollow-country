@@ -151,7 +151,7 @@ class HCXAIAdapter extends HCModule
     }
     bool ExpansionAISettingsLoaded()
     {
-        return GetExpansionSettings() && GetExpansionSettings().GetAI() && GetExpansionSettings().GetAI().IsLoaded();
+        return HCXExpansionBridge.HCSettings() != null;
     }
     // Refresh at settlement and on qualified controller count changes.
     // Qualified patrols are not a count of live AI groups.
@@ -254,7 +254,8 @@ class HCXAIAdapter extends HCModule
         if (eAIBase.s_eAI_UnlimitedReload != 0 || eAIBase.s_eAI_UnlimitedReloadAll != 0) { return "unlimited reload mask set"; }
         // On a server GetAI() returns the instance even before Load(); only loaded settings are settled.
         if (!this.ExpansionAISettingsLoaded()) { return "Expansion AI settings not loaded"; }
-        ExpansionAISettings settings = GetExpansionSettings().GetAI();
+        ExpansionAISettings settings = HCXExpansionBridge.HCSettings();
+        if (!settings) { return "Expansion AI settings not loaded"; }
         if (settings.EnableFlankingOutsideCombat) { return "EnableFlankingOutsideCombat must be false"; }
         if (settings.CanRecruitFriendly || settings.CanRecruitGuards) { return "CanRecruitFriendly/CanRecruitGuards must be false"; }
         if (settings.DamageMultiplier != 1 || settings.DamageReceivedMultiplier != 1) { return "DamageMultiplier/DamageReceivedMultiplier must be 1"; }
@@ -376,9 +377,9 @@ class HCXAIAdapter extends HCModule
         if (actors < 1 || actors > actorCap) { return this.RefuseLease("group_size"); }
         int items = actors * mission.Equipment.Count();
         if (m_ReservedGroups >= HCAILimits.Get().MaxLiveGroups || m_ReservedActors + actors > HCAILimits.Get().MaxLiveAI || m_ReservedItems + items > m_Profile.MaxItems) { return this.RefuseLease(HCRefusal.CAPACITY); }
-        eAIFaction faction = eAIFaction.Create(mission.FactionName);
-        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return this.RefuseLease("faction_unfair"); }
-        if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return this.RefuseLease("faction_melee_unfair"); }
+        eAIFaction faction = HCXExpansionBridge.HCFactionCreate(mission.FactionName);
+        if (!faction || HCXExpansionBridge.HCFactionIsInvincible(faction) || HCXExpansionBridge.HCFactionIsObserver(faction) || HCXExpansionBridge.HCFactionIsPassive(faction) || HCXExpansionBridge.HCFactionHasUnlimitedStamina(faction)) { return this.RefuseLease("faction_unfair"); }
+        if (HCXExpansionBridge.HCFactionGetMeleeDamageMultiplier(faction) != 1 || HCXExpansionBridge.HCFactionGetMeleeYeetForce(faction) != 0) { return this.RefuseLease("faction_melee_unfair"); }
         if (!this.PruneHistory()) { return this.RefuseLease("history_prune_failed"); }
         // Capacity/duplicate refusals and clean-row pruning create no intent.
         // Resolve them before publishing a reservation that needs End to close.
@@ -417,7 +418,7 @@ class HCXAIAdapter extends HCModule
             lease.Retiring = true;
             return this.RefuseLease("journal_intent_unconfirmed");
         }
-        lease.Group = eAIGroup.CreateGroup(faction);
+        lease.Group = HCXExpansionBridge.HCGroupCreateGroup(faction);
         if (!lease.Group)
         {
             lease.Failed = true;
@@ -425,8 +426,8 @@ class HCXAIAdapter extends HCModule
             return this.RefuseLease("group_create_failed");
         }
         lease.Group.m_Persist = false;
-        lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
-        foreach (vector waypoint : mission.Waypoints) { lease.Group.AddWaypoint(waypoint); }
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(lease.Group, eAIWaypointBehavior.HALT);
+        foreach (vector waypoint : mission.Waypoints) { HCXExpansionBridge.HCGroupAddWaypoint(lease.Group, waypoint); }
         m_LeaseRefusal = "";
         return true;
     }
@@ -435,8 +436,8 @@ class HCXAIAdapter extends HCModule
         foreach (HCXAIEquipment spec : mission.Equipment)
         {
             EntityAI item;
-            if (spec.InHands) { item = actor.GetHumanInventory().CreateInHands(spec.ClassName); }
-            else { item = actor.GetInventory().CreateInInventory(spec.ClassName); }
+            if (spec.InHands) { item = HCXExpansionBridge.HCBaseGetHumanInventory(actor).CreateInHands(spec.ClassName); }
+            else { item = HCXExpansionBridge.HCBaseGetInventory(actor).CreateInInventory(spec.ClassName); }
             if (!item) { return false; }
             Magazine magazine = Magazine.Cast(item);
             if (spec.IsMagazine)
@@ -491,7 +492,7 @@ class HCXAIAdapter extends HCModule
                 // Neither Stop nor pressure grants immunity or visible deletion.
                 if (!slot.DeleteRequested && this.Prerequisites())
                 {
-                    if ((!lease.Group || !lease.Group.IsInCombat()) && this.Quiet(lease, slot, index, false, now))
+                    if ((!lease.Group || !HCXExpansionBridge.HCGroupIsInCombat(lease.Group)) && this.Quiet(lease, slot, index, false, now))
                     {
                         slot.DeleteRequested = true;
                         slot.Handle.Delete();
@@ -508,7 +509,7 @@ class HCXAIAdapter extends HCModule
             // leases remain tombstones even when their reservations are released.
             if (allGone && m_Hooks.EndLease(lease.Id) && m_Journal.End(lease.Id, !lease.Failed && lease.IntentConfirmed))
             {
-                if (lease.Group && lease.Group.Count() == 0) { lease.Group.Delete(); }
+                if (lease.Group && HCXExpansionBridge.HCGroupCount(lease.Group) == 0) { HCXExpansionBridge.HCGroupDelete(lease.Group); }
                 lease.Released = true;
                 HCAIBudget.Release("adapter:" + lease.Id);
                 m_ReservedGroups--;
@@ -520,7 +521,7 @@ class HCXAIAdapter extends HCModule
         if (slot.Handle)
         {
             eAIBase existing = eAIBase.Cast(slot.Handle);
-            if (!existing || !existing.HCXAI_Fair() || existing.GetGroup() != lease.Group)
+            if (!existing || !existing.HCXAI_Fair() || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(existing) != lease.Group)
             {
                 lease.Failed = true;
                 lease.Retiring = true;
@@ -552,12 +553,12 @@ class HCXAIAdapter extends HCModule
             return;
         }
         actor.HCXAI_LeaseOwned = true;
-        actor.SetGroup(lease.Group);
-        actor.eAI_SetUnlimitedReload(0);
-        actor.eAI_SetEnableFlankingOutsideCombat(0);
-        actor.eAI_SetDamageMultiplier(1);
-        actor.eAI_SetDamageReceivedMultiplier(1);
-        actor.eAI_SetLootingBehavior(0);
+        HCXExpansionBridge.HCDayZPlayerImplementSetGroup(actor, lease.Group);
+        HCXExpansionBridge.HCBaseSetUnlimitedReload(actor, 0);
+        HCXExpansionBridge.HCBaseSetEnableFlankingOutsideCombat(actor, 0);
+        HCXExpansionBridge.HCBaseSetDamageMultiplier(actor, 1);
+        HCXExpansionBridge.HCBaseSetDamageReceivedMultiplier(actor, 1);
+        HCXExpansionBridge.HCBaseSetLootingBehavior(actor, 0);
         if (!actor.HCXAI_Fair() || !this.Equip(actor, lease.Objective) || !m_Hooks.MemberCreated(lease.Id, index, actor))
         {
             lease.Failed = true;
@@ -569,7 +570,7 @@ class HCXAIAdapter extends HCModule
         {
             if (!candidate.Attempted) { complete = false; }
         }
-        if (complete) { lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.LOOP); }
+        if (complete) { HCXExpansionBridge.HCGroupSetWaypointBehaviour(lease.Group, eAIWaypointBehavior.LOOP); }
     }
     bool StopLease(string id)
     {
@@ -785,42 +786,4 @@ modded class HCModuleRegistry
     }
 }
 // Narrow original observation/getter extension; no provider source is replaced.
-modded class eAIBase
-{
-    bool HCXAI_LeaseOwned;
-    override void eAI_Recreate()
-    {
-        if (this.HCXAI_LeaseOwned)
-        {
-            m_eAI_Recreate = false;
-            Print("[HC Expansion AI] refused inventory-cloning recreate for leased actor; native recovery remains owner-approved");
-            return;
-        }
-        super.eAI_Recreate();
-    }
-    bool HCXAI_Fair()
-    {
-        return this.GetAllowDamage() && !m_eAI_EnableFlankingOutsideCombat && m_eAI_UnlimitedReload == 0 && !m_eAI_IsUnlimitedReloadAll && m_eAI_DamageMultiplier == 1 && m_eAI_DamageReceivedMultiplier == 1 && m_eAI_HeadshotResistance == 0;
-    }
-    override void EEKilled(Object killer)
-    {
-        super.EEKilled(killer);
-        EntityAI source = EntityAI.Cast(killer);
-        if (!source) { return; }
-        PlayerBase participant = PlayerBase.Cast(source.GetHierarchyRootPlayer());
-        if (!participant || !participant.GetIdentity()) { return; }
-        string participantId = participant.GetIdentity().GetId();
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (adapter) { adapter.RecordDeath(this, participantId); }
-        // Expansion defers group cleanup to the next frame so EEKilled may still
-        // read it: DayZPlayerImplement.c:431-438 (GetGroup at :234).
-        HCXAIEncounters encounters = HCXAIEncounters.Active();
-        if (encounters) { encounters.RecordKill(this.GetGroup(), participantId); }
-    }
-    override void EEDelete(EntityAI parent)
-    {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (adapter) { adapter.RecordDelete(this); }
-        super.EEDelete(parent);
-    }
-}
+// Expansion AI hook implementations live in HCXExpansionBridge.c.

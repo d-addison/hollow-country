@@ -58,10 +58,10 @@ modded class HCXAISiteDirector
         HCPickerRoute route = trip.m_IO.Survey.HCFind(routeId);
         if (!route) { state.HCRefusePicker("PICKER_ROUTE_UNSURVEYED", partyId, routeId); return; }
         if (!state.Patrol || !state.Patrol.m_Group) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
-        if (state.Patrol.m_Group.Count() < 1) { return; }
-        if (state.Patrol.m_HCPendingMembers > 0 || state.Patrol.m_Group.IsInCombat()) { state.HCRefusePicker("PICKER_PARTY_BUSY", partyId, routeId); return; }
-        PlayerBase actor = PlayerBase.Cast(state.Patrol.m_Group.GetMember(0));
-        if (!actor || !actor.GetGroup()) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
+        if (HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) < 1) { return; }
+        if (state.Patrol.m_HCPendingMembers > 0 || HCXExpansionBridge.HCGroupIsInCombat(state.Patrol.m_Group)) { state.HCRefusePicker("PICKER_PARTY_BUSY", partyId, routeId); return; }
+        PlayerBase actor = PlayerBase.Cast(HCXExpansionBridge.HCGroupGetMember(state.Patrol.m_Group, 0));
+        if (!actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
         // Resolve the actual surveyed home site's existing raid cooldown. One
         // policy candidate per visit; no unbounded catalog scan or new timer.
         if (!state.HCPickerHomeSite)
@@ -82,7 +82,7 @@ modded class HCXAISiteDirector
             state.HCPickerEligibleAt = trip.m_State.NextTripAt;
         }
         // #144: a run needs a 2..4 member party (survey bounds); re-check later, not every visit.
-        string sized = pickers.HCPartyRefusal(state.Patrol.m_Group.Count());
+        string sized = pickers.HCPartyRefusal(HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group));
         if (sized != "")
         {
             if (now >= state.HCPickerEligibleAt) { state.HCPickerEligibleAt = now + pickers.HCRecheckSeconds(); }

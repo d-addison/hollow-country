@@ -26,7 +26,7 @@ class HCXTradeInventoryScan
         HCXTradeInventoryFrame root = new HCXTradeInventoryFrame;
         root.NodeEntity = actor;
         Frames.Insert(root);
-        EntityAI hands = actor.GetHumanInventory().GetEntityInHands();
+        EntityAI hands = HCXExpansionBridge.HCBaseGetHumanInventory(actor).GetEntityInHands();
         if (hands)
         {
             HCXTradeInventoryFrame held = new HCXTradeInventoryFrame;
@@ -42,7 +42,7 @@ class HCXTradeInventoryScan
     }
     ItemBase HCStep(int limit)
     {
-        if (!Actor || !Actor.IsAlive()) { HCRetire(); return null; }
+        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
         if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
@@ -162,9 +162,9 @@ class HCXAITradeAdapter : HCTradeInventory
         array<ref HCXTradeInventoryScan> scans = m_Scans;
         foreach (HCXTradeInventoryScan scan : scans)
         {
-            if (!scan.Actor || !scan.Actor.IsAlive()) { scan.HCRetire(); continue; }
+            if (!scan.Actor || !HCXExpansionBridge.HCBaseIsAlive(scan.Actor)) { scan.HCRetire(); continue; }
             eAIGroup group = HCLeaseGroup(scan.Lease);
-            if (!group || scan.Actor.GetGroup() != group) { scan.HCRetire(); }
+            if (!group || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(scan.Actor) != group) { scan.HCRetire(); }
         }
     }
     void HCResetScans()
@@ -188,12 +188,12 @@ class HCXAITradeAdapter : HCTradeInventory
         HCRetireInvalidScans();
         eAIGroup group = HCLeaseGroup(lease);
         if (!group) { return null; }
-        int count = group.Count();
+        int count = HCXExpansionBridge.HCGroupCount(group);
         if (count < 1 || count > HCAILimits.SIZE_CEILING) { return null; }
         for (int member = 0; member < count; member++)
         {
-            eAIBase actor = eAIBase.Cast(group.GetMember(member));
-            if (!actor || !actor.IsAlive() || actor.GetIdentity()) { continue; }
+            eAIBase actor = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, member));
+            if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseGetIdentity(actor)) { continue; }
             found = HCCarried(actor, itemClass, lease);
             if (found) { return actor; }
         }
@@ -252,17 +252,17 @@ class HCXAITradeAdapter : HCTradeInventory
 
     protected void HCRequestGreeting(eAIBase actor)
     {
-        if (!actor || !actor.GetEmoteManager()) { return; }
-        actor.RaiseWeapon(false);
-        if (!actor.GetEmoteManager().CanPlayEmote(EmoteConstants.ID_EMOTE_GREETING)) { return; }
-        actor.Expansion_SetEmote(EmoteConstants.ID_EMOTE_GREETING, true, 1500);
-        actor.Expansion_PlayEmote();
+        if (!actor || !HCXExpansionBridge.HCBaseGetEmoteManager(actor)) { return; }
+        HCXExpansionBridge.HCBaseRaiseWeapon(actor, false);
+        if (!HCXExpansionBridge.HCBaseGetEmoteManager(actor).CanPlayEmote(EmoteConstants.ID_EMOTE_GREETING)) { return; }
+        HCXExpansionBridge.HCBaseExpansion_SetEmote(actor, EmoteConstants.ID_EMOTE_GREETING, true, 1500);
+        HCXExpansionBridge.HCBaseExpansion_PlayEmote(actor);
     }
 
     protected bool HCNewGreetings(eAIBase left, eAIBase right)
     {
-        if (left.GetEmoteManager().HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING || right.GetEmoteManager().HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING) { return false; }
-        return m_Gestures.HCObserved(left.GetEmoteManager().HCSignalGreetingSerial(), right.GetEmoteManager().HCSignalGreetingSerial());
+        if (HCXExpansionBridge.HCBaseGetEmoteManager(left).HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING || HCXExpansionBridge.HCBaseGetEmoteManager(right).HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING) { return false; }
+        return m_Gestures.HCObserved(HCXExpansionBridge.HCBaseGetEmoteManager(left).HCSignalGreetingSerial(), HCXExpansionBridge.HCBaseGetEmoteManager(right).HCSignalGreetingSerial());
     }
 
     // Both actors must advance their server emote-callback serial after the baseline
@@ -272,13 +272,13 @@ class HCXAITradeAdapter : HCTradeInventory
     {
         eAIBase left = eAIBase.Cast(LeftActor);
         eAIBase right = eAIBase.Cast(RightActor);
-        if (!row || !left || !right || !left.GetEmoteManager() || !right.GetEmoteManager()) { return false; }
+        if (!row || !left || !right || !HCXExpansionBridge.HCBaseGetEmoteManager(left) || !HCXExpansionBridge.HCBaseGetEmoteManager(right)) { return false; }
         // Each side must see the other (fresh geometry); a greeting through a wall is not an exchange.
         if (!HCXStance.Visible(left, right) || !HCXStance.Visible(right, left)) { return false; }
         string key = HCTradeGestureGate.HCKey(row);
         if (!m_Gestures.HCArmedFor(key))
         {
-            m_Gestures.HCArm(key, left.GetEmoteManager().HCSignalGreetingSerial(), right.GetEmoteManager().HCSignalGreetingSerial(), Recipe.GestureRequests);
+            m_Gestures.HCArm(key, HCXExpansionBridge.HCBaseGetEmoteManager(left).HCSignalGreetingSerial(), HCXExpansionBridge.HCBaseGetEmoteManager(right).HCSignalGreetingSerial(), Recipe.GestureRequests);
         }
         if (HCNewGreetings(left, right)) { return true; }
         if (m_Gestures.HCTakeRequest())
@@ -543,7 +543,7 @@ class HCXAITradeProducer
         if (!left || !right || !left.Transient || !right.Transient || !left.Qualified || !right.Qualified || left.Failed || right.Failed) { return; }
         eAIGroup leftGroup = m_Port.HCLeaseGroup(left.ProposalId);
         eAIGroup rightGroup = m_Port.HCLeaseGroup(right.ProposalId);
-        if (!leftGroup || !rightGroup || leftGroup.Count() < m_Recipe.MinimumCampMembers || rightGroup.Count() < m_Recipe.MinimumCampMembers) { return; }
+        if (!leftGroup || !rightGroup || HCXExpansionBridge.HCGroupCount(leftGroup) < m_Recipe.MinimumCampMembers || HCXExpansionBridge.HCGroupCount(rightGroup) < m_Recipe.MinimumCampMembers) { return; }
         HCAIPartyIdentity leftIdentity = HCWorldMaterializer.HCIdentity(left.ProposalId);
         HCAIPartyIdentity rightIdentity = HCWorldMaterializer.HCIdentity(right.ProposalId);
         HCAICampRoutineView leftHome = camps.HCRoutineView(leftIdentity);
@@ -583,13 +583,13 @@ class HCXAITradeProducer
             HCAICampRoutineView destination = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(m_RightLease));
             if (!source || !destination || !source.Home || !destination.Home) { HCClearTrip(); return; }
             float envelope = roads.Config.MaxApproachMeters * roads.Config.MaxApproachMeters;
-            if (vector.DistanceSq(leftActor.GetPosition(), source.Home.HousePos) > envelope || vector.DistanceSq(rightActor.GetPosition(), destination.Home.HousePos) > envelope || vector.DistanceSq(leftActor.GetPosition(), rightActor.GetPosition()) > roads.Config.MaxJourneyMeters * roads.Config.MaxJourneyMeters)
+            if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(leftActor), source.Home.HousePos) > envelope || vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(rightActor), destination.Home.HousePos) > envelope || vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(leftActor), HCXExpansionBridge.HCBaseGetPosition(rightActor)) > roads.Config.MaxJourneyMeters * roads.Config.MaxJourneyMeters)
             {
                 HCClearTrip(); HCRefuse("TRADE_CAMP_APPROACH_OR_JOURNEY_RANGE"); return;
             }
             m_Port.Walker = new HCXAICaravanAdapter;
             m_Port.Walker.Corridor = roads.Config;
-            if (!m_Port.Walker.HCPrepare(m_LeftLease, leftActor, rightActor.GetPosition())) { m_Port.Walker = null; HCClearTrip(); return; }
+            if (!m_Port.Walker.HCPrepare(m_LeftLease, leftActor, HCXExpansionBridge.HCBaseGetPosition(rightActor))) { m_Port.Walker = null; HCClearTrip(); return; }
             m_Carrier = leftActor; m_Partner = rightActor;
             m_Outbound = leftStock; m_Inbound = rightStock;
             m_Port.PlannedLeft = m_LeftLease; m_Port.PlannedRight = m_RightLease;

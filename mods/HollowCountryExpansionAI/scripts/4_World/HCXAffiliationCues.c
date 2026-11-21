@@ -71,15 +71,15 @@ class HCXAffiliationCues
 
     static void Actor(eAIBase ai, eAIFaction faction)
     {
-        if (!GetGame().IsServer() || !ai || !faction || !ai.GetInventory()) { return; }
+        if (!GetGame().IsServer() || !ai || !faction || !HCXExpansionBridge.HCBaseGetInventory(ai)) { return; }
         string wanted = Armband(HCXFactions.Id(faction));
         if (wanted == "") { return; }
         ai.HCWarningActor = true;
-        EntityAI existing = ai.FindAttachmentBySlotName("Armband");
+        EntityAI existing = HCXExpansionBridge.HCBaseFindAttachmentBySlotName(ai, "Armband");
         if (existing && existing.GetType() == wanted) { return; }
         // This hook runs only at spawn, after the provider's role loadout.
         if (existing) { GetGame().ObjectDelete(existing); }
-        EntityAI made = ai.GetInventory().CreateAttachment(wanted);
+        EntityAI made = HCXExpansionBridge.HCBaseGetInventory(ai).CreateAttachment(wanted);
         if (!made) { Print("[HC AI cues] armband attachment refused class=" + wanted + " runtime=PENDING"); }
     }
 
@@ -93,21 +93,21 @@ class HCXAffiliationCues
             if (m_CleanupCursor >= m_Marked.Count()) { m_CleanupCursor = 0; }
             HCXAISiteState retired = m_Marked[m_CleanupCursor];
             m_CleanupCursor++;
-            if (states.Find(retired) < 0 || !retired.Patrol || !retired.Patrol.m_Group || retired.Patrol.m_Group.Count() == 0) { this.Remove(retired); }
+            if (states.Find(retired) < 0 || !retired.Patrol || !retired.Patrol.m_Group || HCXExpansionBridge.HCGroupCount(retired.Patrol.m_Group) == 0) { this.Remove(retired); }
         }
         if (m_Cursor >= states.Count()) { m_Cursor = 0; }
         HCXAISiteState state = states[m_Cursor];
         m_Cursor++;
         if (!state || state.Transient) { return; }
         HCXAISitePatrol patrol = state.Patrol;
-        bool occupied = patrol && patrol.m_Group && patrol.m_Group.Count() > 0;
+        bool occupied = patrol && patrol.m_Group && HCXExpansionBridge.HCGroupCount(patrol.m_Group) > 0;
         if (!occupied)
         {
             this.Remove(state);
             return;
         }
         if (state.HCAffiliationAttempted || m_Marked.Count() >= MAX_POLES) { return; }
-        string flagClass = Flag(HCXFactions.Id(patrol.m_Group.GetFaction()));
+        string flagClass = Flag(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(patrol.m_Group)));
         if (flagClass == "") { return; }
         vector anchor = patrol.m_Position;
         if (state.HouseObject) { anchor = state.HouseObject.GetPosition(); }

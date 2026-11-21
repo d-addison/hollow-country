@@ -36,10 +36,10 @@ modded class HCXAISitePatrol
         slots.Slots = zone.Zone.guard_slots;
         m_Formation = slots;
         int before;
-        if (m_Group) { before = m_Group.Count(); }
+        if (m_Group) { before = HCXExpansionBridge.HCGroupCount(m_Group); }
         super.SpawnAI_Deferred(i);
         m_Formation = previous;
-        if (m_Group) { owner.ActorSpawned(m_Group.Count() - before); }
+        if (m_Group) { owner.ActorSpawned(HCXExpansionBridge.HCGroupCount(m_Group) - before); }
     }
 }
 modded class HCXAISiteDirector
@@ -77,7 +77,7 @@ modded class HCXAISiteDirector
     {
         super.Spawned(patrol);
         HCXZoneGuards owner = HCXZoneGuards.Active();
-        if (owner && owner.BySite(patrol.m_HCSiteId) && patrol.m_Group) { owner.ActorSpawned(patrol.m_Group.Count()); }
+        if (owner && owner.BySite(patrol.m_HCSiteId) && patrol.m_Group) { owner.ActorSpawned(HCXExpansionBridge.HCGroupCount(patrol.m_Group)); }
     }
     // Called for one zone/tick by its HCWorkBudget admission. Use the existing
     // bind/qualify/create stages, never a second native patrol constructor.

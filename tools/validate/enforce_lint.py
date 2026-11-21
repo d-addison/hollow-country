@@ -60,6 +60,7 @@ RULES = {
     'HC-E018': 'variable name shadows a type visible in this script module',
     'HC-E019': 'member declared only by a later file in the same modded-class chain',
     'HC-E020': 'string assignment with too many + operands (native compile: Formula too complex); build it with +=',
+    'HC-E022': 'Expansion AI call outside HCXExpansionBridge.c (dependency invariant boundary)',
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
@@ -701,6 +702,219 @@ _RECEIVER_CALL = re.compile(r'(?<![\w.)\]])\b([A-Za-z_]\w*'
                             r'(?:\s*\.\s*[A-Za-z_]\w*)*)\s*\.\s*([A-Za-z_]\w*)\s*\(')
 
 
+# HC-E022 is a dependency boundary, not a naming ban. Declarations, inheritance,
+# attributes, enum/field reads and Cast/CastTo remain legal. Calls on an eAI*
+# receiver (including HC subclasses, static/generic calls, indexed collections,
+# casts and method-result/field chains) must live in the one owned bridge file.
+# Authored extensions and super calls to guarded HC overrides are HC APIs.
+# PlayerBase group/target ports and ExpansionAI settings/spawn APIs are included.
+# Engine observation calls on an explicitly eAI-typed receiver also cross the
+# bridge; its lifecycle probes may read corpses without treating them as actors.
+_EXPANSION_BRIDGE = 'mods/HollowCountryExpansionAI/scripts/4_World/HCXExpansionBridge.c'
+_EXPANSION_RETURNS = {
+    'GetGroup': 'eAIGroup', 'GetFaction': 'eAIFaction', 'GetFormation': 'eAIFormation',
+    'GetTarget': 'eAITarget', 'GetTargetInformation': 'eAITargetInformation',
+    'GetTargetForAI': 'eAITarget', 'AddAI': 'eAITarget',
+    'GetMember': 'DayZPlayerImplement', 'GetFormationLeader': 'DayZPlayerImplement',
+    'GetLeader': 'DayZPlayerImplement', 'eAI_GetAll': 'array<eAIBase>',
+    'GetTargets': 'array<ref eAITarget>',
+    'GetExpansionSettings': 'ExpansionSettings',
+    'GetAI': 'ExpansionAISettings', 'GetAIPatrol': 'ExpansionAIPatrolSettings',
+}
+_EXPANSION_PLAYER_PORTS = {'GetGroup', 'SetGroup', 'GetTargetInformation'}
+
+
+def expansion_calls(project, source):
+    """Yield (method, receiver start, dot offset, call name, receiver type).
+
+    Resolve explicit declarations and authored return types, never runtime
+    subtypes. A small API-only return census covers provider result chains when
+    Workshop sources are unavailable. No provider implementation is inspected.
+    """
+    def lineage(kind):
+        return project.lineage(project.resolve_typedef(kind))
+
+    def field_type(kind, name):
+        fields = project.receiver_members(kind, source.layer)[1]
+        if name in fields:
+            return fields[name]
+        # Public provider field signatures used by the owned patrol subclass.
+        # Keep these resolvable without installing or copying Workshop sources.
+        if 'eAIDynamicPatrol' in lineage(kind):
+            return {'m_Group': 'eAIGroup', 'm_Faction': 'eAIFaction',
+                    'm_Formation': 'eAIFormation',
+                    'm_Config': 'ExpansionAIDynamicSpawnBase'}.get(name, '')
+        return ''
+
+    def authored_port(kind, name, receiver):
+        for ancestor in lineage(kind):
+            for definition in project.links.get(ancestor, ()):
+                for candidate in definition.methods:
+                    if candidate.name != name:
+                        continue
+                    if 'override' not in candidate.modifiers:
+                        return True
+                    if receiver == 'super' and not definition.name.startswith('eAI'):
+                        return True
+        return False
+
+    def result_type(kind, name):
+        if name == 'Get':
+            element = re.fullmatch(r'(?:array|set)<(?:ref)?(.+)>', kind)
+            if element:
+                return element[1]
+        if name in {'Cast', 'CastTo'}:
+            return kind
+        for ancestor in lineage(kind):
+            for definition in project.links.get(ancestor, ()):
+                for candidate in definition.methods:
+                    if candidate.name == name:
+                        return candidate.return_type
+        return _EXPANSION_RETURNS.get(name, '')
+
+    methods = list(_all_methods(source))
+    for definition in source.classes:
+        for field in definition.fields:
+            if not field.initializer:
+                continue
+            end = source.code.find(';', field.offset, definition.body_end)
+            begin = source.code.find('=', field.offset, end)
+            if begin >= 0:
+                methods.append(es.Method('<initializer>', field.type, frozenset(), '',
+                                         field.offset, begin, end, definition))
+    for method in methods:
+        owner = method.owner
+        bindings = dict(project.receiver_members(owner.name, source.layer)[1]) if owner else {}
+        if owner:
+            bindings.update(this=owner.name, super=owner.base or owner.name)
+        bindings.update({name: kind for kind, name, _ in method.parameters()})
+        declarations = source.local_declarations(method)
+
+        def head_token(end, generic=False):
+            while end > method.body_start and source.code[end - 1].isspace():
+                end -= 1
+            start = end
+            if generic and source.code[start - 1:start] == '>':
+                depth = 1
+                start -= 2
+                while start >= method.body_start and depth:
+                    if source.code[start] == '>':
+                        depth += 1
+                    elif source.code[start] == '<':
+                        depth -= 1
+                    start -= 1
+                start += 1
+            while start > method.body_start and (source.code[start - 1].isalnum() or source.code[start - 1] == '_'):
+                start -= 1
+            return source.code[start:end], start
+
+        def expression(end):
+            while end > method.body_start and source.code[end - 1].isspace():
+                end -= 1
+            final = source.code[end - 1:end]
+            if final in {')', ']'}:
+                closing, opening = final, {')': '(', ']': '['}[final]
+                depth, cursor = 1, end - 2
+                while cursor >= method.body_start and depth:
+                    char = source.code[cursor]
+                    if char == closing:
+                        depth += 1
+                    elif char == opening:
+                        depth -= 1
+                    cursor -= 1
+                if depth:
+                    return '', end
+                if final == ']':
+                    kind, start = expression(cursor + 1)
+                    element = re.fullmatch(r'(?:array|set)<(?:ref)?(.+)>', kind)
+                    return (element[1] if element else ''), start
+                name, head_start = head_token(cursor + 1)
+                if not name:  # parenthesized receiver: (actor).Call()
+                    kind, _ = expression(end - 1)
+                    return kind, cursor + 1
+                before = head_start
+                while before and source.code[before - 1].isspace():
+                    before -= 1
+                if source.code[before - 1:before] == '.':
+                    kind, start = expression(before - 1)
+                    return result_type(kind, name), start
+                return result_type(owner.name if owner else '', name), head_start
+            name, start = head_token(end, generic=True)
+            if not name:
+                return '', end
+            before = start
+            while before and source.code[before - 1].isspace():
+                before -= 1
+            if source.code[before - 1:before] == '.':
+                kind, start = expression(before - 1)
+                return field_type(kind, name), start
+            locals_ = [(kind, begin) for local, kind, begin, finish in declarations
+                       if local == name and begin <= start < finish]
+            kind = locals_[-1][0] if locals_ else bindings.get(name, name)
+            if kind == 'auto':
+                begin = locals_[-1][1]
+                semi = source.code.find(';', begin, start)
+                if semi >= 0 and '=' in source.code[begin:semi]:
+                    kind, _ = expression(semi)
+            return project.resolve_typedef(re.sub(r'\s+', '', kind)), start
+
+        for call in re.finditer(r'\.\s*(\w+)\s*\(', source.body(method)):
+            name = call[1]
+            if name in {'Cast', 'CastTo'}:
+                continue
+            dot = method.body_start + call.start()
+            kind, start = expression(dot)
+            if authored_port(kind, name, source.code[start:dot].strip()):
+                continue
+            is_expansion = any(t.startswith(('eAI', 'ExpansionAI')) for t in lineage(kind))
+            player_port = name in _EXPANSION_PLAYER_PORTS and any(
+                t in {'PlayerBase', 'DayZPlayer', 'DayZPlayerImplement'} for t in lineage(kind))
+            settings_port = kind == 'ExpansionSettings' and name in {'GetAI', 'GetAIPatrol'}
+            if is_expansion or player_port or settings_port or name.startswith('eAI_'):
+                yield method, start, dot, name, kind
+        # An unqualified call inside a provider subclass is a receiver call too.
+        # Global builtins and authored functions are not dependency methods.
+        if owner and any(t.startswith('eAI') for t in lineage(owner.name)):
+            globals_ = {'GetGame', 'Print', 'PrintFormat', 'Error', 'ErrorEx', 'Vector'}
+            globals_.update(function.name for item in project.sources for function in item.functions)
+            for call in _CALL.finditer(source.body(method)):
+                name = call[2]
+                if call[1] or name in _KEYWORDS or name in globals_:
+                    continue
+                if authored_port(owner.name, name, 'this'):
+                    continue
+                if name in project.links or name in project.native_names:
+                    continue  # constructor, not a method invocation
+                offset = method.body_start + call.start(2)
+                yield method, offset, offset, name, owner.name
+
+
+def rule_expansion_bridge(project, source):
+    if source.rel == _EXPANSION_BRIDGE:
+        return
+    covered = set()
+    for method, start, dot, name, kind in expansion_calls(project, source):
+        covered.add(dot)
+        receiver = source.text[start:dot].strip() or 'this'
+        yield _finding('HC-E022', source, dot, _symbol(method),
+                       f'{receiver}.{name} ({kind}): call HCXExpansionBridge; '
+                       'direct Expansion AI calls bypass invariant validation',
+                       key=f'{_symbol(method)}:{receiver}.{name}')
+
+    # Static calls can also occur in field/global initializers, outside methods.
+    static_call = re.compile(r'\b((?:eAI|ExpansionAI)\w*(?:<[^;{}()]+>)?)\s*(\.)\s*(\w+)\s*\(')
+    for call in static_call.finditer(source.code):
+        if call.start(2) in covered or call[3] in {'Cast', 'CastTo'}:
+            continue
+        if any(method.body_start <= call.start() <= method.body_end
+               for method in _all_methods(source)):
+            continue
+        yield _finding('HC-E022', source, call.start(2), '<initializer>',
+                       f'{call[1]}.{call[3]}: call HCXExpansionBridge; '
+                       'direct Expansion AI calls bypass invariant validation',
+                       key=f'{call[1]}.{call[3]}')
+
+
 def rule_receiver_methods(project, source):
     """Resolve explicit typed receivers; no cast, return-type or auto inference.
 
@@ -1253,7 +1467,7 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_receiver_layers, rule_receiver_methods, rule_modded_module,
+             rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,

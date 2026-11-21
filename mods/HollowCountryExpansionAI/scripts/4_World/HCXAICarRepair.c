@@ -223,14 +223,14 @@ class HCXAICarRepair
     {
         if (!s_Open || !group || !GetGame() || !GetGame().IsServer()) { return false; }
         HCXAICarRepairConfig config = HCConfig();
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CARFIX, 1 + group.Count())) { return false; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CARFIX, 1 + HCXExpansionBridge.HCGroupCount(group))) { return false; }
         int now = HCWorldClock.UTC();
-        int groupId = group.GetID();
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         int nextAt = 0;
         if (s_NextAt.Find(groupId, nextAt) == false) { nextAt = 0; }
         eAIBase leader = HCLeader(group);
         string reason = HCXAICarRepairPolicy.HCOfferRefusal(config.Enabled, HCJobs().Count(), config.MaxActiveGroups, now, nextAt, HCMechanic(group, config));
-        if (reason == "" && (!leader || group.IsInCombat())) { reason = "carfix_group_unavailable"; }
+        if (reason == "" && (!leader || HCXExpansionBridge.HCGroupIsInCombat(group))) { reason = "carfix_group_unavailable"; }
         if (reason == "" && HCJobFor(groupId)) { reason = "carfix_group_busy"; }
         if (reason != "") { HCRefuse(reason); return false; }
         array<ref HCXAICarEntry> known = new array<ref HCXAICarEntry>();
@@ -248,7 +248,7 @@ class HCXAICarRepair
         if (!HCWalk(job, pick.Pos)) { HCEnd(job, "carfix_route_refused", false); return false; }
         pick.Subject.m_HCCarClaimGroup = groupId;
         pick.Subject.m_HCCarClaimUntil = now + config.ClaimSeconds;
-        job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(leader.GetPosition(), pick.Pos), config.WalkMetersPerSecond, config.WalkSlackSeconds);
+        job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(HCXExpansionBridge.HCBaseGetPosition(leader), pick.Pos), config.WalkMetersPerSecond, config.WalkSlackSeconds);
         HCJobs().Insert(job);
         s_Refusal = "";
         HCStatus().HCPublish("ready", "job_active");
@@ -261,7 +261,7 @@ class HCXAICarRepair
     static CarScript HCReadyCar(eAIGroup group)
     {
         if (!s_Open || !group || !s_Ready) { return null; }
-        int groupId = group.GetID();
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         CarScript car = null;
         if (!s_Ready.Find(groupId, car) || !car) { return null; }
         if (car.IsPendingDeletion() || car.m_HCCarClaimGroup != groupId || car.m_HCCarClaimUntil <= HCWorldClock.UTC())
@@ -279,7 +279,7 @@ class HCXAICarRepair
     static void HCReleaseCar(eAIGroup group)
     {
         if (!group || !s_Ready) { return; }
-        int groupId = group.GetID();
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         CarScript car = null;
         if (s_Ready.Find(groupId, car) && car && car.m_HCCarClaimGroup == groupId) { car.m_HCCarClaimGroup = 0; car.m_HCCarClaimUntil = 0; }
         s_Ready.Remove(groupId);
@@ -314,10 +314,10 @@ class HCXAICarRepair
     protected static eAIBase HCLeader(eAIGroup group)
     {
         int index = 0;
-        while (index < group.Count())
+        while (index < HCXExpansionBridge.HCGroupCount(group))
         {
-            eAIBase member = eAIBase.Cast(group.GetMember(index));
-            if (member && member.IsAlive() && !member.IsUnconscious()) { return member; }
+            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, index));
+            if (member && HCXExpansionBridge.HCBaseIsAlive(member) && !HCXExpansionBridge.HCBaseIsUnconscious(member)) { return member; }
             index++;
         }
         return null;
@@ -328,13 +328,13 @@ class HCXAICarRepair
     {
         array<EntityAI> items = new array<EntityAI>();
         int index = 0;
-        while (index < group.Count())
+        while (index < HCXExpansionBridge.HCGroupCount(group))
         {
-            eAIBase member = eAIBase.Cast(group.GetMember(index));
+            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, index));
             index++;
-            if (!member || !member.IsAlive()) { continue; }
+            if (!member || !HCXExpansionBridge.HCBaseIsAlive(member)) { continue; }
             items.Clear();
-            member.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+            HCXExpansionBridge.HCBaseGetInventory(member).EnumerateInventory(InventoryTraversalType.PREORDER, items);
             int scanned = 0;
             array<string> tools = config.MechanicToolClasses;
             foreach (EntityAI item : items)
@@ -466,13 +466,13 @@ class HCXAICarRepair
         HCXAICarRepairConfig config = HCConfig();
         array<EntityAI> items = new array<EntityAI>();
         int index = 0;
-        while (index < group.Count())
+        while (index < HCXExpansionBridge.HCGroupCount(group))
         {
-            eAIBase member = eAIBase.Cast(group.GetMember(index));
+            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, index));
             index++;
-            if (!member || !member.IsAlive()) { continue; }
+            if (!member || !HCXExpansionBridge.HCBaseIsAlive(member)) { continue; }
             items.Clear();
-            member.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
+            HCXExpansionBridge.HCBaseGetInventory(member).EnumerateInventory(InventoryTraversalType.PREORDER, items);
             int scanned = 0;
             foreach (EntityAI item : items)
             {
@@ -490,7 +490,7 @@ class HCXAICarRepair
             EntityAI crate = holdouts.Cache(cacheIndex);
             cacheIndex++;
             if (!crate || vector.DistanceSq(crate.GetPosition(), home) > range) { continue; }
-            if (vector.DistanceSq(crate.GetPosition(), leader.GetPosition()) > range) { continue; }
+            if (vector.DistanceSq(crate.GetPosition(), HCXExpansionBridge.HCBaseGetPosition(leader)) > range) { continue; }
             if (!HCLockTable.CampUnlocked(ItemBase.Cast(crate)) || !crate.GetInventory() || !crate.GetInventory().GetCargo()) { continue; }
             CargoBase cargo = crate.GetInventory().GetCargo();
             int total = cargo.GetItemCount();
@@ -578,7 +578,7 @@ class HCXAICarRepair
         foreach (HCXAICarStep step : planned)
         {
             if (!step.Item || step.Item.GetHierarchyRootPlayer()) { continue; }
-            if (!leader.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.ANY, step.Item)) { return false; }
+            if (!HCXExpansionBridge.HCBaseGetInventory(leader).TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.ANY, step.Item)) { return false; }
             if (step.Item.GetHierarchyRootPlayer() != leader) { return false; }
         }
         return true;
@@ -588,18 +588,18 @@ class HCXAICarRepair
     protected static bool HCWalk(HCXAICarJob job, vector goal)
     {
         eAIGroup group = job.Group;
-        array<vector> previous = group.GetWaypoints();
+        array<vector> previous = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (previous && previous.Count() > HCConfig().MaxRouteNodes) { return false; }
         if (previous)
         {
             array<vector> saved = previous;
             foreach (vector node : saved) { job.Route.Insert(node); }
         }
-        job.Behaviour = group.GetWaypointBehaviour();
+        job.Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
         job.RouteSaved = true;
-        group.ClearWaypoints();
-        group.AddWaypoint(goal);
-        group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCGroupClearWaypoints(group);
+        HCXExpansionBridge.HCGroupAddWaypoint(group, goal);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.ONCE);
         return true;
     }
 
@@ -607,10 +607,10 @@ class HCXAICarRepair
     {
         if (!job.RouteSaved || !job.Group) { return; }
         job.RouteSaved = false;
-        job.Group.ClearWaypoints();
+        HCXExpansionBridge.HCGroupClearWaypoints(job.Group);
         array<vector> route = job.Route;
-        foreach (vector point : route) { job.Group.AddWaypoint(point); }
-        job.Group.SetWaypointBehaviour(job.Behaviour);
+        foreach (vector point : route) { HCXExpansionBridge.HCGroupAddWaypoint(job.Group, point); }
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(job.Group, job.Behaviour);
     }
 
     protected static void HCStep(HCXAICarJob job, int now)
@@ -619,13 +619,13 @@ class HCXAICarRepair
         if (job.Group) { leader = HCLeader(job.Group); }
         if (!leader) { HCEnd(job, "carfix_group_lost", false); return; }
         if (!job.Subject || job.Subject.IsPendingDeletion()) { HCEnd(job, "carfix_car_lost", false); return; }
-        if (job.Group.IsInCombat()) { HCEnd(job, "carfix_combat", false); return; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(job.Group)) { HCEnd(job, "carfix_combat", false); return; }
         if (job.Subject.m_HCCarClaimGroup != job.GroupId) { HCEnd(job, "carfix_claim_lost", false); return; }
         HCXAICarRepairConfig config = HCConfig();
         if (job.Phase == 0)
         {
             float reach = config.WorkRangeMeters * config.WorkRangeMeters;
-            if (vector.DistanceSq(leader.GetPosition(), job.Subject.GetPosition()) <= reach)
+            if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(leader), job.Subject.GetPosition()) <= reach)
             {
                 job.Phase = 1;
                 job.StepDue = now + config.WorkSecondsPerStep;
@@ -653,10 +653,10 @@ class HCXAICarRepair
         HCXAICarRepairConfig config = HCConfig();
         vector goal = job.Subject.GetPosition();
         job.Phase = 0;
-        job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(leader.GetPosition(), goal), config.WalkMetersPerSecond, config.WalkSlackSeconds);
-        job.Group.ClearWaypoints();
-        job.Group.AddWaypoint(goal);
-        job.Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(HCXExpansionBridge.HCBaseGetPosition(leader), goal), config.WalkMetersPerSecond, config.WalkSlackSeconds);
+        HCXExpansionBridge.HCGroupClearWaypoints(job.Group);
+        HCXExpansionBridge.HCGroupAddWaypoint(job.Group, goal);
+        HCXExpansionBridge.HCGroupSetWaypointBehaviour(job.Group, eAIWaypointBehavior.ONCE);
     }
 
     // Custody and proximity revalidated before every commit: the carrier must be
@@ -665,10 +665,10 @@ class HCXAICarRepair
     protected static string HCCarrierGate(HCXAICarJob job, EntityAI item, eAIBase leader, float reachSq)
     {
         eAIBase carrier = eAIBase.Cast(item.GetHierarchyRootPlayer());
-        bool member = carrier && carrier.IsAlive() && carrier.GetGroup() == job.Group;
-        float workerSq = vector.DistanceSq(leader.GetPosition(), job.Subject.GetPosition());
+        bool member = carrier && HCXExpansionBridge.HCBaseIsAlive(carrier) && HCXExpansionBridge.HCDayZPlayerImplementGetGroup(carrier) == job.Group;
+        float workerSq = vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(leader), job.Subject.GetPosition());
         float carrierSq = reachSq + 1.0;
-        if (carrier) { carrierSq = vector.DistanceSq(carrier.GetPosition(), job.Subject.GetPosition()); }
+        if (carrier) { carrierSq = vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(carrier), job.Subject.GetPosition()); }
         return HCXAICarRepairPolicy.HCCommitGate(member, workerSq, carrierSq, reachSq);
     }
 

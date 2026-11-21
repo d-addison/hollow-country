@@ -16,10 +16,12 @@ class HCXAIQualification
     static string ProviderProblem()
     {
         if (!GetGame() || !GetGame().IsServer()) { return "server authority required"; }
-        if (!GetExpansionSettings() || !GetExpansionSettings().GetAI() || !GetExpansionSettings().GetAI().IsLoaded()) { return "Expansion AI settings not loaded"; }
-        if (!GetExpansionSettings().GetAIPatrol(false) || !GetExpansionSettings().GetAIPatrol(false).IsLoaded()) { return "provider patrol settings not loaded"; }
-        ExpansionAISettings settings = GetExpansionSettings().GetAI();
-        return HCXAIRules.ProviderProblem(eAIBase.s_eAI_UnlimitedReload == 0 && eAIBase.s_eAI_UnlimitedReloadAll == 0, settings.CanRecruitFriendly, settings.CanRecruitGuards, !GetExpansionSettings().GetAIPatrol(false).Enabled);
+        if (!HCXExpansionBridge.HCSettings()) { return "Expansion AI settings not loaded"; }
+        if (!HCXExpansionBridge.HCPatrolSettings()) { return "provider patrol settings not loaded"; }
+        ExpansionAISettings settings = HCXExpansionBridge.HCSettings();
+        ExpansionAIPatrolSettings patrols = HCXExpansionBridge.HCPatrolSettings();
+        if (!settings || !patrols) { return "Expansion AI settings not loaded"; }
+        return HCXAIRules.ProviderProblem(eAIBase.s_eAI_UnlimitedReload == 0 && eAIBase.s_eAI_UnlimitedReloadAll == 0, settings.CanRecruitFriendly, settings.CanRecruitGuards, !patrols.Enabled);
     }
 
     static bool Qualified() { return false; }

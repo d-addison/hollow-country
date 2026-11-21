@@ -96,7 +96,7 @@ class HCXAICampRoutine
         m_Cursor++;
         if (!state || !state.Transient || state.Completed || !state.Qualified || !state.Patrol) { return; }
         eAIGroup group = state.Patrol.m_Group;
-        if (!group || group.Count() < 1 || group.IsInCombat()) { return; }
+        if (!group || HCXExpansionBridge.HCGroupCount(group) < 1 || HCXExpansionBridge.HCGroupIsInCombat(group)) { return; }
         // Cooldown and relief have no content to read. In particular, do not
         // clone HCRoutineView's JSON ledger on these otherwise idle dispatches.
         int now = HCWorldClock.UTC();
@@ -112,14 +112,14 @@ class HCXAICampRoutine
         HCAICampRoutineView view = camps.HCRoutineView(identity);
         if (!view) { HCRefuse(state, "FUNDED_HOME_UNAVAILABLE"); return; }
         if (view.Home.State == "ALERT") { return; }
-        if (group.Count() > view.Population) { HCRefuse(state, "POPULATION_EXCEEDS_FUNDED_HOME"); return; }
+        if (HCXExpansionBridge.HCGroupCount(group) > view.Population) { HCRefuse(state, "POPULATION_EXCEEDS_FUNDED_HOME"); return; }
         HCAICampPolicy policy = camps.HCRoutinePolicy();
-        int memberIndex = state.HCCampMemberCursor % group.Count();
-        state.HCCampMemberCursor = (memberIndex + 1) % group.Count();
-        eAIBase actor = eAIBase.Cast(group.GetMember(memberIndex));
-        if (!actor || !actor.IsAlive() || actor.GetIdentity()) { return; }
+        int memberIndex = state.HCCampMemberCursor % HCXExpansionBridge.HCGroupCount(group);
+        state.HCCampMemberCursor = (memberIndex + 1) % HCXExpansionBridge.HCGroupCount(group);
+        eAIBase actor = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, memberIndex));
+        if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor) || HCXExpansionBridge.HCBaseGetIdentity(actor)) { return; }
         float rangeSq = policy.RoutineRangeMeters * policy.RoutineRangeMeters;
-        if (vector.DistanceSq(actor.GetPosition(), view.Home.HousePos) > rangeSq)
+        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(actor), view.Home.HousePos) > rangeSq)
         {
             HCRefuse(state, "HOUSE_ROUTE_CONNECTION_UNPROVEN");
             return;
@@ -131,19 +131,19 @@ class HCXAICampRoutine
         }
         // Two or more members retain one sentry slot in the role schedule.
         // A solo member keeps rest; movement slots are explicitly refused.
-        int role = (memberIndex + state.HCCampRoleEpoch) % group.Count();
-        if (group.Count() == 1) { role = 1; }
+        int role = (memberIndex + state.HCCampRoleEpoch) % HCXExpansionBridge.HCGroupCount(group);
+        if (HCXExpansionBridge.HCGroupCount(group) == 1) { role = 1; }
         string roleName = "sentry";
         if (role == 1)
         {
-            EmoteManager emotes = actor.GetEmoteManager();
+            EmoteManager emotes = HCXExpansionBridge.HCBaseGetEmoteManager(actor);
             if (!emotes || emotes.IsEmotePlaying() || !emotes.CanPlayEmote(EmoteConstants.ID_EMOTE_SITA))
             {
                 HCRefuse(state, "REST_EMOTE_NOT_ADMITTED");
                 return;
             }
             // Auto-cancel delay is milliseconds; observation still pending.
-            actor.Expansion_SetEmote(EmoteConstants.ID_EMOTE_SITA, true, policy.RoleSeconds * 1000);
+            HCXExpansionBridge.HCBaseExpansion_SetEmote(actor, EmoteConstants.ID_EMOTE_SITA, true, policy.RoleSeconds * 1000);
             roleName = "rest_requested";
         }
         else
@@ -153,10 +153,10 @@ class HCXAICampRoutine
             HCRefuse(state, "ROUTINE_TARGET_CLEAR_UNAVAILABLE");
         }
         // One role request per visit; all members get a slot before relief.
-        if (memberIndex == group.Count() - 1)
+        if (memberIndex == HCXExpansionBridge.HCGroupCount(group) - 1)
         {
             state.HCCampNextRoleAt = now + policy.RoleSeconds;
-            state.HCCampRoleEpoch = (state.HCCampRoleEpoch + 1) % group.Count();
+            state.HCCampRoleEpoch = (state.HCCampRoleEpoch + 1) % HCXExpansionBridge.HCGroupCount(group);
         }
         if (role != 1) { return; }
         // The sentry/work refusal is structural (no proven target-clear), so a
@@ -175,7 +175,7 @@ class HCXAICampRoutine
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         HCHoldouts camps = HCHoldouts.Get();
         if (!director || !camps) { return; }
-        eAIGroup group = body.GetGroup();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(body);
         if (!group) { return; }
         foreach (HCXAISiteState state : director.States())
         {
@@ -186,17 +186,4 @@ class HCXAICampRoutine
         }
     }
 }
-
-modded class eAIBase
-{
-    protected bool m_HCCampDeathSent;
-    override void EEKilled(Object killer)
-    {
-        if (!m_HCCampDeathSent)
-        {
-            m_HCCampDeathSent = true;
-            HCXAICampRoutine.HCObserveKilled(this);
-        }
-        super.EEKilled(killer);
-    }
-}
+// Expansion AI hook implementations live in HCXExpansionBridge.c.
