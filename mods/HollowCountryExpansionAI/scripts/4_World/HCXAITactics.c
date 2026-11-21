@@ -394,8 +394,8 @@ class HCXAITactics
         reason = "normal-evaluation";
         if (apply)
         {
-            HCXTacticsGroup rec = Track(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actors[chosen]), GetGame().GetTime());
-            if (!rec) { reason = "group-unavailable"; return false; }
+            HCXTacticsGroup rec = HCFind(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actors[chosen]));
+            if (!rec) { reason = "group-untracked"; return false; }
             rec.Fixture = true;
             s_Cursor = chosen;
             s_NextCheckMs = GetGame().GetTime();
@@ -485,15 +485,24 @@ class HCXAITactics
         Print("" + line);
     }
 
-    protected static HCXTacticsGroup Track(eAIGroup group, int nowMs)
+    protected static HCXTacticsGroup HCFind(eAIGroup group)
     {
-        if (!group || !s_Config) { return null; }
+        if (!group) { return null; }
         int id = HCXExpansionBridge.HCGroupGetID(group);
         for (int index = 0; index < s_Groups.Count(); index++)
         {
             HCXTacticsGroup known = s_Groups.Get(index);
             if (known && known.GroupId == id) { return known; }
         }
+        return null;
+    }
+
+    protected static HCXTacticsGroup Track(eAIGroup group, int nowMs)
+    {
+        if (!group || !s_Config) { return null; }
+        HCXTacticsGroup known = HCFind(group);
+        if (known) { return known; }
+        int id = HCXExpansionBridge.HCGroupGetID(group);
         if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups)) { s_Groups.RemoveOrdered(0); }
         HCXTacticsGroup created = new HCXTacticsGroup();
         created.GroupId = id;
@@ -594,7 +603,12 @@ class HCXAITactics
         s_ScanSmoke = smoke;
         s_ScanAim = aim;
         s_ScanStartedMs = nowMs;
-
+        if (rec.Fixture)
+        {
+            HCModuleReadiness.HCUseFixture("AITactics", "tactic_chosen");
+            Print("[HCX Tactics] tactic_chosen fixture=1");
+        }
+        else { HCModuleReadiness.HCUse("AITactics", "tactic_chosen"); }
     }
 
     protected static void EndScan()
@@ -672,14 +686,7 @@ class HCXAITactics
         rec.SmokeLast = nowMs;
         rec.SmokeUses++;
         s_SmokeThrown++;
-        if (rec.Fixture)
-        {
-            HCModuleReadiness.HCUseFixture("AITactics", "tactic_chosen");
-            Print("[HCX Tactics] tactic_chosen fixture=1");
-        }
-        else { HCModuleReadiness.HCUse("AITactics", "tactic_chosen"); }
         HCXAITactics.Enqueue(item, actor, true, nowMs);
-        rec.Fixture = false;
     }
 
     protected static void ExecuteLure(ItemBase item, int nowMs)
@@ -705,14 +712,7 @@ class HCXAITactics
         rec.LureLast = nowMs;
         rec.LureUses++;
         s_LureThrown++;
-        if (rec.Fixture)
-        {
-            HCModuleReadiness.HCUseFixture("AITactics", "tactic_chosen");
-            Print("[HCX Tactics] tactic_chosen fixture=1");
-        }
-        else { HCModuleReadiness.HCUse("AITactics", "tactic_chosen"); }
         HCXAITactics.Enqueue(item, actor, false, nowMs);
-        rec.Fixture = false;
     }
 
     protected static void Enqueue(ItemBase item, eAIBase actor, bool smoke, int nowMs)
@@ -841,7 +841,7 @@ class HCXAITactics
             HCXAITactics.Evaluate(actor, nowMs);
             if (HCAdminFixtures.HCEnabled() && !s_Scan)
             {
-                HCXTacticsGroup evaluatedGroup = Track(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor), nowMs);
+                HCXTacticsGroup evaluatedGroup = HCFind(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor));
                 if (evaluatedGroup) { evaluatedGroup.Fixture = false; }
             }
         }

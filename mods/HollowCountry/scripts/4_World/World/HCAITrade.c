@@ -147,7 +147,8 @@ class HCTradeReadiness
 
 class HCTradeState
 {
-    // Per-pair attribution only; never an eligibility or custody capability.
+    // Runtime attribution only; preserve the persisted trade state format.
+    [NonSerialized()]
     bool Fixture;
     int Version = 1;
     string Id;

@@ -176,7 +176,9 @@ class HCXAIStuckRecovery
         if (Fixture)
         {
             HCModuleReadiness.HCUseFixture(s_Module, "stuck_recovery");
-            Print("[HC Convoy] recovery_step=" + step.ToString() + " fixture=1 runtime=PENDING");
+            string prefix = "[HC XAI] recovery_step=" + step.ToString() + " party=" + Kind;
+            if (Kind == "convoy") { prefix = "[HC Convoy] recovery_step=" + step.ToString(); }
+            Print(prefix + " fixture=1 runtime=PENDING");
         }
         else { HCModuleReadiness.HCUse(s_Module, "stuck_recovery"); }
         Fixture = false;
