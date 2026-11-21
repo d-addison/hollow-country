@@ -5,12 +5,25 @@ class HCAdminWorldCapture : HCDebugSnapshot
 {
     ref array<ref HCAdminMark> Rows = new array<ref HCAdminMark>;
     int Dropped;
+    bool CatalogReserved;
+    int CatalogReserveTicks;
+    int PeakPutTicks;
+    void HCReserveCatalog()
+    {
+        int start = TickCount(0);
+        // Native scripts-1.30.164289/1_Core/proto/EnScript.c:482 Reserve;
+        // EnSystem.c:106 TickCount. Capacity only: no null rows on the wire.
+        Rows.Reserve(Math.Min(HCAdminWorldCatalog.COUNT, Limit));
+        CatalogReserveTicks = TickCount(start);
+        CatalogReserved = true;
+    }
     int Limit = 8192;
     protected ref map<string, bool> m_AdminLayers = new map<string, bool>;
     void HCAdminWorldCapture(int worldTime) {}
     int LayerCount() { return m_AdminLayers.Count(); }
     void Put(string layer, vector position, string label, string detail)
     {
+        int start = TickCount(0);
         if (!HCPositionValid(position)) { return; }
         if (Rows.Count() >= Limit) { Dropped++; return; }
         string layerName = HCText(layer, 48);
@@ -22,6 +35,8 @@ class HCAdminWorldCapture : HCDebugSnapshot
         mark.Detail = HCText(detail, 256);
         Rows.Insert(mark);
         m_AdminLayers.Set(mark.Layer, true);
+        int cost = TickCount(start);
+        if (cost > PeakPutTicks) { PeakPutTicks = cost; }
     }
     override void AddPoint(string layer, string id, vector pos, string label, string detail)
     {

@@ -1,6 +1,7 @@
 """Catalog provenance and release refusal; no DayZ behaviour is established."""
 import contextlib
 import io
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -37,6 +38,43 @@ class AdminWorldCatalogTests(unittest.TestCase):
     def assert_stale(self):
         with self.assertRaisesRegex(ValueError, 'stale admin world catalog; regenerate'):
             catalog.check(self.root)
+
+    def test_render_bounds_function_bodies_and_preserves_every_row(self):
+        # Exercise page and dispatcher boundaries, including the production size.
+        # This tests Python generation structure, not Enforce execution/timing.
+        production = (catalog.ROOT / catalog.CATALOG).read_text()
+        production_count = int(re.search(r'COUNT = (\d+);', production).group(1))
+        for count in (0, 1, catalog.PAGE_ROWS, catalog.PAGE_ROWS + 1,
+                      catalog.PAGE_ROWS * catalog.DISPATCH_PAGES,
+                      catalog.PAGE_ROWS * catalog.DISPATCH_PAGES + 1, production_count):
+            with self.subTest(count=count):
+                rows = [('layer', (index, 0, index), f'row-{index}', 'detail')
+                        for index in range(count)]
+                output = catalog.render(rows, 1, 'stock', 'inputs')
+                bodies = re.findall(r'    static void (\w+)\([^\n]*\)\n    \{\n(.*?)\n    \}',
+                                    output, re.S)
+                names = {name for name, _ in bodies}
+                emitted = []
+                referenced_pages = []
+                for name, body in bodies:
+                    calls = re.findall(r'(Dispatch\d+_\d+|Page\d+)\(capture,', body)
+                    self.assertTrue(set(calls) <= names)
+                    cases = re.findall(r'case (\d+):', body)
+                    if name.startswith('Page'):
+                        self.assertLessEqual(len(cases), catalog.PAGE_ROWS)
+                        emitted.extend(int(index) for index in cases)
+                        self.assertEqual(body.count('capture.Put('), len(cases))
+                    elif name.startswith('Dispatch'):
+                        self.assertLessEqual(len(cases), catalog.DISPATCH_PAGES)
+                        if not cases:
+                            self.assertEqual(len(calls), 2)
+                        referenced_pages.extend(call for call in calls if call.startswith('Page'))
+                self.assertEqual(emitted, list(range(count)))
+                page_names = {name for name in names if name.startswith('Page')}
+                self.assertEqual(set(referenced_pages), page_names)
+                self.assertEqual(len(referenced_pages), len(page_names))
+                for index in range(count):
+                    self.assertEqual(output.count(f'"row-{index}"'), 1)
 
     def test_generated_catalog_passes_without_fetching_stock(self):
         before = self.output.read_bytes()
