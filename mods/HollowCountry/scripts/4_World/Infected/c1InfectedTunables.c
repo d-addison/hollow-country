@@ -253,6 +253,9 @@ class HCC1Variety
     bool EnableComposition = true;
     // #316 individual locomotion
     bool EnableIndividualLocomotion = true;
+    // #316 activity variation
+    bool EnableActivityVariation = true;
+
     float DormantShare = 0.6666666666666666;
     float RunnerDay = 0.08;
     float RunnerNightIncrement = 0.07;

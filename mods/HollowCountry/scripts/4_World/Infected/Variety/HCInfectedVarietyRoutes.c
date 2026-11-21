@@ -18,7 +18,6 @@ class HCInfectedVarietyRoutes
     protected static ref array<HCInfectedActor> s_Roster;
     protected static string s_Fault;
 
-    protected static bool s_FallbackPrinted;
     protected static float s_NextScan;
 
     static string HCFault() { return s_Fault; }
@@ -36,17 +35,18 @@ class HCInfectedVarietyRoutes
         s_Routes = null;
         s_Fault = "";
         s_NextScan = 0;
+        HCInfectedVarietyActivity.HCStart();
         if (!s_Config) { return; }
         if (!s_Config.EnableMigration) { HCRefuse("off_EnableMigration"); return; }
         s_Fault = "variety_route_document_unavailable";
         HCHordeRouteDocument document;
         if (!HCGroupJson<HCHordeRouteDocument>.Load("$mission:hollow-country/infected/route-surveys.json", 32768, document))
         {
-            HCRefuse("route_document_unavailable_authored_sites_fallback");
+            HCRefuse("route_document_unavailable_native_wander_retained");
             return;
         }
-        if (!document || document.SchemaVersion != 1 || document.WorldName != GetGame().GetWorldName() || !HCHordeRoutes.ValidDefaults(document.Defaults)) { HCRefuse("route_document_invalid_authored_sites_fallback"); return; }
-        if (!document.Routes || document.Routes.Count() > 8) { HCRefuse("route_count_invalid_authored_sites_fallback"); return; }
+        if (!document || document.SchemaVersion != 1 || document.WorldName != GetGame().GetWorldName() || !HCHordeRoutes.ValidDefaults(document.Defaults)) { HCRefuse("route_document_invalid_native_wander_retained"); return; }
+        if (!document.Routes || document.Routes.Count() > 8) { HCRefuse("route_count_invalid_native_wander_retained"); return; }
         s_Routes = document;
         s_Fault = "";
         if (!document.Enabled) { HCRefuse("off_route_operator"); return; }
@@ -78,11 +78,19 @@ class HCInfectedVarietyRoutes
         HCHordeRouteSurvey selected;
         int selectedNode;
         vector entry;
-        float nearest = s_Config.CorridorRangeMetres * s_Config.CorridorRangeMetres;
+        bool varied = HCInfectedVarietyActivity.HCEnabled();
+        int candidates;
+        float rangeSq = s_Config.CorridorRangeMetres * s_Config.CorridorRangeMetres;
+        float nearest = rangeSq;
         array<ref HCHordeRouteSurvey> routes = s_Routes.Routes;
+        // ValidSurvey bounds this to <=8 corridors of <=8 nodes. Each corridor
+        // gets one lottery entry at its nearest segment, independent of length.
         foreach (HCHordeRouteSurvey route : routes)
         {
             if (!HCHordeRoutes.ValidSurvey(route, s_Routes.Defaults)) { continue; }
+            float routeNearest = rangeSq;
+            int routeNode = -1;
+            vector routeEntry;
             for (int node = 0; node < route.Nodes.Count() - 1; node++)
             {
                 vector first = route.Nodes[node];
@@ -90,57 +98,47 @@ class HCInfectedVarietyRoutes
                 float fraction = HCSegmentFraction(pos, first, last);
                 vector point = first + (last - first) * fraction;
                 float distance = vector.DistanceSq(pos, point);
-                if (distance > nearest) { continue; }
-                nearest = distance;
-                selected = route;
-                selectedNode = node + 1;
-                entry = point;
+                if (distance > routeNearest) { continue; }
+                routeNearest = distance;
+                routeNode = node;
+                routeEntry = point;
             }
+            if (routeNode < 0) { continue; }
+            candidates++;
+            if (varied)
+            {
+                if (Math.RandomInt(0, candidates) != 0) { continue; }
+            }
+            else if (routeNearest > nearest) { continue; }
+            nearest = routeNearest;
+            selected = route;
+            selectedNode = routeNode;
+            entry = routeEntry;
         }
         if (!selected) { return null; }
+        int direction = 1;
+        if (varied && Math.RandomInt(0, 2) == 0) { direction = -1; }
+        int next = selectedNode + 1;
+        if (direction < 0) { next = selectedNode; }
         HCHordeRouteSurvey bounded = new HCHordeRouteSurvey;
         bounded.Id = selected.Id;
         bounded.Nodes.Insert(entry);
         float length = vector.Distance(pos, entry);
         vector previous = entry;
-        for (int next = 0; next < selected.Nodes.Count(); next++)
+        // Reverse traversal changes the authored node order, never invents a
+        // destination or bypasses Reachable. No loops or extra native path work.
+        for (int visited = 0; visited < selected.Nodes.Count(); visited++)
         {
-            if (next < selectedNode) { continue; }
+            if (next < 0 || next >= selected.Nodes.Count()) { break; }
             vector destination = selected.Nodes[next];
             float segment = vector.Distance(previous, destination);
             if (length + segment > s_Config.MaxMigrationMetres) { break; }
             if (segment > 0) { bounded.Nodes.Insert(destination); }
             length += segment;
             previous = destination;
+            next += direction;
         }
         return bounded;
-    }
-
-    static HCHordeRouteSurvey HCFallback(vector pos)
-    {
-        if (!s_FallbackPrinted)
-        {
-            s_FallbackPrinted = true;
-            Print("[HC Variety] migration=authored_sites_fallback reason=no_corridor_in_range runtime=PENDING");
-        }
-        HCHordeRouteSurvey fallback = new HCHordeRouteSurvey;
-        float nearest = Math.Min(s_Config.MaxMigrationMetres, s_Config.CorridorRangeMetres);
-        nearest = nearest * nearest;
-        vector target;
-        array<ref HCInfectedVarietySite> sites = s_Config.Sites;
-        foreach (HCInfectedVarietySite site : sites)
-        {
-            vector point = site.Position;
-            point[0] = point[0] + s_Config.ContextRange;
-            float distance = vector.DistanceSq(pos, point);
-            if (distance <= 0 || distance > nearest) { continue; }
-            nearest = distance;
-            target = point;
-            fallback.Id = site.Id;
-        }
-        if (fallback.Id == "") { return null; }
-        fallback.Nodes.Insert(target);
-        return fallback;
     }
 
     static void HCStep(float now, HCWorkBudget workBudget)
@@ -174,11 +172,10 @@ class HCInfectedVarietyRoutes
             if (!HCInfectedModule.Instance.HCVarietyRouteEligible(current, leader.HCVarietyPlace())) { return; }
         }
         HCHordeRouteSurvey route = HCSelect(leader.GetPosition());
-        if (!route) { route = HCFallback(leader.GetPosition()); }
         if (!route)
         {
             foreach (HCInfectedActor unavailable : roster) { unavailable.InfectedEntity.HCVarietyRouteMark(); }
-            HCRefuse("authored_site_unavailable_native_wander_retained");
+            HCRefuse("authored_corridor_unavailable_native_wander_retained");
             return;
         }
         array<Man> players = HCPerfPlayers.HCGet();
@@ -230,10 +227,26 @@ class HCInfectedVarietyRoutePack : HCNativeInfectedPack
     protected int m_VarietyNode;
     protected ref HCHordeRouteDefaults m_VarietyDefaults;
     protected bool m_VarietyArrived;
+    protected float m_VarietyWaypointRadius = 4;
+
+    // Native AIGroupBehaviour.c:7-31 accepts a radius per waypoint. Keep it
+    // <= the previous 4 m and per-member arrival bound; sample once per pack.
+    override protected bool ActivateWaypoint(float now)
+    {
+        if (m_RoutePlan && RouteCompleted < m_RoutePlan.Count())
+        {
+            if (HCInfectedVarietyActivity.HCEnabled()) { m_RoutePlan[RouteCompleted].m_Radius = m_VarietyWaypointRadius; }
+        }
+        return super.ActivateWaypoint(now);
+    }
 
     bool HCBegin(array<HCInfectedActor> roster, HCHordeRouteSurvey route, HCHordeRouteDefaults nativeDefaults, float now, float lifetime)
     {
         if (!route || route.Nodes.Count() < 1 || !nativeDefaults || !roster || roster.Count() < 1) { return false; }
+        if (HCInfectedVarietyActivity.HCEnabled())
+        {
+            m_VarietyWaypointRadius = Math.Min(nativeDefaults.ArrivalMetres, 2 + Math.RandomInt(0, 3));
+        }
         InitFilter();
         vector entry;
         if (!Reachable(roster[0].InfectedEntity.GetPosition(), route.Nodes[0], nativeDefaults.NativeSegmentMetres, entry)) { return false; }
