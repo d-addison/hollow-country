@@ -19,13 +19,13 @@ import tempfile
 
 from tools.package.sign_wine import CACHE, sign
 from tools.package.weapon_pack_guards import WORKSHOP
-from tools.release import compile_gate
+from tools.release import compile_gate, ship_inputs
 
 ROOT = Path(__file__).resolve().parents[2]
 # Default PBO template pack: the committed mission pack at the pinned commit, so the
 # Workshop PBO and the friend bundle carry the same interiors.
 TEMPLATES_REL = 'mission/hollow-country/interiors/templates'
-ADDONS = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/Addons')
+ADDONS = ship_inputs.ADDONS
 NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 
 
@@ -150,7 +150,7 @@ def pbo_prefix(path):
     return ''
 
 
-def native_compile_gate(tree, sha, workshop=WORKSHOP):
+def native_compile_gate(tree, sha, workshop=WORKSHOP, addons=ADDONS):
     server_root, prefix, reason = compile_gate.prerequisites()
     if reason:
         print('compile gate not run: ' + reason, flush=True)
@@ -160,7 +160,7 @@ def native_compile_gate(tree, sha, workshop=WORKSHOP):
     result = subprocess.run(
         [sys.executable, '-B', str(ROOT / 'tools/release/compile_gate.py'),
          '--tree', str(tree), '--commit', sha, '--server-root', str(server_root),
-         '--prefix', str(prefix), '--workshop', str(workshop)], cwd=tree, capture_output=True, text=True,
+         '--prefix', str(prefix), '--workshop', str(workshop), '--addons', str(addons)], cwd=tree, capture_output=True, text=True,
         env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'), timeout=1800)
     for line in (result.stdout + '\n' + result.stderr).splitlines():
         print(compile_gate.private(line), flush=True)
@@ -212,7 +212,7 @@ def build(args):
             run([*py, '-m', 'tools.package.weapon_pack_guards', '--declared-stack',
                  '--workshop', workshop, '--out', guard_dir], tree)
             guard_receipt = json.loads((guard_dir / 'weapon-pack-guards.json').read_bytes())
-            gate_result = native_compile_gate(tree, sha, workshop)
+            gate_result = native_compile_gate(tree, sha, workshop, args.addons.absolute())
             if guard_receipt['status'] == 'generated' and gate_result['passed'] is True:
                 guard_receipt['native_compile'] = 'passed'
             print('Packing pinned commit ' + sha, flush=True)
@@ -224,23 +224,15 @@ def build(args):
                      '--addon', tree / 'mods' / mod, '--out', pbo], tree)
                 run([*py, '-m', 'tools.package.pbo', 'verify', '--prefix', prefix, pbo], tree)
             print('Building animation addon', flush=True)
-            for script in ('build_infected_clips.py', 'build_anims_addon.py'):
-                run([*py, tree / 'tools/anim' / script, '--addons', args.addons.absolute(),
-                     '--out', scratch / 'anims'], tree)
-            shutil.copyfile(scratch / 'anims/addons/HollowCountryAnims.pbo',
+            shutil.copyfile(ship_inputs.build_anims(tree, args.addons.absolute(), scratch, run),
                             scratch / 'hollowcountryanims.pbo')
-            run([*py, '-m', 'tools.package.pbo', 'verify', '--prefix', 'HollowCountryAnims',
-                 scratch / 'hollowcountryanims.pbo'], tree)
             stage = scratch / 'output'
             stage.mkdir()
             reports = {}
-            signing_inputs = [('hollowcountry', 'HollowCountry', 'base'),
-                              ('hollowcountryanims', 'HollowCountry', 'anims'),
-                              ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')]
-            if guard_receipt['status'] == 'generated':
-                guard_name = guard_receipt['pbo']
+            guard_name = guard_receipt['pbo'] if guard_receipt['status'] == 'generated' else None
+            if guard_name:
                 shutil.copyfile(guard_dir / guard_name, scratch / guard_name)
-                signing_inputs.append((Path(guard_name).stem, 'HollowCountryExpansionAI', 'weapon-pack-guards'))
+            signing_inputs = ship_inputs.signing_inputs(guard_name)
             for name, mod, label in signing_inputs:
                 print('Signing and verifying ' + name, flush=True)
                 signed = scratch / ('signed-' + label)
