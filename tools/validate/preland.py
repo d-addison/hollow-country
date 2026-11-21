@@ -11,7 +11,7 @@ from tools.release.rpt_summary import filtered
 ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
-          'settings_consistency', 'wiring_audit')
+          'settings_consistency', 'wiring_audit', 'regenerate_all')
 
 
 def changed_files(base):
@@ -48,7 +48,8 @@ def main(argv=None):
     rows = []
     failed = False
     incomplete = False
-    checks = [('tools.validate.' + name, name) for name in CHECKS]
+    checks = [('tools.package.' + name if name == 'regenerate_all' else 'tools.validate.' + name, name)
+              for name in CHECKS]
     if args.wb:
         checks.append(('tools.release.wb_compile', 'wb_compile'))
     for module, name in checks:
@@ -64,6 +65,8 @@ def main(argv=None):
         scope = 'full tree'
         if name == 'enforce_lint':
             arguments = ['--native-scripts', str(args.native_scripts.expanduser())]
+        elif name == 'regenerate_all':
+            arguments = ['--check']
         elif paths is not None and name == 'cfgconvert_check':
             # enforce_perf always runs on the full tree: its baseline ratchet (stale entries) and rule
             # changes are only checked by a full-project run.
