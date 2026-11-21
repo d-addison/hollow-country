@@ -15,20 +15,65 @@
 // Timing API inspected in scripts-1.30.164289: EnSystem.c:106 TickCount;
 // 3_Game/Global/Game.c:914 GetTickTime, :1535 GetTime.
 // All walking/geometry/arrival/loot/replication acceptance remains runtime=PENDING.
+class HCXRoadVisit
+{
+    int Parent = -1;
+    float Cost;
+    float Score;
+    int Heap = -1;
+    bool Closed;
+}
+
+// One candidate per step; only the nine cells around the query are visited.
+class HCXRoadNearest
+{
+    vector Position;
+    float Gap;
+    int Best = -1;
+    int Cell;
+    int Offset;
+
+    void HCStart(vector position, float radius)
+    {
+        Position = position;
+        Gap = radius * radius;
+        Best = -1;
+        Cell = 0;
+        Offset = 0;
+    }
+
+    bool HCStep(HCXAICaravanRoads roads)
+    {
+        if (Cell >= 9) { return true; }
+        int x = Math.Floor(Position[0] / HCXAICaravanRoads.HC_CELL_METERS);
+        int z = Math.Floor(Position[2] / HCXAICaravanRoads.HC_CELL_METERS);
+        int dx = Cell % 3 - 1;
+        int dz = Cell / 3 - 1;
+        array<int> bucket = roads.Grid.Get(roads.HCGridKey(x + dx, z + dz));
+        if (!bucket || Offset >= bucket.Count()) { Cell++; Offset = 0; return false; }
+        int node = bucket[Offset];
+        Offset++;
+        float gap = HCXConvoyRoute.HCFlatSq(Position, roads.Nodes[node].Position);
+        if (gap <= Gap) { Gap = gap; Best = node; }
+        return false;
+    }
+}
+
 class HCXAICaravanRoadNode
 {
     vector Position;
     ref array<int> Links = new array<int>;
     // Native EnScript.c:902/917 map Set/Contains; built once with Links.
     ref map<int, bool> LinkIds = new map<int, bool>;
-    int Parent = -2;
 }
 class HCXAICaravanRoads
 {
     protected static ref HCXAICaravanRoads s_Instance;
     ref HCCaravanCorridor Config;
     ref array<ref HCXAICaravanRoadNode> Nodes = new array<ref HCXAICaravanRoadNode>;
-    ref array<int> Frontier = new array<int>;
+    static const float HC_CELL_METERS = 250;
+    ref map<string, ref array<int>> Grid = new map<string, ref array<int>>;
+    ref HCXConvoyRoute Planner = new HCXConvoyRoute;
     ref array<vector> Path = new array<vector>;
     string Phase = "cold";
     string Reason;
@@ -36,12 +81,6 @@ class HCXAICaravanRoads
     // FileHandle is typedef int[]: it compares with 0 but cannot be assigned 0.
     bool m_FileOpen;
     int m_Count;
-    int m_Scan;
-    int m_Head;
-    int m_Start = -1;
-    int m_End = -1;
-    float m_StartGap;
-    float m_EndGap;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     // Loading retains one line cursor and yields through the shared deadline.
     protected ref HCXAICaravanRoadNode m_LoadNode;
@@ -154,6 +193,17 @@ class HCXAICaravanRoads
         if (m_LoadField < 4) { m_LoadField++; }
         if (m_LoadField == 4 && m_LoadEdge == m_LoadDegree)
         {
+            // Built once inside the existing per-line loading budget.
+            int x = Math.Floor(m_LoadNode.Position[0] / HC_CELL_METERS);
+            int z = Math.Floor(m_LoadNode.Position[2] / HC_CELL_METERS);
+            string key = HCGridKey(x, z);
+            array<int> bucket = Grid.Get(key);
+            if (!bucket)
+            {
+                bucket = new array<int>;
+                Grid.Set(key, bucket);
+            }
+            bucket.Insert(Nodes.Count());
             Nodes.Insert(m_LoadNode);
             m_LoadNode = null;
             m_LoadField = 0;
@@ -165,53 +215,46 @@ class HCXAICaravanRoads
             }
         }
     }
+    string HCGridKey(int x, int z) { return x.ToString() + ":" + z.ToString(); }
+
     bool HCPlan(vector origin, vector destination)
     {
         if (Phase == "cold" || Phase == "loading" || Phase == "failed") { return false; }
-        From = origin; To = destination;
-        m_Scan = 0; m_Head = 0; m_Start = -1; m_End = -1;
-        m_StartGap = Config.MaxApproachMeters * Config.MaxApproachMeters;
-        m_EndGap = m_StartGap;
-        Frontier.Clear(); Path.Clear(); m_Length = 0;
-        Phase = "nearest";
+        From = origin;
+        To = destination;
+        Path.Clear();
+        Reason = "";
+        HCConvoyPolicy policy = new HCConvoyPolicy;
+        policy.RoadNodesPerTick = Config.RoadWorkPerTick;
+        policy.RoadNodesPerWorkUnit = Config.RoadNodesPerWorkUnit;
+        policy.MaxPlanNodes = Config.MaxRoadNodes;
+        policy.MaxApproachMeters = Config.MaxApproachMeters;
+        policy.MaxRouteNodes = Config.MaxRouteNodes;
+        policy.MaxDriveMeters = Config.MaxJourneyMeters;
+        policy.MinDriveMeters = 0;
+        policy.DismountMeters = 0;
+        policy.DetourMeters = Config.MaxJourneyMeters;
+        if (!Planner.HCPlan(origin, destination, policy, true)) { Reason = Planner.mHCReason; return false; }
+        Phase = "planning";
         return true;
-    }
-    void HCNearest()
-    {
-        if (m_Scan < Nodes.Count())
-        {
-            HCXAICaravanRoadNode node = Nodes[m_Scan];
-            node.Parent = -2;
-            float fromGap = vector.DistanceSq(From, node.Position);
-            float toGap = vector.DistanceSq(To, node.Position);
-            if (fromGap <= m_StartGap) { m_Start = m_Scan; m_StartGap = fromGap; }
-            if (toGap <= m_EndGap) { m_End = m_Scan; m_EndGap = toGap; }
-            m_Scan++;
-            return;
-        }
-        if (m_Start < 0 || m_End < 0) { Phase = "idle"; Reason = "CARAVAN_CAMP_ROAD_APPROACH_TOO_FAR"; return; }
-        Nodes[m_Start].Parent = -1;
-        Frontier.Insert(m_Start);
-        Phase = "search";
-    }
-    void HCSearch()
-    {
-        if (m_Head >= Frontier.Count()) { Phase = "idle"; Reason = "CARAVAN_ROAD_DISCONNECTED"; return; }
-        int current = Frontier[m_Head];
-        m_Head++;
-        if (current == m_End) { m_Scan = current; Phase = "reconstruct"; return; }
-        array<int> links = Nodes[current].Links;
-        foreach (int adjacent : links)
-        {
-            HCXAICaravanRoadNode nextNode = Nodes[adjacent];
-            if (nextNode.Parent != -2) { continue; }
-            nextNode.Parent = current;
-            Frontier.Insert(adjacent);
-        }
     }
     void HCStep(bool loadFrame = false)
     {
         if (Phase == "idle" || Phase == "ready" || Phase == "failed") { return; }
+        if (Phase == "planning")
+        {
+            Planner.HCStep();
+            if (Planner.mHCPhase == "failed") { Phase = "idle"; Reason = Planner.mHCReason; }
+            else if (Planner.mHCPhase == "ready")
+            {
+                // Caravan contract retains destination -> source order.
+                for (int index = Planner.mHCPath.Count() - 1; index >= 0; index--) { Path.Insert(Planner.mHCPath[index]); }
+                m_Length = Planner.mHCLength;
+                if (m_Length > Config.MaxJourneyMeters) { Path.Clear(); Phase = "idle"; Reason = "CARAVAN_ROUTE_LENGTH_CAP"; }
+                else { Phase = "ready"; }
+            }
+            return;
+        }
         if (Phase == "loading" && !loadFrame) { return; }
         if (Phase == "loading" && m_LoadFrame == GetGame().GetTime()) { return; }
         // One ROADS admission per visit; frame loading uses the shared idle
@@ -235,20 +278,6 @@ class HCXAICaravanRoads
         {
             if (!m_Work.HCContinue()) { break; }
             if (Phase == "loading") { HCLoadNode(); }
-            else if (Phase == "nearest") { HCNearest(); }
-            else if (Phase == "search") { HCSearch(); }
-            else if (Phase == "reconstruct")
-            {
-                if (m_Scan < 0) { Phase = "ready"; return; }
-                if (Path.Count() >= Config.MaxRouteNodes) { Phase = "idle"; Reason = "CARAVAN_ROUTE_NODE_CAP"; return; }
-                vector routePoint = Nodes[m_Scan].Position;
-                if (Path.Count() == 0) { m_Length = vector.Distance(To, routePoint); }
-                else { m_Length += vector.Distance(Path[Path.Count() - 1], routePoint); }
-                if (Nodes[m_Scan].Parent < 0) { m_Length += vector.Distance(From, routePoint); }
-                if (m_Length > Config.MaxJourneyMeters) { Phase = "idle"; Reason = "CARAVAN_ROUTE_LENGTH_CAP"; return; }
-                Path.Insert(routePoint);
-                m_Scan = Nodes[m_Scan].Parent;
-            }
             else { break; }
         }
         if (loading)
@@ -281,6 +310,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
     ref array<vector> m_PartnerOriginal = new array<vector>;
     int m_PartnerBehaviour;
     ref HCXAITradeAdapter m_StockReader;
+    ref HCXAIStuckRecovery m_Recovery = new HCXAIStuckRecovery;
 
     override bool HCReady()
     {
@@ -293,6 +323,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (roads && roads.Phase == "failed") { return roads.Reason; }
+        if (m_Recovery.GivenUp) { return m_Recovery.Reason; }
         return "";
     }
     override string HCRefusal() { return "CARAVAN_WAITING_FUNDED_ROAD_PAIR"; }
@@ -302,6 +333,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
     {
         eAIBase actor = eAIBase.Cast(carrier);
         if (!HCReady() || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || HCXExpansionBridge.HCBaseGetIdentity(actor)) { return false; }
+        m_Recovery = new HCXAIStuckRecovery;
         m_Group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor); m_Lease = lease;
         LeftActor = actor;
         m_From = HCXExpansionBridge.HCBaseGetPosition(actor); m_To = destination;
@@ -373,6 +405,9 @@ class HCXAICaravanAdapter : HCCaravanInventory
             for (int forward = 0; forward < roads.Path.Count(); forward++) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, roads.Path[roads.Path.Count() - 1 - forward]); }
             HCXExpansionBridge.HCGroupAddWaypoint(m_Group, m_To);
         }
+        array<vector> requested = HCXExpansionBridge.HCGroupGetWaypoints(m_Group);
+        m_Recovery.EndMeters = Corridor.ArrivalRangeMeters;
+        m_Recovery.HCStart(requested, GetGame().GetTime());
         return true;
     }
     override bool HCBindCaravan(HCCaravanState row)
@@ -397,7 +432,9 @@ class HCXAICaravanAdapter : HCCaravanInventory
         if (!row || !LeftActor || !Corridor || !HCCurrentCaravan(row)) { return false; }
         vector destination = m_To;
         if (returning) { destination = m_From; }
-        return vector.DistanceSq(LeftActor.GetPosition(), destination) <= Corridor.ArrivalRangeMeters * Corridor.ArrivalRangeMeters;
+        bool arrived = vector.DistanceSq(LeftActor.GetPosition(), destination) <= Corridor.ArrivalRangeMeters * Corridor.ArrivalRangeMeters;
+        if (!arrived) { m_Recovery.HCCheck(m_Group, LeftActor.GetPosition(), GetGame().GetTime()); }
+        return arrived;
     }
     override bool HCFleeObserved(HCCaravanState row) { return m_Group && HCXExpansionBridge.HCGroupIsInCombat(m_Group); }
 }
@@ -406,6 +443,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
 // path query. The existing provider retains spawn, caps and despawn ownership.
 modded class HCXAISiteState
 {
+    ref HCXAIStuckRecovery HCJourneyRecovery;
     bool HCJourneyWalking;
     vector HCJourneyEnd;
     float HCJourneyRetry;
@@ -441,7 +479,15 @@ modded class HCXAISiteDirector
         // Installed eAIDynamicPatrol.c:760-765 measures despawn distance
         // from the formation leader, so visible travelling parties stay live.
         float now = GetGame().GetTickTime();
-        if (state.HCJourneyWalking && vector.DistanceSq(position, state.HCJourneyEnd) > 64 && now - state.HCJourneyStarted < 90) { return; }
+        if (state.HCJourneyWalking && vector.DistanceSq(position, state.HCJourneyEnd) > 64)
+        {
+            if (state.HCJourneyRecovery)
+            {
+                state.HCJourneyRecovery.HCCheck(party, position, GetGame().GetTime());
+                if (state.HCJourneyRecovery.GivenUp) { return; }
+            }
+            return;
+        }
         if (now < state.HCJourneyRetry) { return; }
         state.HCJourneyRetry = now + 15;
         state.HCJourneyWalking = false;
@@ -466,6 +512,8 @@ modded class HCXAISiteDirector
         // ONCE walks the whole navmesh path; HALT would stop at path[0].
         HCXExpansionBridge.HCGroupSetWaypointBehaviour(party, eAIWaypointBehavior.ONCE);
         foreach (vector point : path) { HCXExpansionBridge.HCGroupAddWaypoint(party, point); }
+        state.HCJourneyRecovery = new HCXAIStuckRecovery;
+        state.HCJourneyRecovery.HCStart(path, GetGame().GetTime());
         state.HCJourneyEnd = sampled;
         state.HCJourneyWalking = true;
         state.HCJourneyStarted = now;

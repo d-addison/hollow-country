@@ -1,31 +1,36 @@
-// #210 road branch: bounded road route for one convoy over the caravan's
-// already-loaded installed road nodes (HCXAICaravanAdapter.c HCXAICaravanRoads).
-// Read only: this planner keeps its own parent/frontier arrays and never
-// writes HCXAICaravanRoadNode.Parent, never loads files and never opens roads.
-// Native scripts-1.30.164289: 1_Core/proto/EnMath.c:305 Sqrt; EnScript.c:380/385/407
-// array Count/Clear/Insert. Work is charged to HC_WORK_CONVOY_ROUTE, the consumer
-// that owns the raid/column situation this route serves.
-// Road geometry, drivability and arrival remain runtime=PENDING.
+// Own road planner; no Expansion implementation or geometry redistributed.
+// Native 1.30.164289: EnScript.c array/map Get/Set/Insert/Remove/Contains;
+// EnMath.c Floor/Sqrt; Game.c GetTime. Road drivability remains unverified.
 class HCXConvoyRoute
 {
-    ref array<int> mHCParent = new array<int>;
+    static const int HC_POP_CEILING = 128;
+    static const int HC_OPEN_CAP = 1024;
+    static const int HC_PLAN_TIMEOUT_MS = 120000;
+    protected static int s_PopFrame = -1;
+    protected static int s_Pops;
+    ref map<int, ref HCXRoadVisit> mHCVisits = new map<int, ref HCXRoadVisit>;
     ref array<int> mHCFrontier = new array<int>;
     ref array<vector> mHCPath = new array<vector>;
+    ref HCXRoadNearest mHCNearestFrom = new HCXRoadNearest;
+    ref HCXRoadNearest mHCNearestTo = new HCXRoadNearest;
+    ref HCWorkBudget mHCWork = new HCWorkBudget;
     string mHCPhase = "idle";
     string mHCReason;
-    HCConvoyPolicy mHCPolicy;
+    ref HCConvoyPolicy mHCPolicy;
+    HCXAICaravanRoads mHCRoads;
     vector mHCFrom;
     vector mHCTo;
     float mHCStraight;
-    float mHCStartGap;
-    float mHCEndGap;
     float mHCLength;
     int mHCCount;
     int mHCScan;
-    int mHCHead;
-    int mHCStart = -1;
     int mHCEnd = -1;
     int mHCExpanded;
+    int mHCStarted;
+    int mHCFrame = -1;
+    int mHCCurrent = -1;
+    int mHCEdge;
+    bool mHCIncludeEnd;
 
     static float HCFlatSq(vector a, vector b)
     {
@@ -33,11 +38,7 @@ class HCXConvoyRoute
         float dz = a[2] - b[2];
         return dx * dx + dz * dz;
     }
-
-    static float HCFlat(vector a, vector b)
-    {
-        return Math.Sqrt(HCFlatSq(a, b));
-    }
+    static float HCFlat(vector a, vector b) { return Math.Sqrt(HCFlatSq(a, b)); }
 
     bool HCFail(string reason)
     {
@@ -46,115 +47,177 @@ class HCXConvoyRoute
         return false;
     }
 
-    bool HCPlan(vector origin, vector destination, HCConvoyPolicy policy)
+    bool HCPlan(vector origin, vector destination, HCConvoyPolicy policy, bool includeEnd = false)
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (!policy) { return HCFail("CONVOY_POLICY_INVALID"); }
         if (!roads) { return HCFail("CONVOY_ROAD_NETWORK_UNAVAILABLE"); }
-        if (roads.Nodes.Count() < 2) { return HCFail("CONVOY_ROAD_NETWORK_UNAVAILABLE"); }
+        if (roads.Phase == "loading" || roads.Phase == "failed" || roads.Nodes.Count() < 2) { return HCFail("CONVOY_ROAD_NETWORK_UNAVAILABLE"); }
         mHCPolicy = policy;
+        mHCIncludeEnd = includeEnd;
+        mHCRoads = roads;
         mHCFrom = origin;
         mHCTo = destination;
         mHCStraight = HCFlat(origin, destination);
         mHCCount = roads.Nodes.Count();
-        mHCParent.Clear();
+        mHCVisits.Clear();
         mHCFrontier.Clear();
         mHCPath.Clear();
-        mHCScan = 0;
-        mHCHead = 0;
-        mHCStart = -1;
-        mHCEnd = -1;
         mHCExpanded = 0;
         mHCLength = 0;
-        mHCStartGap = policy.MaxApproachMeters * policy.MaxApproachMeters;
-        mHCEndGap = mHCStartGap;
+        mHCCurrent = -1;
+        mHCNearestFrom.HCStart(origin, policy.MaxApproachMeters);
+        mHCNearestTo.HCStart(destination, policy.MaxApproachMeters);
+        mHCStarted = GetGame().GetTime();
         mHCReason = "";
         mHCPhase = "scan";
         return true;
     }
 
-    // At most RoadNodesPerTick node steps per call, one shared work unit per
-    // RoadNodesPerWorkUnit steps. A refused unit leaves the cursors untouched.
+    void HCSwap(int a, int b)
+    {
+        int held = mHCFrontier[a];
+        mHCFrontier.Set(a, mHCFrontier[b]);
+        mHCFrontier.Set(b, held);
+        mHCVisits.Get(mHCFrontier[a]).Heap = a;
+        mHCVisits.Get(mHCFrontier[b]).Heap = b;
+    }
+    void HCRaise(int index)
+    {
+        while (index > 0)
+        {
+            int parent = (index - 1) / 2;
+            if (mHCVisits.Get(mHCFrontier[parent]).Score <= mHCVisits.Get(mHCFrontier[index]).Score) { return; }
+            HCSwap(parent, index);
+            index = parent;
+        }
+    }
+    int HCPop()
+    {
+        int result = mHCFrontier[0];
+        int last = mHCFrontier.Count() - 1;
+        HCSwap(0, last);
+        mHCFrontier.Remove(last);
+        mHCVisits.Get(result).Heap = -1;
+        int index = 0;
+        while (index * 2 + 1 < mHCFrontier.Count())
+        {
+            int child = index * 2 + 1;
+            int right = child + 1;
+            if (right < mHCFrontier.Count())
+            {
+                if (mHCVisits.Get(mHCFrontier[right]).Score < mHCVisits.Get(mHCFrontier[child]).Score) { child = right; }
+            }
+            if (mHCVisits.Get(mHCFrontier[index]).Score <= mHCVisits.Get(mHCFrontier[child]).Score) { break; }
+            HCSwap(index, child);
+            index = child;
+        }
+        return result;
+    }
+
     void HCStep()
     {
         if (mHCPhase != "scan" && mHCPhase != "search" && mHCPhase != "build") { return; }
+        int now = GetGame().GetTime();
+        if (now - mHCStarted > HC_PLAN_TIMEOUT_MS) { HCFail("CONVOY_ROAD_BUDGET_TIMEOUT"); return; }
+        if (mHCFrame == now) { return; }
+        mHCFrame = now;
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
-        if (!roads) { HCFail("CONVOY_ROAD_NETWORK_CHANGED"); return; }
+        if (!roads || roads != mHCRoads) { HCFail("CONVOY_ROAD_NETWORK_CHANGED"); return; }
         if (roads.Nodes.Count() != mHCCount) { HCFail("CONVOY_ROAD_NETWORK_CHANGED"); return; }
-        array<ref HCXAICaravanRoadNode> nodes = roads.Nodes;
+        if (s_PopFrame != now) { s_PopFrame = now; s_Pops = 0; }
+        int popLimit = Math.Min(HC_POP_CEILING, mHCPolicy.RoadNodesPerTick);
+        mHCWork.HCReset(mHCPolicy.RoadNodesPerTick, HCPerfConfig.HCGet().SliceMs);
         for (int unit = 0; unit < mHCPolicy.RoadNodesPerTick; unit++)
         {
-            if (unit % mHCPolicy.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONVOY_ROUTE, 1)) { return; }
-            if (mHCPhase == "scan") { HCScan(nodes); }
-            else if (mHCPhase == "search") { HCSearch(nodes); }
-            else if (mHCPhase == "build") { HCBuild(nodes); }
-            else { return; }
+            if (!mHCWork.HCContinue()) { break; }
+            if (unit % mHCPolicy.RoadNodesPerWorkUnit == 0)
+            {
+                if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONVOY_ROUTE, 1)) { break; }
+            }
+            if (mHCPhase == "scan") { HCScan(roads); }
+            else if (mHCPhase == "search")
+            {
+                if (mHCCurrent < 0)
+                {
+                    if (s_Pops >= popLimit) { break; }
+                }
+                int expanded = mHCExpanded;
+                HCSearch(roads.Nodes);
+                if (mHCExpanded > expanded) { s_Pops++; }
+            }
+            else if (mHCPhase == "build") { HCBuild(roads.Nodes); }
+            else { break; }
         }
+        HCXAIStuckRecovery.HCObservePops(s_Pops);
     }
 
-    void HCScan(array<ref HCXAICaravanRoadNode> nodes)
+    void HCScan(HCXAICaravanRoads roads)
     {
-        if (mHCScan < nodes.Count())
-        {
-            vector position = nodes[mHCScan].Position;
-            mHCParent.Insert(-2);
-            float fromGap = HCFlatSq(mHCFrom, position);
-            float toGap = HCFlatSq(mHCTo, position);
-            if (fromGap <= mHCStartGap) { mHCStart = mHCScan; mHCStartGap = fromGap; }
-            if (toGap <= mHCEndGap) { mHCEnd = mHCScan; mHCEndGap = toGap; }
-            mHCScan++;
-            return;
-        }
-        if (mHCStart < 0 || mHCEnd < 0) { HCFail("CONVOY_ROAD_APPROACH_TOO_FAR"); return; }
-        mHCParent.Set(mHCStart, -1);
-        mHCFrontier.Insert(mHCStart);
+        if (!mHCNearestFrom.HCStep(roads)) { return; }
+        if (!mHCNearestTo.HCStep(roads)) { return; }
+        int start = mHCNearestFrom.Best;
+        mHCEnd = mHCNearestTo.Best;
+        if (start < 0 || mHCEnd < 0) { HCFail("CONVOY_ROAD_APPROACH_TOO_FAR"); return; }
+        HCXRoadVisit visit = new HCXRoadVisit;
+        visit.Score = HCFlat(roads.Nodes[start].Position, roads.Nodes[mHCEnd].Position);
+        visit.Heap = 0;
+        mHCVisits.Set(start, visit);
+        mHCFrontier.Insert(start);
         mHCPhase = "search";
     }
 
-    // Breadth-first over links, pruned to an ellipse of DetourMeters around the
-    // straight car-to-destination line; MaxPlanNodes caps expansions.
+    // A* with Euclidean edge cost and consistent Euclidean heuristic.
+    // One edge per work step; indexed heap has no duplicate entries.
     void HCSearch(array<ref HCXAICaravanRoadNode> nodes)
     {
-        if (mHCHead >= mHCFrontier.Count()) { HCFail("CONVOY_ROAD_DISCONNECTED"); return; }
-        if (mHCExpanded >= mHCPolicy.MaxPlanNodes) { HCFail("CONVOY_ROAD_SEARCH_CAP"); return; }
-        int current = mHCFrontier[mHCHead];
-        mHCHead++;
-        mHCExpanded++;
-        if (current == mHCEnd)
+        if (mHCCurrent < 0)
         {
-            mHCScan = current;
-            mHCPhase = "build";
-            return;
+            if (mHCFrontier.Count() == 0) { HCFail("CONVOY_ROAD_DISCONNECTED"); return; }
+            if (mHCExpanded >= mHCPolicy.MaxPlanNodes) { HCFail("CONVOY_ROAD_SEARCH_CAP"); return; }
+            mHCCurrent = HCPop();
+            mHCVisits.Get(mHCCurrent).Closed = true;
+            mHCExpanded++;
+            mHCEdge = 0;
+            if (mHCCurrent == mHCEnd) { mHCScan = mHCCurrent; mHCPhase = "build"; return; }
         }
-        float limit = mHCStraight + 2 * mHCPolicy.DetourMeters;
-        array<int> links = nodes[current].Links;
-        foreach (int adjacent : links)
+        array<int> links = nodes[mHCCurrent].Links;
+        if (mHCEdge >= links.Count()) { mHCCurrent = -1; return; }
+        int adjacent = links[mHCEdge];
+        mHCEdge++;
+        if (adjacent < 0 || adjacent >= nodes.Count()) { return; }
+        vector candidate = nodes[adjacent].Position;
+        if (HCFlat(mHCFrom, candidate) + HCFlat(candidate, mHCTo) > mHCStraight + 2 * mHCPolicy.DetourMeters) { return; }
+        HCXRoadVisit next = mHCVisits.Get(adjacent);
+        if (next && next.Closed) { return; }
+        float cost = mHCVisits.Get(mHCCurrent).Cost + HCFlat(nodes[mHCCurrent].Position, candidate);
+        if (next && cost >= next.Cost) { return; }
+        if (!next)
         {
-            if (adjacent < 0 || adjacent >= mHCParent.Count()) { continue; }
-            if (mHCParent[adjacent] != -2) { continue; }
-            vector candidate = nodes[adjacent].Position;
-            if (HCFlat(mHCFrom, candidate) + HCFlat(candidate, mHCTo) > limit) { continue; }
-            mHCParent.Set(adjacent, current);
+            if (mHCFrontier.Count() >= HC_OPEN_CAP) { HCFail("CONVOY_ROAD_OPEN_CAP"); return; }
+            next = new HCXRoadVisit;
+            next.Heap = mHCFrontier.Count();
+            mHCVisits.Set(adjacent, next);
             mHCFrontier.Insert(adjacent);
         }
+        next.Parent = mHCCurrent;
+        next.Cost = cost;
+        next.Score = cost + HCFlat(candidate, nodes[mHCEnd].Position);
+        HCRaise(next.Heap);
     }
 
-    // Walks parents from the destination node back to the start node. Nodes
-    // within DismountMeters of the destination are dropped so the crew stops
-    // short and walks the last stretch; the start node is always kept.
     void HCBuild(array<ref HCXAICaravanRoadNode> nodes)
     {
         if (mHCScan < 0) { HCFinish(); return; }
         vector position = nodes[mHCScan].Position;
-        int parent = mHCParent[mHCScan];
+        int parent = mHCVisits.Get(mHCScan).Parent;
         mHCScan = parent;
         if (mHCPath.Count() == 0 && parent >= 0 && HCFlat(position, mHCTo) < mHCPolicy.DismountMeters) { return; }
         if (mHCPath.Count() >= mHCPolicy.MaxRouteNodes) { HCFail("CONVOY_ROUTE_NODE_CAP"); return; }
         if (mHCPath.Count() > 0) { mHCLength += HCFlat(mHCPath[mHCPath.Count() - 1], position); }
         mHCPath.Insert(position);
-        if (mHCLength > mHCPolicy.MaxDriveMeters) { HCFail("CONVOY_ROUTE_LENGTH_CAP"); return; }
+        if (mHCLength > mHCPolicy.MaxDriveMeters) { HCFail("CONVOY_ROUTE_LENGTH_CAP"); }
     }
-
     void HCFinish()
     {
         int low = 0;
@@ -165,11 +228,13 @@ class HCXConvoyRoute
             mHCPath.Set(low, mHCPath[high]);
             mHCPath.Set(high, held);
             low++;
-            high = high - 1;
+            high--;
         }
         if (mHCPath.Count() > 0) { mHCLength += HCFlat(mHCFrom, mHCPath[0]); }
+        if (mHCIncludeEnd && mHCPath.Count() > 0) { mHCLength += HCFlat(mHCPath[mHCPath.Count() - 1], mHCTo); }
         if (mHCPath.Count() < 1 || mHCLength < mHCPolicy.MinDriveMeters) { HCFail("CONVOY_ROUTE_TOO_SHORT"); return; }
         if (mHCLength > mHCPolicy.MaxDriveMeters) { HCFail("CONVOY_ROUTE_LENGTH_CAP"); return; }
         mHCPhase = "ready";
+        HCXAIStuckRecovery.HCRouteUsed();
     }
 }
