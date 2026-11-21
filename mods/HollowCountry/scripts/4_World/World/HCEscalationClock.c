@@ -12,17 +12,78 @@
 // 1_Core/proto/EnDebug.c:96 Print.
 // IMPORTANT: installed scripts expose no rename primitive. The shared store
 // below uses a verified temporary intent, backup, copy/readback, then intent
-// removal. Interrupted writes fail closed; this is NOT atomic rename or fsync.
-// A stale .tmp or missing primary with .bak needs operator recovery, not reset.
+// removal. This is NOT atomic rename or fsync. The first open of a path per
+// session recovers an interrupted save from whole images (HCRecoverInterrupted);
+// when no whole image exists the files stay untouched and the store fails closed.
 class HCV2ThreatStore<Class T>
 {
+    // Paths already crash-checked this session. Only the first open recovers:
+    // later opens may run while this session's own staged save holds .tmp.
+    protected static ref map<string, bool> s_Recovered;
+
     static bool CanOpen(string path)
     {
         if (!HCRecoveryGate.HCAllowRead(path)) { return false; }
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) return false;
+        if (!s_Recovered) { s_Recovered = new map<string, bool>; }
+        if (!s_Recovered.Contains(path))
+        {
+            s_Recovered.Set(path, true);
+            HCRecoverInterrupted(path);
+        }
         if (FileExist(path + ".tmp")) return false;
         if (!FileExist(path) && FileExist(path + ".bak")) return false;
         return true;
+    }
+
+    // A whole image: bounded raw read, one {...} object, parseable as T. The
+    // shape check runs first so a torn file never reaches the native parser.
+    static bool HCWholeImage(string path)
+    {
+        if (!FileExist(path)) { return false; }
+        string text;
+        if (!HCGroupIO.HCReadRaw(path, HCGroupIO.HC_RAW_READ_CAP, text)) { return false; }
+        string trimmed = text.Trim();
+        if (trimmed.Length() < 2 || trimmed.Substring(0, 1) != "{" || trimmed.Substring(trimmed.Length() - 1, 1) != "}") { return false; }
+        T probe;
+        string error;
+        return JsonFileLoader<T>.LoadData(text, probe, error) && probe != null;
+    }
+
+    // Crash recovery at first open (HCStagedSaveImage stages: write_tmp,
+    // read_tmp, copy_backup, copy_primary, read_primary, clear_intent).
+    // A whole primary is the last committed state, so a leftover .tmp is
+    // dropped. A torn or missing primary is restored from a whole .tmp (the
+    // newer verified intent), else from a whole .bak. Otherwise the files stay
+    // untouched and the store fails closed as before. A torn primary is kept
+    // as <name>.torn before it is overwritten.
+    static void HCRecoverInterrupted(string path)
+    {
+        string tmp = path + ".tmp";
+        string bak = path + ".bak";
+        bool hasTmp = FileExist(tmp);
+        bool primaryWhole = HCWholeImage(path);
+        if (!hasTmp && (primaryWhole || !FileExist(bak))) { return; }
+        string action = "";
+        if (primaryWhole)
+        {
+            if (DeleteFile(tmp)) { action = "dropped_unpromoted_tmp"; }
+        }
+        else if (hasTmp && HCWholeImage(tmp))
+        {
+            if (FileExist(path)) { CopyFile(path, path + ".torn"); }
+            if (CopyFile(tmp, path) && HCWholeImage(path) && DeleteFile(tmp)) { action = "promoted_tmp"; }
+        }
+        else if (HCWholeImage(bak))
+        {
+            if (FileExist(path)) { CopyFile(path, path + ".torn"); }
+            if (CopyFile(bak, path) && HCWholeImage(path) && (!hasTmp || DeleteFile(tmp))) { action = "restored_bak"; }
+        }
+        string name = path;
+        int slash = name.LastIndexOf("/");
+        if (slash >= 0) { name = name.Substring(slash + 1, name.Length() - slash - 1); }
+        if (action == "") { action = "left_for_operator"; }
+        Print("[HC Store] crash_recovery file=" + name + " action=" + action + " runtime=PENDING");
     }
 
     static bool Load(string path, int limit, out T state)
