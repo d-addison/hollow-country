@@ -221,7 +221,7 @@ def texture_references(text, suffix):
         for field in fields.finditer(text):
             seen.add((field.start(), field[1], False))
     else:  # config.cpp: scalar and array texture fields, including hidden selections
-        fields = re.compile(r'\b(?:\w*texture\w*|icon|picture)\s*(?:\[\s*\])?\s*=\s*(\{[^;]*?\}|"(?:\\.|[^"\\])*")', re.I)
+        fields = re.compile(r'\b(?:\w*texture\w*|icon|picture)\s*(?:\[\s*\])?\s*\+?=\s*(\{[^;]*?\}|"(?:\\.|[^"\\])*")', re.I)
         for field in fields.finditer(text):
             for literal in _STRING.finditer(field[1]):
                 seen.add((field.start(), literal[1], False))
@@ -233,6 +233,16 @@ def texture_references(text, suffix):
         if key not in emitted:
             emitted.add(key)
             yield line, value, dynamic
+
+
+def diagnostic_value(value):
+    """Redact private home prefixes, including paths embedded in expressions."""
+    value = re.sub(r'\\+', '/', value)
+    home = Path.home().as_posix().rstrip('/')
+    if home:
+        value = re.sub(re.escape(home) + r'(?=/|[\s"\']|$)', '<home>', value, flags=re.I)
+    return re.sub(r'(?:[a-z]:)?/(?:home|users)/[^/"\'\r\n]+',
+                  '<home>', value, flags=re.I)
 
 
 def lint_textures(root, texture_names=None):
@@ -250,40 +260,41 @@ def lint_textures(root, texture_names=None):
         text = path.read_text(encoding='utf-8-sig')
         for line, value, dynamic in texture_references(text, path.suffix):
             label = f'{path.relative_to(root).as_posix()}:{line}'
+            display = diagnostic_value(value)
             if dynamic:
-                warnings.append(f'{label}: runtime texture expression needs native review: {value}')
+                warnings.append(f'{label}: runtime texture expression needs native review: {display}')
                 continue
             if not value:  # native calls use an empty string to clear textures
                 continue
             if value.startswith('#'):
                 if '%' in value:
-                    warnings.append(f'{label}: procedural texture template needs runtime review: {value}')
+                    warnings.append(f'{label}: procedural texture template needs runtime review: {display}')
                 elif _COLOR.fullmatch(value):
                     dimensions = [int(v) for v in _COLOR.fullmatch(value).groups()[1:3]]
                     if any(v & (v - 1) for v in dimensions):
-                        findings.append(f'{label}: procedural dimensions must be powers of two: {value}')
+                        findings.append(f'{label}: procedural dimensions must be powers of two: {display}')
                     elif (_COLOR.fullmatch(value).group(1).lower() != 'argb'
                           or (_COLOR.fullmatch(value).group(9) or '').lower() not in ('co', 'ca')):
-                        warnings.append(f'{label}: documented procedural form needs DayZ native review: {value}')
+                        warnings.append(f'{label}: documented procedural form needs DayZ native review: {display}')
                 elif 'color' in value.casefold():
-                    findings.append(f'{label}: malformed procedural color texture: {value}')
+                    findings.append(f'{label}: malformed procedural color texture: {display}')
                 else:
-                    warnings.append(f'{label}: unverified procedural texture grammar: {value}')
+                    warnings.append(f'{label}: unverified procedural texture grammar: {display}')
                 continue
             if value.startswith(('image:', 'set:')):
-                warnings.append(f'{label}: imageset symbolic reference needs native review: {value}')
+                warnings.append(f'{label}: imageset symbolic reference needs native review: {display}')
                 continue
             canonical = texture_index.canonical(value)
             if Path(canonical).suffix not in ('.paa', '.edds'):
-                findings.append(f'{label}: wrong texture extension (expected .paa/.edds): {value}')
+                findings.append(f'{label}: wrong texture extension (expected .paa/.edds): {display}')
                 continue
             if canonical in local:
                 if not local[canonical]:
-                    findings.append(f'{label}: texture not shipped by PBO packer: {value}')
+                    findings.append(f'{label}: texture not shipped by PBO packer: {display}')
             elif any(canonical == prefix or canonical.startswith(prefix + '/') for prefix in local_prefixes):
-                findings.append(f'{label}: missing authored texture: {value}')
+                findings.append(f'{label}: missing authored texture: {display}')
             elif installed is not None and canonical not in installed:
-                findings.append(f'{label}: missing indexed texture: {value}')
+                findings.append(f'{label}: missing indexed texture: {display}')
     return findings, warnings
 
 

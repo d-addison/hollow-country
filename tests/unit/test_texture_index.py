@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.package.pbo import WORDS, VERS, PREFIX
 from tools.validate import texture_index as index
@@ -20,6 +21,9 @@ class TextureIndex(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        self.cache_root = patch.object(index, 'DEFAULT_CACHE', self.root / 'cache/index.json')
+        self.cache_root.start()
+        self.addCleanup(self.cache_root.stop)
 
     def test_names_only_and_compressed_entries(self):
         path = self.root / 'ui.pbo'

@@ -1,6 +1,7 @@
 """Index PBO header names only; never extract or cache installed asset contents."""
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -91,6 +92,17 @@ def local_files(root):
 
 
 def build_index(directories, cache=DEFAULT_CACHE):
+    # Validate before creating directories or touching either output file. Keep
+    # the permitted root lexical so a symlink at that root cannot widen it.
+    cache_root = DEFAULT_CACHE.parent.expanduser().absolute()
+    try:
+        cache = Path(cache).expanduser().resolve()
+        temporary = cache.with_suffix(cache.suffix + '.tmp')
+        if (not cache.is_relative_to(cache_root)
+                or not temporary.resolve().is_relative_to(cache_root)):
+            raise ValueError('cache output must stay under the default cache root')
+    except RuntimeError:
+        raise ValueError('cache output contains a symlink loop') from None
     archives = []
     for directory in directories:
         directory = Path(directory)
@@ -114,11 +126,16 @@ def build_index(directories, cache=DEFAULT_CACHE):
         sources.append({'archive': path.name, 'size': after.st_size,
                         'mtime_ns': after.st_mtime_ns, 'stem_prefix_assumed': fallback})
     data = {'schema': SCHEMA, 'sources': sources, 'names': sorted(names)}
-    cache = Path(cache).expanduser()
     cache.parent.mkdir(parents=True, exist_ok=True)
-    temporary = cache.with_suffix(cache.suffix + '.tmp')
-    temporary.write_text(json.dumps(data, sort_keys=True) + '\n', encoding='utf-8')
-    temporary.replace(cache)
+    # Exclusive creation refuses existing temporary files, including symlinks,
+    # without ever opening their targets for writing.
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+            stream.write(json.dumps(data, sort_keys=True) + '\n')
+        temporary.replace(cache)
+    finally:
+        temporary.unlink(missing_ok=True)
     return data
 
 
