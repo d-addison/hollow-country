@@ -31,20 +31,22 @@ SCRIPT_LEX = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*[\s\S]*?\*/')
 # an unrelated layout cannot satisfy a consumer's lookup. Optional names describe
 # the smaller Expansion admin-only root, whose absent fields are null-guarded.
 _GROUP_MENU = 'mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c'
-_EXPANSION_MAP = 'mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminExpansionMap.c'
 _GROUP_LAYOUT = 'HollowCountry/gui/layouts/hc_group_map.layout'
-_ADMIN_LAYOUT = 'HollowCountry/gui/layouts/hc_admin_world_overlay.layout'
 BORROWED_ROOTS = {
     'mods/HollowCountry/scripts/5_Mission/Admin/HCAdminWorldClient.c': (
         (_GROUP_LAYOUT, _GROUP_MENU, (), 'Init passes layoutRoot to HCAdminWorldClient.Open.'),
-        (_ADMIN_LAYOUT, _EXPANSION_MAP, (), 'OnShow passes mHCXAdminOverlay to HCAdminWorldClient.Open.'),
     ),
     'mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapLayers.c': (
         (_GROUP_LAYOUT, _GROUP_MENU, (), 'Init passes layoutRoot to mHCLayers.Init.'),
-        (_ADMIN_LAYOUT, _EXPANSION_MAP, ('HCGrid', 'HCNavigation', 'HCKnownEvents'),
-         'Init passes mHCXAdminOverlay to mHCXAdminLayers.Init; DrawAdminOverlay uses pins only. '
-         'Grid, navigation and events fields are optional and null-guarded.'),
     ),
+}
+
+# Reviewed lookups into a dependency's installed layout (not in this repo), per consumer script.
+EXTERNAL_LOOKUPS = {
+    'mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminMapLayers.c': {
+        'MarkerListPanelContent': 'Expansion Navigation layouts/expansion_map_markerlist.layout; '
+                                  'the admin layer section is parented under it and null-guarded.',
+    },
 }
 
 
@@ -136,7 +138,10 @@ def lint_tree(root, borrowed_roots=None):
                 if load in local_loads:
                     local_names.update(names)
                     local_paths.update(paths)
+        external = EXTERNAL_LOOKUPS.get(label, {})
         for kind, name in re.findall(r'\b(FindAnyWidget|FindWidget)\s*\(\s*"([^"]+)"\s*\)', text):
+            if name in external:
+                continue
             for layout, loader, optional, reason in borrowed:
                 names, paths = parsed.get(root / 'mods' / layout, (set(), set()))
                 if name in optional:
