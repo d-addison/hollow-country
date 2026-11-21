@@ -106,6 +106,7 @@ class Audit:
         self.cache_root = (Path.home() / '.cache/hollow-country').resolve()
         self.profile_sources = {}
         self.stock_route_candidates = set()
+        self.missing_class_roots = set()
 
     def safe(self, path):
         path = Path(path).expanduser().resolve()
@@ -227,8 +228,37 @@ class Audit:
             for m in spawn.finditer(t):
                 if m[1].lower() not in known:
                     self.add('W008', m[1], p, line(t, m.start()), 'Hard-coded spawn class absent from indexed configs; ' + coverage)
+        # CE objects and inventory/world spawns use these roots. Missing CfgAmmo
+        # alone must not defer findings supported by the installed object index.
+        object_roots = {'CfgVehicles', 'CfgWeapons', 'CfgMagazines'}
+        for finding in self.findings:
+            key = finding['subject'].lower()
+            external = (finding['id'] in ('W007', 'W008') and key not in definitions
+                        and bool(self.missing_class_roots & object_roots))
+            if finding['id'] == 'W001':
+                row = definitions[key]
+                # Both scope and external subclasses can be absent: an engine
+                # base override may become a private inherited class once cached.
+                external = (row['root'] in self.missing_class_roots
+                            and row['scope'] is None
+                            and self.unresolved_parent(row['root'], key))
+            if external:
+                finding['excluded'] = 'external_classes'
+        count = sum(f.get('excluded') == 'external_classes' for f in self.findings)
+        if count:
+            self.exclusions['external_classes'] = (
+                'installed vanilla/Workshop class caches are absent; repository wiring still runs; '
+                f'count={count}')
         unique = {(f['id'], f['subject'], f['file']): f for f in self.findings}
         return sorted(unique.values(), key=lambda f: (f['id'], f['subject'], f['file']))
+
+    def unresolved_parent(self, root, key):
+        """A missing ancestor, rather than a cycle or a parentless declaration."""
+        rows, seen = self.indexed[root], set()
+        while key and key in rows and key not in seen:
+            seen.add(key)
+            key = rows[key].get('parent')
+        return bool(key and key not in rows)
 
     def spawn_routes(self, data, scripts, script_classes):
         """Creation evidence, not arbitrary class-name mentions or catalogues."""
@@ -632,7 +662,8 @@ class Audit:
                         self.origins[(root, name.lower())] = (name, p, 1)
             sources.append(source.get('label', self.display(p)))
         self.notes.append('Class index sources: ' + (', '.join(sources) or 'repo only'))
-        missing = sorted(set(r['config_roots']) - indexed_roots)
+        self.missing_class_roots = set(r['config_roots']) - indexed_roots
+        missing = sorted(self.missing_class_roots)
         coverage = 'cache absence is not proof of an undefined engine class'
         if missing:
             self.notes.append('External class-index roots missing: ' + ', '.join(missing))
@@ -957,6 +988,8 @@ def main(argv=None):
             accepted[identity(f)] = f['reason']
         live = {identity(f) for f in findings}
         stale_entries = [f for f in baseline['findings'] if identity(f) not in live]
+        if args.ratchet and audit.missing_class_roots:
+            raise ValueError('cannot ratchet baseline with incomplete external class caches; populate all configured class-index roots first (including for --offline runs)')
         if args.ratchet:
             baseline['findings'] = [f for f in baseline['findings'] if identity(f) in live]
             baseline_path.write_text(json.dumps(baseline, indent=2) + '\n')
@@ -965,10 +998,11 @@ def main(argv=None):
         for f in findings:
             # A policy declaration is not evidence that the stock transform succeeds.
             # Retain these candidates explicitly without accepting/baselining them.
-            excluded = (args.offline and f['id'] == 'W001'
-                        and f['subject'].lower() in audit.stock_route_candidates)
-            if excluded:
+            stock_excluded = (args.offline and f['id'] == 'W001'
+                              and f['subject'].lower() in audit.stock_route_candidates)
+            if stock_excluded and not f.get('excluded'):
                 f['excluded'] = 'W001.stock_routes'
+            excluded = bool(f.get('excluded'))
             f['new'] = not excluded and (f['id'] in ('W009', 'W010') or identity(f) not in accepted)
             if not f['new'] and not excluded:
                 f['reason'] = accepted[identity(f)]

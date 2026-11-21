@@ -67,6 +67,7 @@ CI_NOTICES = {
         r'^SKIP gui_icons ImageToPAA (?:converter|Windows interop) unavailable$',
     ),
     'wiring_audit': (
+        r'^EXCLUDED external_classes: installed vanilla/Workshop class caches are absent; repository wiring still runs; count=\d+$',
         *(r'^EXCLUDED ' + re.escape(name + ': ' + reason) + r'$'
           for name, reason in OFFLINE_EXCLUSIONS.items()),
         r'^NOTE Optional class source unavailable: ',

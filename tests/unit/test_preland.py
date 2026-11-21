@@ -119,6 +119,16 @@ class PrelandTests(unittest.TestCase):
         for name, reason in preland.CI_EXCLUSIONS.items():
             self.assertIn(name + ': ' + reason, output)
 
+    def test_ci_accepts_counted_external_class_exclusion_only(self):
+        notice = ('EXCLUDED external_classes: '
+                  + preland.CI_EXCLUSIONS['wiring_audit.external_classes'] + '; count=3')
+        self.assertEqual([], preland.incomplete_lines('wiring_audit', notice, ci=True))
+        # Coverage notes still fail strict installed checks.
+        coverage = 'NOTE External class-index roots missing: CfgVehicles'
+        self.assertTrue(preland.incomplete_lines('wiring_audit', coverage, ci=False))
+        self.assertEqual([], preland.incomplete_lines('wiring_audit', notice + '\n' + coverage, ci=True))
+        self.assertEqual(0, self.invoke(['--profile', 'ci'], outputs={'wiring_audit': notice})[0])
+
     def test_strict_rejects_optional_missing_and_skip_exit(self):
         for name in ('layout_lint', 'wb_compile'):
             with self.subTest(name=name):
