@@ -1261,8 +1261,10 @@ def rehearse_deltas(plan, repo):
         copy = scratch / 'mission'
         copy.mkdir()
         rehearsal_inputs = set(getattr(economy, 'INPUTS', ()))
+        if plan.get('travel'):
+            rehearsal_inputs.update(load_tool('travel').INPUTS)
         if plan.get('ce_coverage'):
-            rehearsal_inputs.add('mapgroupproto.xml')
+            rehearsal_inputs.add(load_tool('ce_coverage').PROTO)
         if plan.get('loot_boost'):
             rehearsal_inputs.update(load_tool('loot_boost').INPUTS)
         for relative in sorted(rehearsal_inputs):
@@ -2168,6 +2170,7 @@ def trial_rollback(name, tool, mission, started, above=(), inputs=()):
             shutil.copytree(mission / folder, copy / folder, symlinks=True)
         extra = set()
         for _, member in chain:  # files named in an installer's own receipt (the loot boost's scaled types files)
+            extra.update(getattr(member, 'INPUTS', ()))
             hook = getattr(member, 'rollback_inputs', None)
             if hook is not None:
                 try:

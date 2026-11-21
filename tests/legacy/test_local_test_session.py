@@ -2394,6 +2394,11 @@ class RealInstallers(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    @staticmethod
+    def travel_source(mission):
+        # Synthetic native XML contract: travel is enabled by default, and needs a source spawn document.
+        (mission / 'cfgeventspawns.xml').write_bytes(b'<eventposdef/>\n')
+
     def test_apply_and_rollback_leave_the_mission_and_profile_byte_identical(self):
         from tests.slow import test_economy_contract
         from tests.legacy import test_gameplay_delta
@@ -2403,6 +2408,7 @@ class RealInstallers(unittest.TestCase):
             mission.mkdir()
             test_economy_contract.synthetic(mission)
             vanilla_usage_vocabulary(mission)
+            self.travel_source(mission)
             test_gameplay_delta.synthetic_source(base / 'gp')
             shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
             server.mkdir()
@@ -2430,13 +2436,14 @@ class RealInstallers(unittest.TestCase):
         economy and travel installers and is the first CE layer the session rolls back. No DayZ behavior."""
         from tests.slow import test_economy_contract
         from tests.legacy import test_gameplay_delta
-        from tools.package import loot_boost
+        from tools.package import loot_boost, loot_floor_policy
         with tempfile.TemporaryDirectory(prefix='hc-synthetic-real-') as t:
             base = Path(t)
             mission, server, profiles = base / 'mission', base / 'server', base / 'profiles'
             mission.mkdir()
             test_economy_contract.synthetic(mission)
             vanilla_usage_vocabulary(mission)
+            self.travel_source(mission)
             (mission / 'db' / 'globals.xml').write_text(
                 '<variables>\n<var name="RespawnTypes" type="0" value="12"/>\n'
                 '<var name="InitialSpawn" type="0" value="100"/>\n</variables>\n')
@@ -2456,17 +2463,28 @@ class RealInstallers(unittest.TestCase):
                 return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
                         for p in root.rglob('*') if p.is_file()}
             before = everything()
+            multiplier = loot_boost.default_multiplier(ROOT)
             out, err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stderr(err):
                 self.assertEqual(lts.main(['plan'] + argv, out=out), 0, err.getvalue())
-                self.assertIn('loot boost (x2', out.getvalue())
+                self.assertIn('loot boost (x%g' % multiplier, out.getvalue())
                 self.assertEqual(before, everything())
                 self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0, err.getvalue())
                 receipt = json.loads((mission / loot_boost.MANAGED / 'receipt.json').read_text())
-                self.assertEqual(receipt['multiplier'], 2.0)
+                self.assertEqual(receipt['multiplier'], multiplier)
                 self.assertIn('db/types.xml', [row['name'] for row in receipt['files']])
-                self.assertIn('<nominal>20</nominal>', (mission / 'db' / 'types.xml').read_text())  # tools 10 -> 20
-                self.assertIn('value="24"', (mission / 'db' / 'globals.xml').read_text())
+                # Derive the installed types from the actual input, policy and shelf-pressure decision.
+                types_row = next(row for row in receipt['files'] if row['name'] == 'db/types.xml')
+                source = (mission / loot_boost.MANAGED / types_row['backup']).read_bytes()
+                policy, _ = loot_boost._floor_policy(loot_boost.SHIPPED)
+                limited = receipt['counts']['placement_budget'].get('shelf_boost_limited', False)
+                expected, _ = loot_boost.scale_types(source, multiplier, loot_boost._roster_names(),
+                                                     policy if limited else None)
+                if policy is not None:
+                    expected, _ = loot_floor_policy.retag_types(expected, policy, loot_boost._roster_names())
+                self.assertEqual((mission / 'db/types.xml').read_bytes(), expected)
+                expected_globals, _ = loot_boost.scale_globals(before[mission / 'db/globals.xml'], multiplier)
+                self.assertEqual((mission / 'db/globals.xml').read_bytes(), expected_globals)
                 session = json.loads((server / lts.STATE_NAME / lts.RECEIPT_NAME).read_text())
                 self.assertEqual(session['steps']['loot_boost'], 'done')
                 self.assertEqual(lts.main(['rollback', '--server-root', str(server), '--dry-run'], out=io.StringIO()),
@@ -2487,6 +2505,7 @@ class RealInstallers(unittest.TestCase):
             mission.mkdir()
             test_economy_contract.synthetic(mission)
             vanilla_usage_vocabulary(mission)
+            self.travel_source(mission)
             test_gameplay_delta.synthetic_source(base / 'gp')
             shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
             for directory in (server, profiles, base / 'out'):
@@ -2522,6 +2541,7 @@ class RealInstallers(unittest.TestCase):
             mission.mkdir()
             test_economy_contract.synthetic(mission)
             vanilla_usage_vocabulary(mission)
+            self.travel_source(mission)
             test_gameplay_delta.synthetic_source(base / 'gp')
             shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
             for directory in (server, profiles, base / 'out'):
@@ -2574,6 +2594,7 @@ class RealInstallers(unittest.TestCase):
                 directory.mkdir()
             tf_fixture.mission(mission)
             vanilla_usage_vocabulary(mission, merge=True)
+            self.travel_source(mission)
             (mission / 'cfggameplay.json').write_text('{"version": 1}')
             (server / 'serverDZ.cfg').write_bytes(CFG.encode())
             built = base / 'built' / '@HollowCountry'
@@ -2614,6 +2635,7 @@ class RealInstallers(unittest.TestCase):
             mission.mkdir()
             test_economy_contract.synthetic(mission)
             vanilla_usage_vocabulary(mission)
+            self.travel_source(mission)
             test_gameplay_delta.synthetic_source(base / 'gp')
             shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
             server.mkdir()
