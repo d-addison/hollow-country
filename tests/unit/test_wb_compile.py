@@ -225,7 +225,11 @@ class DriverTests(unittest.TestCase):
                 raw = wb.launch_controller('script', scratch, 100, clock=lambda: now[0], pause=pause)
                 self.assertEqual(raw, '{"settled": true}')
                 self.assertEqual(start.call_count, 1)
-                self.assertIn('-File', start.call_args.args[0][-1])
+                launcher = start.call_args.args[0][-1]
+                self.assertNotIn('Bypass', launcher)
+                encoded = launcher.rsplit("'", 2)[-2]
+                body = wb.base64.b64decode(encoded).decode('utf-16-le')
+                self.assertIn(wb.quote_ps('C:\\scratch\\controller.ps1'), body)
                 (scratch / wb.RECEIPT_FILE).unlink()
                 self.assertIsNone(wb.launch_controller('script', scratch, 30, clock=lambda: now[0], pause=tick))
                 (scratch / wb.STARTED_FILE).unlink()

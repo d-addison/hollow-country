@@ -9,6 +9,7 @@ module and raise a compile warning marker, so a pass proves our files were in
 the compiled module. A plugin receipt or zero exit alone NEVER passes.
 """
 import argparse
+import base64
 import contextlib
 import hashlib
 import json
@@ -557,9 +558,12 @@ def launch_controller(script, scratch, seconds, clock=time.monotonic, pause=time
     target = windows_path(path)
     if '"' in target:
         raise ValueError('unsafe controller path')
+    # Load the file as a scriptblock (as the client launcher does) rather than -File, so no
+    # execution-policy override is needed; -EncodedCommand avoids nested argument quoting.
+    body = '& ([scriptblock]::Create((Get-Content -Raw -LiteralPath %s)))' % quote_ps(target)
+    encoded = base64.b64encode(body.encode('utf-16-le')).decode('ascii')
     launcher = ("Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList "
-                + "'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',"
-                + quote_ps('"' + target + '"'))
+                + "'-NoProfile','-NonInteractive','-EncodedCommand'," + quote_ps(encoded))
     try:
         subprocess.run([str(winproc.SYSTEM32 / 'WindowsPowerShell/v1.0/powershell.exe'),
                         '-NoProfile', '-NonInteractive', '-Command', launcher],
