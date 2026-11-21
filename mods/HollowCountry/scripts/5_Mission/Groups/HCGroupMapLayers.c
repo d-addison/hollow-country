@@ -175,10 +175,18 @@ class HCGroupMapLayers
     void DrawAdmin(MapWidget mapWidget, HCGroupSnapshot frame)
     {
         mapWidget.ClearUserMarks();
+        DrawAdminOverlay(mapWidget, frame.Settings);
+    }
+
+    // Foreign map menus own their marks. Draw only our pooled widgets and
+    // accept settings directly so no group snapshot is needed for admin access.
+    void DrawAdminOverlay(MapWidget mapWidget, HCGroupSettings settings)
+    {
+        if (!mapWidget || !settings) return;
         mHCUsed = 0;
         HideNavigation();
         HideMissions();
-        HCAdminWorldClient.Get().Draw(this, mapWidget, frame.Settings);
+        HCAdminWorldClient.Get().Draw(this, mapWidget, settings);
         for (int unused = mHCUsed; unused < mHCPool.Count(); unused++)
             mHCPool.Get(unused).Show(false);
     }

@@ -49,6 +49,8 @@ class HCAdminWorldClient
     protected bool m_ListDirty = true;
     protected vector m_Centre;
     protected float m_Scale;
+    protected float m_Left;
+    protected float m_Top;
     protected float m_Width;
     protected float m_Height;
     protected int m_PoolStart = -1;
@@ -153,8 +155,12 @@ class HCAdminWorldClient
             m_Pins.Clear();
             if (m_Panel) { m_Panel.Show(false); }
         }
-        float width, height;
+        // Foreign map layouts can move their viewport without changing zoom.
+        // Native EnWidgets.c:153 GetScreenPos; cached hit positions must follow.
+        float left, top, width, height;
+        mapWidget.GetScreenPos(left, top);
         mapWidget.GetScreenSize(width, height);
+        if (left != m_Left || top != m_Top) { m_Left = left; m_Top = top; m_Dirty = true; }
         if (width != m_Width || height != m_Height) { m_Width = width; m_Height = height; m_Dirty = true; }
         vector centre = mapWidget.GetMapPos();
         float scale = mapWidget.GetScale();
