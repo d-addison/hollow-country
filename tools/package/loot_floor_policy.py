@@ -16,7 +16,7 @@ import sys
 
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.package import economy, loot_boost  # noqa: E402
+from tools.package import economy, loot_boost, xml_text  # noqa: E402
 
 FLOOR_POLICY = Path('mission/hollow-country/loot-points/floor-policy.json')
 KIND = 'hollow-country-loot-floor-policy'
@@ -423,7 +423,7 @@ def provision_receivers(data, policy):
                 row[key] += count
                 report[key] += count
         report['groups'][name] = row
-    return ET.tostring(root, encoding='utf-8', xml_declaration=True), report
+    return xml_text.document(root), report
 
 
 def finish_receivers(data, report, policy, floor_report):
@@ -471,7 +471,7 @@ def finish_receivers(data, report, policy, floor_report):
     report['zero_capacity_points_after'] = sum(len(c.findall('point')) for c in zero_capacity)
     if zero_capacity:
         raise ValueError('floor policy introduced containers with points but no capacity')
-    output = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+    output = xml_text.document(root)
     text = output.decode('utf-8')
     scanned = _scan(text, loot_boost._mask(text), _default(root))
     floor_report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in cs))

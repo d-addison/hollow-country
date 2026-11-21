@@ -32,6 +32,29 @@ class XmlDeclarationTests(unittest.TestCase):
         from tools.package.atmosphere import SCRIPT_XML_PREFIX
         self.assertTrue(SCRIPT_XML_PREFIX.startswith(DOUBLE), SCRIPT_XML_PREFIX)
 
+    def test_encounter_and_floor_writers_use_shared_declaration(self):
+        from tools.package import hc_events, loot_floor_policy as policy
+        from tests.slow.test_s4_floorloot import PROTO, TYPES, policy_bytes
+        doc = policy.parse_policy(policy_bytes())
+        _, rows = policy.retag_types(TYPES.encode(), doc)
+        staged, report = policy.provision_receivers(PROTO.encode(), doc)
+        balanced, counts = policy.rebalance_proto(staged, [rows], doc)
+        final = policy.finish_receivers(balanced, report, doc, counts)
+        encounter = hc_events._serialized(ET.fromstring('<economycore><ce folder="hc"/></economycore>'))
+        for name, data in (('encounter', encounter), ('staged receivers', staged), ('final receivers', final)):
+            with self.subTest(writer=name):
+                self.assertTrue(data.startswith(DOUBLE), data[:60])
+                self.assertEqual(data.count(b'<?xml'), 1)
+                ET.fromstring(data)
+
+    def test_shipped_mission_xml_uses_double_quoted_declarations(self):
+        for path in sorted((ROOT / 'mission/hollow-country').rglob('*.xml')):
+            data = path.read_bytes().lstrip()
+            if data.startswith(b'<?xml'):
+                with self.subTest(file=str(path.relative_to(ROOT))):
+                    declaration = data.split(b'?>', 1)[0]
+                    self.assertNotIn(b"'", declaration)
+
     def test_no_generator_writes_elementtree_declaration(self):
         offenders = []
         for path in sorted((ROOT / 'tools').rglob('*.py')):

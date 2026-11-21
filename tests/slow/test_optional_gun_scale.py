@@ -9,7 +9,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
-from tools.package import economy, snafu_optional, tactical_flava_optional
+from tools.package import economy, military_loot, snafu_optional, tactical_flava_optional
 from tests.slow import test_snafu_optional as snafu_fixture
 from tests.slow import test_tactical_flava_optional as tf_fixture
 
@@ -80,29 +80,51 @@ class OptionalGunScale(unittest.TestCase):
                             self.assertEqual(int(row.findtext(field)), budget[field])
                     self.assertEqual(case[2:], before, 'generation must not mutate verified input')
 
-    def test_default_and_explicit_one_preserve_prechange_xml_bytes(self):
-        # Captured from the unmodified generators with these exact synthetic fixtures.
-        golden = {
-            snafu_optional.MANAGED: {
-                'ce/types.xml': 'f313822bb02c0fdcd363e672629827b0d4dc3e4b31ac02776ce692039014f768',
-                'cfgeconomycore.append.xml': 'fd93b437a64c88dd802183b532b99aab777c4692a2e2b6732e7ecc16f58f240d'},
-            tactical_flava_optional.MANAGED: {
-                'ce/types.xml': 'b5483d75055d27d1f7c35e719f96865312ac5372230f69479638b27ed28e4bb2',
-                'cfgeconomycore.append.xml': '593f5be41084e097a0a8ed3dae0377d3838f7f842b81eacffe67ce1dbd802dff',
-                'ce/cfgspawnabletypes.xml': '1f470e4f166795c3a96f537360647ff0a74cfc1278db0777605e2d66026cc3cc'}}
+    def test_default_and_explicit_one_follow_authored_policy(self):
         for case in self.cases:
-            implicit = self.generate(case)
-            self.assertEqual(implicit, self.generate(case, nominal_scale=1.0))
-            for name, digest in golden[case[0].MANAGED].items():
-                self.assertEqual(economy.sha(implicit[name]), digest, name)
-            self.assertEqual(implicit['core-defaults.patch.json'], economy.encode({}))
+            default_scale = case[2].get('test_abundance_multiplier', 1)
+            self.assertEqual(self.generate(case), self.generate(case, nominal_scale=default_scale))
+            files = self.generate(case, nominal_scale=1)
+            rows = self.types(files)
+            self.assertEqual(set(rows), {entry['class'] for entry in case[2]['entries']})
+            for entry in case[2]['entries']:
+                row = rows[entry['class']]
+                for field, value in entry['set'].items():
+                    self.assertEqual(row.findtext(field), str(value), (entry['class'], field))
+                quantities = military_loot.magazine_quantity() if entry['kind'] == 'magazine' else (-1, -1)
+                self.assertEqual(tuple(int(row.findtext(field)) for field in ('quantmin', 'quantmax')),
+                                 quantities)
+                self.assertEqual([u.get('name') for u in row.findall('usage')], entry['usage'])
+                self.assertEqual([v.get('name') for v in row.findall('value')], entry['value'])
+            fragment = ET.fromstring(files['cfgeconomycore.append.xml'])
+            self.assertEqual(fragment.find('ce').get('folder'), case[0].MANAGED + '/ce')
+            registered = fragment.findall('ce/file')
+            self.assertTrue(registered)
+            for declaration in registered:
+                self.assertIn('ce/' + declaration.get('name'), files)
+            self.assertEqual(files['core-defaults.patch.json'], economy.encode({}))
 
-    def test_zero_stays_zero_positive_nominal_has_floor_and_halves_round_up(self):
+    def test_positive_nominal_has_floor_and_halves_round_up(self):
         for case in self.cases:
             modified = copy.deepcopy(case[2])
             for row in modified['entries']:
                 if row['kind'] in {'weapon', 'magazine', 'ammo'}:
                     row['set'].update(nominal=1, min=1)
+            report = copy.deepcopy(case[3])
+            report['allowlist_sha256'] = case[0].allowlist_sha256(modified)
+            changed = (*case[:2], modified, report)
+            for scale, expected_min in ((0.25, 1), (0.5, 1), (1.5, 2)):  # a positive min keeps its CE restock floor
+                rows = self.types(self.generate(changed, nominal_scale=scale))
+                for entry in modified['entries']:
+                    if entry['kind'] not in {'weapon', 'magazine', 'ammo'}:
+                        continue
+                    row = rows[entry['class']]
+                    self.assertEqual(int(row.findtext('nominal')), max(1, expected_min))
+                    self.assertEqual(int(row.findtext('min')), expected_min)
+
+    def test_unreasoned_zero_support_refuses_before_generation(self):
+        for case in self.cases:
+            modified = copy.deepcopy(case[2])
             modified['entries'].append(snafu_fixture.entry(
                 'SynDisabledMagazine', kind='magazine', role='support', nominal=0, minimum=0,
                 usage=['Military']))
@@ -111,16 +133,12 @@ class OptionalGunScale(unittest.TestCase):
             report = copy.deepcopy(case[3])
             report['allowlist_sha256'] = case[0].allowlist_sha256(modified)
             report['classes']['SynDisabledMagazine'] = {'status': 'verified'}
-            changed = (*case[:2], modified, report)
-            for scale, expected_min in ((0.25, 1), (0.5, 1), (1.5, 2)):  # a positive min keeps its CE restock floor
-                rows = self.types(self.generate(changed, nominal_scale=scale))
-                for entry in modified['entries']:
-                    if entry['kind'] not in {'weapon', 'magazine', 'ammo'}:
-                        continue
-                    disabled = entry['class'] == 'SynDisabledMagazine'
-                    row = rows[entry['class']]
-                    self.assertEqual(int(row.findtext('nominal')), 0 if disabled else max(1, expected_min))
-                    self.assertEqual(int(row.findtext('min')), 0 if disabled else expected_min)
+            before = tf_fixture.files_of(case[1])
+            for scale in (0.25, 0.5, 1.5):
+                with self.subTest(pack=case[0].MANAGED, scale=scale), self.assertRaisesRegex(
+                        ValueError, 'HC_MILITARY_LOOT_RETENTION:.*SynDisabledMagazine:nominal=0'):
+                    self.generate((*case[:2], modified, report), nominal_scale=scale)
+            self.assertEqual(tf_fixture.files_of(case[1]), before)
 
     def test_decimal_half_up_avoids_binary_float_rounding(self):
         for case in self.cases:

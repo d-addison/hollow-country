@@ -33,7 +33,7 @@ def layer(mission, files, managed):
 
 
 def bundle(mission, source, base=True):
-    """Reproduce all bundle layers with tiny explicit XML, including the loot boost."""
+    """Compose synthetic loot layers with authored travel data and the loot boost."""
     core = (mission / 'cfgeconomycore.xml').read_bytes()
     registration = b'<ce folder="hollow-country/ce"><file name="types.xml" type="types"/></ce>'
     base_files = {'cfgeconomycore.xml': core.replace(b'</economycore>', registration + b'</economycore>')}
@@ -42,19 +42,14 @@ def bundle(mission, source, base=True):
     else:
         base_files['cfgeconomycore.xml'] = core
     layer(mission, base_files, overlays.BUNDLE_MANAGED)
-    # The travel writer validates these expected event counts. These are synthetic rows,
-    # not extracted vanilla or Workshop data.
-    counts = {'VehicleCivilianSedan': 9, 'VehicleHatchback02': 9, 'VehicleOffroadHatchback': 9,
-              'VehicleSedan02': 9, 'VehicleOffroad02': 3, 'VehicleMotorbike': 28, 'VehicleBoat': 6}
+    # Use the current authored travel overlay so composition follows its manifest,
+    # registrations and position inputs. Keep the loot row synthetic and disjoint.
+    for name, data in travel.validate().items():
+        put(source, name, data)
+    put(source, travel.EXPANSION_ROSTER,
+        (travel.SOURCE / travel.EXPANSION_ROSTER).read_bytes())
     put(source, 'ce/types.xml', '<types>' + tf.stock_entry(
         'SyntheticTravel', 2, 1, 14400, 0, ['Town'], []) + '</types>')
-    put(source, 'ce/events.xml', '<events>' + ''.join(
-        f'<event name="{n}"><min>0</min><nominal>{v}</nominal><max>{v}</max></event>'
-        for n, v in counts.items()) + '</events>')
-    put(source, 'ce/travel-spawnabletypes.xml', '<spawnabletypes/>')
-    put(source, 'cfgeconomycore.append.xml', '''<economycore><ce folder="hollow-country-travel/ce">
-<file name="types.xml" type="types"/><file name="events.xml" type="events"/>
-<file name="travel-spawnabletypes.xml" type="spawnabletypes"/></ce></economycore>''')
     travel.install(source, mission)
     core = (mission / 'cfgeconomycore.xml').read_bytes()
     optional = b'''<ce folder="hollow-country-optional-packs"><file name="types.xml" type="types"/>
@@ -102,6 +97,7 @@ class ManagedCEComposition(unittest.TestCase):
         mission.mkdir()
         tf.mission(mission)
         put(mission, 'db/globals.xml', '<variables><var name="RespawnTypes" type="0" value="5"/></variables>')
+        put(mission, 'cfgeventspawns.xml', '<eventposdef/>')
         before = files_of(mission)
         bundle(mission, self.root / (name + '-travel'), base=base)
         return mission, before
