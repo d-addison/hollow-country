@@ -11,9 +11,10 @@
 // Rollback/save faults require review and restart. Checkpoint lag resumes once
 // the saver catches up, resetting the baseline so paused time is never credited.
 // Default crash-lost running time <=300 seconds, enforced against the last
-// committed snapshot (including queue delay). A stalled saver pauses instead
-// of growing this loss. Checkpoint eligibility is 60 seconds; shared scheduler
-// timing is provisional. Fractional seconds survive a normal stop/restart.
+// committed snapshot (including queue delay). At half the cap, a queued tiny
+// checkpoint uses the shared bounded owner fallback instead of waiting behind
+// other stores. A stalled/faulted writer still pauses instead of growing loss.
+// Checkpoint eligibility is 60 seconds; fractional seconds survive normal stop.
 class HCVisualSeasonConfig : HCc2SeasonTuning
 {
     int SchemaVersion = 1;
@@ -264,6 +265,10 @@ class HCVisualSeasons
         m_Units.HCReset(1);
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
+        // Reserve half the crash-loss allowance for bounded persistence work.
+        // No time is credited by a snapshot or by merely leaving the queue.
+        bool checkpointLate = m_Store.HCUnsavedSeconds() + m_Fraction >= m_Config.MaxUncheckpointedSeconds * 0.5;
+        m_Store.HCContinueCheckpoint(checkpointLate);
         HCCheckpointSaved();
         // Completion of an older in-flight image clears scheduler dirty state.
         // Keep requesting the frozen image until a newer checkpoint commits.
