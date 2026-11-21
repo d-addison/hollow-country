@@ -229,7 +229,8 @@ def kneel_pose(stand, dip=0.0, all_fours=False):
     p = stand.copy()
     p.rotate_world('Pelvis', rig.qaxis(X, 65 if all_fours else 36 + 12 * dip))
     seat_on_hips(p, (0.0, 0.42, -0.10))
-    p.rotate_world('Spine3', rig.qaxis(X, 12 + 8 * dip))
+    # Sub-degree lean avoids coincident vanilla keys during the authored rises.
+    p.rotate_world('Spine3', rig.qaxis(X, 12.2 + 8 * dip))
     p.rotate_world('Neck', rig.qaxis(X, 8))
     for side, sx in (('Left', -1.0), ('Right', 1.0)):
         hip = p.pos(side + 'UpLeg')
