@@ -403,13 +403,14 @@ class HCXAISiteRules
         }
         return true;
     }
-    // Conservative pretty-printed JSON bound: string escaping takes <=6 bytes per
-    // character; each vector has ample room for three native float strings.
+    // MakeData's pretty JSON: 300 bytes cover seven field names, bools, braces
+    // and indentation; token strings need <=2 bytes/char, free-text Reason <=6
+    // for escaping. Each point gets 128 bytes for three float texts and layout.
     static int HCRouteRowBytes(HCXAIRouteRow row)
     {
         int points = 0;
         if (row.Waypoints) { points = row.Waypoints.Count(); }
-        return 512 + 6 * (row.Key.Length() + row.SiteId.Length() + row.ValidityKey.Length() + row.Reason.Length()) + points * 256;
+        return 300 + 2 * (row.Key.Length() + row.SiteId.Length() + row.ValidityKey.Length()) + 6 * row.Reason.Length() + points * 128;
     }
     static string HCRouteValidity(string build, string world, float maxLeg, int primaryInclude, int primaryExclude, int outdoorInclude, int outdoorExclude)
     {

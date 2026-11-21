@@ -422,25 +422,28 @@ class HCXAIRouteSave : HCSaveJob
     protected ref HCXAIRouteCache m_Snapshot;
     protected int m_RowCursor;
     protected int m_EstimatedBytes;
-    protected bool m_SizeLogged;
+    protected bool m_PreflightComplete;
+    protected int m_DroppedRows;
     void HCChanged() { m_Revision++; HCDirty = true; }
     override int HCStep()
     {
         if (!Owner) { return STEP_FAILED; }
         if (!m_Image.Active())
         {
-            // Coalesce mutations during preflight; snapshot rows never mix revisions.
-            if (m_Snapshot && m_SnapshotRevision != m_Revision) { m_Snapshot = null; }
+            // Rows are never changed in place. Finish this snapshot despite new
+            // revisions; the completion check schedules their next save.
             if (!m_Snapshot)
             {
                 m_Snapshot = new HCXAIRouteCache();
                 m_SnapshotRevision = m_Revision;
                 m_RowCursor = 0;
                 m_EstimatedBytes = 256;
+                m_PreflightComplete = false;
+                m_DroppedRows = 0;
             }
             HCWorkBudget slice = new HCWorkBudget;
             slice.HCReset(16, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-            while (m_RowCursor < Owner.HCRouteRowCount() && slice.HCContinue())
+            while (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount() && slice.HCContinue())
             {
                 if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
                 HCXAIRouteRow row = Owner.HCRouteRowAt(m_RowCursor);
@@ -448,15 +451,27 @@ class HCXAIRouteSave : HCSaveJob
                 int estimated = HCXAISiteRules.HCRouteRowBytes(row);
                 if (estimated > HCWorldStore.MAX_BYTES - m_EstimatedBytes)
                 {
-                    if (!m_SizeLogged) { Print("[HC Expansion AI] route cache save rows refused reason=byte_budget"); m_SizeLogged = true; }
+                    m_DroppedRows++;
                     continue;
                 }
                 m_EstimatedBytes += estimated;
                 m_Snapshot.Rows.Insert(row);
             }
-            if (m_RowCursor < Owner.HCRouteRowCount()) { return STEP_MORE; }
+            if (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount()) { return STEP_MORE; }
+            m_PreflightComplete = true;
+            if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
             string text;
             if (!Owner.HCRoutesText(m_Snapshot, text)) { return STEP_FAILED; }
+            // Guard the actual MakeData output as well as the estimate. Retry
+            // once per save step, dropping only the tail; never wipe all rows.
+            if (text.Length() > HCWorldStore.MAX_BYTES)
+            {
+                if (m_Snapshot.Rows.Count() == 0) { return STEP_FAILED; }
+                m_Snapshot.Rows.Remove(m_Snapshot.Rows.Count() - 1);
+                m_DroppedRows++;
+                return STEP_MORE;
+            }
+            if (m_DroppedRows > 0) { Print("[HC Expansion AI] route cache save rows dropped=" + m_DroppedRows.ToString() + " reason=byte_budget"); }
             m_Snapshot = null;
             // Disposable qualification cache, no inventory/creation barrier.
             if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
@@ -1843,7 +1858,7 @@ class HCXAISiteDirector : Managed
                     if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
                     state.Failed = true;
                     state.Reason = cached.Reason;
-                    this.HCReusedRoute(state);
+                    Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
                     return;
                 }
                 int tick = GetGame().GetTime();
@@ -1851,9 +1866,12 @@ class HCXAISiteDirector : Managed
                 if (m_CacheSamples >= 4 || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
                 m_CacheSamples++;
                 vector point = cached.Waypoints[state.HCCacheCursor];
+                // Live qualification can skip a middle anchor, leaving a kept
+                // leg spanning two authored legs plus sampling/snap allowance.
+                float maxCachedLeg = m_Policy.MaxLegLength * 2 + 32;
                 if (!HCXAIRules.PositionValid(point, 16000)) { cacheProblem = "waypoint_bounds"; }
-                else if (state.HCCacheCursor > 0 && vector.DistanceSq(cached.Waypoints[state.HCCacheCursor - 1], point) > m_Policy.MaxLegLength * m_Policy.MaxLegLength) { cacheProblem = "waypoint_leg"; }
-                else if (state.HCCacheCursor == cached.Waypoints.Count() - 1 && !cached.OpenRoute && state.Site.Behaviour == "LOOP" && vector.DistanceSq(point, cached.Waypoints[0]) > m_Policy.MaxLegLength * m_Policy.MaxLegLength) { cacheProblem = "closing_leg"; }
+                else if (state.HCCacheCursor > 0 && vector.DistanceSq(cached.Waypoints[state.HCCacheCursor - 1], point) > maxCachedLeg * maxCachedLeg) { cacheProblem = "waypoint_leg"; }
+                else if (state.HCCacheCursor == cached.Waypoints.Count() - 1 && !cached.OpenRoute && state.Site.Behaviour == "LOOP" && vector.DistanceSq(point, cached.Waypoints[0]) > maxCachedLeg * maxCachedLeg) { cacheProblem = "closing_leg"; }
                 else
                 {
                     vector sampled = this.NavSample(point, 0.5, m_Filter);
@@ -2959,13 +2977,8 @@ class HCXAISiteDirector : Managed
     {
         if (!HCXAISiteRules.HCRouteRowsValid(snapshot)) { return false; }
         string error;
-        if (!JsonFileLoader<HCXAIRouteCache>.MakeData(snapshot, text, error)) { return false; }
-        if (text.Length() <= HCWorldStore.MAX_BYTES) { return true; }
-        // Defensive fail-soft bound before Begin even if the estimate drifts.
-        // Cache loss is safe: next boot re-qualifies every omitted row.
-        Print("[HC Expansion AI] route cache save rows refused reason=serialized_byte_budget");
-        snapshot.Rows.Clear();
-        return JsonFileLoader<HCXAIRouteCache>.MakeData(snapshot, text, error) && text.Length() <= HCWorldStore.MAX_BYTES;
+        // The save job checks the real size and trims the tail between steps.
+        return JsonFileLoader<HCXAIRouteCache>.MakeData(snapshot, text, error);
     }
     bool SaveOwned()
     {
