@@ -50,6 +50,7 @@ import sys
 import tempfile
 
 from tools.package import loot_boost, hc_events, map_overlay, infected_variety, snafu_optional, tactical_flava_optional
+from tools.package import ce_slot_pressure
 from tools.package import optional_overlays as overlays
 from tools.setup import workshop_sync as ws
 
@@ -1907,6 +1908,16 @@ def run_check(ctx):
         result('optional_weapons', [], 'verified receipts and rollback: ' + ', '.join(weapon_layers) + '; runtime=PENDING')
     except (OSError, ValueError, KeyError, TypeError):
         result('optional_weapons', ['missing, outdated or damaged weapon layer; run the installer'], '')
+    try:
+        if not all((mission / name).is_file() for name in ce_slot_pressure.INPUTS):
+            raise FileNotFoundError('proxy map')
+        pressure = ce_slot_pressure.problems(mission)
+        result('ce_slot_pressure', pressure, 'weapon nominal fits proxy slots (limit %.2f, offline estimate)'
+               % ce_slot_pressure.LIMIT)
+    except FileNotFoundError:
+        result('ce_slot_pressure', [], 'skipped: mission has no proxy map files to estimate')
+    except (OSError, ValueError, KeyError, TypeError, SyntaxError, ce_slot_pressure.struct.error):
+        result('ce_slot_pressure', ['mission CE files unreadable for the slot estimate'], '')
     say('check result: %s' % ('pass' if all(results) else 'fail'))
     return 0 if all(results) else 1
 

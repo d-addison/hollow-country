@@ -3258,8 +3258,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 65,
-    "min": 32,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -3272,7 +3272,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SA58_FGrip",
    "slot": "FGRIP",
    "fits": [
@@ -3348,8 +3348,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -3362,7 +3362,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AK19_Stock",
    "slot": "weaponButtstockAK",
    "fits": [
@@ -3377,8 +3377,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -3391,7 +3391,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AK_AR_Stock",
    "slot": "weaponButtstockAK",
    "fits": [
@@ -3810,8 +3810,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -3824,7 +3824,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AFG_02_Black",
    "slot": "snafuar15afg",
    "fits": [
@@ -3902,8 +3902,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -3916,7 +3916,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AFG_02_Tan",
    "slot": "snafuar15afg",
    "fits": [
@@ -3994,8 +3994,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4008,7 +4008,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AFG_02_OD",
    "slot": "snafuar15afg",
    "fits": [
@@ -4086,8 +4086,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4100,7 +4100,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUAR15_AFG",
    "slot": "snafuar15afg",
    "fits": [
@@ -4178,8 +4178,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4192,7 +4192,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUScar_AFG_BK",
    "slot": "snafuar15afg",
    "fits": [
@@ -4270,8 +4270,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 67,
-    "min": 33,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4284,7 +4284,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUScar_AFG_Tan",
    "slot": "snafuar15afg",
    "fits": [
@@ -4650,8 +4650,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 71,
-    "min": 35,
+    "nominal": 24,
+    "min": 12,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4664,7 +4664,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUMDAR_Supp_Black",
    "slot": "weaponMuzzleM4",
    "fits": [
@@ -4746,8 +4746,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 71,
-    "min": 35,
+    "nominal": 24,
+    "min": 12,
     "lifetime": 14400,
     "restock": 0
    },
@@ -4760,7 +4760,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUMDAR_Supp_Tan",
    "slot": "weaponMuzzleM4",
    "fits": [
@@ -5326,8 +5326,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 65,
-    "min": 32,
+    "nominal": 22,
+    "min": 11,
     "lifetime": 14400,
     "restock": 0
    },
@@ -5340,7 +5340,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_FGKAC_Grip",
    "slot": "weaponGripKAAR",
    "fits": [
@@ -5416,8 +5416,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 43,
-    "min": 21,
+    "nominal": 14,
+    "min": 7,
     "lifetime": 14400,
     "restock": 0
    },
@@ -5430,7 +5430,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_FGCR_Grip",
    "slot": "weaponGripCQR",
    "fits": [
@@ -6098,8 +6098,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 102,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -6112,7 +6112,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUUniversalLight",
    "slot": "weaponFlashlight",
    "fits": [
@@ -6372,8 +6372,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -6386,7 +6386,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_IRONMODOptic",
    "slot": "weaponOptics",
    "fits": [
@@ -6937,8 +6937,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 13,
-    "min": 6,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -6951,7 +6951,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Normalized_Suppressor_Black",
    "slot": "weaponMuzzleAK",
    "fits": [
@@ -6975,8 +6975,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 13,
-    "min": 6,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -6989,7 +6989,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Normalized_Suppressor_Green",
    "slot": "weaponMuzzleAK",
    "fits": [
@@ -7013,8 +7013,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7027,7 +7027,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Standardized_Suppressor_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -7141,8 +7141,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7155,7 +7155,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Standardized_Suppressor_Green",
    "slot": "suppressorImpro",
    "fits": [
@@ -7269,8 +7269,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 13,
-    "min": 6,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7283,7 +7283,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_LNormalized_Suppressor_Black",
    "slot": "weaponMuzzleAK",
    "fits": [
@@ -7307,8 +7307,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 13,
-    "min": 6,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7321,7 +7321,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_LNormalized_Suppressor_Green",
    "slot": "weaponMuzzleAK",
    "fits": [
@@ -7345,8 +7345,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7359,7 +7359,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_LStandardized_Suppressor_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -7473,8 +7473,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7487,7 +7487,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_LStandardized_Suppressor_Green",
    "slot": "suppressorImpro",
    "fits": [
@@ -7805,8 +7805,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7819,7 +7819,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_SR25_Supp",
    "slot": "suppressorImpro",
    "fits": [
@@ -7933,8 +7933,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -7947,7 +7947,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUAR15_SPR_SIL",
    "slot": "suppressorImpro",
    "fits": [
@@ -8061,8 +8061,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8075,7 +8075,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUAR15_SPR_SQSIL",
    "slot": "suppressorImpro",
    "fits": [
@@ -8189,8 +8189,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8203,7 +8203,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_MPX_Suppressor_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -8317,8 +8317,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8331,7 +8331,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Agram_Suppressor_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -8490,8 +8490,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8504,7 +8504,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "Snafu_ScarH_SIL_Tan",
    "slot": "suppressorImpro",
    "fits": [
@@ -8618,8 +8618,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8632,7 +8632,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "Snafu_ScarH_SIL_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -8798,8 +8798,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8812,7 +8812,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUGevar_Suppressor_Black",
    "slot": "suppressorImpro",
    "fits": [
@@ -8926,8 +8926,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -8940,7 +8940,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUGevar_Suppressor_Tan",
    "slot": "suppressorImpro",
    "fits": [
@@ -9054,8 +9054,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9068,7 +9068,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFUGevar_Suppressor_Green",
    "slot": "suppressorImpro",
    "fits": [
@@ -9182,8 +9182,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 103,
-    "min": 51,
+    "nominal": 34,
+    "min": 17,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9196,7 +9196,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_SPMOD",
    "slot": "suppressorImpro",
    "fits": [
@@ -9456,8 +9456,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9470,7 +9470,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Aimpoint_ACO",
    "slot": "weaponOptics",
    "fits": [
@@ -9619,8 +9619,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9633,7 +9633,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKAimpoint_ACO",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -9756,8 +9756,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9770,7 +9770,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Aimpoint_M5",
    "slot": "weaponOptics",
    "fits": [
@@ -9919,8 +9919,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -9933,7 +9933,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKAimpoint_M5",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -10086,8 +10086,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10100,7 +10100,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Elcan",
    "slot": "weaponOptics",
    "fits": [
@@ -10249,8 +10249,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10263,7 +10263,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKElcan",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -10386,8 +10386,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10400,7 +10400,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_EOTech_EXPS3",
    "slot": "weaponOptics",
    "fits": [
@@ -10549,8 +10549,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10563,7 +10563,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKEOTech_EXPS3",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -10686,8 +10686,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10700,7 +10700,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_HuntingOptic",
    "slot": "weaponOptics",
    "fits": [
@@ -10849,8 +10849,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -10863,7 +10863,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKHuntingOptic",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -10986,8 +10986,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11000,7 +11000,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Kahles",
    "slot": "weaponOptics",
    "fits": [
@@ -11149,8 +11149,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11163,7 +11163,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKKahles",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -11286,8 +11286,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11300,7 +11300,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Leupold_Mark8",
    "slot": "weaponOptics",
    "fits": [
@@ -11449,8 +11449,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11463,7 +11463,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKLeupold_Mark8",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -11586,8 +11586,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11600,7 +11600,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Nightforce",
    "slot": "weaponOptics",
    "fits": [
@@ -11749,8 +11749,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11763,7 +11763,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKNightforce",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -11886,8 +11886,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -11900,7 +11900,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Kobra",
    "slot": "weaponOptics",
    "fits": [
@@ -12049,8 +12049,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12063,7 +12063,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Tango6T_Black",
    "slot": "weaponOptics",
    "fits": [
@@ -12212,8 +12212,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12226,7 +12226,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Tango6T_Tan",
    "slot": "weaponOptics",
    "fits": [
@@ -12375,8 +12375,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12389,7 +12389,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Tango6T_Wood",
    "slot": "weaponOptics",
    "fits": [
@@ -12538,8 +12538,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12552,7 +12552,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Tango6T_Snow",
    "slot": "weaponOptics",
    "fits": [
@@ -12701,8 +12701,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12715,7 +12715,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTango6T_Black",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -12734,8 +12734,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12748,7 +12748,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTango6T_Tan",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -12767,8 +12767,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12781,7 +12781,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTango6T_Wood",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -12800,8 +12800,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12814,7 +12814,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTango6T_Snow",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -12933,8 +12933,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -12947,7 +12947,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Trijicon",
    "slot": "weaponOptics",
    "fits": [
@@ -13096,8 +13096,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -13110,7 +13110,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Trijicon_Docter",
    "slot": "weaponOptics",
    "fits": [
@@ -13259,8 +13259,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -13273,7 +13273,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTrijicon",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -13292,8 +13292,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -13306,7 +13306,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKTrijicon_Docter",
    "slot": "weaponOpticsAK",
    "fits": [
@@ -13533,8 +13533,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 138,
-    "min": 69,
+    "nominal": 46,
+    "min": 23,
     "lifetime": 14400,
     "restock": 0
    },
@@ -13547,7 +13547,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_Walther",
    "slot": "weaponOptics",
    "fits": [
@@ -13696,8 +13696,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -13710,7 +13710,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Installed concrete config class; shared Military/Police Tier2-4 optics and muzzle pool sized to CE weapon slots (HC slot pressure), runtime acceptance pending.",
    "class": "SNAFU_AKWalther",
    "slot": "weaponOpticsAK",
    "fits": [
