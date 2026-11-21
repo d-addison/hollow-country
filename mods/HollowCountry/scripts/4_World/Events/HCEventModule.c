@@ -13,6 +13,18 @@ class HCEventModule : HCModule
     // unresolved owner alive across registry replacement; never replace its AI.
     protected static ref HCEventModule s_CleanupOwner;
     protected ref HCEventSettings m_Config;
+    protected ref HCStepTimer m_TickSteps;
+    protected int m_SituationStep;
+    protected int m_TransportStep;
+    protected int m_RuntimeStep;
+    protected int m_RosterStep;
+
+    protected void HCMeasureStep(int step, string stage, int started)
+    {
+        int ticks = TickCount(started);
+        m_TickSteps.HCAdd(step, ticks);
+        m_TickSteps.HCItem(stage, ticks);
+    }
     protected ref HCSituationDirector m_Situations;
     protected ref HCCampRaidSituation m_Raids;
     protected ref HCTransitSituation m_Transit;
@@ -114,6 +126,7 @@ class HCEventModule : HCModule
         // still reports legacy Events off when disabled; HC-38 retains its own
         // contributor receipt. With legacy Events enabled, use director state.
         if (!m_Config || !m_Config.Enabled) { m_SituationStatus.HCPublish("off", "operator_off"); }
+        else if (m_Runtime && !m_Runtime.HCOperational()) { m_SituationStatus.HCPublish("degraded", "event_runtime_journal_unavailable"); }
         else if (m_Situations.HCProviderPending())
         {
             // Director and scene source run; only the actor provider is missing, so the
@@ -290,6 +303,11 @@ class HCEventModule : HCModule
         // its runtime, even when the new configuration no longer admits Events.
         OnStop();
         m_StartRefusal = "";
+        m_TickSteps = new HCStepTimer("Events");
+        m_SituationStep = m_TickSteps.HCDefine("situations");
+        m_TransportStep = m_TickSteps.HCDefine("transport");
+        m_RuntimeStep = m_TickSteps.HCDefine("maintenance");
+        m_RosterStep = m_TickSteps.HCDefine("roster");
         if (s_CleanupOwner && s_CleanupOwner != this)
         {
             s_CleanupOwner.OnStop();
@@ -328,6 +346,7 @@ class HCEventModule : HCModule
         HCEventAIProvider ai = CreateAIProvider();
         m_AIProvider = ai;
         m_Runtime = new HCEventRuntime;
+        m_Runtime.HCSetStepTimer(m_TickSteps);
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
         {
             Print("[HC Events] inactive: context/configuration/journal admission failed reason=" + m_Runtime.Refusal());
@@ -407,7 +426,17 @@ class HCEventModule : HCModule
     }
     override void OnTick(float deltaTime)
     {
+        if (!m_TickSteps) { return; }
+        int started = TickCount(0);
+        HCMeasuredTick(deltaTime);
+        m_TickSteps.HCEndTick(TickCount(started));
+    }
+
+    protected void HCMeasuredTick(float deltaTime)
+    {
+        int situationStarted = TickCount(0);
         HCStepSituations();
+        HCMeasureStep(m_SituationStep, "situations", situationStarted);
         if (m_Stopping)
         {
             if (!m_Quarantined)
@@ -433,17 +462,28 @@ class HCEventModule : HCModule
                 OnStop();
                 return;
             }
-            // Revoke disconnected peers before any objective observations.
-            if (m_EventRPC)
+            // A retained journal gets this tick to itself. Transport can revoke
+            // peers next tick, still before any new objective observations.
+            bool journalTick = m_Runtime.HCPublishPending();
+            if (m_EventRPC && !journalTick)
             {
+                int transportStarted = TickCount(0);
                 m_EventRPC.Tick();
+                HCMeasureStep(m_TransportStep, "transport", transportStarted);
             }
+            int runtimeStarted = TickCount(0);
             m_Runtime.Tick(context);
+            // Runtime names individual expiry/cleanup/journal chunks. Keep its
+            // aggregate out of HCItem so it cannot hide a measured chunk name.
+            m_TickSteps.HCAdd(m_RuntimeStep, TickCount(runtimeStarted));
             m_RosterElapsed = m_RosterElapsed + deltaTime;
+            if (journalTick || m_Runtime.HCPublishPending()) { return; }
             if (m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
+                int rosterStarted = TickCount(0);
                 RefreshRoster(context);
+                HCMeasureStep(m_RosterStep, "roster", rosterStarted);
             }
         }
     }
