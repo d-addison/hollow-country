@@ -40,7 +40,9 @@ class RegenerateAllTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         self.assertFalse(set(names) & excluded.keys())
         self.assertTrue(all(reason.strip() for reason in excluded.values()))
-        self.assertEqual(expected, set(names) | excluded.keys())
+        self.assertEqual(expected, {g.name for g in regen.GENERATORS if g.arguments} | excluded.keys())
+        from tools.package.generated_digests import contracts
+        self.assertEqual(set(names), {c.name for c in contracts()})
 
     def test_default_checks_run_every_generator_and_continue_after_failure(self):
         calls = []
@@ -87,12 +89,12 @@ class RegenerateAllTests(unittest.TestCase):
                     for flag in ('--prior', '--candidate'):
                         self.assertEqual('{}', Path(command[command.index(flag) + 1]).read_text())
                     self.assertEqual(regen.LOOT_OUTPUT, command[-1])
-                self.assertTrue('--check' in command or 'check' in command)
+                self.assertTrue('--check' in command or 'check' in command or '--compare' in command)
                 return subprocess.CompletedProcess(command, 0, 'ok', '')
             with patch.object(regen, 'missing_inputs', return_value=None), patch.object(regen.subprocess, 'run', side_effect=run) as child:
                 for generator in regen.GENERATORS:
                     self.assertEqual('PASS', regen.check_generator(generator, values, 7)[0])
-            self.assertEqual(len(regen.GENERATORS) + len(regen.LOOT_REVISIONS), child.call_count)
+            self.assertEqual(len(regen.GENERATORS) + sum(bool(g.arguments) for g in regen.GENERATORS) + len(regen.LOOT_REVISIONS), child.call_count)
 
     def test_failed_history_is_failure_not_skip(self):
         generator = next(g for g in regen.GENERATORS if g.name == 'loot_point_preserve')

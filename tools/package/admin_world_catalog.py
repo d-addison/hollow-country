@@ -72,7 +72,7 @@ def check(root=ROOT):
         raise ValueError(refusal) from exc
 
 
-def generate():
+def generate(output=None):
     rows = []
     inputs = local_inputs(ROOT)
 
@@ -122,7 +122,7 @@ def generate():
     if len(rows) > 8192:
         raise ValueError('catalog exceeds stream cap')
     version = int(digest[:7], 16)
-    (ROOT / CATALOG).write_text(render(rows, version, stock_sha256, digest))
+    (output if output is not None else ROOT / CATALOG).write_text(render(rows, version, stock_sha256, digest))
     print(f'Generated {len(rows)} anchors; version={version}; stock_sha256={stock_sha256}')
 
 
@@ -171,13 +171,14 @@ def render(rows, version, stock_sha256, digest):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--check', action='store_true', help='check local inputs offline; do not regenerate')
+    parser.add_argument('--out', type=Path, help='generated catalogue destination')
     args = parser.parse_args(argv)
     try:
         if args.check:
             check()
             print('Admin world catalog inputs are current (offline check)')
         else:
-            generate()
+            generate(args.out)
     except (ValueError, OSError) as exc:
         parser.exit(1, f'{exc}\n')
 
