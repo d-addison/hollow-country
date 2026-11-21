@@ -159,6 +159,15 @@ class HCMeleeTarget
         return HCMeleeTarget.ImplausibleReason(attacker, z, zone, modelPos) == "";
     }
 
+    // Diagnostic only: native TargetSelection/GetRange uses the normal extender
+    // even for sprint; do not substitute this for HC's existing plausibility limit.
+    static float ParityVanillaRange(PlayerBase attacker)
+    {
+        float range = HCMeleeTarget.HCRange(attacker);
+        if (range <= 0) { return 0; }
+        return range + 0.65;
+    }
+
     // "" when the hit is plausible; otherwise which check failed, with the measured distances.
     static string ImplausibleReason(PlayerBase attacker, ZombieBase z, string zone, vector modelPos)
     {
