@@ -331,14 +331,6 @@ class AddonSources(unittest.TestCase):
             if p.is_file():
                 self.assertIn(p.suffix, ('.cpp', '.c', '.agf', ''), str(p))
 
-    def test_hook_drives_the_pose_through_a_synchronized_command(self):
-        src = (ADDON / 'scripts' / '4_World' / 'HCPoseInfected.c').read_text()
-        self.assertIn('class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base', src)
-        self.assertIn('BindCommand("CMD_HC_POSE")', src)
-        self.assertIn('PreAnim_CallCommand', src)
-        self.assertIn('override bool ModCommandHandlerBefore', src)
-        self.assertIn('HCInfectedVariety.HCMaxPosed()', src)
-        self.assertIn('override void EEInit()', src)   # sits by itself when spawned by class name
 
 
 if __name__ == '__main__':

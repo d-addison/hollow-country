@@ -1,5 +1,6 @@
 """Synthetic tooling checks only. No engine processes or Enforce emulation."""
 from contextlib import ExitStack, redirect_stdout, redirect_stderr
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -8,10 +9,68 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from tests.legacy.test_ce_probe import make_source_runtime, SYNTH_BE_SHA
 from tools.package import new_buildings
 from tools.setup import interior_census_batch as batch, interior_census_support as support
 from tools.setup import ce_probe, interior_sampler as sampler, probe_runtime as runtime
+
+
+STOCK_INIT = (b"// SYNTHETIC mission, not purchased game source\r\n"
+              b"void main() {}\r\nclass CustomMission: MissionServer {}\r\n"
+              b"Mission CreateCustomMission(string path)\r\n{\r\n"
+              b"    return new CustomMission();\r\n}\r\n")
+SYNTH_BE = b"SYNTHETIC-BATTLEYE"
+SYNTH_BE_SHA = hashlib.sha256(SYNTH_BE).hexdigest()
+SYNTH_PROTO = b'<prototype><group name="Land_Tenement_Small" lootmax="0" /></prototype>\n'
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def pos_xml(counts):
+    lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>', "<map>"]
+    for name, count in counts.items():
+        for i in range(count):
+            # Deliberately unsorted so the selection must sort deterministically.
+            x = 1000.0 + ((i * 37) % 101) * 10.5
+            z = 2000.0 + ((i * 53) % 97) * 7.25
+            lines.append(f'    <group name="{name}" pos="{x:.6f} {100 + i}.500000 {z:.6f}" '
+                         f'rpy="0.000000 0.000000 0.000000" a="0.000000" />')
+    lines.append("</map>")
+    return ("\n".join(lines) + "\n").encode()
+
+
+def default_counts(extra=40):
+    counts = {name: extra for name, _role in ce_probe.PROBE_CLASSES}
+    counts["Land_Mil_Barracks6"] = 1
+    counts["Land_Tisy_Barracks"] = 2
+    counts["Land_Unrelated_Shed"] = 30
+    return counts
+
+
+def make_source_runtime(root, counts=None, messages_pinned_differs=True):
+    """Synthetic stand-in for the verified runtime's stock-backup and launch plan."""
+    mission = root / "stock-backup/mpmissions/dayzOffline.chernarusplus"
+    (mission / "db").mkdir(parents=True)
+    files = {"init.c": STOCK_INIT, "db/types.xml": b"<types>synthetic</types>\n",
+             "db/messages.xml": b"<messages>stock</messages>\n",
+             "mapgroupproto.xml": SYNTH_PROTO, "mapgrouppos.xml": pos_xml(counts or default_counts())}
+    plan_files = []
+    for name, data in sorted(files.items()):
+        (mission / name).write_bytes(data)
+        pinned = data
+        if name == "db/messages.xml" and messages_pinned_differs:
+            pinned = b"<messages>runtime shutdown delta</messages>\n"
+        plan_files.append({"path": name, "sha256": sha(pinned)})
+    config = b'hostname = "SYNTHETIC";\r\n'
+    (root / "serverDZ.cfg").write_bytes(config)
+    (root / "battleye").mkdir()
+    (root / "battleye/BEServer_x64.dll").write_bytes(SYNTH_BE)
+    (root / "launch-plan.json").write_text(json.dumps(
+        {"schema_version": 1, "status": "staged-only-not-launched", "config_sha256": sha(config),
+         "mission_files": plan_files}))
+    return root
+
 
 
 class BatchTests(unittest.TestCase):

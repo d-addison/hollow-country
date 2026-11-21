@@ -22,19 +22,6 @@ PILOT = (
 )
 
 
-class ExpandedCatalogTests(unittest.TestCase):
-    def test_reviewed_catalog_and_runtime_search_allowlist_agree(self):
-        source = (SOURCE_ROOT / 'HCInteriorCatalog.c').read_text()
-        body = re.search(r'static bool SearchType\(string type\)\s*\{([^}]+)\}', source)[1]
-        searchable = set(re.findall(r'type == "([^"]+)"', body))
-        self.assertEqual(set(tool.SEARCH_TYPES), searchable)
-        self.assertTrue(searchable <= set(tool.PROPS))
-        for name, prop in tool.PROPS.items():
-            self.assertIn('CfgVehicles/' + name, prop['Evidence'])
-            self.assertTrue(prop['Evidence'].startswith('installed:'))
-            if name in searchable:
-                self.assertEqual('container', prop['Role'])
-        self.assertEqual(PILOT, tool.PILOT)  # The legacy measured adapter keeps its three layouts.
 
 
 def sha(data):

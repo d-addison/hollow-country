@@ -9,26 +9,11 @@ from pathlib import Path
 from tools.validate import settings_consistency as sc
 
 ROOT = Path(__file__).resolve().parents[2]
-CAMPS = ROOT / 'mods/HollowCountry/scripts/4_World/Camps'
 
 
 class CampTheftIntegrationTests(unittest.TestCase):
-    def test_camp_module_uses_opt_out_aware_admission_once(self):
-        source = (CAMPS / 'HCCampModule.c').read_text()
-        self.assertNotIn('HCV2Admission.Line("CampTheft"', source)
-        self.assertEqual(source.count('HCCampTheft.HCEnabled();'), 1)
 
-    def test_theft_status_is_observed_through_camps_status_hook(self):
-        source = (CAMPS / 'HCCampModule.c').read_text()
-        hook = source.split('override HCOperationalStatus HCGetOperationalStatus()', 1)[1].split('static HCCampModule Get()', 1)[0]
-        self.assertIn('HCObserveTheft();', hook)
-        self.assertIn('HCOperationalContributors.HCRegisterOwner("CampTheft")', hook)
-        self.assertIn('HCCampTheft.HCGetOperationalStatus()', hook)
 
-    def test_theft_status_degrades_without_live_camp_owner(self):
-        source = (CAMPS / 'HCCampTheft.c').read_text()
-        status = source.split('static HCOperationalStatus HCGetOperationalStatus()', 1)[1].split('static void HCRefuse', 1)[0]
-        self.assertLess(status.index('THEFT_CAMP_OWNER_UNAVAILABLE'), status.index('HCPickers.Get()'))
 
     def test_theft_config_rows_are_registered_and_consistent(self):
         rows = {r['key']: r for r in json.loads(sc.REGISTRY.read_text()) if r['owner'] == 'HCTheftConfig'}

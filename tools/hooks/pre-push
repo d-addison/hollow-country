@@ -1,0 +1,6 @@
+#!/bin/sh
+# Opt-in shared offline validation, independent of the caller's working directory.
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+exec python3 -B -m tools.validate.preland --profile ci

@@ -90,11 +90,22 @@ class PrimitiveUnpickler(pickle.Unpickler):
         raise ValueError('persistent pickle reference')
 
 
+# Only stock-mission reads/transforms are omitted; repository checks still run.
+OFFLINE_EXCLUSIONS = {
+    'spawn_routes.stock_mission': 'skipped installed cfgspawnabletypes.xml, db/events.xml, cfgrandompresets.xml and infected-event transform',
+    'W001.stock_routes': 'skipped stock-event route verification for unresolved destinations listed in the repository infected policy; candidates remain unverified',
+    'W009.stock_economy': 'skipped installed db/types.xml, cfgeconomycore.xml and cfglimitsdefinition.xml; stock-derived transforms and supply comparison remain unverified',
+}
+
+
 class Audit:
-    def __init__(self, rules):
+    def __init__(self, rules, *, offline=False):
+        self.offline = offline
+        self.exclusions = dict(OFFLINE_EXCLUSIONS) if offline else {}
         self.rules, self.findings, self.notes = rules, [], []
         self.cache_root = (Path.home() / '.cache/hollow-country').resolve()
         self.profile_sources = {}
+        self.stock_route_candidates = set()
 
     def safe(self, path):
         path = Path(path).expanduser().resolve()
@@ -223,19 +234,22 @@ class Audit:
         """Creation evidence, not arbitrary class-name mentions or catalogues."""
         routes, admin = set(), set()
         data = dict(data)
-        for rel in ('cfgspawnabletypes.xml', 'db/events.xml', 'cfgrandompresets.xml'):
-            p = self.safe(self.rules['vanilla_mission']) / rel
-            if p.is_file():
-                data[p] = self.read(p)
-        # Use the production transform, including its pinned-stock and conserved
-        # child-budget checks. Policy strings alone are not CE creation evidence.
         from tools.package import infected_variety
         policy = json.loads(self.read(infected_variety.POLICY))
-        if policy['production_enabled']:
-            stock_events = self.safe(self.rules['vanilla_mission']) / infected_variety.TARGET
-            self.read(stock_events)  # enforce the input size/path bounds before bytes
-            stock = stock_events.read_bytes()
-            data[stock_events] = infected_variety.substitute(stock, stock, policy).decode('utf-8-sig')
+        if self.offline and policy['production_enabled']:
+            self.stock_route_candidates = {row['to'].lower() for row in policy['substitutions']}
+        if not self.offline:
+            for rel in ('cfgspawnabletypes.xml', 'db/events.xml', 'cfgrandompresets.xml'):
+                p = self.safe(self.rules['vanilla_mission']) / rel
+                if p.is_file():
+                    data[p] = self.read(p)
+            # Use the production transform, including its pinned-stock and conserved
+            # child-budget checks. Policy strings alone are not CE creation evidence.
+            if policy['production_enabled']:
+                stock_events = self.safe(self.rules['vanilla_mission']) / infected_variety.TARGET
+                self.read(stock_events)  # enforce the input size/path bounds before bytes
+                stock = stock_events.read_bytes()
+                data[stock_events] = infected_variety.substitute(stock, stock, policy).decode('utf-8-sig')
         for p, text in data.items():
             if p.suffix != '.xml':
                 continue
@@ -404,16 +418,20 @@ class Audit:
         """Inspect actual row transforms, without installing or faking verification."""
         from tools.package import economy, firearms, datamined_items, loot_boost
         from tools.package import snafu_optional, tactical_flava_optional
-        source = self.safe(self.rules['vanilla_mission'])
-        stock_path = source / 'db/types.xml'
-        stock = economy._unique(ET.fromstring(self.read(stock_path)).findall('type'))
-        # This must be a stock source: an already installed HC tree is not a baseline.
-        core = ET.fromstring(self.read(source / 'cfgeconomycore.xml'))
-        if any(n.get('folder', '').startswith('hollow-country') for n in core.findall('ce')):
-            raise ValueError('W009 vanilla_mission contains installed HC overlays')
-        limits = ET.fromstring(self.read(source / 'cfglimitsdefinition.xml'))
-        usage = economy._unique(limits.findall('./usageflags/usage'))
-        values = economy._unique(limits.findall('./valueflags/value'))
+        stock = {}
+        layers = []
+        if not self.offline:
+            source = self.safe(self.rules['vanilla_mission'])
+            stock_path = source / 'db/types.xml'
+            stock = economy._unique(ET.fromstring(self.read(stock_path)).findall('type'))
+            # This must be a stock source: an already installed HC tree is not a baseline.
+            core = ET.fromstring(self.read(source / 'cfgeconomycore.xml'))
+            if any(n.get('folder', '').startswith('hollow-country') for n in core.findall('ce')):
+                raise ValueError('W009 vanilla_mission contains installed HC overlays')
+            limits = ET.fromstring(self.read(source / 'cfglimitsdefinition.xml'))
+            usage = economy._unique(limits.findall('./usageflags/usage'))
+            values = economy._unique(limits.findall('./valueflags/value'))
+            layers.append((stock_path, list(stock.values()), False))
         authored = ROOT / 'mission/hollow-country/ce/types.xml'
         owned = {n.get('name', '').lower() for n in ET.fromstring(self.read(authored))}
         roster_path = ROOT / 'tools/package/firearms_roster.json'
@@ -427,15 +445,16 @@ class Audit:
                 invalid = True
         if invalid:
             return  # The build rejects these rows before the pure transforms.
-        changed, _, _ = firearms.roster_items(stock, usage, values, roster, True)
-        # economy.generate excludes authored owners from the roster delta.
-        generated = [n for n in changed if n.get('name', '').lower() not in owned]
-        layers = [(stock_path, list(stock.values()), False), (roster_path, generated, True)]
-        profile_path = ROOT / 'mission/hollow-country/economy-profiles/contextual-pilot.json'
-        profile = json.loads(self.read(profile_path))
-        layers.append((profile_path, [copy.deepcopy(stock[name]) for name in profile['add_usage']], True))
         rows, _ = datamined_items.supply_rows(datamined_items.load_rows(), datamined_items.load_supply_dispositions())
-        layers.append((datamined_items.DATA, datamined_items.type_rows(stock, usage, rows=rows, include_new=True, floor=True), True))
+        if not self.offline:
+            changed, _, _ = firearms.roster_items(stock, usage, values, roster, True)
+            # economy.generate excludes authored owners from the roster delta.
+            generated = [n for n in changed if n.get('name', '').lower() not in owned]
+            layers.append((roster_path, generated, True))
+            profile_path = ROOT / 'mission/hollow-country/economy-profiles/contextual-pilot.json'
+            profile = json.loads(self.read(profile_path))
+            layers.append((profile_path, [copy.deepcopy(stock[name]) for name in profile['add_usage']], True))
+            layers.append((datamined_items.DATA, datamined_items.type_rows(stock, usage, rows=rows, include_new=True, floor=True), True))
         # Include every committed HC types fragment, not spawnabletypes documents.
         for p in self.paths(self.rules['ce_type_patterns']):
             tree = ET.fromstring(self.read(p))
@@ -479,7 +498,8 @@ class Audit:
                 self.add('W009', key, authored, 1, f'previous nominal={nominal}; no shipped row or other spawn path')
         if not (ROOT / 'tools/package/military_loot.py').exists():
             self.notes.append('No military_loot.py in this checkout; native military quantity policy is in firearms_roster.json')
-        self.notes.append(f'W009 stock={len(stock)} shipped fragment rows={shipped_count}; pure firearm/datamined/pack/loot-boost row transforms; native spawning unverified')
+        transforms = 'repository fragment/pack/loot-boost' if self.offline else 'firearm/datamined/pack/loot-boost'
+        self.notes.append(f'W009 stock={len(stock) if not self.offline else "excluded"} shipped fragment rows={shipped_count}; pure {transforms} row transforms; native spawning unverified')
 
     def bundle_check(self):
         """AST-only transitive local imports and repository data closure."""
@@ -896,6 +916,7 @@ def identity(finding):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vanilla-mission', help='read-only stock mission under the approved cache or checkout')
+    parser.add_argument('--offline', action='store_true', help='exclude installed stock-mission inputs; retain repository checks and report exclusions')
     parser.add_argument('--json', action='store_true', help='machine-readable summaries, findings and coverage notes')
     parser.add_argument('--ratchet', '--update-baseline', dest='ratchet', action='store_true', help='prune resolved baseline entries; new findings require explicit review')
     parser.add_argument('--strict-baseline', action='store_true', help='fail when baseline entries no longer match live findings')
@@ -917,7 +938,7 @@ def main(argv=None):
         for entries in rules['allowlists'].values():
             if not isinstance(entries, dict) or any(not isinstance(v, str) or not v.strip() for v in entries.values()):
                 raise ValueError('allowlists must map subject patterns to nonempty reasons')
-        audit = Audit(rules)
+        audit = Audit(rules, offline=args.offline)
         findings = audit.run()
         baseline_path = audit.safe(ROOT / rules['baseline'])
         if not baseline_path.is_relative_to(ROOT):
@@ -942,20 +963,30 @@ def main(argv=None):
             stale_entries = []
             accepted = {identity(f): f['reason'] for f in baseline['findings']}
         for f in findings:
-            f['new'] = f['id'] in ('W009', 'W010') or identity(f) not in accepted
-            if not f['new']:
+            # A policy declaration is not evidence that the stock transform succeeds.
+            # Retain these candidates explicitly without accepting/baselining them.
+            excluded = (args.offline and f['id'] == 'W001'
+                        and f['subject'].lower() in audit.stock_route_candidates)
+            if excluded:
+                f['excluded'] = 'W001.stock_routes'
+            f['new'] = not excluded and (f['id'] in ('W009', 'W010') or identity(f) not in accepted)
+            if not f['new'] and not excluded:
                 f['reason'] = accepted[identity(f)]
         findings.sort(key=lambda f: (not f['new'], f['id'], f['subject'], f['file']))
         totals = Counter(f['id'] for f in findings)
         news = Counter(f['id'] for f in findings if f['new'])
-        summary = {c: {'total': totals[c], 'new': news[c], 'enabled': rules['checks'][c]} for c in CHECKS}
+        summary = {c: {'total': totals[c], 'new': news[c],
+                       'excluded': sum(f['id'] == c and bool(f.get('excluded')) for f in findings),
+                       'enabled': rules['checks'][c]} for c in CHECKS}
         stale = len(set(accepted) - {identity(f) for f in findings})
         if args.json:
-            print(json.dumps({'schema': 1, 'summary': summary, 'notes': audit.notes,
+            print(json.dumps({'schema': 1, 'summary': summary, 'notes': audit.notes, 'exclusions': audit.exclusions,
                               'stale_baseline_entries': stale, 'stale_baseline': stale_entries, 'findings': findings}, indent=2))
         else:
+            for name, reason in audit.exclusions.items():
+                print(f'EXCLUDED {name}: {reason}')
             for c in CHECKS:
-                print(f'{c} total={totals[c]} new={news[c]}' + ('' if rules['checks'][c] else ' disabled'))
+                print(f'{c} total={totals[c]} new={news[c]} excluded={summary[c]["excluded"]}' + ('' if rules['checks'][c] else ' disabled'))
             for note in audit.notes:
                 print('NOTE ' + note)
             if stale:
@@ -963,7 +994,7 @@ def main(argv=None):
             for f in stale_entries:
                 print(f"STALE {f['id']} {f['subject']} {f['file']}")
             for f in findings:
-                print(f"{'NEW' if f['new'] else 'BASELINE'} {f['id']} {f['subject']} {f['file']}:{f['line']} {f['why']}")
+                print(f"{'DEFERRED' if f.get('excluded') else 'NEW' if f['new'] else 'BASELINE'} {f['id']} {f['subject']} {f['file']}:{f['line']} {f['why']}")
         return int(any(news.values()) or (args.strict_baseline and stale > 0))
     except (OSError, ValueError, SyntaxError, ImportError, TypeError, KeyError, AttributeError, re.error, ET.ParseError, pickle.UnpicklingError, EOFError, RecursionError) as error:
         # Paths from third-party exceptions can contain home directories.
