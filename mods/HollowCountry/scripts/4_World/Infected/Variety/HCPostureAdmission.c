@@ -110,6 +110,7 @@ class HCPostureAdmission
         if (m_Running) { return; }
         m_Queue.Clear();
         m_Cursor = 0;
+        Print(HCPoseVariation.HCStartLine(preference));
         Print(HCV2Admission.Line("Postures", preference, "HC-45-rest-wake", false));
         if (!preference)
         {
