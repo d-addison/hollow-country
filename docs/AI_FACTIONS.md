@@ -60,61 +60,76 @@ is copied into this change.
 
 ## Pre-engagement warning — #276
 
-Source implementation 2026-11-20; native compile, boot and one-client playback
-acceptance remain pending. Recognised HC site actors are enrolled by the same
-spawn-time callback that assigns their faction armband. The cue is default-on
-with those actors; unrelated Expansion actors are not enrolled. No setting or
-module is added, and the existing module readiness output is unchanged.
+Built 2026-11-21, default-on for recognised HC camp/patrol actors enrolled by
+`HCXAffiliationCues.Actor`. Native compile, boot and one-client verification are
+pending (EXP-L3); no gameplay acceptance is claimed. Existing readiness output
+is retained; no extra module, scheduler, world scan or targeting system is added.
 
-After Expansion processes its current target and line of sight, an enrolled,
-living, conscious, unrestrained AI can request one native heavy-melee vocalisation
-(`EPlayerSoundEventID.MELEE_ATTACK_HEAVY`) on first seeing a living human player
-within 80 m. This reuses a nonverbal native combat vocalisation, not spoken
-dialogue, and starts no melee action. The AI must regard the player as an enemy,
-have its weapon lowered, be outside the fighting FSM and melee, and have active
-threat below Expansion's 0.4 fighting threshold. Actors already engaging do not
-warn. A target change, loss of LOS or leaving the radius ends that contact; a
-cooldown refusal is not retried during uninterrupted contact.
+For a currently selected human contact with provider LOS and a fresh geometry
+check, non-hostile factions warn at 40–80 m: turn/look and raise toward the
+observed player, request the native heavy-melee vocalisation and send status
+text. After 1.5 s, attempt one real chambered-round warning discharge. Normal
+provider fire at that contact is held while the player remains in that band
+with their weapon lowered. Closing to 40 m or raising a weapon engages without
+an eight-second timer; hostile factions skip warnings. Accepted defence and
+betrayal remain authoritative. Backing outside 80 m, losing observation or
+lowering a weapon outside 40 m clears cached aggression; surrender still uses
+the existing classifier. A lowered weapon does not prevent proximity engagement
+inside 40 m.
 
-The server allows at most one request per AI and per player identity every
-60 seconds. The session-only identity table holds at most 64 opaque keys; at
-capacity it can reclaim one expired row, otherwise it refuses the cue. It never
-evicts a live cooldown, retains no player objects and neither logs nor persists
-identities. AI contact tracking holds one weak player reference per actor. Each
-targeting update does constant work except an eligible admission at table
-capacity, which checks at most 64 rows. There is no player/world scan, extra
-raycast, queue, persistence, combat suppression or engagement delay. Cooldowns
-count requests because a client can refuse a voice event under native sound
-priority rules; no repeated playback attempts are made.
+The shot uses native `Weapon.Fire` with an explicit trajectory toward terrain
+12 m perpendicular to the observed player's approach. It does not call
+Expansion's target-based ballistic solver. Terrain must be 1–8 m below the
+origin, with a clear ray ending at the intended ground point and no object
+intersections. Unsafe terrain, obstruction, an empty/non-firearm hand, a busy
+weapon manager, non-bullet/explosive ammunition, or failed native fire leaves the shout/text fallback. There is
+one attempt, no retries, queued burst, ammo creation or refill. Native chamber
+state is used to rebuild/synchronise the weapon FSM; Expansion's existing client
+shot RPC requests presentation. **The offset/raycast is not proof against native
+ricochet, dispersion or other projectile behaviour. The never-hit requirement
+remains an open native acceptance condition.**
 
-Installed API review (API names and observed ordering only; no provider code
-copied):
+Admission is shared across actors: at most one warning/shot attempt per player
+identity per 60 s, also one per actor per 60 s. The session-only table retains
+at most 64 opaque keys, reclaiming only expired cooldowns. No identities are
+printed or persisted. Each actor holds one selected contact and one admitted
+shot recipient; target changes cannot transfer the pending shot. Existing
+per-target stance records remain capped at eight actors. Fire interlock receipts
+expire after 2 s without fresh threat evaluation. No new tick loop is added;
+one admitted attempt performs one terrain raycast. Work/cost at target load
+remains provisional.
 
-| Class / method | Finding |
-| --- | --- |
-| `eAIBase.eAI_Targeting`, `eAI_OnUpdate`, `eAI_UpdateFSM`; `ExpansionWorld.eAI_OnUpdate` | Selected hook: targeting and LOS finish before the later FSM update in both normal and distributed update modes. The simulation-disabled path passes `checkLOS=false` and is excluded. |
-| `eAIBase.EnforceLOS`, `eAI_HasLOS` | Uses only the current target's provider LOS, including its normal 0.15 s cache interval. Non-current target caches can be stale and are not used. |
-| `eAIBase.eAI_AddTarget`, `eAI_GetTargetInformationState`, `PlayerIsEnemy`; `eAIPlayerTargetInformation.CalculateThreat` | Acquisition/threat alone does not establish visibility. The selected hook additionally requires current-target LOS and the provider's hostility decision. |
-| `eAIBase.DetermineThreatToSelf`, `ReactToThreatChange`; `eAITargetInformationState.UpdateThreat` | Threat can rise gradually or jump after aggression. Only the below-0.4 pre-engagement case is eligible; threat is never rewritten. |
-| `eAICallbacks.OnTargetSelected`, `OnLOS`, `OnActiveThreatLevelChanged` | Callbacks exist before FSM processing, but a transition-only callback would miss entry into 80 m while an already-visible target approaches. |
-| `eAIState_Fighting.OnEntry`, `eAIState_Fighting_FireWeapon.OnEntry` / `OnUpdate`, `eAIBase.TryFireWeapon` | Combat/fire hooks are too late for a not-yet-engaged warning and are left unchanged. |
-| `eAIBase.Expansion_SetEmote`, `Expansion_PlayEmote`; `eAIState_PlayEmote.Guard` | Queued emotes are unsuitable: the guard rejects raw threat above 0.2, raised weapons and fighting. Direct emotes introduce gesture locks and asynchronous cancellation. Neither route is used. |
+Observed API references (installed APIs only, no provider implementation copied):
 
-Native 1.30.164289 evidence: `PlayerBase.RequestSoundEvent` /
-`RequestSoundEventEx` / `SendSoundEventEx` sends the native replicated sound
-event, while `CheckSoundEvent` plays it on receipt. `MeleeAttackHeavyEvent`
-registers voice animation event 17; `MeleeAttackSoundEvents.CanPlay` needs no
-melee action, and damage audio keeps priority. Installed vanilla
-`sounds_hpp.pbo/config.bin` declares the male/female heavy-melee voice shaders.
-`EmoteTaunt` exists in native scripts but is deliberately not started.
+- Native `4_World/Entities/Core/Inherited/Weapon.c:35,57–58,74–79,11`:
+  muzzle selection, fire eligibility, explicit native fire, chamber state and sync.
+- Native `4_World/Entities/Firearms/Weapon_Base.c:667–705`:
+  `RandomizeFSMState` derives state from real chambers/magazine, including spent rounds.
+- Native `3_Game/Global/Game.c:1176`, `Global/DayZPhysics.c:199`:
+  `SurfaceY`, `RaycastRV`; `1_Core/proto/EnConvert.c:153,156,233`: vector helpers.
+- Native `4_World/Entities/ManBase/PlayerBase.c:6924,7779`:
+  `MessageStatus`, `RequestSoundEvent` (voice event, no melee action).
+- Installed Expansion `ai_scripts.pbo/4_World/DayZExpansion_AI/Entities/AI/eAIBase.c`:
+  `eAI_CanFire:1276`, `eAI_FireWeaponOnClient:1189`, `eAI_UpdateFSM:7071`,
+  `RaiseWeapon:9755`, `LookAtPosition:9937`, `AimAtPosition:9944`.
+- Installed Expansion `Entities/Weapons/Firearms/Weapon_Base.c:60,157,166`:
+  native-fire delegation and client presentation interfaces. Existing target/LOS
+  and defence API references remain in the `HCXStance.c` header.
 
-The lead must still run native compile and boot, then use one server and at most
-one client to check audible warning/shot ordering, native voice range and helmet
-attenuation, faction hostility, LOS/occlusion and 80 m entry, both 60-second
-cooldowns (including respawn/reconnect), contact re-entry, and unchanged combat
-response. Sound replication and client priority may affect what is heard before
-a shot; source ordering is not an engine acceptance result. Larger-load cost
-remains provisional; no multiplayer proof is claimed.
+Lead checks, one server plus at most one client: compile and ready lines;
+peaceful 80 m approach/shout/text/aim then exactly one audible warning shot;
+real chamber/magazine delta of one and subsequent cycling/reload; no hit or
+client ghost hit, including uneven ground, walls, slopes, shotgun/burst/auto
+weapons and ricochet cases; clear fallback for no gun, no ammo and unsafe path;
+40 m engagement, raised-weapon engagement, lowering/backing-off and surrender;
+hostile factions skip warnings; both cooldowns across multiple actors,
+reconnect/respawn, interrupted LOS and target switches. Check RPT:
+`[HollowCountry] Stance warning: shout + text; keep back 40m; runtime=PENDING`,
+`[HollowCountry] Stance warning_shot fired offset=12m runtime=PENDING` or
+`[HollowCountry] Stance warning_shot fallback=...`,
+`[HollowCountry] Stance hostile: faction, closing within 40m or raised weapon`,
+and `[HollowCountry] Stance de-escalated: weapon lowered or outside caution range`.
+Larger-load and multiplayer behaviour are not proven.
 
 ## Native checks still required
 
