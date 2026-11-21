@@ -1,6 +1,6 @@
 // Fixed private profile directory, owned immutable triples, bounded enumeration.
 // Readback does not promise fsync/power-loss atomicity. Incomplete highest
-// revision fails closed; recovery is an explicit operator operation offline.
+// revision can be discarded only after the immediately prior commit validates.
 class HCEventJournalIO
 {
     protected string m_Root = "$profile:HollowCountry/Events/state";
@@ -93,6 +93,31 @@ class HCEventJournalIO
         FPrint(handle, text);
         CloseFile(handle);
         return Read(name, limit) == text;
+    }
+    // Copy every surviving top-revision file before deleting any of them.
+    // A separate attempt directory preserves earlier crashes of a reused revision.
+    bool PreserveTorn(array<string> names, int revision)
+    {
+        string root = "$profile:HollowCountry/Events/torn";
+        if (!FileExist(root) && !MakeDirectory(root)) { return false; }
+        string target;
+        int attempt = 0;
+        while (attempt < 1024)
+        {
+            target = root + "/" + revision.ToString() + "-" + attempt.ToString();
+            if (!FileExist(target)) { break; }
+            attempt++;
+        }
+        if (attempt >= 1024 || !MakeDirectory(target)) { return false; }
+        foreach (string name : names)
+        {
+            if (Exists(name) && !CopyFile(HCPath(name), target + "/" + name)) { return false; }
+        }
+        foreach (string obsolete : names)
+        {
+            if (Exists(obsolete) && !Remove(obsolete)) { return false; }
+        }
+        return true;
     }
     bool Remove(string name) { return DeleteFile(m_Root + "/" + name); }
 }
@@ -224,22 +249,57 @@ class HCEventJournal : HCEventPersistence
         string intent = m_IO.Read(Name("intent-", latest), 2048);
         string commit = m_IO.Read(Name("commit-", latest), 2048);
         string image = m_IO.Read(Name("image-", latest), m_Settings.MaxStoreBytes);
+        bool torn = intent == "" || commit == "" || intent != commit;
+        if (!torn)
+        {
+            HCEventJournalReceipt top = m_Codec.Receipt(intent);
+            // A complete commit with bad metadata/hash/schema remains corruption.
+            if (!top || top.Version != 1 || top.Revision != latest || top.WorldName != world) { Fault(); return null; }
+            torn = !m_IO.Exists(Name("image-", latest)) || (m_IO.HCReadCount() >= 0 && m_IO.HCReadCount() < top.Length);
+        }
+        int loaded = latest;
+        if (torn) { loaded--; }
+        if (loaded < 1) { Fault(); return null; }
+        HCEventRuntimeState state = HCLoadRevision(loaded, world);
+        if (!state) { Fault(); return null; }
+        if (torn)
+        {
+            array<string> names = new array<string>;
+            names.Insert(Name("intent-", latest));
+            names.Insert(Name("image-", latest));
+            names.Insert(Name("commit-", latest));
+            if (!m_IO.PreserveTorn(names, latest)) { Fault(); return null; }
+            Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=Events/torn");
+        }
+        m_Latest = loaded;
+        // Normalize legacy eight-revision journals too. Seven retained triples
+        // plus all three new files = 24 entries, even before prune stages 10..12.
+        // A crash during pruning only removes old files; it cannot raise this bound.
+        array<string> retained = m_IO.Names();
+        if (!retained) { Fault(); return null; }
+        foreach (string retainedName : retained)
+        {
+            int revision = RevisionInName(retainedName, "intent-");
+            if (revision == 0) { revision = RevisionInName(retainedName, "image-"); }
+            if (revision == 0) { revision = RevisionInName(retainedName, "commit-"); }
+            if (revision > 0 && revision <= loaded - 7 && !m_IO.Remove(retainedName)) { Fault(); return null; }
+        }
+        return state;
+    }
+    // No recursive fallback: the predecessor must pass every original check.
+    protected HCEventRuntimeState HCLoadRevision(int revision, string world)
+    {
+        string intent = m_IO.Read(Name("intent-", revision), 2048);
+        string commit = m_IO.Read(Name("commit-", revision), 2048);
+        if (intent == "" || intent != commit) { return null; }
         HCEventJournalReceipt receipt = m_Codec.Receipt(intent);
+        if (!receipt || receipt.Version != 1 || receipt.Revision != revision || receipt.WorldName != world) { return null; }
+        string image = m_IO.Read(Name("image-", revision), m_Settings.MaxStoreBytes);
+        if (image == "" || receipt.Length != image.Length() || receipt.Hash != m_Codec.Digest(image)) { return null; }
         HCEventRuntimeState state = m_Codec.Decode(image);
-        if (intent == "" || intent != commit || !receipt || receipt.Version != 1)
-        {
-            Fault();
-            return null;
-        }
-        if (receipt.Revision != latest || receipt.WorldName != world || receipt.Length != image.Length() || receipt.Hash != m_Codec.Digest(image))
-        {
-            Fault();
-            return null;
-        }
-        if (!HCEventRuntimePolicy.StateValid(state) || state.Revision != latest || state.Director.WorldName != world)
+        if (!HCEventRuntimePolicy.StateValid(state) || state.Revision != revision || state.Director.WorldName != world)
         {
             Print("[HC Events] journal schema/state admission failed; preserve image, no reset or fallback");
-            Fault();
             return null;
         }
         m_Image = image;
@@ -370,7 +430,7 @@ class HCEventJournal : HCEventPersistence
         }
         else if (m_SaveStage >= 10 && m_SaveStage <= 12)
         {
-            int old = m_Pending.Revision - 8;
+            int old = m_Pending.Revision - 7;
             if (old > 0)
             {
                 string oldPrefix = "intent-";
@@ -443,8 +503,8 @@ class HCEventJournal : HCEventPersistence
         m_Latest = state.Revision;
         m_Image = image;
         m_Receipt = intent;
-        // Exactly eight committed revisions; skip absent owned filenames.
-        int old = m_Latest - 8;
+        // Exactly seven committed revisions; skip absent owned filenames.
+        int old = m_Latest - 7;
         if (old > 0)
         {
             array<string> prefixes = new array<string>();

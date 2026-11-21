@@ -2,7 +2,7 @@
 
 python3 -B -m tools.release.rpt_summary server.RPT [--json]
 Exit: 0 connect-enabled/no observed failure, 2 compile, 3 crash, 4 not-ready,
-5 incomplete, 6 input error, 7 persistence corruption. Historical evidence is not runtime acceptance.
+5 incomplete, 6 input error, 7 persistence corruption, 8 runtime script error. Historical evidence is not runtime acceptance.
 """
 import argparse
 import json
@@ -16,6 +16,7 @@ from tools.validate.tick_cost_report import aggregate
 
 DROP = re.compile(r'steam ?id|uid|name=|[0-9]{17}|Player "|id=|password|admin.?id', re.I)
 HOME = re.compile(r'(?:/home/[^/\s"\'<>]+|/Users/[^/\s"\'<>]+|/root(?=/|\s|$)|[A-Z]:[\\/]+Users[\\/]+[^\\/\s"\'<>]+|/mnt/[a-z]/Users/[^/\s"\'<>]+)', re.I)
+MISSION_LOADED = re.compile(r"\bModule:\s*Mission;\s*loaded\b", re.I)
 SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
 COMPILE_MARKER = re.compile(r"Can't compile|Cannot compile", re.I)
 CORRUPTED = re.compile(r'Scripted variables corrupted upon\s+"([^"\r\n]+)"', re.I)
@@ -66,7 +67,7 @@ def module_line(line):
     return module, line[marker.start():]
 
 
-def failure(line):
+def failure(line, mission_loaded=False):
     """Inspect raw text so privacy filtering cannot hide a failing verdict."""
     lowered = line.lower()
     if COMPILE_MARKER.search(line):
@@ -74,7 +75,7 @@ def failure(line):
     if CORRUPTED.search(line):
         return 'persistence_corrupted'
     if SCRIPT_ERROR.search(line):
-        return 'compile_failed'
+        return 'script_error' if mission_loaded else 'compile_failed'
     if any(token in lowered for token in ('null pointer', 'unhandled exception', 'access violation',
                                           'access_violation', 'exception code:', 'crash', '.mdmp',
                                           '.dmp', 'minidump', 'stack overflow')) and CRASH.search(line):
@@ -99,6 +100,8 @@ class Summary:
         self.db.execute('PRAGMA cache_size=-1024')
         self.db.execute('CREATE TABLE diagnostics(module TEXT, line TEXT, n INTEGER, PRIMARY KEY(module,line))')
         self.errors = []
+        self.script_errors = []
+        self.mission_loaded = False
         self.cascades = []
         self.compile_markers = []
         self.crashes = []
@@ -133,7 +136,8 @@ class Summary:
                     self.activity_checker.observe(raw)
                 except (ValueError, TypeError):
                     self.activity_error = True
-            verdict = failure(raw)
+            self.mission_loaded = self.mission_loaded or bool(MISSION_LOADED.search(raw))
+            verdict = failure(raw, self.mission_loaded)
             corrupted = CORRUPTED.search(raw)
             if corrupted:
                 # Retain only a filtered type, never an entity/player identifier.
@@ -154,6 +158,7 @@ class Summary:
             needs_error = False
             if verdict == 'compile_failed' and SCRIPT_ERROR.search(raw):
                 needs_error = len(self.cascades if CASCADE.search(raw) else self.errors) < 8
+            needs_error = needs_error or (verdict == 'script_error' and len(self.script_errors) < 8)
             needs_marker = COMPILE_MARKER.search(raw) and len(self.compile_markers) < 8
             needs_crash = len(self.crashes) < 8 and verdict in ('compile_failed', 'crashed') and CRASH.search(raw)
             if not ('[HC' in raw or needs_error or needs_marker or needs_crash):
@@ -164,6 +169,8 @@ class Summary:
             if COMPILE_MARKER.search(line):
                 if len(self.compile_markers) < 8:
                     self.compile_markers.append(line)
+            elif verdict == 'script_error' and len(self.script_errors) < 8:
+                self.script_errors.append(line)
             elif verdict == 'compile_failed' and SCRIPT_ERROR.search(line):
                 target = self.cascades if CASCADE.search(line) else self.errors
                 if len(target) < 8:
@@ -197,7 +204,7 @@ class Summary:
 
     @property
     def outcome(self):
-        for value in ('compile_failed', 'crashed', 'persistence_corrupted'):
+        for value in ('compile_failed', 'crashed', 'persistence_corrupted', 'script_error'):
             if value in self.failures:
                 return value
         if not all(self.ready_last.values()):
@@ -218,6 +225,7 @@ class Summary:
                     compile_result='compile_failed' if 'compile_failed' in self.failures else 'no_compile_error_observed',
                     # Root errors precede cascades and the generic module failure.
                     compile_errors=self.errors + self.compile_markers + self.cascades,
+                    script_errors=self.script_errors,
                     crash_indicators=self.crashes, readiness_lines=self.readiness_count,
                     persistence_corruption_counts=dict(self.db.execute('SELECT type,n FROM corruptions ORDER BY type')),
                     worst_ticks=self.worst, save_peaks=self.saves,
@@ -239,7 +247,7 @@ class Summary:
         print('outcome=' + self.outcome)
         for entity_type, count in self.db.execute('SELECT type,n FROM corruptions ORDER BY type'):
             print(f'persistence_corrupted type={entity_type} count={count}')
-        for line in self.errors + self.compile_markers + self.cascades:
+        for line in self.errors + self.compile_markers + self.cascades + self.script_errors:
             print(line)
         for line in self.crashes:
             print(line)
@@ -276,7 +284,7 @@ def main(argv=None):
     try:
         summary.scan().print(args.json)
         return dict(connect_enabled=0, compile_failed=2, crashed=3, not_ready=4,
-                    incomplete=5, persistence_corrupted=7)[summary.outcome]
+                    incomplete=5, persistence_corrupted=7, script_error=8)[summary.outcome]
     except (OSError, sqlite3.Error):
         print('RPT summary input/storage unavailable')
         return 6

@@ -5,7 +5,7 @@ Without --start, attach to the newest RPT (or --rpt); never launch a process.
 With --start, require no server running, invoke start-server.bat, follow a NEW RPT.
 Exit codes: 0 connect-enabled after settle; 2 install check failed; 3 compile;
 4 crash/dump; 5 process gone; 6 stall; 7 ready=false; 8 interop unknown;
-9 input/start/timeout error; 10 persistence corruption; 130 interrupted. No exit path stops the server.
+9 input/start/timeout error; 10 persistence corruption; 11 runtime script error; 130 interrupted. No exit path stops the server.
 """
 import argparse
 from contextlib import ExitStack
@@ -15,11 +15,11 @@ from pathlib import Path
 import time
 
 from tools.setup import winproc
-from tools.release.rpt_summary import Summary, failure, filtered
+from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED
 
 CODES = {'compile_failed': 3, 'crashed': 4, 'process_gone': 5,
          'stalled': 6, 'not_ready': 7, 'interop_unknown': 8,
-         'input_error': 9, 'timed_out': 9, 'persistence_corrupted': 10, 'connect_enabled': 0}
+         'input_error': 9, 'timed_out': 9, 'persistence_corrupted': 10, 'script_error': 11, 'connect_enabled': 0}
 
 
 def psquote(value):
@@ -49,6 +49,8 @@ def watch(args, before, old_dumps):
     discard = False
     identity = None
     observed_running = False
+    mission_loaded = False
+    script_error = False
     unknown_polls = 0
     while True:
         now = time.monotonic()
@@ -83,7 +85,11 @@ def watch(args, before, old_dumps):
                         continue
                     if not discard:
                         line = pending.decode('utf-8', errors='replace')
-                        verdict = failure(line)
+                        mission_loaded = mission_loaded or bool(MISSION_LOADED.search(line))
+                        verdict = failure(line, mission_loaded)
+                        if verdict == 'script_error':
+                            script_error = True
+                            verdict = None
                         # Readiness is judged on the final summary (last [HC Ready] line per module).
                         if verdict == 'not_ready':
                             verdict = None
@@ -112,7 +118,7 @@ def watch(args, before, old_dumps):
         # Drain all bytes present before passing, including errors after connect.
         caught_up = rpt is not None and rpt.stat().st_size <= position
         if state == 'running' and connected_at is not None and caught_up and now - connected_at >= args.settle_minutes * 60:
-            return 'connect_enabled', rpt
+            return 'script_error' if script_error else 'connect_enabled', rpt
         time.sleep(args.poll_seconds if caught_up or rpt is None else 0)
 
 
@@ -190,7 +196,7 @@ def main(argv=None):
             try:
                 summary.scan().print()
                 activity_result = summary.activity
-                if summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted'):
+                if summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted', 'script_error'):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
             finally:

@@ -427,7 +427,7 @@ class HCXAIRouteSave : HCSaveJob
             if (!Owner.HCRoutesText(text)) { return STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
             // Disposable qualification cache, no inventory/creation barrier.
-            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, false, false)) { return STEP_FAILED; }
+            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();
@@ -2903,29 +2903,123 @@ class HCXAISiteDirector : Managed
         policy.MaxActiveSites = HCAILimits.Get().MaxActiveSites;
         return policy;
     }
+    // A truncated prefix can end at a nested closing brace. Check balanced
+    // containers and strings as well as the shared first/last-line guard.
+    // Work on small windows: native string operations on large stores are capped.
+    static string HCWholeCacheText(string path)
+    {
+        if (!HCGroupIO.HCLooksWholeObject(path, HCWorldStore.MAX_BYTES)) { return ""; }
+        string data = HCWorldStore.Read(path);
+        array<string> stack = new array<string>;
+        bool quoted = false;
+        bool escaped = false;
+        bool ended = false;
+        for (int offset = 0; offset < data.Length(); offset += 4096)
+        {
+            int length = Math.Min(4096, data.Length() - offset);
+            string piece = data.Substring(offset, length);
+            for (int index = 0; index < piece.Length(); index++)
+            {
+                string character = piece.Substring(index, 1);
+                if (quoted)
+                {
+                    if (escaped) { escaped = false; }
+                    else if (character == "\\") { escaped = true; }
+                    else if (character == "\"") { quoted = false; }
+                    continue;
+                }
+                if (character == " " || character == "\n" || character == "\r" || character == "\t") { continue; }
+                if (ended) { return ""; }
+                if (character == "\"") { quoted = true; }
+                else if (character == "{" || character == "[")
+                {
+                    if (stack.Count() >= 128) { return ""; }
+                    stack.Insert(character);
+                }
+                else if (character == "}" || character == "]")
+                {
+                    int depth = stack.Count();
+                    if (depth < 1) { return ""; }
+                    string open = stack[depth - 1];
+                    if ((character == "}" && open != "{") || (character == "]" && open != "[")) { return ""; }
+                    stack.Remove(depth - 1);
+                    ended = stack.Count() == 0;
+                }
+            }
+        }
+        if (quoted || stack.Count() != 0 || !ended) { return ""; }
+        return data;
+    }
+    // Disposable cache recovery only. Shape-check each candidate before the
+    // native parser, repair the primary before a writer can back it up again.
+    static bool HCRecoverCache(string path, string action)
+    {
+        if (action == "restored_bak")
+        {
+            if (FileExist(path) && !CopyFile(path, path + ".torn")) { return false; }
+            if (!CopyFile(path + ".bak", path) || HCWorldStore.Read(path) != HCWorldStore.Read(path + ".bak")) { return false; }
+        }
+        if (action == "discarded_cache")
+        {
+            if (FileExist(path) && !DeleteFile(path)) { return false; }
+            if (FileExist(path + ".bak") && !DeleteFile(path + ".bak")) { return false; }
+        }
+        if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { return false; }
+        string name = path;
+        int slash = name.LastIndexOf("/");
+        if (slash >= 0) { name = name.Substring(slash + 1, name.Length() - slash - 1); }
+        Print("[HC Store] crash_recovery file=" + name + " action=" + action + " runtime=PENDING");
+        return true;
+    }
     static HCXAIRouteCache LoadRoutes()
     {
-        // Startup only: interrupted disposable cache publication is requalified.
-        // No item or lease state uses this path. Native EnSystem.c:397/528.
-        string intent = HCXAISiteDirector.ROUTES + ".tmp";
-        if (FileExist(intent) && !DeleteFile(intent)) { return null; }
-        if (!FileExist(HCXAISiteDirector.ROUTES)) { return new HCXAIRouteCache(); }
-        string data = HCWorldStore.Read(HCXAISiteDirector.ROUTES);
-        if (data == "") { return null; }
-        string error;
-        HCXAIRouteCache routes;
-        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
-        return routes;
+        string path = HCXAISiteDirector.ROUTES;
+        for (int candidate = 0; candidate < 2; candidate++)
+        {
+            string source = path;
+            if (candidate == 1) { source = path + ".bak"; }
+            string data = HCWholeCacheText(source);
+            if (data == "") { continue; }
+            string error;
+            HCXAIRouteCache routes;
+            if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { continue; }
+            if (candidate == 1)
+            {
+                if (!HCRecoverCache(path, "restored_bak")) { return null; }
+            }
+            else if (FileExist(path + ".tmp") && !HCRecoverCache(path, "dropped_unpromoted_tmp")) { return null; }
+            return routes;
+        }
+        if (FileExist(path) || FileExist(path + ".tmp") || FileExist(path + ".bak"))
+        {
+            if (!HCRecoverCache(path, "discarded_cache")) { return null; }
+        }
+        return new HCXAIRouteCache();
     }
     static HCXAICacheJournal LoadCaches()
     {
-        if (!FileExist(HCXAISiteDirector.CACHES)) { return new HCXAICacheJournal(); }
-        string data = HCWorldStore.Read(HCXAISiteDirector.CACHES);
-        if (data == "") { return null; }
-        string error;
-        HCXAICacheJournal caches;
-        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches || caches.SchemaVersion != 1 || !caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
-        return caches;
+        string path = HCXAISiteDirector.CACHES;
+        for (int candidate = 0; candidate < 2; candidate++)
+        {
+            string source = path;
+            if (candidate == 1) { source = path + ".bak"; }
+            string data = HCWholeCacheText(source);
+            if (data == "") { continue; }
+            string error;
+            HCXAICacheJournal caches;
+            if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches || caches.SchemaVersion != 1 || !caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { continue; }
+            if (candidate == 1)
+            {
+                if (!HCRecoverCache(path, "restored_bak")) { return null; }
+            }
+            else if (FileExist(path + ".tmp") && !HCRecoverCache(path, "dropped_unpromoted_tmp")) { return null; }
+            return caches;
+        }
+        if (FileExist(path) || FileExist(path + ".tmp") || FileExist(path + ".bak"))
+        {
+            if (!HCRecoverCache(path, "discarded_cache")) { return null; }
+        }
+        return new HCXAICacheJournal();
     }
     static HCXAIOwnership LoadOwned()
     {
