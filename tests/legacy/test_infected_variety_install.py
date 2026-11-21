@@ -2,7 +2,6 @@
 import importlib
 import json
 from pathlib import Path
-import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -10,7 +9,6 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/infected/variants.json'
-WORLD = ROOT / 'mods/HollowCountry/scripts/4_World/Infected'
 
 
 class InfectedVarietyInstallTests(unittest.TestCase):
@@ -54,18 +52,25 @@ class InfectedVarietyInstallTests(unittest.TestCase):
             self.assertEqual(old.attrib, new.attrib)
             self.assertEqual(sum(int(c.get('min')) for c in old.findall('./children/child')),
                              sum(int(c.get('min')) for c in new.findall('./children/child')))
+            self.assertEqual(sum(int(c.get('max')) for c in old.findall('./children/child')),
+                             sum(int(c.get('max')) for c in new.findall('./children/child')))
             self.assertEqual([(c.tag, c.text, c.attrib) for c in old if c.tag != 'children'],
                              [(c.tag, c.text, c.attrib) for c in new if c.tag != 'children'])
         for row in self.policy['substitutions']:
             event = next(e for e in after if e.get('name') == row['event'])
             self.assertEqual(str(row['share']), event.find(f'./children/child[@type="{row["to"]}"]').get('min'))
-            self.assertEqual('8', event.find(f'./children/child[@type="{row["from"]}"]').get('min'))
+            donor = event.find(f'./children/child[@type="{row["from"]}"]')
+            old_event = next(e for e in before if e.get('name') == row['event'])
+            old_donor = old_event.find(f'./children/child[@type="{row["from"]}"]')
+            given = sum(r['share'] for r in self.policy['substitutions']
+                        if (r['event'], r['from']) == (row['event'], row['from']))
+            self.assertEqual(int(old_donor.get('min')) - given, int(donor.get('min')))
+            self.assertGreater(int(donor.get('min')), 0)
         self.assertIn(b'<!-- synthetic comment retained -->', self.events.read_bytes())
-        self.assertFalse((ROOT / 'mission/hollow-country/infected/events.append.xml').exists())
 
     def test_non_stock_event_refuses_before_receipt_or_mutation(self):
         for old, new in ((b'<nominal>42', b'<nominal>43'), (b'min="', b'min="1'),
-                         (b'name="InfectedCity"', b'name="MissingCity"')):
+                         (('name="' + self.policy['substitutions'][0]['event'] + '"').encode(), b'name="MissingSyntheticEvent"')):
             with self.subTest(change=new):
                 data = self.original.replace(old, new, 1)
                 self.events.write_bytes(data)
@@ -148,48 +153,3 @@ class InfectedVarietyInstallTests(unittest.TestCase):
                 self.install()
         self.tool.rollback(self.mission)
         self.assertEqual(self.original, self.events.read_bytes())
-
-
-class NativeAdmissionTests(unittest.TestCase):
-    def test_manifest_counts_and_selected_inspection_calls_agree(self):
-        manifest = json.loads(POLICY.read_text())
-        source = (WORLD / 'HCNativeVariantAdmission.c').read_text()
-        selected = [r for r in manifest['entries'] if r['selected']]
-        unresolved = [r for r in manifest['aliases'] if r['kind'] == 'unresolved_spelling']
-        self.assertEqual(len(selected), int(re.search(r'int Authored = (\d+);', source)[1]))
-        self.assertEqual(len(unresolved), int(re.search(r'int Unresolved = (\d+);', source)[1]))
-        self.assertEqual({r['class'] for r in selected}, set(re.findall(r'HCInspectCandidate\("([^"]+)"', source)))
-        self.assertEqual(len(selected), len(re.findall(r'HCInspectCandidate\("', source)))
-        self.assertEqual(len(selected), manifest['counts']['selected_authored'])
-        self.assertEqual(len(unresolved), manifest['counts']['unresolved_spelling_groups'])
-
-    def test_admission_cached_once_before_healthy_and_cleared_on_stop(self):
-        source = (WORLD / 'HCInfectedModule.c').read_text()
-        self.assertIn('protected ref HCNativeVariantAdmission m_NativeVariants;', source)
-        startup = source.split('override void OnStart(', 1)[1].split('protected void Quarantine', 1)[0]
-        call = 'm_NativeVariants = HCNativeVariantAdmission.Check(settings.EnableInfectedVariety);'
-        self.assertEqual(1, startup.count(call))
-        self.assertLess(startup.index(call), startup.index('m_Healthy = true;'))
-        from types import SimpleNamespace
-        from tests.legacy.test_infected_admission import translate
-        cached = object()
-        getter = translate('HCInfectedModule.c', 'HCNativeVariantAdmission NativeVariants(', ())
-        self.assertIs(cached, getter(SimpleNamespace(m_NativeVariants=cached)))
-        self.assertIn('m_NativeVariants = null;', source.split('override void OnStop()', 1)[1])
-
-    def test_native_model_normalization_executes_authored_helper(self):
-        # Restricted existing Enforce port; synthetic strings, no native config claims.
-        from tests.legacy.test_infected_admission import translate
-        class NativeString:
-            def __init__(self, value): self.value = value
-            def Length(self): return len(self.value)
-            # Existing port masks Enforce string literals without unescaping
-            # them; represent the native separator the same way for comparison.
-            def Get(self, i): return self.value[i].replace('\\', '\\\\')
-            def Substring(self, start, count): return NativeString(self.value[start:start+count])
-            def ToLower(self): self.value = self.value.lower()
-        normalize = translate('HCNativeVariantAdmission.c', 'static string HCNormalizeModel(', ())
-        for path in ('', '\\', '\\DZ\\Characters\\Zombies\\A.p3d', 'dz\\characters\\zombies\\a.p3d'):
-            self.assertEqual(path.lower().lstrip('\\'), normalize(None, NativeString(path)).value)
-        source = (WORLD / 'HCNativeVariantAdmission.c').read_text()
-        self.assertIn('HCNormalizeModel(model) != HCNormalizeModel(expectedModel)', source)

@@ -4,17 +4,15 @@ These Python standard-library checks exercise offline tooling and authored data.
 They require no DayZ installation and do not establish gameplay, native CE,
 multiplayer, performance or release acceptance.
 
-Run from the repository root:
+Run only files relevant to the change, from the repository root:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
+timeout 300 python3 -B -m unittest tests.unit.test_ce_audit
 ```
 
-Run a focused suite by adding a pattern, for example:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_audit.py -v
-```
+Do not run the full unit suite. The coverage inventory below describes existing
+checks, including legacy source/translator contracts awaiting review; it does
+not endorse those techniques or grant native acceptance.
 
 | Suite | Coverage |
 | --- | --- |
@@ -125,3 +123,138 @@ offline modes can only become NOTRUN. Exit 0 means the report was generated,
 not that its criteria passed. Invalid catalogs or arguments exit 2. Real adapters,
 criterion-specific oracles and fresh native/client/load evidence remain required
 before this ledger can serve as an execution report.
+
+
+## Proposed test policy — audit round 1 (2026-11-20)
+
+A test should fail when a contract or invariant breaks, rather than when an
+implementation is reorganized or authored content changes. For Python tooling,
+prefer real calls with disposable files or small synthetic inputs: conservation,
+round trips, byte-identical rollback, deterministic output, schema validation,
+refusal before mutation, and relationships derived from the actual input. Check
+that the input set is nonempty when an empty fixture would make the test vacuous.
+An independently computed expectation must constrain the output; merely comparing
+two calls to the same implementation is insufficient behavior coverage.
+
+Do not assert Enforce source substrings, regexes, statement order, class-name
+lists, line numbers or prose. Do not execute Enforce through Python translations.
+A Python tool that parses source may be tested with invented source fixtures;
+that tests the Python parser, never Enforce behavior. Parsing config.cpp as data
+for class references is likewise a data integrity check, not a source-text pin.
+The evidence order remains native boot/RPT, native compile gate, lint, then Python
+tests. A boot needs no compile error, crash or stall and no enabled module with
+ready=false. Native experiments remain planned or deferred until observed on one
+server and at most one client; offline checks never establish multiplayer proof.
+
+Literal expectations copied from authored catalogs, tuning, counts, names or
+prose are prohibited. Production literal pins are allowed only for external
+contracts, with an adjacent `# External contract: ...` comment identifying the
+stock snapshot/hash, schema consumer/version, or wire format and explaining why
+it must remain fixed. Read the pin from its authoritative manifest rather than
+duplicating it in tests. A schema version is a contract only when a consumer
+requires it; an ordinary setting value is not. Synthetic fixture inputs may use
+invented literals; expected behavior must follow from those inputs or a documented
+contract. Such fixtures must stay small and must not copy an authored catalog.
+Update code, invariants and external-contract comments together when the contract
+changes; do not regenerate snapshots just to make a change pass.
+
+## Static audit and proposed follow-up batches
+
+Run `python3 -B -m tools.validate.test_audit` for every file's category counts and
+the suite summary. Add `--json` for per-method assertion kinds, literal-operand
+counts, detected reads, tools imports and classification evidence. Neither mode
+imports test modules, executes fixtures, nor runs a suite. Output uses relative
+repository paths. Ordering and JSON keys are deterministic.
+
+A/B/C/E are exclusive recommendations per AST test definition. File counts overlap
+when a file mixes categories. Helpers and files without test definitions are also
+listed, with zero tests. Counts exclude dynamically generated cases and subTest
+iterations. A is a source/translation candidate; B is a possible data snapshot;
+C is an invariant or tooling-behavior candidate; E is an external-pin candidate.
+D overlaps those categories and flags parse errors, missing local import targets
+and possibly unbound Python globals. Global assignments in fixture setup are
+recognized. Dynamic imports/exec, imported helper internals, inherited tests,
+path aliases and the meaning of synthetic literals cannot be fully resolved
+statically. In particular, absence of a D diagnostic never means a test passes.
+These are review queues, not an automated deletion list: inspect each assertion
+and keep synthetic tooling cases that a heuristic marks B. Existing E candidates
+still need the external-contract comment checked or added in a later batch.
+
+Baseline static categories (each cell is files / AST test definitions):
+
+| Suite | A source | B snapshot | C invariant/tooling | D static candidate | E external pin |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legacy | 248 / 2707 | 50 / 522 | 148 / 1919 | 0 / 0 | 2 / 2 |
+| slow | 1 / 2 | 31 / 499 | 69 / 1703 | 0 / 0 | 6 / 6 |
+| unit | 0 / 0 | 5 / 26 | 20 / 399 | 0 / 0 | 2 / 2 |
+
+After pilot static categories (each cell is files / AST test definitions):
+
+| Suite | A source | B snapshot | C invariant/tooling | D static candidate | E external pin |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| legacy | 244 / 2680 | 50 / 522 | 151 / 1925 | 0 / 0 | 2 / 2 |
+| slow | 1 / 2 | 30 / 498 | 69 / 1704 | 0 / 0 | 6 / 6 |
+| unit | 0 / 0 | 5 / 26 | 21 / 402 | 0 / 0 | 2 / 2 |
+
+Observed pilot runs (pass / total test methods; errors are not counted as passes):
+
+| File | Before | After |
+| --- | ---: | ---: |
+| legacy/test_infected_variety_install.py | 11 / 13 | 10 / 10 |
+| legacy/test_infected_variety_routes.py | 0 / 10 | 4 / 4 |
+| legacy/test_infected_variety_w56.py | 3 / 8 | 2 / 2 |
+| legacy/test_infected_variety_w60.py | 0 / 7 | 1 / 1 |
+| slow/test_s4_floorloot.py | 18 / 18 | 18 / 18 |
+| **Pilot total** | **32 / 56** | **35 / 35** |
+
+The baseline observed D overlay is **legacy: 4 files / 24 failing methods**;
+slow: 0 / 0; unit: not sampled beyond the new classifier fixture. Static D is
+zero in this checkout. The dynamic translator error cannot be established by
+Python AST name resolution. After the pilot the five files have no failures or
+skips. The classifier's own fixture file adds **3 / 3** passing tests separately.
+
+
+Confirmed baseline pilot failures are separate from static D candidates: 24 test
+methods across the four infected files produced 26 error reports (two extra
+subTest reports), all from `NameError: HCHordeLimits` in the existing translator
+fixture dependency. The passing source checks were also removed from the pilot.
+The baseline floorloot file passed in this checkout, including the AmmoBox case;
+this run did not reproduce the failure described in the brief. No other test
+files were run. The stock events.xml and infected addon were both available and
+matched the manifest hashes; no native stock data was added to the repository.
+
+The checked-out manifest and addon still contain Sitter, Sleeper, Riser and Feeder
+alongside Crawler, despite the brief describing their withdrawal on main. Pilot
+expectations follow checked-out inputs without changing game content or pinning
+the current destination roster. The three former runtime/translator pilot files
+now check manifest relationships, stock event conservation, referential integrity
+against parsed authored/stock config, and install/rollback. The synthetic installer
+coverage remains; the floorloot authored snapshots now check policy membership,
+supply conservation and idempotence. All native behavior remains unverified.
+
+Next batches, each with review and only its changed test files run:
+
+1. `tests/legacy/`: review the 148 files / 1,702 definitions classified entirely A first, grouped by
+   subsystem (infected/horde, interiors, groups/stamina, then remaining runtime
+   modules). Delete source-text/translator checks after identifying their lint,
+   compile or boot replacement. Keep missing native scenarios traceable rather
+   than marking them accepted. Do not delete shared helper files until imports
+   are checked. Then handle mixed files method by method, preserving tooling C/E.
+2. `tests/legacy/`: review the remaining 96 files with mixed A methods and
+   convert B candidates (50 files / 522 methods, overlapping mixed files) in
+   catalog/config/economy families to
+   derived coverage, uniqueness, valid references, conservation and rollback.
+   Review D/import dependencies within each batch; record observed failure causes
+   without repairing a Python Enforce simulator.
+3. `tests/slow/`: review the two A candidates in `test_enforce_formula_complexity.py`
+   and convert B candidates (30 files / 498 methods) in authored economy, loot, map
+   and packaging snapshots in separate subsystem batches. Retain synthetic
+   transaction, refusal, capacity and recovery checks, including floorloot.
+4. `tests/unit/`: preserve Python-tool behavior tests. Review B candidates
+   (5 files / 26 methods: automation, enforce_perf, inventory_sizes,
+   item_compatibility_manifest and portable_catalog) for
+   synthetic-fixture false positives before converting actual production pins;
+   document E external contracts. Keep source-census/parser fixture coverage.
+
+Only the five named pilot files were rewritten in this round. Nothing outside
+them was deleted. The classifier has a small three-test synthetic fixture file.
