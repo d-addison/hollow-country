@@ -209,8 +209,12 @@ class HCInteriorResolveCursor
     // startup latency for the remaining catalog's already-cheap queries.
     protected bool HCQuerySliced(string buildingClass)
     {
-        return buildingClass == "Land_CementWorks_ExpeditionA" || buildingClass == "Land_Tenement_Small"
-            || buildingClass == "Land_Mil_Barracks3" || buildingClass == "Land_Mil_Barracks4" || buildingClass == "Land_House_2B01";
+        // One comparison per statement: a continued "||" line fails to compile.
+        if (buildingClass == "Land_CementWorks_ExpeditionA") { return true; }
+        if (buildingClass == "Land_Tenement_Small") { return true; }
+        if (buildingClass == "Land_Mil_Barracks3") { return true; }
+        if (buildingClass == "Land_Mil_Barracks4") { return true; }
+        return buildingClass == "Land_House_2B01";
     }
 
     protected void HCQueryStep(vector position)

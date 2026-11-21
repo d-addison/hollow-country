@@ -87,7 +87,14 @@ class HCXAIFortification
     {
         int reserved;
         if (m_State && m_State.Reserved) { reserved = m_State.Reserved.Count(); }
-        string statusLine = "[HC Plan] HC-17 construction=on kits=fence,watchtower,flag,shelter ai_fortified=" + m_Placed.ToString() + " ai_reserved=" + reserved.ToString() + " ai_sites=" + m_Seen.Count().ToString() + " ai_queue=" + m_Queue.Count().ToString() + " ai_no_room=" + m_NoRoom.ToString() + " ai_deferred=" + m_Deferred.ToString() + " ai_spawn_failed=" + m_SpawnFailed.ToString() + " ai_claim_refused=" + m_ClaimRefused.ToString() + " ai_cap_refused=" + m_CapRefused.ToString() + " ai_store_fault=" + m_Fault.ToString() + " ai_cap=96 per_site=3 count_scope=session restart=spent_slots_not_replayed runtime=PENDING";
+        // Built in short pieces: one long concatenation is "Formula too complex".
+        string statusLine = "[HC Plan] HC-17 construction=on kits=fence,watchtower,flag,shelter ai_fortified=" + m_Placed.ToString();
+        statusLine += " ai_reserved=" + reserved.ToString() + " ai_sites=" + m_Seen.Count().ToString();
+        statusLine += " ai_queue=" + m_Queue.Count().ToString() + " ai_no_room=" + m_NoRoom.ToString();
+        statusLine += " ai_deferred=" + m_Deferred.ToString() + " ai_spawn_failed=" + m_SpawnFailed.ToString();
+        statusLine += " ai_claim_refused=" + m_ClaimRefused.ToString() + " ai_cap_refused=" + m_CapRefused.ToString();
+        statusLine += " ai_store_fault=" + m_Fault.ToString();
+        statusLine += " ai_cap=96 per_site=3 count_scope=session restart=spent_slots_not_replayed runtime=PENDING";
         // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
         float statusNow = GetGame().GetTickTime();
         if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
