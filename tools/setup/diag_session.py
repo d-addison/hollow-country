@@ -25,7 +25,7 @@ IMAGES = ('DayZ_x64.exe', 'DayZDiag_x64.exe', 'DayZServer_x64.exe',
           'DayZ_BE.exe', 'DayZServer.exe')
 MISSION = 'dayzOffline.chernarusplus'
 MARKER = 'diag-session.json'
-ASSET_DIRS = ('Addons', 'dta', 'bliss', 'enoch', 'sakhal',
+ASSET_DIRS = ('Addons', 'dta', 'bliss', 'enoch', 'sakhal', 'nasdara',
               'MainMenu.ChernarusPlus', 'MainMenu.Enoch')
 SOURCE_SUFFIXES = {'.c', '.cpp', '.xml', '.json', '.layout', '.edds', '.paa',
                    '.rvmat', '.p3d', '.ogg', '.wav', '.imageset', '.html', '.csv', '.txt'}
@@ -209,7 +209,8 @@ def stage(plan):
     guard_idle(plan.runtime)
     plain(plan.runtime)
     plan.runtime.mkdir(parents=True, exist_ok=False)
-    for name in ('DayZDiag_x64.exe', 'steam_appid.txt'):
+    # dayz.gproj is the engine project file; without it Enfusion refuses to start (observed 2026-11-21).
+    for name in ('DayZDiag_x64.exe', 'steam_appid.txt', 'dayz.gproj'):
         path = plain(plan.client / name)
         if not path.is_file():
             raise Refused('required installed engine file missing')

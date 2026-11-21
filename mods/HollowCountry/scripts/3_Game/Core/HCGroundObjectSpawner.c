@@ -5,7 +5,7 @@ modded class ObjectSpawnerHandler
     static bool HCGroundLayer;
     static ref HCGroundSnapStats HCGroundStats;
 
-    static void SpawnObjects()
+    override static void SpawnObjects()
     {
         HCGroundStats = new HCGroundSnapStats;
         TStringArray paths = CfgGameplayHandler.GetObjectSpawnersArr();
@@ -27,7 +27,7 @@ modded class ObjectSpawnerHandler
         }
         HCGroundStats.Summary("object_spawner");
     }
-    static void SpawnObject(ITEM_SpawnerObject item)
+    override static void SpawnObject(ITEM_SpawnerObject item)
     {
         if (!HCGroundLayer || item.name.Contains("\\") || item.name.Contains("/"))
         {

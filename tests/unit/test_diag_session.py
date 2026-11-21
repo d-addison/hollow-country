@@ -35,6 +35,7 @@ class DiagSessionTests(unittest.TestCase):
         self.put(self.workshop / '42/addons/dependency.pbo', b'dependency')
         self.put(self.client / 'DayZDiag_x64.exe', b'fake engine')
         self.put(self.client / 'steam_appid.txt', b'221100')
+        self.put(self.client / 'dayz.gproj', b'GameProjectClass {}')
         self.put(self.client / 'engine.dll', b'fake dll')
         for name in ('Addons', 'dta'):
             self.put(self.client / name / 'stock.pbo', b'stock')
