@@ -71,9 +71,15 @@ def sha(data):
 
 
 class Assets:
-    def __init__(self, folder):
+    def __init__(self, folder, require_visual=False):
         self.members, self.classes = {}, {}
         folder = Path(folder)
+        # Dedicated-server PBOs strip visual detail (Chapel: 144 faces versus
+        # the client surface evidence's face 1452). They are collision inputs,
+        # never evidence that a rendered furniture top has disappeared.
+        if require_visual and (folder.parent / 'DayZServer_x64.exe').is_file() and not (
+                folder.parent / 'DayZ_x64.exe').is_file():
+            raise ValueError('visual audit requires full DayZ client addons; dedicated-server PBOs strip visual meshes')
         # Fire extinguishers are baked building blockers in gear_tools, not
         # furniture candidates. Include their installed model without importing
         # unrelated item/vehicle assets or changing building config precedence.
@@ -723,9 +729,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
 def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=None):
     """Join a complete disjoint scan and re-audit complementary prior points.
 
-    A larger valid point set gets first choice, followed by compatible points
-    from the other set. Caps and spacing are unchanged. Old coordinates never
-    reserve space before passing the current collision and reach gates.
+    Passing prior coordinates get first choice; compatible new points fill the
+    remaining space/cap. Every prior removal records its physical refusal. Old
+    coordinates never reserve space before passing collision and reach gates.
     """
     from tools.package.loot_reach_audit import Audit
     from tools.package.loot_support_audit import Audit as SupportAudit
@@ -782,6 +788,7 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
         auditor = Audit(addons, reader_folder, stock_proto, ROOT)
         collision = SupportAudit(addons, reader_folder, stock_proto)
         refused = Counter()
+        prior_refusals = []
         added = 0
         for name, old in prior['groups'].items():
             context = support_context = None
@@ -813,16 +820,18 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
                             auditor.templates.get(name, []), stop_on_refusal=True) if not reason else ([], None)
                         if reason or failures:
                             refused.update([reason] if reason else failures)
+                            if spec is old:
+                                prior_refusals.append({'group': name, 'point': point,
+                                    'reasons': [reason] if reason else failures})
                         else:
                             valid.append((point, evidence))
                 sets.append(valid)
-            chosen = []
+            chosen = list(sets[1])
             area = (current or {}).get('interior_area_m2')
             if area is None:
                 area = interior_area(name, auditor.stock.get(name), context, auditor.templates.get(name, []))
             cap = surface_cap(area)
-            layouts = sorted(sets, key=len, reverse=True)
-            for point, evidence in layouts[0] + layouts[1]:
+            for point, evidence in sets[0]:
                 if len(chosen) < cap and not near(point, [p for p, _ in chosen]):
                     chosen.append((point, evidence))
             if not chosen:
@@ -839,12 +848,15 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
                 spec['interior_area_m2'] = area
             spec.pop('collision_support', None)
             doc['groups'][name] = spec
+            prior_refusals = [r for r in prior_refusals
+                              if r['group'] != name or r['point'] not in spec['containers']['lootHCSurface']['points']]
         sources['prior_overlay_selection'] = {'sha256': sha(raw), 'net_added_points': added,
             'prior_method': prior['sources']['method'],
             'prior_reach_generation': prior['sources']['reach_generation'],
             'net_points_vs_prior': sum(len(g['surface_sources']) for g in doc['groups'].values())
                                    - sum(len(g['surface_sources']) for g in prior['groups'].values()),
-            'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing; area cap and story categories from the final layout',
+            'method': 're-audit both sets; preserve passing prior coordinates then append compatible new points; spacing and area cap govern additions; physical refusals explain every prior removal',
+            'prior_point_refusals': prior_refusals,
             'refusal_counts': dict(sorted(refused.items()))}
     for name in doc['groups']:
         reason = sources['rejected_groups'].pop(name, None)

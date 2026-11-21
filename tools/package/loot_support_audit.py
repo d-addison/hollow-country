@@ -229,6 +229,7 @@ class Audit:
             context = self.context(name, spec)
             before = sum(len(c['points']) for c in spec['containers'].values())
             reasons, witnesses = Counter(), {}
+            point_refusals = []
             for cname, container in list(spec['containers'].items()):
                 keep, sources, proofs = [], [], []
                 source_key = 'surface_sources' if cname == 'lootHCSurface' else 'floor_sources'
@@ -239,6 +240,8 @@ class Audit:
                     reason, proof = self.check(name, point, context)
                     if reason:
                         reasons[reason] += 1
+                        point_refusals.append({'container': cname, 'index': index,
+                                               'point': point, 'reason': reason})
                     else:
                         keep.append(point)
                         proofs.append(proof)
@@ -257,7 +260,7 @@ class Audit:
             print(f'collision result {name} before={before} after={after}', file=sys.stderr, flush=True)
             totals.update(reasons)
             rows.append({'group': name, 'before': before, 'after': after, 'dropped': before-after,
-                         'reasons': dict(sorted(reasons.items()))})
+                         'reasons': dict(sorted(reasons.items())), 'point_refusals': point_refusals})
             if spec['containers']:
                 spec['collision_support'] = witnesses
                 spec['building_model'], spec['building_model_sha256'] = context[-2:]
@@ -278,7 +281,8 @@ class Audit:
                 row = current.get(name, {'after': 0, 'reasons': {}})
                 reasons = Counter(old['reasons']) + Counter(row['reasons'])
                 combined.append({'group': name, 'before': old['before'], 'after': row['after'],
-                                 'dropped': old['before']-row['after'], 'reasons': dict(sorted(reasons.items()))})
+                                 'dropped': old['before']-row['after'], 'reasons': dict(sorted(reasons.items())),
+                                 'point_refusals': old.get('point_refusals', []) + row.get('point_refusals', [])})
             rows = combined
             before_groups = prior['before_groups']
             totals = Counter(prior['failure_counts']) + totals

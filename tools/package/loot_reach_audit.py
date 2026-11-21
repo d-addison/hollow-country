@@ -264,7 +264,7 @@ class Audit:
     def __init__(self, addons, reader, stock, repo):
         self.repo = Path(repo)
         self.reader = gen.Reader(reader)
-        self.assets = gen.Assets(addons)
+        self.assets = gen.Assets(addons, require_visual=True)
         self.stock_bytes = Path(stock).read_bytes()
         self.stock = {g.get('name'): g for g in ET.fromstring(self.stock_bytes).findall('group')}
         self.props = {}
