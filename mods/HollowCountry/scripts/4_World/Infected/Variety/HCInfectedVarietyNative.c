@@ -9,7 +9,7 @@
 // :113 IsZombieMilitary, :198-277 command order,
 // :349 HandleDeath, :981 EEHitBy, :1090 IsCrawling, :1060 IsBeingBackstabbed.
 // Per command: O(1), no allocation. Posture is applied ONCE in MOVE/calm;
-// role changes invalidate that one-shot write; no per-frame reassertion is used.
+// identity survives role changes and re-adoption; native stance is restored on release.
 // Dormancy borrows native crawlers at tracked corpses or catalog rooms.
 // Never forces StartCommand_Crawl: :811-826 is an injury transition, not a
 // reversible lying/standing animation. W56 requests the same native crawl
@@ -28,6 +28,11 @@ modded class ZombieBase
     protected float m_HCVarietySleepUntil;
     protected string m_HCVarietyPlace;
     protected int m_HCVarietyObserverCursor;
+    // #316 individual locomotion; initialized only by the existing adoption path.
+    protected bool m_HCIndividualChosen;
+    protected int m_HCIndividualStance;
+    protected int m_HCIndividualNativeStance;
+    protected float m_HCIndividualCap;
 
     int HCVarietyRole() { return m_HCVarietyRole; }
     string HCVarietyPlace() { return m_HCVarietyPlace; }
@@ -53,7 +58,14 @@ modded class ZombieBase
 
     void HCVarietyAssign(int role, string place)
     {
-        if (m_HCVarietyRole != role) { m_HCVarietyPosture = false; }
+        if (!m_HCIndividualChosen)
+        {
+            int stableId = GetID();
+            m_HCIndividualStance = HCInfectedVarietyPolicy.HCIndividualStance(stableId);
+            m_HCIndividualCap = HCInfectedVarietyPolicy.HCIndividualSpeedCap(stableId);
+            m_HCIndividualNativeStance = m_StanceVariation;
+            m_HCIndividualChosen = true;
+        }
         m_HCVarietyRole = role;
         m_HCVarietyPlace = place;
     }
@@ -194,15 +206,28 @@ modded class ZombieBase
     void HCVarietyRelease()
     {
         HCVarietyWake();
-        if (m_HCVarietySpeed)
-        {
-            DayZInfectedInputController controller = GetInputController();
-            if (controller) { controller.OverrideMovementSpeed(false, 0); }
-        }
-        m_HCVarietySpeed = false;
-        m_HCVarietyPosture = false;
+        HCIndividualLocomotionRelease();
         m_HCVarietyRole = -1;
         m_HCVarietyPlace = "";
+    }
+
+    // Restore only our own writes. Keep the identity for a later bounded adoption.
+    void HCIndividualLocomotionRelease()
+    {
+        HCIndividualSpeedRelease();
+        if (!m_HCVarietyPosture) { return; }
+        m_StanceVariation = m_HCIndividualNativeStance;
+        DayZInfectedCommandMove move = GetCommand_Move();
+        if (move) { move.SetStanceVariation(m_StanceVariation); }
+        m_HCVarietyPosture = false;
+    }
+
+    void HCIndividualSpeedRelease()
+    {
+        if (!m_HCVarietySpeed) { return; }
+        DayZInfectedInputController controller = GetInputController();
+        if (controller) { controller.OverrideMovementSpeed(false, 0); }
+        m_HCVarietySpeed = false;
     }
 
     // N8 EntityAI.c:946 deletion hook; no replacement object or loot is made.
@@ -214,15 +239,19 @@ modded class ZombieBase
 
     override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
     {
+        // Release before any inherited handler reads input or starts a command.
+        // GetMovementSpeed after disabling our override samples native demand.
+        if (GetGame().IsServer()) { HCIndividualSpeedRelease(); }
         bool consumed = super.ModCommandHandlerBefore(pDt, pCurrentCommandID, pCurrentCommandFinished);
         if (!GetGame().IsServer() || m_HCVarietyRole < 0) { return consumed; }
-        DayZInfectedInputController controller = GetInputController();
-        if (m_HCVarietySpeed && controller)
+        if (!HCInfectedVarietyModule.VarietyActive() || !m_HCRegistered || m_HCRegistrationOwner != HCInfectedModule.Instance)
         {
-            controller.OverrideMovementSpeed(false, 0);
-            m_HCVarietySpeed = false;
+            HCVarietyRelease();
+            return consumed;
         }
-        if (!HCInfectedVarietyModule.VarietyActive()) { HCVarietyRelease(); return consumed; }
+        bool individual = HCInfectedTuning.Variety().Variety.EnableIndividualLocomotion;
+        if (!individual) { HCIndividualLocomotionRelease(); }
+        DayZInfectedInputController controller = GetInputController();
         if (!IsAlive() || IsBeingBackstabbed()) { HCVarietyWake(); return consumed; }
         // Native perception wakes immediately even while the owner's census
         // or cap repair is between slices. Never wait for the adoption cursor.
@@ -231,7 +260,9 @@ modded class ZombieBase
             if (HCVarietyWake()) { HCInfectedVarietyModule.HCRecordWake(); }
         }
         if (consumed || pCurrentCommandFinished || pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE) { return consumed; }
-        if (!controller || m_HCVarietyDormant || IsCrawling()) { return consumed; }
+        if (!individual || !controller || m_HCVarietyDormant || IsCrawling()) { return consumed; }
+        // Pending native transitions run later in ZombieBase.CommandHandler.
+        if (m_CrawlTransition != -1 || m_DamageHitToProcess || controller.IsVault()) { return consumed; }
         int mind = controller.GetMindState();
         if (!m_HCVarietyPosture && mind == DayZInfectedConstants.MINDSTATE_CALM && HCPostureAdmission.HCCanEnter("native_stance_idle"))
         {
@@ -240,16 +271,30 @@ modded class ZombieBase
             {
                 // ZombieBase.c:96-99 admits 0..3. Its HandleMindStateChange
                 // :450-477 owns idle 0/1/2 and wake transitions. Leave it intact.
-                m_StanceVariation = HCInfectedVarietyPolicy.HCStanceForRole(m_HCVarietyRole, IsZombieMilitary());
+                m_StanceVariation = m_HCIndividualStance;
                 move.SetStanceVariation(m_StanceVariation);
                 m_HCVarietyPosture = true;
             }
         }
-        // Leave vaults, hits, attacks, crawling and native stops intact. Never
-        // creates movement or increases the AI's own requested movement speed.
-        if (mind == DayZInfectedConstants.MINDSTATE_FIGHT) { return consumed; }
+        return consumed;
+    }
+
+    // ZombieBase.CommandHandler:268 calls this only after native transitions
+    // declined. In particular a CHASE attack can start later than Before.
+    override bool ModCommandHandlerAfter(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
+    {
+        bool consumed = super.ModCommandHandlerAfter(pDt, pCurrentCommandID, pCurrentCommandFinished);
+        if (!GetGame().IsServer() || consumed || pCurrentCommandFinished) { return consumed; }
+        if (pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE || m_HCVarietyRole < 0) { return consumed; }
+        if (!HCInfectedVarietyModule.VarietyActive() || !m_HCRegistered || m_HCRegistrationOwner != HCInfectedModule.Instance) { return consumed; }
+        if (!HCInfectedTuning.Variety().Variety.EnableIndividualLocomotion) { return consumed; }
+        if (!IsAlive() || IsBeingBackstabbed() || m_HCVarietyDormant || IsCrawling()) { return consumed; }
+        DayZInfectedInputController controller = GetInputController();
+        if (!controller || controller.GetMindState() == DayZInfectedConstants.MINDSTATE_FIGHT) { return consumed; }
+        // Locomotion input 0..3, never metres/second: preserve native stops and
+        // slower requests. Role limit retains the existing runner budget.
         float nativeSpeed = controller.GetMovementSpeed();
-        float limit = HCInfectedVarietyPolicy.MovementLimit(m_HCVarietyRole, nativeSpeed);
+        float limit = Math.Min(m_HCIndividualCap, HCInfectedVarietyPolicy.MovementLimit(m_HCVarietyRole, nativeSpeed));
         if (nativeSpeed > limit)
         {
             controller.OverrideMovementSpeed(true, limit);
@@ -262,6 +307,7 @@ modded class ZombieBase
     {
         if (GetGame().IsServer())
         {
+            HCIndividualSpeedRelease();
             if (HCVarietyWake()) { HCInfectedVarietyModule.HCRecordDamageWake(); }
         }
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
@@ -304,6 +350,13 @@ modded class HCInfectedVarietyModule
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
+        if (GetGame().IsServer())
+        {
+            HCIndividualLocomotionRegistry.HCRegisterLocomotion();
+            int enabled = 0;
+            if (m_Running && m_Variety && HCInfectedTuning.Variety().Variety.EnableIndividualLocomotion) { enabled = 1; }
+            Print("[HC Variety] individual_locomotion enabled=" + enabled.ToString() + " stance=0..3 speed_inputs=1,2,3 runner_budget=existing runtime=PENDING");
+        }
         if (!GetGame().IsServer() || !m_Running)
         {
             m_HCVarietyStatus.HCPublish("off", "owner_inactive");
@@ -386,6 +439,30 @@ modded class HCNativeInfectedPack
         {
             if (!walker || !walker.IsAlive()) { continue; }
             walker.HCVarietyAssign(0, walker.HCVarietyPlace());
+        }
+    }
+}
+
+// Scoped registration reuses the shared registry without changing its 3_Game link.
+class HCIndividualLocomotionRegistry : HCOperatorSettingsRegistry
+{
+    static void HCRegisterLocomotion()
+    {
+        HCInit();
+        HCAdd("HCC1Variety.EnableIndividualLocomotion", "bool", 1, 0, 1, "HCC1Variety");
+    }
+}
+
+// The existing authored and optional operator JSON paths both call this hook.
+modded class HCInfectedVarietyConfig
+{
+    override void HCApplyTuningDefaults(string content)
+    {
+        super.HCApplyTuningDefaults(content);
+        if (!Variety) { Variety = new HCC1Variety; }
+        if (!HCJsonFields.Check(content, "EnableIndividualLocomotion", 2, false))
+        {
+            Variety.EnableIndividualLocomotion = true;
         }
     }
 }

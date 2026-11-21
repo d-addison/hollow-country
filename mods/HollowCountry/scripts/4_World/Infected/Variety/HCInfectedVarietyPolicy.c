@@ -124,14 +124,26 @@ class HCInfectedVarietyPolicy
         return Math.Clamp(HCInfectedTuning.Variety().Variety.WakeBase + HCInfectedTuning.Variety().Variety.WakeNightIncrement * nightness - HCInfectedTuning.Variety().Variety.WakeRainReduction * rain, HCInfectedTuning.Variety().Variety.WakeMin, HCInfectedTuning.Variety().Variety.WakeMax);
     }
 
-    // Native ZombieBase.c:96-99 samples [0,4); no custom graph/idle values.
-    // Walker/shambler/runner use 0/1/3, the existing military policy retains 2.
-    static int HCStanceForRole(int role, bool military)
+    // #316: stable for this native entity's lifetime, including re-adoption.
+    // EnEntity.c:518 GetID is a unique entity ID; EnString.c:223 Hash.
+    // Separate salts decouple stance and cap; modulo handles negative hashes
+    // without abs(INT_MIN). No random roll or fractional locomotion input.
+    static int HCIndividualChoice(int stableId, string salt, int choices)
     {
-        if (military) { return 2; }
-        if (role == 2) { return 3; }
-        if (role == 1) { return 1; }
-        return 0;
+        string key = stableId.ToString() + salt;
+        int remainder = key.Hash() % choices;
+        if (remainder < 0) { remainder = remainder + choices; }
+        return remainder;
+    }
+
+    static int HCIndividualStance(int stableId)
+    {
+        return HCIndividualChoice(stableId, "stance", 4);
+    }
+
+    static float HCIndividualSpeedCap(int stableId)
+    {
+        return 1 + HCIndividualChoice(stableId, "speed", 3);
     }
 
     static float MovementLimit(int role, float nativeSpeed)
