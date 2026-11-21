@@ -44,6 +44,8 @@ modded class HCInfectedVarietyConfig
         super.HCApplyTuningDefaults(content);
         // JsonFileLoader may zero-fill a missing bool inside an existing block.
         // Explicit false survives for authored data and profile overrides alike.
-        if (!HCJsonFields.Has(content, "EnableActivityVariation")) { Variety.EnableActivityVariation = true; }
+        if (!Variety) { Variety = new HCC1Variety; }
+        // The switch sits inside the Variety block: depth 2 keeps an explicit false.
+        if (!HCJsonFields.Check(content, "EnableActivityVariation", 2, false)) { Variety.EnableActivityVariation = true; }
     }
 }

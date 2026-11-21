@@ -79,7 +79,9 @@ modded class HCInfectedVarietyConfig
     override void HCApplyTuningDefaults(string content)
     {
         super.HCApplyTuningDefaults(content);
-        if (!HCJsonFields.Has(content, "EnablePoseVariation")) { Variety.EnablePoseVariation = true; }
+        if (!Variety) { Variety = new HCC1Variety; }
+        // The switch sits inside the Variety block: depth 2 keeps an explicit false.
+        if (!HCJsonFields.Check(content, "EnablePoseVariation", 2, false)) { Variety.EnablePoseVariation = true; }
     }
 }
 
@@ -146,6 +148,10 @@ modded class ZombieBase
 
 modded class HCInfectedModule
 {
+    // Rotates the first observer tested so one blocked player cannot starve
+    // a clear crouched player in reach; still one ray per visit.
+    protected int m_HCPoseObserverCursor;
+
     override protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry)
     {
         // Expiry only shortens a calm hold; never postpones the existing wake
@@ -158,13 +164,17 @@ modded class HCInfectedModule
             // at most 32 distances and one extra ray in the owner's one spatial
             // candidate slice. Overlarge observer sets release conservatively.
             if (players.Count() > 32) { return true; }
-            foreach (Man observer : players)
+            int observers = players.Count();
+            for (int step = 0; step < observers; step++)
             {
+                int index = (m_HCPoseObserverCursor + step) % observers;
+                Man observer = players[index];
                 if (!observer || !observer.IsAlive()) { continue; }
                 if (vector.DistanceSq(observer.GetPosition(), candidate.GetPosition()) > 9) { continue; }
                 if (!checkGeometry) { return true; }
-                // One ray at most: a blocked first observer falls through to
-                // the existing standing test instead of deciding alone.
+                // One ray at most: a blocked observer falls through to the
+                // existing standing test; the next visit starts after it.
+                m_HCPoseObserverCursor = (index + 1) % observers;
                 if (m_AlertChain.HCVarietyClear(observer.GetPosition(), candidate)) { return true; }
                 break;
             }
