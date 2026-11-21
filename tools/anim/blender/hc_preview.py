@@ -1,6 +1,6 @@
 """Blender background render of a Hollow Country clip preview (stand-in mannequin, our own geometry).
 
-UNTESTED: written while Windows interop was down, so Blender has not run this yet.
+Qualified on Blender 5.2.4 LTS (2026-11-21, headless render). Preview only, never engine playback.
 
     blender.exe -b --factory-startup --python tools/anim/blender/hc_preview.py -- \
         build/anims/preview/hc_sit_wall_idle.json <out_dir> hc-sit-wall-idle
@@ -50,6 +50,9 @@ def main():
     scene.render.resolution_x, scene.render.resolution_y = 640, 480
     scene.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in \
         [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items] else 'BLENDER_EEVEE'
+    # Blender 5.x lists FFMPEG only after selecting the video media type.
+    if hasattr(scene.render.image_settings, 'media_type'):
+        scene.render.image_settings.media_type = 'VIDEO'
     scene.render.image_settings.file_format = 'FFMPEG'
     scene.render.ffmpeg.format = 'MPEG4'
     scene.render.ffmpeg.codec = 'H264'

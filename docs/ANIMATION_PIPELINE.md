@@ -29,6 +29,12 @@ Intermediate stages use smooth local quaternion/translation interpolation; conta
 penetration still need inspection. All clips use the existing SET6 writer and common skeleton bone
 list. `preview.py` and the optional Blender preview show only our FK, never engine playback.
 
+The optional Blender preview (`tools/anim/blender/hc_preview.py`) is pinned to **Blender 5.2 LTS**
+(5.2.4, owner 2026-11-21; portable install outside Git). Qualified 2026-11-21: headless
+`blender.exe -b --factory-startup` rendered `hc_sit_wall_idle` to a 121-frame 640x480 MP4 after
+selecting `media_type = 'VIDEO'` (Blender 5.x lists FFMPEG only for video media). Earlier 5.1 runs
+are not evidence for 5.2.
+
 | Command int | Mode | Clips | Seconds idle / get-up | Authored route |
 |---|---|---|---|---|
 | 1 | sit_wall | hc_sit_wall_idle / hc_sit_wall_getup | 4 / 1.6 | seated, crouch, stand |
