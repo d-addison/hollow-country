@@ -51,6 +51,8 @@ class HCAdminWorldClient
     protected float m_Scale;
     // Native 3_Game/gameplay.c:328 GetScale; smaller scales zoom in.
     protected const float LABEL_SCALE = 0.20;
+    // Names stay readable only when few pins share the view (#324 client check).
+    protected const int LABEL_PINS = 30;
     protected ref HCAdminMark m_Selected;
     protected float m_Left;
     protected float m_Top;
@@ -296,7 +298,7 @@ class HCAdminWorldClient
                 HCAdminWorldStyle style = Style(pin.Mark.Layer);
                 // Selection survives a refreshed row object with the same identity.
                 bool selected = m_Selected && m_Selected.Layer == pin.Mark.Layer && m_Selected.Label == pin.Mark.Label && m_Selected.Position == pin.Mark.Position;
-                bool showLabel = m_Scale < LABEL_SCALE || selected;
+                bool showLabel = selected || (m_Scale < LABEL_SCALE && m_Pins.Count() <= LABEL_PINS);
                 string title = "";
                 if (showLabel) { title = "[" + style.Layer + "] " + pin.Mark.Label; }
                 if (pin.Count > 1)
