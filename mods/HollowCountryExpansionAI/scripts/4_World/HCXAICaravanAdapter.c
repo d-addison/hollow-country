@@ -72,7 +72,7 @@ class HCXAICaravanRoads
     ref HCCaravanCorridor Config;
     ref array<ref HCXAICaravanRoadNode> Nodes = new array<ref HCXAICaravanRoadNode>;
     static const float HC_CELL_METERS = 250;
-    ref map<string, ref array<int>> Grid = new map<string, ref array<int>>;
+    ref map<int, ref array<int>> Grid = new map<int, ref array<int>>;
     ref HCXConvoyRoute Planner = new HCXConvoyRoute;
     ref array<vector> Path = new array<vector>;
     string Phase = "cold";
@@ -196,7 +196,7 @@ class HCXAICaravanRoads
             // Built once inside the existing per-line loading budget.
             int x = Math.Floor(m_LoadNode.Position[0] / HC_CELL_METERS);
             int z = Math.Floor(m_LoadNode.Position[2] / HC_CELL_METERS);
-            string key = HCGridKey(x, z);
+            int key = HCGridKey(x, z);
             array<int> bucket = Grid.Get(key);
             if (!bucket)
             {
@@ -215,15 +215,11 @@ class HCXAICaravanRoads
             }
         }
     }
-    string HCGridKey(int x, int z) { return x.ToString() + ":" + z.ToString(); }
+    // World limits keep cell coordinates below 1,024; offset covers edge queries.
+    int HCGridKey(int x, int z) { return (x + 1) * 1024 + z + 1; }
 
-    bool HCPlan(vector origin, vector destination)
+    HCConvoyPolicy HCWalkingPolicy()
     {
-        if (Phase == "cold" || Phase == "loading" || Phase == "failed") { return false; }
-        From = origin;
-        To = destination;
-        Path.Clear();
-        Reason = "";
         HCConvoyPolicy policy = new HCConvoyPolicy;
         policy.RoadNodesPerTick = Config.RoadWorkPerTick;
         policy.RoadNodesPerWorkUnit = Config.RoadNodesPerWorkUnit;
@@ -234,6 +230,17 @@ class HCXAICaravanRoads
         policy.MinDriveMeters = 0;
         policy.DismountMeters = 0;
         policy.DetourMeters = Config.MaxJourneyMeters;
+        return policy;
+    }
+
+    bool HCPlan(vector origin, vector destination)
+    {
+        if (Phase == "cold" || Phase == "loading" || Phase == "failed") { return false; }
+        From = origin;
+        To = destination;
+        Path.Clear();
+        Reason = "";
+        HCConvoyPolicy policy = HCWalkingPolicy();
         if (!Planner.HCPlan(origin, destination, policy, true)) { Reason = Planner.mHCReason; return false; }
         Phase = "planning";
         return true;
@@ -369,6 +376,8 @@ class HCXAICaravanAdapter : HCCaravanInventory
         HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_PartnerGroup, m_PartnerBehaviour);
         array<vector> waypoints = m_PartnerOriginal;
         foreach (vector waypoint : waypoints) { HCXExpansionBridge.HCGroupAddWaypoint(m_PartnerGroup, waypoint); }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (director) { director.HCResetPartyJourney(m_PartnerGroup); }
         m_PartnerGroup = null;
     }
 
@@ -383,6 +392,8 @@ class HCXAICaravanAdapter : HCCaravanInventory
         HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_Behaviour);
         array<vector> original = m_Original;
         foreach (vector point : original) { HCXExpansionBridge.HCGroupAddWaypoint(m_Group, point); }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (director) { director.HCResetPartyJourney(m_Group); }
         return true;
     }
     bool HCRequest(bool returning)
@@ -407,7 +418,8 @@ class HCXAICaravanAdapter : HCCaravanInventory
         }
         array<vector> requested = HCXExpansionBridge.HCGroupGetWaypoints(m_Group);
         m_Recovery.EndMeters = Corridor.ArrivalRangeMeters;
-        m_Recovery.HCStart(requested, GetGame().GetTime());
+        m_Recovery.Kind = "caravan";
+        m_Recovery.HCStart(requested, GetGame().GetTime(), Corridor.MaxRouteNodes + 1);
         return true;
     }
     override bool HCBindCaravan(HCCaravanState row)
@@ -433,6 +445,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
         vector destination = m_To;
         if (returning) { destination = m_From; }
         bool arrived = vector.DistanceSq(LeftActor.GetPosition(), destination) <= Corridor.ArrivalRangeMeters * Corridor.ArrivalRangeMeters;
+        // Trade Walker arrival polling does not call this port (deferred).
         if (!arrived) { m_Recovery.HCCheck(m_Group, LeftActor.GetPosition(), GetGame().GetTime()); }
         return arrived;
     }
@@ -448,11 +461,36 @@ modded class HCXAISiteState
     vector HCJourneyEnd;
     float HCJourneyRetry;
     float HCJourneyStarted;
+
+    void HCResetJourney()
+    {
+        HCJourneyWalking = false;
+        HCJourneyRecovery = null;
+        HCJourneyStarted = 0;
+        HCJourneyRetry = 0;
+    }
 }
 
 modded class HCXAISiteDirector
 {
     protected int m_HCJourneyCursor;
+
+    void HCResetPartyJourney(eAIGroup party)
+    {
+        foreach (HCXAISiteState released : m_States)
+        {
+            if (released && released.Patrol && released.Patrol.m_Group == party) { released.HCResetJourney(); }
+        }
+    }
+
+    override void Spawned(HCXAISitePatrol patrol)
+    {
+        foreach (HCXAISiteState fresh : m_States)
+        {
+            if (fresh && fresh.Patrol == patrol) { fresh.HCResetJourney(); }
+        }
+        super.Spawned(patrol);
+    }
 
     override protected void StepTransients()
     {
@@ -469,13 +507,13 @@ modded class HCXAISiteDirector
         eAIGroup party = state.Patrol.m_Group;
         if (HCXExpansionBridge.HCGroupCount(party) < 1 || state.Patrol.m_HCPendingMembers > 0) { return; }
         HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { return; }
-        if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { return; }
+        if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { state.HCResetJourney(); return; }
+        if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { state.HCResetJourney(); return; }
         DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(party);
         if (!leader || !leader.IsAlive()) { return; }
         vector position = leader.GetPosition();
         world.HCJourneyObserved(identity.HCPartyId(), position);
-        if (HCXExpansionBridge.HCGroupIsInCombat(party)) { state.HCJourneyWalking = false; return; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(party)) { state.HCResetJourney(); return; }
         // Installed eAIDynamicPatrol.c:760-765 measures despawn distance
         // from the formation leader, so visible travelling parties stay live.
         float now = GetGame().GetTickTime();
@@ -484,13 +522,15 @@ modded class HCXAISiteDirector
             if (state.HCJourneyRecovery)
             {
                 state.HCJourneyRecovery.HCCheck(party, position, GetGame().GetTime());
-                if (state.HCJourneyRecovery.GivenUp) { return; }
             }
-            return;
+            bool gaveUp = state.HCJourneyRecovery && state.HCJourneyRecovery.GivenUp;
+            if (!gaveUp && now - state.HCJourneyStarted < 90) { return; }
+            state.HCResetJourney();
         }
         if (now < state.HCJourneyRetry) { return; }
         state.HCJourneyRetry = now + 15;
         state.HCJourneyWalking = false;
+        state.HCJourneyRecovery = null;
         if (!world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
         vector direction = destination - position;
         direction[1] = 0;
@@ -513,6 +553,7 @@ modded class HCXAISiteDirector
         HCXExpansionBridge.HCGroupSetWaypointBehaviour(party, eAIWaypointBehavior.ONCE);
         foreach (vector point : path) { HCXExpansionBridge.HCGroupAddWaypoint(party, point); }
         state.HCJourneyRecovery = new HCXAIStuckRecovery;
+        state.HCJourneyRecovery.Kind = "journey";
         state.HCJourneyRecovery.HCStart(path, GetGame().GetTime());
         state.HCJourneyEnd = sampled;
         state.HCJourneyWalking = true;

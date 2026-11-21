@@ -3,6 +3,7 @@
 // EnMath.c Floor/Sqrt; Game.c GetTime. Road drivability remains unverified.
 class HCXConvoyRoute
 {
+    // Fixed safety ceilings; policy work/node limits may lower them.
     static const int HC_POP_CEILING = 128;
     static const int HC_OPEN_CAP = 1024;
     static const int HC_PLAN_TIMEOUT_MS = 120000;
@@ -236,5 +237,8 @@ class HCXConvoyRoute
         if (mHCLength > mHCPolicy.MaxDriveMeters) { HCFail("CONVOY_ROUTE_LENGTH_CAP"); return; }
         mHCPhase = "ready";
         HCXAIStuckRecovery.HCRouteUsed();
+        string line = "[HC Convoy] astar expanded=" + mHCExpanded.ToString();
+        line += " nodes=" + mHCPath.Count().ToString() + " length_m=" + mHCLength.ToString();
+        Print(line + HCXAIStuckRecovery.HCSummary() + " runtime=PENDING");
     }
 }

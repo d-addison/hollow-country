@@ -1,16 +1,18 @@
 // Own progress observer; dependency operations go through HCXExpansionBridge.
 // Installed Workshop ai_scripts.pbo eAIGroup.c inspected: GetWaypoints,
 // ClearWaypoints, AddWaypoint, SetWaypointBehaviour, IsInCombat exist.
-// R5 bridge has no path-reset entry point: ladder deliberately stops at step 2.
+// Rung 3 uses HC road planning, never a dependency path-reset API.
 // Native 1.30.164289 Game.c GetTime, Object.c GetPosition, EnScript.c arrays.
 class HCXAIStuckRecovery
 {
     static const int HC_CHECKS = 3;
-    static const int HC_ROUTE_CAP = 256;
+    static const int HC_ROUTE_CAP = 257;
+    protected static string s_Module = "optional-expansion-human-ai";
     protected static int s_Routes;
     protected static int s_PopsMax;
     protected static int s_Reissue;
     protected static int s_Next;
+    protected static int s_Replans;
     protected static int s_Giveups;
     protected static int s_SummaryAt;
     ref array<vector> Route = new array<vector>;
@@ -26,16 +28,19 @@ class HCXAIStuckRecovery
     bool Anchored;
     bool GivenUp;
     string Reason;
+    string Kind = "journey";
+    ref HCXConvoyRoute Replan;
 
-    static void HCRegister()
+    static void HCRegister(string module)
     {
-        HCModuleReadiness.HCRegisterUse("ExpansionAI", "convoy_astar");
-        HCModuleReadiness.HCRegisterUse("ExpansionAI", "stuck_recovery");
+        s_Module = module;
+        HCModuleReadiness.HCRegisterUse(s_Module, "convoy_astar");
+        HCModuleReadiness.HCRegisterUse(s_Module, "stuck_recovery");
     }
     static void HCRouteUsed()
     {
         s_Routes++;
-        HCModuleReadiness.HCUse("ExpansionAI", "convoy_astar");
+        HCModuleReadiness.HCUse(s_Module, "convoy_astar");
     }
     static void HCObservePops(int pops) { if (pops > s_PopsMax) { s_PopsMax = pops; } }
     static string HCSummary()
@@ -44,7 +49,7 @@ class HCXAIStuckRecovery
         line += " astar_pops_max=" + s_PopsMax.ToString();
         line += " recoveries_step1=" + s_Reissue.ToString();
         line += " recoveries_step2=" + s_Next.ToString();
-        line += " recoveries_step3=0 giveups=" + s_Giveups.ToString();
+        line += " recoveries_step3=" + s_Replans.ToString() + " giveups=" + s_Giveups.ToString();
         return line;
     }
     static void HCSummarize(int now)
@@ -53,7 +58,7 @@ class HCXAIStuckRecovery
         s_SummaryAt = now + 300000;
         Print("" + "[HC Convoy] summary" + HCSummary() + " runtime=PENDING");
     }
-    void HCStart(array<vector> route, int now)
+    void HCStart(array<vector> route, int now, int routeCap = HC_ROUTE_CAP)
     {
         Route.Clear();
         Issued.Clear();
@@ -64,7 +69,8 @@ class HCXAIStuckRecovery
         Anchored = false;
         GivenUp = false;
         Reason = "";
-        if (!route || route.Count() < 1 || route.Count() > HC_ROUTE_CAP) { HCGiveUp("STUCK_ROUTE_CAP"); return; }
+        Replan = null;
+        if (!route || route.Count() < 1 || route.Count() > Math.Min(HC_ROUTE_CAP, routeCap)) { HCGiveUp("STUCK_ROUTE_CAP"); return; }
         foreach (vector point : route) { Route.Insert(point); Issued.Insert(point); }
     }
     void HCGiveUp(string reason)
@@ -73,7 +79,9 @@ class HCXAIStuckRecovery
         GivenUp = true;
         Reason = reason;
         s_Giveups++;
-        Print("" + "[HC Convoy] recovery=giveup reason=" + reason + HCSummary() + " runtime=PENDING");
+        string prefix = "[HC XAI] recovery=giveup party=" + Kind;
+        if (Kind == "convoy") { prefix = "[HC Convoy] recovery=giveup"; }
+        Print(prefix + " reason=" + reason + HCSummary() + " runtime=PENDING");
     }
     // Meaningful movement resets the sample window, but never the ladder.
     // A slow loop therefore cannot retry indefinitely.
@@ -93,14 +101,45 @@ class HCXAIStuckRecovery
         if (Checks < HC_CHECKS) { return 0; }
         Checks = 0;
         LadderStep++;
-        if (LadderStep > 2) { HCGiveUp("STUCK_PATH_RESET_BRIDGE_UNAVAILABLE"); return -1; }
+        if (LadderStep > 3) { HCGiveUp("STUCK_REPLAN_NO_PROGRESS"); return -1; }
         return LadderStep;
     }
     void HCRecovered(int step)
     {
         if (step == 1) { s_Reissue++; }
         else if (step == 2) { s_Next++; }
-        HCModuleReadiness.HCUse("ExpansionAI", "stuck_recovery");
+        else if (step == 3) { s_Replans++; }
+        HCModuleReadiness.HCUse(s_Module, "stuck_recovery");
+    }
+    // At most sixteen forward candidates; never move the cursor backwards.
+    static int HCForward(array<vector> path, int index, vector position)
+    {
+        int best = index;
+        float gap = HCXConvoyRoute.HCFlatSq(position, path[index]);
+        int end = Math.Min(path.Count(), index + 17);
+        for (int scan = index + 1; scan < end; scan++)
+        {
+            float candidate = HCXConvoyRoute.HCFlatSq(position, path[scan]);
+            if (candidate < gap) { gap = candidate; best = scan; }
+        }
+        return best;
+    }
+    bool HCBeginReplan(vector position, vector destination, HCConvoyPolicy policy, bool includeEnd = false)
+    {
+        Replan = new HCXConvoyRoute;
+        if (!Replan.HCPlan(position, destination, policy, includeEnd))
+        {
+            HCGiveUp(Replan.mHCReason);
+            return false;
+        }
+        return true;
+    }
+    int HCStepReplan()
+    {
+        Replan.HCStep();
+        if (Replan.mHCPhase == "failed") { HCGiveUp(Replan.mHCReason); return -1; }
+        if (Replan.mHCPhase == "ready") { return 1; }
+        return 0;
     }
     // Route ownership is checked before any mutation. Combat suspends sampling.
     void HCCheck(eAIGroup group, vector position, int now)
@@ -111,17 +150,40 @@ class HCXAIStuckRecovery
         if (!live || live.Count() != Issued.Count()) { HCGiveUp("STUCK_ROUTE_OWNER_CHANGED"); return; }
         for (int own = 0; own < live.Count(); own++)
         {
-            if (live[own] != Issued[own]) { HCGiveUp("STUCK_ROUTE_OWNER_CHANGED"); return; }
+            if (HCXConvoyRoute.HCFlatSq(live[own], Issued[own]) >= 1) { HCGiveUp("STUCK_ROUTE_OWNER_CHANGED"); return; }
         }
-        // Follow observed arrivals, never infer an unobserved provider index.
-        while (Index < Route.Count() - 1 && HCXConvoyRoute.HCFlat(position, Route[Index]) <= 8) { Index++; }
+        Index = HCForward(Route, Index, position);
+        if (Index < Route.Count() - 1 && HCXConvoyRoute.HCFlat(position, Route[Index]) <= 8) { Index++; }
         if (Index == Route.Count() - 1 && HCXConvoyRoute.HCFlat(position, Route[Index]) <= EndMeters) { return; }
-        int recovery = HCMotion(position, now);
+        int recovery;
+        if (Replan) { recovery = 3; }
+        else { recovery = HCMotion(position, now); }
         if (recovery < 1) { return; }
         if (recovery == 2)
         {
-            if (Index + 1 >= Route.Count()) { HCGiveUp("STUCK_NO_NEXT_WAYPOINT"); return; }
-            Index++;
+            if (Index + 1 < Route.Count()) { Index++; }
+            else { LadderStep = 3; recovery = 3; }
+        }
+        if (recovery == 3)
+        {
+            if (!Replan)
+            {
+                HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
+                if (!roads) { HCGiveUp("STUCK_REPLAN_ROADS_UNAVAILABLE"); return; }
+                HCConvoyPolicy policy = roads.HCWalkingPolicy();
+                if (!HCBeginReplan(position, Route[Route.Count() - 1], policy, true)) { return; }
+            }
+            int status = HCStepReplan();
+            if (status != 1) { return; }
+            vector destination = Route[Route.Count() - 1];
+            Route.Clear();
+            foreach (vector planned : Replan.mHCPath) { Route.Insert(planned); }
+            Route.Insert(destination);
+            Index = 0;
+            Replan = null;
+            Anchor = position;
+            CheckedAt = now;
+            Checks = 0;
         }
         HCXExpansionBridge.HCGroupClearWaypoints(group);
         HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.ONCE);
@@ -147,7 +209,8 @@ modded class HCXConvoyRun
         super.HCBoard(now);
         if (prior != "drive" && mHCPhase == "drive")
         {
-            mHCRecovery.HCStart(mHCRoute.mHCPath, now);
+            mHCRecovery.Kind = "convoy";
+            mHCRecovery.HCStart(mHCRoute.mHCPath, now, mHCPolicy.MaxRouteNodes + 1);
             mHCRecovery.IntervalMs = Math.Max(1, mHCPolicy.StallSeconds * 1000 / HCXAIStuckRecovery.HC_CHECKS);
             mHCRecovery.ProgressMeters = mHCPolicy.StallMeters;
             mHCRecovery.Anchor = mHCCar.GetPosition();
@@ -156,29 +219,73 @@ modded class HCXConvoyRun
     }
     override void HCDrive(int now)
     {
+        // Evaluate safety once; do not call the base drive loop's earlier
+        // single-window stall abort before this finite ladder can finish.
         string problem = HCDriveProblem();
         if (problem != "") { HCStop(problem, now); return; }
         if (mHCRecovery.GivenUp) { HCStop(mHCRecovery.Reason, now); return; }
-        int recovery = mHCRecovery.HCMotion(mHCCar.GetPosition(), now);
-        if (recovery < 0) { HCStop(mHCRecovery.Reason, now); return; }
-        if (recovery > 0)
+        vector position = mHCCar.GetPosition();
+        if (mHCIndex >= mHCRoute.mHCPath.Count() - 1 && HCXConvoyRoute.HCFlat(position, HCLast()) <= mHCPolicy.ArriveMeters) { HCStop("CONVOY_ARRIVED", now); return; }
+        float moved = HCXConvoyRoute.HCFlat(position, mHCProgressPos);
+        if (moved >= mHCPolicy.StallMeters)
         {
-            if (recovery == 2)
-            {
-                if (mHCIndex + 1 >= mHCRoute.mHCPath.Count()) { mHCRecovery.HCGiveUp("STUCK_NO_NEXT_WAYPOINT"); HCStop(mHCRecovery.Reason, now); return; }
-                mHCIndex++;
-            }
-            // HC's car controller reads this same current road waypoint.
-            // Reissue through the bridge too; no position or speed correction.
-            HCXExpansionBridge.HCGroupClearWaypoints(mHCGroup);
-            HCXExpansionBridge.HCGroupAddWaypoint(mHCGroup, mHCRoute.mHCPath[mHCIndex]);
-            HCXExpansionBridge.HCGroupSetWaypointBehaviour(mHCGroup, eAIWaypointBehavior.HALT);
-            mHCRecovery.HCRecovered(recovery);
+            mHCProgressPos = position;
+            mHCProgressAt = now;
         }
-        // The bounded ladder supersedes the old immediate stall abort. Other
-        // drive safety checks, total timeout and arrival still run in super.
-        mHCProgressAt = now;
-        super.HCDrive(now);
+        if (now - mHCPhaseAt > mHCPolicy.MaxDriveSeconds * 1000) { HCStop("CONVOY_DRIVE_TIMEOUT", now); return; }
+        int recovery;
+        if (mHCRecovery.Replan) { recovery = 3; }
+        else { recovery = mHCRecovery.HCMotion(position, now); }
+        if (recovery < 0)
+        {
+            // No progress after rung 3 is a real stalled controller.
+            HCStop("CONVOY_STALLED", now);
+            return;
+        }
+        if (recovery == 1)
+        {
+            if (mHCIndex + 1 < mHCRoute.mHCPath.Count())
+            {
+                mHCIndex = HCXAIStuckRecovery.HCForward(mHCRoute.mHCPath, mHCIndex + 1, position);
+                mHCRecovery.HCRecovered(1);
+            }
+            else { mHCRecovery.LadderStep = 3; recovery = 3; }
+        }
+        else if (recovery == 2)
+        {
+            if (mHCIndex + 1 < mHCRoute.mHCPath.Count()) { mHCIndex++; mHCRecovery.HCRecovered(2); }
+            else { mHCRecovery.LadderStep = 3; recovery = 3; }
+        }
+        if (recovery == 3)
+        {
+            if (!mHCRecovery.Replan)
+            {
+                if (!mHCRecovery.HCBeginReplan(position, HCDestination(), mHCPolicy)) { HCStop(mHCRecovery.Reason, now); return; }
+            }
+            int status = mHCRecovery.HCStepReplan();
+            if (status < 0) { HCStop(mHCRecovery.Reason, now); return; }
+            if (status == 0) { return; }
+            mHCRoute = mHCRecovery.Replan;
+            mHCRecovery.Replan = null;
+            mHCIndex = 0;
+            mHCRecovery.Anchor = position;
+            mHCRecovery.CheckedAt = now;
+            mHCRecovery.Checks = 0;
+            mHCRecovery.HCRecovered(3);
+        }
+    }
+
+    override void HCInput()
+    {
+        // Hold the real car while the replacement route is pending. The old
+        // ready route stays intact until an entire new plan succeeds.
+        if (mHCPhase == "drive" && mHCRecovery.Replan && HCHolding())
+        {
+            if (HCForeignDriver()) { HCYield(GetGame().GetTime()); return; }
+            HCHoldBrake();
+            return;
+        }
+        super.HCInput();
     }
 }
 
@@ -187,7 +294,7 @@ modded class HCXAIAdapter
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
-        if (GetGame() && GetGame().IsServer() && HCXAIService.Adapter() == this) { HCXAIStuckRecovery.HCRegister(); }
+        if (GetGame() && GetGame().IsServer() && HCXAIService.Adapter() == this) { HCXAIStuckRecovery.HCRegister(GetName()); }
     }
     override void OnTick(float deltaTime)
     {
@@ -196,17 +303,33 @@ modded class HCXAIAdapter
     }
 }
 
-// The existing journal quarantine is the finite-trip failure path. Do not
-// misreport a stalled carrier as dead or fabricate arrival/inventory receipts.
+// An aborted trip is terminal without claiming cargo loss or home arrival.
+// Preserve all receipt validation and the ordinary cooldown/history eviction.
 modded class HCAICaravan
 {
+    override bool HCTerminal(string leg) { return leg == "aborted" || super.HCTerminal(leg); }
+
+    override bool HCValidState(HCCaravanState row)
+    {
+        if (!row || row.Leg != "aborted") { return super.HCValidState(row); }
+        if (row.Version != 1 || row.Refusal.Length() > 96 || !HCValidHistory(row)) { return false; }
+        if (!HCValidTripId(row.Id, row.TripSequence) || !HCWorldLimits.Token(row.RouteId)) { return false; }
+        if (!HCWorldLimits.Token(row.LeaseId) || !HCWorldLimits.Token(row.PartyId) || !HCWorldLimits.Token(row.CargoId)) { return false; }
+        if (!HCWorldLimits.Token(row.ActorId) || !HCWorldLimits.Token(row.ItemId) || !HCWorldLimits.Token(row.ItemClass)) { return false; }
+        if (row.Generation < 1 || !(row.Quantity >= 0) || !(row.Quantity <= float.MAX)) { return false; }
+        return row.CargoReceipt == "retained" || row.CargoReceipt == "lost";
+    }
+
     override void HCStep()
     {
         HCXAICaravanAdapter port = HCXAICaravanAdapter.Cast(m_IO);
         if (!m_Enabled || !m_Ready || m_Busy || !HCActive()) { super.HCStep(); return; }
         if (port && port.m_Recovery.GivenUp)
         {
-            HCQuarantine(port.m_Recovery.Reason);
+            m_State.Leg = "aborted";
+            m_State.Refusal = port.m_Recovery.Reason;
+            m_Status.HCPublish("ready", "CARAVAN_RECOVERY_ABORTED");
+            if (HCCheckpoint()) { port.m_Recovery = new HCXAIStuckRecovery; }
             return;
         }
         super.HCStep();
