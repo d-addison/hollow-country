@@ -21,6 +21,8 @@ class HCEcologyLiveBinding
 	EntityAI Live;
 	int Serial;
 	string LocalId;
+	// #330 diagnostic: class name captured at registration, printed by the prune.
+	string Type;
 }
 
 class HCEcologyRuntime
@@ -28,6 +30,7 @@ class HCEcologyRuntime
 	protected static ref HCEcologyRuntime s_Instance;
 	protected ref array<ref HCEcologyLiveBinding> m_Actors = new array<ref HCEcologyLiveBinding>;
 	protected ref array<ref HCEcologyLiveBinding> m_Resources = new array<ref HCEcologyLiveBinding>;
+	protected int m_DiagRows;
 	protected ref array<ref HCEcologyRouteIntent> m_Intents = new array<ref HCEcologyRouteIntent>;
 	protected ref HCEcologyRuntimeSettings m_Settings;
 	protected ref HCEcologyRuntimeStore m_Store;
@@ -175,6 +178,7 @@ class HCEcologyRuntime
 		}
 		HCEcologyLiveBinding binding = new HCEcologyLiveBinding;
 		binding.Live = entity;
+		binding.Type = entity.GetType();
 		binding.Serial = m_NextSerial;
 		binding.LocalId = HCEcologyRuntimeRules.LocalId(m_Session, binding.Serial);
 		m_NextSerial++;
@@ -400,6 +404,13 @@ class HCEcologyRuntime
 		m_Units.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK);
 		m_Work.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK, HCEcologyRuntimeRules.SLICE_MS);
 		int visited = 0;
+		// #330: one eligibility decision per slice covers every diag line it prints.
+		bool diag = m_DiagRows < 40 && m_PruneKind <= 1;
+		if (diag)
+		{
+			m_DiagRows++;
+			HCDiagPruneWindow(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK);
+		}
 		// Capture a reverse window at cycle start. New registrations cannot
 		// extend this pass indefinitely; deletions normalize the next cursor.
 		while (m_PruneKind < 3)
@@ -414,6 +425,8 @@ class HCEcologyRuntime
 				m_PruneKind++;
 				if (m_PruneKind == 1) { m_PruneCursor = m_Actors.Count() - 1; }
 				if (m_PruneKind == 2) { m_PruneCursor = m_Intents.Count() - 1; }
+				// Name the actor window before this slice touches its first actor row.
+				if (diag && m_PruneKind == 1) { HCDiagPruneWindow(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK - visited); }
 				continue;
 			}
 			// Always allow the first bounded row; then consult both shared caps.
@@ -434,12 +447,34 @@ class HCEcologyRuntime
 				entries.Remove(index);
 			}
 		}
+		if (diag) { Print("[HC Diag] prune slice_end kind=" + m_PruneKind.ToString() + " cursor=" + m_PruneCursor.ToString()); }
 		m_Visited = visited;
 		m_Deferred = Math.Max(0, m_PruneCursor + 1);
 		if (m_PruneKind == 0) { m_Deferred += m_Actors.Count() + m_Intents.Count(); }
 		if (m_PruneKind == 1) { m_Deferred += m_Intents.Count(); }
 		if (m_PruneKind < 3) { return; }
 		m_Stage = HCEcologyRuntimeRules.STAGE_SAMPLE;
+	}
+
+	// #330 diagnostic, first 40 prune slices per process: one line per registry
+	// window (resources, then actors if the slice reaches them) naming the rows the
+	// slice may visit, printed before any Live access, then one slice_end line.
+	protected void HCDiagPruneWindow(int allowance)
+	{
+		if (m_PruneKind > 1 || allowance <= 0) { return; }
+		array<ref HCEcologyLiveBinding> rows = m_Resources;
+		if (m_PruneKind == 1) { rows = m_Actors; }
+		int last = Math.Min(m_PruneCursor, rows.Count() - 1);
+		int first = Math.Max(0, last - allowance + 1);
+		string line = "[HC Diag] prune slice kind=" + m_PruneKind.ToString();
+		line += " from=" + last.ToString() + " to=" + first.ToString() + " rows=";
+		for (int i = last; i >= first; i--)
+		{
+			HCEcologyLiveBinding row = rows.Get(i);
+			if (!row) { line += i.ToString() + ":null,"; continue; }
+			line += i.ToString() + ":" + row.Serial.ToString() + ":" + row.Type + ",";
+		}
+		Print("" + line);
 	}
 
 	void StageSample(int nowMs)
