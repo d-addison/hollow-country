@@ -196,7 +196,8 @@ def main(argv=None):
             try:
                 summary.scan().print()
                 activity_result = summary.activity
-                if summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted', 'script_error'):
+                if (summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted')
+                        or (summary.outcome == 'script_error' and outcome == 'connect_enabled')):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
             finally:

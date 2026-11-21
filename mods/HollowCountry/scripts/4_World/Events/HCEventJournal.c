@@ -96,6 +96,8 @@ class HCEventJournalIO
     }
     // Copy every surviving top-revision file before deleting any of them.
     // A separate attempt directory preserves earlier crashes of a reused revision.
+    protected string m_TornDirectory;
+    string HCTornDirectory() { return m_TornDirectory; }
     bool PreserveTorn(array<string> names, int revision)
     {
         string root = "$profile:HollowCountry/Events/torn";
@@ -111,12 +113,26 @@ class HCEventJournalIO
         if (attempt >= 1024 || !MakeDirectory(target)) { return false; }
         foreach (string name : names)
         {
-            if (Exists(name) && !CopyFile(HCPath(name), target + "/" + name)) { return false; }
+            if (!Exists(name)) { continue; }
+            // Verify raw bytes, including an empty torn file, before any delete.
+            string original = Read(name, 4194304);
+            int originalCount = HCReadCount();
+            if (originalCount < 0 || originalCount > 4194304 || original.Length() != originalCount) { return false; }
+            string copy = target + "/" + name;
+            if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return false; }
+            FileHandle handle = OpenFile(copy, FileMode.READ);
+            if (!handle) { return false; }
+            string actual;
+            actual = "";
+            int count = ReadFile(handle, actual, 4194305);
+            CloseFile(handle);
+            if (count != originalCount || actual != original) { return false; }
         }
         foreach (string obsolete : names)
         {
             if (Exists(obsolete) && !Remove(obsolete)) { return false; }
         }
+        m_TornDirectory = "Events/torn/" + revision.ToString() + "-" + attempt.ToString();
         return true;
     }
     bool Remove(string name) { return DeleteFile(m_Root + "/" + name); }
@@ -248,15 +264,12 @@ class HCEventJournal : HCEventPersistence
         }
         string intent = m_IO.Read(Name("intent-", latest), 2048);
         string commit = m_IO.Read(Name("commit-", latest), 2048);
-        string image = m_IO.Read(Name("image-", latest), m_Settings.MaxStoreBytes);
-        bool torn = intent == "" || commit == "" || intent != commit;
-        if (!torn)
-        {
-            HCEventJournalReceipt top = m_Codec.Receipt(intent);
-            // A complete commit with bad metadata/hash/schema remains corruption.
-            if (!top || top.Version != 1 || top.Revision != latest || top.WorldName != world) { Fault(); return null; }
-            torn = !m_IO.Exists(Name("image-", latest)) || (m_IO.HCReadCount() >= 0 && m_IO.HCReadCount() < top.Length);
-        }
+        int commitCount = m_IO.HCReadCount();
+        if (m_IO.Exists(Name("commit-", latest)) && (commitCount < 0 || commitCount > 2048 || commit.Length() != commitCount)) { Fault(); return null; }
+        // Only an absent commit or a strict prefix of its intent is torn.
+        // Present, complete but mismatched receipts/images must fault in HCLoadRevision.
+        bool torn = !m_IO.Exists(Name("commit-", latest));
+        if (!torn && commit.Length() < intent.Length() && (commit == "" || intent.IndexOf(commit) == 0)) { torn = true; }
         int loaded = latest;
         if (torn) { loaded--; }
         if (loaded < 1) { Fault(); return null; }
@@ -269,7 +282,7 @@ class HCEventJournal : HCEventPersistence
             names.Insert(Name("image-", latest));
             names.Insert(Name("commit-", latest));
             if (!m_IO.PreserveTorn(names, latest)) { Fault(); return null; }
-            Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=Events/torn");
+            Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=" + m_IO.HCTornDirectory());
         }
         m_Latest = loaded;
         // Normalize legacy eight-revision journals too. Seven retained triples

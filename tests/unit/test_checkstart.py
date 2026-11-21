@@ -82,3 +82,27 @@ class CheckstartTests(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertNotIn(code, [value for key, value in boot.CODES.items() if key != 'script_error'])
         self.assertIn('boot_verdict=script_error', output.getvalue())
+
+    def test_main_dump_with_runtime_error_keeps_crash_verdict(self):
+        args = self.setup_watch(MISSION + ERROR + CONNECT + READY)
+        result = SimpleNamespace(returncode=0, attempts=1, stdout='', stderr='')
+        # The first snapshot precedes observation; the next sees a new dump.
+        dump = args.profiles / 'server.mdmp'
+        with patch.object(boot.winproc, 'run', return_value=result), \
+                patch.object(boot, 'dumps', side_effect=[{}, {dump: (1, 1)}]), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)])
+        self.assertEqual(code, boot.CODES['crashed'])
+        self.assertIn('boot_verdict=crashed', output.getvalue())
+
+    def test_main_runtime_error_preserves_observer_failures(self):
+        args = self.setup_watch(MISSION + ERROR + CONNECT + READY)
+        result = SimpleNamespace(returncode=0, attempts=1, stdout='', stderr='')
+        for outcome in ('stalled', 'process_gone', 'interop_unknown', 'timed_out'):
+            with self.subTest(outcome=outcome), \
+                    patch.object(boot.winproc, 'run', return_value=result), \
+                    patch.object(boot, 'watch', return_value=(outcome, args.rpt)), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)])
+            self.assertEqual(code, boot.CODES[outcome])
+            self.assertIn('boot_verdict=' + outcome, output.getvalue())
