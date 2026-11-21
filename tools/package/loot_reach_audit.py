@@ -457,9 +457,15 @@ class Audit:
         report = {'schema': 1, 'native_acceptance': 'pending', 'files': {}, 'failures': [],
                   'failure_counts': {}, 'stock_proto_sha256': gen.sha(self.stock_bytes),
                   'prop_boxes_sha256': gen.sha(self.boxes_bytes),
+                  'optional_prop_checks': {
+                      'bounds': 'union of authored slots and yaw-transformed measured native boxes; all histories',
+                      'corridor': 'continuous standing-body AABB sweep plus sampled rays against solid bounds',
+                      'sight': 'closed eye-to-item segment against solid bounds',
+                      'building_classes': 0, 'slots': 0},
                   'limits': {'max_rise_m': MAX_RISE, 'max_horizontal_reach_m': MAX_REACH,
                              'standing_height_m': HEIGHT, 'body_radius_m': RADIUS}}
         counts = Counter()
+        optional_classes = set()
         for path in sorted((self.repo / loot.POINTS_DIR).glob('additions*.json')):
             raw = path.read_bytes()
             doc = loot.parse_overlay(raw)
@@ -471,6 +477,12 @@ class Audit:
                     continue
                 print('audit ' + name, file=sys.stderr, flush=True)
                 context = self.scene(name, spec)
+                if name not in optional_classes:
+                    slots = [slot for _, template in self.templates.get(name, [])
+                             for slot in template.get('PropSlots', [])]
+                    if slots:
+                        optional_classes.add(name)
+                        report['optional_prop_checks']['slots'] += len(slots)
                 # A bad source pin refuses the audit rather than deleting data
                 # based on a different installed build.
                 for source in spec.get('surface_sources', []):
@@ -530,6 +542,7 @@ class Audit:
                 loot.parse_overlay(encoded)
                 path.write_bytes(encoded)
         report['failure_counts'] = dict(sorted(counts.items()))
+        report['optional_prop_checks']['building_classes'] = len(optional_classes)
         report['scene_counts'] = dict(sorted(self.scene_stats.items()))
         return report
 
