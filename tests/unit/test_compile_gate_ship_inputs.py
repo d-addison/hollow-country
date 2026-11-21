@@ -46,7 +46,11 @@ class ShipInputsTests(unittest.TestCase):
         result = ship_inputs.build_anims(tree, addons, scratch,
                                         lambda command, cwd: calls.append((command, cwd)))
         self.assertEqual(result, scratch / 'anims/addons/HollowCountryAnims.pbo')
-        for (command, cwd), script in zip(calls, ('build_infected_clips.py', 'build_anims_addon.py')):
+        for script in ('build_infected_clips.py', 'build_anims_addon.py'):
+            matches = [(command, cwd) for command, cwd in calls
+                       if tree / 'tools/anim' / script in command]
+            self.assertEqual(1, len(matches), script)
+            command, cwd = matches[0]
             self.assertEqual(cwd, tree)
             self.assertEqual(command[2:], [tree / 'tools/anim' / script,
                                           '--addons', addons, '--out', scratch / 'anims'])

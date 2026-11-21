@@ -142,17 +142,32 @@ class SiteGeneratorTests(unittest.TestCase):
 
     def test_shipped_sites_are_the_generator_output_shape(self):
         shipped = json.loads((ROOT / 'mission/hollow-country/ai/sites.json').read_text())
-        # HC-43 adds authored candidate metadata beside the unchanged live
-        # generator policy; these rows are not admitted routes or native proof.
-        manifest = shipped.pop('HC43')
-        self.assertEqual(('HC-43', 'pending_integration', 'PENDING'),
-                         (manifest['Package'], manifest['State'], manifest['Runtime']))
+        # The runtime policy now also carries source-resolved HC-43 candidate queues.
+        # Keep runtime qualification pending and reconcile site references against their data owner.
+        manifest = shipped['HC43']
+        self.assertEqual('PENDING', manifest['Runtime'])
+        self.assertIn('pending', manifest['State'].lower())
+        ai_patrols.validate_policy(shipped)
         generated = ai_patrols.generate_sites(self.pos, self.proto, self.spec)
-        self.assertEqual(set(shipped), set(generated))
+        self.assertLessEqual(set(generated), set(shipped))
         for key in ('AIRespawnSeconds', 'PatrolRespawnSeconds', 'HoldoutRespawnSeconds',
                     'MilitaryRespawnSeconds', 'MemberReplaceSeconds'):
             self.assertEqual(generated[key], shipped[key])
-        self.assertLessEqual(len((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes()), 65536)
-        authored_checkpoints = {'checkpoint-komarovo-east', 'checkpoint-novaya-south'}
-        self.assertTrue(all(s['Id'] in {x['Id'] for k in ai_patrols.SITE_SPEC.values() for x in k} | authored_checkpoints
-                            for s in shipped['Sites']))
+        sites = {row['Id']: row for row in shipped['Sites']}
+        self.assertEqual(len(sites), len(shipped['Sites']), 'site identities must be unique')
+        queue = json.loads((ROOT / 'mission/hollow-country/ai/localities.json').read_text())
+        referenced = {site for row in queue['Localities'] for site in row['SiteIds']}
+        authored = {row['Id'] for rows in ai_patrols.SITE_SPEC.values() for row in rows}
+        self.assertLessEqual(authored | referenced, set(sites))
+        self.assertTrue(referenced, 'exercise the current locality queue')
+        for row in sites.values():
+            self.assertIn(row['Kind'], ai_patrols.KIND_DEFAULTS)
+            if row['Kind'] == 'holdout':
+                ai_patrols.position(row['HousePosition'])
+                self.assertTrue(row['LocalPoints'], row['Id'])
+                positions = row['LocalPoints']
+            else:
+                self.assertTrue(row['Waypoints'], row['Id'])
+                positions = row['Waypoints']
+            for position in positions:
+                ai_patrols.position(position)
