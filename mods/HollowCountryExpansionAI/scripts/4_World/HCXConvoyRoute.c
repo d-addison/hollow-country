@@ -17,6 +17,7 @@ class HCXConvoyRoute
     ref HCWorkBudget mHCWork = new HCWorkBudget;
     string mHCPhase = "idle";
     string mHCReason;
+    string mHCOriginFailure = "CONVOY_ROAD_APPROACH_TOO_FAR";
     ref HCConvoyPolicy mHCPolicy;
     HCXAICaravanRoads mHCRoads;
     vector mHCFrom;
@@ -156,6 +157,8 @@ class HCXConvoyRoute
     void HCScan(HCXAICaravanRoads roads)
     {
         if (!mHCNearestFrom.HCStep(roads)) { return; }
+        // Reject an off-road recovery before scanning the destination or starting A*.
+        if (mHCNearestFrom.Best < 0) { HCFail(mHCOriginFailure); return; }
         if (!mHCNearestTo.HCStep(roads)) { return; }
         int start = mHCNearestFrom.Best;
         mHCEnd = mHCNearestTo.Best;

@@ -58,7 +58,7 @@ class HCXAIStuckRecovery
         s_SummaryAt = now + 300000;
         Print("" + "[HC Convoy] summary" + HCSummary() + " runtime=PENDING");
     }
-    void HCStart(array<vector> route, int now, int routeCap = HC_ROUTE_CAP)
+    void HCStart(array<vector> route, int now, int routeCap)
     {
         Route.Clear();
         Issued.Clear();
@@ -132,6 +132,8 @@ class HCXAIStuckRecovery
             HCGiveUp(Replan.mHCReason);
             return false;
         }
+        // Use the bounded nearest-node scan, with an origin-specific refusal.
+        Replan.mHCOriginFailure = "STUCK_OFFROAD";
         return true;
     }
     int HCStepReplan()
@@ -219,20 +221,10 @@ modded class HCXConvoyRun
     }
     override void HCDrive(int now)
     {
-        // Evaluate safety once; do not call the base drive loop's earlier
-        // single-window stall abort before this finite ladder can finish.
-        string problem = HCDriveProblem();
-        if (problem != "") { HCStop(problem, now); return; }
+        super.HCDrive(now);
+        if (mHCPhase != "drive") { return; }
         if (mHCRecovery.GivenUp) { HCStop(mHCRecovery.Reason, now); return; }
         vector position = mHCCar.GetPosition();
-        if (mHCIndex >= mHCRoute.mHCPath.Count() - 1 && HCXConvoyRoute.HCFlat(position, HCLast()) <= mHCPolicy.ArriveMeters) { HCStop("CONVOY_ARRIVED", now); return; }
-        float moved = HCXConvoyRoute.HCFlat(position, mHCProgressPos);
-        if (moved >= mHCPolicy.StallMeters)
-        {
-            mHCProgressPos = position;
-            mHCProgressAt = now;
-        }
-        if (now - mHCPhaseAt > mHCPolicy.MaxDriveSeconds * 1000) { HCStop("CONVOY_DRIVE_TIMEOUT", now); return; }
         int recovery;
         if (mHCRecovery.Replan) { recovery = 3; }
         else { recovery = mHCRecovery.HCMotion(position, now); }
@@ -275,6 +267,12 @@ modded class HCXConvoyRun
         }
     }
 
+    override bool HCDriveStalled(float moved, int now)
+    {
+        // The finite observer ladder owns stalls, while HCDrive keeps all other checks.
+        return false;
+    }
+
     override void HCInput()
     {
         // Hold the real car while the replacement route is pending. The old
@@ -303,8 +301,8 @@ modded class HCXAIAdapter
     }
 }
 
-// An aborted trip is terminal without claiming cargo loss or home arrival.
-// Preserve all receipt validation and the ordinary cooldown/history eviction.
+// Decode legacy aborted journals only. No active caravan caller drives this
+// observer; do not retain a dead HCStep abort handler or claim Walker coverage.
 modded class HCAICaravan
 {
     override bool HCTerminal(string leg) { return leg == "aborted" || super.HCTerminal(leg); }
@@ -320,18 +318,4 @@ modded class HCAICaravan
         return row.CargoReceipt == "retained" || row.CargoReceipt == "lost";
     }
 
-    override void HCStep()
-    {
-        HCXAICaravanAdapter port = HCXAICaravanAdapter.Cast(m_IO);
-        if (!m_Enabled || !m_Ready || m_Busy || !HCActive()) { super.HCStep(); return; }
-        if (port && port.m_Recovery.GivenUp)
-        {
-            m_State.Leg = "aborted";
-            m_State.Refusal = port.m_Recovery.Reason;
-            m_Status.HCPublish("ready", "CARAVAN_RECOVERY_ABORTED");
-            if (HCCheckpoint()) { port.m_Recovery = new HCXAIStuckRecovery; }
-            return;
-        }
-        super.HCStep();
-    }
 }
