@@ -207,6 +207,9 @@ class HCSaveScheduler : HCModule
     static bool HCFlush(HCSaveJob job)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
+        // Parameters are weak: a failing step may quarantine its owner, which unregisters and drops
+        // this job (build 151: NULL 'HCInFlight' after HCInfectedSaveJob.HCStep). Hold it for the call.
+        HCSaveJob hold = job;
         if (job.HCFaulted) { return false; }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
@@ -241,6 +244,9 @@ class HCSaveScheduler : HCModule
     static void HCPumpFallback(HCSaveJob job)
     {
         if (!job || job.HCFaulted || !job.HCUrgent || !job.HCDirty || (HCPerfConfig.HCGet().EnableSharedSaves && HCRegistered(job))) { return; }
+        // Parameters are weak: a failing step may quarantine its owner, which unregisters and drops
+        // this job (build 151: NULL 'HCInFlight' after HCInfectedSaveJob.HCStep). Hold it for the call.
+        HCSaveJob hold = job;
         int result = job.HCStep();
         job.HCInFlight = result == HCSaveJob.STEP_MORE;
         if (result == HCSaveJob.STEP_DONE) { job.HCDirty = job.HCPendingCheckpoint(); if (!job.HCDirty) { job.HCUrgent = false; } }
@@ -256,6 +262,9 @@ class HCSaveScheduler : HCModule
     // Runs ONE stage of a job and keeps it as the active job until it reports completion.
     protected void HCRunStep(HCSaveJob job, float now)
     {
+        // Parameters are weak: a failing step may quarantine its owner, which unregisters and drops
+        // this job (build 151: NULL 'HCInFlight' after HCInfectedSaveJob.HCStep). Hold it for the call.
+        HCSaveJob hold = job;
         HCSaveJob.HCOperation = "checkpoint";
         int started = TickCount(0);
         int result = job.HCStep();

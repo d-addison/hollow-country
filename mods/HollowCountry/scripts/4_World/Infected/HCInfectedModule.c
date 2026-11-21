@@ -413,7 +413,7 @@ class HCInfectedModule : HCModule
         if (record.AdoptionStage != 2 || record.State == 6 || record.BudgetReleased) { return false; }
         if (record.Reserved != target || admitted < 3 || admitted >= target) { return false; }
         record.State = 5;
-        record.HasRoute = false;
+        record.HCStopRoute();
         m_Dirty = true;
         if (!SaveAdoptionBoundary("reinforcement_retire")) { return false; }
         m_HCHordeActivity.Add("reinforcement_retired");
@@ -580,7 +580,7 @@ class HCInfectedModule : HCModule
                 {
                     record.State = 6;
                     record.RecoveryConflicted = true;
-                    record.HasRoute = false;
+                    record.HCStopRoute();
                     if (m_Packs[i])
                     {
                         bool releaseCompleted = m_Packs[i].Release();
@@ -769,7 +769,7 @@ class HCInfectedModule : HCModule
             }
             m_Packs[index] = null;
         }
-        record.HasRoute = false;
+        record.HCStopRoute();
         record.BudgetReleased = true;
         record.RetiredUtc = nowUtc;
         m_State.Reserved -= record.Reserved;
@@ -1092,7 +1092,7 @@ class HCInfectedModule : HCModule
         {
             record.State = 6;
             record.RecoveryConflicted = true;
-            record.HasRoute = false;
+            record.HCStopRoute();
             if (!m_FailedCohorts.Contains(record.Id))
             {
                 m_FailedCohorts.Insert(record.Id, true);
@@ -1293,7 +1293,7 @@ class HCInfectedModule : HCModule
             }
             if (record.HasRoute && (!m_Packs[p] || m_Packs[p].IsReleasing()))
             {
-                record.HasRoute = false;
+                record.HCStopRoute();
                 m_Dirty = true;
             }
         }

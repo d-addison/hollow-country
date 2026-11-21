@@ -485,6 +485,16 @@ class HCHordeRecord
     // reservation until a real terminal lifecycle refunds it. No store wipe.
     bool BudgetReleased = false;
     int RetiredUtc;
+
+    // Stops native route intent. HCInfectedPolicy.ValidRouteMetadata requires an active
+    // route for an in-progress result (1), so stopping one records it as interrupted (5),
+    // as HCNativeInfectedPack.Release and restart recovery already do. Build 151 saved a
+    // retired reinforcement with result 1 and no route; Validate refused the snapshot.
+    void HCStopRoute()
+    {
+        HasRoute = false;
+        if (RouteResult == 1) { RouteResult = 5; }
+    }
 }
 
 class HCInfectedSnapshot
