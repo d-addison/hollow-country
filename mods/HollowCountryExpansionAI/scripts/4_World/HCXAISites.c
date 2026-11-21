@@ -272,6 +272,8 @@ class HCXAISiteState : Managed
     bool Qualified;
     bool Failed;
     bool Cached;
+    bool HCRouteCacheChecked;
+    ref HCXAIRouteRow HCCachedRoute;
     string Reason;
     int Leg;
     int ChainSteps;
@@ -514,6 +516,7 @@ class HCXAISiteDirector : Managed
     static const int HC_PROXIMITY_ROWS = 16;
     protected ref map<string, int> m_SiteLocalities = new map<string, int>();
     protected ref map<string, HCXAILocalityCoverage> m_CoverageRows = new map<string, HCXAILocalityCoverage>();
+    protected ref map<string, bool> m_PolicySiteIds = new map<string, bool>();
     protected ref map<string, int> m_RouteResults = new map<string, int>();
     // Geometry is retained independently of the small live-controller page.
     // No actors, leases or inventory are created by this boot survey.
@@ -522,10 +525,13 @@ class HCXAISiteDirector : Managed
     protected int m_SurveyCursor;
     protected int m_SurveyStartedMs = -1;
     protected bool m_SurveyTurn;
+    protected bool m_SurveyBackgroundLogged;
     protected int m_LastSummaryMs;
     protected int m_LastSummaryQualified;
     protected ref array<ref HCXAISite> m_SelectionPending;
     protected string m_SelectionLocality;
+    // Latest terminal verdict per policy ID only: 1=qualified, 2=failed.
+    // Dynamic sites are excluded; unrecorded policy IDs remain pending.
     protected int m_QualifiedCount;
     protected int m_RefusedCount;
     protected int m_ProximityCursor;
@@ -820,32 +826,66 @@ class HCXAISiteDirector : Managed
         m_Survey.Set(site.Id, state);
         return state;
     }
+    // Reuse the proximity scan's nearest candidate and the maintenance page's
+    // nearby-first ordering. At most 64 live rows; never scan the full policy
+    // for distances in a survey tick. The sequential cursor remains the fallback.
+    protected HCXAISiteState HCNearbySurveyState()
+    {
+        HCXAISiteState nearest;
+        float nearestGap = 1000000000;
+        if (m_NearSite >= 0 && m_NearSite < m_Policy.Sites.Count())
+        {
+            HCXAISiteState candidate = this.HCSurveyState(m_Policy.Sites[m_NearSite]);
+            if (!candidate.Failed && !candidate.Qualified && this.HCWithinActivation(candidate.Site))
+            {
+                nearest = candidate;
+                nearestGap = this.HCPlayerGap(candidate.Site);
+            }
+        }
+        for (int index = 0; index < m_States.Count() && index < 64; index++)
+        {
+            HCXAISiteState waiting = m_States[index];
+            if (waiting.LocalityId == "" || waiting.Failed || waiting.Qualified || waiting.Patrol || !m_PolicySiteIds.Contains(waiting.Site.Id)) { continue; }
+            float gap = this.HCPlayerGap(waiting.Site);
+            float radius = this.HCActivationRadius(waiting.Site, false);
+            if (gap > radius * radius || gap >= nearestGap) { continue; }
+            nearest = waiting;
+            nearestGap = gap;
+        }
+        return nearest;
+    }
     protected void HCStepSurvey()
     {
         if (m_SurveyCursor >= m_Policy.Sites.Count()) { return; }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 64)) { return; }
         int nowMs = GetGame().GetTime();
         if (m_SurveyStartedMs < 0) { m_SurveyStartedMs = nowMs; }
-        bool elapsed = nowMs < m_SurveyStartedMs || nowMs - m_SurveyStartedMs >= 1500000;
-        if (!elapsed && !this.HCSurveyReady()) { return; }
+        // A time limit cannot establish a geometry verdict. Keep pending work
+        // under the same shared admission and slice after the boot window.
+        if (!m_SurveyBackgroundLogged && (nowMs < m_SurveyStartedMs || nowMs - m_SurveyStartedMs >= 1500000))
+        {
+            m_SurveyBackgroundLogged = true;
+            Print("[HC Expansion AI] survey continuing in background; pending geometry retains qualification gate runtime=PENDING");
+        }
+        if (!this.HCSurveyReady()) { return; }
         string refusedSites;
         m_SurveyWork.HCReset(64, HCPerfConfig.HCGet().SliceMs);
+        HCXAISiteState nearby = this.HCNearbySurveyState();
         while (m_SurveyCursor < m_Policy.Sites.Count() && m_SurveyWork.HCContinue())
         {
-            HCXAISiteState state = this.HCSurveyState(m_Policy.Sites[m_SurveyCursor]);
+            HCXAISiteState state = nearby;
+            if (!state) { state = this.HCSurveyState(m_Policy.Sites[m_SurveyCursor]); }
             if (state.Failed || state.Qualified)
             {
                 this.HCRecordRouteState(state);
-                m_SurveyCursor++;
+                if (nearby) { nearby = null; }
+                else { m_SurveyCursor++; }
                 continue;
             }
-            // Timeout is a process-local refusal, never a cached geometry
-            // verdict. A later boot gets a fresh survey, with a logged reason.
-            if (elapsed || (state.Site.Checkpoint && !HCXAIQualification.EncountersEnabled()))
+            if (state.Site.Checkpoint && !HCXAIQualification.EncountersEnabled())
             {
                 state.Failed = true;
-                state.Reason = "boot survey deadline (1500s shared work); geometry unproven";
-                if (!elapsed) { state.Reason = "checkpoint encounters disabled"; }
+                state.Reason = "checkpoint encounters disabled";
                 refusedSites += " " + state.Site.Id;
                 continue;
             }
@@ -859,9 +899,7 @@ class HCXAISiteDirector : Managed
         }
         if (refusedSites != "")
         {
-            string refusalReason = "checkpoint encounters disabled";
-            if (elapsed) { refusalReason = "boot survey deadline (1500s shared work); geometry unproven"; }
-            Print("[HC Expansion AI] survey refused sites=" + refusedSites + " reason=" + refusalReason + " runtime=PENDING");
+            Print("[HC Expansion AI] survey refused sites=" + refusedSites + " reason=checkpoint encounters disabled runtime=PENDING");
         }
         if (m_SurveyCursor >= m_Policy.Sites.Count())
         {
@@ -874,6 +912,10 @@ class HCXAISiteDirector : Managed
         // Retain only qualified geometry, never a large native scratch path.
         state.HCPath.Clear();
         state.AttemptPoints.Clear();
+        // Summary geometry counters cover only the authored policy denominator.
+        // Zone-guard/dynamic outcomes still release scratch buffers above, but
+        // cannot reduce policy pending or inflate qualified_per_s.
+        if (!m_PolicySiteIds.Contains(state.Site.Id)) { return; }
         int result = 1;
         if (state.Failed) { result = 2; }
         int previous = m_RouteResults.Get(state.Site.Id);
@@ -1368,6 +1410,7 @@ class HCXAISiteDirector : Managed
         }
         Print(HCV2Admission.Line("AIFreshRespawn", !m_RespawnOff, "EXP-P2", HCV2Gates.Qualified("EXP-P2")) + " runtime=PENDING");
         Print("[HC Expansion AI] fresh respawn policy full=" + m_Policy.AIRespawnSeconds.ToString() + "s member=" + m_Policy.MemberReplaceSeconds.ToString() + "s mode=fresh-group runtime=PENDING");
+        foreach (HCXAISite policySite : m_Policy.Sites) { m_PolicySiteIds.Set(policySite.Id, true); }
         int count = m_Policy.Sites.Count();
         Print("[HC Expansion AI] sites policy accepted: " + count.ToString() + " sites; waiting for Expansion AI settings");
         if (m_Policy.RaidCooldownFloorSeconds > 0) { Print("[HC Expansion AI] raid cooldown floor " + m_Policy.RaidCooldownFloorSeconds.ToString() + "s (operator)"); }
@@ -1691,7 +1734,15 @@ class HCXAISiteDirector : Managed
         if (state.HCOutdoorSampling) { this.HCOutdoorStep(state); return; }
         if (state.HCPathReady) { this.HCFinishPath(state); return; }
         AIWorld world = GetGame().GetWorld().GetAIWorld();
-        HCXAIRouteRow cached = this.RouteRow(state.Key);
+        // A state's route/build key is immutable once bound. Resolve once,
+        // including cache misses, rather than scanning the journal on every
+        // sample, chain continuation and native-path visit.
+        if (!state.HCRouteCacheChecked)
+        {
+            state.HCCachedRoute = this.RouteRow(state.Key);
+            state.HCRouteCacheChecked = true;
+        }
+        HCXAIRouteRow cached = state.HCCachedRoute;
         if (cached && !cached.Qualified)
         {
             state.Failed = true;
