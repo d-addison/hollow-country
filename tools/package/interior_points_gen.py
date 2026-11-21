@@ -219,6 +219,62 @@ def role(stem):
     return 'cabinet-shelf'
 
 
+# Loot tells the story of the furniture it sits on (owner, 2026-11-20). Each
+# admitted top votes for the vanilla CE categories of its room: vanilla puts
+# medical supplies, paper and hand tools in "tools" and canteens in "food".
+# The building keeps its stock <usage> (Town, Medic, Military...), which the
+# CE applies on top, so a farmhouse kitchen and a hospital cabinet differ.
+ROLE_CATEGORIES = {
+    'kitchen-counter': ('food', 'tools'),
+    'appliance-top': ('food', 'tools'),
+    'bed-mattress': ('clothes', 'containers'),
+    'wardrobe-top': ('clothes', 'containers'),
+    'locker-top': ('clothes', 'tools'),
+    'bench-seat': ('clothes', 'books'),
+    'desk-table': ('books', 'tools'),
+    'cabinet-shelf': ('books', 'tools', 'containers'),
+    'bathroom-cabinet': ('tools',),
+    'medical-tray': ('tools',),
+    'repair-bench': ('tools', 'containers'),
+    'static-proxy-surface': ('tools', 'containers'),
+    'baked-interior-ledge': ('tools', 'food'),
+}
+
+
+def story_categories(name, group, family_name, roles):
+    """Surface categories from the admitted furniture roles plus the building's identity."""
+    weight = Counter()
+    for item in roles:
+        for rank, category in enumerate(ROLE_CATEGORIES.get(item, ('tools',))):
+            weight[category] += 1 / (rank + 1)
+    categories = [c for c, _ in sorted(weight.items(), key=lambda kv: (-kv[1], kv[0]))]
+    usages = {u.get('name') for u in group.findall('usage')} if group is not None else set()
+    armed = []
+    if 'Mil_' in name or 'Tisy_' in name or family_name == 'military':
+        armed = ['weapons', 'explosives']
+    elif re.search(r'Police|Prison|Guardhouse', name) or 'Hunting' in usages:
+        armed = ['weapons']
+    if family_name == 'kitchen' and 'food' not in categories:
+        categories.insert(0, 'food')
+    if family_name in ('medical', 'fire') and 'tools' not in categories:
+        categories.insert(0, 'tools')
+    return armed + [c for c in categories if c not in armed] or ['tools']
+
+
+def surface_cap(area_m2):
+    """Surface spawn spots by reached interior floor: one per 3 m2, 4..32."""
+    if area_m2 is None:
+        return loot.MAX_SURFACE_POINTS
+    return max(4, min(loot.MAX_SURFACE_POINTS, math.ceil(area_m2 / 3)))
+
+
+def interior_area(name, group, context, templates):
+    """Reached walkable floor area (m2) of one building, or None without anchors."""
+    slots = [slot for _, t in templates for slot in t.get('PropSlots', [])]
+    _, cells, _ = floor_cells(name, group, context, slots)
+    return round(cells[2] * FLOOR_STEP * FLOOR_STEP, 2) if cells else None
+
+
 READER_REVISION = 'e272780131dc10fe798bad321dca2c96894e993e'
 READER_HASHES = {
     'data_p3d_odol.py': '275fb16b687d91920a5b024cbd96f6507c475b1d6a510efb55cb3293f9cd8252',
@@ -341,6 +397,58 @@ class Mesh:
                     'model_center': [round(v, 8) for v in self.center]}
 
 
+# Furniture collision tops are authored a little above their visual tops:
+# measured +0.4..1.3 cm on skrin_bar, +1.9 cm Geometry / +3.2 cm Roadway on
+# lobby_table. A point 5 mm above the visual top then sits inside the
+# furniture's own collision slab, and the collision audit refuses it as
+# "collision above item support". Lift a visual candidate onto the highest
+# Geometry/Roadway horizontal plane of the same prop at most this far above
+# its visual top. Larger offsets stay refused: that is a different surface.
+COLLISION_LIFT = .05
+COLLISION_LODS = (1e13, 3e15)  # Geometry, Roadway
+
+
+class CollisionTops:
+    """Horizontal Geometry/Roadway faces of one prop in its restored local frame."""
+    def __init__(self, model):
+        from tools.package.loot_reach_audit import collision_triangles, lod_for
+        self.triangles, self.cells = [], {}
+        for resolution in COLLISION_LODS:
+            lod = lod_for(model, resolution)
+            if lod is None:
+                continue
+            for tri in collision_triangles(model, lod):
+                ax, ay, az = (tri[1][a] - tri[0][a] for a in range(3))
+                bx, by, bz = (tri[2][a] - tri[0][a] for a in range(3))
+                normal = (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
+                length = math.sqrt(sum(v * v for v in normal))
+                if (not length or abs(normal[1]) / length < .98
+                        or max(v[1] for v in tri) - min(v[1] for v in tri) > .025):
+                    continue
+                index = len(self.triangles)
+                self.triangles.append(tri)
+                for x in range(math.floor(min(v[0] for v in tri) / .65),
+                               math.floor(max(v[0] for v in tri) / .65) + 1):
+                    for z in range(math.floor(min(v[2] for v in tri) / .65),
+                                   math.floor(max(v[2] for v in tri) / .65) + 1):
+                        self.cells.setdefault((x, z), []).append(index)
+
+    def heights(self, x, z):
+        found = []
+        for index in self.cells.get((math.floor(x / .65), math.floor(z / .65)), ()):
+            y = triangle_height(self.triangles[index], x, z)
+            if y is not None:
+                found.append(y)
+        return found
+
+    def lift(self, local):
+        """Metres to raise a 5 mm-lifted visual top onto its own collision top."""
+        visual = local[1] - .005
+        above = [y for y in self.heights(local[0], local[2])
+                 if visual < y <= visual + COLLISION_LIFT]
+        return max(above) - visual if above else 0.0
+
+
 class Reader:
     def __init__(self, folder):
         folder = Path(folder)
@@ -409,6 +517,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         furniture_tops.clear()
         auditor.props.clear()
         auditor.meshes.clear()
+        auditor.lifts.clear()
         assets.cache.clear()
         support_auditor.props.clear()
         support_auditor.assets.cache.clear()
@@ -431,6 +540,14 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         data = assets.read(model)
         existing = [[float(v) for v in p.get('pos').split()] for p in group.iter('point')]
         floor = loot.stock_floor(group)
+        memory_anchors = None
+        if not existing:
+            # No native point at all (stock lootmax 0): the model's own loot
+            # memory points on its collision floors locate rooms instead.
+            anchor_context = auditor.scene(name, {'stock_sha256': loot.group_pin(group),
+                                                  'building_model_sha256': sha(data)})
+            memory_anchors = [[a[2], a[1], -a[0]] for a in anchor_context[5]]
+            floor = min((a[1] for a in memory_anchors), default=None)
         candidates, seen = [], set()
         decoded = reader.module.ODOL_File.read(io.BytesIO(data))
         for proxy_model, transform in stock_proxies(data, decoded):
@@ -454,8 +571,15 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
             if mesh_key not in furniture_meshes:
                 furniture_meshes[mesh_key] = reader.mesh(assets.read(mesh_key))
                 prop_stem = mesh_key.rsplit('\\', 1)[-1].removesuffix('.p3d')
-                furniture_tops[mesh_key] = list(
-                    furniture_meshes[mesh_key].tops(measured_box=measured.get(prop_stem)))
+                lifts = CollisionTops(reader.module.ODOL_File.read(io.BytesIO(assets.read(mesh_key))))
+                tops = []
+                for local, support in furniture_meshes[mesh_key].tops(measured_box=measured.get(prop_stem)):
+                    lift = lifts.lift(local)
+                    if lift > 0:
+                        local = [local[0], local[1] + lift, local[2]]
+                        support = dict(support, collision_lift_m=round(lift, 6))
+                    tops.append((local, support))
+                furniture_tops[mesh_key] = tops
             mesh = furniture_meshes[mesh_key]
             surfaces[mesh_key] = {'sha256': sha(assets.read(mesh_key)), 'lod': mesh.lod,
                                 'model_center': list(mesh.center)}
@@ -482,6 +606,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
                       for container in group.findall('container')
                       if 'floor' in container.get('name', '').lower()
                       for point in container.findall('point')]
+            if memory_anchors is not None:
+                floors = memory_anchors
             def in_room(x, y, z):
                 return (any(.35 <= y - q[1] <= 2.20
                             and math.hypot(z - q[0], -x - q[2]) <= 6 for q in floors)
@@ -510,6 +636,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         support_context = support_auditor.context(name, {
             'stock_sha256': loot.group_pin(group),
             'building_model_sha256': sha(data)}) if candidates else None
+        area = interior_area(name, group, context, auditor.templates.get(name, [])) if context else None
+        cap = surface_cap(area)
         # Spread admission over furniture roles and heights before filling the cap.
         by_role = {}
         for point, evidence in candidates:
@@ -522,9 +650,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
                        round(row[0][1], 2), row[0][2], row[0][0], row[0][1])))
                    for key, rows in by_role.items()}
         chosen, evidence = [], []
-        while any(by_role.values()) and len(chosen) < loot.MAX_SURFACE_POINTS:
+        while any(by_role.values()) and len(chosen) < cap:
             for key in sorted(by_role):
-                if not by_role[key] or len(chosen) >= loot.MAX_SURFACE_POINTS:
+                if not by_role[key] or len(chosen) >= cap:
                     continue
                 point, source = by_role[key].popleft()
                 if near(point, chosen):
@@ -551,18 +679,14 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
             continue
         family = loot.family_of(name, policy)
         family_name = family['family'] if family else 'civic'
-        categories = list(family['surface']['categories']) if family else ['books', 'tools']
-        if family_name == 'residential':
-            categories = ['food', 'tools', 'books', 'clothes', 'containers']
-        if 'Hunting' in {u.get('name') for u in group.findall('usage')}:
-            categories = ['weapons', 'tools', 'food', 'clothes']
-        if re.search(r'Mil_|Tisy_|Guardhouse|Police|Prison', name):
-            categories = ['weapons', 'explosives', 'tools', 'clothes'] if 'Mil_' in name or 'Tisy_' in name else ['weapons', 'tools', 'books']
+        categories = story_categories(name, group, family_name, [e['surface'] for e in evidence])
         groups[name] = {'family': family_name, 'stock_sha256': loot.group_pin(group),
             'building_model': model, 'building_model_sha256': sha(data),
-            'containers': {'lootHCSurface': {'lootmax': loot.added_lootmax(len(chosen)),
+            'containers': {'lootHCSurface': {'lootmax': loot.added_lootmax(len(chosen), area),
                 'categories': categories, 'tags': ['shelves'], 'points': chosen}},
             'surface_sources': evidence}
+        if area is not None:
+            groups[name]['interior_area_m2'] = area
         if map_pos is not None:
             groups[name]['map_instances'] = placements[name]
         if name in templates:
@@ -663,6 +787,7 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             context = support_context = None
             auditor.props.clear()
             auditor.meshes.clear()
+            auditor.lifts.clear()
             auditor.assets.cache.clear()
             collision.props.clear()
             collision.assets.cache.clear()
@@ -672,10 +797,9 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             if current and any(current[key] != old[key] for key in (
                     'family', 'stock_sha256', 'building_model_sha256')):
                 raise ValueError('prior building pin/family mismatch: ' + name)
-            if current and any(current['containers']['lootHCSurface'][key]
-                               != old['containers']['lootHCSurface'][key]
-                               for key in ('categories', 'tags')):
-                raise ValueError('prior category mismatch: ' + name)
+            if current and (current['containers']['lootHCSurface']['tags']
+                            != old['containers']['lootHCSurface']['tags']):
+                raise ValueError('prior tag mismatch: ' + name)
             context = auditor.scene(name, old)
             support_context = collision.context(name, old)
             sets = []
@@ -693,9 +817,13 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
                             valid.append((point, evidence))
                 sets.append(valid)
             chosen = []
+            area = (current or {}).get('interior_area_m2')
+            if area is None:
+                area = interior_area(name, auditor.stock.get(name), context, auditor.templates.get(name, []))
+            cap = surface_cap(area)
             layouts = sorted(sets, key=len, reverse=True)
             for point, evidence in layouts[0] + layouts[1]:
-                if len(chosen) < loot.MAX_SURFACE_POINTS and not near(point, [p for p, _ in chosen]):
+                if len(chosen) < cap and not near(point, [p for p, _ in chosen]):
                     chosen.append((point, evidence))
             if not chosen:
                 doc['groups'].pop(name, None)
@@ -703,8 +831,12 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             added += len(chosen) - (len(current['surface_sources']) if current else 0)
             spec = copy.deepcopy(current or old)
             spec['containers']['lootHCSurface']['points'] = [p for p, _ in chosen]
-            spec['containers']['lootHCSurface']['lootmax'] = loot.added_lootmax(len(chosen))
+            spec['containers']['lootHCSurface']['lootmax'] = loot.added_lootmax(len(chosen), area)
+            spec['containers']['lootHCSurface']['categories'] = story_categories(
+                name, auditor.stock.get(name), spec['family'], [e['surface'] for _, e in chosen])
             spec['surface_sources'] = [e for _, e in chosen]
+            if area is not None:
+                spec['interior_area_m2'] = area
             spec.pop('collision_support', None)
             doc['groups'][name] = spec
         sources['prior_overlay_selection'] = {'sha256': sha(raw), 'net_added_points': added,
@@ -712,7 +844,7 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             'prior_reach_generation': prior['sources']['reach_generation'],
             'net_points_vs_prior': sum(len(g['surface_sources']) for g in doc['groups'].values())
                                    - sum(len(g['surface_sources']) for g in prior['groups'].values()),
-            'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing/caps/categories',
+            'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing; area cap and story categories from the final layout',
             'refusal_counts': dict(sorted(refused.items()))}
     for name in doc['groups']:
         reason = sources['rejected_groups'].pop(name, None)
@@ -725,13 +857,289 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
     return encoded
 
 
+FLOOR_OUTPUT = ROOT / loot.ADDITIONS
+FLOOR_STEP = .50      # walk lattice; one HC floor point per CELLS_PER_POINT m2 reached
+FLOOR_LIFT = .005     # same lift as surface points above their collision plane
+FLOOR_RANGE = float(loot.POINT_SHAPE['floor'][0])
+FLOOR_METHOD = ('hc-floor-v1: native stock points on building Geometry/Roadway floors seed a '
+                '0.50m walk lattice; every cell needs a clear standing body (0.22m radius, 1.8m) '
+                'and a swept same-storey corridor with sampled floor from a reached neighbour '
+                '(closed doors block); points avoid stock spawn discs (stock range + 0.5m), '
+                '1.0m of door leaves and stair steps; wall-side cells first, farthest-point '
+                'spacing 1.5m, one point per 8m2 reached (2..12); collision support/enclosure '
+                'gate before admission; optional props block bodies and points')
+
+
+def floor_cells(name, group, context, slots):
+    """Reached floor cells (model frame) of one stock group, or a refusal reason."""
+    from tools.package.loot_reach_audit import (
+        approach_clear, body_clear, model_point, volume_hit, RADIUS, HEIGHT)
+    _, model, _, scene, bounds, _, footprint = context
+    if bounds is None:
+        return 'no-building-bounds', None, None
+    stock = [(model_point([float(v) for v in p.get('pos').split()]), float(p.get('range') or 0))
+             for p in group.iter('point')]
+    # A native point resting on the building's own floor (not furniture) is
+    # the evidence that a storey is occupied and reachable.
+    anchors = []
+    for p, _ in stock:
+        found = footprint.floors(p[0], p[2], p[1] - .12, p[1] + .05)
+        if found:
+            anchors.append((p[0], found[0], p[2]))
+    if not stock:
+        anchors = [tuple(a) for a in context[5]]  # memory loot anchors (stock lootmax 0)
+    if not anchors:
+        return 'no-native-floor-anchor', None, None
+    storeys = sorted({round(a[1], 2) for a in anchors})
+    doors = []
+    from tools.package.loot_reach_audit import lod_for
+    geometry = lod_for(model, 1e13)
+    for selection in geometry.named_selections:
+        if selection.name.lower().startswith('door'):
+            doors.extend(tuple(geometry.vertices[i]) for i in selection.vertices)
+    cache = {}
+
+    def cell(ix, iz, level):
+        key = (ix, iz, level)
+        if key not in cache:
+            x, z = ix * FLOOR_STEP, iz * FLOOR_STEP
+            found = [y for y in footprint.floors(x, z, level - .20, level + .20)]
+            y = found[0] if found else None
+            ok = (y is not None and body_clear(scene, (x, y, z))
+                  and not any(volume_hit((x, y, z), RADIUS, .06, HEIGHT, s['Bounds']) for s in slots))
+            cache[key] = (x, y, z) if ok else None
+        return cache[key]
+
+    lo = [math.floor(bounds['Min'][a] / FLOOR_STEP) for a in (0, 2)]
+    hi = [math.ceil(bounds['Max'][a] / FLOOR_STEP) for a in (0, 2)]
+    reached = {}
+    for level in storeys:
+        queue = deque()
+        for a in anchors:
+            if abs(a[1] - level) > .005:
+                continue
+            for ix in range(math.floor((a[0] - 1) / FLOOR_STEP), math.ceil((a[0] + 1) / FLOOR_STEP) + 1):
+                for iz in range(math.floor((a[2] - 1) / FLOOR_STEP), math.ceil((a[2] + 1) / FLOOR_STEP) + 1):
+                    c = cell(ix, iz, level)
+                    key = (ix, iz, level)
+                    if (c and key not in reached and math.hypot(c[0] - a[0], c[2] - a[2]) <= 1.0
+                            and approach_clear(scene, a, c, slots)):
+                        reached[key] = c
+                        queue.append(key)
+        while queue:
+            ix, iz, _ = queue.popleft()
+            here = reached[(ix, iz, level)]
+            for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, nz = ix + dx, iz + dz
+                key = (nx, nz, level)
+                if key in reached or not (lo[0] <= nx <= hi[0] and lo[1] <= nz <= hi[1]):
+                    continue
+                c = cell(nx, nz, level)
+                if c and approach_clear(scene, here, c, slots):
+                    reached[key] = c
+                    queue.append(key)
+    if not reached:
+        return 'no-reachable-floor-cell', None, None
+    wall, inner = [], []
+    for (ix, iz, level), c in reached.items():
+        if any(math.hypot(c[0] - p[0], c[2] - p[2]) < r + FLOOR_RANGE and abs(c[1] - p[1]) <= loot.STOCK_BAND
+               for p, r in stock):
+            continue
+        if any(math.hypot(c[0] - d[0], c[2] - d[2]) <= loot.DOOR_CLEAR and -.5 <= d[1] - c[1] <= 2.5
+               for d in doors):
+            continue
+        # Stair treads are walkable but steps make poor loot spots.
+        if any(.05 < abs(y - c[1]) <= loot.STAIR_RISE
+               for dx, dz in ((.25, 0), (-.25, 0), (0, .25), (0, -.25))
+               for y in footprint.floors(c[0] + dx, c[2] + dz, c[1] - loot.STAIR_RISE, c[1] + loot.STAIR_RISE)):
+            continue
+        side = any((ix + dx, iz + dz, level) not in reached for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        (wall if side else inner).append(c)
+    return None, (sorted(wall), sorted(inner), len(reached)), [p for p, _ in stock]
+
+
+def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
+                    surfaces=None, partition=None):
+    """Floor points for lootable stock groups with no HC floor or surface points yet.
+
+    Existing floor groups in ``base`` are kept as they are and re-audited by the
+    shared collision gate. Only stock groups with a native lootmax take part.
+    """
+    from tools.package.loot_reach_audit import Audit, model_point
+    from tools.package.loot_support_audit import Audit as SupportAudit
+    auditor = Audit(addons, reader_folder, stock_proto, ROOT)
+    support = SupportAudit(addons, reader_folder, stock_proto)
+    assets = auditor.assets
+    stock_bytes = Path(stock_proto).read_bytes()
+    stock = ET.fromstring(stock_bytes)
+    placements = Counter()
+    if map_pos is not None:
+        placements.update(g.get('name') for g in ET.fromstring(Path(map_pos).read_bytes()).findall('group'))
+    policy = loot.parse_policy((ROOT / loot.FAMILIES).read_bytes())
+    doc = loot.parse_overlay(Path(base).read_bytes()) if base else {
+        'schema': 1, 'kind': loot.OVERLAY_KIND, 'frame': 'stock-mapgroupproto',
+        'runtime_acceptance': loot.PENDING, 'sources': {}, 'groups': {}}
+    covered = set(loot.parse_overlay(Path(surfaces).read_bytes())['groups']) if surfaces else set()
+    existing = set(doc['groups'])
+    added, refused, refusals, refreshed = {}, {}, Counter(), []
+    ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
+    if partition is not None:
+        index, count = partition
+        if not 0 <= index < count <= 32:
+            raise ValueError('partition requires 0 <= index < count <= 32')
+        ordered = ordered[index::count]
+    for group in ordered:
+        name = group.get('name', '')
+        auditor.props.clear()
+        auditor.meshes.clear()
+        auditor.lifts.clear()
+        assets.cache.clear()
+        support.props.clear()
+        support.assets.cache.clear()
+        support.context_cache = None
+        if name in covered and name not in existing:
+            continue
+        if map_pos is not None and not placements[name] and name not in existing:
+            continue
+        family = loot.family_of(name, policy)
+        if family is None:
+            refused[name] = 'no-loot-family'
+            continue
+        model = pbo.normalize_path(pbo.resolve_field(assets.classes, name, 'model') or '')
+        if model not in assets.members:
+            refused[name] = 'missing-model'
+            continue
+        print('floor ' + name, file=sys.stderr, flush=True)
+        spec = {'stock_sha256': loot.group_pin(group), 'building_model_sha256': sha(assets.read(model))}
+        try:
+            context = auditor.scene(name, spec)
+        except ValueError as error:
+            refused[name] = 'no-building-geometry' if 'geometry' in str(error) else 'scene-error'
+            continue
+        slots = [slot for _, t in auditor.templates.get(name, []) for slot in t.get('PropSlots', [])]
+        reason, cells, stock_points = floor_cells(name, group, context, slots)
+        if name in existing:
+            # Kept floor groups get the same size-realistic lootmax (owner,
+            # 2026-11-20: loot numbers follow the building size everywhere).
+            if cells:
+                doc['groups'][name]['interior_area_m2'] = round(cells[2] * FLOOR_STEP * FLOOR_STEP, 2)
+                refreshed.append(name)
+            continue
+        if reason:
+            refused[name] = reason
+            continue
+        support_context = support.context(name, spec)
+        wall, inner, area_cells = cells
+        area = round(area_cells * FLOOR_STEP * FLOOR_STEP, 2)
+        limit = min(loot.MAX_FLOOR_POINTS,
+                    max(2, int(area_cells * FLOOR_STEP * FLOOR_STEP) // loot.CELLS_PER_POINT))
+        chosen, witnesses = [], []
+        for pool in (wall, inner):
+            pool = list(pool)
+            while pool and len(chosen) < limit:
+                def spread(c):
+                    return min((math.hypot(c[0] - q[0], c[2] - q[2]) + 2 * abs(c[1] - q[1])
+                                for q in chosen + stock_points), default=1e9)
+                best = max(pool, key=lambda c: (spread(c), tuple(-v for v in c)))
+                pool.remove(best)
+                if any(math.hypot(best[0] - q[0], best[2] - q[2]) < loot.FLOOR_SPACING
+                       and abs(best[1] - q[1]) <= loot.STOCK_BAND for q in chosen):
+                    continue
+                x, y, z = best
+                point = [round(z, 6), round(y + FLOOR_LIFT, 6), round(-x, 6)]
+                why, proof = support.check(name, point, support_context)
+                if why:
+                    refusals[why] += 1
+                    continue
+                chosen.append(best)
+                witnesses.append({'floor_model': [round(v, 5) for v in best],
+                                  'reached_cells': area_cells, 'wall_side': pool is not inner})
+            if len(chosen) >= 2:
+                break
+        if not chosen:
+            refused[name] = 'no-supported-floor-point'
+            continue
+        points = [[round(c[2], 6), round(c[1] + FLOOR_LIFT, 6), round(-c[0], 6)] for c in chosen]
+        floor = family['floor']
+        added[name] = {'family': family['family'], 'stock_sha256': spec['stock_sha256'],
+                       'building_model': model, 'building_model_sha256': spec['building_model_sha256'],
+                       'containers': {'lootHCFloor': {'lootmax': loot.added_lootmax(len(points), area),
+                           'categories': list(floor['categories']), 'tags': list(floor['tags']),
+                           'points': points}},
+                       'floor_sources': witnesses, 'interior_area_m2': area}
+        if map_pos is not None:
+            added[name]['map_instances'] = placements[name]
+        print(f'floor admitted {name} points={len(points)}', file=sys.stderr, flush=True)
+    doc['groups'].update(added)
+    doc['sources']['hc_floor_generation'] = {
+        'method': FLOOR_METHOD, 'stock_proto_sha256': sha(stock_bytes),
+        'reader_revision': READER_REVISION, 'reader_sha256': READER_HASHES,
+        'kept_groups': len(existing), 'added_groups': len(added), 'area_refreshed_groups': sorted(refreshed),
+        'added_points': sum(len(g['containers']['lootHCFloor']['points']) for g in added.values()),
+        'skipped_surface_groups': len(covered - existing),
+        'refusal_counts': dict(sorted(refusals.items())),
+        'rejected_groups': dict(sorted(refused.items())),
+        'native_acceptance': 'pending'}
+    if map_pos is not None:
+        doc['sources']['hc_floor_generation']['map_pos_sha256'] = sha(Path(map_pos).read_bytes())
+    if partition is not None:
+        doc['sources']['hc_floor_generation']['partition'] = {'index': partition[0], 'count': partition[1]}
+    doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
+    raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
+    loot.parse_overlay(raw)
+    return raw
+
+
+def merge_floor_partitions(paths, base):
+    """Join disjoint floor partitions generated from the same base overlay."""
+    parts = [loot.parse_overlay(Path(p).read_bytes()) for p in paths]
+    infos = [p['sources']['hc_floor_generation'].get('partition', {}) for p in parts]
+    if (any(i.get('count') != len(parts) for i in infos)
+            or sorted(i.get('index', -1) for i in infos) != list(range(len(parts)))):
+        raise ValueError('require every disjoint floor partition exactly once')
+    doc = copy.deepcopy(parts[0])
+    kept = set(loot.parse_overlay(Path(base).read_bytes())['groups']) if base else set()
+    gen_info = doc['sources']['hc_floor_generation']
+    gen_info.pop('partition')
+    refusals, rejected = Counter(), {}
+    doc['groups'] = {}
+    for part in parts:
+        info = part['sources']['hc_floor_generation']
+        for key in ('method', 'stock_proto_sha256', 'map_pos_sha256', 'reader_revision'):
+            if info.get(key) != gen_info.get(key):
+                raise ValueError('floor partition source mismatch: ' + key)
+        owned = set(info.get('area_refreshed_groups', []))
+        for name, spec in part['groups'].items():
+            if name in doc['groups'] and name not in kept:
+                raise ValueError('overlapping floor partitions: ' + name)
+            if name in owned:
+                doc['groups'][name] = spec
+            else:
+                doc['groups'].setdefault(name, spec)
+        refusals.update(info['refusal_counts'])
+        rejected.update(info['rejected_groups'])
+    gen_info['added_groups'] = len(set(doc['groups']) - kept)
+    gen_info['added_points'] = sum(len(s['containers']['lootHCFloor']['points'])
+                                   for n, s in doc['groups'].items() if n not in kept)
+    gen_info['skipped_surface_groups'] = sum(p['sources']['hc_floor_generation']['skipped_surface_groups']
+                                             for p in parts)
+    gen_info['refusal_counts'] = dict(sorted(refusals.items()))
+    gen_info['rejected_groups'] = dict(sorted(rejected.items()))
+    gen_info['area_refreshed_groups'] = sorted(n for p in parts for n in
+                                               p['sources']['hc_floor_generation'].get('area_refreshed_groups', []))
+    gen_info['partitions'] = {'count': len(parts),
+                              'input_sha256': [sha(Path(p).read_bytes()) for p in paths]}
+    doc['sources'].pop('collision_support', None)
+    return doc
+
+
 def report(raw):
     doc = loot.parse_overlay(raw)
     counts = {}
     for group in doc['groups'].values():
         row = counts.setdefault(group['family'], [0, 0])
         row[0] += 1
-        row[1] += len(group['containers']['lootHCSurface']['points'])
+        row[1] += sum(len(c['points']) for c in group['containers'].values())
     for family, (groups, points) in sorted(counts.items()):
         print(f'{family}: groups={groups} points={points}')
     print('TOTAL groups=%d points=%d sha256=%s' % (
@@ -749,7 +1157,31 @@ def main():
     parser.add_argument('--merge-partitions', nargs='+', type=Path, help='join every partition from one complete scan')
     parser.add_argument('--prior-overlay', type=Path, help='re-audit and combine complementary prior points when merging')
     parser.add_argument('--out', type=Path, default=OUTPUT)
+    parser.add_argument('--floors', action='store_true',
+                        help='floor pass: supported floor points for stock groups without HC points (writes additions.json)')
+    parser.add_argument('--base', type=Path, help='floor pass: existing floor overlay to keep and re-audit')
+    parser.add_argument('--surface-overlay', type=Path, help='floor pass: surface overlay whose groups are skipped')
     args = parser.parse_args()
+    if args.floors:
+        out = args.out if args.out != OUTPUT else FLOOR_OUTPUT
+        if args.prior_overlay:
+            parser.error('--prior-overlay is a surface-pass option')
+        if args.partition is not None and out.resolve() == FLOOR_OUTPUT.resolve():
+            parser.error('--partition requires a separate --out; never replace the shipped overlay with one partition')
+        if args.merge_partitions:
+            doc = merge_floor_partitions(args.merge_partitions, args.base)
+            from tools.package.loot_support_audit import Audit as SupportAudit
+            doc, _ = SupportAudit(args.addons, args.reader, args.stock_proto).filter(doc)
+            raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
+            loot.parse_overlay(raw)
+        else:
+            raw = generate_floors(args.addons, args.stock_proto, args.reader, args.map_pos, args.base,
+                                  args.surface_overlay, args.partition)
+        out.write_bytes(raw)
+        report(raw)
+        return
+    if args.base or args.surface_overlay:
+        parser.error('--base and --surface-overlay require --floors')
     if args.partition is not None and args.out.resolve() == OUTPUT.resolve():
         parser.error('--partition requires a separate --out; never replace the shipped overlay with one partition')
     if args.merge_partitions and args.partition:

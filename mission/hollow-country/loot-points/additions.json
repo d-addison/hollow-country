@@ -5406,8 +5406,8 @@
   "schema": 1,
   "sources": {
     "collision_support": {
-      "floor_policy_sha256": "e1397801b40b30162fdf2611bf2c071cf31a0929ff86a0aefa923e8e63352fa8",
-      "method": "collision-support-v1: Geometry/Roadway/View-Geometry only; 0..0.08m below; 12cm footprint and 50cm vertical clearance; building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback",
+      "floor_policy_sha256": "abe847a977c6b840237b3ba5d271724e4cfbad35eb745c89fc3a3dbc50573c47",
+      "method": "collision-support-v2: Geometry/Roadway/View-Geometry support; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback",
       "native_acceptance": "pending",
       "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
       "reader_sha256": {
@@ -5420,7 +5420,7 @@
         "after_points": 250,
         "before_groups": 149,
         "before_points": 1222,
-        "checked_points": 584,
+        "checked_points": 250,
         "failure_counts": {
           "collision_above_item_support": 334,
           "collision_support_footprint_edge": 91,
@@ -6884,12 +6884,12 @@
           }
         ],
         "input_sha256": "064e7f2dfde765728b33af2641e1bf02f89a632a10bd4fdb9d929611c695707d",
-        "refused_points": 334
+        "refused_points": 0
       },
       "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
     },
     "families_sha256": "b79a417e9f45e08336485e8cc1a40725c54304126d2aa9accf78f723d71a360b",
-    "floor_policy_sha256": "e1397801b40b30162fdf2611bf2c071cf31a0929ff86a0aefa923e8e63352fa8",
+    "floor_policy_sha256": "abe847a977c6b840237b3ba5d271724e4cfbad35eb745c89fc3a3dbc50573c47",
     "geom_census_sha256": [
       "1909e463191da0d2bb0951d22e59c967da085eed5c248996334ea2a054a43aaa",
       "1ad4d0be18bc15aa77fabafedc6a98cf4f63dd857940d9d7d186874f41216cc0",

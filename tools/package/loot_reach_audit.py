@@ -156,6 +156,32 @@ class Scene:
         return sorted(set(round(y, 5) for y in result), reverse=True)
 
 
+def memory_floor_anchors(model, footprint):
+    """Authored loot memory points resting on the building's own collision floor.
+
+    A few stock groups (Land_Tenement_Small/Big, Land_Office_Municipal2) ship
+    lootmax 0 and no CE points, yet their Memory LOD keeps the model author's
+    named loot selections (``loot*``/``point*``: 400 in tenement_small, 1,300 in
+    tenement_big). Each marker is snapped to the collision floor right below
+    it; a marker higher up (on furniture or in the air) is not an anchor. Callers use these only for groups without any native point.
+    The authors raise these markers 0.2-0.3 m over the floor (modal gap of
+    all 7,600 in office_municipal2 and of tenement_small's kitchen/bath sets),
+    so a marker up to 0.35 m above a Geometry/Roadway floor anchors that floor.
+    """
+    memory = lod_for(model, MEMORY)
+    anchors = set()
+    for selection in (memory.named_selections if memory is not None else ()):
+        name = selection.name.lower()
+        if not name.startswith(('loot', 'point')):
+            continue
+        for index in selection.vertices:
+            x, y, z = (float(v) for v in memory.vertices[index])
+            found = footprint.floors(x, z, y - .35, y + .02)
+            if found:
+                anchors.add((round(x, 5), found[0], round(z, 5)))
+    return [list(a) for a in sorted(anchors)]
+
+
 def body_clear(scene, position):
     x, y, z = position
     # Vertical cylinder samples and cross sections prevent standing inside a
@@ -243,6 +269,7 @@ class Audit:
         self.stock = {g.get('name'): g for g in ET.fromstring(self.stock_bytes).findall('group')}
         self.props = {}
         self.meshes = {}
+        self.lifts = {}
         self.templates = {}
         self.boxes_bytes = interior_templates.BOXES_PATH.read_bytes()
         self.boxes = interior_templates.load_boxes(self.boxes_bytes)['Props']
@@ -356,6 +383,9 @@ class Audit:
         floors = [model_point([float(v) for v in p.get('pos').split()])
                   for c in stock.findall('container') if 'floor' in c.get('name', '').lower()
                   for p in c.findall('point')]
+        if not any(True for _ in stock.iter('point')):
+            floors = memory_floor_anchors(model, footprint)
+            self.scene_stats['memory_anchor_groups'] += 1
         self.assets.cache.pop(model_name, None)
         return model_name, model, visual, scene, bounds, floors, footprint
 
@@ -383,9 +413,19 @@ class Audit:
             expected = transform(local, matrix)
         if max(abs(point[a]-expected[a]) for a in range(3)) > .00002:
             failures.append('support_transform_mismatch')
+        # A point may sit on its prop's own Geometry/Roadway top a bounded
+        # distance above the visual top; re-derive that plane, never trust it.
+        lift = source.get('collision_lift_m', 0)
+        if lift:
+            support_name = source.get('support_model', source['model'])
+            if support_name not in self.lifts:
+                self.lifts[support_name] = gen.CollisionTops(self.read_model(support_name))
+            if (not 0 < lift <= gen.COLLISION_LIFT + 1e-9
+                    or abs(self.lifts[support_name].lift([local[0], local[1]-lift, local[2]]) - lift) > .00002):
+                failures.append('unverified_collision_lift')
         # Re-read actual triangles, never merely trust the embedded triangle.
         for dx, dz in ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12)):
-            if not any(abs(y-(local[1]-.005)) <= .025 and normal > .85
+            if not any(abs(y-(local[1]-.005-lift)) <= .025 and normal > .85
                        for y, normal, _, _ in support.hits(local[0]+dx, local[2]+dz)):
                 failures.append('floating_or_edge_support')
                 break
@@ -515,7 +555,7 @@ class Audit:
                 if fix:
                     if keep:
                         container['points'] = keep
-                        container['lootmax'] = loot.added_lootmax(len(keep))
+                        container['lootmax'] = loot.added_lootmax(len(keep), spec.get('interior_area_m2'))
                         spec['surface_sources'] = evidence
                         if collision is not None:
                             spec['collision_support']['lootHCSurface'] = collision_evidence

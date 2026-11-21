@@ -66,6 +66,11 @@ KEPT_CATEGORIES = frozenset({'weapons', 'explosives'})
 MIN_MULTIPLIER, MAX_MULTIPLIER = 1.0, 4.0
 RESPAWN_TYPES_CAP = 64
 MAX_GROUP_LOOTMAX = 40
+# Stock groups authored with lootmax 0 and no points (Land_Tenement_Small/Big,
+# Land_Office_Municipal2) get loot only from HC overlay points: owner request
+# 2026-11-20 "full coverage of all lootable buildings". Keep them conservative.
+ZERO_STOCK_CONTAINER_LOOTMAX = 4
+ZERO_STOCK_GROUP_LOOTMAX = 12
 MAX_ADDED_LOOTMAX = 12
 CONTAINERS = {'floor': 'lootHCFloor', 'surface': 'lootHCSurface'}
 POINT_SHAPE = {'floor': ('0.500000', '1.200000'), 'surface': ('0.300000', '0.500000')}  # range, height
@@ -409,8 +414,17 @@ def _point(value):
     return [round(float(v), 6) for v in value]
 
 
-def added_lootmax(count):
-    return max(1, min(MAX_ADDED_LOOTMAX, math.ceil(count / 3)))
+# Owner 2026-11-20: loot numbers must fit the building. One extra simultaneous
+# item per 15 m2 of reached interior floor (a 6 m2 shed adds 1, a 50 m2 cottage
+# 3, a school hits the cap), never more than one per three HC points.
+AREA_PER_ADDED_ITEM = 15.0
+
+
+def added_lootmax(count, area_m2=None):
+    by_points = max(1, min(MAX_ADDED_LOOTMAX, math.ceil(count / 3)))
+    if area_m2 is None:
+        return by_points
+    return max(1, min(by_points, round(area_m2 / AREA_PER_ADDED_ITEM)))
 
 
 def build_overlay(selection, stock_proto, policy_bytes, sources, skip=()):
@@ -561,7 +575,8 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
         lootmax = _attr(tag, 'lootmax')
         if lootmax is not None and not lootmax.isdigit():
             raise ValueError(f'group {name} lootmax is not an integer')
-        if lootmax == '0':
+        zero_stock = lootmax == '0'
+        if zero_stock and name not in wanted:
             continue
         body = masked[opening.end():close]
         first_container = None
@@ -610,13 +625,14 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
                         continue
                     c = spec['containers'][cname]
                     shape = POINT_SHAPE['floor' if cname == CONTAINERS['floor'] else 'surface']
-                    lines.append('%s<container name="%s" lootmax="%d">' % (cindent, cname, c['lootmax']))
+                    cmax = min(c['lootmax'], ZERO_STOCK_CONTAINER_LOOTMAX) if zero_stock else c['lootmax']
+                    lines.append('%s<container name="%s" lootmax="%d">' % (cindent, cname, cmax))
                     lines += ['%s<category name="%s" />' % (kindent, n) for n in c['categories']]
                     lines += ['%s<tag name="%s" />' % (kindent, n) for n in c['tags']]
                     lines += ['%s<point pos="%s" range="%s" height="%s" />'
                               % (kindent, ' '.join(_fmt(v) for v in p), shape[0], shape[1]) for p in c['points']]
                     lines.append('%s</container>' % cindent)
-                    added += c['lootmax']
+                    added += cmax
                     report['points_added'] += len(c['points'])
                     fam = report['families'].setdefault(spec['family'], {'groups': 0, 'points': 0})
                     fam['points'] += len(c['points'])
@@ -629,6 +645,8 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
             new = base + added
             if new > MAX_GROUP_LOOTMAX:
                 new = max(base, MAX_GROUP_LOOTMAX)
+            if zero_stock:
+                new = min(added, ZERO_STOCK_GROUP_LOOTMAX)
             edits.append((opening.start(), opening.end(), _with_lootmax(tag, new)))
             report['groups_scaled'] += 1
         elif group_scaled is not None:
