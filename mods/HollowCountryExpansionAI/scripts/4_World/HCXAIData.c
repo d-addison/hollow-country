@@ -232,6 +232,10 @@ class HCXAISiteAdmission
 }
 class HCXAIRouteRow
 {
+    // Additive schema-1 fields: legacy rows have no reusable geometry.
+    string ValidityKey;
+    ref array<vector> Waypoints = new array<vector>();
+    bool OpenRoute = false;
     string Key;
     string SiteId;
     bool Qualified = false;

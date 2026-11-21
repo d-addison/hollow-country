@@ -57,6 +57,7 @@ class HCPerfConfig
     int TickWeight_SEARCH_RETIREMENT = 1;
     int TickWeight_WILDLIFE = 1;
     int TickWeight_ZONE_GUARDS = 1;
+    int TickWeight_AI_ROUTE_CACHE = 1;
     protected static ref HCPerfConfig s_Config;
 
     static HCPerfConfig HCGet()
@@ -124,6 +125,7 @@ class HCPerfConfig
         if (HCJsonFields.Has(text, "TickWeight_SEARCH_RETIREMENT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_RETIREMENT", decoded.TickWeight_SEARCH_RETIREMENT)) { TickWeight_SEARCH_RETIREMENT = decoded.TickWeight_SEARCH_RETIREMENT; }
         if (HCJsonFields.Has(text, "TickWeight_WILDLIFE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_WILDLIFE", decoded.TickWeight_WILDLIFE)) { TickWeight_WILDLIFE = decoded.TickWeight_WILDLIFE; }
         if (HCJsonFields.Has(text, "TickWeight_ZONE_GUARDS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ZONE_GUARDS", decoded.TickWeight_ZONE_GUARDS)) { TickWeight_ZONE_GUARDS = decoded.TickWeight_ZONE_GUARDS; }
+        if (HCJsonFields.Has(text, "TickWeight_AI_ROUTE_CACHE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTE_CACHE", decoded.TickWeight_AI_ROUTE_CACHE)) { TickWeight_AI_ROUTE_CACHE = decoded.TickWeight_AI_ROUTE_CACHE; }
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
         if (HCJsonFields.Has(text, "SliceMs") && HCOperatorSettingsRegistry.HCValid("Performance.SliceMs", decoded.SliceMs)) { SliceMs = decoded.SliceMs; }
         if (HCJsonFields.Has(text, "SaveStageTargetMs") && HCOperatorSettingsRegistry.HCValid("Performance.SaveStageTargetMs", decoded.SaveStageTargetMs)) { SaveStageTargetMs = decoded.SaveStageTargetMs; }

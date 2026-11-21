@@ -977,6 +977,14 @@
     "owner": "HCPerfConfig"
   },
   {
+    "key": "Performance.TickWeight_AI_ROUTE_CACHE",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
     "key": "Performance.EnableSharedSaves",
     "type": "bool",
     "default": true,

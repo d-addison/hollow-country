@@ -42,6 +42,7 @@ modded class HCModuleReadiness
         if (module == "optional-expansion-human-ai")
         {
             HCRegisterUse("optional-expansion-human-ai", "actor_spawned");
+            HCRegisterUse("optional-expansion-human-ai", "route_cache");
             HCRegisterUse("optional-expansion-human-ai", "convoy_astar");
             HCRegisterUse("optional-expansion-human-ai", "stuck_recovery");
             return;

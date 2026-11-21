@@ -391,11 +391,39 @@ class HCXAISiteRules
         if (ownedSession < 1 || timestamp < 1) { return ""; }
         return "xai-" + ownedSession.ToString() + "-" + timestamp.ToString();
     }
-    // The journal has no generated geometry or effective behaviour. Rebuild
-    // every success, including holdouts, so snaps/skips survive no shortcut.
-    static bool ReuseQualifiedRoute(string kind)
+    static int HCMaxRouteWaypoints() { return 128; }
+    // Empty geometry remains readable for legacy schema-1 journals.
+    static bool HCRouteRowsValid(HCXAIRouteCache cache)
     {
-        return false;
+        if (!cache || cache.SchemaVersion != 1 || !cache.Rows || cache.Rows.Count() > HCMaxCatalogRows()) { return false; }
+        foreach (HCXAIRouteRow row : cache.Rows)
+        {
+            if (!row || row.Key.Length() > 128 || row.SiteId.Length() > 64 || row.ValidityKey.Length() > 256) { return false; }
+            if (row.Waypoints && row.Waypoints.Count() > HCMaxRouteWaypoints()) { return false; }
+        }
+        return true;
+    }
+    // MakeData's pretty JSON: 300 bytes cover seven field names, bools, braces
+    // and indentation; token strings need <=2 bytes/char, free-text Reason <=6
+    // for escaping. Each point gets 128 bytes for three float texts and layout.
+    static int HCRouteRowBytes(HCXAIRouteRow row)
+    {
+        int points = 0;
+        if (row.Waypoints) { points = row.Waypoints.Count(); }
+        return 300 + 2 * (row.Key.Length() + row.SiteId.Length() + row.ValidityKey.Length()) + 6 * row.Reason.Length() + points * 128;
+    }
+    static string HCRouteValidity(string build, string world, float maxLeg, int primaryInclude, int primaryExclude, int outdoorInclude, int outdoorExclude)
+    {
+        if (!HCXAIRules.Token(build) || !HCXAIRules.Token(world) || !HCXAIRules.Finite(maxLeg) || maxLeg < 50 || maxLeg > 600) { return ""; }
+        string validity = "chain-v6|" + build + "|" + world + "|" + maxLeg.ToString() + "|" + primaryInclude.ToString() + ":" + primaryExclude.ToString() + ":0|" + outdoorInclude.ToString() + ":" + outdoorExclude.ToString() + ":0";
+        if (validity.Length() > 256) { return ""; }
+        return validity;
+    }
+    static bool ReuseRoute(HCXAIRouteRow row, string key, string validity)
+    {
+        if (!row || validity == "" || row.Key != key || row.ValidityKey != validity) { return false; }
+        if (!row.Qualified) { return true; }
+        return row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
     }
     static string PointText(vector point)
     {
@@ -408,7 +436,7 @@ class HCXAISiteRules
     // holdout the house class, its position, the house-local points and cache.
     static string RouteText(HCXAISite site, string build)
     {
-        string text = "chain-v5|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
+        string text = "chain-v6|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
         foreach (vector point : site.Waypoints)
         {
             text = text + HCXAISiteRules.PointText(point);

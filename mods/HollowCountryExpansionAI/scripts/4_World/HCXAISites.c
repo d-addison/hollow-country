@@ -277,6 +277,7 @@ class HCXAISiteState : Managed
     bool Cached;
     bool HCRouteCacheChecked;
     ref HCXAIRouteRow HCCachedRoute;
+    int HCCacheCursor;
     string Reason;
     int Leg;
     int ChainSteps;
@@ -413,19 +414,65 @@ class HCXAILocalitySave : HCSaveJob
 class HCXAIRouteSave : HCSaveJob
 {
     HCXAISiteDirector Owner;
+    bool HCShutdown;
     override string HCName() { return "HCX-routes"; }
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
     protected int m_SnapshotRevision;
+    protected ref HCXAIRouteCache m_Snapshot;
+    protected int m_RowCursor;
+    protected int m_EstimatedBytes;
+    protected bool m_PreflightComplete;
+    protected int m_DroppedRows;
     void HCChanged() { m_Revision++; HCDirty = true; }
     override int HCStep()
     {
         if (!Owner) { return STEP_FAILED; }
         if (!m_Image.Active())
         {
+            // Rows are never changed in place. Finish this snapshot despite new
+            // revisions; the completion check schedules their next save.
+            if (!m_Snapshot)
+            {
+                m_Snapshot = new HCXAIRouteCache();
+                m_SnapshotRevision = m_Revision;
+                m_RowCursor = 0;
+                m_EstimatedBytes = 256;
+                m_PreflightComplete = false;
+                m_DroppedRows = 0;
+            }
+            HCWorkBudget slice = new HCWorkBudget;
+            slice.HCReset(16, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+            while (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount() && slice.HCContinue())
+            {
+                if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
+                HCXAIRouteRow row = Owner.HCRouteRowAt(m_RowCursor);
+                m_RowCursor++;
+                int estimated = HCXAISiteRules.HCRouteRowBytes(row);
+                if (estimated > HCWorldStore.MAX_BYTES - m_EstimatedBytes)
+                {
+                    m_DroppedRows++;
+                    continue;
+                }
+                m_EstimatedBytes += estimated;
+                m_Snapshot.Rows.Insert(row);
+            }
+            if (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount()) { return STEP_MORE; }
+            m_PreflightComplete = true;
+            if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
             string text;
-            if (!Owner.HCRoutesText(text)) { return STEP_FAILED; }
-            m_SnapshotRevision = m_Revision;
+            if (!Owner.HCRoutesText(m_Snapshot, text)) { return STEP_FAILED; }
+            // Guard the actual MakeData output as well as the estimate. Retry
+            // once per save step, dropping only the tail; never wipe all rows.
+            if (text.Length() > HCWorldStore.MAX_BYTES)
+            {
+                if (m_Snapshot.Rows.Count() == 0) { return STEP_FAILED; }
+                m_Snapshot.Rows.Remove(m_Snapshot.Rows.Count() - 1);
+                m_DroppedRows++;
+                return STEP_MORE;
+            }
+            if (m_DroppedRows > 0) { Print("[HC Expansion AI] route cache save rows dropped=" + m_DroppedRows.ToString() + " reason=byte_budget"); }
+            m_Snapshot = null;
             // Disposable qualification cache, no inventory/creation barrier.
             if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
             return STEP_MORE;
@@ -461,6 +508,13 @@ class HCXAISiteDirector : Managed
     // Sampling only: never passed to FindPath, never used for holdouts.
     protected ref PGFilter m_OutdoorFilter;
     protected string m_Build;
+    protected string m_RouteValidity;
+    protected ref map<string, bool> m_CacheReasons = new map<string, bool>();
+    protected int m_CacheSampleTick = -1;
+    protected int m_CacheSamples;
+    protected int m_CacheHits;
+    protected int m_Requalified;
+    protected bool m_RoutesWarm;
     protected string m_Phase = "wait";
     protected int m_Cursor;
     protected int m_CacheCursor;
@@ -900,7 +954,6 @@ class HCXAISiteDirector : Managed
             if (!state.Bound) { this.Bind(state); continue; }
             int calls = state.PathCalls;
             this.QualifyStep(state);
-            if (state.Failed || state.Qualified) { this.HCRoutesChanged(); }
             // An atomic FindPath cannot be cancelled. Do no more work in its
             // tick; samples and script postprocessing use the real deadline.
             if (state.PathCalls > calls) { break; }
@@ -911,6 +964,7 @@ class HCXAISiteDirector : Managed
         }
         if (m_SurveyCursor >= m_Policy.Sites.Count())
         {
+            this.HCRoutesWarm();
             Print("[HC Expansion AI] survey complete qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " elapsed_ms=" + (nowMs - m_SurveyStartedMs).ToString() + " runtime=PENDING");
         }
     }
@@ -1161,7 +1215,6 @@ class HCXAISiteDirector : Managed
                     m_LocalityUnits.HCCharge(63);
                     HCServer.HCTickWork().HCCharge(63);
                 }
-                if (state.Failed || state.Qualified) { this.HCRoutesChanged(); }
             }
             else
             {
@@ -1353,6 +1406,7 @@ class HCXAISiteDirector : Managed
         m_SpawnLogLine = "";
         m_SpawnLogAt = 0;
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        m_SurveyStartedMs = GetGame().GetTime();
         s_Active = this;
         HCXAIStore.HCPrimeJournal();
         HCSettings preferences = HCServer.Get().GetSettings();
@@ -1452,6 +1506,8 @@ class HCXAISiteDirector : Managed
         }
         if (m_RouteSave)
         {
+            // Shutdown is the shared scheduler's synchronous owner flush.
+            m_RouteSave.HCShutdown = true;
             HCSaveScheduler.HCFlush(m_RouteSave);
             HCSaveScheduler.HCUnregister(m_RouteSave);
             m_RouteSave = null;
@@ -1489,6 +1545,13 @@ class HCXAISiteDirector : Managed
             this.StepRun();
         }
     }
+    protected void HCRoutesWarm()
+    {
+        if (m_RoutesWarm) { return; }
+        m_RoutesWarm = true;
+        int elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000;
+        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString());
+    }
     protected void StepWait()
     {
         bool aiLoaded = HCXExpansionBridge.HCSettings() != null;
@@ -1519,15 +1582,20 @@ class HCXAISiteDirector : Managed
             return;
         }
         m_Filter = new PGFilter();
-        int include = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
-        int exclude = PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
+        int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
+        int exclude = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
         if (eAIBase.AI_HANDLEVAULTING) { include = include | PGPolyFlags.SPECIAL; }
         else { exclude = exclude | PGPolyFlags.SPECIAL; }
         m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
         // Native: 3_Game/AI/AIWorld.c:1-26 PGPolyFlags, :65 PGFilter.SetFlags. Walkable
         // outdoor polygons only, as HCEventPoliceNav samples police barrel ground.
         m_OutdoorFilter = new PGFilter();
-        m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.DOOR | PGPolyFlags.LADDER | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+        int outdoorExclude = PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.DOOR | PGPolyFlags.LADDER | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
+        m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, outdoorExclude, PGPolyFlags.NONE);
+        // Small, verbatim qualification key. Per-site Key covers RouteText/build.
+        // Native has no navmesh revision; reused geometry still samples below.
+        m_RouteValidity = HCXAISiteRules.HCRouteValidity(m_Build, GetGame().GetWorldName(), m_Policy.MaxLegLength, include, exclude, PGPolyFlags.WALK, outdoorExclude);
+        if (m_RouteValidity == "") { Print("[HC Expansion AI] route cache reuse disabled reason=validity_scalars"); }
         foreach (HCXAISite site : m_Policy.Sites)
         {
             if (m_Localities) { break; } // sparse pages enter through HCStepLocalities
@@ -1541,7 +1609,6 @@ class HCXAISiteDirector : Managed
         if (m_Localities)
         {
             HCSaveScheduler.HCRegister(m_LocalitySave);
-            m_SurveyStartedMs = GetGame().GetTime();
             m_Phase = "run";
             m_LocalityStatus = this.HCGetOperationalStatus().HCState();
             Print(this.HCLocalitySummary());
@@ -1724,12 +1791,12 @@ class HCXAISiteDirector : Managed
         state.HCBindCursor = 0;
         state.HCBindHash = new HCGapcodeRouteHashState;
     }
-    protected HCXAIRouteRow RouteRow(string key)
+    protected HCXAIRouteRow RouteRow(string siteId)
     {
-        if (key.Length() >= 10 && key.Substring(0, 10) == "transient:") { return null; }
+        if (siteId.Length() >= 10 && siteId.Substring(0, 10) == "transient:") { return null; }
         foreach (HCXAIRouteRow row : m_Routes.Rows)
         {
-            if (row.Key == key) { return row; }
+            if (row.SiteId == siteId) { return row; }
         }
         return null;
     }
@@ -1758,8 +1825,8 @@ class HCXAISiteDirector : Managed
         {
             if (counted.Qualified) { qualified++; }
         }
-        this.SaveRoutes();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v5; navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
+        this.HCRoutesWarm();
+        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v6; cached geometry or navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
     }
@@ -1775,15 +1842,60 @@ class HCXAISiteDirector : Managed
         // sample, chain continuation and native-path visit.
         if (!state.HCRouteCacheChecked)
         {
-            state.HCCachedRoute = this.RouteRow(state.Key);
+            state.HCCachedRoute = this.RouteRow(state.Site.Id);
             state.HCRouteCacheChecked = true;
         }
         HCXAIRouteRow cached = state.HCCachedRoute;
-        if (cached && !cached.Qualified)
+        if (cached)
         {
-            state.Failed = true;
-            state.Reason = "cached refusal: " + cached.Reason;
-            Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
+            string cacheProblem;
+            if (!HCXAISiteRules.ReuseRoute(cached, state.Key, m_RouteValidity)) { cacheProblem = "validity_mismatch"; }
+            else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2)) { cacheProblem = "no_geometry"; }
+            if (cacheProblem == "")
+            {
+                if (!cached.Qualified)
+                {
+                    if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
+                    state.Failed = true;
+                    state.Reason = cached.Reason;
+                    Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
+                    return;
+                }
+                int tick = GetGame().GetTime();
+                if (m_CacheSampleTick != tick) { m_CacheSampleTick = tick; m_CacheSamples = 0; }
+                if (m_CacheSamples >= 4 || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
+                m_CacheSamples++;
+                vector point = cached.Waypoints[state.HCCacheCursor];
+                // Live qualification can skip a middle anchor, leaving a kept
+                // leg spanning two authored legs plus sampling/snap allowance.
+                float maxCachedLeg = m_Policy.MaxLegLength * 2 + 32;
+                if (!HCXAIRules.PositionValid(point, 16000)) { cacheProblem = "waypoint_bounds"; }
+                else if (state.HCCacheCursor > 0 && vector.DistanceSq(cached.Waypoints[state.HCCacheCursor - 1], point) > maxCachedLeg * maxCachedLeg) { cacheProblem = "waypoint_leg"; }
+                else if (state.HCCacheCursor == cached.Waypoints.Count() - 1 && !cached.OpenRoute && state.Site.Behaviour == "LOOP" && vector.DistanceSq(point, cached.Waypoints[0]) > maxCachedLeg * maxCachedLeg) { cacheProblem = "closing_leg"; }
+                else
+                {
+                    vector sampled = this.NavSample(point, 0.5, m_Filter);
+                    if (sampled == vector.Zero || vector.Distance(sampled, point) > 0.5) { cacheProblem = "waypoint_sample"; }
+                }
+                if (cacheProblem == "")
+                {
+                    state.HCCacheCursor++;
+                    if (state.HCCacheCursor < cached.Waypoints.Count()) { return; }
+                    state.PatrolPoints.Copy(cached.Waypoints);
+                    state.OpenRoute = cached.OpenRoute;
+                    state.Qualified = true;
+                    this.HCReusedRoute(state);
+                    return;
+                }
+            }
+            if (!m_CacheReasons.Contains(cacheProblem))
+            {
+                m_CacheReasons.Set(cacheProblem, true);
+                Print("[HC Expansion AI] route cache discarded reason=" + cacheProblem);
+            }
+            m_Routes.Rows.RemoveItem(cached);
+            state.HCCachedRoute = null;
+            this.SaveRoutes();
             return;
         }
         float radius = 12;
@@ -1807,17 +1919,6 @@ class HCXAISiteDirector : Managed
             }
             if (state.Sampled.Count() < state.Points.Count()) { return; }
             state.PatrolPoints.Insert(state.Sampled[0]);
-            if (cached && HCXAISiteRules.ReuseQualifiedRoute(state.Site.Kind))
-            {
-                int cachedIndex = 1;
-                while (cachedIndex < state.Sampled.Count())
-                {
-                    state.PatrolPoints.Insert(state.Sampled[cachedIndex]);
-                    cachedIndex++;
-                }
-                state.Qualified = true;
-                state.Cached = true;
-            }
             return;
         }
         int authoredCount = state.Sampled.Count();
@@ -1867,12 +1968,22 @@ class HCXAISiteDirector : Managed
             passed.Key = state.Key;
             passed.SiteId = state.Site.Id;
             passed.Qualified = true;
+            passed.ValidityKey = m_RouteValidity;
+            passed.OpenRoute = state.OpenRoute;
+            if (state.PatrolPoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())
+            {
+                state.Qualified = false;
+                this.Refuse(state, "route geometry exceeds cache cap");
+                return;
+            }
+            passed.Waypoints.Copy(state.PatrolPoints);
+            if (m_PolicySiteIds.Contains(state.Site.Id) && !m_RouteResults.Contains(state.Site.Id)) { m_Requalified++; }
             this.Remember(passed);
             int legs = state.Kept - 1;
             if (state.Closed) { legs++; }
             string sampling = "navmesh";
             if (state.OutdoorPass) { sampling = "outdoor"; }
-            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v5 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
+            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v6 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
             qualifiedLine = qualifiedLine + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute);
             qualifiedLine = qualifiedLine + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints;
             Print("" + qualifiedLine);
@@ -2115,9 +2226,16 @@ class HCXAISiteDirector : Managed
         failed.Key = state.Key;
         failed.SiteId = state.Site.Id;
         failed.Qualified = false;
+        failed.ValidityKey = m_RouteValidity;
         failed.Reason = text;
         this.Remember(failed);
         Print("[HC Expansion AI] site " + state.Site.Id + " route refused: " + text);
+    }
+    protected void HCReusedRoute(HCXAISiteState state)
+    {
+        state.Cached = true;
+        if (m_PolicySiteIds.Contains(state.Site.Id) && !m_RouteResults.Contains(state.Site.Id)) { m_CacheHits++; }
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_cache");
     }
     protected void Remember(HCXAIRouteRow row)
     {
@@ -2131,6 +2249,8 @@ class HCXAISiteDirector : Managed
         }
         if (m_Routes.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { m_Routes.Rows.Remove(0); }
         m_Routes.Rows.Insert(row);
+        this.SaveRoutes();
+        if (row.Qualified) { HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_cache"); }
     }
     protected void StepCreate()
     {
@@ -2801,7 +2921,7 @@ class HCXAISiteDirector : Managed
         if (!crate)
         {
             crate = EntityAI.Cast(GetGame().CreateObjectEx(site.CacheClass, state.CacheWorld, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
-            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); }
+            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); HCPathgraphRefresh.Mark(crate); }
         }
         if (!crate || !crate.GetInventory())
         {
@@ -2837,21 +2957,28 @@ class HCXAISiteDirector : Managed
         MakeDirectory("$profile:HollowCountry");
         return JsonFileLoader<HCXAICacheJournal>.SaveFile(HCXAISiteDirector.CACHES, m_Caches, error);
     }
-    // Dirty mark only: the scheduler job (or the Stop flush) performs the write.
-    void HCRoutesChanged() { this.SaveRoutes(); }
+    // Only mutations dirty the cache; validated reuse never schedules a write.
     bool SaveRoutes()
     {
-        if (!m_Routes || m_Routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || !m_RouteSave) { return false; }
+        if (!HCXAISiteRules.HCRouteRowsValid(m_Routes) || !m_RouteSave) { return false; }
         m_RouteSave.HCChanged();
         return true;
     }
-    // Native 3_Game/tools/JsonFileLoader.c:85 MakeData uses the same default
-    // prettyPrint=true as SaveFile (:40). Snapshot bytes/DTO remain compatible.
-    bool HCRoutesText(out string text)
+    // The director owns slot 40 for both validation and its save preflight.
+    bool HCTakeRouteCacheUnit()
     {
-        if (!m_Routes || m_Routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
+        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1);
+    }
+    int HCRouteRowCount() { return m_Routes.Rows.Count(); }
+    HCXAIRouteRow HCRouteRowAt(int index) { return m_Routes.Rows[index]; }
+    // Snapshot rows are byte-budgeted incrementally under AI_ROUTE_CACHE.
+    // Keep the existing native pretty-printed JSON persistence format.
+    bool HCRoutesText(HCXAIRouteCache snapshot, out string text)
+    {
+        if (!HCXAISiteRules.HCRouteRowsValid(snapshot)) { return false; }
         string error;
-        return JsonFileLoader<HCXAIRouteCache>.MakeData(m_Routes, text, error);
+        // The save job checks the real size and trims the tail between steps.
+        return JsonFileLoader<HCXAIRouteCache>.MakeData(snapshot, text, error);
     }
     bool SaveOwned()
     {
@@ -3015,7 +3142,7 @@ class HCXAISiteDirector : Managed
             if (candidate == 2) { source = path + ".bak"; label = "bak"; }
             string data = HCWholeCacheText(source);
             if (data == "") { continue; }
-            if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { continue; }
+            if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !HCXAISiteRules.HCRouteRowsValid(routes)) { continue; }
             if (candidate > 0)
             {
                 string preserved = "";
@@ -3182,9 +3309,10 @@ class HCXCheckpointProps
                 return;
             }
         }
-        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
+        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
         if (!row.Table) { this.HCRetry(row, "native factory"); return; }
         HCGroundSnap.Snap(row.Table);
+        HCPathgraphRefresh.Mark(row.Table);
         row.Finished = true;
         Print("[HollowCountry] Checkpoints props present: " + row.Site.Id + "; empty roadside table remains if guards unavailable");
     }
