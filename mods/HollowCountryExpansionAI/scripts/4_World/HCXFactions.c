@@ -55,10 +55,21 @@ class HCXFactions
         if (!HCXAIQualification.EncountersEnabled()) { return site.Faction; }
         return EncounterFaction(site);
     }
+    // eAIFaction.Create("") spawns the unregistered base class (VM exception,
+    // then a crash in the patrol update), so admission needs a registered name.
+    static bool Registered(string factionName)
+    {
+        if (factionName == "") { return false; }
+        typename factionType = eAIFaction.GetType(factionName);
+        if (!factionType) { return false; }
+        return eAIRegisterFaction.s_FactionIDs.Contains(factionType);
+    }
     // The provider faction a site runs under once encounters are armed.
     static string EncounterFaction(HCXAISite site)
     {
-        if (site.ContentRole) { return site.ContentRole.ProviderFaction; }
+        // JSON-loaded sites carry an empty ContentRole until HC43 binds one;
+        // an empty provider name would make Expansion spawn base eAIFaction.
+        if (site.ContentRole && site.ContentRole.ProviderFaction != "") { return site.ContentRole.ProviderFaction; }
         if (site.Kind == "scavenger") { return "HCScavengers"; }
         if (site.Kind == "holdout") { return "HCLocals"; }
         return "HCVolunteers";

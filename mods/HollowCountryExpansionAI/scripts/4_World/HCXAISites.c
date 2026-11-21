@@ -2191,6 +2191,7 @@ class HCXAISiteDirector : Managed
             config.Waypoints.Insert(point);
         }
         string providerIssue = HCXAIQualification.ProviderProblem();
+        if (providerIssue == "" && !HCXFactions.Registered(config.Faction)) { providerIssue = "unregistered faction '" + config.Faction + "'"; }
         if (providerIssue == "") { providerIssue = HCXAIRules.PatrolProblem(config, state.PatrolPoints); }
         if (providerIssue != "")
         {

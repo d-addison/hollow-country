@@ -77,6 +77,7 @@ modded class HCXAISiteDirector
                     candidateSite.Id = sourceSite.Id;
                     candidateSite.Kind = sourceSite.Kind;
                     candidateSite.Faction = sourceSite.Faction;
+                    candidateSite.ContentRole = sourceSite.ContentRole;
                     candidateSite.Loadout = sourceSite.Loadout;
                     candidateSite.NumberOfAI = sourceSite.NumberOfAI;
                     candidateSite.NumberOfAIMax = sourceSite.NumberOfAIMax;
