@@ -395,7 +395,7 @@ class HCXExpansionBridge
 
     static typename HCFactionGetType(string factionName)
     {
-        if (!HCCheckFactionName(factionName, "FactionGetType")) { return null; }
+        if (!HCCheckFactionName(factionName, "FactionGetType")) { typename refused; return refused; }
         return eAIFaction.GetType(factionName);
     }
 
@@ -431,7 +431,7 @@ class HCXExpansionBridge
 
     static typename HCFactionType(eAIFaction value)
     {
-        if (!HCFactionValid(value, "HCFactionType")) { return null; }
+        if (!HCFactionValid(value, "HCFactionType")) { typename refused; return refused; }
         return value.Type();
     }
 
