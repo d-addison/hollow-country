@@ -2770,7 +2770,7 @@
         "tools/release/rpt_summary.py": "616bea429d50d612465ec85d493c954c40299fab6eb4781a79fc02c5802c1b9f",
         "tools/setup/server_report.py": "225025599bc906042af345db33d17e463fd95693de8f81585bc91a84090e90cc",
         "tools/setup/winproc.py": "640bec880000e1dac443f3815d946e874703a3881f39a37d726ad95c548b6392",
-        "tools/validate/tick_cost_report.py": "19a0364b1fb1f9a99741bbc3b89db0797d0a43e958e9673733e7f7fe0aebb488"
+        "tools/validate/tick_cost_report.py": "2bed3c29a5d025817db57903f412b5ff141d0313518beb28b5322b355ebbf83b"
       },
       "installed": {
         "ImageToPAA": "0b786037fc708931bcc85088ba69648bcf57463bcf3b1d3a21a35f29b9c2344a"
