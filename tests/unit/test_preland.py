@@ -36,19 +36,19 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(preland.SKIPPED, self.invoke(['--wb'], missing={'layout_lint', 'wb_compile'})[0])
         self.assertEqual(1, self.invoke(missing={'enforce_lint'})[0])
 
-    def test_changed_scope_and_no_accidental_full_perf(self):
+    def test_changed_scope_keeps_perf_on_the_full_tree(self):
         authored = next((preland.ROOT / 'mods/HollowCountry/scripts').rglob('*.c'))
         paths = [authored.relative_to(preland.ROOT).as_posix(), 'mods/Test/include.hpp', 'docs/note.md']
         with patch.object(preland, 'changed_files', return_value=paths):
             code, calls, output = self.invoke(['--changed', 'HEAD'])
         self.assertEqual(0, code)
         by_name = {m.rsplit('.', 1)[1]: a for m, a in calls}
-        self.assertEqual([paths[0]], by_name['enforce_perf'])
+        self.assertEqual([], by_name['enforce_perf'], 'perf ratchet needs a full-project run')
         self.assertEqual(paths, by_name['cfgconvert_check'])
         self.assertEqual([], by_name['layout_lint'])
         with patch.object(preland, 'changed_files', return_value=[]):
             _, calls, _ = self.invoke(['--changed', 'HEAD'])
-        self.assertNotIn('tools.validate.enforce_perf', [m for m, _ in calls])
+        self.assertIn('tools.validate.enforce_perf', [m for m, _ in calls])
 
     def test_changed_query_keeps_deleted_includes_without_git_mutation(self):
         import subprocess

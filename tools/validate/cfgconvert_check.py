@@ -68,14 +68,15 @@ def convert(source, tool):
         f"$p=Start-Process -FilePath {quote(exe)} -ArgumentList $cli "
         "-PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr; "
         "$handle=$p.Handle; $rc=124; if ($p.WaitForExit(30000)) { $p.WaitForExit(); $rc=$p.ExitCode } "
-        "else { $p.Kill(); $p.WaitForExit(); Write-Output 'CfgConvert failed: timeout' }; "
+        "else { Write-Output 'CfgConvert failed: timeout (process left running, not killed)' }; "
         "Get-Content -LiteralPath $stdout,$stderr -ErrorAction SilentlyContinue; "
         "$valid=$false; if (Test-Path -LiteralPath $out) { "
         "$b=[IO.File]::ReadAllBytes($out); $valid=($b.Length -gt 4 -and "
         "$b[0] -eq 0 -and $b[1] -eq 114 -and $b[2] -eq 97 -and $b[3] -eq 80) }; "
         f"Write-Output ('{MARKER}'+$rc+':'+$valid) "
-        "} finally { if ($p -and !$p.HasExited) { $p.Kill(); $p.WaitForExit() }; "
-        "Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue }"
+        # Never force-kill: a stalled converter is reported as a failure and its scratch is kept.
+        "} finally { if (!$p -or $p.HasExited) { "
+        "Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue } }"
     )
     result = winproc.run('powershell', [script], attempts=1, timeout=60)
     raw = result.stdout + '\n' + result.stderr

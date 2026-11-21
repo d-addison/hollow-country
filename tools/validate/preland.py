@@ -64,16 +64,14 @@ def main(argv=None):
         scope = 'full tree'
         if name == 'enforce_lint':
             arguments = ['--native-scripts', str(args.native_scripts.expanduser())]
-        elif paths is not None and name in {'enforce_perf', 'cfgconvert_check'}:
-            selected = paths
-            if name == 'enforce_perf':
-                selected = [p for p in paths if (ROOT / p).is_file() and p.endswith('.c') and (
-                    p.startswith('mission/') or (p.startswith('mods/') and '/scripts/' in p))]
-            if not selected:
+        elif paths is not None and name == 'cfgconvert_check':
+            # enforce_perf always runs on the full tree: its baseline ratchet (stale entries) and rule
+            # changes are only checked by a full-project run.
+            if not paths:
                 rows.append((name, 'no applicable changes', 'changed files'))
                 continue
-            arguments = selected
-            scope = 'changed files' if name == 'enforce_perf' else 'changed addons (non-mod change: full tree)'
+            arguments = paths
+            scope = 'changed addons (non-mod change: full tree)'
         print(f'preland: running {name} ({scope})', flush=True)
         try:
             code = run_check(module, arguments)

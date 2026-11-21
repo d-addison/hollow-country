@@ -59,7 +59,7 @@ class ConfigGateTests(unittest.TestCase):
             script = run.call_args.args[1][0]
             self.assertIn('-bin -dst', script)
             self.assertIn('Copy-Item', script)
-            self.assertIn('$p.Kill()', script)
+            self.assertNotIn('Kill()', script, 'never force-kill a stalled converter')
             self.assertIn('finally', script)
             self.assertIn('$env:TEMP', script)
 
