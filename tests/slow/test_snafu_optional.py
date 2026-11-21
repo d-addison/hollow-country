@@ -723,13 +723,18 @@ class BaseAddonStaysIndependent(unittest.TestCase):
                 self.assertNotIn('snafu', path.read_text().lower(), name)
 
     def test_no_snafu_or_workshop_assets_are_in_the_repo(self):
+        from tools.validate.hygiene import _pinned_icons
+        # Original GUI icons are admitted only when pinned by sha256 in art/gui-icons/manifest.json.
+        pinned = _pinned_icons(REPO)
         bad = []
         for folder in ('tools', 'docs', 'mods', 'mission', 'tests', 'config'):
             for path in (REPO / folder).rglob('*'):
                 name = path.name.lower()
                 if path.is_file() and (any(name.endswith(s) for s in ('.p3d', '.paa', '.rvmat', '.bisign', '.pbo'))
                                        or ('snafu' in name and name.endswith(('.xml', '.rar', '.pdf', '.bikey')))):
-                    bad.append(path.relative_to(REPO).as_posix())
+                    relative = path.relative_to(REPO).as_posix()
+                    if relative not in pinned:
+                        bad.append(relative)
         self.assertEqual(bad, [])
 
 
