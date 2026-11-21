@@ -82,3 +82,52 @@ class TextureIndex(unittest.TestCase):
 
     def test_slash_case_and_enforce_escaping(self):
         self.assertEqual('dz/ui/icon.paa', index.canonical(r'\\DZ\\UI\\icon.PAA'))
+
+
+    def manifest(self):
+        manifest = self.root / 'manifest.json'
+        manifest.write_text(json.dumps({'mods': [
+            {'id': 'dependency', 'folder': '@Dependency', 'publish': False},
+            {'id': 'owned', 'folder': '@Owned', 'publish': True}]}))
+        return manifest
+
+    def test_declared_dependencies_and_our_built_archives_are_required(self):
+        manifest = self.manifest()
+        addons = self.root / 'vanilla'
+        workshop = self.root / 'workshop'
+        for directory in (addons, workshop / 'dependency/Addons', workshop / 'owned/addons'):
+            directory.mkdir(parents=True)
+            (directory / 'test.pbo').write_bytes(archive([('icon.paa', b'')], prefix=directory.parent.name))
+        directories, coverage = index.declared_directories(addons, workshop, manifest)
+        self.assertEqual({addons, workshop / 'dependency/Addons', workshop / 'owned/addons'}, set(directories))
+        self.assertEqual(sorted(['vanilla', '@Dependency', '@Owned']), coverage)
+        data = index.build_index(directories, cache=None, coverage=coverage, manifest=manifest)
+        self.assertTrue(data['names'])
+        cache = self.root / 'cache/index.json'
+        index.build_index(directories, cache, coverage, manifest)
+        self.assertEqual(set(data['names']), index.load_index(cache, True, manifest))
+        manifest.write_text(json.dumps({'mods': []}))
+        with self.assertRaises(ValueError):
+            index.load_index(cache, True, manifest)
+        manifest = self.manifest()
+        (workshop / 'dependency/Addons/test.pbo').unlink()
+        with self.assertRaisesRegex(ValueError, '@Dependency'):
+            index.declared_directories(addons, workshop, manifest)
+
+    def test_incomplete_cache_cannot_pass_and_local_build_override(self):
+        manifest = self.manifest()
+        addons = self.root / 'vanilla'
+        workshop = self.root / 'workshop'
+        built = self.root / 'built'
+        for directory in (addons, workshop / 'dependency/addons', built):
+            directory.mkdir(parents=True)
+            (directory / 'test.pbo').write_bytes(archive([('icon.paa', b'')]))
+        directories, coverage = index.declared_directories(addons, workshop, manifest, [built])
+        self.assertIn(built, directories)
+        self.assertIn('@Owned', coverage)
+        with self.assertRaisesRegex(ValueError, 'built PBO prefix missing'):
+            index.build_index(directories, cache=None, coverage=coverage, manifest=manifest)
+        cache = self.root / 'cache/index.json'
+        index.build_index(directories, cache)
+        with self.assertRaises(ValueError):
+            index.load_index(cache, True, manifest)

@@ -4,9 +4,10 @@ Class allowlist: installed 1.30.164289 EnWidgets.c/WidgetType and vanilla
 GUI PBO layouts, inspected locally 2026-11-18. No vanilla content is distributed.
 Literal script loads/lookups are checked per source file and reviewed borrowed
 root declarations, never silently satisfied by an unrelated layout. Dynamic
-names are outside this static check's scope.
+names are reported as skipped asset references when they reach texture contexts.
 """
 import argparse
+import json
 from pathlib import Path
 import re
 import sys
@@ -93,7 +94,7 @@ def lint_layout(text):
     return names, findings
 
 
-def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None):
+def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None, procedural_allowlist=()):
     """Check every authored layout, load and literal lookup under root/mods."""
     root = Path(root)
     if borrowed_roots is None:
@@ -153,7 +154,7 @@ def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None):
             exists = _lookup_exists(kind, name, loaded_names, loaded_paths)
             if not exists:
                 findings.append(f'{label}: lookup {name!r} has no match in layouts loaded by this script (borrowed roots need review)')
-    texture_findings, texture_warnings = lint_textures(root, texture_names)
+    texture_findings, texture_warnings = lint_textures(root, texture_names, procedural_allowlist)
     findings.extend(texture_findings)
     if warnings is not None:
         warnings.extend(texture_warnings)
@@ -173,7 +174,9 @@ _COLOR = re.compile(r"#\((rgb|argb|ai|a|i),([1-9]\d*),([1-9]\d*),([1-9]\d*)\)col
                     + ','.join([f'({_NUMBER})'] * 4) + r"(?:,([a-z]+))?\)", re.I)
 _STRING = re.compile(r'"((?:\\.|[^"\\])*)"')
 _CALL = re.compile(r'\b(LoadImageFile|SetImage|LoadMaskTexture|SetTexture|ImageWidget)\s*\(')
-_ASSET = re.compile(r"\.(paa|edds|tga|png|jpg|jpeg|bmp)$", re.I)
+_ASSET = re.compile(r"\.(paa|edds|imageset|tga|png|jpg|jpeg|bmp)$", re.I)
+BASELINE = Path(__file__).with_name("texture_baseline.json")
+SKIPPED = 2
 
 
 def _call_arguments(text, start):
@@ -225,6 +228,9 @@ def texture_references(text, suffix):
         fields = re.compile(r'\b(?:image\d*|texture\w*|masktexture|file|path)\s*(?:=\s*)?"((?:\\.|[^"\\])*)"', re.I)
         for field in fields.finditer(text):
             seen.add((field.start(), field[1], False))
+        for literal in _STRING.finditer(text):
+            if _ASSET.search(literal[1]) or literal[1].startswith(('#(', 'image:', 'set:')):
+                seen.add((literal.start(), literal[1], False))
     else:  # config.cpp: scalar and array texture fields, including hidden selections
         fields = re.compile(r'\b(?:\w*texture\w*|icon|picture)\s*(?:\[\s*\])?\s*\+?=\s*(\{[^;]*?\}|"(?:\\.|[^"\\])*")', re.I)
         for field in fields.finditer(text):
@@ -250,14 +256,12 @@ def diagnostic_value(value):
                   '<home>', value, flags=re.I)
 
 
-def lint_textures(root, texture_names=None):
+def lint_textures(root, texture_names=None, procedural_allowlist=()):
     root = Path(root)
     local = texture_index.local_files(root)
     installed = None if texture_names is None else {texture_index.canonical(n) for n in texture_names}
     findings, warnings = [], []
-    files = set((root / 'mods').glob('*/gui/**/*.layout'))
-    files.update((root / 'mods').glob('*/gui/**/*.imageset'))
-    files.update((root / 'mods').glob('*/scripts/**/*.c'))
+    files = {p for p in (root / 'mods').rglob('*') if p.suffix in ('.layout', '.imageset', '.c')}
     files.update((root / 'mods').rglob('config.cpp'))
     local_prefixes = {texture_index.canonical(texture_index.addon_prefix(p)) for p in
                       (root / 'mods').iterdir() if p.is_dir()} if (root / 'mods').is_dir() else set()
@@ -270,6 +274,17 @@ def lint_textures(root, texture_names=None):
                 warnings.append(f'{label}: runtime texture expression needs native review: {display}')
                 continue
             if not value:  # native calls use an empty string to clear textures
+                continue
+            if path.suffix == '.layout' and value.casefold().startswith('#(argb'):
+                allowance = next((a for a in procedural_allowlist
+                                  if a.get('file') == path.relative_to(root).as_posix()
+                                  and a.get('line') == line and a.get('value') == value
+                                  and str(a.get('reason', '')).strip()), None)
+                if allowance is None:
+                    findings.append(f'{label}: banned procedural layout texture: {display}')
+                    continue
+            if '%' in value and not value.startswith('#'):
+                warnings.append(f'{label}: runtime texture template needs native review: {display}')
                 continue
             if value.startswith('#'):
                 if '%' in value:
@@ -290,44 +305,96 @@ def lint_textures(root, texture_names=None):
                 warnings.append(f'{label}: imageset symbolic reference needs native review: {display}')
                 continue
             canonical = texture_index.canonical(value)
-            if Path(canonical).suffix not in ('.paa', '.edds'):
+            if Path(canonical).suffix not in ('.paa', '.edds', '.imageset'):
                 findings.append(f'{label}: wrong texture extension (expected .paa/.edds): {display}')
                 continue
             if canonical in local:
                 if not local[canonical]:
                     findings.append(f'{label}: texture not shipped by PBO packer: {display}')
+                    continue
             elif any(canonical == prefix or canonical.startswith(prefix + '/') for prefix in local_prefixes):
                 findings.append(f'{label}: missing authored texture: {display}')
-            elif installed is not None and canonical not in installed:
+                continue
+            if installed is not None and canonical not in installed:
                 findings.append(f'{label}: missing indexed texture: {display}')
     return findings, warnings
+
+
+def texture_ratchet(unresolved, skipped, baseline):
+    """Counts ratchet independently; reasons make existing debt reviewable."""
+    findings = []
+    if not isinstance(baseline.get('counts'), dict):
+        return ['invalid texture baseline: counts']
+    for kind, references in (('unresolved', unresolved), ('skipped', skipped)):
+        entries = baseline.get(kind)
+        limit = baseline.get('counts', {}).get(kind)
+        if (not isinstance(entries, list) or type(limit) is not int or limit < 0
+                or limit != len(entries) or any(not isinstance(e, dict)
+                    or not str(e.get('reference', '')).strip()
+                    or not str(e.get('reason', '')).strip() for e in entries)):
+            findings.append('invalid texture baseline: ' + kind)
+            continue
+        if len(references) > limit:
+            findings.append(f'texture ratchet: {kind}={len(references)} exceeds baseline={limit}')
+    return findings
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--texture-index', type=Path, default=texture_index.DEFAULT_CACHE)
-    parser.add_argument('--no-texture-index', action='store_true', help='explicit offline run')
+    parser.add_argument('--baseline', type=Path, default=BASELINE)
+    parser.add_argument('--no-texture-index', action='store_true', help='explicit offline run (SKIP)')
     args = parser.parse_args(argv)
+    try:
+        baseline = json.loads(args.baseline.read_text(encoding='utf-8'))
+        if not isinstance(baseline, dict) or baseline.get('schema') != 1:
+            raise ValueError('invalid baseline')
+        allowances = baseline.get('procedural_layout_allowlist', [])
+        if (texture_ratchet([], [], baseline) or not isinstance(allowances, list)
+                or any(not isinstance(a, dict) or not isinstance(a.get('file'), str)
+                       or type(a.get('line')) is not int or a['line'] < 1
+                       or not isinstance(a.get('value'), str)
+                       or not isinstance(a.get('reason'), str) or not a['reason'].strip()
+                       for a in allowances)):
+            raise ValueError('invalid baseline')
+    except (OSError, ValueError):
+        print('layout_lint: FAIL texture baseline unavailable or invalid')
+        return 1
     names = None
+    reason = 'explicit offline run'
     if not args.no_texture_index:
         try:
-            names = texture_index.load_index(args.texture_index)
-        except (OSError, ValueError, TypeError, AttributeError):
-            pass
-    if names is None:
-        print('layout_lint: NOTICE installed texture index unavailable; skipping unresolved vanilla file checks '
-              '(build with python3 -B -m tools.validate.texture_index)')
-    else:
-        print('layout_lint: installed index loaded; rebuild after DayZ updates (cache freshness not checked)')
+            names = texture_index.load_index(args.texture_index, require_complete=True)
+        except (OSError, ValueError, TypeError, AttributeError, KeyError):
+            reason = 'installed index missing, invalid, or incomplete for declared dependencies; rebuild texture_index'
     warnings = []
-    findings = lint_tree(args.root, texture_names=names, warnings=warnings)
+    findings = lint_tree(args.root, texture_names=names, warnings=warnings,
+                         procedural_allowlist=baseline.get('procedural_layout_allowlist', []))
+    unresolved = [f for f in findings if 'missing indexed texture:' in f or 'missing authored texture:' in f]
+    findings = [f for f in findings if f not in unresolved]
+    for reference in unresolved:
+        print('UNRESOLVED ' + reference)
     for warning in warnings:
-        print('WARNING ' + warning)
+        print('SKIPPED ' + warning)
+    if names is not None:
+        findings.extend(texture_ratchet(unresolved, warnings, baseline))
+        counts = dict(unresolved=len(unresolved), skipped=len(warnings))
+        print('layout_lint: texture counts ' + json.dumps(counts, sort_keys=True))
+        if not findings and any(counts[k] < baseline['counts'][k] for k in counts):
+            print('layout_lint: texture baseline decreased; commit counts and reasoned lists: '
+                  + json.dumps(counts, sort_keys=True))
     for finding in findings:
         print(finding)
-    print(f'layout_lint: layouts={len(list((args.root / "mods").glob("*/gui/**/*.layout")))} findings={len(findings)}')
-    return int(bool(findings))
+    print(f'layout_lint: layouts={len(list((args.root / "mods").rglob("*.layout")))} findings={len(findings)}')
+    if findings:
+        print('layout_lint: FAIL')
+        return 1
+    if names is None:
+        print('layout_lint: SKIP ' + reason)
+        return SKIPPED
+    print('layout_lint: PASS (static asset gate; engine/client checks remain separate)')
+    return 0
 
 
 if __name__ == '__main__':

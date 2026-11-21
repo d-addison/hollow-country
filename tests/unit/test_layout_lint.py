@@ -1,5 +1,9 @@
 """Synthetic layouts exercise validation; no offline check establishes rendering."""
 import tempfile
+import contextlib
+import io
+import json
+from unittest.mock import patch
 import subprocess
 import sys
 import unittest
@@ -115,8 +119,8 @@ class LayoutSyntax(unittest.TestCase):
     def test_command_line_script_runs_from_another_directory(self):
         root = self.tree()
         result = subprocess.run([sys.executable, '-B', str(ROOT / 'tools/validate/layout_lint.py'),
-                                 '--root', str(root)], cwd=root, capture_output=True, text=True)
-        self.assertEqual(0, result.returncode, result.stderr)
+                                 '--root', str(root), '--no-texture-index'], cwd=root, capture_output=True, text=True)
+        self.assertEqual(layout_lint.SKIPPED, result.returncode, result.stderr)
         self.assertIn('layouts=1 findings=0', result.stdout)
 
     def test_every_layout_and_lookup_is_clean(self):
@@ -138,7 +142,10 @@ class TextureReferences(unittest.TestCase):
         for value in ('#(argb,8,8,3)color(1,1,1,1,co)', '#(argb,8,8,3)color(0.15,0,0,1.0,CO)',
                       '#(argb,8,8,3)color(0.5,0.5,0.5,0.75,ca)'):
             root = self.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
-            self.assertEqual(([], []), layout_lint.lint_textures(root))
+            self.assertTrue(any('banned procedural' in f for f in layout_lint.lint_textures(root)[0]))
+            allowance = [{'file': 'mods/HollowCountry/gui/layouts/test.layout', 'line': 1,
+                          'value': value, 'reason': 'Existing test fixture; native grammar regression.'}]
+            self.assertEqual(([], []), layout_lint.lint_textures(root, procedural_allowlist=allowance))
         for value in ('#(argb,8,8,3)color(1,1,1)', '#(argb,8,8,3)color(.5,1,1,1,co)',
                       '#(argb,8,8,3)color(1, 1,1,1,co)', '#(argb,7,8,3)color(1,1,1,1,co)'):
             root = self.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
@@ -184,20 +191,83 @@ class TextureReferences(unittest.TestCase):
         self.assertEqual([], findings)
         self.assertTrue(any(':3:' in w and 'unverified' in w for w in warnings))
 
-    def test_cli_without_cache_has_notice_and_success(self):
+    def test_cli_without_cache_is_skip(self):
         root = self.tree()
         result = subprocess.run([sys.executable, '-B', '-m', 'tools.validate.layout_lint', '--root', str(root),
                                  '--texture-index', str(root / 'absent.json')], cwd=ROOT, capture_output=True, text=True)
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn('skipping unresolved vanilla', result.stdout)
+        self.assertEqual(layout_lint.SKIPPED, result.returncode, result.stderr)
+        self.assertIn('layout_lint: SKIP', result.stdout)
+        self.assertNotIn('layout_lint: PASS', result.stdout)
 
 
     def test_documented_color_variants_warn_instead_of_false_errors(self):
         root = self.tree(layout='ImageWidgetClass Root { image0 "#(argb,8,8,3)color(1,1,1,1)" }')
         errors, warnings = layout_lint.lint_textures(root)
-        self.assertEqual([], errors)
-        self.assertTrue(any('documented procedural' in w for w in warnings))
+        self.assertTrue(any('banned procedural' in f for f in errors))
 
     def test_calls_inside_messages_are_not_runtime_calls(self):
         root = self.tree(script='Print("MapMarkerTypes.GetMarkerTypeFromID(id)"); Print("LoadImageFile(0, value)");')
         self.assertEqual(([], []), layout_lint.lint_textures(root))
+
+
+class TextureRatchet(unittest.TestCase):
+    def test_count_increases_fail_and_decreases_are_allowed(self):
+        entry = {'reference': 'fixture:1: missing', 'reason': 'Awaiting asset repair.'}
+        baseline = {'counts': {'unresolved': 1, 'skipped': 0},
+                    'unresolved': [entry], 'skipped': []}
+        self.assertEqual([], layout_lint.texture_ratchet([], [], baseline))
+        self.assertTrue(layout_lint.texture_ratchet(['a', 'b'], [], baseline))
+        self.assertTrue(layout_lint.texture_ratchet([], ['dynamic'], baseline))
+        baseline['unresolved'][0]['reason'] = ''
+        self.assertTrue(layout_lint.texture_ratchet([], [], baseline))
+
+    def test_all_authored_locations_and_imageset_paths(self):
+        case = TextureReferences()
+        self.addCleanup(case.doCleanups)
+        root = case.tree()
+        other = root / 'mods/HollowCountry/other'
+        other.mkdir()
+        (other / 'test.c').write_text('string atlas="DZ/UI/test.imageset";')
+        (other / 'test.imageset').write_text('arbitrary "dz/ui/test.paa"')
+        findings, _ = layout_lint.lint_textures(root, set())
+        self.assertTrue(any('test.imageset' in f for f in findings))
+        self.assertTrue(any('test.paa' in f for f in findings))
+        self.assertEqual([], layout_lint.lint_textures(root, {'dz/ui/test.imageset', 'dz/ui/test.paa'})[0])
+
+    def test_procedural_allowance_requires_exact_location_value_and_reason(self):
+        case = TextureReferences()
+        self.addCleanup(case.doCleanups)
+        value = '#(argb,8,8,3)color(1,1,1,1,co)'
+        root = case.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
+        allowance = {'file': 'mods/HollowCountry/gui/layouts/test.layout', 'line': 1,
+                     'value': value, 'reason': 'Legacy native check pending.'}
+        self.assertEqual([], layout_lint.lint_textures(root, procedural_allowlist=[allowance])[0])
+        for key, replacement in [('line', 2), ('reason', ''), ('value', 'different')]:
+            self.assertTrue(layout_lint.lint_textures(root, procedural_allowlist=[dict(allowance, **{key: replacement})])[0])
+
+
+    def test_cli_ratchet_pass_increase_and_drop(self):
+        case = TextureReferences()
+        self.addCleanup(case.doCleanups)
+        root = case.tree(script='string texture = "dz/ui/missing.paa";')
+        baseline_path = root / 'baseline.json'
+        baseline = {'schema': 1, 'counts': {'unresolved': 0, 'skipped': 0},
+                    'unresolved': [], 'skipped': [], 'procedural_layout_allowlist': []}
+        baseline_path.write_text(json.dumps(baseline))
+        def run(names):
+            output = io.StringIO()
+            with patch.object(layout_lint.texture_index, 'load_index', return_value=names), contextlib.redirect_stdout(output):
+                code = layout_lint.main(['--root', str(root), '--baseline', str(baseline_path)])
+            return code, output.getvalue()
+        code, output = run(set())
+        self.assertEqual(1, code)
+        self.assertIn('exceeds baseline', output)
+        code, output = run({'dz/ui/missing.paa'})
+        self.assertEqual(0, code)
+        self.assertIn('layout_lint: PASS', output)
+        baseline['counts']['unresolved'] = 1
+        baseline['unresolved'] = [{'reference': 'fixture:1: missing', 'reason': 'Existing missing fixture asset.'}]
+        baseline_path.write_text(json.dumps(baseline))
+        code, output = run({'dz/ui/missing.paa'})
+        self.assertEqual(0, code)
+        self.assertIn('baseline decreased', output)
