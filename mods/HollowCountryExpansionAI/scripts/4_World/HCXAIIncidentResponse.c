@@ -161,6 +161,7 @@ class HCXAIIncidentPolicy
 
 class HCXAIIncidentLease
 {
+    bool Fixture;
     // Weak by design: the native group owns its lifetime; a lost group ends the lease.
     eAIGroup Group;
     int IncidentId;
@@ -192,6 +193,7 @@ class HCXAIIncidentResponse : HCModule
     protected ref array<ref HCXAIIncidentLease> m_Leases = new array<ref HCXAIIncidentLease>;
     protected ref array<ref HCXAIIncidentCooldown> m_Cooldowns = new array<ref HCXAIIncidentCooldown>;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCXAIIncidentLease m_FixtureOffer;
     protected int m_Cursor;
     protected bool m_Running;
     protected string m_Refusal;
@@ -241,6 +243,7 @@ class HCXAIIncidentResponse : HCModule
             HCFinish(m_Leases[0], now);
         }
         m_Running = false;
+        m_FixtureOffer = null;
         m_Cooldowns.Clear();
         if (s_Instance == this) { s_Instance = null; }
     }
@@ -263,10 +266,77 @@ class HCXAIIncidentResponse : HCModule
     {
         string line = "[HCX Incidents] " + what + " response=" + lease.Response + " phase=" + lease.Phase;
         line = line + " incident=" + lease.IncidentId.ToString() + " leases=" + m_Leases.Count().ToString() + " runtime=PENDING";
+        if (lease.Fixture) { line += " fixture=1"; }
         Print("" + line);
     }
 
     // ------------------------------------------------------------------ offers
+
+    // Queue one existing pair. The role scheduler must offer this group after
+    // its private busy checks; this command never borrows a route itself.
+    static bool HCFixtureIncident(vector pos, bool apply, out string reason)
+    {
+        reason = "EnableSmokeFixtures-off";
+        if (!HCAdminFixtures.HCEnabled()) { return false; }
+        HCXAIIncidentResponse owner = s_Instance;
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        reason = "incident-service-unavailable";
+        if (!owner || !owner.m_Running || !director || director.Phase() != "run") { return false; }
+        if (owner.m_Leases.Count() >= owner.m_Policy.MaxLeases) { reason = "incident-lease-cap"; return false; }
+        HCWorldIncidents registry = HCWorldIncidents.HCGet();
+        int now = HCWorldIncidents.HCNowSeconds();
+        HCWorldIncident selected;
+        float nearest = float.MAX;
+        // Use the owner's normal incident work family; never a registry probe credit.
+        for (int index = 0; index < registry.HCCount(); index++)
+        {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)) { reason = "fixture-budget"; return false; }
+            HCWorldIncident row = registry.HCRowAt(index);
+            if (!row || !owner.m_Policy.HCFindRow(row.Response)) { continue; }
+            float gap = vector.DistanceSq(pos, row.Position);
+            if (gap < nearest) { nearest = gap; selected = row; }
+        }
+        reason = "no-existing-incident";
+        if (!selected) { return false; }
+        eAIGroup chosen;
+        nearest = float.MAX;
+        map<eAIGroup, bool> coolingGroups = new map<eAIGroup, bool>;
+        array<ref HCXAIIncidentCooldown> cooldowns = owner.m_Cooldowns;
+        foreach (HCXAIIncidentCooldown cooldown : cooldowns)
+        {
+            if (cooldown.Group && cooldown.Until > now) { coolingGroups.Set(cooldown.Group, true); }
+        }
+        array<ref HCXAISiteState> states = director.States();
+        foreach (HCXAISiteState state : states)
+        {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)) { reason = "fixture-budget"; return false; }
+            if (!state || !state.Site || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive || state.HCJourneyWalking) { continue; }
+            eAIGroup group = state.Patrol.m_Group;
+            if (!group || owner.HCLeaseFor(group) || HCXExpansionBridge.HCGroupIsInCombat(group) || owner.HCAlive(group) < 1) { continue; }
+            if (HCBaseRaid.HCOwns(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId) || HCW38SituationRuntime.HCUsed(state.ProposalId)) { continue; }
+            HCXAIAdapter adapter = HCXAIService.Adapter();
+            if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { continue; }
+            if (coolingGroups.Contains(group)) { continue; }
+            vector home = state.Site.HousePosition;
+            if (state.PatrolPoints.Count() > 0) { home = state.PatrolPoints[0]; }
+            if (!owner.HCEligible(selected, group, home, now)) { continue; }
+            float distance = vector.DistanceSq(pos, owner.HCLead(group));
+            if (distance < nearest) { nearest = distance; chosen = group; }
+        }
+        reason = "no-eligible-group-for-nearest-incident";
+        if (!chosen) { return false; }
+        if (apply)
+        {
+            HCXAIIncidentLease offer = new HCXAIIncidentLease;
+            offer.Group = chosen;
+            offer.IncidentId = selected.Id;
+            offer.Deadline = now + 60;
+            offer.Fixture = true;
+            owner.m_FixtureOffer = offer;
+        }
+        reason = "pair-queued-awaiting-normal-role-owner-busy-checks";
+        return true;
+    }
 
     bool HCAccept(eAIGroup group, vector home, int now)
     {
@@ -276,6 +346,14 @@ class HCXAIIncidentResponse : HCModule
         if (m_Leases.Count() >= m_Policy.MaxLeases) { return false; }
         if (HCXExpansionBridge.HCGroupIsInCombat(group) || HCAlive(group) < 1) { return false; }
         HCWorldIncidents registry = HCWorldIncidents.HCGet();
+        if (m_FixtureOffer && m_FixtureOffer.Deadline < now) { m_FixtureOffer = null; }
+        if (m_FixtureOffer && m_FixtureOffer.Group == group)
+        {
+            HCWorldIncident fixtureRow = registry.HCById(m_FixtureOffer.IncidentId);
+            m_FixtureOffer = null;
+            if (!fixtureRow || !HCEligible(fixtureRow, group, home, now)) { return false; }
+            return HCStartLease(registry, group, fixtureRow, now, true);
+        }
         int skipId = 0;
         for (int attempt = 0; attempt < 2; attempt++)
         {
@@ -475,7 +553,7 @@ class HCXAIIncidentResponse : HCModule
 
     // ------------------------------------------------------------------ leases
 
-    bool HCStartLease(HCWorldIncidents registry, eAIGroup group, HCWorldIncident row, int now)
+    bool HCStartLease(HCWorldIncidents registry, eAIGroup group, HCWorldIncident row, int now, bool fixture = false)
     {
         HCXAIIncidentRow rule = m_Policy.HCFindRow(row.Response);
         if (!rule) { return false; }
@@ -492,6 +570,7 @@ class HCXAIIncidentResponse : HCModule
             claimed = true;
         }
         HCXAIIncidentLease lease = new HCXAIIncidentLease;
+        lease.Fixture = fixture;
         lease.Group = group;
         lease.IncidentId = row.Id;
         lease.Response = row.Response;
@@ -516,7 +595,8 @@ class HCXAIIncidentResponse : HCModule
             return false;
         }
         m_Leases.Insert(lease);
-        HCModuleReadiness.HCUse("AIIncidents", "response_started");
+        if (lease.Fixture) { HCModuleReadiness.HCUseFixture("AIIncidents", "response_started"); }
+        else { HCModuleReadiness.HCUse("AIIncidents", "response_started"); }
         HCNote("lease_start", lease);
         return true;
     }

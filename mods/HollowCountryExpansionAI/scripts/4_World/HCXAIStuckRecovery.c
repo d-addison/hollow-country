@@ -41,8 +41,55 @@ class HCXAIStuckRecovery
     string Reason;
     string Kind = "journey";
     ref HCXConvoyRoute Replan;
+    bool Fixture;
     bool JourneyScheduled;
     bool AwaitingReplan;
+
+    // Mark an existing observer only when its own next sample is due.
+    // No sample, anchor, timestamp, ladder or route is changed here.
+    static bool HCFixtureStuck(vector pos, bool apply, out string reason)
+    {
+        reason = "EnableSmokeFixtures-off";
+        if (!HCAdminFixtures.HCEnabled()) { return false; }
+        int now = GetGame().GetTime();
+        HCXAIStuckRecovery chosen;
+        float nearest = float.MAX;
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (director)
+        {
+            array<ref HCXAISiteState> states = director.States();
+            HCWorkBudget work = new HCWorkBudget;
+            work.HCReset(states.Count(), HCPerfConfig.HCGet().SliceMs);
+            foreach (HCXAISiteState state : states)
+            {
+                if (!work.HCContinue()) { reason = "fixture-budget"; return false; }
+                if (!state || !state.HCJourneyWalking || state.Completed || !state.Materialized || !state.Patrol || !state.Patrol.m_Group) { continue; }
+                HCXAIStuckRecovery recovery = state.HCJourneyRecovery;
+                if (!recovery || recovery.Fixture || recovery.GivenUp || !recovery.Anchored || recovery.Replan || recovery.AwaitingReplan || recovery.Route.Count() < 1 || now - recovery.CheckedAt < recovery.IntervalMs) { continue; }
+                if (HCXExpansionBridge.HCGroupIsInCombat(state.Patrol.m_Group)) { continue; }
+                DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(state.Patrol.m_Group);
+                if (!leader || !leader.IsAlive()) { continue; }
+                float gap = vector.DistanceSq(pos, leader.GetPosition());
+                if (gap < nearest) { nearest = gap; chosen = recovery; }
+            }
+        }
+        HCXConvoyService service = HCXConvoyService.HCGet();
+        if (service && service.mHCRun)
+        {
+            HCXConvoyRun run = service.mHCRun;
+            HCXAIStuckRecovery convoy = run.mHCRecovery;
+            if (run.mHCPhase == "drive" && run.mHCCar && convoy && !convoy.Fixture && !convoy.GivenUp && convoy.Anchored && !convoy.Replan && now - convoy.CheckedAt >= convoy.IntervalMs)
+            {
+                float carGap = vector.DistanceSq(pos, run.mHCCar.GetPosition());
+                if (carGap < nearest) { chosen = convoy; }
+            }
+        }
+        reason = "no-existing-due-motion-check";
+        if (!chosen) { return false; }
+        if (apply) { chosen.Fixture = true; }
+        reason = "due-observer-marked-normal-motion-ladder";
+        return true;
+    }
 
     static void HCRegister(string module)
     {
@@ -73,6 +120,7 @@ class HCXAIStuckRecovery
     }
     void HCStart(array<vector> route, int now, int routeCap)
     {
+        Fixture = false;
         Route.Clear();
         Issued.Clear();
         Index = 0;
@@ -95,7 +143,9 @@ class HCXAIStuckRecovery
         s_Giveups++;
         string prefix = "[HC XAI] recovery=giveup party=" + Kind;
         if (Kind == "convoy") { prefix = "[HC Convoy] recovery=giveup"; }
+        if (Fixture) { prefix += " fixture=1"; }
         Print(prefix + " reason=" + reason + HCSummary() + " runtime=PENDING");
+        Fixture = false;
     }
     // Meaningful movement resets the sample window, but never the ladder.
     // A slow loop therefore cannot retry indefinitely.
@@ -123,7 +173,13 @@ class HCXAIStuckRecovery
         if (step == 1) { s_Reissue++; }
         else if (step == 2) { s_Next++; }
         else if (step == 3) { s_Replans++; }
-        HCModuleReadiness.HCUse(s_Module, "stuck_recovery");
+        if (Fixture)
+        {
+            HCModuleReadiness.HCUseFixture(s_Module, "stuck_recovery");
+            Print("[HC Convoy] recovery_step=" + step.ToString() + " fixture=1 runtime=PENDING");
+        }
+        else { HCModuleReadiness.HCUse(s_Module, "stuck_recovery"); }
+        Fixture = false;
     }
     // At most sixteen forward candidates; never move the cursor backwards.
     static int HCForward(array<vector> path, int index, vector position)
@@ -241,7 +297,7 @@ modded class HCXConvoyRun
     override void HCDrive(int now)
     {
         super.HCDrive(now);
-        if (mHCPhase != "drive") { return; }
+        if (mHCPhase != "drive") { mHCRecovery.Fixture = false; return; }
         if (mHCRecovery.GivenUp) { HCStop(mHCRecovery.Reason, now); return; }
         vector position = mHCCar.GetPosition();
         int recovery;
@@ -312,6 +368,7 @@ modded class HCXAIAdapter
     {
         super.OnStart(settings);
         if (GetGame() && GetGame().IsServer() && HCXAIService.Adapter() == this) { HCXAIStuckRecovery.HCRegister(GetName()); }
+        if (GetGame() && GetGame().IsServer() && HCXAIService.Adapter() == this) { HCXAIFixtureProvider.HCRegisterOnce(); }
     }
     override void OnTick(float deltaTime)
     {
