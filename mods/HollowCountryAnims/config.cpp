@@ -143,8 +143,6 @@ class CfgVehicles
     class ZmbF_usSoldier_normal_Desert;
     class ZmbM_CitizenASkinny_Blue;
     class ZmbM_CitizenASkinny_Brown;
-    class ZmbM_CitizenASkinny_Grey;
-    class ZmbM_CitizenASkinny_Red;
     class ZmbM_CitizenBFat_Blue;
     class ZmbM_CitizenBFat_Green;
     class ZmbM_CitizenBFat_Red;
@@ -157,7 +155,6 @@ class CfgVehicles
     class ZmbM_DoctorFat;
     class ZmbM_FarmerFat_Beige;
     class ZmbM_FarmerFat_Blue;
-    class ZmbM_FarmerFat_Brown;
     class ZmbM_FarmerFat_Green;
     class ZmbM_FirefighterNormal;
     class ZmbM_FishermanOld_Blue;
@@ -165,7 +162,6 @@ class CfgVehicles
     class ZmbM_FishermanOld_Grey;
     class ZmbM_FishermanOld_Red;
     class ZmbM_HandymanNormal_Beige;
-    class ZmbM_HermitSkinny_Beige;
     class ZmbM_HunterOld_Autumn;
     class ZmbM_Jacket_beige;
     class ZmbM_Jacket_black;

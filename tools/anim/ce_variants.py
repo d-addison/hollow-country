@@ -107,7 +107,14 @@ def render(config, policy, addons):
             raise ValueError('outfit animation inputs differ: ' + base)
         generated[row['to']] = (mode, base)
     lines = [BEGIN]
-    for base in sorted({b for _, b in generated.values()}):
+    # Forward-declare only bases the authored part of the file does not
+    # already declare: the engine refuses a repeated class at config load
+    # ("Member already defined"), before any script compiles.
+    authored = config
+    if BEGIN in authored:
+        authored = authored[:authored.index(BEGIN)] + authored[authored.index(END) + len(END):]
+    declared = set(re.findall(r'^    class (\w+)\s*;', authored, re.M))
+    for base in sorted({b for _, b in generated.values()} - declared):
         lines.append('    class ' + base + ';')
     for name, (mode, base) in sorted(generated.items()):
         lines.extend(['    class ' + name + ': ' + base, '    {', '        scope = 2;',
@@ -127,6 +134,11 @@ def render(config, policy, addons):
     else:
         at = config.rfind('};')
         config = config[:at] + block + '\n' + config[at:]
+    vehicles = config[config.index('class CfgVehicles'):]
+    top = re.findall(r'^    class (\w+)\s*[;:{\n]', vehicles, re.M)
+    repeated = sorted({n for n in top if top.count(n) > 1})
+    if repeated:
+        raise ValueError('class declared more than once in config.cpp: ' + ', '.join(repeated))
     names = ['HC_ZmbM_' + mode for mode in MODES] + sorted(generated)
     return re.sub(r'units\[\] = \{[^}]*\};', 'units[] = {' + ', '.join('"' + n + '"' for n in names) + '};', config)
 
