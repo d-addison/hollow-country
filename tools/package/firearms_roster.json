@@ -1936,75 +1936,6 @@
       ]
     },
     {
-      "class": "MakarovPB",
-      "kind": "weapon",
-      "role": "modern",
-      "tier": "rare",
-      "set": {
-        "nominal": 210,
-        "min": 180,
-        "restock": 300
-      },
-      "justification": "Owner 2026-11-20: 3x reviewed native parent MakarovIJ70 (zero/absent CE row) nominal/min; runtime pending.",
-      "datamined": true,
-      "acceptance": "pending-local",
-      "new_type_parent": "MakarovIJ70",
-      "runtime_acceptance": "pending",
-      "status": "requires-local-acceptance",
-      "ammo": [
-        "Ammo_380"
-      ],
-      "magazines": [
-        "Mag_MakarovPB_8Rnd"
-      ],
-      "family": "Makarov",
-      "disposition": "curated-family-split",
-      "set_usage": [
-        "Town",
-        "Village",
-        "Police",
-        "Military"
-      ],
-      "set_value": [
-        "Tier1",
-        "Tier2",
-        "Tier3",
-        "Tier4"
-      ]
-    },
-    {
-      "class": "Mag_MakarovPB_8Rnd",
-      "kind": "magazine",
-      "role": "support",
-      "tier": "rare",
-      "set": {
-        "nominal": 180,
-        "min": 150,
-        "restock": 180
-      },
-      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
-      "datamined": true,
-      "acceptance": "pending-local",
-      "new_type_parent": "Mag_IJ70_8Rnd",
-      "runtime_acceptance": "pending",
-      "status": "requires-local-acceptance",
-      "family": "magazine-Mag_MakarovPB_8Rnd",
-      "disposition": "curated-family-split",
-      "set_usage": [
-        "Hunting",
-        "Military",
-        "Police",
-        "Town",
-        "Village"
-      ],
-      "set_value": [
-        "Tier1",
-        "Tier2",
-        "Tier3",
-        "Tier4"
-      ]
-    },
-    {
       "class": "Winchester70_Black",
       "kind": "weapon",
       "role": "wood",
@@ -6462,7 +6393,18 @@
     "status": "superseded",
     "entries": []
   },
-  "deferred_datamined": [],
+  "deferred_datamined": [
+    {
+      "class": "Mag_MakarovPB_8Rnd",
+      "status": "requires-local-acceptance",
+      "note": "Owner 2026-11-20: Makarov PB (pb6p9 model) still renders bugged in game; removed from CE until a fixed model is verified."
+    },
+    {
+      "class": "MakarovPB",
+      "status": "requires-local-acceptance",
+      "note": "Owner 2026-11-20: Makarov PB (pb6p9 model) still renders bugged in game; removed from CE until a fixed model is verified."
+    }
+  ],
   "family_budgets": [
     {
       "family": "Mosin9130",
@@ -6569,8 +6511,8 @@
     {
       "family": "Makarov",
       "kind": "weapon",
-      "nominal": 420,
-      "min": 360
+      "nominal": 210,
+      "min": 180
     },
     {
       "family": "P1",
@@ -6805,12 +6747,6 @@
       "kind": "ammo",
       "nominal": 4560,
       "min": 2400
-    },
-    {
-      "family": "magazine-Mag_MakarovPB_8Rnd",
-      "kind": "magazine",
-      "nominal": 180,
-      "min": 150
     },
     {
       "family": "AK101",
@@ -8704,48 +8640,6 @@
         "justification": "Shared loose/box/tracer cartridge ceiling.",
         "family": "Ammo_545x39",
         "unit_rounds": 20,
-        "disposition": "curated-family-split"
-      },
-      {
-        "class": "MakarovPB",
-        "kind": "weapon",
-        "role": "modern",
-        "tier": "rare",
-        "set": {
-          "nominal": 2,
-          "min": 1
-        },
-        "justification": "Provisional family share; donor fields retained; runtime pending.",
-        "datamined": true,
-        "acceptance": "pending-local",
-        "new_type_parent": "MakarovIJ70",
-        "runtime_acceptance": "pending",
-        "status": "requires-local-acceptance",
-        "ammo": [
-          "Ammo_380"
-        ],
-        "magazines": [
-          "Mag_MakarovPB_8Rnd"
-        ],
-        "family": "Makarov",
-        "disposition": "curated-family-split"
-      },
-      {
-        "class": "Mag_MakarovPB_8Rnd",
-        "kind": "magazine",
-        "role": "support",
-        "tier": "rare",
-        "set": {
-          "nominal": 4,
-          "min": 2
-        },
-        "justification": "Provisional family share; donor fields retained; runtime pending.",
-        "datamined": true,
-        "acceptance": "pending-local",
-        "new_type_parent": "Mag_IJ70_8Rnd",
-        "runtime_acceptance": "pending",
-        "status": "requires-local-acceptance",
-        "family": "magazine-Mag_MakarovPB_8Rnd",
         "disposition": "curated-family-split"
       },
       {
@@ -10839,8 +10733,8 @@
       {
         "family": "Makarov",
         "kind": "weapon",
-        "nominal": 16,
-        "min": 12
+        "nominal": 14,
+        "min": 11
       },
       {
         "family": "Mosin9130",
@@ -11129,12 +11023,6 @@
         "kind": "magazine",
         "nominal": 6,
         "min": 4
-      },
-      {
-        "family": "magazine-Mag_MakarovPB_8Rnd",
-        "kind": "magazine",
-        "nominal": 4,
-        "min": 2
       },
       {
         "family": "magazine-Mag_P1_8Rnd",

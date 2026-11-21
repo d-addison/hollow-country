@@ -14,15 +14,16 @@ from tools.setup import local_test_session
 
 # Explicit synthetic parent budgets; installed config evidence is checked separately.
 NEW_PARENTS = {
-    'MakarovPB': 'MakarovIJ70', 'Mag_MakarovPB_8Rnd': 'Mag_IJ70_8Rnd',
     'Winchester70_Black': 'Winchester70', 'Winchester70_Green': 'Winchester70',
     'B95_Black': 'B95', 'B95_Green': 'B95', 'CZ527_Camo': 'CZ527',
     'CZ527_Green': 'CZ527', 'CZ527_desert': 'CZ527', 'CZ527_winter': 'CZ527'}
 
 ROSTER_PATH = Path(__file__).resolve().parents[2] / 'tools/package/firearms_roster.json'
 DATAMINED_WEAPONS = {'LeeEnfield', 'MP18', 'Luger', 'SKS_Black', 'SKS_Desert', 'SKS_Green', 'SKS_Winter',
-                     'Mosin9130_Black', 'Mosin9130_Winter', 'SVD_Wooden'} | (set(NEW_PARENTS) - {'Mag_MakarovPB_8Rnd'})
-DATAMINED_MAGAZINES = {'Mag_LeeEnfield_10Rnd', 'Mag_MP18_Drum32Rnd', 'Mag_Luger_8Rnd', 'Mag_MakarovPB_8Rnd'}
+                     'Mosin9130_Black', 'Mosin9130_Winter', 'SVD_Wooden'} | set(NEW_PARENTS)
+DATAMINED_MAGAZINES = {'Mag_LeeEnfield_10Rnd', 'Mag_MP18_Drum32Rnd', 'Mag_Luger_8Rnd'}
+# Owner 2026-11-20: the bugged Makarov PB model stays out of CE until fixed.
+REMOVED_DATAMINED = {'MakarovPB', 'Mag_MakarovPB_8Rnd'}
 # Historical first proposal; unsplit curated families retain the owner's established shares.
 V1_FIRST_PROPOSAL = {
     'Mosin9130': (12, 9), 'Mosin9130_Woodland': (5, 3), 'SKS': (6, 4), 'SKS_Woodland': (3, 2),
@@ -572,7 +573,7 @@ class ReviewedNewTypes(unittest.TestCase):
         (self.root / 'db/types.xml').write_bytes(ET.tostring(stock_root))
         self.before = economy.snapshot(self.root)
 
-    def test_nine_variants_and_pb_magazine_are_reviewed_and_pending(self):
+    def test_variants_are_reviewed_and_pending(self):
         enabled = {e['class']: e for e in self.roster['entries']}
         self.assertTrue(set(NEW_PARENTS) <= set(enabled))
         self.assertFalse(set(NEW_PARENTS) & {d['class'] for d in self.roster['deferred_datamined']})
@@ -724,7 +725,7 @@ class CommittedRoster(unittest.TestCase):
             cap = next(b['nominal'] for b in historical['family_budgets'] if b['family'] == e['family'])
             self.assertLessEqual(e['set']['nominal'], cap, e['class'])
         total = sum(e['set']['nominal'] for e in weapons)
-        self.assertEqual(total, 444)
+        self.assertEqual(total, 442)
         self.assertEqual(sum(e['set']['nominal'] for e in weapons if not e.get('datamined')), 394)
         # Unsplit curated classes keep established shares; skins now divide one family ceiling.
         by_class = {e['class']: e['set'] for e in weapons}
@@ -751,7 +752,7 @@ class CommittedRoster(unittest.TestCase):
             'B95': (6, 4), 'B95_Black': (2, 1), 'B95_Green': (2, 1),
             'Magnum': (9, 7), 'Magnum_Gold': (1, 1),
             'Colt1911': (12, 9), 'Engraved1911': (4, 3),
-            'MakarovIJ70': (14, 11), 'MakarovPB': (2, 1)}
+            'MakarovIJ70': (14, 11)}
         self.assertEqual({e['class'] for e in weapons if e['family'] in split_families}, set(split_shares))
         for name, (nominal, minimum) in split_shares.items():
             self.assertEqual(by_class[name], {'nominal': nominal, 'min': minimum}, name)
@@ -812,7 +813,8 @@ class CommittedRoster(unittest.TestCase):
 
     def test_deferred_datamined_are_all_pending_local_acceptance(self):
         deferred = self.data['deferred_datamined']
-        self.assertEqual(deferred, [])
+        self.assertEqual({d['class'] for d in deferred}, REMOVED_DATAMINED)
+        self.assertEqual({d['status'] for d in deferred}, {'requires-local-acceptance'})
         self.assertFalse({d['class'] for d in deferred} & {e['class'] for e in self.data['entries']})
 
     def test_optics_placeholder_is_superseded_by_the_optional_pack(self):

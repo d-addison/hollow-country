@@ -3152,31 +3152,6 @@
   {
    "kind": "attachment",
    "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 8,
-    "min": 4,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military",
-    "Police"
-   ],
-   "value": [
-    "Tier2",
-    "Tier3"
-   ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
-   "class": "TF_MakarovPB_Suppressor",
-   "slot": "weaponMuzzleMakarovPB",
-   "fits": [
-    "TF_MakarovPB"
-   ]
-  },
-  {
-   "kind": "attachment",
-   "role": "support",
    "tier": "rare",
    "set": {
     "nominal": 8,
@@ -6487,32 +6462,6 @@
   },
   {
    "kind": "weapon",
-   "role": "police",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 30,
-    "min": 20,
-    "lifetime": 7200,
-    "restock": 1800
-   },
-   "usage": [
-    "Police",
-    "Military"
-   ],
-   "value": [
-    "Tier2",
-    "Tier3"
-   ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
-   "class": "TF_MakarovPB",
-   "vanilla_ammo": [
-    "Ammo_380"
-   ],
-   "optic_requires": [],
-   "magazines": []
-  },
-  {
-   "kind": "weapon",
    "role": "civilian",
    "tier": "uncommon",
    "set": {
@@ -6911,6 +6860,14 @@
   {
    "group": "TF_Mag_AK74_60Rnd",
    "reason": "Static admission refused: multiple-definitions"
+  },
+  {
+   "group": "MakarovPB",
+   "classes": [
+    "TF_MakarovPB",
+    "TF_MakarovPB_Suppressor"
+   ],
+   "reason": "Owner 2026-11-20: Makarov PB (pb6p9 model) still renders bugged in game; removed from CE until a fixed model is verified."
   }
  ],
  "hc61": {
@@ -7514,12 +7471,6 @@
     "family": "tf-magazine",
     "unit_rounds": 1,
     "parts": [],
-    "class": "TF_MakarovPB_Suppressor"
-   },
-   {
-    "family": "tf-magazine",
-    "unit_rounds": 1,
-    "parts": [],
     "class": "TF_OTs_14_Groza_Suppressor"
    },
    {
@@ -8077,12 +8028,6 @@
     "family": "tf-weapon",
     "unit_rounds": 1,
     "parts": [],
-    "class": "TF_MakarovPB"
-   },
-   {
-    "family": "tf-weapon",
-    "unit_rounds": 1,
-    "parts": [],
     "class": "TF_VPO136"
    },
    {
@@ -8279,7 +8224,6 @@
    "TF_SCAR_StndHndgrd": "d8735defcf2050c5c5f712d09b4d6e619ce394ec72bcae83f65836acf01fc39b",
    "TF_AK_6kh5Bayonet": "6054cadcde745a0b172b36c29aaefbec4baf03f3ca0a337af4f8b6101e7fca59",
    "TF_SCAR_Suppressor_Black": "1ac48a1293f3dfad09dc2f1b8dbcc5f2ef83f1af34be7464a3e7cfe4b4d5a49c",
-   "TF_MakarovPB_Suppressor": "b84b7066aae78bcb2dbac4853a2091ccc5dc6091cf7e00b206ab940130da513e",
    "TF_OTs_14_Groza_Suppressor": "f79266503c9fab2d4763e26dcf5c1d63cf458ac6ac338ccea31f74f0e587c78c",
    "TF_OTs_14_Groza_Barrel_Grip": "2b7123c55d67105fa64225f6073e1b59d6d46bf58717ac6addd3ae8ce0f2fe92",
    "TF_AK_PBS1Suppressor": "53c8774e1b605230be0656e6985f2f4ef32ade21be156ed205cf15f8b7410848",
@@ -8372,7 +8316,6 @@
    "TF_MP443": "58fa2ec6e55e39e4aa898ceb98463d5e737298e6213fbf6d162308f158a0fbe7",
    "TF_OTs_12_Tiss": "85f4410979d262eac4af53454accbb34ef6ac2be95210f9bbf132ef2c392df0a",
    "TF_OTs_14_Groza": "6c48b686edce12c69413491dfe0fd92c1cc9278c412a381df54900a01244728c",
-   "TF_MakarovPB": "349d7c7036ba42e137898ea6c3abc8ace4dfd61e92fd3c5f5dcfa49d4d8bee1c",
    "TF_VPO136": "acea819f5f6afb69678850b021648bfc716ef71ac408159d7f19ad4ce05ea25f",
    "TF_VPO190": "851deadd5e2aea20cd9aef6f83ccb9c0b057a6bb0c238eb4545bec2858aab1a0",
    "TF_AEK999": "4857e0f7086e0fc7781a88f29a6a3d8d685dc82da033035fd499bf1b47421ccb",

@@ -9,7 +9,6 @@
     "Glock19",
     "FNX45",
     "CZ75",
-    "MakarovPB",
     "Deagle",
     "Deagle_Gold",
     "Derringer_Grey",
@@ -29,8 +28,7 @@
     "SNAFUMagnum500",
     "SNAFUAPS",
     "TF_FiveSeven",
-    "TF_MP443",
-    "TF_MakarovPB"
+    "TF_MP443"
   ],
   "zeroed": {}
 }
