@@ -269,6 +269,7 @@ class HCModuleReadiness
         if (module == "Scenes")
         {
             HCRegisterUse("Scenes", "scene_placed");
+            HCRegisterUse("Scenes", "retire_retry_cap");
             return;
         }
         if (module == "SurvivalAlignment")

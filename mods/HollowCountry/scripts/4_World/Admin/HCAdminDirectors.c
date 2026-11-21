@@ -187,6 +187,19 @@ modded class HCInfectedModule
 
 modded class HCEventModule
 {
+    protected string m_HCAdminAnnounceStatus;
+
+    protected int m_HCAdminRosterCursor;
+
+    override protected void HCAnnouncementCompleted(HCEventMission mission, int result)
+    {
+        super.HCAnnouncementCompleted(mission, result);
+        if (m_HCAdminAnnounceStatus != "announce pending") { return; }
+        m_RosterCursor = m_HCAdminRosterCursor;
+        m_HCAdminAnnounceStatus = "normal-event-director-code=" + result.ToString();
+        if (result == HCEventCode.OK) { m_HCAdminAnnounceStatus = "announced-nearest-site; runtime-unverified"; }
+    }
+
     string HCAdminCounts()
     {
         if (!m_Runtime || !m_Config) { return "active=n/a budget=unavailable"; }
@@ -197,13 +210,19 @@ modded class HCEventModule
         {
             if (state.Runs[runIndex].Phase != HCEventRunPhase.CLOSED) { active++; }
         }
-        return "active=" + active.ToString() + " run_cap=" + m_Config.MaxRuns.ToString();
+        return "active=" + active.ToString() + " run_cap=" + m_Config.MaxRuns.ToString() + " " + m_HCAdminAnnounceStatus;
     }
 
     bool HCAdminEvent(vector pos, out string reason)
     {
         reason = "event-service-or-site-cap-unavailable";
         if (!m_Runtime || !m_Config || !m_NativeObserver || m_Stopping) { return false; }
+        // Pending is an admitted continuation, never a refusal code in the UI.
+        if (m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned())
+        {
+            reason = "announce pending";
+            return true;
+        }
         if (m_Config.Sites.Count() > 32) { return false; }
         HCEventContext context = Context();
         HCEventSite nearest;
@@ -227,7 +246,18 @@ modded class HCEventModule
             HCEventMission mission = roster[missionIndex];
             if (m_Runtime.HasMission(mission.Id)) { continue; }
             HCEventWorldBinding.Bind(m_NativeObserver, mission);
-            int code = m_Runtime.Announce(mission, context);
+            int code = HCAnnouncePaced(mission, context);
+            if (m_Runtime.HCAnnouncePending())
+            {
+                // The module's existing paced completion owns the receipt and AI
+                // reservation. Keep the admin UI status until that later tick.
+                m_HCAdminRosterCursor = m_RosterCursor;
+                m_AnnouncingSlot = m_RosterCursor;
+                m_AnnouncingPolice = false;
+                m_HCAdminAnnounceStatus = "announce pending";
+                reason = m_HCAdminAnnounceStatus;
+                return true;
+            }
             reason = "normal-event-director-code=" + code.ToString();
             if (code == HCEventCode.OK)
             {

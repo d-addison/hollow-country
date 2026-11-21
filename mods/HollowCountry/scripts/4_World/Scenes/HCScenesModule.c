@@ -46,6 +46,7 @@ class HCScenesModule : HCModule
     protected ref HCGapcodeStoryIndex m_StoryIndex;
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
+    protected ref map<HCSceneLease, ref HCEventMission> m_ViewAnnouncing = new map<HCSceneLease, ref HCEventMission>;
     // At most two leases; release the retry entry with its view identity.
     protected ref map<HCSceneLease, int> m_ViewRetireAttempts = new map<HCSceneLease, int>;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
@@ -70,6 +71,8 @@ class HCScenesModule : HCModule
     override string GetName() { return "Scenes"; }
 
     // HC-62 readiness requires the loaded index and a source-qualified pair.
+    // This is the bounded HC-42 read/decode admission, not Events/AI readiness.
+    // HCStep keeps its configured row ceiling and 2 ms guard during startup.
     // Selection/clearance is progress, not a readiness failure or native acceptance.
     override HCOperationalStatus HCGetOperationalStatus()
     {
@@ -304,21 +307,28 @@ class HCScenesModule : HCModule
         HCEventRuntime runtime = events.Runtime();
         HCEventContext context = events.Context();
         if (!context) { AdvertiseRefused(lease, "event-context-unavailable"); return; }
-        if (!runtime.HasMission(mission.Id))
+        HCEventMission pendingMission;
+        int announced = HCEventCode.OK;
+        if (m_ViewAnnouncing.Find(lease, pendingMission))
         {
-            int announced = runtime.Announce(mission, context);
-            if (announced != HCEventCode.OK) { AdvertiseRefused(lease, "announce-code-" + announced.ToString()); return; }
+            if (runtime.HCAnnouncePending()) { return; }
+            announced = runtime.HCTakeAnnounceResult(pendingMission, context);
+            m_ViewAnnouncing.Remove(lease);
         }
-        HCEventRuntimeState snapshot = runtime.Snapshot();
-        foreach (HCEventRun run : snapshot.Runs)
+        else if (!runtime.HasMission(mission.Id))
         {
-            if (run.Objective.Id == mission.Id)
-            {
-                lease.ViewEventId = run.EventId;
-                lease.ViewSession = context.Session;
-                Print("[HollowCountry] V2 scene advertised id=" + lease.ChainId + " stage=" + lease.Stage.ToString() + " event=" + lease.ViewEventId.ToString());
-                return;
-            }
+            // Another caller owns the candidate or its completion receipt: quiet yield.
+            if (runtime.HCPublishPending() || runtime.HCAnnounceOwned()) { return; }
+            announced = runtime.HCAnnounceStaged(mission, context);
+            if (runtime.HCAnnouncePending()) { m_ViewAnnouncing.Insert(lease, mission); return; }
+        }
+        if (announced != HCEventCode.OK) { AdvertiseRefused(lease, "announce-code-" + announced.ToString()); return; }
+        lease.ViewEventId = runtime.HCMissionEventId(mission.Id);
+        if (lease.ViewEventId > 0)
+        {
+            lease.ViewSession = context.Session;
+            Print("[HollowCountry] V2 scene advertised id=" + lease.ChainId + " stage=" + lease.Stage.ToString() + " event=" + lease.ViewEventId.ToString());
+            return;
         }
         AdvertiseRefused(lease, "missing-view-run");
     }
@@ -410,7 +420,25 @@ class HCScenesModule : HCModule
 
     void RetireView(HCSceneLease lease)
     {
-        if (!lease || lease.ViewEventId == 0) { return; }
+        if (!lease) { return; }
+        HCEventMission pendingMission;
+        if (m_ViewAnnouncing.Find(lease, pendingMission))
+        {
+            HCEventModule pendingEvents = HCEventModule.Get();
+            if (pendingEvents && pendingEvents.Runtime())
+            {
+                HCEventRuntime pendingRuntime = pendingEvents.Runtime();
+                if (pendingRuntime.HCAnnouncePending()) { return; }
+                HCEventContext pendingContext = pendingEvents.Context();
+                if (pendingRuntime.HCTakeAnnounceResult(pendingMission, pendingContext) == HCEventCode.OK)
+                {
+                    lease.ViewEventId = pendingRuntime.HCMissionEventId(pendingMission.Id);
+                    lease.ViewSession = pendingContext.Session;
+                }
+            }
+            m_ViewAnnouncing.Remove(lease);
+        }
+        if (lease.ViewEventId == 0) { return; }
         HCEventModule events = HCEventModule.Get();
         if (!events || !events.Runtime()) { HCReleaseView(lease, "runtime-unavailable"); return; }
         HCEventRuntime runtime = events.Runtime();
@@ -419,8 +447,6 @@ class HCScenesModule : HCModule
         if (context.Session != lease.ViewSession) { HCReleaseView(lease, "session-changed"); return; }
         int attempts;
         m_ViewRetireAttempts.Find(lease, attempts);
-        if (attempts >= 12) { HCReleaseView(lease, "retry-cap"); return; }
-        m_ViewRetireAttempts.Set(lease, attempts + 1);
         // Pending/busy is the only transient refusal; never clone while it owns state.
         if (runtime.HCCancelPending()) { return; }
         if (!runtime.HCReadAllowed(context)) { HCReleaseView(lease, "runtime-unavailable"); return; }
@@ -429,15 +455,30 @@ class HCScenesModule : HCModule
         if (!record) { HCReleaseView(lease, "record-missing"); return; }
         if (!HCEventDirector.Terminal(record.Status))
         {
+            if (attempts >= 12)
+            {
+                // Transfer cancellation ownership before releasing the scenery lease.
+                if (attempts == 12)
+                {
+                    if (!runtime.HCQueueSceneRetirement(record.Id)) { return; }
+                    HCModuleReadiness.HCUse("Scenes", "retire_retry_cap");
+                    m_ViewRetireAttempts.Set(lease, 13);
+                }
+                // Keep props until the queued cancellation is durably terminal.
+                return;
+            }
+            m_ViewRetireAttempts.Set(lease, attempts + 1);
             int result = runtime.Cancel(record.Id, context);
             if (result != HCEventCode.OK)
             {
                 if (runtime.HCOperational() && runtime.HCCancelPending()) { return; }
-                HCReleaseView(lease, "cancel-refused-code-" + result.ToString());
+                // Keep the view owned until a real cancellation or bounded handoff.
                 return;
             }
         }
-        HCReleaseView(lease, "");
+        string releasedReason;
+        if (attempts >= 13) { releasedReason = "retry-cap"; }
+        HCReleaseView(lease, releasedReason);
     }
 
     bool Cleanup(HCSceneLease lease)
@@ -446,7 +487,7 @@ class HCScenesModule : HCModule
         lease.Closing = true;
         RetireView(lease);
         // Keep ownership for the existing Work/CleanupStopped tick to retry.
-        if (lease.ViewEventId != 0) { return false; }
+        if (lease.ViewEventId != 0 || m_ViewAnnouncing.Contains(lease)) { return false; }
         if (!HCSceneKits.Remove(lease)) { return false; }
         int index = m_Leases.Find(lease);
         if (index >= 0) { m_Leases.Remove(index); }

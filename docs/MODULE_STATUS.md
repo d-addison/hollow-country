@@ -594,7 +594,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Polish | `hint_shown`, `sound_played` |
 | Progression | `familiarity_gained` |
 | Radio | `report_delivered` |
-| Scenes | `scene_placed` |
+| Scenes | `scene_placed`, `retire_retry_cap` |
 | SearchBinding | `supply_bound` |
 | SettlementDecay | `prop_placed` |
 | Shelters | `shelter_placed`, `pathgraph_refresh` (native routing verification pending) |

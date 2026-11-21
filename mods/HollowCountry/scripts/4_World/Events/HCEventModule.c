@@ -443,7 +443,7 @@ class HCEventModule : HCModule
                 HCCompleteAnnouncement(context);
                 return;
             }
-            if (journalTick || m_Runtime.HCPublishPending()) { return; }
+            if (journalTick || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return; }
             if (m_StartupSweep || m_BindContinuing || m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
@@ -459,7 +459,7 @@ class HCEventModule : HCModule
     // their own owners and are never disabled by this pacing gate.
     int HCAnnouncePaced(HCEventMission mission, HCEventContext context)
     {
-        if (m_Announcing || m_Runtime.HCAnnouncePending()) { return HCEventCode.BLOCKED; }
+        if (m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
         if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
             if (!HCPaceSituation("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
@@ -480,6 +480,9 @@ class HCEventModule : HCModule
         }
         return result;
     }
+
+    // Caller-side receipt notification; the module alone consumes the result.
+    protected void HCAnnouncementCompleted(HCEventMission mission, int result) {}
 
     protected void HCCompleteAnnouncement(HCEventContext context)
     {
@@ -507,6 +510,7 @@ class HCEventModule : HCModule
             }
         }
         m_RosterCursor = (m_AnnouncingSlot + 1) % (m_Config.Sites.Count() * 7);
+        HCAnnouncementCompleted(m_Announcing, result);
         m_Announcing = null;
         m_AnnouncingPolice = false;
         m_BindContinuing = false;
@@ -530,7 +534,7 @@ class HCEventModule : HCModule
             HCFinishStartupSweep();
             return;
         }
-        if (!m_Runtime || !m_NativeObserver || m_Announcing || m_Runtime.HCAnnouncePending()) { return; }
+        if (!m_Runtime || !m_NativeObserver || m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return; }
         // One slot per tick during startup, then per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.
