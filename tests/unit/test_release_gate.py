@@ -169,11 +169,18 @@ class ReleaseGateTests(unittest.TestCase):
             unittest.mock.call.stop(), unittest.mock.call.install(Path('new')),
             unittest.mock.call.boot(Path('new'), upgrade_minutes), unittest.mock.call.stop()])
 
-    def test_optional_upgrade_does_not_claim_boot(self):
-        steps = gate.NativeSteps(self.args(previous_bundle=None))
-        steps.boot = Mock()
-        steps.upgrade()
-        steps.boot.assert_not_called()
+    def test_missing_previous_bundle_follows_upgrade_target(self):
+        for required in (True, False):
+            with self.subTest(required=required):
+                targets = dict(TARGETS, upgrade_from_previous_release_required=required)
+                steps = gate.NativeSteps(self.args(previous_bundle=None), targets=targets)
+                steps.boot = Mock()
+                if required:
+                    with self.assertRaises(gate.Refused):
+                        steps.upgrade()
+                else:
+                    steps.upgrade()
+                steps.boot.assert_not_called()
 
     def test_client_smoke_waits_for_all_mapped_positive_features(self):
         mappings = [f'{category}=Core/{category}' for category in gate.CATEGORIES]

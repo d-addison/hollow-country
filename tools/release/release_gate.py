@@ -174,6 +174,10 @@ class NativeSteps:
         self.started = False
 
     def upgrade(self):
+        if not self.args.previous_bundle:
+            if self.targets['upgrade_from_previous_release_required']:
+                raise Refused('previous release bundle required for the upgrade check (--previous-bundle)')
+            return
         if self.args.previous_bundle:
             self.install(self.args.previous_bundle)
             self.boot(self.args.previous_bundle, 1)

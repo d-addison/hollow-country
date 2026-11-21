@@ -29,10 +29,11 @@ Order:
    `mission-loaded-runtime-json` explicitly. Other successful compile statuses
    do not satisfy this release contract.
 2. Require the candidate `BUILD_MANIFEST.json` commit to match exactly.
-3. If supplied, install the previous bundle, boot for a minute, gracefully stop,
-   install the candidate with the same server/storage, boot and stop. Refuse
-   error/readiness failures and store quarantine evidence. Without the previous
-   bundle this optional experiment is omitted; no upgrade is claimed.
+3. Install the previous bundle, boot for a minute, gracefully stop, install the
+   candidate with the same server/storage, boot and stop. Refuse error/readiness
+   failures and store quarantine evidence. While
+   `upgrade_from_previous_release_required` is true, a missing `--previous-bundle`
+   refuses the release; only with it false is the step omitted (no upgrade claimed).
 4. Install the candidate and run `checkstart --start` with `--settle-minutes`
    from `soak_minutes` and an overall deadline of that duration plus 15 minutes. Audit its one fresh RPT through `rpt_summary` and
    `tick_cost_report.perf_rules`: apply `max_script_errors`, `max_vme_server` and `perf_r2_max_ms` from the
