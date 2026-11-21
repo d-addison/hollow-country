@@ -16,5 +16,8 @@
     "native_density_cap": 3,
     "native_density_multiplier": 1.5,
     "near_water_or_farm_radius": 250
+  },
+  "Ecology": {
+    "EnableCompositionVariety": true
   }
 }
