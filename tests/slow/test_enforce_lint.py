@@ -422,6 +422,29 @@ class Baseline(unittest.TestCase):
             self.assertIn('NEW  mods/HollowCountry/scripts/4_World/T.c:3: HC-E001', out.getvalue())
 
 
+class CompileFormulaShapes(unittest.TestCase):
+    # #313: build 132 compile gate refused both shapes (fixed in 386809e1).
+    def concat(self, operands):
+        return 'class A { void F() { string s = "a"' + ' + x' * operands + '; } }'
+
+    def test_string_assignment_is_flagged_only_beyond_the_operand_limit(self):
+        limit = lint.MAX_STRING_PLUS
+        self.assertEqual([], run({W + 'A.c': self.concat(limit)}, 'HC-E020'))
+        self.assertEqual(1, len(run({W + 'A.c': self.concat(limit + 1)}, 'HC-E020')))
+
+    def test_long_concatenation_passed_straight_to_a_call_is_not_flagged(self):
+        text = 'class A { void F() { Print("a"' + ' + x' * (lint.MAX_STRING_PLUS * 2) + '); } }'
+        self.assertEqual([], run({W + 'A.c': text}, 'HC-E020'))
+
+    def test_line_led_by_a_binary_operator_is_flagged_and_increment_is_not(self):
+        for operator in ('||', '&&', '+', '==', '!='):
+            with self.subTest(operator=operator):
+                text = 'class A { bool F() {\n return a\n ' + operator + ' b; } }'
+                self.assertEqual(1, len(run({W + 'A.c': text}, 'HC-E021')))
+        text = 'class A { void F() {\n ++i;\n // || in a comment\n Print("|| in a string");\n } }'
+        self.assertEqual([], run({W + 'A.c': text}, 'HC-E021'))
+
+
 class CurrentTree(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -446,7 +469,7 @@ class CurrentTree(unittest.TestCase):
         # Compile traps stop a native boot outright; they are fixed, never baselined.
         self.assertEqual([], [e for e in self.baseline['entries'] if e['rule'] in ('HC-E001', 'HC-E002', 'HC-E003',
                                                                                    'HC-E004', 'HC-E005', 'HC-E007', 'HC-E008',
-                                                                                   'HC-L001')])
+                                                                                   'HC-E020', 'HC-E021', 'HC-L001')])
 
 
 if __name__ == '__main__':

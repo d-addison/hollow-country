@@ -59,6 +59,8 @@ RULES = {
     'HC-E017': 'vanilla storage override without an explicit migration-plan allowlist entry',
     'HC-E018': 'variable name shadows a type visible in this script module',
     'HC-E019': 'member declared only by a later file in the same modded-class chain',
+    'HC-E020': 'string assignment with too many + operands (native compile: Formula too complex); build it with +=',
+    'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -311,6 +313,34 @@ def rule_file_handle_int(project, source):
     for name in sorted(names):
         for match in re.finditer(r'(?<![\w.])' + name + r'\s*=\s*\d+\s*;', source.code):
             yield _finding('HC-E010', source, match.start(), name, RULES['HC-E010'])
+
+
+# Native compile gate, build 132 (#313): an assignment of a string concatenation with 21 '+'
+# operands failed with "Formula too complex" (hcxaifortification.c,90); the longest that compiles
+# on main has 13. The limit sits between the two observations.
+MAX_STRING_PLUS = 16
+_STRING_ASSIGN = re.compile(r'(?:^|[;{}])\s*((?:string\s+)?[A-Za-z_]\w*(?:\.\w+)*)\s*(?<![=!<>+\-*/%&|^])=(?!=)([^;{}]*);')
+
+
+def rule_string_formula(project, source):
+    for match in _STRING_ASSIGN.finditer(source.code):
+        rhs = match.group(2)
+        if '"' not in rhs:
+            continue
+        operands = re.sub(r'\+\+|\+=', '', rhs).count('+')
+        if operands > MAX_STRING_PLUS:
+            yield _finding('HC-E020', source, match.start(2), '<file>',
+                           f'{operands} + operands (limit {MAX_STRING_PLUS}): {RULES["HC-E020"]}')
+
+
+# Native compile gate, build 132 (#313): a return expression continued on the next line with a
+# leading "||" failed with "Unknown type '||'" (hcinteriorplacementcursor.c,213).
+_LEADING_OPERATOR = re.compile(r'^[ \t]*(\|\||&&|\+(?![+=])|\*(?!=)|/(?![=/*])|%|==|!=)', re.M)
+
+
+def rule_leading_operator(project, source):
+    for match in _LEADING_OPERATOR.finditer(source.code):
+        yield _finding('HC-E021', source, match.start(1), '<file>', f'{match.group(1)}: {RULES["HC-E021"]}')
 
 
 # Native boot 075: hcxaibaseraid.c,270 "Expected name, not a keyword 'local'"; compile-xai4-01 refused `owned`.
@@ -1222,7 +1252,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
