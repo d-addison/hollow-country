@@ -78,24 +78,41 @@ class DriverTests(unittest.TestCase):
                 path = native / module / 'native.c'
                 path.parent.mkdir(parents=True)
                 path.write_text('// native fixture')
-            for mod in ('Selected', 'Ignored'):
+            for mod in ('HollowCountry', 'HollowCountryExpansionAI', 'Ignored'):
                 path = tree / 'mods' / mod / 'scripts/4_World/authored.c'
                 path.parent.mkdir(parents=True)
                 path.write_text('// authored fixture')
                 path.with_suffix('.paa').write_bytes(b'asset')
             template = 'Directory "./"\n' + '\n'.join('Paths { "scripts/' + m + '" }' for m in wb.MODULES)
             (tool / 'dayz.gproj').write_text(template)
-            with patch.object(wb.ship_inputs, 'signing_inputs', return_value=[('s', 'Selected', 'base')]) as catalogue, \
+            with patch.object(wb.ship_inputs, 'signing_inputs', wraps=wb.ship_inputs.signing_inputs) as catalogue, \
                     patch.object(wb, 'windows_path', return_value='C:\\scratch'):
                 counts = wb.stage(tree, native, tool, scratch)
             catalogue.assert_called_once_with()
-            self.assertIn('Selected', counts)
+            self.assertGreater(counts['HollowCountry'], 0)
+            self.assertGreater(counts['HollowCountryExpansionAI'], 0)
             self.assertFalse((scratch / 'Ignored').exists())
             self.assertFalse(list(scratch.rglob('*.paa')))
             project = (scratch / 'hc_compile.gproj').read_text()
-            self.assertIn('Selected/scripts/4_World', project)
+            self.assertIn('HollowCountry/scripts/4_World', project)
+            self.assertIn('HollowCountryExpansionAI/scripts/4_World', project)
             self.assertEqual(sorted(wb.MODULES, key=project.index), list(wb.MODULES))
             self.assertTrue((scratch / 'scripts/editor/plugins/HC_CompileCheck.c').is_file())
+            for _, mod in wb.REQUIRED_SCRIPT_INPUTS:
+                scripts = tree / 'mods' / mod / 'scripts'
+                hidden = scripts.with_name('hidden')
+                scripts.rename(hidden)
+                with self.subTest(mod=mod, state='missing'), self.assertRaisesRegex(ValueError, 'directory absent'):
+                    wb.stage(tree, native, tool, scratch)
+                hidden.rename(scripts)
+                authored = scripts / '4_World/authored.c'
+                authored.unlink()
+                with self.subTest(mod=mod, state='empty'), self.assertRaisesRegex(ValueError, 'empty required'):
+                    wb.stage(tree, native, tool, scratch)
+                authored.write_text('// authored fixture')
+            with patch.object(wb.ship_inputs, 'signing_inputs', return_value=[]), \
+                    self.assertRaisesRegex(ValueError, 'absent from ship catalogue'):
+                wb.stage(tree, native, tool, scratch)
 
     def test_driver_collects_engine_failure_after_owned_exit(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -110,7 +127,7 @@ class DriverTests(unittest.TestCase):
                 return {'fixture': 1}
 
             process = unittest.mock.Mock(returncode=0)
-            process.communicate.return_value = (b'{"exit_code":0,"timed_out":false}', b'')
+            process.communicate.return_value = (b'{"exit_code":0,"timed_out":false,"cleanup_confirmed":true}', b'')
             with patch.object(wb.winproc, 'process_state', return_value='gone'), \
                     patch.object(wb.winproc, 'run', return_value=SimpleNamespace(returncode=0, stdout='C:\\Temp')), \
                     patch.object(wb, 'linux_path', return_value=root), \
@@ -118,11 +135,18 @@ class DriverTests(unittest.TestCase):
                     patch.object(wb, 'controller', return_value='fake controller'), \
                     patch.object(wb.subprocess, 'Popen', return_value=process):
                 report, code = wb.run(args)
+                self.assertFalse(list(root.glob('hc-wbcompile-*')))
+                process.communicate.return_value = (
+                    b'{"exit_code":null,"timed_out":true,"cleanup_confirmed":false}', b'')
+                pending, pending_code = wb.run(args)
+            self.assertEqual(pending_code, 2)
+            self.assertEqual(pending['status'], 'cleanup_unconfirmed')
             self.assertEqual(code, 1)
             self.assertEqual(report['status'], 'compile_failed')
             self.assertEqual(report['errors'][0]['line'], 8)
-            self.assertFalse(list(root.glob('hc-wbcompile-*')))
-            process.communicate.assert_called_once_with(timeout=55)
+            self.assertEqual(len(list(root.glob('hc-wbcompile-*'))), 1)
+            self.assertEqual(process.communicate.call_count, 2)
+            process.communicate.assert_called_with(timeout=55)
             process.kill.assert_not_called()
 
     def test_script_links_refused(self):
@@ -137,7 +161,11 @@ class DriverTests(unittest.TestCase):
             script = wb.controller(Path('WorkbenchApp.exe'), Path('scratch'), 17, 'Validate Scripts')
         self.assertLess(script.index('Get-Process'), script.index('Start-Process'))
         self.assertIn('$owned.WaitForExit(17000)', script)
-        self.assertIn('$owned.Kill()', script)
+        self.assertIn('$owned.CloseMainWindow()', script)
+        self.assertIn('$owned.WaitForExit(30000)', script)
+        self.assertIn('cleanup_confirmed=$cleanupConfirmed', script)
+        self.assertNotIn('.Kill(', script)
+        self.assertNotIn('.WaitForExit()', script)
         self.assertIn('$mutex.WaitOne(0)', script)
         self.assertNotIn('Stop-Process', script)
         self.assertNotIn('taskkill', script)

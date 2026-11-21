@@ -26,6 +26,8 @@ LOCATION = re.compile(r'(?P<file>[^\s"\'<>]*?\.c)(?:\((?P<paren>\d+)\)|:(?P<colo
 SUCCESS = 'Script validation successful.'
 RECEIPT = '[HC CompileCheck] action_returned'
 MAX_LOG = 16 * 1024 * 1024
+REQUIRED_SCRIPT_INPUTS = (('hollowcountry', 'HollowCountry'),
+                         ('hollowcountryexpansionai', 'HollowCountryExpansionAI'))
 
 
 def private(value):
@@ -102,12 +104,15 @@ def copy_scripts(source, destination):
 
 def stage(tree, native, workbench, scratch):
     """Select authored mods through the same ship catalogue as compile_gate."""
+    catalogue = {(stem, mod) for stem, mod, _ in ship_inputs.signing_inputs()}
     selected = []
-    for _, mod, _ in ship_inputs.signing_inputs():
-        if mod not in selected and (tree / 'mods' / mod / 'scripts').is_dir():
-            selected.append(mod)
-    if not selected:
-        raise ValueError('ship catalogue selected no script inputs')
+    for entry in REQUIRED_SCRIPT_INPUTS:
+        stem, mod = entry
+        if entry not in catalogue:
+            raise ValueError('required script addon absent from ship catalogue: ' + stem)
+        if not (tree / 'mods' / mod / 'scripts').is_dir():
+            raise ValueError('required script directory absent: ' + mod)
+        selected.append(mod)
     counts = {}
     for module in MODULES:
         root = native / module
@@ -126,6 +131,8 @@ def stage(tree, native, workbench, scratch):
     shutil.copyfile(plugin, target)
     for mod in selected:
         counts[mod] = copy_scripts(tree / 'mods' / mod / 'scripts', scratch / mod / 'scripts')
+        if not counts[mod]:
+            raise ValueError('empty required script input: ' + mod)
     template = (workbench / 'dayz.gproj').read_text()
     # Modify only the observed installed Paths blocks and root mount, preserving
     # native module names, order and entry points verbatim.
@@ -163,6 +170,9 @@ $ErrorActionPreference = 'Stop'
 $mutex = New-Object System.Threading.Mutex($false, 'Local\\HollowCountryWorkbenchCompile')
 $locked = $false
 $owned = $null
+$expired = $false
+$cleanupConfirmed = $false
+$exitCode = $null
 try {{
     $locked = $mutex.WaitOne(0)
     if (!$locked) {{ throw 'Workbench compile controller busy' }}
@@ -171,17 +181,25 @@ try {{
     }}
     $owned = Start-Process -FilePath {quote_ps(windows_path(executable))} -WorkingDirectory {quote_ps(windows_path(executable.parent))} -ArgumentList @({argument_list}) -RedirectStandardOutput {quote_ps(windows_path(scratch / 'stdout.log'))} -RedirectStandardError {quote_ps(windows_path(scratch / 'stderr.log'))} -PassThru
     $expired = !$owned.WaitForExit({int(seconds * 1000)})
-    if ($expired) {{ $owned.Kill(); $owned.WaitForExit() }}
-    $owned.Refresh()
-    @{{exit_code=$owned.ExitCode; timed_out=$expired}} | ConvertTo-Json -Compress
 }} finally {{
     if ($null -ne $owned) {{
-        if (!$owned.HasExited) {{ $owned.Kill(); $owned.WaitForExit() }}
+        if (!$owned.HasExited) {{
+            try {{
+                [void]$owned.CloseMainWindow()
+                [void]$owned.WaitForExit(30000)
+            }} catch {{
+                # A refused shutdown is not permission to terminate the process.
+            }}
+        }}
+        $owned.Refresh()
+        $cleanupConfirmed = $owned.HasExited
+        if ($cleanupConfirmed) {{ $exitCode = $owned.ExitCode }}
         $owned.Dispose()
     }}
     if ($locked) {{ $mutex.ReleaseMutex() }}
     $mutex.Dispose()
 }}
+@{{exit_code=$exitCode; timed_out=$expired; cleanup_confirmed=$cleanupConfirmed}} | ConvertTo-Json -Compress
 """
 
 
@@ -226,19 +244,25 @@ def run(args):
             cleanup = False  # Preserve sources until owned-process exit is confirmed.
             stdout, _ = process.communicate(timeout=args.seconds + 45)
         except subprocess.TimeoutExpired:
-            # Do not kill a guessed PID. Windows controller retains the owned
-            # handle and is responsible for stopping it at its own deadline.
-            return {'status': 'controller_timeout', 'reason': 'owned-process cleanup unconfirmed'}, 2
+            # The Windows controller requests graceful shutdown only. Sources
+            # must remain available while the owned process may still be alive.
+            return {'status': 'cleanup_unconfirmed', 'reason': 'controller timed out; owned-process exit unconfirmed'}, 2
         raw = stdout.decode(errors='replace')
         if process.returncode:
             return {'status': 'controller_failed', 'reason': 'Windows controller failed; no compile verdict'}, 2
         try:
             receipt = json.loads(raw.strip())
             code, expired = receipt['exit_code'], receipt['timed_out']
-            if type(code) is not int or type(expired) is not bool:
+            confirmed = receipt['cleanup_confirmed']
+            if (type(expired) is not bool or type(confirmed) is not bool
+                    or (confirmed and type(code) is not int)
+                    or (not confirmed and code is not None)):
                 raise ValueError('invalid controller receipt')
         except (ValueError, KeyError, TypeError):
             return {'status': 'controller_failed', 'reason': 'missing owned-process receipt'}, 2
+        if not confirmed:
+            return {'status': 'cleanup_unconfirmed',
+                    'reason': 'owned Workbench still running; scratch preserved'}, 2
         cleanup = True
         logs, truncated = collect_logs(scratch)
         report = verdict(logs, code, expired, truncated)
