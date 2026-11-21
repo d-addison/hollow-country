@@ -17,6 +17,7 @@ class HCXConvoyRoute
     ref HCWorkBudget mHCWork = new HCWorkBudget;
     string mHCPhase = "idle";
     string mHCReason;
+    string mHCTimeoutReason = "CONVOY_ROAD_BUDGET_TIMEOUT";
     string mHCOriginFailure = "CONVOY_ROAD_APPROACH_TOO_FAR";
     ref HCConvoyPolicy mHCPolicy;
     HCXAICaravanRoads mHCRoads;
@@ -121,7 +122,7 @@ class HCXConvoyRoute
     {
         if (mHCPhase != "scan" && mHCPhase != "search" && mHCPhase != "build") { return; }
         int now = GetGame().GetTime();
-        if (now - mHCStarted > HC_PLAN_TIMEOUT_MS) { HCFail("CONVOY_ROAD_BUDGET_TIMEOUT"); return; }
+        if (now - mHCStarted > HC_PLAN_TIMEOUT_MS) { HCFail(mHCTimeoutReason); return; }
         if (mHCFrame == now) { return; }
         mHCFrame = now;
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();

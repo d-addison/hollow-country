@@ -3,6 +3,17 @@
 // ClearWaypoints, AddWaypoint, SetWaypointBehaviour, IsInCombat exist.
 // Rung 3 uses HC road planning, never a dependency path-reset API.
 // Native 1.30.164289 Game.c GetTime, Object.c GetPosition, EnScript.c arrays.
+// Journey FIFO ownership snapshot; the scheduler lives in HCXAICaravanAdapter.
+class HCXJourneyReplanTurn
+{
+    ref HCXAISiteState State;
+    ref HCXAIStuckRecovery Recovery;
+    eAIGroup Group;
+    vector Destination;
+    int Started;
+    bool Active;
+}
+
 class HCXAIStuckRecovery
 {
     static const int HC_CHECKS = 3;
@@ -30,6 +41,8 @@ class HCXAIStuckRecovery
     string Reason;
     string Kind = "journey";
     ref HCXConvoyRoute Replan;
+    bool JourneyScheduled;
+    bool AwaitingReplan;
 
     static void HCRegister(string module)
     {
@@ -70,6 +83,7 @@ class HCXAIStuckRecovery
         GivenUp = false;
         Reason = "";
         Replan = null;
+        AwaitingReplan = false;
         if (!route || route.Count() < 1 || route.Count() > Math.Min(HC_ROUTE_CAP, routeCap)) { HCGiveUp("STUCK_ROUTE_CAP"); return; }
         foreach (vector point : route) { Route.Insert(point); Issued.Insert(point); }
     }
@@ -134,6 +148,7 @@ class HCXAIStuckRecovery
         }
         // Use the bounded nearest-node scan, with an origin-specific refusal.
         Replan.mHCOriginFailure = "STUCK_OFFROAD";
+        if (JourneyScheduled) { Replan.mHCTimeoutReason = "JOURNEY_REPLAN_TIMEOUT"; }
         return true;
     }
     int HCStepReplan()
@@ -144,7 +159,7 @@ class HCXAIStuckRecovery
         return 0;
     }
     // Route ownership is checked before any mutation. Combat suspends sampling.
-    void HCCheck(eAIGroup group, vector position, int now)
+    void HCCheck(eAIGroup group, vector position, int now, bool replanTick = false)
     {
         if (GivenUp || Route.Count() == 0 || !group) { return; }
         if (HCXExpansionBridge.HCGroupIsInCombat(group)) { Anchored = false; Checks = 0; return; }
@@ -158,7 +173,7 @@ class HCXAIStuckRecovery
         if (Index < Route.Count() - 1 && HCXConvoyRoute.HCFlat(position, Route[Index]) <= 8) { Index++; }
         if (Index == Route.Count() - 1 && HCXConvoyRoute.HCFlat(position, Route[Index]) <= EndMeters) { return; }
         int recovery;
-        if (Replan) { recovery = 3; }
+        if (Replan || AwaitingReplan) { recovery = 3; }
         else { recovery = HCMotion(position, now); }
         if (recovery < 1) { return; }
         if (recovery == 2)
@@ -168,6 +183,8 @@ class HCXAIStuckRecovery
         }
         if (recovery == 3)
         {
+            // Director visits request work; only the FIFO core tick may step it.
+            if (JourneyScheduled && !replanTick) { AwaitingReplan = true; return; }
             if (!Replan)
             {
                 HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
@@ -183,6 +200,8 @@ class HCXAIStuckRecovery
             Route.Insert(destination);
             Index = 0;
             Replan = null;
+            AwaitingReplan = false;
+            Reason = "";
             Anchor = position;
             CheckedAt = now;
             Checks = 0;
@@ -296,8 +315,14 @@ modded class HCXAIAdapter
     }
     override void OnTick(float deltaTime)
     {
+        if (GetGame() && GetGame().IsServer() && HCXAIService.Adapter() == this) { HCXJourneyReplans.HCTick(); }
         super.OnTick(deltaTime);
         if (HCXAIService.Adapter() == this) { HCXAIStuckRecovery.HCSummarize(GetGame().GetTime()); }
+    }
+    override void OnStop()
+    {
+        if (HCXAIService.Adapter() == this) { HCXJourneyReplans.HCClear(); }
+        super.OnStop();
     }
 }
 
