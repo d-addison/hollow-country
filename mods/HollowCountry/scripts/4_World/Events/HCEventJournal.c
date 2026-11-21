@@ -414,7 +414,15 @@ class HCEventJournal : HCEventPersistence
         else if (m_SaveStage == 5)
         {
             m_NextImage = m_Codec.Encode(m_Pending);
-            if (m_NextImage.Length() < 1 || m_NextImage.Length() > m_Settings.MaxStoreBytes) { return HCStageFault(); }
+            if (m_NextImage.Length() < 1 || m_NextImage.Length() > m_Settings.MaxStoreBytes)
+            {
+                // No files written yet: refuse this candidate, retain the committed journal.
+                m_NextImage = "";
+                m_NextReceipt = "";
+                m_Pending = null;
+                m_SaveStage = -1;
+                return HCSaveJob.STEP_FAILED;
+            }
         }
         else if (m_SaveStage == 6)
         {

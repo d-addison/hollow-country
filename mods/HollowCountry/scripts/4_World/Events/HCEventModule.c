@@ -524,7 +524,13 @@ class HCEventModule : HCModule
 
     void RefreshRoster(HCEventContext context)
     {
-        if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0 || m_Announcing || m_Runtime.HCAnnouncePending()) { return; }
+        if (m_Config.Sites.Count() == 0)
+        {
+            m_BindContinuing = false;
+            HCFinishStartupSweep();
+            return;
+        }
+        if (!m_Runtime || !m_NativeObserver || m_Announcing || m_Runtime.HCAnnouncePending()) { return; }
         // One slot per tick during startup, then per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.

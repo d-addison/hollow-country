@@ -56,6 +56,10 @@ class HCEventRuntime
     bool HCAnnouncePending() { return m_AnnounceStage > 0; }
     bool HCPublishPending() { return m_PendingPublish != null || HCAnnouncePending(); }
     bool HCOperational() { return m_Ready; }
+    bool HCCancelPending()
+    {
+        return m_Ready && !m_StopRequested && m_Settings && m_Settings.Enabled && (m_Busy || HCPublishPending());
+    }
     protected void HCMeasured(string stage, int started)
     {
         if (m_TickSteps) { m_TickSteps.HCItem(stage, TickCount(started)); }
@@ -78,15 +82,6 @@ class HCEventRuntime
         candidate.Revision++;
         // Reject caller state before the journal can enter its faulted state.
         if (!HCEventRuntimePolicy.StateValid(candidate))
-        {
-            m_Ready = false;
-            FaultCleanup();
-            Print("[HC Events] journal fault; mutations disabled, cleanup remains pending");
-            return false;
-        }
-        HCEventCodec codec = new HCEventCodec;
-        string image = codec.Encode(candidate);
-        if (image.Length() < 1 || image.Length() > m_Settings.MaxStoreBytes)
         {
             m_Ready = false;
             FaultCleanup();
@@ -395,6 +390,13 @@ class HCEventRuntime
     }
     int Announce(HCEventMission mission, HCEventContext context)
     {
+        // A durable completion is a receipt, independent of current admission gates.
+        if (mission && context && m_AnnounceReceipt != "" && m_AnnounceReceipt == mission.Id && m_AnnounceReceiptSession == context.Session)
+        {
+            m_AnnounceReceipt = "";
+            m_AnnounceReceiptSession = "";
+            return m_AnnounceResult;
+        }
         if (!Allowed(context))
         {
             return HCEventCode.DENIED;
@@ -402,12 +404,6 @@ class HCEventRuntime
         if (!HCEventRuntimePolicy.MissionValid(mission, context.WorldName))
         {
             return HCEventCode.INVALID;
-        }
-        if (m_AnnounceReceipt != "" && m_AnnounceReceipt == mission.Id && m_AnnounceReceiptSession == context.Session)
-        {
-            m_AnnounceReceipt = "";
-            m_AnnounceReceiptSession = "";
-            return m_AnnounceResult;
         }
         int repeatId = 0;
         foreach (HCEventRecord existingRecord : m_State.Director.Records)
@@ -473,7 +469,7 @@ class HCEventRuntime
         return HCEventCode.BLOCKED;
     }
     // Failed completions never invoke modded Announce hooks. Successful ones
-    // consume through Announce so HCIncidentEmissions retains its durable-OK hook.
+    // consume through Announce before admission gates, retaining the durable-OK hook.
     int HCTakeAnnounceResult(HCEventMission mission, HCEventContext context)
     {
         if (!mission || !context || m_AnnounceReceipt == "" || m_AnnounceReceipt != mission.Id || m_AnnounceReceiptSession != context.Session) { return HCEventCode.DENIED; }
@@ -949,6 +945,7 @@ class HCEventRuntime
         {
             HCEventSubscription leaving = m_PendingLeaves.GetKey(0);
             m_PendingLeaves.Remove(leaving);
+            // Deferred Leave must be staged before Join returns to service.
             Leave(leaving.EventId, leaving.Player, context);
             return;
         }
