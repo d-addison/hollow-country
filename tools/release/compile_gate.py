@@ -326,7 +326,8 @@ def main():
     parser.add_argument('--server-root', type=Path, help='complete isolated Linux-filesystem server copy')
     parser.add_argument('--prefix', type=Path, help='existing reusable isolated Wine prefix')
     parser.add_argument('--cache', type=Path, default=Path.home() / '.cache/hollow-country/compile-gate')
-    parser.add_argument('--seconds', type=int, default=300, help='Wine probe budget, 15..900 seconds (default 300; use 900 on a busy host)')
+    parser.add_argument('--seconds', type=int, default=900,
+                        help='Wine probe budget, 15..900 seconds (default 900; PASS requires Mission loaded)')
     parser.add_argument('--workshop', type=Path, default=weapon_pack_guards.WORKSHOP,
                         help='installed Workshop content root; compile guard and HCX when pack is installed')
     parser.add_argument('--addons', type=Path, default=ship_inputs.ADDONS,
@@ -392,8 +393,10 @@ def main():
                       + (private(next(iter(found)))[:400] if found else 'text=unavailable'))
             # Conservatively reject cascade errors too, rather than risk hiding
             # a primary error with an overly broad cascade exemption.
-            # Wine can stop progressing before Mission initialization. World
-            # loaded without script errors is compiler evidence, not boot acceptance.
+            # Cached run-1795243948522642708, script_2026-11-21_01-52-29.log:76
+            # records "Module: Mission; loaded 680x files". Later timeout runs
+            # end at World (line 73), which cannot establish Mission compilation.
+            # Require the observed Mission marker; this is still not boot acceptance.
             status_ok = report['status'] in {'initialized', 'timeout'}
             # The probe's shared classifier stops at any SCRIPT (E). Once Mission
             # loaded, a stop caused only by missing-data JSON reports is not a
@@ -403,10 +406,13 @@ def main():
                                       r'|\bFile [^\n]*\.(?:cpp|hpp|bin), line \d+:|Member already defined', text)):
                 status_ok = True
                 print('compile_gate: probe stopped on runtime JSON report after Mission loaded')
-            passed = ('World' in modules and not script_errors and not errors and not dumps
+            passed = ('World' in modules and 'Mission' in modules
+                      and not script_errors and not errors and not dumps
                       and not skipped and not script_skipped and status_ok)
             if passed:
-                print('compile_gate: World loaded with zero SCRIPT (E); runtime acceptance pending')
+                print('compile_gate: Mission loaded with zero compile errors; runtime acceptance pending')
+            elif 'Mission' not in modules:
+                print('compile_gate: Mission load not observed; compile completion unproven')
             print('compile_gate: ' + ('PASS' if passed else 'FAIL') + ' status=' + report['status'])
             print('compile_gate: logs=' + private(experiment))
             return 0 if passed else 1
