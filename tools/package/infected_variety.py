@@ -339,6 +339,11 @@ def accessories(original, presets_data, overlay):
         if name in types:
             raise ValueError('explicit accessory class already present: ' + name)
         # Explicit HC child gets parent attachments only; never extra cargo.
+        # A stock parent without a spawnabletypes row (e.g. some soldier
+        # families) spawns bare, so its outfit-preserving child gets no row
+        # either: the child then matches the parent exactly.
+        if parent not in types:
+            continue
         node = ET.Element('type', {'name': name})
         for a in types[parent].findall('attachments'):
             node.append(copy.deepcopy(a))
