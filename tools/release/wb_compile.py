@@ -180,6 +180,8 @@ try {{
         throw 'Workbench already running'
     }}
     $owned = Start-Process -FilePath {quote_ps(windows_path(executable))} -WorkingDirectory {quote_ps(windows_path(executable.parent))} -ArgumentList @({argument_list}) -RedirectStandardOutput {quote_ps(windows_path(scratch / 'stdout.log'))} -RedirectStandardError {quote_ps(windows_path(scratch / 'stderr.log'))} -PassThru
+    # Cache the handle now; without it Start-Process objects report a null ExitCode after exit.
+    $null = $owned.Handle
     $expired = !$owned.WaitForExit({int(seconds * 1000)})
 }} finally {{
     if ($null -ne $owned) {{
