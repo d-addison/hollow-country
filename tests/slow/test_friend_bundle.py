@@ -252,9 +252,23 @@ else:
         children = events.find('event/children')
         children.remove(children.find("child[@type='Animal_OvisGmelini']"))
         ET.SubElement(events, 'event', {'name': 'SyntheticUnrelated'})
+        # Default-on animal composition (#316) needs its native events and
+        # territories; derive them from the authored policy, not a literal list.
+        from tests.slow.test_animal_composition import AnimalComposition
+        composition = json.loads((source / 'ecology/composition-variety.json').read_bytes())
+        for name, choices in composition['NativeEvents'].items():
+            event = ET.SubElement(events, 'event', {'name': name})
+            for tag, text in (('nominal', '8'), ('min', '0'), ('max', '8'), ('limit', 'child')):
+                ET.SubElement(event, tag).text = text
+            kids = ET.SubElement(event, 'children')
+            for classname, (_, maximum) in choices.items():
+                ET.SubElement(kids, 'child', type=classname, min='0', max=str(maximum), lootmin='0', lootmax='0')
+        environment = ET.fromstring(b'<env><territories><file path="env/hare_territories.xml"/>'
+                                    b'<file path="env/hare_territories.xml"/></territories></env>')
+        for name, choice in composition['NativeAmbient'].items():
+            environment.find('territories').append(AnimalComposition.territory(name, choice))
         stock = {
-            'cfgenvironment.xml': b'<env><territories><file path="env/hare_territories.xml"/>'
-                b'<file path="env/hare_territories.xml"/></territories></env>\n',
+            'cfgenvironment.xml': ET.tostring(environment) + b'\n',
             'db/events.xml': ET.tostring(events) + b'\n',
         }
         manifest_path = source / 'ecology/habitat-overrides.json'

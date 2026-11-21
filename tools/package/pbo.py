@@ -85,6 +85,8 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  'infected/route-surveys.json',
                  # HC-48 habitat dispositions; events.append.xml is inert (no cfgeconomycore registration).
                  'ecology/habitat-overrides.json', 'ecology/events.append.xml',
+                 # #316 lever 5 animal composition palettes (install-time, Ecology.EnableCompositionVariety).
+                 'ecology/composition-variety.json',
                  # HC-52 backpack light pairs (fail-closed; qualification stays false).
                  'lights/backpack-mounts.json',
                  'lights/pair-receipts.json',
