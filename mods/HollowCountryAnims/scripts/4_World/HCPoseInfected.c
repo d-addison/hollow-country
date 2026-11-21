@@ -21,12 +21,19 @@
 // still bounds held poses (a body over budget stays a normal standing infected).
 // Counters live in the base mod (HCVarietyCounters); per-body lines are capped.
 //
+// #315 (build 135 ACCESS_VIOLATION inside StartCommand_ScriptInst): the old code bound
+// the graph names lazily inside OnActivate, which runs within StartCommand_ScriptInst,
+// and passed unchecked results (-1 on error) straight to PreAnim_*. Now the binds are
+// resolved and checked before the start, the start waits for a settled Move command,
+// OnActivate makes no native call, and any failure refuses the body with one reason.
+//
 // Native API (scripts-1.30.164289):
-//   3_Game/Entities/DayZInfected.c:10 COMMANDID_SCRIPT, :67 DayZInfectedCommandScript,
+//   3_Game/Entities/DayZInfected.c:4 COMMANDID_MOVE, :10 COMMANDID_SCRIPT, :67 DayZInfectedCommandScript,
 //     :77 SetFlagFinished, :94 PostPhysUpdate, :123 StartCommand_ScriptInst, :124 GetCommand_Script
 //   3_Game/Anim/AnimCommand.c:13 OnActivate, :20 PreAnimUpdate, :27 PreAnim_CallCommand, :29 PreAnim_SetInt
-//   3_Game/Entities/DayZAnimal.c:10 BindCommand, :14 BindVariableInt, :35 GetAnimInterface,
-//     :175 ModCommandHandlerBefore
+//   3_Game/Entities/DayZAnimal.c:7 binds return -1 on error, :10 BindCommand, :14 BindVariableInt,
+//     :35 GetAnimInterface, :175 ModCommandHandlerBefore
+//   3_Game/Global/Game.c:449 ConfigGetText; 1_Core/proto/EnString.c:171 ToLower, :286 Contains
 //   3_Game/Entities/DayZInfectedInputController.c:9 GetMindState
 //   3_Game/Entities/EntityAI.c:905 EEInit, :946 EEDelete
 //   3_Game/Global/Game.c:703 CreateObjectEx; 3_Game/CE/CentralEconomy.c:18 ECE_INITAI, :38 ECE_PLACE_ON_SURFACE
@@ -54,14 +61,18 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		m_HCResend = 0;
 	}
 
+	// #315: OnActivate runs inside StartCommand_ScriptInst, i.e. inside the owner's
+	// CommandHandler and outside the anim pre-update. No native call is made here;
+	// the first PreAnimUpdate sends the pose (m_HCSent = -1 differs from any pose).
 	override void OnActivate()
 	{
-		if (m_HCOwner)
-			HCSend(m_HCOwner.HCWantedPose());
 	}
 
-	protected void HCSend(int pose)
+	//! Only ids the owner validated before the start (all >= 0) reach PreAnim_*.
+	protected bool HCSend(int pose)
 	{
+		if (!m_HCOwner || !m_HCOwner.HCPoseBindsReady())
+			return false;
 		int leaving = 0;
 		if (m_HCSent > 0) { leaving = m_HCSent; }
 		PreAnim_SetInt(m_HCOwner.HCPoseFromVariable(), leaving);
@@ -69,11 +80,12 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		PreAnim_CallCommand(m_HCOwner.HCPoseCommandId(), pose, 0);
 		m_HCSent = pose;
 		m_HCResend = 0;
+		return true;
 	}
 
 	override void PreAnimUpdate(float pDt)
 	{
-		if (!m_HCOwner)
+		if (!m_HCOwner || !m_HCOwner.HCPoseBindsReady())
 		{
 			SetFlagFinished(true);
 			return;
@@ -86,11 +98,20 @@ class HCPoseCommand extends DayZInfectedCommandScript
 			return;
 		}
 		int wanted = m_HCOwner.HCWantedPose();
+		if (m_HCSent < 0 && wanted == 0)
+		{
+			SetFlagFinished(true);   // woken before the first send: nothing to rise from
+			return;
+		}
 		m_HCResend += pDt;
 		if (wanted != m_HCSent || m_HCResend > HCPoseCommand.RESEND_SECONDS)
 		{
 			int leaving = m_HCSent;
-			HCSend(wanted);
+			if (!HCSend(wanted))
+			{
+				SetFlagFinished(true);
+				return;
+			}
 			if (wanted == 0)
 			{
 				m_HCRiseFrom = leaving;
@@ -119,6 +140,10 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	protected int m_HCPoseVar = -1;
 	protected int m_HCPoseFromVar = -1;
 	protected bool m_HCPlaying;        // our command was observed as the current command
+	protected int m_HCBindState;       // #315: 0 not checked, 1 all binds resolved, -1 failed (never pose)
+	protected int m_HCSettledTicks;    // CommandHandler ticks seen on a running, unfinished Move command
+	static const string HC_POSE_GRAPH = "hc_infected.agr";
+	static const int HC_POSE_SETTLE_TICKS = 2;
 
 	//! Pose this class takes when the CE (or a test helper) creates it.
 	int HCSpawnPose()
@@ -165,6 +190,11 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 				Print("[HollowCountryAnims] pose refused reason=" + HC_ZmbM_Sitter.HC_POSE_CRASH_REFUSAL + " runtime=PENDING");
 			}
 			return false;   // stays a normal standing infected
+		}
+		if (pose != 0 && m_HCBindState < 0)
+		{
+			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_ADMISSION);
+			return false;   // this body's graph failed the bind preflight; reason printed then
 		}
 		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
 			return HCRefusePose(pose);
@@ -245,30 +275,81 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		return m_HCPose;
 	}
 
+	//! Validated ids only (see HCPreflightBinds); -1 until the preflight passed.
 	int HCPoseCommandId()
 	{
-		if (m_HCPoseCmd < 0)
-			m_HCPoseCmd = GetAnimInterface().BindCommand("CMD_HC_POSE");
 		return m_HCPoseCmd;
 	}
 
 	int HCPoseVariable()
 	{
-		if (m_HCPoseVar < 0)
-			m_HCPoseVar = GetAnimInterface().BindVariableInt("HCPose");
 		return m_HCPoseVar;
 	}
 
 	int HCPoseFromVariable()
 	{
-		if (m_HCPoseFromVar < 0)
-			m_HCPoseFromVar = GetAnimInterface().BindVariableInt("HCPoseFrom");
 		return m_HCPoseFromVar;
+	}
+
+	bool HCPoseBindsReady()
+	{
+		return m_HCBindState > 0 && m_HCPoseCmd >= 0 && m_HCPoseVar >= 0 && m_HCPoseFromVar >= 0;
+	}
+
+	// #315: resolve the graph command and variables once, outside the scripted
+	// command and before it starts. The binds return -1 on error (DayZAnimal.c:7)
+	// and PreAnim_* take the raw index (AnimCommand.c:27-30), so an unresolved name
+	// (graph not loaded, vanilla graph on this body, renamed symbol) must never
+	// reach a native call. Any failure refuses this body for good, with one reason.
+	protected bool HCPreflightBinds()
+	{
+		if (m_HCBindState != 0)
+			return m_HCBindState > 0;
+		m_HCBindState = -1;
+		string graph;
+		g_Game.ConfigGetText("CfgVehicles " + GetType() + " enfanimsys graphname", graph);
+		graph.ToLower();
+		if (!graph.Contains(HC_ZmbM_Sitter.HC_POSE_GRAPH))
+			return HCPreflightFailed("graph_not_hc");
+		DayZCreatureAnimInterface anim = GetAnimInterface();
+		if (!anim)
+			return HCPreflightFailed("anim_interface_null");
+		m_HCPoseCmd = anim.BindCommand("CMD_HC_POSE");
+		if (m_HCPoseCmd < 0)
+			return HCPreflightFailed("bind_unresolved_CMD_HC_POSE");
+		m_HCPoseVar = anim.BindVariableInt("HCPose");
+		if (m_HCPoseVar < 0)
+			return HCPreflightFailed("bind_unresolved_HCPose");
+		m_HCPoseFromVar = anim.BindVariableInt("HCPoseFrom");
+		if (m_HCPoseFromVar < 0)
+			return HCPreflightFailed("bind_unresolved_HCPoseFrom");
+		m_HCBindState = 1;
+		if (HCVarietyCounters.HCDetail())
+			Print("[HollowCountryAnims] pose binds class=" + GetType() + " cmd=" + m_HCPoseCmd.ToString() + " pose=" + m_HCPoseVar.ToString() + " from=" + m_HCPoseFromVar.ToString() + " runtime=PENDING");
+		return true;
+	}
+
+	//! Fail closed: free the slot, count refused_admission, print once per reason.
+	protected bool HCPreflightFailed(string reason)
+	{
+		m_HCBindState = -1;
+		m_HCPoseCmd = -1;
+		m_HCPoseVar = -1;
+		m_HCPoseFromVar = -1;
+		HCRelease(0);
+		HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_ADMISSION);
+		if (reason != s_HCLastRefusal)
+		{
+			s_HCLastRefusal = reason;
+			Print("[HollowCountryAnims] pose refused class=" + GetType() + " reason=" + reason + " runtime=PENDING");
+		}
+		return false;
 	}
 
 	//! ended: 0 none (not holding), else the HCVarietyCounters slot describing the end.
 	protected void HCRelease(int ended = 0)
 	{
+		m_HCSettledTicks = 0;
 		if (m_HCHolding)
 		{
 			m_HCHolding = false;
@@ -319,7 +400,27 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 				Print("[HollowCountryAnims] pose released class=" + GetType() + " ended=" + ended.ToString() + " posed=" + s_HCPosed.ToString() + " runtime=PENDING");
 			return false;
 		}
-		StartCommand_ScriptInst(HCPoseCommand);
+		// #315 start preconditions: start only from the body's own Move command
+		// once it has run unfinished for a few handler ticks (graph live, never on
+		// the spawn tick), and only with binds proven above.
+		if (pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE || pCurrentCommandFinished)
+		{
+			m_HCSettledTicks = 0;
+			return false;
+		}
+		if (m_HCSettledTicks < HC_ZmbM_Sitter.HC_POSE_SETTLE_TICKS)
+		{
+			m_HCSettledTicks++;
+			return false;
+		}
+		if (!HCPreflightBinds())
+			return false;
+		DayZInfectedCommandScript started = StartCommand_ScriptInst(HCPoseCommand);
+		if (!started)
+		{
+			HCPreflightFailed("start_command_null");
+			return false;
+		}
 		m_HCStarted = true;
 		if (HCVarietyCounters.HCDetail())
 			Print("[HollowCountryAnims] pose command started class=" + GetType() + " pose=" + m_HCPose.ToString() + " runtime=PENDING");
