@@ -421,7 +421,7 @@ class HCInteriorsModule : HCModule
         int propIndex;
         foreach (HCInteriorProp prop : layout.Props)
         {
-            int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+            int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
             Object object = reusableProps[propIndex];
             bool groundNew = !object;
             propIndex++;

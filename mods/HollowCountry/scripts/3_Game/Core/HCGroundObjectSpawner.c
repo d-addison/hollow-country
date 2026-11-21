@@ -3,13 +3,17 @@
 modded class ObjectSpawnerHandler
 {
     static bool HCGroundLayer;
+    static int HCPathgraphMarked;
+    static int HCPathgraphSkipped;
     static ref HCGroundSnapStats HCGroundStats;
 
     override static void SpawnObjects()
     {
         HCGroundStats = new HCGroundSnapStats;
+        HCPathgraphMarked = 0;
+        HCPathgraphSkipped = 0;
         TStringArray paths = CfgGameplayHandler.GetObjectSpawnersArr();
-        if (!paths) { HCGroundStats.Summary("object_spawner"); return; }
+        if (!paths) { HCGroundStats.Summary("object_spawner"); HCPathgraphSummary(); return; }
         foreach (string relativePath : paths)
         {
             HCGroundLayer = relativePath.IndexOf("hollow-country-") == 0;
@@ -26,6 +30,14 @@ modded class ObjectSpawnerHandler
             HCGroundLayer = false;
         }
         HCGroundStats.Summary("object_spawner");
+        HCPathgraphSummary();
+        // Native OnGameplayDataHandlerLoad calls ProcessMarkedObjectsForPathgraphUpdate
+        // exactly once immediately after this synchronous override returns.
+    }
+
+    static void HCPathgraphSummary()
+    {
+        Print("" + "[HC Pathgraph] domain=object_spawner marked=" + HCPathgraphMarked.ToString() + " regions=0 skipped_no_geom=" + HCPathgraphSkipped.ToString());
     }
     override static void SpawnObject(ITEM_SpawnerObject item)
     {
@@ -35,7 +47,7 @@ modded class ObjectSpawnerHandler
             super.SpawnObject(item);
             return;
         }
-        int flags = ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY | ECE_OBJECT_SPAWNER;
+        int flags = ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY | ECE_OBJECT_SPAWNER;
         if (item.enableCEPersistency)
         {
             flags &= ~ECE_DYNAMIC_PERSISTENCY;
@@ -51,5 +63,7 @@ modded class ObjectSpawnerHandler
         float drop = 3;
         if (item.name.IndexOf("Land_") == 0 || item.name.IndexOf("StaticObj_") == 0) { drop = 25; }
         HCGroundSnap.Snap(placedObject, drop, 0.01, HCGroundStats);
+        if (HCPathgraphRefresh.Mark(placedObject)) { HCPathgraphMarked++; }
+        else { HCPathgraphSkipped++; }
     }
 }

@@ -53,6 +53,33 @@ class HCShelterModule : HCModule
     protected ref HCInteriorTemplate m_RegionalLayout;
     protected ref array<Object> m_RegionalBatch = new array<Object>;
     protected int m_RegionalPublish;
+    protected ref HCPathgraphRefresh m_RegionalRegion;
+    protected int m_PathgraphMarked;
+    protected int m_PathgraphRegions;
+    protected int m_PathgraphSkipped;
+
+    protected void HCQueuePathgraph(HCPathgraphRefresh region)
+    {
+        m_PathgraphMarked += region.Marked;
+        m_PathgraphSkipped += region.SkippedNoGeom;
+        if (!region.HasBounds) { return; }
+        if (!HCPathgraphRefresh.Hold(region))
+        {
+            HCApplyPathgraph(region);
+            return;
+        }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyPathgraph, 100, false, region);
+    }
+
+    protected void HCApplyPathgraph(HCPathgraphRefresh region)
+    {
+        if (!GetGame() || !region) { return; }
+        region.Update();
+        HCPathgraphRefresh.Release(region);
+        m_PathgraphRegions++;
+        HCModuleReadiness.HCUse("Shelters", "pathgraph_refresh");
+    }
+
     protected bool m_RegionalRollingBack;
     protected int m_Placed;
     protected int m_Refused;
@@ -723,11 +750,12 @@ class HCShelterModule : HCModule
                 return;
             }
         }
+        HCPathgraphRefresh region = HCInteriorPathgraph.Bounds(batch);
+        HCQueuePathgraph(region);
         Object fireSpot = batch.Get(0);
         foreach (Object completedProp : batch)
         {
             m_Objects.Insert(completedProp);
-            GetGame().UpdatePathgraphRegionByObject(completedProp);
         }
         m_Placed = m_Placed + 1;
         entry.Placed = true;
@@ -787,6 +815,7 @@ class HCShelterModule : HCModule
 
     protected void HCRegionalSummary()
     {
+        Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " regions=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
         // Reasons come only from the finite placement checks, never world rows.
         // One bounded line per five minutes and when the queue completes.
         string refusedReasons = "";
@@ -829,6 +858,7 @@ class HCShelterModule : HCModule
         }
         m_RegionalBatch.Clear();
         m_RegionalPublish = 0;
+        m_RegionalRegion = null;
         m_RegionalRollingBack = false;
         m_RegionalJobEntry = null;
         m_RegionalHouse = null;
@@ -902,6 +932,7 @@ class HCShelterModule : HCModule
             vector accessMinimum = HCInteriorTemplates.AsVector(scene.AccessMin);
             vector accessMaximum = HCInteriorTemplates.AsVector(scene.AccessMax);
             Keepout(layout, "walkway", 0, accessMinimum, accessMaximum);
+            m_RegionalRegion = new HCPathgraphRefresh;
             m_RegionalJobEntry = entry;
             m_RegionalHouse = house;
             m_RegionalLayout = layout;
@@ -941,10 +972,11 @@ class HCShelterModule : HCModule
         }
         if (m_RegionalPublish < m_RegionalBatch.Count())
         {
-            GetGame().UpdatePathgraphRegionByObject(m_RegionalBatch[m_RegionalPublish]);
+            m_RegionalRegion.Include(m_RegionalBatch[m_RegionalPublish]);
             m_RegionalPublish++;
             return;
         }
+        HCQueuePathgraph(m_RegionalRegion);
         // All props passed the original exact terrain/bounds/keepout/collision
         // checks. Until this point no incomplete scene is discoverable.
         foreach (Object regionalProp : m_RegionalBatch) { m_Objects.Insert(regionalProp); }
@@ -992,11 +1024,11 @@ class HCShelterModule : HCModule
             entry.Placed = false;
             entry.PlacementAnchor = null;
         }
-        vector position = prop.GetPosition();
-        // Covers the bounded yard prop plus its 0.3m collision margin. Update
-        // AFTER deletion, so the pathgraph does not retain the removed blocker.
+        // Capture the transformed geometry before deletion; rebuild after it.
+        HCPathgraphRefresh region = new HCPathgraphRefresh;
+        region.Include(prop);
         GetGame().ObjectDelete(prop);
-        GetGame().UpdatePathgraphRegion(position - Vector(3, 3, 3), position + Vector(3, 3, 3));
+        HCQueuePathgraph(region);
     }
 }
 

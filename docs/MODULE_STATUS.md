@@ -577,7 +577,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | InfectedMemory | `heat_recorded` |
 | InfectedReach | `strike_landed`, `vault_started`, `vehicle_battered` |
 | InfectedVariety | `actor_woken` |
-| Interiors | `prop_placed`, `search_completed` |
+| Interiors | `prop_placed`, `search_completed`, `pathgraph_refresh` (native routing verification pending) |
 | Leads | `lead_received` |
 | Lighting | `blend_applied` |
 | LootRefresh | `timer_rearmed` |
@@ -585,6 +585,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Materializer | `actors_materialized` |
 | Melee | `hit_processed` |
 | Notes | `note_read` |
+| ObjectSpawner | `pathgraph_refresh` (boot batch reported by the World readiness hook; native routing verification pending) |
 | OptionalPacks | `animal_seen`, `bicycle_seen` |
 | Pickers | `trip_started` |
 | Polish | `hint_shown`, `sound_played` |
@@ -593,7 +594,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Scenes | `scene_placed` |
 | SearchBinding | `supply_bound` |
 | SettlementDecay | `prop_placed` |
-| Shelters | `shelter_placed` |
+| Shelters | `shelter_placed`, `pathgraph_refresh` (native routing verification pending) |
 | SignsOfLife | `flies_created`, `light_observed`, `smoke_observed` |
 | SurvivalAlignment | `stamina_applied`, `stamina_hud_shown` |
 | TapedHelmetMounts | `light_mounted` |
