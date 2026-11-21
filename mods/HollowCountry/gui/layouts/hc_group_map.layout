@@ -34,6 +34,49 @@ FrameWidgetClass HCGroupMapRoot {
       }
      }
     }
+    ImageWidgetClass HCAdminWorldPanel {
+     position 0.43 0.02 size 0.28 0.54
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     visible 0
+     image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.02 0.02 0.02 0.95
+     {
+      ButtonWidgetClass HCAdminWorldToggle {
+       position 0.02 0.01 size 0.96 0.08
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24" text "Admin [on]"
+      }
+      TextListboxWidgetClass HCAdminWorldLegend {
+       position 0.02 0.10 size 0.96 0.43
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24"
+      }
+      ButtonWidgetClass HCAdminWorldLayerToggle {
+       position 0.02 0.54 size 0.96 0.08
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24" text "Toggle selected layer"
+      }
+      TextWidgetClass HCAdminWorldState {
+       position 0.02 0.63 size 0.96 0.08
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24"
+      }
+      EditBoxWidgetClass HCAdminWorldLootFilter {
+       position 0.02 0.88 size 0.60 0.10
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24"
+      }
+      ButtonWidgetClass HCAdminWorldLootRun {
+       position 0.64 0.88 size 0.34 0.10
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24" text "Loot query"
+      }
+      MultilineTextWidgetClass HCAdminWorldDetail {
+       position 0.02 0.72 size 0.96 0.14
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24" text "Click an admin pin for details. Zoom in to separate clusters."
+      }
+     }
+    }
     ImageWidgetClass HCLayerReadouts {
      position 0.01 0.79 size 0.69 0.20
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0

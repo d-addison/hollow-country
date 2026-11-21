@@ -51,6 +51,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         mHCLayers.Init(layoutRoot);
         mHCInfo = new HCInfoLayerControls;
         mHCInfo.Init(mHCMapArea);
+        HCAdminWorldClient.Get().Open(layoutRoot);
         return layoutRoot;
     }
 
@@ -174,6 +175,7 @@ class HCGroupMapMenu extends UIScriptedMenu
                 ResetEditor();
             }
         }
+        HCAdminWorldClient.Get().Tick(mHCMap, mHCHasMap);
         if (frame != mHCBound || accessChanged)
         {
             RebuildLists(frame);
@@ -330,6 +332,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     override bool OnClick(Widget w, int x, int y, int button)
     {
         if (!w) return false;
+        if (mHCHasMap && HCAdminWorldClient.Get().Click(w, mHCMap, x, y)) return true;
         if (mHCHasMap && mHCInfo && mHCInfo.OnClick(w)) return true;
         string action = w.GetName();
         if (action == "HCClose") { Close(); return true; }
@@ -476,6 +479,7 @@ class HCGroupMapMenu extends UIScriptedMenu
 
     override void OnHide()
     {
+        HCAdminWorldClient.Get().Close();
         HCMenuInput.Unlock();
         HCEventClient.Get().SetBrowsing(false);
         if (mHCLayers) mHCLayers.Clear();
