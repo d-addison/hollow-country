@@ -122,6 +122,7 @@ class HCVisualSeasonStore
     protected ref HCV2ThreatStore<HCVisualSeasonState> m_Writer = new HCV2ThreatStore<HCVisualSeasonState>;
     protected int m_SaveStage;
     protected int m_PersistedSeconds;
+    protected bool m_OwnerContinuation;
 
     bool HCHealthy() { return m_Healthy; }
     int HCCheckpointedSeconds() { return m_PersistedSeconds; }
@@ -167,6 +168,31 @@ class HCVisualSeasonStore
     {
         if (!m_Healthy || !m_Job) { return; }
         if (HCUnsavedSeconds() >= interval) { m_Job.HCDirty = true; }
+    }
+
+    // The scheduler has no priority selection API. Its existing urgent fallback
+    // can advance an unregistered durable continuation by ONE stage per call.
+    // Withdraw only a waiting job: an in-flight scheduler image retains its
+    // exclusive owner until completion. Never flush/drain from the clock tick.
+    void HCContinueCheckpoint(bool checkpointLate)
+    {
+        if (!m_Healthy || !m_Job || m_Job.HCFaulted) { return; }
+        if (!m_OwnerContinuation)
+        {
+            if (!checkpointLate || m_Job.HCInFlight) { return; }
+            HCSaveScheduler.HCUnregister(m_Job);
+            m_Job.HCDirty = true;
+            m_Job.HCUrgent = true;
+            m_OwnerContinuation = true;
+            Print("[HC Plan] HC-6 checkpoint=owner-continuation stages_per_tick=1 reason=queue-lag runtime=PENDING");
+        }
+        HCSaveScheduler.HCPumpFallback(m_Job);
+        if (!m_Healthy || m_Job.HCFaulted) { return; }
+        if (!m_Job.HCInFlight && !m_Job.HCDirty)
+        {
+            m_OwnerContinuation = false;
+            HCSaveScheduler.HCRegister(m_Job);
+        }
     }
 
     protected void HCFault()
