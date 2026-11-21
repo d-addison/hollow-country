@@ -11,6 +11,16 @@ class HCEventPersistence
         if (!JsonFileLoader<HCEventRuntimeState>.LoadData(data, clone, error)) return null;
         return clone;
     }
+    // Freeze only the caller-owned objective; never serialize the runtime for this.
+    HCEventMission CloneMission(HCEventMission mission)
+    {
+        string data;
+        string error;
+        HCEventMission clone;
+        if (!JsonFileLoader<HCEventMission>.MakeData(mission, data, error, false)) { return null; }
+        if (!JsonFileLoader<HCEventMission>.LoadData(data, clone, error)) { return null; }
+        return clone;
+    }
     bool Save(HCEventRuntimeState state) { return false; }
 }
 class HCEventObjectiveProvider
