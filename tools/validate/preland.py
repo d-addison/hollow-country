@@ -32,6 +32,11 @@ CI_EXCLUSIONS = {
     'regenerate_all.snafu_optional': 'requires a pristine stock mission and external verification report',
     'regenerate_all.tactical_flava_optional': 'requires a pristine stock mission and external verification report',
     'regenerate_all.new_buildings': 'requires a pristine installed stock mission',
+    'regenerate_all.loot_point_preserve': 'requires a pristine installed stock mission',
+    'regenerate_all.gui_icons': 'requires the Windows DayZ Tools ImageToPAA converter',
+    'regenerate_all.anims_config': 'requires the installed stock zombie addon',
+    **{'regenerate_all.' + name: 'requires a pristine installed stock mission'
+       for name in ('economy', 'ai_patrols')},
     'generated_digests.inventory_sizes': 'requires installed vanilla and Workshop provider Addons',
     **{'generated_digests.' + name: 'requires a pristine installed stock mission'
        for name in ('firearms', 'loot_point_preserve', 'snafu_optional',
@@ -48,7 +53,10 @@ CI_NOTICES = {
     'enforce_lint': (r'^enforce_lint: .* native=no$',),
     'regenerate_all': (
         r'^SKIP inventory_sizes (?:required addons directory unavailable|installed inventory provider Addons directory unavailable)$',
-        r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|new_buildings) required source directory unavailable$',
+        r'^SKIP (?:firearms|snafu_optional|tactical_flava_optional|new_buildings|economy|ai_patrols) required source directory unavailable$',
+        r'^SKIP loot_point_preserve existing validation passed; byte regeneration: stock mission mapgrouppos\.xml unavailable$',
+        r'^SKIP gui_icons existing validation passed; byte regeneration: ImageToPAA (?:converter|Windows interop) unavailable$',
+        r'^SKIP anims_config required addons directory unavailable$',
         r'^regenerate_all: pass checked=\d+ failed=0 skipped=\d+$',
     ),
     'generated_digests': (
@@ -171,7 +179,8 @@ def execute(args, paths, scratch):
             arguments = ['--check']
             if ci:
                 arguments += ['--addons', str(scratch / 'addons'), '--workshop', str(scratch / 'workshop'),
-                              '--source', str(scratch / 'stock')]
+                              '--source', str(scratch / 'stock'),
+                              '--image-to-paa', str(scratch / 'ImageToPAA.exe')]
             if args.strict:
                 arguments += ['--require-installed']
         elif name == 'wiring_audit' and ci:
