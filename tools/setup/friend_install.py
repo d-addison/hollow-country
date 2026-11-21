@@ -50,7 +50,7 @@ import sys
 import tempfile
 
 from tools.package import loot_boost, hc_events, map_overlay, infected_variety, snafu_optional, tactical_flava_optional
-from tools.package import ce_slot_pressure
+from tools.package import ce_slot_pressure, xml_text
 from tools.package import optional_overlays as overlays
 from tools.setup import workshop_sync as ws
 
@@ -1908,6 +1908,14 @@ def run_check(ctx):
         result('optional_weapons', [], 'verified receipts and rollback: ' + ', '.join(weapon_layers) + '; runtime=PENDING')
     except (OSError, ValueError, KeyError, TypeError):
         result('optional_weapons', ['missing, outdated or damaged weapon layer; run the installer'], '')
+    # CF_XML reads mission XML with native FGets; a 217,826-character line crashed build 150 at boot.
+    wide = []
+    for path in sorted(mission.rglob('*.xml')) if mission.is_dir() else ():
+        with path.open('rb') as handle:
+            width = max((len(line.rstrip(b'\r\n')) for line in handle), default=0)
+        if width > xml_text.MAX_LINE:
+            wide.append('%s: %d-byte line' % (path.relative_to(mission).as_posix(), width))
+    result('xml_line_bound', wide, 'every mission XML line is at most %d bytes' % xml_text.MAX_LINE)
     try:
         if not all((mission / name).is_file() for name in ce_slot_pressure.INPUTS):
             raise FileNotFoundError('proxy map')
