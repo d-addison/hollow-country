@@ -6,7 +6,8 @@
   "trace": {
     "spec": "issue_248_owner_2026-11-20_mixed_native_roster; required_spec_paths_absent_in_checkout",
     "plan": "reuse_stock_CE_events; conserve_child_budgets; rare_mummies; bundled_install_receipt_and_off",
-    "task": "author_verified_native_roster; apply_after_mission_copy; idempotent_install_and_byte_exact_rollback; runtime_PENDING"
+    "task": "author_verified_native_roster; apply_after_mission_copy; idempotent_install_and_byte_exact_rollback; runtime_PENDING",
+    "issue_316": "install-time CE family balance and stock accessory redistribution; legacy substitutions retained; #315 poses withdrawn"
   },
   "runtime_acceptance": "PENDING",
   "production_enabled": true,
@@ -1499,12 +1500,16 @@
       "class": "ZmbF_SoldierNormal",
       "source": "stock_ce",
       "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "reason": "issue_316_native_scope2_and_model_verified; contextual_palette_substitution_default_on; client_render_and_native_sampling_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "palette_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ]
     },
     {
       "class": "ZmbF_SurvivorNormal_Blue",
@@ -3302,12 +3307,15 @@
       "class": "ZmbM_MotobikerFat_Blue",
       "source": "stock_ce",
       "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "reason": "issue_316_native_scope2_and_model_verified; contextual_palette_substitution_default_on; client_render_and_native_sampling_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "palette_events": [
+        "InfectedCity"
+      ]
     },
     {
       "class": "ZmbM_Mummy",
@@ -4502,6 +4510,732 @@
     "heavy_labels": "native female Heavy classes use InfectedMSoldier; substitute normal soldier shares, never promise heavy AI",
     "Santa": "native class exists; rare year_round cityTier1 share; no winter scheduling",
     "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once",
-    "hc_variants": "issue_279 HollowCountryAnims CE children: Crawler only (vanilla crawl request at spawn); Sitter/Sleeper/Riser/Feeder are withdrawn from the CE because starting the custom-graph pose command crashed the server (ACCESS_VIOLATION in StartCommand_ScriptInst, build 135, first posed body near a player) until a native fix is proven; shares 1-2 of ~100 per event; donors are unused stock civilian males and each keeps a positive weight; runtime PENDING"
+    "hc_variants": "issue_279 HollowCountryAnims CE children: Crawler only (vanilla crawl request at spawn); Sitter/Sleeper/Riser/Feeder are withdrawn from the CE because starting the custom-graph pose command crashed the server (ACCESS_VIOLATION in StartCommand_ScriptInst, build 135, first posed body near a player) until a native fix is proven; shares 1-2 of ~100 per event; donors are unused stock civilian males and each keeps a positive weight; runtime PENDING",
+    "EnableComposition": true,
+    "EnableAccessories": true
+  },
+  "palette_rebalance": {
+    "issue": 316,
+    "after": "existing substitutions",
+    "family_basis": "native 1.30.164289 resolved model paths; rare/toxic/armoured/holiday roles excluded from equalization",
+    "transfers": [
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 9
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 6
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbM_PatrolNormal_Winter",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbM_PatrolNormal_Winter",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbM_PatrolNormal_Winter",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 2
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 2
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbM_SoldierNormal",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbM_SoldierNormal",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbM_PatrolNormal_Winter",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbM_SoldierNormal",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbM_SoldierNormal",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 3
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 2
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbM_PatrolNormal_Winter",
+        "share": 7
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbM_usSoldier_normal_Woodland",
+        "share": 6
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 6
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbF_eastSoldier_Normal_Navy",
+        "share": 6
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_Summer",
+        "to": "ZmbM_SoldierNormal",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_Flat",
+        "to": "ZmbF_usSoldier_normal_Woodland",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_yellow",
+        "to": "ZmbM_ClerkFat_Grey",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_white",
+        "to": "ZmbM_ClerkFat_Khaki",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_grey",
+        "to": "ZmbF_ClerkFat_Black",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_green",
+        "to": "ZmbM_CitizenASkinny_Red",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_checks",
+        "to": "ZmbM_ClerkFat_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_brown",
+        "to": "ZmbF_Clerk_Normal_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbF_ShortSkirt_beige",
+        "to": "ZmbF_ClerkFat_BluePattern",
+        "share": 1
+      },
+      {
+        "event": "InfectedCityTier1",
+        "from": "ZmbF_ShortSkirt_stripes",
+        "to": "ZmbF_ClerkFat_BluePattern",
+        "share": 3
+      },
+      {
+        "event": "InfectedCityTier1",
+        "from": "ZmbF_ShortSkirt_red",
+        "to": "ZmbF_ClerkFat_BluePattern",
+        "share": 1
+      },
+      {
+        "event": "InfectedCityTier1",
+        "from": "ZmbF_ShortSkirt_red",
+        "to": "ZmbM_MotobikerFat_Black",
+        "share": 2
+      },
+      {
+        "event": "InfectedCityTier1",
+        "from": "ZmbF_ShortSkirt_stripes",
+        "to": "ZmbM_SkaterYoung_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedIndustrial",
+        "from": "ZmbM_HandymanNormal_White",
+        "to": "ZmbM_OffshoreWorker_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedIndustrial",
+        "from": "ZmbM_HandymanNormal_Grey",
+        "to": "ZmbM_OffshoreWorker_Orange",
+        "share": 1
+      },
+      {
+        "event": "InfectedIndustrial",
+        "from": "ZmbM_HandymanNormal_Green",
+        "to": "ZmbM_OffshoreWorker_Red",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Green",
+        "to": "ZmbF_NurseFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Blue",
+        "to": "ZmbF_PatientOld",
+        "share": 2
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Black",
+        "to": "ZmbM_PatientSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Red",
+        "to": "ZmbF_NurseFat",
+        "share": 2
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Green",
+        "to": "ZmbF_PatientOld",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Blue",
+        "to": "ZmbM_PatientSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Black",
+        "to": "ZmbF_NurseFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Red",
+        "to": "ZmbF_PatientOld",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Red",
+        "to": "ZmbM_PatientSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Green",
+        "to": "ZmbM_DoctorFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Green",
+        "to": "ZmbF_DoctorSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Blue",
+        "to": "ZmbF_NurseFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Red",
+        "to": "ZmbM_PatientSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Black",
+        "to": "ZmbM_DoctorFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Green",
+        "to": "ZmbF_DoctorSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Blue",
+        "to": "ZmbF_PatientOld",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbM_ParamedicNormal_Green",
+        "to": "ZmbM_PatientSkinny",
+        "share": 1
+      },
+      {
+        "event": "InfectedMedic",
+        "from": "ZmbF_ParamedicNormal_Red",
+        "to": "ZmbM_DoctorFat",
+        "share": 1
+      },
+      {
+        "event": "InfectedSolitude",
+        "from": "ZmbM_HunterOld_Autumn",
+        "to": "ZmbM_HikerSkinny_Blue",
+        "share": 2
+      },
+      {
+        "event": "InfectedSolitude",
+        "from": "ZmbM_HunterOld_Autumn",
+        "to": "ZmbM_HikerSkinny_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedSolitude",
+        "from": "ZmbM_HunterOld_Autumn",
+        "to": "ZmbM_HikerSkinny_Yellow",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_khaki",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_grey",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_greenchecks",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_brown",
+        "to": "ZmbM_VillagerOld_Blue",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_blue",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_stripes",
+        "to": "ZmbM_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_khaki",
+        "to": "ZmbM_FarmerFat_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_greenchecks",
+        "to": "ZmbF_VillagerOld_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_blue",
+        "to": "ZmbM_FarmerFat_Brown",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_beige",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_stripes",
+        "to": "ZmbF_VillagerOld_Red",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_khaki",
+        "to": "ZmbM_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_grey",
+        "to": "ZmbM_FarmerFat_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_brown",
+        "to": "ZmbF_MilkMaidOld_Beige",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_blue",
+        "to": "ZmbF_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_black",
+        "to": "ZmbM_VillagerOld_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_beige",
+        "to": "ZmbM_FarmerFat_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_stripes",
+        "to": "ZmbM_HunterOld_Winter",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_khaki",
+        "to": "ZmbF_MilkMaidOld_Black",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_grey",
+        "to": "ZmbF_VillagerOld_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_greenchecks",
+        "to": "ZmbM_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_brown",
+        "to": "ZmbM_FarmerFat_Brown",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbF_JoggerSkinny_Green",
+        "to": "ZmbM_JoggerSkinny_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_black",
+        "to": "ZmbF_MilkMaidOld_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbF_JoggerSkinny_Green",
+        "to": "ZmbF_VillagerOld_Red",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_beige",
+        "to": "ZmbM_VillagerOld_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbF_JoggerSkinny_Brown",
+        "to": "ZmbM_FarmerFat_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbF_JoggerSkinny_Green",
+        "to": "ZmbM_JoggerSkinny_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_khaki",
+        "to": "ZmbF_MilkMaidOld_Grey",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbF_JoggerSkinny_Brown",
+        "to": "ZmbF_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillage",
+        "from": "ZmbM_Jacket_grey",
+        "to": "ZmbM_VillagerOld_White",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_magenta",
+        "to": "ZmbM_HunterOld_Autumn",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_magenta",
+        "to": "ZmbM_FarmerFat_Beige",
+        "share": 5
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_bluechecks",
+        "to": "ZmbM_HunterOld_Autumn",
+        "share": 4
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_magenta",
+        "to": "ZmbF_MilkMaidOld_Green",
+        "share": 3
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_bluechecks",
+        "to": "ZmbM_VillagerOld_Green",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbF_VillagerOld_Blue",
+        "to": "ZmbM_VillagerOld_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbF_JoggerSkinny_Red",
+        "to": "ZmbM_FarmerFat_Beige",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbF_VillagerOld_Blue",
+        "to": "ZmbF_MilkMaidOld_Green",
+        "share": 1
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbF_JoggerSkinny_Red",
+        "to": "ZmbM_VillagerOld_Green",
+        "share": 3
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbF_VillagerOld_Blue",
+        "to": "ZmbM_HunterOld_Autumn",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_JoggerSkinny_Red",
+        "to": "ZmbF_MilkMaidOld_Green",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_Jacket_bluechecks",
+        "to": "ZmbM_FarmerFat_Beige",
+        "share": 1
+      },
+      {
+        "event": "InfectedCity",
+        "from": "ZmbM_MotobikerFat_Beige",
+        "to": "ZmbM_MotobikerFat_Blue",
+        "share": 1
+      },
+      {
+        "event": "InfectedArmy",
+        "from": "ZmbM_PatrolNormal_Autumn",
+        "to": "ZmbF_SoldierNormal",
+        "share": 2
+      },
+      {
+        "event": "InfectedArmyHard",
+        "from": "ZmbM_PatrolNormal_PautRev",
+        "to": "ZmbF_SoldierNormal",
+        "share": 2
+      }
+    ],
+    "outside_mix_review": {
+      "MotobikerFat_Blue": "one city share; stock public class and same model family",
+      "ZmbF_SoldierNormal": "two normal army shares; stock public class",
+      "winter_medics": "deferred: no winter mission or restart-bound seasonal selector",
+      "male_navy_soldiers": "deferred: no navy-specific coastal event; do not widen heavy armour distribution"
+    },
+    "runtime_acceptance": "PENDING"
+  },
+  "accessories": {
+    "schema_version": 1,
+    "issue": 316,
+    "runtime_acceptance": "PENDING",
+    "stock_spawnable_sha256": "a6febfd92d16d5e573508916e5ae31081b80004ca62277d6570567244cf64cb2",
+    "stock_presets_sha256": "64200df301b6cfb349ba228d20d65732d315060a6cdc17031fdc31f280dfe5d8",
+    "probability_transfers": [
+      {
+        "from": "hatsCity",
+        "to": "glassesCity",
+        "chance": "0.04"
+      },
+      {
+        "from": "hatsVillage",
+        "to": "glassesVillage",
+        "chance": "0.04"
+      },
+      {
+        "from": "hatsFarm",
+        "to": "glassesVillage",
+        "chance": "0.04"
+      }
+    ],
+    "item_transfers": {
+      "bagsCity": [
+        {
+          "from": "CanvasBag_Olive",
+          "to": "TaloonBag_Blue",
+          "chance": "0.05"
+        },
+        {
+          "from": "CanvasBag_Olive",
+          "to": "TaloonBag_Green",
+          "chance": "0.05"
+        }
+      ],
+      "bagsVillage": [
+        {
+          "from": "Slingbag_Black",
+          "to": "TaloonBag_Green",
+          "chance": "0.05"
+        }
+      ],
+      "vestsHunter": [
+        {
+          "from": "HuntingVest",
+          "to": "ChestHolster",
+          "chance": "0.10"
+        }
+      ]
+    },
+    "explicit_classes": {
+      "HC_ZmbM_Crawler": "ZmbM_CitizenASkinny_Red"
+    },
+    "constraints": "Only stock preset items; no new armour or occurrence increase; cargo untouched; crawler copies parent attachments only (no cargo); all original positive item choices remain positive."
   }
 }

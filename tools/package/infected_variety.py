@@ -1,7 +1,7 @@
 """HC-14 restart-bound child substitution; offline installation, runtime PENDING.
 
 Stop the server. Supply installed stock db/events.xml, pinned in variants.json.
-Only authored donor rows change; all other bytes (including comments/CRLF) are
+Authored palette rows and selected infected attachment rows change; other bytes are
 retained, except a missing/nonstandard XML declaration is normalized through
 xml_text to the double-quoted UTF-8 form. No CE extension is registered.
 Off and rollback restore the original bytes, including the original declaration.
@@ -9,6 +9,7 @@ Off and rollback restore the original bytes, including the original declaration.
 import argparse
 import base64
 import copy
+from decimal import Decimal, InvalidOperation
 import json
 from pathlib import Path
 import re
@@ -22,6 +23,9 @@ from tools.package.optional_overlays import atomic, mission_target, read, safe
 POLICY = Path(__file__).resolve().parents[2] / 'mission/hollow-country/infected/variants.json'
 MANAGED = 'hollow-country-infected'
 TARGET = 'db/events.xml'
+SPAWNABLE = 'cfgspawnabletypes.xml'
+PRESETS = 'cfgrandompresets.xml'
+ACCESSORY_MARKER = b'<!-- HC #316 accessories; receipt rollback required -->'
 
 
 def _signature(node):
@@ -76,6 +80,8 @@ def substitute(original, stock, policy):
     expected, current = _events(stock), _events(original)
     substitutions = policy['substitutions']
     targets = {s['event'] for s in substitutions}
+    if enabled(policy, 'EnableComposition'):
+        targets |= {r['event'] for r in policy.get('palette_rebalance', {}).get('transfers', [])}
     for name in targets:
         if name not in expected or name not in current:
             raise ValueError('missing stock target event: ' + name)
@@ -146,7 +152,220 @@ def substitute(original, stock, policy):
             if sum(int(c.get(field)) for c in current[name].findall('./children/child')) != sum(
                     int(c.get(field)) for c in after[name].findall('./children/child')):
                 raise ValueError('authored child budget changed: ' + name)
+    if enabled(policy, 'EnableComposition'):
+        result = rebalance(result, policy.get('palette_rebalance', {}).get('transfers', []))
     return result
+
+
+def enabled(policy, switch):
+    value = policy.get('mix_policy', {}).get(switch, True)
+    if type(value) is not bool:
+        raise ValueError('mix_policy flag must be boolean: ' + switch)
+    return value
+
+
+def rebalance(original, transfers):
+    """Apply authored stock-model family transfers after the legacy substitutions."""
+    events = _events(original)
+    changed, additions = {}, {}
+    spans = _spans(original)
+    for row in transfers:
+        name, donor, receiver, share = (row[k] for k in ('event', 'from', 'to', 'share'))
+        if type(share) is not int or share <= 0 or donor == receiver:
+            raise ValueError('invalid palette share')
+        if name not in events:
+            raise ValueError('palette event missing: ' + name)
+        children = economy._unique(events[name].findall('./children/child'), 'type')
+        if donor not in children:
+            raise ValueError('palette donor missing: ' + donor)
+        source = changed.setdefault((name, donor), copy.deepcopy(children[donor]))
+        if int(source.get('min')) <= share:
+            raise ValueError('palette donor must remain positive: ' + donor)
+        source.set('min', str(int(source.get('min')) - share))
+        key = (name, receiver)
+        if receiver in children:
+            dest = changed.setdefault(key, copy.deepcopy(children[receiver]))
+        else:
+            dest = additions.get(key)
+            if dest is None:
+                dest = copy.deepcopy(children[donor])
+                dest.set('type', receiver)
+                dest.set('min', '0')
+                dest.set('max', '0')
+                additions[key] = dest
+        dest.set('min', str(int(dest.get('min')) + share))
+        if int(dest.get('max')) > 0 and int(dest.get('min')) > int(dest.get('max')):
+            raise ValueError('palette destination exceeds cap: ' + receiver)
+    # Reuse byte spans: all non-child event settings and untouched bytes survive.
+    patches = []
+    for key, child in changed.items():
+        begin, end = spans[key]
+        child.tail = None
+        patches.append((begin, end, ET.tostring(child, encoding='utf-8')))
+    for (name, _), child in additions.items():
+        key = next(k for k in spans if k[0] == name)
+        begin, _ = spans[key]
+        child.tail = None
+        patches.append((begin, begin, ET.tostring(child, encoding='utf-8') + b'\n      '))
+    result = original
+    # At equal offsets replace the old row before inserting new rows.
+    for begin, end, data in sorted(patches, key=lambda r: (r[0], r[1]), reverse=True):
+        result = result[:begin] + data + result[end:]
+    after = _events(result)
+    for name in {r['event'] for r in transfers}:
+        before_rows = economy._unique(events[name].findall('./children/child'), 'type')
+        after_rows = economy._unique(after[name].findall('./children/child'), 'type')
+        for field in ('min', 'max'):
+            if sum(int(c.get(field)) for c in before_rows.values()) != sum(int(c.get(field)) for c in after_rows.values()):
+                raise ValueError('palette budget changed: ' + name)
+        for field in ('lootmin', 'lootmax'):
+            if sum(int(c.get('min')) * int(c.get(field)) for c in after_rows.values()) > sum(
+                    int(c.get('min')) * int(c.get(field)) for c in before_rows.values()):
+                raise ValueError('palette increased weighted loot budget: ' + name)
+        for n, child in before_rows.items():
+            if {k: v for k, v in child.attrib.items() if k != 'min'} != {k: v for k, v in after_rows[n].attrib.items() if k != 'min'}:
+                raise ValueError('palette changed non-weight field: ' + n)
+            if int(child.get('min')) > 0 and int(after_rows[n].get('min')) <= 0:
+                raise ValueError('palette zeroed a stock class: ' + n)
+    return result
+
+
+def _chance(value):
+    try:
+        chance = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError('invalid accessory chance') from None
+    if not chance.is_finite() or not 0 <= chance <= 1:
+        raise ValueError('invalid accessory chance')
+    return chance
+
+
+def _type_spans(data):
+    parser = expat.ParserCreate()
+    stack, spans = [], {}
+    pending = None
+    def start(name, attrs):
+        nonlocal pending
+        if stack == ['spawnabletypes'] and name == 'type':
+            pending = (attrs.get('name'), parser.CurrentByteIndex)
+        stack.append(name)
+    def end(name):
+        if stack == ['spawnabletypes', 'type']:
+            key, begin = pending
+            finish = parser.CurrentByteIndex
+            if not data[begin:data.index(b'>', begin) + 1].rstrip().endswith(b'/>'):
+                finish = data.index(b'>', finish) + 1
+            spans[key] = (begin, finish)
+        stack.pop()
+    parser.StartElementHandler, parser.EndElementHandler = start, end
+    parser.Parse(data, True)
+    return spans
+
+
+def accessories(original, presets_data, overlay):
+    """Expand only chosen native presets inline; preserve cargo and every item choice."""
+    if economy.sha(presets_data) != overlay['stock_presets_sha256']:
+        raise ValueError('accessory random presets differ from pinned stock')
+    root = economy.xml(original, 'spawnabletypes')
+    # Stock has duplicate non-infected HuntingVest rows; leave them untouched.
+    types = economy._unique([n for n in root.findall('type')
+                             if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))])
+    presets = economy._unique(economy.xml(presets_data, 'randompresets').findall('attachments'))
+    spans, changed = _type_spans(original), {}
+    transfers = overlay['probability_transfers']
+    item_transfers = overlay['item_transfers']
+    chosen = set(item_transfers) | {r[k] for r in transfers for k in ('from', 'to')}
+    def expand(node):
+        node = copy.deepcopy(node)
+        refs = {}
+        for a in node.findall('attachments'):
+            preset = a.get('preset')
+            if preset not in chosen:
+                continue
+            if preset in refs or set(a.attrib) != {'preset'} or len(a):
+                raise ValueError('unsupported accessory preset reference')
+            expanded = copy.deepcopy(presets[preset])
+            expanded.attrib.pop('name')
+            node.insert(list(node).index(a), expanded)
+            node.remove(a)
+            refs[preset] = expanded
+        for row in transfers:
+            if row['from'] not in refs:
+                continue
+            source = refs[row['from']]
+            dest = refs.get(row['to'])
+            if dest is None:
+                dest = copy.deepcopy(presets[row['to']])
+                # A new slot is funded solely by the source probability.
+                dest.attrib.pop('name')
+                dest.set('chance', '0')
+                refs[row['to']] = dest
+                node.append(dest)
+            delta = _chance(row['chance'])
+            old = _chance(source.get('chance'))
+            if delta <= 0 or old <= delta:
+                raise ValueError('accessory source must remain positive')
+            source.set('chance', str(old - delta))
+            dest.set('chance', str(_chance(dest.get('chance')) + delta))
+        for preset, rows in item_transfers.items():
+            if preset not in refs:
+                continue
+            items = economy._unique(refs[preset].findall('item'))
+            before = sum(_chance(i.get('chance')) for i in items.values())
+            for row in rows:
+                source, dest = items[row['from']], items[row['to']]
+                delta = _chance(row['chance'])
+                old = _chance(source.get('chance'))
+                if delta <= 0 or old <= delta:
+                    raise ValueError('accessory item must remain positive')
+                source.set('chance', str(old - delta))
+                dest.set('chance', str(_chance(dest.get('chance')) + delta))
+            if before != sum(_chance(i.get('chance')) for i in items.values()):
+                raise ValueError('accessory item probability changed')
+        # Validate every emitted probability, including destinations.
+        for a in refs.values():
+            _chance(a.get('chance'))
+            for item in a.findall('item'):
+                _chance(item.get('chance'))
+        return node, bool(refs)
+    for name, node in types.items():
+        if not name.startswith(('ZmbM_', 'ZmbF_')):
+            continue
+        updated, touched = expand(node)
+        if touched:
+            changed[name] = updated
+    additions = []
+    for name, parent in overlay['explicit_classes'].items():
+        if name in types:
+            raise ValueError('explicit accessory class already present: ' + name)
+        # Explicit HC child gets parent attachments only; never extra cargo.
+        node = ET.Element('type', {'name': name})
+        for a in types[parent].findall('attachments'):
+            node.append(copy.deepcopy(a))
+        additions.append(expand(node)[0])
+    patches = []
+    for name, node in changed.items():
+        node.tail = None
+        patches.append((*spans[name], ET.tostring(node, encoding='utf-8')))
+    result = original
+    for begin, end, data in sorted(patches, reverse=True):
+        result = result[:begin] + data + result[end:]
+    end = result.rfind(b'</spawnabletypes>')
+    if end < 0:
+        raise ValueError('spawnabletypes closing tag missing')
+    data = ACCESSORY_MARKER + b'\n' + b'\n'.join(ET.tostring(n, encoding='utf-8') for n in additions) + b'\n'
+    result = result[:end] + data + result[end:]
+    economy._unique([n for n in economy.xml(result, 'spawnabletypes').findall('type')
+                     if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))])
+    return result
+
+
+def _overlay(policy):
+    # Keep authored install data in the already-packaged/fingerprinted policy.
+    overlay = policy.get('accessories')
+    if not isinstance(overlay, dict) or overlay.get('schema_version') != 1:
+        raise ValueError('missing or invalid authored accessory policy')
+    return economy.encode(overlay)
 
 
 def install(mission, stock_events=None, off=False):
@@ -181,17 +400,58 @@ def install(mission, stock_events=None, off=False):
     else:
         stock = read(Path(stock_events))
     result = substitute(original, stock, policy)
+    originals, results = {TARGET: original}, {TARGET: result}
+    overlay_bytes, presets_bytes = None, None
+    if enabled(policy, 'EnableAccessories'):
+        overlay_bytes = _overlay(policy)
+        originals[SPAWNABLE] = read(mission / SPAWNABLE)
+        presets_bytes = read(mission / PRESETS)
+        results[SPAWNABLE] = accessories(originals[SPAWNABLE], presets_bytes, json.loads(overlay_bytes))
     receipt = {'schema': 1, 'kind': 'HC-14-infected-variety', 'runtime_acceptance': 'PENDING',
                'stock_events_sha256': economy.sha(stock), 'policy_sha256': economy.sha(policy_bytes),
-               'files': {TARGET: {'before': base64.b64encode(original).decode('ascii'),
-                                   'before_sha256': economy.sha(original), 'after': economy.sha(result)}}}
-    # Recheck drift before creating recovery data. Operator must keep server stopped.
-    if read(mission / TARGET) != original:
-        raise ValueError('mission drift during planning')
+               'accessory_policy_sha256': economy.sha(overlay_bytes) if overlay_bytes is not None else None,
+               'files': {name: {'before': base64.b64encode(data).decode('ascii'),
+                                 'before_sha256': economy.sha(data), 'after': economy.sha(results[name])}
+                         for name, data in originals.items()}}
+    # Plan both files before writing anything; persist all backups before either switch.
+    for name, data in originals.items():
+        if read(mission / name) != data:
+            raise ValueError('mission drift during planning: ' + name)
+    if presets_bytes is not None and read(mission / PRESETS) != presets_bytes:
+        raise ValueError('random presets drift during planning')
     managed.mkdir()
     atomic(managed / 'receipt.json', economy.encode(receipt), managed)
-    atomic(mission / TARGET, result, managed)
+    for name, data in results.items():
+        atomic(mission / name, data, managed)
+    _summary(policy)
     return receipt
+
+
+def _backups(receipt):
+    if (not isinstance(receipt, dict) or type(receipt.get('schema')) is not int
+            or receipt['schema'] != 1 or receipt.get('kind') != 'HC-14-infected-variety'
+            or not isinstance(receipt.get('files'), dict)
+            or set(receipt['files']) not in ({TARGET}, {TARGET, SPAWNABLE})):
+        raise ValueError('invalid infected variety receipt')
+    backups = {}
+    for name, row in receipt['files'].items():
+        if (not isinstance(row, dict) or set(row) != {'before', 'before_sha256', 'after'}
+                or not isinstance(row.get('before'), str)
+                or any(not isinstance(row.get(k), str) or not economy.HEX64.fullmatch(row[k])
+                       for k in ('before_sha256', 'after'))):
+            raise ValueError('invalid infected variety backup receipt')
+        before = base64.b64decode(row['before'], validate=True)
+        if economy.sha(before) != row['before_sha256']:
+            raise ValueError('infected variety backup drift')
+        backups[name] = before
+    return backups
+
+
+def _summary(policy):
+    # Install-time levers have no runtime script hook; retain these lines in install logs.
+    for lever, switch in (('composition_ce', 'EnableComposition'), ('accessories', 'EnableAccessories')):
+        print('[HC Variety] ' + lever + ' enabled=' + str(int(enabled(policy, switch)))
+              + ' phase=install restart_required=1 runtime=PENDING')
 
 
 def check(mission):
@@ -200,26 +460,24 @@ def check(mission):
     managed = safe(mission / MANAGED)
     economy.preflight_managed(managed, {'receipt.json', '.next'})
     receipt = json.loads(read(managed / 'receipt.json', 64 * 1024 * 1024))
-    if (not isinstance(receipt, dict) or type(receipt.get('schema')) is not int
-            or receipt['schema'] != 1 or receipt.get('kind') != 'HC-14-infected-variety'
-            or receipt.get('policy_sha256') != economy.sha(read(POLICY))
-            or set(receipt.get('files', {})) != {TARGET}):
+    _backups(receipt)
+    policy = json.loads(read(POLICY))
+    expected = {TARGET, SPAWNABLE} if enabled(policy, 'EnableAccessories') else {TARGET}
+    if (receipt.get('policy_sha256') != economy.sha(read(POLICY))
+            or set(receipt['files']) != expected
+            or (SPAWNABLE in expected and receipt.get('accessory_policy_sha256') != economy.sha(_overlay(policy)))):
         raise ValueError('infected variety receipt/policy mismatch; rollback first')
-    row = receipt['files'][TARGET]
-    if (not isinstance(row, dict) or set(row) != {'before', 'before_sha256', 'after'}
-            or not isinstance(row.get('before'), str)
-            or any(not isinstance(row.get(k), str) or not economy.HEX64.fullmatch(row[k])
-                   for k in ('before_sha256', 'after'))):
-        raise ValueError('invalid infected variety backup receipt')
-    before = base64.b64decode(row['before'], validate=True)
-    if (economy.sha(before) != row['before_sha256']
-            or economy.sha(read(mission / TARGET)) != row['after']):
-        raise ValueError('infected variety receipt/mission drift; rollback first')
+    if SPAWNABLE in expected and economy.sha(read(mission / PRESETS)) != json.loads(_overlay(policy))['stock_presets_sha256']:
+        raise ValueError('infected variety random presets drift; rollback first')
+    for name, row in receipt['files'].items():
+        if economy.sha(read(mission / name)) != row['after']:
+            raise ValueError('infected variety receipt/mission drift; rollback first')
+    _summary(policy)
     return receipt
 
 
 def rollback(mission):
-    """Refuse drift/missing evidence; interrupted pre-switch installs are reversible."""
+    """Preflight every file before restoration; interrupted multi-file switches recover."""
     mission = mission_target(mission)
     managed = safe(mission / MANAGED)
     if not managed.exists():
@@ -229,41 +487,30 @@ def rollback(mission):
     economy.preflight_managed(managed, {'receipt.json', '.next'})
     receipt_path = managed / 'receipt.json'
     if not receipt_path.exists():
-        # No target is touched before the atomic receipt switch, so a
-        # receipt-less directory is only safe to clear while the target still
-        # carries none of the authored destinations (an operator may have
-        # deleted the receipt after the switch).
         policy = json.loads(read(POLICY))
         current = _events(read(mission / TARGET))
+        if (mission / SPAWNABLE).exists() and ACCESSORY_MARKER in read(mission / SPAWNABLE):
+            raise ValueError('infected variety receipt missing; accessories modified; reconcile before rollback')
         for row in policy['substitutions']:
             if row.get('existing_destination', False):
                 continue
             event = current.get(row['event'])
-            if event is not None and any(c.get('type') == row['to']
-                                         for c in event.findall('./children/child')):
+            if event is not None and any(c.get('type') == row['to'] for c in event.findall('./children/child')):
                 raise ValueError('infected variety receipt missing; target modified; reconcile '
                                  + TARGET + ' against stock before rollback')
         shutil.rmtree(managed)
         return []
     with economy.refuse_missing(managed):
         receipt = json.loads(read(receipt_path, 64 * 1024 * 1024))
-        if (not isinstance(receipt, dict) or type(receipt.get('schema')) is not int
-                or receipt['schema'] != 1 or receipt.get('kind') != 'HC-14-infected-variety'
-                or not isinstance(receipt.get('files'), dict) or set(receipt['files']) != {TARGET}):
-            raise ValueError('invalid infected variety receipt')
-        row = receipt['files'][TARGET]
-        if (not isinstance(row, dict) or set(row) != {'before', 'before_sha256', 'after'}
-                or any(not isinstance(row.get(k), str) or not economy.HEX64.fullmatch(row[k])
-                       for k in ('before_sha256', 'after')) or not isinstance(row.get('before'), str)):
-            raise ValueError('invalid infected variety backup receipt')
-        before = base64.b64decode(row['before'], validate=True)
-        if economy.sha(before) != row['before_sha256']:
-            raise ValueError('infected variety backup drift')
-        if economy.sha(read(mission / TARGET)) not in {row['before_sha256'], row['after']}:
-            raise ValueError('infected variety mission drift; reconcile before rollback')
-        atomic(mission / TARGET, before, managed)
+        backups = _backups(receipt)
+        # Never restore the first file before discovering drift in the second.
+        for name, row in receipt['files'].items():
+            if economy.sha(read(mission / name)) not in {row['before_sha256'], row['after']}:
+                raise ValueError('infected variety mission drift; reconcile before rollback: ' + name)
+        for name, before in backups.items():
+            atomic(mission / name, before, managed)
     shutil.rmtree(managed)
-    return [TARGET]
+    return list(backups)
 
 
 def main():
@@ -285,11 +532,14 @@ def main():
             original = read(args.mission / TARGET)
             result = substitute(original, read(args.stock_events), policy)
             before, after = _events(original), _events(result)
-            for name in sorted({r['event'] for r in policy['substitutions']}):
+            for name in sorted({r['event'] for r in policy['substitutions']} | ({r['event'] for r in policy.get('palette_rebalance', {}).get('transfers', [])} if enabled(policy, 'EnableComposition') else set())):
                 old, new = before[name].findall('./children/child'), after[name].findall('./children/child')
                 print(name + ': children=' + str(len(old)) + '->' + str(len(new))
                       + ' shares=' + str(sum(int(c.get('min')) for c in old)) + '->'
                       + str(sum(int(c.get('min')) for c in new)))
+            if enabled(policy, 'EnableAccessories'):
+                accessories(read(args.mission / SPAWNABLE), read(args.mission / PRESETS), json.loads(_overlay(policy)))
+            _summary(policy)
             print('HC-14 dry-run; population_delta=0; runtime=PENDING')
             return
         if args.command == 'install':
