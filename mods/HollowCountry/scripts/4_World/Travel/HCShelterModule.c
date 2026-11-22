@@ -1,5 +1,5 @@
 // LC-T206, EXP-T5 / EXP-S3. Server-owned static exterior scenes.
-// Regional scenes: one retained transaction, one prop/update per budget tick; bounded
+// Regional scenes: one retained transaction, one retained substep per admission; bounded
 // nearby layouts keep collision/terrain refusals from discarding an entire site.
 // Native API citations below also cover this path.
 // Sub-step timing: installed 1_Core/proto/EnSystem.c:106 TickCount (raw ticks).
@@ -64,7 +64,7 @@ class HCShelterModule : HCModule
     // One transaction per budget grant; no widening of authored safety bounds.
     static const int HC_REGIONAL_LAYOUTS = 35;
     protected ref HCShelterRegionalScene m_RegionalScene;
-    // One retained regional transaction: resolve/layout, one prop, or one
+    // One retained regional transaction: resolve/layout, one prop substep, or one
     // pathgraph update per SHELTER admission. Publish the anchor only at end.
     protected ref HCShelterEntry m_RegionalJobEntry;
     protected Object m_RegionalHouse;
@@ -94,6 +94,11 @@ class HCShelterModule : HCModule
     protected int m_StepWindow;
     protected int m_StepTicks;
     protected int m_StepItems;
+    protected int m_WorstSliceTicks;
+    protected int m_WorstSliceItems;
+    protected ref HCStartupShelters m_Startup;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected int m_StartupPeakTicks;
     protected int m_PathgraphMarked;
     protected int m_PathgraphRegions;
     protected int m_PathgraphSkipped;
@@ -147,6 +152,65 @@ class HCShelterModule : HCModule
 
     override string GetName() { return "Shelters"; }
 
+    override void RegisterUses()
+    {
+        HCModuleReadiness.HCRegisterUse("Shelters", "shelter_placed");
+        HCModuleReadiness.HCRegisterUse("Shelters", "pathgraph_refresh");
+    }
+
+    override void PerfSampleCosts(HCPerfSampler sampler, int slot, float ticksPerMs)
+    {
+        sampler.SampleCost(slot, 0, m_StartupPeakTicks);
+        m_StartupPeakTicks = 0;
+    }
+
+    bool HCStartupPending()
+    {
+        return m_Started && (m_RegionalRemaining > 0 || m_PathgraphPending.Count() > 0);
+    }
+
+    // The one-second module cadence made every query result/corner cost a second.
+    // Catch up on the shared startup pump; its deadline/opt-out retains tick fallback.
+    // A half-ms cooperative guard leaves room for the last indivisible native call;
+    // 16 units also bound a slice before clock calibration. Native <=3ms needs a soak.
+    void HCPumpRegional()
+    {
+        if (!HCStartupPending()) { return; }
+        int sliceStart = TickCount(0);
+        int itemsBefore = m_StepItems;
+        float sliceMs = 0.5;
+        if (HCStartupPump.HCInSlice()) { sliceMs = HCStartupPump.HCSliceMs(sliceMs); }
+        m_Work.HCReset(16, sliceMs);
+        while (HCStartupPending() && m_Work.HCContinue())
+        {
+            HCRegionalMeasuredStep();
+            if (m_StepKind == "idle") { break; }
+        }
+        int sliceTicks = TickCount(sliceStart);
+        m_StepTicks++;
+        if (sliceTicks > m_WorstSliceTicks && m_StepItems > itemsBefore)
+        {
+            m_WorstSliceTicks = sliceTicks;
+            m_WorstSliceItems = m_StepItems - itemsBefore;
+        }
+        if (HCStartupPump.HCInSlice() && sliceTicks > m_StartupPeakTicks) { m_StartupPeakTicks = sliceTicks; }
+    }
+
+    protected void HCRegionalMeasuredStep()
+    {
+        m_StepKind = "idle";
+        int stepStart = TickCount(0);
+        HCRegionalTick();
+        int stepTicks = TickCount(stepStart);
+        if (m_StepKind == "idle") { return; }
+        m_StepItems++;
+        if (stepTicks > m_HeaviestTicks)
+        {
+            m_HeaviestTicks = stepTicks;
+            m_HeaviestStep = m_StepKind;
+        }
+    }
+
     // Ready follows a running placement service and at least one placed shelter.
     // Missing regional data or actual regional placement failure is degraded;
     // pending native acceptance alone never blocks the admitted scene queue.
@@ -182,6 +246,9 @@ class HCShelterModule : HCModule
                 PlaceShelter(shelterIndex);
                 shelterIndex = shelterIndex + 1;
             }
+            m_Startup = new HCStartupShelters;
+            m_Startup.Module = this;
+            HCStartupPump.HCRegister(m_Startup, "shelters");
         }
         else
         {
@@ -197,20 +264,7 @@ class HCShelterModule : HCModule
         string regionalWorld = GetGame().GetWorldName();
         regionalWorld.ToLower();
         if (regionalWorld != "chernarusplus") { return; }
-        m_StepKind = "idle";
-        int shelterStart = TickCount(0);
-        HCRegionalTick();
-        int shelterTicks = TickCount(shelterStart);
-        m_StepTicks++;
-        if (m_StepKind != "idle")
-        {
-            m_StepItems++;
-            if (shelterTicks > m_HeaviestTicks)
-            {
-                m_HeaviestTicks = shelterTicks;
-                m_HeaviestStep = m_StepKind;
-            }
-        }
+        HCPumpRegional();
         m_RegionalSummarySeconds += deltaTime;
         if (m_RegionalSummarySeconds >= 300)
         {
@@ -219,17 +273,17 @@ class HCShelterModule : HCModule
             m_StepWindow++;
             // Same raw TickCount/heaviest fields as the shared HCStepTimer.
             // Only the five-minute heartbeat emits this bounded diagnostic.
-            int worstItems = 0;
-            if (m_StepItems > 0) { worstItems = 1; }
             string stepLine = "[HC Step] owner=Shelters window=" + m_StepWindow.ToString() + " ticks=" + m_StepTicks.ToString();
-            stepLine += " worst_tick_ticks=" + m_HeaviestTicks.ToString() + " worst_tick_items=" + worstItems.ToString();
-            stepLine += " other=" + m_HeaviestTicks.ToString() + " heaviest_item_ticks=" + m_HeaviestTicks.ToString() + " heaviest=" + m_HeaviestStep;
+            stepLine += " worst_tick_ticks=" + m_WorstSliceTicks.ToString() + " worst_tick_items=" + m_WorstSliceItems.ToString();
+            stepLine += " other=" + m_WorstSliceTicks.ToString() + " heaviest_item_ticks=" + m_HeaviestTicks.ToString() + " heaviest=" + m_HeaviestStep;
             stepLine += " deferred_n=0 deferred_max_ticks=0; raw TickCount units; runtime acceptance pending";
-            Print("" + stepLine);
+            if (m_StepItems > 0) { Print("" + stepLine); }
             m_HeaviestTicks = 0;
             m_HeaviestStep = "idle";
             m_StepItems = 0;
             m_StepTicks = 0;
+            m_WorstSliceTicks = 0;
+            m_WorstSliceItems = 0;
         }
         HCReached.Mark("shelters.regional_tick");
     }
@@ -239,6 +293,9 @@ class HCShelterModule : HCModule
     override void OnStop()
     {
         if (!m_Started) return;
+        HCStartupPump.HCFinish(m_Startup);
+        if (m_Startup) { m_Startup.Module = null; }
+        m_Startup = null;
         HCClearRegionalJob(true);
         array<Object> ownedProps = m_Objects;
         foreach (Object ownedProp : ownedProps)
@@ -254,6 +311,10 @@ class HCShelterModule : HCModule
         m_HeaviestStep = "idle";
         m_StepItems = 0;
         m_StepTicks = 0;
+        m_WorstSliceTicks = 0;
+        m_WorstSliceItems = 0;
+        m_StartupPeakTicks = 0;
+        m_CandidateSurveyReported = false;
         m_Placed = 0;
         m_Refused = 0;
         m_Started = false;
@@ -709,7 +770,7 @@ class HCShelterModule : HCModule
         return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
-    // Once per owner lifetime, bounded by the five authored survey rows.
+    // Once per owner lifetime, bounded by the authored survey catalog.
     // A missing package is a real fault; native verdicts are admission-only.
     // Print: installed 1_Core/proto/EnDebug.c:96; array access is catalog-only.
     protected void HCReportCandidateSurveys()
@@ -728,15 +789,17 @@ class HCShelterModule : HCModule
             return;
         }
         int candidateIndex = 0;
+        int enabledCandidates = 0;
         while (candidateIndex < HCShelterCatalog.CandidateCount())
         {
             HCShelterSurvey candidate = HCShelterCatalog.GetCandidate(candidateIndex);
             if (candidate && candidateConfig.Scenes[candidateIndex].Enabled)
             {
-                Print("[HC Shelters] candidate=" + candidate.Id + " admission=authored_exterior_scene access=" + candidate.Refusal + " source=travel/auditshelter_scenes.json runtime=PENDING");
+                enabledCandidates++;
             }
             candidateIndex = candidateIndex + 1;
         }
+        Print("[HC Shelters] candidates=" + candidateIndex.ToString() + " enabled=" + enabledCandidates.ToString() + " admission=authored_exterior_scene source=travel/auditshelter_scenes.json runtime=PENDING");
     }
 
     protected void PlaceShelter(int index)
@@ -854,13 +917,16 @@ class HCShelterModule : HCModule
         {
             int pathCost = 1;
             if (config) { pathCost = config.WorkUnits; }
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, pathCost)) { return; }
+            if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, pathCost)) { return; }
             m_StepKind = "pathgraph_refresh";
             HCApplyPathgraph(m_PathgraphPending[0]);
             m_PathgraphPending.RemoveOrdered(0);
+            if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
             return;
         }
         if (!config || !config.Enabled || m_RegionalRemaining <= 0) { return; }
+        HCUnitBudget shared = HCServer.HCTickWork();
+        if (!HCStartupPump.HCInSlice() && !shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
         HCShelterEntry entry = m_RegionalJobEntry;
         if (!entry)
         {
@@ -869,8 +935,6 @@ class HCShelterModule : HCModule
             m_RegionalCursor = m_RegionalCursor + 1;
             if (!entry || !entry.Scene || !entry.Scene.Enabled || entry.Attempted) { return; }
         }
-        HCUnitBudget shared = HCServer.HCTickWork();
-        if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
         m_StepKind = "observer";
         if (m_RegionalRollingBack)
         {
@@ -906,7 +970,6 @@ class HCShelterModule : HCModule
 
     protected void HCRegionalSummary()
     {
-        Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " regions=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
         // Reasons come only from the finite placement checks, never world rows.
         // One bounded line per five minutes and when the queue completes.
         string refusedReasons = "";
@@ -926,6 +989,7 @@ class HCShelterModule : HCModule
         float statusNow = GetGame().GetTickTime();
         if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
         {
+            Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " regions=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
             Print("" + statusLine);
             m_StatusLogLine = statusLine;
             m_StatusLogAt = statusNow;
@@ -938,7 +1002,7 @@ class HCShelterModule : HCModule
         m_RegionalRemaining--;
         m_RegionalRefusals.Set(reason, m_RegionalRefusals.Get(reason) + 1);
         Print("[HC Shelters] regional_refused=" + reason + ":" + entry.Scene.Id + HCRefusalDetails() + " runtime=PENDING");
-        if (m_RegionalRemaining == 0) { HCRegionalSummary(); }
+        if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
     }
 
     protected void HCClearRegionalJob(bool rollback)
@@ -980,10 +1044,6 @@ class HCShelterModule : HCModule
         bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water" || m_RefusalReason == "keepout";
         if (retryable && entry.PlacementVariant + 1 < HC_REGIONAL_LAYOUTS)
         {
-            if (entry.PlacementVariant == 0)
-            {
-                Print("[HC Shelters] regional_layout_refused=" + m_RefusalReason + ":" + entry.Scene.Id + HCRefusalDetails() + " retry=nearby runtime=PENDING");
-            }
             entry.PlacementVariant++;
             entry.Attempted = false;
             m_RegionalCursor--;
@@ -1101,9 +1161,8 @@ class HCShelterModule : HCModule
         m_Placed = m_Placed + 1;
         m_RegionalPlaced++;
         m_RegionalRemaining--;
-        Print("[HC Shelters] regional_placed=" + entry.Scene.Id + " props=3 variant=" + entry.PlacementVariant.ToString() + " runtime=PENDING");
         HCClearRegionalJob(false);
-        if (m_RegionalRemaining == 0) { HCRegionalSummary(); }
+        if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
     }
 
     // Regional equivalent of PlaceProp, in the same predicate/transform order.
@@ -1384,6 +1443,14 @@ class HCShelterModule : HCModule
         GetGame().ObjectDelete(prop);
         HCQueuePathgraph(region);
     }
+}
+
+// Weak module handle: the module owns this registration and clears it on stop.
+class HCStartupShelters : HCStartupOwner
+{
+    HCShelterModule Module;
+    override bool HCNeedsWork() { return Module && Module.HCStartupPending(); }
+    override void HCSlice() { if (Module) { Module.HCPumpRegional(); } }
 }
 
 modded class HCModuleRegistry
