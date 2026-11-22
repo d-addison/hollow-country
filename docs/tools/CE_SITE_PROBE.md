@@ -81,20 +81,31 @@ event must be listed; `{}` is an explicit control. The variants are recorded in 
 plan. A factorial runtime is evidence for choosing a fix, never a shipped treatment.
 
 Run and ingest this second fresh runtime in the same way. The measured treatment
-refuses missing group observations, water, slope above `MAX_SLOPE_DEG=12`, or any
-geometry blocker inside the clearance box. It emits terrain `y` on every group
-position and at least `MIN_CACHE_POSITIONS=3` usable measured positions per cache,
+refuses missing group observations or coordinate drift. It emits terrain `y` on every
+group position. Group anchors that fail the screen (water, slope above
+`MAX_SLOPE_DEG=12`, or any geometry blocker inside the clearance box) stay in the
+output, because CE retries other anchors and relocation needs native candidates.
+The install report lists them under `measured_unusable_anchors`. It also emits and at least `MIN_CACHE_POSITIONS=3` usable measured positions per cache,
 all within `CACHE_RADIUS_M=15` of its authored anchor (observer radius is 25 m).
 Unusable cache candidates are retained in evidence but excluded from output.
-A refusal means the lead must investigate the site; observations are never
-silently dropped to make the group treatment pass.
+Observations are never silently dropped.
 
 After native review, the lead can commit the ingested JSON as
 `mission/hollow-country/ce/hc-site-measurements.json`; the installer automatically
 uses it and includes its bytes in receipt ownership. With that file absent,
 output and source digest are unchanged. `current` always explicitly omits it,
 so the control remains reproducible after measurements land. No measured data
-or generated artifacts are included with this implementation.
+or generated artifacts are included with this implementation. Run 003 (2026-11-22 UTC,
+current treatment) is committed this way.
+
+Event-definition variants are also available: `event` overrides `lifetime`, `restock`,
+`saferadius`, `distanceradius`, `cleanupradius` or the `deletable`/`init_random`/
+`remove_damaged` flags in the managed `events.xml`, and `"db": true` moves the event
+definition into `db/events.xml`. Factorial-003 isolated `restock`: every HC fixed
+event with restock 300 or 600 failed its VehicleRespawner Init and never spawned
+during the hold, and every one with restock 0 (the vanilla static-event value)
+spawned. Radii, `deletable` and the db move made no difference. HC events now ship
+restock 0, and validation requires it.
 
 This survey does not prove that adding `y` cures CE placement, that zero zones
 are valid, that an entire composed scene fits, that candidates pass CE internal

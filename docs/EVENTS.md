@@ -32,10 +32,14 @@ models, game dumps or Workshop assets.
 
 ## Lifecycle, geography and loot
 
-Each type has a 40–55 minute lifetime, 300-second restock, 200 m player safety
+Each type has a 40–55 minute lifetime, restock 0 (see below), 200 m player safety
 radius, 300 m distance radius and 1000 m cleanup radius. Secondary populations
 remain disabled. At the nominal population the authored compositions contain
 300 scene objects. These are provisional ceilings, not measured engine costs.
+
+Restock is 0, the value vanilla static events use. A native factorial
+(docs/tools/CE_SITE_PROBE.md) showed that any restock above 0 made every HC fixed
+event fail its CE Init spawn and never appear. Caches use the same value.
 
 All HC candidate centers are mutually separated by at least **401.517 m**;
 validation refuses separation below 340 m. There are 13 candidates per type for

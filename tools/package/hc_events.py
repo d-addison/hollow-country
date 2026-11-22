@@ -32,6 +32,10 @@ MAX_SLOPE_DEG = 12.0
 BLOCKER_RADIUS_M = 2.0
 CACHE_RADIUS_M = 15.0
 MIN_CACHE_POSITIONS = 3
+# Native factorial (2026-11-21, ce-site factorial-003): every fixed event with
+# restock > 0 failed its VehicleRespawner Init and never spawned during the 25 min
+# hold; every one with restock 0 (the vanilla static-event value) spawned.
+NATIVE_RESTOCK = '0'
 
 GROUP_POLICY = b'per-anchor-groups-v1\0'
 
@@ -110,12 +114,15 @@ def apply_measurements(positions, cache_positions, measured):
         if any(abs(row[a] - float(pos.get(a))) > 0.01 for a in ('x', 'z')):
             raise ValueError('measurement coordinate drift: ' + ident)
         return row, usable
+    unusable = []
     for event in positions:
         for index, pos in enumerate(event.findall('pos'), 1):
             ident = '%s:site%03d' % (event.get('name'), index)
             row, usable = checked(ident, pos)
+            # The screen is conservative and CE retries other anchors, so a screened-out
+            # anchor stays (relocation needs native candidates); it is reported, never hidden.
             if not usable:
-                raise ValueError('unusable measurement (water/slope/blocker): ' + ident)
+                unusable.append(ident)
             pos.set('y', format(row['y'], '.6f'))
     for event in cache_positions:
         anchor = event.find('pos')
@@ -140,6 +147,7 @@ def apply_measurements(positions, cache_positions, measured):
         if len(selected) < MIN_CACHE_POSITIONS:
             raise ValueError('insufficient usable measured cache candidates: ' + event.get('name'))
         event[:] = selected
+    return unusable
 
 
 def validate(source=SOURCE):
@@ -166,7 +174,7 @@ def validate(source=SOURCE):
                 or e.findtext('min') != '0' or e.findtext('max') != '0'
                 or not 1 <= int(e.findtext('nominal')) <= 4
                 or not 1800 <= int(e.findtext('lifetime')) <= 5400
-                or not 60 <= int(e.findtext('restock')) <= 600
+                or e.findtext('restock') != NATIVE_RESTOCK
                 or int(e.findtext('distanceradius')) < 300):
             raise ValueError('invalid encounter lifecycle')
     group_names = {g.get('name') for g in groups}
@@ -262,7 +270,7 @@ def validate(source=SOURCE):
                 or event.findtext('limit') != 'mixed'
                 or any(event.findtext(n) != '1' for n in ('nominal', 'min', 'max'))
                 or not 1800 <= int(event.findtext('lifetime')) <= 5400
-                or not 60 <= int(event.findtext('restock')) <= 600
+                or event.findtext('restock') != NATIVE_RESTOCK
                 or len(children) != 1 or children[0].attrib != {
                     'lootmax': '0', 'lootmin': '0', 'max': '1', 'min': '1',
                     'type': 'SmallProtectorCase'}):
@@ -275,9 +283,10 @@ def validate(source=SOURCE):
         if not (0 < x < 15360 and 0 < z < 15360):
             raise ValueError('invalid cache anchor')
     measured_path = economy.child(source, MEASUREMENTS)
+    unusable = None
     if os.path.lexists(measured_path):
         data[MEASUREMENTS] = economy.read_plain(source, MEASUREMENTS)
-        apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]))
+        unusable = apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]))
     encounter_count = len(events)
     events.extend(caches)
     positions.extend(cache_positions)
@@ -287,6 +296,7 @@ def validate(source=SOURCE):
         'cache_event_types': len(caches), 'cache_nominal': len(caches),
         'groups': len(groups), 'objects_in_groups': sum(len(g) for g in groups),
         'observer_headroom': MAX_OBSERVERS, 'event_budgets': budgets,
+        'measured_unusable_anchors': unusable,
         'runtime': 'PENDING'}
 
 

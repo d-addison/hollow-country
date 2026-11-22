@@ -5,7 +5,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2400</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -20,7 +20,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2700</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -35,7 +35,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3000</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -50,7 +50,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3300</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -65,7 +65,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2400</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -80,7 +80,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2700</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -95,7 +95,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3000</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -110,7 +110,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3300</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -125,7 +125,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2400</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -140,7 +140,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2700</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -155,7 +155,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3000</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -170,7 +170,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3300</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -185,7 +185,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2400</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -200,7 +200,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>2700</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -215,7 +215,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3000</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>
@@ -230,7 +230,7 @@
     <min>0</min>
     <max>0</max>
     <lifetime>3300</lifetime>
-    <restock>300</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>1000</cleanupradius>

@@ -101,17 +101,16 @@ class SiteProbeTests(unittest.TestCase):
                 self.assertGreaterEqual(len(event), hc.MIN_CACHE_POSITIONS)
         self.assertEqual(len(old_roots[2]), len(roots[2]))
 
-    def test_generator_refuses_missing_drift_water_slope_collision_and_short_cache_pool(self):
+    def test_generator_refuses_missing_drift_and_short_cache_pool(self):
         self.source_copy()
         original = measurement(self.rows)
         cases = []
         missing = copy.deepcopy(original)
         missing['targets'].pop(0)
         cases.append(missing)
-        for key, value in (('x', 1), ('water', 1), ('slope_deg', hc.MAX_SLOPE_DEG + 1), ('blockers', 1)):
-            bad = copy.deepcopy(original)
-            bad['targets'][0][key] = value
-            cases.append(bad)
+        bad = copy.deepcopy(original)
+        bad['targets'][0]['x'] = 1
+        cases.append(bad)
         bad = copy.deepcopy(original)
         for row in bad['targets']:
             if row['id'].startswith('ItemHCSceneCache'):
@@ -121,6 +120,16 @@ class SiteProbeTests(unittest.TestCase):
             (self.root / hc.MEASUREMENTS).write_text(json.dumps(bad))
             with self.subTest(case=len(bad['targets'])), self.assertRaises(ValueError):
                 hc.validate(self.root)
+
+    def test_screened_out_group_anchor_is_kept_and_reported(self):
+        self.source_copy()
+        for key, value in (('water', 1), ('slope_deg', hc.MAX_SLOPE_DEG + 1), ('blockers', 1)):
+            bad = measurement(self.rows)
+            bad['targets'][0][key] = value
+            (self.root / hc.MEASUREMENTS).write_text(json.dumps(bad))
+            with self.subTest(key=key):
+                report = hc.validate(self.root)[3]
+                self.assertEqual(report['measured_unusable_anchors'], [bad['targets'][0]['id']])
 
     def test_generated_hook_passes_shared_compile_shape_checks(self):
         hook = probe.render_hook(self.rows, self.plan['binding'])

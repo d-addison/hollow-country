@@ -173,7 +173,9 @@ def render_hook(rows, token, hold_seconds=240):
     return text.encode('ascii')
 
 
-VARIANT_KEYS = frozenset(('y', 'zone', 'angle'))
+VARIANT_KEYS = frozenset(('y', 'zone', 'angle', 'event', 'db'))
+EVENT_FIELDS = ('lifetime', 'restock', 'saferadius', 'distanceradius', 'cleanupradius')
+FLAG_FIELDS = ('deletable', 'init_random', 'remove_damaged')
 
 
 def load_variants(path, measured_path):
@@ -196,6 +198,13 @@ def load_variants(path, measured_path):
             raise ValueError('invalid variant angle')
         if 'y' in v and v['y'] is not True:
             raise ValueError('invalid variant y')
+        if 'db' in v and v['db'] is not True:
+            raise ValueError('invalid variant db')
+        fields = v.get('event', {})
+        if (not isinstance(fields, dict) or set(fields) - set(EVENT_FIELDS + FLAG_FIELDS)
+                or any(type(n) is not int or not 0 <= n <= 100000 for n in fields.values())
+                or any(fields[f] not in (0, 1) for f in FLAG_FIELDS if f in fields)):
+            raise ValueError('invalid variant event fields')
     heights = {}
     if any(v.get('y') for v in doc.values()):
         if measured_path is None:
@@ -234,8 +243,37 @@ def apply_variants(mission_dest, doc, heights):
                 zone.set(attr, str(value))
     if seen != set(doc):
         raise ValueError('variants name unknown events')
+    write_xml(path, root)
+    apply_event_variants(Path(mission_dest), doc)
+
+
+def write_xml(path, root):
     path.write_bytes(b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
                      + ET.tostring(root, encoding='utf-8') + b'\n')
+
+
+def apply_event_variants(mission, doc):
+    """Override event-definition fields; "db" moves the definition into db/events.xml."""
+    if not any('event' in v or 'db' in v for v in doc.values()):
+        return
+    folder = mission / 'hollow-country-events' / 'events.xml'
+    db = mission / 'db' / 'events.xml'
+    folder_root, db_root = ET.fromstring(folder.read_bytes()), ET.fromstring(db.read_bytes())
+    by_name = {e.get('name'): e for e in folder_root}
+    for name, variant in doc.items():
+        event = by_name.get(name)
+        if event is None:
+            raise ValueError('variant event definition missing: ' + name)
+        for field, value in variant.get('event', {}).items():
+            if field in FLAG_FIELDS:
+                event.find('flags').set(field, str(value))
+            else:
+                event.find(field).text = str(value)
+        if variant.get('db'):
+            folder_root.remove(event)
+            db_root.append(event)
+    write_xml(folder, folder_root)
+    write_xml(db, db_root)
 
 
 def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current', measured=None,

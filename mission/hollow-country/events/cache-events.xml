@@ -5,7 +5,7 @@
     <min>1</min>
     <max>1</max>
     <lifetime>3600</lifetime>
-    <restock>600</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>100</cleanupradius>
@@ -22,7 +22,7 @@
     <min>1</min>
     <max>1</max>
     <lifetime>3600</lifetime>
-    <restock>600</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>100</cleanupradius>
@@ -39,7 +39,7 @@
     <min>1</min>
     <max>1</max>
     <lifetime>3600</lifetime>
-    <restock>600</restock>
+    <restock>0</restock>
     <saferadius>200</saferadius>
     <distanceradius>300</distanceradius>
     <cleanupradius>100</cleanupradius>
