@@ -529,6 +529,13 @@ def main(argv=None):
             print('PASS ' + contract.name + ' ' + detail)
         except MissingInput as exc:
             skips += 1
+            previous = manifest['artefacts'].get(contract.name) if args.update else None
+            if isinstance(previous, dict) and previous.get('inputs') != local_snapshot(contract):
+                # A skipped regeneration must not leave a record that --check will reject later.
+                failures += 1
+                print('FAIL ' + contract.name + ' committed record is stale (repo inputs changed) and '
+                      + str(exc) + '; rerun --update where it is available')
+                continue
             print(('FAIL' if args.require_installed else 'SKIP') + ' ' + contract.name + ' ' + str(exc))
         except Exception as exc:
             # CLI boundary: failed generator diagnostics must not emit private tracebacks.

@@ -105,7 +105,8 @@ def convert(tool, source, destination):
     else:
         quote = lambda s: "'" + s.replace("'", "''") + "'"
         script = '& ' + ' '.join(map(quote, args)) + ' 2>&1 | Out-Null; Write-Output "HC_ICON_EXIT=$LASTEXITCODE"'
-        result = winproc.run('powershell', [script], attempts=1, timeout=60)
+        # Idempotent (writes only the staged target), so bounded retries absorb slow interop on a loaded host.
+        result = winproc.run('powershell', [script], attempts=3, timeout=180)
         code = 0 if result.returncode == 0 and 'HC_ICON_EXIT=0' in result.stdout.splitlines() else 1
     if code or not destination.is_file() or destination.stat().st_size < 16:
         raise ValueError('ImageToPAA conversion failed; no provenance recorded')
@@ -118,7 +119,7 @@ def windows_sees(directory):
         return True
     quote = lambda s: "'" + s.replace("'", "''") + "'"
     result = winproc.run('powershell', ['if (Test-Path -LiteralPath ' + quote(windows_path(directory)) + ') { "HC_SEEN=1" }'],
-                         attempts=1, timeout=30)
+                         attempts=3, timeout=90)
     return result.returncode == 0 and 'HC_SEEN=1' in result.stdout.splitlines()
 
 
