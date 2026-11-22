@@ -185,6 +185,77 @@ class InventorySizes(unittest.TestCase):
         _, files = pbo.parse(blob)
         self.assertEqual(files['config.cpp'], config.encode())
 
+    # Source-consistency audit of the committed configs (W4-03). These read only the committed
+    # text and reviewed rows; they cannot show what the DayZ engine loads.
+    @staticmethod
+    def members(config, root):
+        """Depth-1 class statements of one root as (name, parent, defined), in file order."""
+        text = re.sub(r'"(?:[^"]|"")*"|//[^\n]*|/\*.*?\*/', ' ', config, flags=re.S)
+        match = re.search(r'\bclass\s+' + root + r'\s*\{', text)
+        if not match:
+            return []
+        depth, found = 1, []
+        for token in re.finditer(r'[{}]|\bclass\s+(\w+)\s*(?::\s*(\w+))?\s*(;|(?=\{))', text[match.end():]):
+            if token.group() == '{':
+                depth += 1
+            elif token.group() == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            elif token.group(1) and depth == 1:
+                found.append((token.group(1), token.group(2), token.group(3) != ';'))
+        return found
+
+    def committed_configs(self):
+        return {'HollowCountry': (ROOT / 'mods/HollowCountry/config.cpp').read_text(),
+                'HollowCountryExpansionAI': (ROOT / 'mods/HollowCountryExpansionAI/config.cpp').read_text()}
+
+    def test_committed_roots_name_each_member_once_and_every_reopening_inherits(self):
+        for addon, config in self.committed_configs().items():
+            for root in ('CfgVehicles', 'CfgMagazines', 'CfgWeapons', 'CfgAmmo'):
+                found = self.members(config, root)
+                names = [n.lower() for n, _, _ in found]
+                duplicated = sorted({n for n in names if names.count(n) > 1})
+                self.assertEqual([], duplicated, addon + ' ' + root + ' names a member twice')
+                if root != 'CfgVehicles':
+                    continue
+                # Parent first: a class is declared or defined above every class that inherits it, and
+                # no definition lacks a parent (a bare reopening would drop the inherited config).
+                seen = set()
+                for name, parent, defined in found:
+                    if defined:
+                        self.assertTrue(parent, addon + ' ' + name + ' reopens without a parent')
+                    if parent:
+                        self.assertIn(parent.lower(), seen, addon + ' ' + name + ' precedes its parent')
+                    seen.add(name.lower())
+
+    def test_committed_forward_declarations_are_all_used_as_parents(self):
+        for addon, config in self.committed_configs().items():
+            found = self.members(config, 'CfgVehicles')
+            parents = {p.lower() for _, p, _ in found if p}
+            stale = sorted(n for n, _, defined in found if not defined and n.lower() not in parents)
+            self.assertEqual([], stale, addon + ' forward-declares classes nothing inherits')
+
+    def test_committed_stack_reopenings_keep_the_base_parent_and_rows_never_zero_a_class(self):
+        configs = self.committed_configs()
+        base = {n.lower(): p for n, p, d in self.members(configs['HollowCountry'], 'CfgVehicles') if d}
+        for name, parent, defined in self.members(configs['HollowCountryExpansionAI'], 'CfgVehicles'):
+            if defined and name.lower() in base:
+                self.assertEqual(base[name.lower()].lower(), parent.lower(), name)
+        for key in ('reviewed_overrides', 'reviewed_stack_overrides'):
+            rows = self.rules.get(key, [])
+            identities = [inv.identity(r) for r in rows]
+            self.assertEqual(len(identities), len(set(identities)), key + ' repeats a class')
+            for row in rows:
+                self.assertTrue(all(type(v) is int and v > 0 for v in row['new']), row['name'])
+                if row['category'] != 'preserve-original':
+                    self.assertNotEqual(row['vanilla'], row['new'], row['name'] + ' is a stale no-op row')
+
+    def test_committed_inventory_output_names_no_restricted_provider(self):
+        for addon, config in self.committed_configs().items():
+            self.assertTrue(inv.inventory_sources.safe_text(config), addon)
+        self.assertTrue(inv.inventory_sources.safe_text((ROOT / 'config/inventory-sizes.json').read_text()))
+
     def test_cli_check_returns_nonzero_for_stale_block_without_writing(self):
         # Synthetic reviewed data lets this CLI test run without installed game files.
         with tempfile.TemporaryDirectory(prefix='hc-inventory-synthetic-') as tmp:
