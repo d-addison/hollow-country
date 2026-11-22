@@ -4,6 +4,10 @@ Stop the server. Supply installed stock db/events.xml, pinned in variants.json.
 Authored palette rows and selected infected attachment rows change; other bytes are
 retained, except a missing/nonstandard XML declaration is normalized through
 xml_text to the double-quoted UTF-8 form. No CE extension is registered.
+Seasonal rows (seasonal_rebalance in variants.json) apply only when the install names
+a season (--season, or --season-profile reading the persisted HCVisualSeasons clock);
+the season is restart-bound and recorded in the receipt, so a season change means
+rollback and install again.
 Off and rollback restore the original bytes, including the original declaration.
 """
 import argparse
@@ -25,6 +29,10 @@ MANAGED = 'hollow-country-infected'
 TARGET = 'db/events.xml'
 SPAWNABLE = 'cfgspawnabletypes.xml'
 PRESETS = 'cfgrandompresets.xml'
+SEASONS = ('spring', 'summer', 'autumn', 'winter')
+SEASON_STATE = 'HollowCountry/visual-seasons.json'
+SEASON_CONFIG = 'HollowCountry/seasons.json'
+DEFAULT_PHASE_SECONDS = 604800
 ACCESSORY_MARKER = b'<!-- HC #316 accessories; receipt rollback required -->'
 
 
@@ -73,7 +81,42 @@ def _spans(data):
     return rows
 
 
-def substitute(original, stock, policy):
+def season_transfers(policy, season):
+    """Authored restart-bound transfers for one season; None selects none."""
+    if season is None:
+        return []
+    if season not in SEASONS:
+        raise ValueError('unknown season: ' + str(season))
+    block = policy.get('seasonal_rebalance', {}).get('seasons', {}).get(season, {})
+    return block.get('transfers', [])
+
+
+def season_from_profile(profile):
+    """Season of the persisted HCVisualSeasons clock, or None when it is unavailable.
+
+    Offline mirror of HCVisualSeasons.HCPhase: elapsed seconds modulo four phases of
+    PhaseSeconds. Missing or invalid state selects no season, like the runtime's -1.
+    """
+    profile = Path(profile)
+    try:
+        state = json.loads(read(profile / SEASON_STATE, 4096))
+    except (OSError, ValueError):
+        return None
+    elapsed = state.get('ElapsedSeconds') if isinstance(state, dict) else None
+    if type(elapsed) is not int or elapsed < 0:
+        return None
+    phase_seconds = DEFAULT_PHASE_SECONDS
+    try:
+        config = json.loads(read(profile / SEASON_CONFIG, 4096))
+        value = config.get('PhaseSeconds', DEFAULT_PHASE_SECONDS) if isinstance(config, dict) else None
+        if type(value) is int and value > 0:
+            phase_seconds = value
+    except (OSError, ValueError):
+        pass
+    return SEASONS[elapsed % (phase_seconds * 4) // phase_seconds]
+
+
+def substitute(original, stock, policy, season=None):
     """Require stock-identical targeted events; preserve other mission content."""
     if economy.sha(stock) != policy['evidence']['stock_events_sha256']:
         raise ValueError('installed stock hash does not match pinned stock events')
@@ -82,6 +125,7 @@ def substitute(original, stock, policy):
     targets = {s['event'] for s in substitutions}
     if enabled(policy, 'EnableComposition'):
         targets |= {r['event'] for r in policy.get('palette_rebalance', {}).get('transfers', [])}
+        targets |= {r['event'] for r in season_transfers(policy, season)}
     for name in targets:
         if name not in expected or name not in current:
             raise ValueError('missing stock target event: ' + name)
@@ -154,6 +198,9 @@ def substitute(original, stock, policy):
                 raise ValueError('authored child budget changed: ' + name)
     if enabled(policy, 'EnableComposition'):
         result = rebalance(result, policy.get('palette_rebalance', {}).get('transfers', []))
+        seasonal = season_transfers(policy, season)
+        if seasonal:
+            result = rebalance(result, seasonal)
     return result
 
 
@@ -373,14 +420,18 @@ def _overlay(policy):
     return economy.encode(overlay)
 
 
-def install(mission, stock_events=None, off=False):
+def install(mission, stock_events=None, off=False, season=None):
     """Write the optional-overlays style backup receipt before the atomic switch."""
     if off:
         return rollback(mission)
     mission = mission_target(mission)
     managed = safe(mission / MANAGED)
     if managed.exists():
-        return check(mission)
+        receipt = check(mission)
+        if season is not None and receipt.get('season') != season:
+            raise ValueError('infected variety is installed for season ' + str(receipt.get('season'))
+                             + '; rollback first to install for ' + season)
+        return receipt
     policy_bytes = read(POLICY)
     policy = json.loads(policy_bytes)
     original = read(mission / TARGET)
@@ -404,7 +455,7 @@ def install(mission, stock_events=None, off=False):
                     raise ValueError('bundle events backup/mission drift')
     else:
         stock = read(Path(stock_events))
-    result = substitute(original, stock, policy)
+    result = substitute(original, stock, policy, season)
     originals, results = {TARGET: original}, {TARGET: result}
     overlay_bytes, presets_bytes = None, None
     if enabled(policy, 'EnableAccessories'):
@@ -413,7 +464,7 @@ def install(mission, stock_events=None, off=False):
         presets_bytes = read(mission / PRESETS)
         results[SPAWNABLE] = accessories(originals[SPAWNABLE], presets_bytes, json.loads(overlay_bytes))
     receipt = {'schema': 1, 'kind': 'HC-14-infected-variety', 'runtime_acceptance': 'PENDING',
-               'stock_events_sha256': economy.sha(stock), 'policy_sha256': economy.sha(policy_bytes),
+               'season': season, 'stock_events_sha256': economy.sha(stock), 'policy_sha256': economy.sha(policy_bytes),
                'accessory_policy_sha256': economy.sha(overlay_bytes) if overlay_bytes is not None else None,
                'files': {name: {'before': base64.b64encode(data).decode('ascii'),
                                  'before_sha256': economy.sha(data), 'after': economy.sha(results[name])}
@@ -522,6 +573,14 @@ def rollback(mission):
     return list(backups)
 
 
+def _requested_season(args):
+    if args.season_profile is not None:
+        season = season_from_profile(args.season_profile)
+        print('[HC Variety] season=' + str(season) + ' source=profile phase=install restart_required=1 runtime=PENDING')
+        return season
+    return args.season
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -529,19 +588,27 @@ def main():
     apply.add_argument('--mission', type=Path, required=True)
     apply.add_argument('--stock-events', type=Path, help='pristine events matching policy pin; default: validated bundle backup or current file')
     apply.add_argument('--off', action='store_true', help='restore receipt backup byte for byte')
+    choose = apply.add_mutually_exclusive_group()
+    choose.add_argument('--season', choices=SEASONS, help='restart-bound seasonal placement for this season')
+    choose.add_argument('--season-profile', type=Path, help='server profile directory; the season comes from its persisted visual-seasons clock')
     undo = sub.add_parser('rollback')
     undo.add_argument('--mission', type=Path, required=True)
     preview = sub.add_parser('dry-run', help='report child counts without writing the mission')
     preview.add_argument('--mission', type=Path, required=True)
     preview.add_argument('--stock-events', type=Path, required=True)
+    pick = preview.add_mutually_exclusive_group()
+    pick.add_argument('--season', choices=SEASONS)
+    pick.add_argument('--season-profile', type=Path)
     args = parser.parse_args()
     try:
         if args.command == 'dry-run':
             policy = json.loads(read(POLICY))
             original = read(args.mission / TARGET)
-            result = substitute(original, read(args.stock_events), policy)
+            season = _requested_season(args)
+            result = substitute(original, read(args.stock_events), policy, season)
             before, after = _events(original), _events(result)
-            for name in sorted({r['event'] for r in policy['substitutions']} | ({r['event'] for r in policy.get('palette_rebalance', {}).get('transfers', [])} if enabled(policy, 'EnableComposition') else set())):
+            palette = [r['event'] for r in policy.get('palette_rebalance', {}).get('transfers', []) + season_transfers(policy, season)]
+            for name in sorted({r['event'] for r in policy['substitutions']} | (set(palette) if enabled(policy, 'EnableComposition') else set())):
                 old, new = before[name].findall('./children/child'), after[name].findall('./children/child')
                 print(name + ': children=' + str(len(old)) + '->' + str(len(new))
                       + ' shares=' + str(sum(int(c.get('min')) for c in old)) + '->'
@@ -552,7 +619,7 @@ def main():
             print('HC-14 dry-run; population_delta=0; runtime=PENDING')
             return
         if args.command == 'install':
-            install(args.mission, args.stock_events, args.off)
+            install(args.mission, args.stock_events, args.off, _requested_season(args))
         else:
             rollback(args.mission)
     except (ValueError, OSError) as error:

@@ -46,8 +46,8 @@ Inputs and loaders:
   requires runtime support rays and cannot be established offline.
 
 The single `POLICY` block at the top of the tool defines review thresholds:
-centre-to-origin distance above **0.5 m**, absolute lowest Geometry Y above
-**0.10 m**, lowest numeric visual LOD above **2,000 triangles** or **20 sections**.
+centre-to-origin distance above **0.5 m** and absolute lowest Geometry Y above
+**0.10 m** (both recorded as model facts), ground-contact offset above **0.10 m**, lowest numeric visual LOD above **2,000 triangles** or **20 sections**.
 Lowest means the smallest numeric visual resolution below 1000 (LOD0 when
 present), matching the existing generator; a cheaper distant LOD cannot hide cost. Polygon faces
 contribute `vertices - 2` triangles. Section counts use the ODOL reader's
@@ -59,15 +59,50 @@ the same block (`path_step_over_m`, `path_sample_step_m`, `stair_min_slope`). Th
 not measured engine or player-load budgets.
 
 Each finding/skip has a reason code and, for model/placement checks, a class.
-Key finding codes are `PIVOT_OFFSET`, `FLOATING_ORIGIN`, `SINKING_ORIGIN`,
-`PIECE_AABB_OVERLAP`, `HOST_GEOMETRY_ENCROACHMENT`,
-`VIEW_GEOMETRY_EMPTY_OR_MISSING`, `DOOR_APRON_INTERSECTION`,
-`VISUAL_TRIANGLE_COST`, `VISUAL_SECTION_COST`, `STAIR_PATH_INTERSECTION` and
-`PATH_LOD_INTERSECTION`. Placement findings include
+Key finding codes are `PIECE_GEOMETRY_INTERSECTION`, `HOST_GEOMETRY_ENCROACHMENT`,
+`FLOATING_PLACEMENT`, `SINKING_PLACEMENT`, `INTERACTION_WITHOUT_VIEW_GEOMETRY`,
+`DOOR_APRON_INTERSECTION`, `VISUAL_TRIANGLE_COST`, `VISUAL_SECTION_COST`,
+`STAIR_PATH_INTERSECTION` and `PATH_LOD_INTERSECTION`. Placement findings include
 group/key and the other piece or host. Model metrics retain Geometry bounds,
-centre, bottom and visual costs. Bounds use actual Geometry vertices; standalone
-props restore their bounding centre, while hosts and `Land_` buildings follow
-the existing support audit's raw building frame.
+centre, bottom and visual costs.
+
+Frame rule: bounds use actual Geometry vertices plus the model's stored bounding
+centre. An auto-centred model stores its vertices around that centre, and only the
+restored frame puts the visible base on the placement origin, so every standalone
+placed class (`Land_` buildings included) restores it; a model authored without
+auto-centring has a zero centre and is unchanged. Hosts (interior templates, shelter
+buildings) keep the raw vertices: that is the frame the native floor points were
+matched against.
+
+Model facts versus placement consequences: `PIVOT_OFFSET`, `SINKING_ORIGIN`,
+`FLOATING_ORIGIN` and `VIEW_GEOMETRY_EMPTY_OR_MISSING` describe vanilla models, not our
+data. They are listed in the report's informational `models` section (`classname`,
+`fact`, values), never in `findings`. A finding exists only where a placed row depends on
+the fact:
+
+- `FLOATING_PLACEMENT` / `SINKING_PLACEMENT`: the lowest point of the model's lowest
+  visual LOD (Geometry when it has no visual LOD; Geometry may reach below the visible
+  base, so it is not the ground contact) lies more than **0.10 m** above the row's
+  terrain height. A gap under any prop is a defect. A dug-in base is the vanilla
+  convention, so a sunk base is only a defect for rows that carry loot or actions
+  (`loot` is not `none`), whose reachable surface must not be buried. The terrain
+  height of an overlay row is its site height, so the composition piece `dy` is the
+  authored compensation (`dy` = minus the reported `offset_m`); native `Objects` rows use their
+  own Y; interior slots and live-terrain shelter props have no ground reference and are
+  skipped. Rows are not checked against live terrain.
+- `INTERACTION_WITHOUT_VIEW_GEOMETRY`: an interactive row (loot or actions) whose class
+  has no View Geometry LOD content. A decorative row of such a class is not a finding. The
+  fix is to replace or drop the row and record the reason.
+
+Piece intersection: the verdict is a separating-axis test between the Geometry LOD
+convex components (the `component00..` named selections, convex by P3D authoring
+rule; a LOD without them is one part, its convex hull, which can only over-report) of
+two pieces of the same group, placed by their position, yaw and scale. The axes are the
+face normals of both components and the cross products of their edge directions, the
+complete set for convex solids. Penetration is the depth along the axis of least
+overlap (reported as `penetration_m`); contact up to **5 mm** is not an intersection.
+The AABB overlap only selects candidate pairs and is never a verdict, so interlocking
+L-shapes, rotated planks and hollow pieces whose boxes overlap do not report.
 
 Paths and stairs: every host (interior template or shelter model) with a Paths
 LOD (4e15) has its path faces read as polylines of consecutive vertices. A
@@ -94,16 +129,13 @@ The proposal is never applied automatically; the lead reviews it and updates the
 catalogue by hand (P3.5). Reading models needs the installed Addons; without them
 the run skips and no proposal is written.
 
-Box overlaps are conservative candidates, especially for rotated/hollow pieces.
 Host checks intersect the placed box with baked Geometry triangles; proxy marker
 faces are excluded and referenced stock proxy solids are not expanded. Enclosed
 solid volumes without intersecting triangle surfaces are not detected. Door leaf
 planes approximate a closed threshold; missing/unusable selections are explicit
-SKIPs. View Geometry is checked for **all** placed classes as a conservative
-superset of interactive/searchable props, since runtime scripts decide action
-availability; a finding on a decorative class requires review. Origin Y findings
-are model-relative risks, not claims about final terrain contact. Runtime props
-outside these authored data families are outside this inventory.
+SKIPs. Origin and View Geometry facts are model-relative; ground contact is judged
+against authored terrain heights only, not final terrain contact. Runtime props outside
+these authored data families are outside this inventory.
 
 This task does not wire the audit into preland. The report's `wiring_needed`
 field describes the future adapter: invoke this module with installed inputs,

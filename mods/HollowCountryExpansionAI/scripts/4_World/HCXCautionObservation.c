@@ -1,20 +1,21 @@
-// Raised-weapon caution (owner-approved 30/60/80 m, ranges from HCAILimits): the
+// Raised-weapon caution (owner-approved 40/80 m defaults, ranges from HCAILimits): the
 // step BEFORE raised-weapon hostility. Called only from the provider
 // CalculateThreat hook AFTER native LOS and a fresh HCXStance.Visible ray
 // established that this actor sees the player: no omniscient AI, no player scan.
 //
 // Band table (non-hostile relation, player weapon raised; anything else is the
-// unchanged stance logic):
-//   d <= 40 m                      hostile at once (unchanged)
-//   40 m < d <= 80 m               grace of AILimits.CautionGraceSeconds: actor stays
+// unchanged stance logic). H = AILimits.CautionHostileRangeM (40-80, default 40):
+//   d <= 40 m                      hostile at once (always; proximity engagement)
+//   40 m < d <= H                  hostile at once (raised weapon inside the hostile range)
+//   H < d <= 80 m                  grace of AILimits.CautionGraceSeconds: actor stays
 //                                  non-hostile, faces the player, shouts through the
 //                                  shared HCXWarnPlayer admission, holds fire
 //                                  (HCXWarningBlocked); then hostile if still raised
 //   d > 80 m                       de-escalated (unchanged)
-// The grace band is the same 80 m line where raised-weapon hostility applies; the
-// caution ranges (CautionRangeM / CautionGunfireRangeM via HCStancePolicy.Evaluate)
-// no longer bound it and are only reported in the first-warn log line. Hostile-
-// relation actors (and so CautionHostileRangeM) never get a grace.
+// With the default H = 40 the grace band is the whole 40-80 m span where raised-weapon
+// hostility applies; the caution ranges (CautionRangeM / CautionGunfireRangeM via
+// HCStancePolicy.Evaluate) do not bound it and are only reported in the first-warn
+// log line. Hostile-relation actors never get a grace.
 // The grace never fires and no stop gesture is made at a raised weapon: the actor
 // keeps its own weapon up. Escalation stays with Expansion and the stance logic.
 // Per actor-group/player pair cooldown, bounded pair table, shared
@@ -34,7 +35,6 @@ class HCXCautionObservation
     static const int COOLDOWN_MS = 45000;
     static const int GUNFIRE_WINDOW_MS = 30000;
     static const int MAX_PAIRS = 64;
-    static const int HOSTILE_M = 40;
     static const int MAX_M = 80;
     protected static ref map<string, ref HCXCautionRow> s_Rows = new map<string, ref HCXCautionRow>();
     protected static bool s_Logged;
@@ -54,7 +54,7 @@ class HCXCautionObservation
     // Pure: is this contact in the grace band (see table above)?
     static bool InBand(float distance, bool raised, int relation)
     {
-        if (!raised || relation < 0 || distance != distance || distance <= HOSTILE_M || distance > MAX_M) { return false; }
+        if (!raised || relation < 0 || distance != distance || distance <= HCAILimits.CAUTION_HOSTILE_RANGE || distance > MAX_M) { return false; }
         return true;
     }
     // Free a slot only from expired rows; never evict a live grace or cooldown.

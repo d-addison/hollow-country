@@ -1,5 +1,7 @@
-// Original overlays over the native pannable/zoomable MapWidget. The Events
-// public view has no location: render known titles, never infer mission pins.
+// Original overlays over the native pannable/zoomable MapWidget. Public missions
+// come from the server's pushed beacon snapshot (HCMissionBeaconStore): a labelled
+// pin plus a zone ring per mission, drawn on the existing HCGrid canvas through
+// MapToScreen. The zone centre is already offset from the site by the server.
 // V2 pins reuse Pin() and validated frame.Places; native evidence in
 // HCInfoLayers.c (labels/logging); scripts-1.30.164289/3_Game/gameplay.c:324,332
 // (ClearUserMarks/MapToScreen), 1_Core/proto/EnWidgets.c:125,140,144,153,154,
@@ -138,29 +140,51 @@ class HCGroupMapLayers
         mHCNavigation.SetText("Own coordinates E " + eastMeters.ToString() + " / N " + northMeters.ToString() + " m | Grid 1 km");
     }
 
+    // Mission list for the side panel, from the pushed snapshot only.
     void Missions(HCGroupSettings settings)
     {
         if (!mHCEvents) return;
         mHCEvents.ClearItems();
         if (!settings.MissionLayer) return;
-        HCEventClient events = HCEventClient.Get();
-        if (!events || !events.Fresh())
-        {
-            return;
-        }
-        HCEventPublicView known = events.GetView();
-        if (!known || !known.Enabled) return;
+        HCMissionBeaconStore store = HCMissionBeaconStore.Get();
+        float now = GetGame().GetTickTime();
+        store.Poll(now);
         int used = 0;
-        foreach (HCEventPublicRow row : known.Rows)
+        for (int index = 0; index < store.Count(); index++)
         {
-            if (used >= 32) break;
-            if (row.RemainingSeconds <= 0 || row.Status < HCEventStatus.ANNOUNCED || row.Status > HCEventStatus.ACTIVE) continue;
-            string participation = "[Known] ";
-            if (row.Joined) participation = "[Joined] ";
-            mHCEvents.AddItem(participation + row.Title + " (" + row.RemainingSeconds.ToString() + "s)", null, 0);
+            HCBeaconRow row = store.At(index);
+            if (!row) continue;
+            mHCEvents.AddItem(row.Title + ", " + row.Place + " (" + HCInfoEventCache.MinutesLeft(store.Remaining(row, now)) + " min)", null, 0);
             used++;
         }
-        if (used == 0) mHCEvents.AddItem("No active known missions", null, 0);
+        if (used == 0) mHCEvents.AddItem("No active missions", null, 0);
+    }
+
+    // Zone rings on the HCGrid canvas, after Navigation/HideNavigation cleared it.
+    // Radius in pixels comes from one extra MapToScreen per zone; the ring is then
+    // 48 short lines in screen space (same canvas coordinates as the grid).
+    void DrawZones(MapWidget mapWidget, array<ref HCInfoPin> zones)
+    {
+        if (!mHCGrid || !mapWidget || !zones) return;
+        foreach (HCInfoPin zone : zones)
+        {
+            if (zone.Radius < 1) continue;
+            vector centre = mapWidget.MapToScreen(zone.Position);
+            vector edge = mapWidget.MapToScreen(Vector(zone.Position[0] + zone.Radius, 0, zone.Position[2]));
+            float pixels = Math.AbsFloat(edge[0] - centre[0]);
+            if (!(pixels >= 3 && pixels <= 6000)) continue;
+            float lastX = centre[0] + pixels;
+            float lastY = centre[1];
+            for (int segment = 1; segment <= 48; segment++)
+            {
+                float angle = segment * Math.PI2 / 48;
+                float nextX = centre[0] + Math.Cos(angle) * pixels;
+                float nextY = centre[1] + Math.Sin(angle) * pixels;
+                mHCGrid.DrawLine(lastX, lastY, nextX, nextY, 3, ARGB(230,213,94,0));
+                lastX = nextX;
+                lastY = nextY;
+            }
+        }
     }
 
     // Client-only toggles hide drawing; they never widen what the server sent.
@@ -205,6 +229,12 @@ class HCGroupMapLayers
         else HideNavigation();
         if (flags.ShowEvents) Missions(frame.Settings);
         else HideMissions();
+        array<ref HCInfoPin> sites;
+        if (flags.ShowEvents && frame.Settings.MissionLayer)
+        {
+            sites = mHCInfoEvents.Pins(GetGame().GetTickTime(), GetGame().GetWorld().GetWorldSize());
+            DrawZones(mapWidget, sites);
+        }
         int utc = HCGroupClock.Utc();
         HCInfoMapPins.Log(frame, utc);
         // The bound is validated by HCGroupClient; hidden entries never enter
@@ -218,11 +248,9 @@ class HCGroupMapLayers
                 Pin(mapWidget, marker.Position, "[Marker] " + marker.Name, ARGB(255,230,159,0), frame.Settings);
             }
         }
-        // Known-event sites come from the already-public event rows only.
-        if (flags.ShowEvents && frame.Settings.MissionLayer)
+        // Mission zone centres come from the server's public snapshot only.
+        if (sites)
         {
-            float worldSize = GetGame().GetWorld().GetWorldSize();
-            array<ref HCInfoPin> sites = mHCInfoEvents.Pins(GetGame().GetTickTime(), worldSize);
             foreach (HCInfoPin site : sites)
                 Pin(mapWidget, site.Position, site.Label, ARGB(255,213,94,0), frame.Settings);
         }

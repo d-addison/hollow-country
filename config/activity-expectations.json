@@ -285,6 +285,42 @@
       "note": "Matches the named total independently of later identity/source/store refusal counters; zero starts remain INERT."
     },
     {
+      "module": "Events",
+      "feature": "mission-marker",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Events feature=mission_marker count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCMissionBeacon.c",
+      "scope": "runtime",
+      "note": "Public mission zones published to the map snapshot (one per mission row)."
+    },
+    {
+      "module": "Events",
+      "feature": "mission-notice",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Events feature=mission_notice count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCMissionBeacon.c",
+      "scope": "runtime",
+      "note": "Mission toasts sent to connected players (publish, end and late-join summary)."
+    },
+    {
       "module": "FactionConflict",
       "feature": "encounters-observed",
       "signal": {

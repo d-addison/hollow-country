@@ -1,7 +1,8 @@
 """Derive finite regional inputs from installed stock mission metadata (stdlib only).
 
 Run with --stock-mission, optionally --livonia-mission and --livonia-world-pbo.
---write updates only the three owned regional JSON catalogues. No engine calls,
+--write updates the three owned regional JSON catalogues and the repository-only derived
+sidecar (DERIVED_SIDECAR) that holds the offline region atlas. No engine calls,
 Expansion data, survey receipts, inventory grants or native acceptance are made.
 Placement IDs are zero-based group ordinals, pinned to the exact XML SHA-256.
 Nearest-label assignment is an offline partition, never an official boundary.
@@ -17,10 +18,17 @@ import re
 import xml.etree.ElementTree as ET
 
 from tools.audit import pbo_config
+from tools.validate import json_loader_caps
 
 MAX_XML_BYTES = 32 * 1024 * 1024
 MAX_PLACEMENTS = 100000
-MAX_CATALOG_BYTES = 1048576  # HCWorldStore.MAX_BYTES
+MAX_CATALOG_BYTES = json_loader_caps.one_shot_cap()  # HCWorldStore.MAX_BYTES
+# The offline region atlas and the alternate-world catalogues are derived data that no native
+# loader reads. They live in this repository-only sidecar instead of the shipped ai/sites.json,
+# so the runtime policy stays far below its one-shot read cap. Logical names such as
+# HC43.ZoneAtlas/<id> keep naming the atlas rows held here.
+DERIVED_KEYS = ('Regions', 'AdditionalWorlds')
+DERIVED_SIDECAR = 'tools/audit/data/hc43/regions.json'
 
 
 def digest(raw):
@@ -47,6 +55,19 @@ def encoded(value):
             return compact
         return '[\n' + ',\n'.join(padding + render(val, depth + 1) for val in item) + '\n' + closing + ']'
     return (render(value) + '\n').encode()
+
+
+def split_derived(manifest, previous):
+    """Remove the offline-only keys from the shipped HC43 manifest and return them.
+
+    `previous` is the prior sidecar (or None). A pre-split sites.json still carries the keys
+    inline; they are adopted once so alternate-world rows survive a run without Livonia inputs.
+    """
+    derived = {key: manifest.pop(key) for key in DERIVED_KEYS if key in manifest}
+    for key in DERIVED_KEYS:
+        if key not in derived and previous and key in previous:
+            derived[key] = previous[key]
+    return derived
 
 
 def stock(mission):
@@ -321,6 +342,8 @@ def main(argv=None):
         root = args.repo / 'mission/hollow-country'
         paths = [root / p for p in ('ai/localities.json', 'ai/sites.json', 'events/story-sites.json')]
         queue, policy, stories = [load(path) for path in paths]
+        sidecar = args.repo / DERIVED_SIDECAR
+        derived = split_derived(policy['HC43'], load(sidecar) if sidecar.is_file() else None)
         # Rebuild owned derivations deterministically; preserve authored legacy rows.
         queue['Localities'] = [r for r in queue['Localities'] if not r['Id'].startswith('gapcov-')]
         policy['Sites'] = [r for r in policy['Sites'] if not r['Id'].startswith('gapcov-')]
@@ -336,7 +359,7 @@ def main(argv=None):
         pins.update(extra_pins)
         regions = derive(rows, pins, manifest['Localities'], manifest['ResidentialClusters'], policy, queue, stories, extras)
         regions['ExistingContent'] = map_existing(root, manifest['Localities'])
-        manifest['Regions'] = regions
+        derived['Regions'] = regions
         manifest['State'] = 'source_resolved_runtime_pending'
         manifest['SelectionPolicy'] = 'HC-18 retained cursor and existing work/actor caps; all named, residential and atlas rows remain eligible over time. Native route, access and sight qualification remains authoritative.'
         manifest['RangeBasis'] = 'Existing ResidentialLinkMeters defines offline stock components only; label partition and source origins never prove access, terrain or coverage observations.'
@@ -362,7 +385,7 @@ def main(argv=None):
             extra.update(WorldName='enoch', WorldConfigSha256=world_pin, Localities=labels,
                 Queue=extra_queue, Sites=extra_policy['Sites'], StorySites=extra_story,
                 Activation='Alternate-world source catalog only; never load into a chernarusplus mission')
-            manifest['AdditionalWorlds'] = [extra]
+            derived['AdditionalWorlds'] = [extra]
         for catalog in (queue['Localities'], policy['Sites'], stories['Sites'], stories['Candidates']):
             ids = [row['Id'] for row in catalog]
             if len(ids) != len(set(ids)):
@@ -383,12 +406,16 @@ def main(argv=None):
                       AtlasZones=len(regions['ZoneAtlas']), AISites=len(policy['Sites']),
                       QueueRows=len(queue['Localities']), StorySites=len(stories['Sites']), Gaps=regions['Gaps'], Runtime='PENDING')
         outputs = [encoded(value) for value in (queue, policy, stories)]
-        if any(len(raw) > MAX_CATALOG_BYTES for raw in outputs) or len(queue['Localities']) > 1024 or len(policy['Sites']) > 1024:
-            raise ValueError('catalog exceeds existing native read/cardinality budgets: bytes=' + str([len(raw) for raw in outputs]) + ' rows=' + str(result))
+        if (not all(json_loader_caps.within_budget(len(raw), MAX_CATALOG_BYTES) for raw in outputs)
+                or len(queue['Localities']) > 1024 or len(policy['Sites']) > 1024):
+            raise ValueError('catalog exceeds existing native read/cardinality budgets (%d%% of the loader cap): bytes=%s rows=%s'
+                             % (json_loader_caps.LIMIT_PERCENT, [len(raw) for raw in outputs], result))
         result['Bytes'] = [len(raw) for raw in outputs]
         if args.write:
             for path, raw in zip(paths, outputs):
                 path.write_bytes(raw)
+            sidecar.parent.mkdir(parents=True, exist_ok=True)
+            sidecar.write_bytes(encoded(derived))
         print(json.dumps(result, indent=2))
         return 0
     except (OSError, ValueError, KeyError, StopIteration, ET.ParseError) as exc:

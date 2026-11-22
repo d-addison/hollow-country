@@ -273,13 +273,23 @@ class HCInteriorTemplatePlacement
         return found;
     }
 
-    static bool Available(HCInteriorsModule module, vector position, vector orientation, string type)
+    static bool Available(HCInteriorsModule module, vector position, vector orientation, string type, string buildingClass)
 
     {
         Object reusable;
         // Same orphan refusal as the shared InspectProp check. Never adopt a foreign prop or
-        // duplicate a possible persistent object at the intended slot.
-        return module.InspectProp(position, orientation, type, reusable) == 0;
+        // duplicate a possible persistent object at the intended slot. A heavy building's native
+        // sphere (14.7 to 29 ms, soak 176) cannot be split, so its slots compare only the props
+        // this module owns; the first measured heavy call joins the list for the rest of the boot.
+        if (HCInteriorResolveCursor.HCInspectHeavy(buildingClass))
+        {
+            HCModuleReadiness.HCUse("Interiors", "inspect_native_skipped");
+            return module.InspectOwnedProp(position, orientation, type, reusable) == 0;
+        }
+        int mark = TickCount(0);
+        int decision = module.InspectProp(position, orientation, type, reusable);
+        HCInteriorResolveCursor.HCNoteInspectCost(buildingClass, TickCount(mark));
+        return decision == 0;
     }
 
     static Object Spawn(string type, vector position, vector orientation)
@@ -418,7 +428,7 @@ class HCInteriorTemplatePlacement
             s_LastType = row.BuildingClass + ":" + slot.Type + "#q" + s_LastQuery.ToString() + s_LastPhase;
             steps.HCAdd(STEP_LOOKUP, TickCount(mark));
             mark = TickCount(0);
-            bool available = Available(module, position, orientation, slot.Type);
+            bool available = Available(module, position, orientation, slot.Type, row.BuildingClass);
             steps.HCAdd(STEP_INSPECT, TickCount(mark));
             if (!available)
 

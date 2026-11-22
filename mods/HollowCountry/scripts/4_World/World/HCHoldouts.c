@@ -279,6 +279,10 @@ class HCHoldouts : HCModule
     protected int m_TickIndex;
     protected int m_BodyNext;
     protected Object m_TickStructure;
+    // Staged structure lookup (phase 2): one resolve-cursor step per admitted tick, kept across ticks.
+    protected ref HCInteriorResolveCursor m_TickResolve;
+    // Last resolved structure per holdout, for the hearth path (weak: a deleted object reads null).
+    protected ref map<int, Object> m_StructureSeen = new map<int, Object>;
     protected bool m_CatalogWorked;
     protected float m_Elapsed;
     protected bool m_Ready;
@@ -952,13 +956,43 @@ class HCHoldouts : HCModule
         return m_State.Rows[index].Ledger.PlaceId;
     }
 
-    Object Structure(int index)
+    // Synthetic furnishing row for the holdout's house (SlotId -1: never enters the catalog bindings).
+    protected HCInteriorFurnishRow HCStructurePose(int index)
     {
-        if (index < 0 || index >= Count()) return null;
         HCInteriorFurnishRow pose = new HCInteriorFurnishRow;
+        pose.SlotId = -1;
         pose.BuildingClass = m_State.Rows[index].Ledger.HouseClass;
         vector position = m_State.Rows[index].Ledger.HousePos;
         pose.Position.Insert(position[0]); pose.Position.Insert(position[1]); pose.Position.Insert(position[2]);
+        return pose;
+    }
+
+    // One admitted resolve-cursor step. The house lookup is a native sphere whose cost is the
+    // building's proxy count (soak 176: 15.7 ms in structure_lookup), so it is never made in one
+    // call here: the shared cursor takes rays first, refuses known-heavy classes without a sphere
+    // and waits for the startup pump. False = still resolving, call again next tick; true =
+    // finished, `structure` is the house or null (refused or missing).
+    protected bool HCStructureStep(int index, out Object structure)
+    {
+        structure = null;
+        if (index < 0 || index >= Count()) { return true; }
+        if (!m_TickResolve) { m_TickResolve = new HCInteriorBoundedResolveCursor; }
+        HCInteriorFurnishRow pose = HCStructurePose(index);
+        if (!m_TickResolve.HCStep(pose)) { return false; }
+        structure = m_TickResolve.HCHouse();
+        m_TickResolve = null;
+        if (structure) { m_StructureSeen.Set(index, structure); }
+        return true;
+    }
+
+    // Hearth path: reuse the house phase 2 last resolved; fall back to the one-call lookup only
+    // when none is known (the first fire before any rows step, or the object was deleted).
+    Object Structure(int index)
+    {
+        if (index < 0 || index >= Count()) return null;
+        Object seen = m_StructureSeen.Get(index);
+        if (seen) return seen;
+        HCInteriorFurnishRow pose = HCStructurePose(index);
         return HCInteriorTemplatePlacement.Resolve(pose);
     }
 
@@ -1427,7 +1461,7 @@ class HCHoldouts : HCModule
         }
         if (m_TickPhase == 2)
         {
-            m_TickStructure = Structure(index);
+            if (!HCStructureStep(index, m_TickStructure)) { return; }
             if (!m_TickStructure) { m_StructureBlockedWindow++; m_TickPhase = 0; return; }
             m_TickPhase = 3;
             return;
@@ -1658,6 +1692,7 @@ class HCHoldouts : HCModule
         m_RowsCompletedWindow++;
         m_TickPhase = 0;
         m_TickStructure = null;
+        m_TickResolve = null;
     }
 
 
@@ -1665,6 +1700,7 @@ class HCHoldouts : HCModule
     {
         m_TickPhase = 0;
         m_TickStructure = null;
+        m_TickResolve = null;
         // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
         if (m_Ready && m_State) { SaveChanged(); }
         HCSaveScheduler.HCUnregister(m_SaveJob);
@@ -1747,7 +1783,9 @@ modded class HCHoldouts
         m_MeasuringTick = false;
         int elapsedTicks = TickCount(tickStart);
         m_TickSteps.HCAdd(HCTickStageIndex(m_TickMeasuredStage), elapsedTicks);
-        m_TickSteps.HCItem(HCTickStageName(m_TickMeasuredStage), elapsedTicks);
+        string stageItem = HCTickStageName(m_TickMeasuredStage);
+        if (m_TickMeasuredStage == 2) { stageItem = stageItem + ":" + HCInteriorTemplatePlacement.HCLastType(); }
+        m_TickSteps.HCItem(stageItem, elapsedTicks);
         m_TickSteps.HCEndTick(elapsedTicks);
     }
 }
