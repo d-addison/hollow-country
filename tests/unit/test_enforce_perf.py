@@ -786,10 +786,70 @@ class M
     def test_caller_passing_the_io_class_still_flags(self):
         self.assertTrue(self.keys('ref Job m_Job = new FileJob;', 'm_Job'))
 
-    def test_second_call_site_passing_the_io_class_still_flags(self):
+    def test_second_reachable_call_site_passing_the_io_class_still_flags(self):
+        text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
+            'class M\n', 'class Other { void Go() { Sched.Flush(new FileJob); } }\nclass M\n').replace(
+            'void OnStart() { m_Holder.Run(); }',
+            'ref Other m_Other = new Other;\n    void OnStart() { m_Holder.Run(); m_Other.Go(); }')
+        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+
+    def test_call_site_that_startup_cannot_reach_does_not_widen_dispatch(self):
         text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
             'class M\n', 'class Other { void Go() { Sched.Flush(new FileJob); } }\nclass M\n')
-        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+        self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
+
+    def test_argument_forwarded_through_a_base_typed_parameter_stays_narrow(self):
+        text = '''
+class Job { int HCStep() { return 0; } }
+class QuietJob : Job { override int HCStep() { return 0; } }
+class FileJob : Job
+{
+    override int HCStep()
+    {
+        for (int i = 0; i < 3; i++) { if (FileExist("$profile:f" + i + ".json")) { return 1; } }
+        return 0;
+    }
+}
+class Sched
+{
+    static void Flush(Job job) { Drain(job); }
+    static void Drain(Job inner) { while (inner.HCStep() == 1) { } }
+}
+class Other { void Go() { Sched.Flush(new FileJob); } }
+class M
+{
+    void OnStart() { Sched.Flush(new QuietJob); }
+}
+'''
+        self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
+        flagged = text.replace('Sched.Flush(new QuietJob);', 'Sched.Flush(new FileJob);')
+        self.assertTrue([f.key for f in findings(flagged, 'HC-P009')])
+
+    def test_tick_path_dispatch_is_narrowed_by_the_argument_at_that_site(self):
+        text = '''
+class Job { int Advance() { return 0; } }
+class QuietJob : Job { override int Advance() { return 0; } }
+class FileJob : Job
+{
+    override int Advance()
+    {
+        FileExist("$profile:f.json");
+        return 0;
+    }
+}
+class Sched
+{
+    static void Flush(Job job) { while (job.Advance() == 1) { } }
+}
+class Other { void Go() { Sched.Flush(new FileJob); } }
+class M
+{
+    void OnTick(float dt) { Sched.Flush(new QuietJob); }
+}
+'''
+        self.assertEqual([f.key for f in findings(text, 'HC-P003')], [])
+        flagged = text.replace('Sched.Flush(new QuietJob);', 'Sched.Flush(new FileJob);')
+        self.assertTrue([f.key for f in findings(flagged, 'HC-P003')])
 
     def test_unresolvable_argument_keeps_full_dispatch(self):
         text = (self.TEXT % ('', 'Pick()')).replace('void Run()', 'Job Pick() { return null; }\n    void Run()')
@@ -857,6 +917,30 @@ class M
         text = self.quiet_text().replace(
             'void Run()', 'void Later() { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Sched.Flush, 100, false, new FileJob); }\n    void Run()')
         self.assertTrue(self.flagged(text))
+
+    def test_script_caller_create_argument_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Later() { ScriptCaller caller = ScriptCaller.Create(Sched.Flush); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_field_initializer_out_call_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Fill(out Job target) { target = new FileJob; }\n    bool m_Filled = Fill(m_Job);\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_field_initializer_cast_to_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'bool m_Cast = Class.CastTo(m_Job, new FileJob);\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_field_initializer_call_later_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'bool m_Armed = GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Sched.Flush, 100, false, new FileJob);\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_unrelated_field_initializer_call_is_not_a_blind_spot(self):
+        text = self.quiet_text().replace('void Run()', 'int m_Count = Count(m_Flag);\n    int Count(bool flag) { return 0; }\n    void Run()')
+        self.assertEqual(self.flagged(text), [])
 
     def test_param_string_dispatch_keeps_full_dispatch(self):
         text = self.quiet_text().replace(

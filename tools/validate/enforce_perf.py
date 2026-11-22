@@ -178,6 +178,7 @@ class Finding:
 class Model:
     def __init__(self, sources):
         self.nodes = [(s, m) for s in sources for m in s.methods]
+        self.sources = list(sources)
         self.classes = {}
         self._lineages = {}
         self.index = {}
@@ -201,6 +202,7 @@ class Model:
         self._writes = None
         self._concrete = {}
         self._declared = {}
+        self._receivers = {}
         self._sites = None
         self._out_names = None
         self._scheduled = None
@@ -264,6 +266,21 @@ class Model:
                         (i, re.sub(r'\s+', '', write.group(1)).rstrip('.'), write.group(3).strip()))
         return self._writes
 
+    def scan_units(self):
+        """(code, text, start, end) spans in which calls can occur: every method body and every
+        field initializer (`ref T x = Make(out_value);` runs at construction, not in a method).
+        An initializer is a masked string; its raw text is recovered from the source at the same offsets."""
+        units = [(s.code, s.text, m.body_start, m.body_end) for s, m in self.nodes]
+        for s in self.sources:
+            for c in s.classes:
+                for f in c.fields:
+                    if not f.initializer:
+                        continue
+                    at = s.code.find(f.initializer, f.offset)
+                    raw = s.text[at:at + len(f.initializer)] if at >= 0 else f.initializer
+                    units.append((f.initializer, raw, 0, len(f.initializer)))
+        return units
+
     def out_written_names(self):
         """Leaf names of fields or variables that a call may write through an out parameter.
 
@@ -277,8 +294,8 @@ class Model:
                     if is_out:
                         out_positions.setdefault(m.name, set()).add(k)
             names = set()
-            for s, m in self.nodes:
-                for call in _CALL.finditer(s.code, m.body_start, m.body_end):
+            for code, _, start, end in self.scan_units():
+                for call in _CALL.finditer(code, start, end):
                     expression = re.sub(r'\s+', '', call.group(1))
                     leaf = expression.split('.')[-1]
                     positions = set(out_positions.get(leaf, ()))
@@ -286,9 +303,9 @@ class Model:
                         positions.add(0)
                     if not positions:
                         continue
-                    opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
-                    closing = es.matching_paren(s.code, opening)
-                    args = [a for a in es.split_top(s.code[opening + 1:closing], ',') if a.strip()]
+                    opening = code.find('(', call.start(1) + len(call.group(1)) - 1)
+                    closing = es.matching_paren(code, opening)
+                    args = [a for a in es.split_top(code[opening + 1:closing], ',') if a.strip()]
                     for k in positions:
                         if k < len(args):
                             argument = re.sub(r'\s+', '', args[k])
@@ -303,16 +320,17 @@ class Model:
         (CallLaterByName, CallByName, CallFunction, CallFunctionParams with Param arguments)."""
         if self._scheduled is None:
             names = set()
-            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams)\s*\(')
-            for s, m in self.nodes:
-                for call in queue.finditer(s.code, m.body_start, m.body_end):
-                    opening = s.code.find('(', call.start(), call.end())
-                    closing = es.matching_paren(s.code, opening)
-                    for argument in es.split_top(s.code[opening + 1:closing], ','):
+            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams'
+                               r'|ScriptCaller\s*\.\s*Create)\s*\(')
+            for code, text, start, end in self.scan_units():
+                for call in queue.finditer(code, start, end):
+                    opening = code.find('(', call.start(), call.end())
+                    closing = es.matching_paren(code, opening)
+                    for argument in es.split_top(code[opening + 1:closing], ','):
                         leaf = re.sub(r'\s+', '', argument).split('.')[-1]
                         if re.fullmatch(_IDENT, leaf):
                             names.add(leaf)
-                    for argument in es.split_top(s.text[opening + 1:closing], ','):
+                    for argument in es.split_top(text[opening + 1:closing], ','):
                         quoted = re.fullmatch(r'\s*"(\w+)"\s*', argument)
                         if quoted:
                             names.add(quoted.group(1))
@@ -442,6 +460,29 @@ class Model:
         if key in self._declared:
             return self._declared[key]
         self._declared[key] = None
+        position = self.stable_param(i, name)
+        if position is None:
+            return None
+        allowed = set()
+        sites = 0
+        for j, expression, args in self.call_sites().get(i, ()):
+            if position >= len(args):
+                return None
+            site = self.argument_classes(j, args[position])
+            if site is None:
+                return None
+            if site is not False:
+                sites += 1
+                allowed.update(site)
+        if not sites:
+            return None
+        self._declared[key] = allowed
+        return allowed
+
+    def stable_param(self, i, name):
+        """Position of class-typed parameter `name` of method i when its value is exactly what the
+        caller passed (not out/inout, never reassigned, redeclared or written through an out
+        argument or Class.CastTo, not scheduled, not engine-called), else None."""
         s, m = self.nodes[i]
         params = m.parameters()
         position = next((k for k, (typ, pname, _) in enumerate(params) if pname == name), None)
@@ -452,26 +493,39 @@ class Model:
                 or re.search(rf'(?<![\w.]){re.escape(name)}\s*(?:=(?!=)|[-+*/]=)', body)
                 or re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body)):
             return None
-        allowed = set()
-        sites = 0
-        for j, expression, args in self.call_sites().get(i, ()):
-            if position >= len(args):
-                return None
-            argument = re.sub(r'\s+', '', args[position])
-            if argument in {'null', 'NULL'}:
-                continue
-            made = re.match(r'\s*new\s+(\w+)\s*(?:\(|$)', args[position])
-            exact = made.group(1) if made else self.concrete_type(j, argument)
-            declared = exact or self.type_of(argument, self.envs[j])
-            if declared not in self.classes:
-                return None
-            sites += 1
-            allowed.update(self.lineage(declared))
-            if not exact:
-                allowed.update(self.descendants.get(declared, []))
-        if not sites:
+        return position
+
+    def receiver_params(self, i):
+        """{parameter name: position} of the stable class-typed parameters of method i that the body
+        uses as a call receiver (`param.Method(`) or forwards as a bare call argument; only those can
+        specialise dispatch by call site."""
+        if i not in self._receivers:
+            s, m = self.nodes[i]
+            body = s.body(m)
+            found = {}
+            for k, (typ, pname, _) in enumerate(m.parameters()):
+                if typ in self.classes and re.search(
+                        rf'(?<![\w.]){re.escape(pname)}\s*\.\s*\w+\s*\(|[(,]\s*{re.escape(pname)}\s*[,)]', body):
+                    if self.stable_param(i, pname) == k:
+                        found[pname] = k
+            self._receivers[i] = found
+        return self._receivers[i]
+
+    def argument_classes(self, j, text):
+        """Classes the argument `text`, written in method j, can hold: False for null (no class),
+        None when its type is unknown, else the set of the type's lineage and, unless the value is
+        proven exact (`new T` or a concrete_type field), its derived classes."""
+        argument = re.sub(r'\s+', '', text)
+        if argument in {'null', 'NULL'}:
+            return False
+        made = re.match(r'\s*new\s+(\w+)\s*(?:\(|$)', text)
+        exact = made.group(1) if made else self.concrete_type(j, argument)
+        declared = exact or self.type_of(argument, self.envs[j])
+        if declared not in self.classes:
             return None
-        self._declared[key] = allowed
+        allowed = set(self.lineage(declared))
+        if not exact:
+            allowed.update(self.descendants.get(declared, []))
         return allowed
 
     def call_sites(self):
@@ -1523,7 +1577,7 @@ def reaching(model, edges, ios, boundary):
 
 
 
-def startup_file_loops(model, edges, ios, loop_spans, skipped=None):
+def startup_file_loops(model, edges, ios, loop_spans, skipped=None, enter=None):
     """Visit each (method, iteration multiplier) state once, retaining a shortest witness.
 
     Loops with a constant trip count within TRIP_LOOP_CAP (nest product within
@@ -1532,11 +1586,11 @@ def startup_file_loops(model, edges, ios, loop_spans, skipped=None):
     at shutdown and never on the OnStart path, are not followed."""
     skipped = skipped or {}
     roots = [i for i, (_, m) in enumerate(model.nodes) if m.name == 'OnStart']
-    queue = deque((i, 1, (i,)) for i in roots)
-    reached = {(i, 1) for i in roots}
+    queue = deque((i, 1, (i,), frozenset()) for i in roots)
+    reached = {(i, 1, frozenset()) for i in roots}
     reported = set()
     while queue:
-        i, mult, chain = queue.popleft()
+        i, mult, chain, context = queue.popleft()
         s, m = model.nodes[i]
 
         def live(offset):
@@ -1560,10 +1614,13 @@ def startup_file_loops(model, edges, ios, loop_spans, skipped=None):
         for offset, target in edges[i]:
             if not live(offset) or model.nodes[target][1].name == 'OnStop':
                 continue
-            state = (target, multiplier(model, s, loop_spans[i], offset, mult))
+            inner = enter(i, context, offset, target) if enter else frozenset()
+            if inner is None:
+                continue
+            state = (target, multiplier(model, s, loop_spans[i], offset, mult), inner)
             if state not in reached:
                 reached.add(state)
-                queue.append((*state, chain + (target,)))
+                queue.append((state[0], state[1], chain + (target,), inner))
 
 
 def capped_retry(model, i, offset, callbacks):
@@ -1722,6 +1779,37 @@ def check(sources, root=ROOT):
     findings.extend(slot_registrations(sources, root))
 
     edges, ios, tick_sites = [], [], []
+    # Call-site context: (caller, offset, target) -> (receiver parameter of the caller, ((callee
+    # parameter, classes the argument can hold | caller parameter it forwards), ...)). A callee
+    # entered from a site whose argument type is known dispatches `param.Method()` only to those
+    # classes; the walks below carry that narrowing along the path, so an override that only
+    # another call site can reach is not reported through this one.
+    site_info = {}
+
+    def site_context(i, call, expression, found):
+        s, m = model.nodes[i]
+        parts = expression.split('.')
+        own = {n for _, n, _ in m.parameters()}
+        receiver = parts[0] if len(parts) == 2 and parts[0] in own else ''
+        opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
+        args = [a for a in es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',') if a.strip()]
+        result = {}
+        for target in found:
+            passes = []
+            for pname, position in model.receiver_params(target).items():
+                if position >= len(args):
+                    continue
+                bare = re.sub(r'\s+', '', args[position])
+                if bare in own:
+                    passes.append((pname, bare))
+                    continue
+                classes = model.argument_classes(i, args[position])
+                if classes:
+                    passes.append((pname, frozenset(classes)))
+            if receiver or passes:
+                result[(i, call.start(), target)] = (receiver, tuple(passes))
+        return result
+
     for i, (s, m) in enumerate(model.nodes):
         outgoing, sites, candidates = [], [], []
         for call in _CALL.finditer(s.code, m.body_start, m.body_end):
@@ -1738,7 +1826,12 @@ def check(sources, root=ROOT):
                 if expression.startswith('JsonFileLoader'):
                     continue
                 sites.append((call.start(), name))
-            outgoing.extend((call.start(), target) for target in model.targets(i, expression))
+            found = model.targets(i, expression)
+            outgoing.extend((call.start(), target) for target in found)
+            if found:
+                note = site_context(i, call, expression, found)
+                if note:
+                    site_info.update(note)
         # JsonFileLoader<T>.LoadFile/SaveFile/legacy JsonLoadFile/JsonSaveFile.
         for call in re.finditer(r'\bJsonFileLoader\s*<[^;{}()]+>\s*[.:]+\s*(LoadFile|SaveFile|JsonLoadFile|JsonSaveFile)\s*\(', s.body(m)):
             sites.append((m.body_start + call.start(), 'JsonFileLoader.' + call.group(1)))
@@ -1750,6 +1843,28 @@ def check(sources, root=ROOT):
         s, m = model.nodes[i]
         return (s.rel == _WRITER_PATH and m.owner and m.owner.name == 'HCStagedSaveImage'
                 and m.name in _BOUNDARIES)
+
+    def enter(i, context, offset, target):
+        """Context of `target` when method i, entered with `context`, calls it at offset; None
+        when the call cannot happen under that context (its receiver parameter holds only classes
+        that do not own the target)."""
+        info = site_info.get((i, offset, target))
+        if not info:
+            return frozenset()
+        receiver, passes = info
+        held = dict(context)
+        if receiver in held:
+            owner = model.nodes[target][1].owner
+            if not owner or owner.name not in held[receiver]:
+                return None
+        entered = {}
+        for pname, source in passes:
+            if isinstance(source, str):
+                if source in held:
+                    entered[pname] = held[source]
+            else:
+                entered[pname] = source
+        return frozenset(entered.items())
 
     roots = [i for i, (_, m) in enumerate(model.nodes) if _ROOT.fullmatch(m.name) and not boundary(i)
              and (not m.owner or m.name != m.owner.name)]
@@ -1765,11 +1880,12 @@ def check(sources, root=ROOT):
         method for which avoid(i) holds is neither a root nor traversed. budgeted maps a
         method to its HCWorkBudget loop spans: calls inside them are not followed. polls
         are slow-poll callbacks, which are not roots (still traversed from other roots)."""
-        queue = deque((i, (i,)) for i in roots
+        queue = deque((i, (i,), frozenset()) for i in roots
                       if not (prune_staged and i in staged) and not avoid(i) and i not in polls)
-        reached = {i: chain for i, chain in queue}
+        reached = {i: chain for i, chain, _ in queue}
+        entered = {(i, context) for i, _, context in queue}
         while queue:
-            i, chain = queue.popleft()
+            i, chain, context = queue.popleft()
             s, m = model.nodes[i]
             if len(chain) - 1 >= MAX_DEPTH:
                 continue
@@ -1784,9 +1900,14 @@ def check(sources, root=ROOT):
                     continue
                 drains_writer = (m.owner and m.owner.name == 'HCStagedSaveImage' and m.name == 'Finish'
                                  and s.rel == _WRITER_PATH)
-                if target not in reached and not avoid(target) and (not boundary(target) or drains_writer):
-                    reached[target] = chain + (target,)
-                    queue.append((target, chain + (target,)))
+                if avoid(target) or (boundary(target) and not drains_writer):
+                    continue
+                inner = enter(i, context, offset, target)
+                if inner is None or (target, inner) in entered:
+                    continue
+                entered.add((target, inner))
+                reached.setdefault(target, chain + (target,))
+                queue.append((target, chain + (target,), inner))
         return reached
 
     # Latch spans count only when nothing on a tick path can reset the latch; the
@@ -1836,7 +1957,7 @@ def check(sources, root=ROOT):
     skipped = {i: [(a, b) for a, b, latch in spans if counts(latch)]
                for i, spans in latched.items() if spans}
 
-    findings.extend(startup_file_loops(model, edges, ios, loop_spans, skipped))
+    findings.extend(startup_file_loops(model, edges, ios, loop_spans, skipped, enter))
 
     cost = StepCost(model, edges, ios, boundary, skipped, reaching(model, edges, ios, boundary))
     for i, (s, m) in enumerate(model.nodes):
