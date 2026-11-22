@@ -45,6 +45,15 @@ class HCEcologyCycle
     protected int m_PathTick = -1;
     protected string m_Names;
     protected bool m_Fault;
+    // One retained animal request; each admitted tick performs one native query.
+    protected AnimalBase m_PathAnimal;
+    protected vector m_PathGoal;
+    protected vector m_PathFrom;
+    protected vector m_PathNext;
+    protected int m_PathStage;
+    protected int m_PathUtc;
+    protected int m_PathPhase;
+    protected HCEcologyHerdHome m_PathHome;
 
     bool Open()
     {
@@ -78,6 +87,9 @@ class HCEcologyCycle
     {
         foreach (AnimalBase animal : m_Movers) { if (animal) { animal.HCEcologyRelease(); } }
         m_Movers.Clear();
+        m_PathAnimal = null;
+        m_PathHome = null;
+        m_PathStage = 0;
         if (m_Save)
         {
             HCSaveScheduler.HCFlush(m_Save);
@@ -122,6 +134,8 @@ class HCEcologyCycle
             index--;
         }
         m_Work.HCReset(HCPerfConfig.HCGet().EcologyRowsPerTick, HCPerfConfig.HCGet().SliceMs);
+        // Resume before visiting another animal; no new request can replace it.
+        if (m_PathStage > 0) { AdvancePath(utc); }
         int rows = 0;
         while (m_Settings.Animals && rows < HCPerfConfig.HCGet().EcologyRowsPerTick && m_Work.HCContinue())
         {
@@ -205,41 +219,39 @@ class HCEcologyCycle
             home.Survey = 0;
         }
         // A slow continuous home bias (240 m orbit over four drift intervals),
-        // not a sudden destination jump. Four terrain samples per visited row.
+        // not a sudden destination jump. One terrain sample per visited row;
+        // the retained 256-point cursor keeps the same search and destinations.
         float angle = ((float)(utc - m_State.EpochUtc) / (m_Settings.HerdDriftHours * 3600)) * Math.PI * 0.5;
         vector center = home.Anchor + Vector(Math.Sin(angle) * 240, 0, (Math.Cos(angle) - 1) * 240);
-        for (int i = 0; i < 4; i++)
+        int sample = home.Survey % 256;
+        home.Survey++;
+        // Integer steps first: Enforce refuses '%' inside a float expression.
+        int column = sample % 16;
+        int ring = sample / 16;
+        float bearing = column * Math.PI / 8;
+        float radius = 16 + ring * 16;
+        vector point = center + Vector(Math.Sin(bearing) * radius, 0, Math.Cos(bearing) * radius);
+        if (!InWorld(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { return; }
+        point[1] = GetGame().SurfaceY(point[0], point[2]);
+        // A land point next to classified inland water is a shore candidate;
+        // native navmesh still has to admit its actual approach.
+        bool shore = GetGame().SurfaceIsPond(point[0] + 2, point[2]) || GetGame().SurfaceIsPond(point[0] - 2, point[2]) || GetGame().SurfaceIsPond(point[0], point[2] + 2) || GetGame().SurfaceIsPond(point[0], point[2] - 2);
+        if (shore && !home.HasWater) { home.Water = point; home.HasWater = true; }
+        string surface;
+        GetGame().SurfaceGetType(point[0], point[2], surface);
+        bool field = FieldSurface(surface);
+        if (!field && ForestSurface(surface))
         {
-            int sample = home.Survey % 256;
-            home.Survey++;
-            // Integer steps first: Enforce refuses '%' inside a float expression.
-            int column = sample % 16;
-            int ring = sample / 16;
-            float bearing = column * Math.PI / 8;
-            float radius = 16 + ring * 16;
-            vector point = center + Vector(Math.Sin(bearing) * radius, 0, Math.Cos(bearing) * radius);
-            if (!InWorld(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { continue; }
-            point[1] = GetGame().SurfaceY(point[0], point[2]);
-            // A land point next to classified inland water is a shore candidate;
-            // native navmesh still has to admit its actual approach.
-            bool shore = GetGame().SurfaceIsPond(point[0] + 2, point[2]) || GetGame().SurfaceIsPond(point[0] - 2, point[2]) || GetGame().SurfaceIsPond(point[0], point[2] + 2) || GetGame().SurfaceIsPond(point[0], point[2] - 2);
-            if (shore && !home.HasWater) { home.Water = point; home.HasWater = true; }
-            string surface;
-            GetGame().SurfaceGetType(point[0], point[2], surface);
-            bool field = FieldSurface(surface);
-            if (!field && ForestSurface(surface))
+            string edge;
+            GetGame().SurfaceGetType(point[0] + 12, point[2], edge);
+            field = FieldSurface(edge);
+            if (!field)
             {
-                string edge;
-                GetGame().SurfaceGetType(point[0] + 12, point[2], edge);
+                GetGame().SurfaceGetType(point[0], point[2] + 12, edge);
                 field = FieldSurface(edge);
-                if (!field)
-                {
-                    GetGame().SurfaceGetType(point[0], point[2] + 12, edge);
-                    field = FieldSurface(edge);
-                }
             }
-            if (field && !home.HasFood) { home.Food = point; home.HasFood = true; }
         }
+        if (field && !home.HasFood) { home.Food = point; home.HasFood = true; }
     }
 
     protected bool FieldSurface(string surface)
@@ -264,7 +276,9 @@ class HCEcologyCycle
         if (!herbivore || !animal.IsAlive() || !animal.HCEcologyCalm()) { return; }
         HCEcologyHerdHome home = Home(animal, utc);
         if (!home) { return; }
+        int surveyStart = TickCount(0);
         Survey(home, utc);
+        HCEcologySteps.Record(2, surveyStart, "herd_survey");
         int year; int month; int day; int hour; int minute;
         GetGame().GetWorld().GetDate(year, month, day, hour, minute);
         bool water = (hour >= 5 && hour < 8) || (hour >= 17 && hour < 20);
@@ -281,26 +295,87 @@ class HCEcologyCycle
             Lease(animal, goal, action, 20);
             return;
         }
-        if (!TakePath()) { return; }
+        if (m_PathStage > 0) { return; }
         vector direction = goal - from;
         direction[1] = 0;
         if (direction.Length() > 80) { direction.Normalize(); goal = from + direction * 80; }
-        goal[1] = GetGame().SurfaceY(goal[0], goal[2]);
+        m_PathAnimal = animal;
+        m_PathHome = home;
+        m_PathPhase = home.Phase;
+        m_PathGoal = goal;
+        m_PathUtc = utc;
+        m_PathStage = 1;
+        AdvancePath(utc);
+    }
+
+    // Sampling, FindPath and the final short-segment ray each need a fresh
+    // shared grant on a later tick. Atomic native latency remains unbounded.
+    protected void AdvancePath(int utc)
+    {
+        AnimalBase animal = m_PathAnimal;
+        HCEcologyHerdHome retainedHome = m_PathHome;
+        bool expired = utc < m_PathUtc || utc - m_PathUtc > 10;
+        int phase = (utc - m_State.EpochUtc) / (m_Settings.HerdDriftHours * 3600);
+        if (!animal || !animal.IsAlive() || !animal.HCEcologyCalm() || expired || !m_PathHome || phase != m_PathPhase)
+        {
+            m_PathStage = 0;
+            m_PathAnimal = null;
+            m_PathHome = null;
+            return;
+        }
+        if (!animal.HCEcologyLeased() && m_Movers.Count() >= m_Settings.MaxMovers) { return; }
+        if (!TakePath()) { return; }
         AIWorld world = GetGame().GetWorld().GetAIWorld();
-        vector sampled;
-        if (!world || !world.SampleNavmeshPosition(goal, 3, m_Filter, sampled)) { return; }
-        TVectorArray path = new TVectorArray;
-        if (!world.FindPath(from, sampled, m_Filter, path) || path.Count() < 2 || path.Count() > 32) { return; }
-        vector next = path[1];
-        if (vector.DistanceSq(next, from) < 0.25 && path.Count() > 2) { next = path[2]; }
-        vector delta = next - from;
-        if (delta.Length() < 0.5) { return; }
-        // The lease cannot outlive this short straight navmesh segment.
-        delta.Normalize();
-        vector step = from + delta * Math.Min(4, vector.Distance(from, next));
-        vector hit; vector normal;
-        if (world.RaycastNavMesh(from, step, m_Filter, hit, normal)) { return; }
-        Lease(animal, step, DayZAnimalBehaviourAction.WALKING_INPUT, 1.25);
+        if (!world) { m_PathStage = 0; m_PathAnimal = null; m_PathHome = null; return; }
+        int stage = m_PathStage;
+        // Clear before native work; only a successful intermediate stage rearms.
+        m_PathStage = 0;
+        m_PathAnimal = null;
+        m_PathHome = null;
+        if (stage == 1)
+        {
+            m_PathGoal[1] = GetGame().SurfaceY(m_PathGoal[0], m_PathGoal[2]);
+            vector sampled;
+            int sampleStart = TickCount(0);
+            bool sampledOk = world.SampleNavmeshPosition(m_PathGoal, 3, m_Filter, sampled);
+            HCEcologySteps.Record(3, sampleStart, "herd_navsample");
+            if (!sampledOk) { return; }
+            m_PathGoal = sampled;
+            m_PathStage = 2;
+        }
+        else if (stage == 2)
+        {
+            m_PathFrom = animal.GetPosition();
+            TVectorArray path = new TVectorArray;
+            int pathStart = TickCount(0);
+            bool pathOk = world.FindPath(m_PathFrom, m_PathGoal, m_Filter, path);
+            HCEcologySteps.Record(4, pathStart, "herd_findpath");
+            if (!pathOk || path.Count() < 2 || path.Count() > 32) { return; }
+            m_PathNext = path[1];
+            if (vector.DistanceSq(m_PathNext, m_PathFrom) < 0.25 && path.Count() > 2) { m_PathNext = path[2]; }
+            m_PathStage = 3;
+        }
+        else if (stage == 3)
+        {
+            vector from = animal.GetPosition();
+            // Discard stale geometry if the native animal moved since FindPath.
+            if (vector.DistanceSq(from, m_PathFrom) > 1) { return; }
+            vector delta = m_PathNext - from;
+            if (delta.Length() < 0.5) { return; }
+            delta.Normalize();
+            vector step = from + delta * Math.Min(4, vector.Distance(from, m_PathNext));
+            vector hit; vector normal;
+            int rayStart = TickCount(0);
+            bool blocked = world.RaycastNavMesh(from, step, m_Filter, hit, normal);
+            HCEcologySteps.Record(5, rayStart, "herd_raycast");
+            if (blocked) { return; }
+            Lease(animal, step, DayZAnimalBehaviourAction.WALKING_INPUT, 1.25);
+        }
+        if (m_PathStage > 0)
+        {
+            m_PathAnimal = animal;
+            m_PathHome = retainedHome;
+        }
     }
 
     protected void Lease(AnimalBase animal, vector goal, int action, float seconds)

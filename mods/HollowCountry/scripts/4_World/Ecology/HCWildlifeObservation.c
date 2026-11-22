@@ -144,8 +144,12 @@ class HCWildlifeObservation
 
     static void HCTick(int nowMs)
     {
+        int providerStart = TickCount(0);
         HCWildlifeProviders.HCTick(nowMs);
+        HCEcologySteps.Item("wildlife_provider", providerStart);
+        int observationStart = TickCount(0);
         if (s_Instance) { s_Instance.HCSample(nowMs); }
+        HCEcologySteps.Item("wildlife_observation", observationStart);
     }
 
     static void HCStop()

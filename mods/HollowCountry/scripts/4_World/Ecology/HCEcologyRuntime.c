@@ -346,7 +346,14 @@ class HCEcologyRuntime
 		if (!s_Instance || (!s_Instance.m_Running && !s_Instance.m_Stopping)) { return; }
 		int tickStart = TickCount(0);
 		s_Instance.m_Visited = 0;
+        int observedStage = s_Instance.m_Stage;
 		s_Instance.Pump(nowMs);
+        // ProbePath names each native operation; an enclosing probe item would
+        // always hide them as heaviest. Other stages retain their whole cost.
+        if (observedStage != HCEcologyRuntimeRules.STAGE_PROBE)
+        {
+            HCEcologySteps.Item("hc29_stage_" + observedStage.ToString(), tickStart);
+        }
 		s_Instance.m_LastElapsedTicks = TickCount(tickStart);
 		s_Instance.HCReport(nowMs);
 	}
