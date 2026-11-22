@@ -89,12 +89,12 @@ class HCInteriorsModule : HCModule
         reusable = null;
         int matches;
         bool exact = true;
-        foreach (Object owned : m_Objects)
+        foreach (Object ownedProp : m_Objects)
         {
-            if (!owned || vector.DistanceSq(owned.GetPosition(), point) >= 0.0625 || owned.GetType() != type) continue;
+            if (!ownedProp || vector.DistanceSq(ownedProp.GetPosition(), point) >= 0.0625 || ownedProp.GetType() != type) continue;
             matches++;
-            reusable = owned;
-            if (HCInteriorRules.TransformKey(owned.GetPosition(), owned.GetOrientation()) != HCInteriorRules.TransformKey(point, orientation)) exact = false;
+            reusable = ownedProp;
+            if (HCInteriorRules.TransformKey(ownedProp.GetPosition(), ownedProp.GetOrientation()) != HCInteriorRules.TransformKey(point, orientation)) exact = false;
         }
         int decision = HCInteriorRules.OrphanDecision(true, matches, matches, exact);
         if (decision != 1) reusable = null;

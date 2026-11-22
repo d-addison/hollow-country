@@ -142,9 +142,9 @@ class HCXMissionMapLayer
     void ReleaseWidgets()
     {
         mHCXMarkers.Clear();
-        foreach (Widget owned : mHCXDiscs)
+        foreach (Widget ownedDisc : mHCXDiscs)
         {
-            if (owned) owned.Unlink();
+            if (ownedDisc) ownedDisc.Unlink();
         }
         mHCXDiscs.Clear();
         mHCXDiscMarks.Clear();

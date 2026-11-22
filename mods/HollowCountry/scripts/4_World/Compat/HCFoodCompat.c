@@ -8,7 +8,7 @@
 // Edible_Base.c (no InitTemperature override in 1.30), 3_Game/Global/Game.c
 // ConfigIsExisting/IsServer/IsMultiplayer, EnString.c Contains/IndexOf/Substring.
 // The food pack's items, boxes and bundles all derive from vanilla item classes with a
-// "_DON" tag in the type name; the guard covers both Edible_Base and Inventory_Base.
+// "_DON" tag in the type name; one ItemBase guard covers Edible_Base and Inventory_Base.
 class HCFoodCompat
 {
     // 0 unknown, 1 present, 2 absent. A pack cannot appear mid-session.
@@ -200,24 +200,10 @@ modded class HCModuleRegistry
 // Pack food (items, loot boxes, bundles) runs the 1.30 temperature initialisation only
 // when its contract holds; a refusal leaves the item at its default temperature (never
 // a crash). Every other entity takes the unmodified vanilla path. EntityAI lives in
-// 3_Game and cannot be modded from 4_World, so the two 4_World item roots the pack
-// uses are covered: Edible_Base (food) and Inventory_Base (boxes and bundles).
-modded class Edible_Base
-{
-    override protected void InitTemperature()
-    {
-        if (!HCFoodCompat.Applies(this))
-        {
-            super.InitTemperature();
-            return;
-        }
-        if (!HCFoodCompat.Admit(this)) { return; }
-        super.InitTemperature();
-        HCFoodCompat.Guarded();
-    }
-}
-
-modded class Inventory_Base
+// 3_Game and cannot be modded from 4_World; the pack's food (Edible_Base) and boxes and
+// bundles (Inventory_Base) share ItemBase, so one ItemBase override covers both. A
+// separate Inventory_Base override failed the native compile with the loaded packs.
+modded class ItemBase
 {
     override protected void InitTemperature()
     {

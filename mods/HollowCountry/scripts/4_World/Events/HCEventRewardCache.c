@@ -1297,7 +1297,7 @@ class HCEventCacheFill
         Print("[HC Events] scene cache fill; " + siteId + "; action=" + action + "; reason=" + reason + " runtime=PENDING");
     }
     // Not resolved: retried on the next bounded probe.
-    protected static bool Wait(string siteId, string reason)
+    protected static bool HCWaitSite(string siteId, string reason)
     {
         Say(siteId, "waiting", reason);
         return false;
@@ -1475,9 +1475,9 @@ class HCEventCacheFill
         if (dist > CASE_RADIUS) { return Refuse(siteId, "not_at_eventspawn"); }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         int now = HCInfectedClock.UtcSeconds();
-        if (!policy || now < 1) { return Wait(siteId, "clock_or_policy_unavailable"); }
+        if (!policy || now < 1) { return HCWaitSite(siteId, "clock_or_policy_unavailable"); }
         if (s_Fault) { return Refuse(siteId, "journal_unavailable"); }
-        if (id == "") { return Wait(siteId, "id_unreadable"); }
+        if (id == "") { return HCWaitSite(siteId, "id_unreadable"); }
         string key = KeyOf(id);
         string doneKey = siteId + "|" + key;
         HCEventCacheFillJob job = JobOf(doneKey);
@@ -1499,7 +1499,7 @@ class HCEventCacheFill
         if (item.GetInventory()) { cargo = item.GetInventory().GetCargo(); }
         if (!cargo) { return Refuse(siteId, "no_cargo"); }
         if (s_Jobs.Count() >= TRACK_LIMIT) { DropResolved(); }
-        if (s_Jobs.Count() >= TRACK_LIMIT) { return Wait(siteId, "fill_queue_full"); }
+        if (s_Jobs.Count() >= TRACK_LIMIT) { return HCWaitSite(siteId, "fill_queue_full"); }
         job = new HCEventCacheFillJob;
         job.SiteId = siteId;
         job.Id = id;
@@ -1510,7 +1510,7 @@ class HCEventCacheFill
         job.Item = item;
         job.Phase = PHASE_OK;
         s_Jobs.Insert(job);
-        return Wait(siteId, "receipt_check_pending");
+        return HCWaitSite(siteId, "receipt_check_pending");
     }
     // One staged step per call (HCEventModule tick): advances ONE fill job by ONE phase. A phase makes
     // at most one native file call (the receipt checks, one directory read or prune, one write stage)
@@ -1661,7 +1661,7 @@ class HCEventCacheFill
             s_Attempts.Find(job.DoneKey, attempts);
             if (s_Attempts.Count() >= TRACK_LIMIT) { s_Attempts.Clear(); }
             s_Attempts.Set(job.DoneKey, attempts + 1);
-            Wait(job.SiteId, "create_failed");
+            HCWaitSite(job.SiteId, "create_failed");
             job.Phase = PHASE_PARKED;
             return false;
         }
@@ -1679,7 +1679,7 @@ class HCEventCacheFill
         int now = HCInfectedClock.UtcSeconds();
         if (!policy || now < 1)
         {
-            Wait(job.SiteId, "clock_or_policy_unavailable");
+            HCWaitSite(job.SiteId, "clock_or_policy_unavailable");
             job.Phase = PHASE_PARKED;
             return false;
         }
@@ -1719,14 +1719,14 @@ class HCEventCacheFill
             if (last > now) { last = now; }
             if (now - last < MIN_SPACING_SECONDS)
             {
-                Wait(job.SiteId, "min_spacing");
+                HCWaitSite(job.SiteId, "min_spacing");
                 job.Phase = PHASE_PARKED;
                 return false;
             }
         }
         if (HCEventCacheSpawner.PolicePlayersWithin(item.GetPosition(), policy.RefillClearRadius))
         {
-            Wait(job.SiteId, "players_near");
+            HCWaitSite(job.SiteId, "players_near");
             job.Phase = PHASE_PARKED;
             return false;
         }
