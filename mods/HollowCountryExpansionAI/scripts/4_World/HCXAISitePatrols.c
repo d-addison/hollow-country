@@ -25,6 +25,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     int m_HCPendingMembers;
     string m_HCRefusal;
     bool m_HCRingLogged;
+    protected ref HCXAIGroupHold m_HCHold;
     int m_HCRingRetryMs;
     protected int m_HCNextBudgetLogMs;
     protected int m_HCNextSkipLogMs;
@@ -99,6 +100,10 @@ class HCXAISitePatrol : HCXExpansionPatrol
         }
         m_HCPendingMembers = m_NumberOfAI - HCXExpansionBridge.HCGroupCount(m_Group);
         if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
+        for (int heldIndex = 0; heldIndex < HCXExpansionBridge.HCGroupCount(m_Group) && heldIndex < 16; heldIndex++)
+        {
+            this.HCHoldGroup(m_Group, HCXExpansionBridge.HCGroupGetMember(m_Group, heldIndex));
+        }
         m_HCLive = true;
         director.Spawned(this);
     }
@@ -138,6 +143,20 @@ class HCXAISitePatrol : HCXExpansionPatrol
         if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
         this.HCBridgeSpawnAI_Deferred(i);
     }
+    // #334: keep the provider group alive while any member it spawned still exists.
+    protected void HCHoldGroup(eAIGroup group, DayZPlayerImplement member)
+    {
+        if (!group) { return; }
+        if (m_HCHold && m_HCHold.Group != group) { this.HCReleaseHold(); }
+        if (!m_HCHold) { m_HCHold = new HCXAIGroupHold(group); }
+        m_HCHold.Track(member);
+    }
+    void HCReleaseHold()
+    {
+        if (!m_HCHold) { return; }
+        HCXAIGroupHolds.Retire(m_HCHold);
+        m_HCHold = null;
+    }
     void HCPreserveBodies()
     {
         if (!m_Group) { return; }
@@ -172,6 +191,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
         if (raided && director) { director.RecordCleared(this); }
         this.HCPreserveBodies();
         this.HCBridgeDespawn(false);
+        if (!m_Group) { this.HCReleaseHold(); }
         m_HCPendingMembers = 0;
         m_HCLive = false;
         if (!m_HCTransient && !m_Group) { HCAIBudget.Release("site:" + m_HCSiteId); }
@@ -180,12 +200,14 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void OnUpdate()
     {
-        if (m_HCFinished) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
+        HCXAIGroupHolds.PruneStep();
+        if (m_HCFinished || HCXExpansionBridge.HCSitePatrolBeingDestroyed(this)) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
         this.HCBridgeOnUpdate();
     }
     override void SetupAI(eAIBase ai)
     {
         if (!this.HCBridgeSetupAI(ai)) { return; }
+        this.HCHoldGroup(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai), ai);
         HCXAffiliationCues.Actor(ai, m_Faction);
         HCXExpansionBridge.HCBaseSetUnlimitedReload(ai, 0);
         HCXExpansionBridge.HCBaseSetLootingBehavior(ai, 0);

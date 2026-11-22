@@ -136,10 +136,19 @@ class HCXExpansionBridge
         value.SetGroup(group, autoDeleteFormerGroupIfEmpty, groupMemberIndex);
     }
 
+    // A second Delete would queue a second DeletePatrol, whose Find returns -1.
     static void HCSitePatrolDelete(HCXAISitePatrol value)
     {
         if (!value) { HCRefuse("HCSitePatrolDelete", "RECEIVER_NULL"); return; }
+        if (value.IsBeingDestroyed()) { HCRefuse("HCSitePatrolDelete", "ALREADY_DELETING"); return; }
+        value.HCReleaseHold();
         value.Delete();
+    }
+
+    static bool HCSitePatrolBeingDestroyed(HCXAISitePatrol value)
+    {
+        if (!value) { HCRefuse("HCSitePatrolBeingDestroyed", "RECEIVER_NULL"); return true; }
+        return value.IsBeingDestroyed();
     }
 
     static void HCSitePatrolDespawn(HCXAISitePatrol value, bool deferDespawnUntilLoosingAggro = false)
@@ -666,6 +675,79 @@ class HCXExpansionBridge
     {
         if (!value) { HCRefuse("HCTargetInformationIsZombie", "RECEIVER_NULL"); return false; }
         return value.IsZombie();
+    }
+}
+
+// #334: eAIGroup is not Managed, so eAIDynamicPatrol.m_Group and each member's
+// group pointer are raw. When the first corpse of a wiped group is deleted, the
+// provider destroys the group on the next frame (DayZPlayerImplement.eAI_Cleanup
+// from the destructor). The patrol and the remaining corpses still point at it.
+// HC holds a strong reference to each site group until every member entity it set
+// up is deleted, plus a settle window for the provider's queued DeleteGroup call.
+class HCXAIGroupHold
+{
+    ref eAIGroup Group;
+    ref array<DayZPlayerImplement> Members;
+    int SettledAtMs;
+    void HCXAIGroupHold(eAIGroup group)
+    {
+        Group = group;
+        Members = new array<DayZPlayerImplement>;
+        SettledAtMs = -1;
+    }
+    void Track(DayZPlayerImplement member)
+    {
+        if (member && Members.Find(member) < 0) { Members.Insert(member); }
+    }
+    // Entries are weak and turn null once the entity is deleted.
+    bool Settled()
+    {
+        foreach (DayZPlayerImplement member : Members)
+        {
+            if (member) { return false; }
+        }
+        return true;
+    }
+}
+
+// Retired holds: bounded scan, two entries per call (each site patrol calls it from
+// its 5 s update). A hold is released 2 s after its last tracked member is deleted.
+class HCXAIGroupHolds
+{
+    protected static ref array<ref HCXAIGroupHold> s_Retired;
+    protected static int s_Cursor;
+    protected static bool s_HighLogged;
+    static const int HC_SETTLE_MS = 2000;
+    static const int HC_HIGH_COUNT = 256;
+    static void Retire(HCXAIGroupHold hold)
+    {
+        if (!hold || !hold.Group) { return; }
+        if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
+        s_Retired.Insert(hold);
+        if (s_Retired.Count() > HC_HIGH_COUNT && !s_HighLogged)
+        {
+            s_HighLogged = true;
+            Print("[HCX Bridge] retired group holds high count=" + s_Retired.Count().ToString() + " reason=corpses_outlive_sites");
+        }
+    }
+    static void PruneStep()
+    {
+        if (!s_Retired || !GetGame()) { return; }
+        int nowMs = GetGame().GetTime();
+        for (int checked = 0; checked < 2 && s_Retired.Count() > 0; checked++)
+        {
+            if (s_Cursor >= s_Retired.Count()) { s_Cursor = 0; }
+            HCXAIGroupHold hold = s_Retired[s_Cursor];
+            if (hold && !hold.Settled()) { hold.SettledAtMs = -1; s_Cursor++; continue; }
+            if (hold && hold.SettledAtMs < 0) { hold.SettledAtMs = nowMs; s_Cursor++; continue; }
+            if (hold && nowMs - hold.SettledAtMs < HC_SETTLE_MS) { s_Cursor++; continue; }
+            s_Retired.Remove(s_Cursor);
+        }
+    }
+    static int Count()
+    {
+        if (!s_Retired) { return 0; }
+        return s_Retired.Count();
     }
 }
 
