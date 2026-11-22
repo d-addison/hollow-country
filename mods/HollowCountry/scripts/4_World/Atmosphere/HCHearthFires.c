@@ -24,7 +24,7 @@
 // EnScript.c:897 GetKey (O(n), bounded by MaxHearths), :906 Remove.
 // No Expansion calls or copied code.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnSystem.c:397 FileExist;
-// EnDebug.c:96 Print. HCGroupIO bounds IO; HCJsonFields preserves missing defaults.
+// EnDebug.c:96 Print. HCGroupIO bounds IO; HCJsonSchema loader; HCJsonFields preserves missing defaults.
 // Spec: no house fire presentation without a replicated burning hearth. Plan:
 // observe native fires; bounded provenance registry; unseen funded occupant ignition.
 // Tasks: source/tests here; native compile, persistence and two clients remain pending.
@@ -54,7 +54,7 @@ class HCHearthConfig
         string text;
         string error;
         HCHearthConfig decoded;
-        if (!HCGroupIO.Read(path, 4096, text) || !JsonFileLoader<HCHearthConfig>.LoadData(text, decoded, error) || !decoded)
+        if (!HCGroupIO.Read(path, 4096, text) || !HCJsonSchemaLoader<HCHearthConfig>.HCLoadData(text, decoded, error) || !decoded)
         {
             Print("[HC Hearth] HC_HEARTH_CONFIG_DEFAULTS runtime=PENDING");
             return s_Config;

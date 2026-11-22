@@ -2,7 +2,7 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnConvert.c:30,115 int/float ToString.
-// Bounded HCGroupIO + HCJsonFields; no engine/Expansion gameplay calls added.
+// Bounded HCGroupIO + HCJsonSchema loader; HCJsonFields retains optional-field guards; no engine/Expansion gameplay calls added.
 class GCActorsDefenceConfig
 {
     bool Enabled = true;
@@ -49,7 +49,7 @@ class GCActorsDefenceConfig
         string error;
         GCActorsDefenceConfig decoded;
         if (!HCGroupIO.Read(path, 4096, text)) { HCRefuse("read"); return; }
-        if (!JsonFileLoader<GCActorsDefenceConfig>.LoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
+        if (!HCJsonSchemaLoader<GCActorsDefenceConfig>.HCLoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
         if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
         if (HCJsonFields.Has(text, "GRUDGE_CAP") && HCValid("GRUDGE_CAP", decoded.GRUDGE_CAP, 1, 64)) { GRUDGE_CAP = decoded.GRUDGE_CAP; }
         if (HCJsonFields.Has(text, "SHOT_WINDOW_CAP") && HCValid("SHOT_WINDOW_CAP", decoded.SHOT_WINDOW_CAP, 1, 6)) { SHOT_WINDOW_CAP = decoded.SHOT_WINDOW_CAP; }
