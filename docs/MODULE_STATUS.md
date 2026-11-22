@@ -1,5 +1,7 @@
 # Gameplay implementation and remaining work
 
+Persistence W3-03 note (implemented-unverified): the v1-test-14 HCRefreshIntent backup=false crash window can restore N-1 for Escalation and other V2 SaveStep users that refresh; Holdouts never refreshes, so this window cannot duplicate its loot; native upgrade/crash evidence remains pending.
+
 Custody recovery (W2-08 round 8) remains **implemented-unverified**. Rejected
 archives are bounded to eight slots; cap retirement prints a reason. A crash
 mid-rotation can drop older archives; the current rejected source stays intact

@@ -150,6 +150,86 @@ class HCEventCodec
     }
     int Digest(string text) { return text.Hash(); }
 }
+// Immutable journal admission is staged too: the shared BeginNew otherwise
+// probes both filenames in the caller's journal_write_intent stage. A fresh
+// instance owns exactly one file; all streaming/readback stays in the core writer.
+modded class HCStagedSaveImage
+{
+    // Scoped replacement stores stream the already-verified predecessor and
+    // frozen candidate through a second core writer in CREATE mode. Each core
+    // step opens, transfers <=4096 bytes, or closes one file. No whole-file copy.
+    // These private targets are admitted by the outer writer: the backup may be
+    // truncated only while primary + verified pending survive, and primary only
+    // after backup readback. The pending name remains until outer verification.
+    protected ref HCStagedSaveImage m_BoundedWriter;
+
+    override int HCAbort()
+    {
+        m_Failed = true;
+        return HCStepBoundedImage();
+    }
+
+    int HCStepBoundedImage()
+    {
+        if (m_BoundedWriter && (m_Failed || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)))
+        {
+            int aborted = m_BoundedWriter.HCAbort();
+            if (aborted == HCSaveJob.STEP_MORE) { return aborted; }
+            m_BoundedWriter = null;
+            return HCFail();
+        }
+        if (m_Failed || m_CheckPrior || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCStepImage(); }
+        if (m_Phase == 2 && m_PriorUnchanged) { return HCStepImage(); }
+        bool backupCopy = m_Phase == 2 && m_Backup && m_PrimaryKnown && m_PrimaryExists;
+        if (backupCopy && m_BackupStage == 1 && !m_BackupExists)
+        {
+            m_BackupStage = 2;
+            return HCSaveJob.STEP_MORE;
+        }
+        backupCopy = backupCopy && m_BackupStage == 2;
+        bool primaryCopy = m_Phase == 3;
+        if (!backupCopy && !primaryCopy) { return HCStepImage(); }
+        if (!m_BoundedWriter)
+        {
+            string target = m_Path;
+            string text = m_Text;
+            if (backupCopy) { target += ".bak"; text = m_ExpectedPrior; }
+            // All scoped replacement owners supply exact committed bytes.
+            // Never rotate a backup from an unknown predecessor.
+            if (text == "") { return HCFail(); }
+            m_BoundedWriter = new HCStagedSaveImage;
+            if (!m_BoundedWriter.HCPrepareJournal(target, text, m_Limit)) { m_BoundedWriter = null; return HCFail(); }
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_BoundedWriter.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { m_BoundedWriter = null; return HCFail(); }
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        m_BoundedWriter = null;
+        HCClose();
+        // Child CREATE already verified these exact predecessor bytes. Skip
+        // the duplicate outer read_backup; primary is still untouched here.
+        if (backupCopy) { m_PriorChunks.Clear(); m_PriorBytes = 0; m_Phase = 3; }
+        // CREATE already read back the primary: no duplicate outer readback.
+        else { m_PrimaryExists = true; m_Phase = 5; }
+        return HCSaveJob.STEP_MORE;
+    }
+
+    bool HCPrepareJournal(string path, string text, int limit)
+    {
+        if (Active() || m_Failed || limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
+        if (text.Length() < 1 || text.Length() > limit || !HCRecoveryGate.HCAllowWrite(path)) { return false; }
+        m_Path = path;
+        m_Temporary = path + ".tmp";
+        m_Text = text;
+        m_Limit = limit;
+        m_Mode = HC_IMAGE_CREATE;
+        m_CheckPrior = false;
+        m_Backup = false;
+        m_Phase = 0;
+        return true;
+    }
+}
+
 class HCEventJournal : HCEventPersistence
 {
     protected ref HCEventJournalIO m_IO;
@@ -312,9 +392,21 @@ class HCEventJournal : HCEventPersistence
     // Existing mutation/ingress barriers can drain this same continuation synchronously.
     protected ref HCEventRuntimeState m_Pending;
     protected ref HCStagedSaveImage m_Writer;
+    protected int m_CreateAdmission;
     protected int m_SaveStage = -1;
     protected string m_NextImage;
     protected string m_NextReceipt;
+    protected ref array<string> m_EncodePages = new array<string>;
+    protected int m_EncodeBytes;
+    protected int m_JoinCursor;
+    protected ref HCStepTimer m_SaveTimer;
+    void HCSetSaveTimer(HCStepTimer timer) { m_SaveTimer = timer; }
+    protected void HCMeasured(string stage, int started)
+    {
+        if (m_SaveTimer) { m_SaveTimer.HCItem(stage, TickCount(started)); }
+    }
+    protected int m_EncodeCursor;
+    protected int m_EncodePhase;
     protected bool m_CheckOpen;
     protected int m_CheckOffset;
     protected FileHandle m_CheckHandle;
@@ -361,6 +453,12 @@ class HCEventJournal : HCEventPersistence
         m_Pending = state;
         m_SaveStage = 0;
         m_InventoryStage = 0;
+        m_EncodeCursor = 0;
+        m_EncodePhase = 0;
+        m_EncodePages.Clear();
+        m_EncodeBytes = 0;
+        m_JoinCursor = 0;
+        m_NextImage = "";
         m_DirectoryStage = 0;
         m_PruneChecked = false;
         m_InventoryCount = 0;
@@ -384,6 +482,7 @@ class HCEventJournal : HCEventPersistence
     protected int HCStageFault()
     {
         HCCloseHandles();
+        m_EncodePages.Clear();
         m_Writer = null;
         m_Pending = null;
         m_SaveStage = -1;
@@ -498,6 +597,116 @@ class HCEventJournal : HCEventPersistence
         return HCSaveJob.STEP_MORE;
     }
 
+    // Encoding pages preserve the old object/array schema. StateValid bounds
+    // records/runs to 32, participants to 6, sessions to 33 and tokens/run to 1.
+    // Header <=33 strings of <=96 bytes (+ world/session); <=32768 encoded bytes.
+    // Record <=6 participants + definition/session strings; <=8192 encoded bytes.
+    // Run raw string sum <=2048, <=16384 encoded bytes (6x JSON escape + fields).
+    // Check raw inputs BEFORE MakeData; oversized candidates never write files.
+    // Balanced assembly/hash operate on <=819456 bytes, further limited by MaxStoreBytes.
+    // Hash() has no incremental API: schema-1 receipts require the exact native
+    // full-image hash. It stays a separate measured step; no <=5 ms claim until
+    // the lead measures this cap. Native disk latency is likewise indivisible.
+    protected int HCEncodePage()
+    {
+        int started = TickCount(0);
+        int result = HCEncodePageInner();
+        HCMeasured("journal_encode_page", started);
+        return result;
+    }
+
+    // Native string.Join itself uses +=. Pairwise merge copies each byte at
+    // most ceil(log2(67)) times instead of recopying the growing whole image
+    // on every row. One pair (<=MaxStoreBytes) per assembly step; schema intact.
+    protected int HCEncodePageInner()
+    {
+        string piece;
+        string error;
+        if (m_EncodePhase == 0)
+        {
+            HCEventState director = m_Pending.Director;
+            HCEventJournalDirectorHeader header = new HCEventJournalDirectorHeader;
+            header.Version = director.Version;
+            header.WorldName = director.WorldName;
+            header.Session = director.Session;
+            header.LastNow = director.LastNow;
+            header.NextId = director.NextId;
+            header.PrunedThrough = director.PrunedThrough;
+            header.SessionGeneration = director.SessionGeneration;
+            header.Sessions = director.Sessions;
+            if (!JsonFileLoader<HCEventJournalDirectorHeader>.MakeData(header, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+            if (piece.Length() < 2 || piece.Length() > 32768) { return HCSaveJob.STEP_FAILED; }
+            if (piece.Substring(piece.Length() - 1, 1) != "}") { return HCSaveJob.STEP_FAILED; }
+            string prefix = "{\"Version\":" + m_Pending.Version.ToString() + ",\"Revision\":" + m_Pending.Revision.ToString() + ",\"Director\":";
+            piece = prefix + piece.Substring(0, piece.Length() - 1) + ",\"Records\":[";
+            m_EncodePhase = 1;
+        }
+        else if (m_EncodePhase == 1)
+        {
+            if (m_EncodeCursor < m_Pending.Director.Records.Count())
+            {
+                if (!JsonFileLoader<HCEventRecord>.MakeData(m_Pending.Director.Records[m_EncodeCursor], piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+                if (piece.Length() < 1 || piece.Length() > 8192) { return HCSaveJob.STEP_FAILED; }
+                if (m_EncodeCursor > 0) { piece = "," + piece; }
+                m_EncodeCursor++;
+            }
+            else
+            {
+                piece = "]},\"Runs\":[";
+                m_EncodeCursor = 0;
+                m_EncodePhase = 2;
+            }
+        }
+        else if (m_EncodePhase == 2)
+        {
+            if (m_EncodeCursor < m_Pending.Runs.Count())
+            {
+                HCEventRun run = m_Pending.Runs[m_EncodeCursor];
+                HCEventMission mission = run.Objective;
+                // ItemClass can be irrelevant to some families, whose policy
+                // does not bound it. Refuse a huge candidate without encoding it.
+                int rawBytes = run.Lease.Length() + mission.Id.Length() + mission.SiteId.Length() + mission.WorldName.Length();
+                rawBytes += mission.ItemClass.Length() + mission.ContainerClass.Length() + mission.AnchorClass.Length();
+                if (run.Tokens.Count() > 0) { rawBytes += run.Tokens[0].Length(); }
+                if (rawBytes > 2048) { return HCSaveJob.STEP_FAILED; }
+                if (!JsonFileLoader<HCEventRun>.MakeData(run, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+                if (piece.Length() < 1 || piece.Length() > 16384) { return HCSaveJob.STEP_FAILED; }
+                if (m_EncodeCursor > 0) { piece = "," + piece; }
+                m_EncodeCursor++;
+            }
+            else
+            {
+                piece = "]}";
+                m_EncodePhase = 3;
+            }
+        }
+        else
+        {
+            int pageCount = m_EncodePages.Count();
+            if (pageCount == 1)
+            {
+                m_NextImage = m_EncodePages[0];
+                m_EncodePages.Clear();
+                return HCSaveJob.STEP_DONE;
+            }
+            int right = m_JoinCursor + 1;
+            string joined = m_EncodePages[m_JoinCursor];
+            if (right < pageCount) { joined = joined + m_EncodePages[right]; }
+            m_EncodePages[m_JoinCursor / 2] = joined;
+            m_JoinCursor += 2;
+            if (m_JoinCursor >= pageCount)
+            {
+                m_EncodePages.Resize((pageCount + 1) / 2);
+                m_JoinCursor = 0;
+            }
+            return HCSaveJob.STEP_MORE;
+        }
+        m_EncodeBytes += piece.Length();
+        if (m_EncodeBytes > m_Settings.MaxStoreBytes) { return HCSaveJob.STEP_FAILED; }
+        m_EncodePages.Insert(piece);
+        return HCSaveJob.STEP_MORE;
+    }
+
     int HCStepSave()
     {
         m_NativeOperation = "none";
@@ -521,14 +730,16 @@ class HCEventJournal : HCEventPersistence
         }
         else if (m_SaveStage == 5)
         {
-            m_NextImage = m_Codec.Encode(m_Pending);
-            if (m_NextImage.Length() < 1 || m_NextImage.Length() > m_Settings.MaxStoreBytes)
+            result = HCEncodePage();
+            if (result == HCSaveJob.STEP_FAILED || m_NextImage.Length() > m_Settings.MaxStoreBytes)
             {
                 // No files written yet: refuse this candidate, retain the committed journal.
+                m_EncodePages.Clear();
                 m_NextImage = "";
                 m_NextReceipt = "";
                 m_Pending = null;
                 m_SaveStage = -1;
+                Print("[HC Events] journal candidate refused reason=encode_page_bound; committed revision retained");
                 return HCSaveJob.STEP_FAILED;
             }
         }
@@ -538,7 +749,9 @@ class HCEventJournal : HCEventPersistence
             receipt.Revision = m_Pending.Revision;
             receipt.WorldName = m_World;
             receipt.Length = m_NextImage.Length();
+            int digestStarted = TickCount(0);
             receipt.Hash = m_Codec.Digest(m_NextImage);
+            HCMeasured("journal_digest", digestStarted);
             m_NextReceipt = m_Codec.EncodeReceipt(receipt);
         }
         else if (m_SaveStage >= 7 && m_SaveStage <= 9)
@@ -550,9 +763,21 @@ class HCEventJournal : HCEventPersistence
                 int limit = 2048;
                 if (m_SaveStage == 8) { writePrefix = "image-"; text = m_NextImage; limit = m_Settings.MaxStoreBytes; }
                 if (m_SaveStage == 9) { writePrefix = "commit-"; }
+                m_CreateAdmission = 0;
                 m_Writer = new HCStagedSaveImage;
-                m_NativeOperation = "exist"; // BeginNew probes temporary and target; no write yet.
-                if (!m_Writer.BeginNew(m_IO.HCPath(Name(writePrefix, m_Pending.Revision)), text, limit)) { return HCStageFault(); }
+                if (!m_Writer.HCPrepareJournal(m_IO.HCPath(Name(writePrefix, m_Pending.Revision)), text, limit)) { return HCStageFault(); }
+                return HCSaveJob.STEP_MORE;
+            }
+            if (m_CreateAdmission < 2)
+            {
+                string admissionPrefix = "intent-";
+                if (m_SaveStage == 8) { admissionPrefix = "image-"; }
+                if (m_SaveStage == 9) { admissionPrefix = "commit-"; }
+                string admissionName = Name(admissionPrefix, m_Pending.Revision);
+                m_NativeOperation = "check_target";
+                if (m_CreateAdmission == 0) { admissionName += ".tmp"; m_NativeOperation = "check_temporary"; }
+                m_CreateAdmission++;
+                if (m_IO.Exists(admissionName)) { return HCStageFault(); }
                 return HCSaveJob.STEP_MORE;
             }
             HCSaveJob.HCOperation = "none";
@@ -604,68 +829,36 @@ class HCEventJournal : HCEventPersistence
 
     override bool Save(HCEventRuntimeState state)
     {
-        if (m_Fault || !HCEventRuntimePolicy.StateValid(state) || state.Director.WorldName != m_World)
+        // Startup and ingress barriers drain the very same continuation; routine
+        // maintenance calls HCStepSave through HCEventJournalSaveJob.
+        if (!HCBeginSave(state)) { return false; }
+        int result = HCSaveJob.STEP_MORE;
+        int steps = 0;
+        // Three immutable images, prior verification, inventory and prune stages.
+        while (result == HCSaveJob.STEP_MORE && steps < 3 * HCStagedSaveImage.HC_MAX_STAGES + 128)
         {
-            return false;
+            result = HCStepSave();
+            steps++;
         }
-        if (state.Revision != m_Latest + 1 || Highest() != m_Latest)
-        {
-            return Fault();
-        }
-        if (m_Latest > 0 && m_IO.Read(Name("image-", m_Latest), m_Settings.MaxStoreBytes) != m_Image)
-        {
-            return Fault();
-        }
-        if (m_Latest > 0)
-        {
-            if (m_IO.Read(Name("intent-", m_Latest), 2048) != m_Receipt || m_IO.Read(Name("commit-", m_Latest), 2048) != m_Receipt)
-            {
-                return Fault();
-            }
-        }
-        string image = m_Codec.Encode(state);
-        if (image.Length() < 1 || image.Length() > m_Settings.MaxStoreBytes)
-        {
-            return false;
-        }
-        HCEventJournalReceipt receipt = new HCEventJournalReceipt;
-        receipt.Revision = state.Revision;
-        receipt.WorldName = m_World;
-        receipt.Length = image.Length();
-        receipt.Hash = m_Codec.Digest(image);
-        string intent = m_Codec.EncodeReceipt(receipt);
-        if (!m_IO.WriteNew(Name("intent-", state.Revision), intent, 2048))
-        {
-            return Fault();
-        }
-        if (!m_IO.WriteNew(Name("image-", state.Revision), image, m_Settings.MaxStoreBytes))
-        {
-            return Fault();
-        }
-        if (!m_IO.WriteNew(Name("commit-", state.Revision), intent, 2048))
-        {
-            return Fault();
-        }
-        m_Latest = state.Revision;
-        m_Image = image;
-        m_Receipt = intent;
-        // Exactly seven committed revisions; skip absent owned filenames.
-        int old = m_Latest - 7;
-        if (old > 0)
-        {
-            array<string> prefixes = new array<string>();
-            prefixes.Insert("intent-");
-            prefixes.Insert("image-");
-            prefixes.Insert("commit-");
-            foreach (string prefix : prefixes)
-            {
-                string name = Name(prefix, old);
-                if (m_IO.Exists(name) && !m_IO.Remove(name))
-                {
-                    return Fault();
-                }
-            }
-        }
-        return true;
+        if (result == HCSaveJob.STEP_MORE) { HCStageFault(); }
+        return result == HCSaveJob.STEP_DONE;
+    }
+}
+
+// One scheduler stage per journal continuation step. The weak journal reference
+// avoids a cycle; the runtime retains the journal until it consumes Result.
+class HCEventJournalSaveJob : HCSaveJob
+{
+    HCEventJournal Journal;
+    int Result = HCSaveJob.STEP_MORE;
+    override string HCName() { return "EventJournal"; }
+    override int HCStep()
+    {
+        if (Result != STEP_MORE) { return Result; }
+        if (!Journal) { Result = STEP_FAILED; return Result; }
+        string stage = Journal.HCStageName();
+        Result = Journal.HCStepSave();
+        HCSaveJob.HCOperation = stage + ":" + Journal.HCNativeOperation();
+        return Result;
     }
 }
