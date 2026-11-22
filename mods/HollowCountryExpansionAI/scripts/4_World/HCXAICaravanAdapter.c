@@ -63,8 +63,7 @@ class HCXAICaravanRoadNode
 {
     vector Position;
     ref array<int> Links = new array<int>;
-    // Native EnScript.c:902/917 map Set/Contains; built once with Links.
-    ref map<int, bool> LinkIds = new map<int, bool>;
+    // Compatibility view for HCXConvoyRoute; no per-node map allocation.
 }
 class HCStartupRoads : HCStartupOwner
 {
@@ -100,6 +99,25 @@ class HCXAICaravanRoads : Managed
     protected int m_LoadTicks;
     protected int m_LoadMaxTicks;
     protected float m_LoadStarted;
+    protected bool m_Compact;
+    protected bool m_CompactHeaderRead;
+    protected bool m_CompactProject;
+    protected string m_ReadWindow;
+    protected int m_ReadCursor;
+    protected int m_WindowBracket = -1;
+    protected int m_CompactBytes;
+    protected int m_CompactArray;
+    protected int m_ArrayValues;
+    protected bool m_ExpectValue = true;
+    protected bool m_StreamFault;
+    protected int m_ProjectCursor;
+    protected int m_EdgeCount;
+    protected int m_ValidityMismatch;
+    // CSR data stays flat. Existing convoy consumers require the bounded Links
+    // view; build that view on the same pump rather than allocating node maps.
+    protected ref array<int> m_Offsets = new array<int>;
+    protected ref array<int> m_Edges = new array<int>;
+    protected ref HCGapcodeRoutesManifest m_Manifest;
     float m_Length;
     vector From;
     vector To;
@@ -150,6 +168,27 @@ class HCXAICaravanRoads : Managed
     }
     void HCLoad()
     {
+        m_LoadStarted = GetGame().GetTickTime();
+        string manifestText = HCWorldStore.Read("$mission:hollow-country/travel/routes-manifest.json");
+        string manifestError;
+        if (JsonFileLoader<HCGapcodeRoutesManifest>.LoadData(manifestText, m_Manifest, manifestError) && m_Manifest && m_Manifest.SchemaVersion == 1 && m_Manifest.Files && m_Manifest.Files.Count() == 4 && m_Manifest.Files[0])
+        {
+            if (m_Manifest.RoadGraphPath == "$mission:hollow-country/ai/road-graph.compact.json" && m_Manifest.RoadGraphSha256.Length() == 64 && m_Manifest.Files[0].Path == Config.RoadDataPath)
+            {
+                m_File = OpenFile(m_Manifest.RoadGraphPath, FileMode.READ);
+                if (m_File)
+                {
+                    m_FileOpen = true;
+                    m_Compact = true;
+                    this.HCStartLoading();
+                    return;
+                }
+            }
+        }
+        this.HCCompactFallback();
+    }
+    void HCLoadInstalled()
+    {
         m_File = OpenFile(Config.RoadDataPath, FileMode.READ);
         if (m_File == 0) { HCRefuse("CARAVAN_INSTALLED_ROAD_DATA_MISSING"); return; }
         m_FileOpen = true;
@@ -163,11 +202,314 @@ class HCXAICaravanRoads : Managed
         {
             HCRefuse("CARAVAN_ROAD_DATA_HEADER_INVALID"); return;
         }
-        m_LoadStarted = GetGame().GetTickTime();
+        this.HCStartLoading();
+    }
+    void HCStartLoading()
+    {
         Phase = "loading";
+        if (m_StartupRoads) { return; }
         m_StartupRoads = new HCStartupRoads;
         m_StartupRoads.Roads = this;
         HCStartupPump.HCRegister(m_StartupRoads, "road_graph");
+    }
+    void HCCompactFallback()
+    {
+        if (m_FileOpen) { CloseFile(m_File); m_FileOpen = false; }
+        m_Compact = false;
+        m_ValidityMismatch++;
+        // This is a downgrade to installed-source validation, never a cache hit.
+        Print("[HC Caravan] compact=fallback reason=validity_mismatch count=" + m_ValidityMismatch.ToString() + " runtime=PENDING");
+        Nodes.Clear();
+        Grid.Clear();
+        m_Offsets.Clear();
+        m_Edges.Clear();
+        m_CompactHeaderRead = false;
+        m_CompactProject = false;
+        m_ReadWindow = "";
+        m_ReadCursor = 0;
+        m_WindowBracket = -1;
+        m_CompactBytes = 0;
+        m_CompactArray = 0;
+        m_ArrayValues = 0;
+        m_ExpectValue = true;
+        m_StreamFault = false;
+        m_ProjectCursor = 0;
+        m_EdgeCount = 0;
+        m_Count = 0;
+        m_LoadDegree = 0;
+        m_LoadEdge = 0;
+        m_LoadTick = -1;
+        m_LoadField = 0;
+        m_LoadNode = null;
+        this.HCLoadInstalled();
+    }
+    // Native EnSystem.c:425 ReadFile, EnString.c:448 Get. A 4 KiB window
+    // bounds string.Get cost; no whole-file character scans or growing image.
+    string HCStreamAt()
+    {
+        if (m_ReadCursor >= m_ReadWindow.Length())
+        {
+            m_ReadCursor = 0;
+            // A zero-byte read must not leave the previous window observable.
+            m_ReadWindow = "";
+            int bytes = ReadFile(m_File, m_ReadWindow, 4096);
+            m_CompactBytes += bytes;
+            if (bytes < 0 || bytes != m_ReadWindow.Length() || m_CompactBytes > 4194304)
+            { m_StreamFault = true; return ""; }
+            // Scan once per window; the large Positions array has no closing
+            // bracket in most windows. Repeating this per token was quadratic.
+            m_WindowBracket = m_ReadWindow.IndexOfFrom(0, "]");
+            if (bytes == 0) { return ""; }
+        }
+        return m_ReadWindow.Get(m_ReadCursor);
+    }
+    // Canonical generated JSON contains no escapes or whitespace in tokens.
+    // Each token is capped at 96 bytes; a token crossing windows stays bounded.
+    string HCStreamToken()
+    {
+        string token;
+        bool quoted = false;
+        for (int index = 0; index < 98; index++)
+        {
+            string character = this.HCStreamAt();
+            if (character == "") { return token; }
+            if (token == "" && (character == " " || character == "\n" || character == "\r" || character == "\t"))
+            { m_ReadCursor++; continue; }
+            if (character == "\\") { m_StreamFault = true; return ""; }
+            if (!quoted && (character == "," || character == ":" || character == "[" || character == "]" || character == "{" || character == "}"))
+            {
+                if (token != "") { return token; }
+                m_ReadCursor++;
+                return character;
+            }
+            if (!quoted && token != "" && (character == " " || character == "\n" || character == "\r" || character == "\t")) { return token; }
+            token += character;
+            m_ReadCursor++;
+            if (character == "\"")
+            {
+                if (quoted) { return token; }
+                if (token.Length() != 1) { m_StreamFault = true; return ""; }
+                quoted = true;
+            }
+            if (token.Length() > 96) { m_StreamFault = true; return ""; }
+        }
+        m_StreamFault = true;
+        return "";
+    }
+    string HCStreamArrayToken()
+    {
+        // Native EnString.c:271 IndexOfFrom. Scan delimiters in C++ on a
+        // bounded window instead of visiting every numeric character in script.
+        string token;
+        for (int part = 0; part < 2; part++)
+        {
+            string first = this.HCStreamAt();
+            if (first == "" || m_StreamFault || m_ReadWindow.Length() > 4096) { return ""; }
+            int stop = m_ReadWindow.IndexOfFrom(m_ReadCursor, ",");
+            if (m_WindowBracket >= 0 && m_WindowBracket < m_ReadCursor)
+            { m_WindowBracket = m_ReadWindow.IndexOfFrom(m_ReadCursor, "]"); }
+            int bracket = m_WindowBracket;
+            if (stop < 0 || (bracket >= 0 && bracket < stop)) { stop = bracket; }
+            if (stop == m_ReadCursor)
+            {
+                if (token != "") { return token; }
+                m_ReadCursor++;
+                return first;
+            }
+            int end = stop;
+            if (end < 0) { end = m_ReadWindow.Length(); }
+            int length = end - m_ReadCursor;
+            if (length < 1 || length + token.Length() > 32) { m_StreamFault = true; return ""; }
+            token += m_ReadWindow.Substring(m_ReadCursor, length);
+            m_ReadCursor = end;
+            if (stop >= 0) { return token; }
+        }
+        m_StreamFault = true;
+        return "";
+    }
+    bool HCFloatToken(string token)
+    {
+        // Strict JSON number grammar on <=32 bytes, including exponent digits.
+        if (token == "" || token.Length() > 32) { return false; }
+        int cursor = 0;
+        if (token.Get(0) == "-") { cursor++; }
+        int digits = 0;
+        bool zero = false;
+        if (cursor < token.Length()) { zero = token.Get(cursor) == "0"; }
+        while (cursor < token.Length())
+        {
+            int ascii = token.Get(cursor).ToAscii();
+            if (ascii < 48 || ascii > 57) { break; }
+            cursor++; digits++;
+        }
+        if (digits == 0 || (zero && digits > 1)) { return false; }
+        if (cursor < token.Length() && token.Get(cursor) == ".")
+        {
+            cursor++;
+            digits = 0;
+            while (cursor < token.Length())
+            {
+                int fraction = token.Get(cursor).ToAscii();
+                if (fraction < 48 || fraction > 57) { break; }
+                cursor++; digits++;
+            }
+            if (digits == 0) { return false; }
+        }
+        if (cursor < token.Length() && (token.Get(cursor) == "e" || token.Get(cursor) == "E"))
+        {
+            cursor++;
+            if (cursor < token.Length() && (token.Get(cursor) == "+" || token.Get(cursor) == "-")) { cursor++; }
+            digits = 0;
+            while (cursor < token.Length())
+            {
+                int exponent = token.Get(cursor).ToAscii();
+                if (exponent < 48 || exponent > 57) { break; }
+                cursor++; digits++;
+            }
+            if (digits == 0) { return false; }
+        }
+        return cursor == token.Length() && HCXAIRules.Finite(token.ToFloat());
+    }
+    bool HCCompactHeader()
+    {
+        // The small prefix ends at Positions; reconstruct only the header DTO.
+        string prefix;
+        for (int index = 0; index < 1024; index++)
+        {
+            string character = this.HCStreamAt();
+            if (character == "" || m_StreamFault) { return false; }
+            m_ReadCursor++;
+            if (character == "[") { break; }
+            prefix += character;
+        }
+        string suffix = ",\"Positions\":";
+        if (prefix.Length() < suffix.Length() || prefix.Substring(prefix.Length() - suffix.Length(), suffix.Length()) != suffix) { return false; }
+        prefix = prefix.Substring(0, prefix.Length() - suffix.Length()) + "}";
+        string error;
+        HCXRoadCompactHeader header;
+        if (!JsonFileLoader<HCXRoadCompactHeader>.LoadData(prefix, header, error) || !header) { return false; }
+        if (header.SchemaVersion != 1 || header.SourcePath != Config.RoadDataPath || header.SourceSha256 != m_Manifest.Files[0].Sha256 || header.SourceSha256.Length() != 64) { return false; }
+        if (header.RoadVersion != 4 || header.Width != Config.RoadMapWidth || header.Height != Config.RoadMapHeight) { return false; }
+        if (header.NodeCount < 1 || header.NodeCount > Config.MaxRoadNodes || header.EdgeCount < 0 || header.EdgeCount > header.NodeCount * Config.MaxRoadDegree) { return false; }
+        m_Count = header.NodeCount;
+        m_EdgeCount = header.EdgeCount;
+        m_CompactHeaderRead = true;
+        return true;
+    }
+    bool HCCompactNumber(string token)
+    {
+        if (token == "" || token.Length() > 32) { return false; }
+        if (m_CompactArray == 0 && !this.HCFloatToken(token)) { return false; }
+        for (int index = 0; index < token.Length(); index++)
+        {
+            string character = token.Get(index);
+            int ascii = character.ToAscii();
+            if (ascii >= 48 && ascii <= 57) { continue; }
+            if (m_CompactArray == 0 && (character == "." || character == "-" || character == "+" || character == "e" || character == "E")) { continue; }
+            if (m_CompactArray == 1 && index == 0 && character == "-") { continue; }
+            return false;
+        }
+        int value = token.ToInt();
+        if (m_CompactArray != 0 && value.ToString() != token) { return false; }
+        if (m_CompactArray == 0)
+        {
+            if (m_ArrayValues >= m_Count * 3) { return false; }
+            if (m_ArrayValues % 3 == 0)
+            {
+                // Compact IDs are implicit: XYZ triple i must publish node i.
+                if (m_ArrayValues / 3 != Nodes.Count()) { return false; }
+                m_LoadNode = new HCXAICaravanRoadNode;
+            }
+            m_LoadNode.Position[m_ArrayValues % 3] = token.ToFloat();
+            if (m_ArrayValues % 3 == 2)
+            {
+                if (!HCWorldLimits.Position(m_LoadNode.Position)) { return false; }
+                Nodes.Insert(m_LoadNode);
+                m_LoadNode = null;
+            }
+        }
+        else if (m_CompactArray == 1) { if (m_ArrayValues >= m_Count) { return false; } }
+        else if (m_CompactArray == 2)
+        {
+            if (m_ArrayValues > m_Count || value < 0 || value > m_EdgeCount) { return false; }
+            if (m_ArrayValues == 0 && value != 0) { return false; }
+            if (m_ArrayValues > 0 && (value < m_Offsets[m_ArrayValues - 1] || value - m_Offsets[m_ArrayValues - 1] > Config.MaxRoadDegree)) { return false; }
+            m_Offsets.Insert(value);
+        }
+        else
+        {
+            if (m_ArrayValues >= m_EdgeCount || value < 0 || value >= m_Count) { return false; }
+            m_Edges.Insert(value);
+        }
+        m_ArrayValues++;
+        m_ExpectValue = false;
+        return true;
+    }
+    bool HCCompactArrayEnd()
+    {
+        int expected = m_Count * 3;
+        string next = "\"Flags\"";
+        if (m_CompactArray == 1) { expected = m_Count; next = "\"Offsets\""; }
+        if (m_CompactArray == 2) { expected = m_Count + 1; next = "\"Edges\""; }
+        if (m_CompactArray == 3) { expected = m_EdgeCount; }
+        if (m_ArrayValues != expected || (m_ArrayValues > 0 && m_ExpectValue)) { return false; }
+        if (m_CompactArray == 3)
+        {
+            if (m_Offsets[m_Count] != m_EdgeCount) { return false; }
+            if (this.HCStreamToken() != "," || this.HCStreamToken() != "\"Runtime\"" || this.HCStreamToken() != ":" || this.HCStreamToken() != "\"PENDING\"" || this.HCStreamToken() != "}" || this.HCStreamToken() != "" || m_StreamFault) { return false; }
+            CloseFile(m_File); m_FileOpen = false;
+            m_ReadWindow = "";
+            m_CompactProject = true;
+            return true;
+        }
+        if (this.HCStreamToken() != "," || this.HCStreamToken() != next || this.HCStreamToken() != ":" || this.HCStreamToken() != "[") { return false; }
+        m_CompactArray++;
+        m_ArrayValues = 0;
+        m_ExpectValue = true;
+        return true;
+    }
+    void HCLoadCompact()
+    {
+        if (!m_CompactHeaderRead)
+        {
+            if (!this.HCCompactHeader()) { this.HCCompactFallback(); }
+            return;
+        }
+        if (m_CompactProject)
+        {
+            HCXAICaravanRoadNode node = Nodes[m_ProjectCursor];
+            int end = m_Offsets[m_ProjectCursor + 1];
+            for (int edge = m_Offsets[m_ProjectCursor]; edge < end; edge++) { node.Links.Insert(m_Edges[edge]); }
+            this.HCIndexNode(node, m_ProjectCursor);
+            m_ProjectCursor++;
+            if (m_ProjectCursor == m_Count)
+            {
+                Phase = "idle";
+                this.HCStopLoading();
+            }
+            return;
+        }
+        string token = this.HCStreamArrayToken();
+        if (m_StreamFault) { this.HCCompactFallback(); return; }
+        if (token == "]")
+        {
+            if (!this.HCCompactArrayEnd()) { this.HCCompactFallback(); }
+        }
+        else if (!m_ExpectValue && token == ",") { m_ExpectValue = true; }
+        else if (!m_ExpectValue || !this.HCCompactNumber(token)) { this.HCCompactFallback(); }
+    }
+    void HCIndexNode(HCXAICaravanRoadNode node, int index)
+    {
+        int x = Math.Floor(node.Position[0] / HC_CELL_METERS);
+        int z = Math.Floor(node.Position[2] / HC_CELL_METERS);
+        int key = HCGridKey(x, z);
+        array<int> bucket = Grid.Get(key);
+        if (!bucket)
+        {
+            bucket = new array<int>;
+            Grid.Set(key, bucket);
+        }
+        bucket.Insert(index);
     }
     void HCLoadNode()
     {
@@ -197,23 +539,12 @@ class HCXAICaravanRoads : Managed
             int target = value.ToInt();
             if (target < 0 || target >= m_Count) { HCRefuse("CARAVAN_ROAD_LINK_INVALID"); return; }
             m_LoadNode.Links.Insert(target);
-            m_LoadNode.LinkIds.Set(target, true);
             m_LoadEdge++;
         }
         if (m_LoadField < 4) { m_LoadField++; }
         if (m_LoadField == 4 && m_LoadEdge == m_LoadDegree)
         {
-            // Built once inside the existing per-line loading budget.
-            int x = Math.Floor(m_LoadNode.Position[0] / HC_CELL_METERS);
-            int z = Math.Floor(m_LoadNode.Position[2] / HC_CELL_METERS);
-            int key = HCGridKey(x, z);
-            array<int> bucket = Grid.Get(key);
-            if (!bucket)
-            {
-                bucket = new array<int>;
-                Grid.Set(key, bucket);
-            }
-            bucket.Insert(Nodes.Count());
+            this.HCIndexNode(m_LoadNode, Nodes.Count());
             Nodes.Insert(m_LoadNode);
             m_LoadNode = null;
             m_LoadField = 0;
@@ -224,6 +555,11 @@ class HCXAICaravanRoads : Managed
                 Phase = "idle";
             }
         }
+    }
+    bool HCLinked(int source, int target)
+    {
+        // Degree is bounded by Config.MaxRoadDegree (8 in the shipped graph).
+        return Nodes[source].Links.Find(target) >= 0;
     }
     // World limits keep cell coordinates below 1,024; offset covers edge queries.
     int HCGridKey(int x, int z) { return (x + 1) * 1024 + z + 1; }
@@ -297,7 +633,8 @@ class HCXAICaravanRoads : Managed
         for (unit = 0; unit < limit; unit++)
         {
             if (!m_Work.HCContinue()) { break; }
-            if (Phase == "loading") { HCLoadNode(); }
+            if (Phase == "loading" && m_Compact) { this.HCLoadCompact(); }
+            else if (Phase == "loading") { HCLoadNode(); }
             else { break; }
         }
         if (loading)
@@ -309,7 +646,10 @@ class HCXAICaravanRoads : Managed
             if (Phase == "idle")
             {
                 float elapsed = GetGame().GetTickTime() - m_LoadStarted;
-                string line = "[HC Caravan] roads=loaded source=installed_expansion nodes=" + Nodes.Count().ToString();
+                string source = "installed_expansion";
+                if (m_Compact) { source = "compact_manifest"; }
+                string line = "[HC Caravan] roads=loaded source=" + source + " nodes=" + Nodes.Count().ToString();
+                line += " validity_mismatch=" + m_ValidityMismatch.ToString();
                 line += " slices=" + m_LoadSlices.ToString() + " elapsed_s=" + elapsed.ToString();
                 line += " ticks_sum=" + m_LoadTicks.ToString() + " ticks_max=" + m_LoadMaxTicks.ToString();
                 Print(line + " route_acceptance=unverified runtime=PENDING");

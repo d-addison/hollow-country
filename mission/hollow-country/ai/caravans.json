@@ -19,17 +19,17 @@
   "ReturnTimeoutSeconds": 600,
   "RoadNodesPerWorkUnit": 8,
   "gapcov_routes": {
-    "catalog": "travel/route-surveys.json#gapcov_routes",
+    "catalog": "travel/gapcov-roads/index.json",
     "receipt_contract": "travel/route-surveys.json#gapcov_survey_receipt_contract",
-    "locality_candidates": 88,
+    "locality_candidates": 523,
     "runtime_acceptance": "PENDING",
     "admission": "Existing features remain default-on with their existing opt-outs. Candidate catalog needs bounded runtime paging; current active Routes are unchanged. No native survey accepted."
   },
   "gapcov_graph_source": {
     "road_virtual_path": "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads",
     "road_sha256": "c01879230450c847365d91bee19b0df06d40e80829dabe67cc9a4f89ee891521",
-    "localities_sha256": "c7803266d8cf12ab8480b04ea82c2da29097f4e94e1205b1b163388bdaabb867",
-    "sites_sha256": "2764d4379ef23e6d38254038d2fe542772058ac078677b48978dcde5a544dbc5"
+    "localities_sha256": "67c83df0e44b17c0259e153ce12ef39cb26e31be4bfcc6deb6e8a1ecb78a73a9",
+    "sites_sha256": "433c8a79329d971eada9cce9c8f6a2a8ed6a67987b603db8b6c551aa571145b3"
   },
   "gapcov_graph_counts": {
     "nodes": 38820,

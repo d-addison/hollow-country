@@ -16,6 +16,23 @@ from pathlib import Path
 
 
 MISSION = Path('mission/hollow-country')
+# HCXAISiteRules.c:10; fail before authoring a catalog the runtime cannot load.
+MAX_CATALOG_ROWS = 1024
+CATALOG_PAGE_ROWS = 32
+CATALOG_PAGE_BYTES = 32768
+CATALOG_INDEX = 'travel/gapcov-roads/index.json'
+
+
+def page_paths(root):
+    localities = root / MISSION / 'ai/localities.json'
+    count = len(json.loads(localities.read_bytes())['Localities']) if localities.is_file() else 0
+    return tuple('travel/gapcov-roads/page-%03d.json' % index
+                 for index in range((count + CATALOG_PAGE_ROWS - 1) // CATALOG_PAGE_ROWS))
+
+OUTPUTS = tuple(str(MISSION / name) for name in (
+    'travel/route-surveys.json', 'ai/picker-routes.json', 'ai/caravans.json',
+    'infected/route-surveys.json', CATALOG_INDEX,
+    *page_paths(Path(__file__).resolve().parents[2])))
 ROAD_VIRTUAL_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 
 
@@ -111,6 +128,31 @@ def candidate_path(start, positions, links, limits):
     return path, length
 
 
+def locality_anchor(locality, sites):
+    """Mirror HCXAISiteDirector's committed site binding, without ground sampling.
+
+    HCXAISites.c:750-766 removes unknown SiteIds; :1080-1098 selects in
+    SiteIds order (initial rotation cursor zero); :832-836 HCSiteAnchor uses
+    HousePosition for holdouts and Waypoints[0] otherwise. gapcode_routes_sites.c:
+    99-102 likewise uses the source site's first waypoint for road approach.
+    No source-name heuristic or nearby-house proxy can replace this binding.
+    """
+    for site_id in locality['SiteIds']:
+        site = sites.get(site_id)
+        if site is None:
+            continue
+        anchor = (site.get('HousePosition') if site['Kind'] == 'holdout'
+                  else next(iter(site.get('Waypoints', [])), None))
+        # An unresolved first bound site must remain pending, not silently move
+        # the locality to a different site's anchor.
+        if anchor is None:
+            return None
+        if len(anchor) != 3 or not all(math.isfinite(part) for part in anchor):
+            raise ValueError('invalid committed site anchor')
+        return anchor
+    return None
+
+
 def build(root, roads):
     mission = root / MISSION
     caravan_path = mission / 'ai/caravans.json'
@@ -122,10 +164,10 @@ def build(root, roads):
     picker = json.loads(picker_path.read_text())
     infected = json.loads(infected_path.read_text())
     localities = json.loads(locality_path.read_text())['Localities']
-    anchors = {row['Id']: row for row in json.loads(sites_path.read_text())['HC43']['Localities']}
+    sites = {row['Id']: row for row in json.loads(sites_path.read_text())['Sites']}
     ids = [row['Id'] for row in localities]
-    if len(set(ids)) != len(ids) or any(key not in anchors for key in ids):
-        raise ValueError('duplicate locality ID or missing source anchor')
+    if not 1 <= len(ids) <= MAX_CATALOG_ROWS or len(set(ids)) != len(ids):
+        raise ValueError('duplicate locality ID or catalog row cap exceeded')
     limits = {
         'waypoints': picker['MaxWaypoints'],
         'segment_metres': min(picker['MaxLegMeters'], infected['Defaults']['NativeSegmentMetres']),
@@ -139,14 +181,27 @@ def build(root, roads):
     proposals = []
     for locality in localities:
         key = locality['Id']
-        anchor = anchors[key]['Anchor']
+        anchor = locality_anchor(locality, sites)
+        if anchor is None:
+            row = {
+                'id': 'gapcov-road-' + key, 'locality_id': key,
+                'anchor_source': locality['Source'], 'island': locality['Island'],
+                'component': -1, 'road_node_ids': [], 'length_metres': 0,
+                'anchor_gap_metres': 0, 'connected_both_directions': False,
+                'anchor_approach': 'pending-native',
+                'island_access': 'pending-island-locality-and-landing-survey' if locality['Island'] else 'not-applicable',
+                'status': 'anchor-runtime-resolved',
+            }
+            row['route_sha256'] = digest(row)
+            proposals.append(row)
+            continue
         start = min(range(len(positions)), key=lambda node: (
             (positions[node][0] - anchor[0]) ** 2 + (positions[node][2] - anchor[2]) ** 2, node))
         path, length = candidate_path(start, positions, links, limits)
         gap = math.hypot(positions[start][0] - anchor[0], positions[start][2] - anchor[2])
         row = {
             'id': 'gapcov-road-' + key, 'locality_id': key,
-            'anchor_source': anchors[key]['Source'], 'island': locality['Island'],
+            'anchor_source': locality['Source'], 'island': locality['Island'],
             'component': membership[start], 'road_node_ids': path,
             'length_metres': round(length, 3), 'anchor_gap_metres': round(gap, 3),
             'connected_both_directions': len(path) >= 2,
@@ -252,15 +307,37 @@ def receipt_contract():
     }
 
 
-def write_catalog(root, catalog):
+def catalog_outputs(root, catalog):
+    """Return complete derived documents without mutating authored inputs."""
+    outputs = {}
     mission = root / MISSION
     path = mission / 'travel/route-surveys.json'
     travel = json.loads(path.read_text())
-    travel['gapcov_routes'] = catalog
+    header = {key: value for key, value in catalog.items() if key != 'routes'}
+    header['row_count'] = len(catalog['routes'])
+    header['pages'] = []
+    for index, relative in enumerate(page_paths(root)):
+        rows = catalog['routes'][index * CATALOG_PAGE_ROWS:(index + 1) * CATALOG_PAGE_ROWS]
+        page = {'schema': 1, 'kind': 'gapcov-road-page', 'routes': rows}
+        page['identity_sha256'] = digest(page)
+        data = (json.dumps(page, separators=(',', ':'), allow_nan=False) + '\n').encode()
+        if not rows or len(data) > CATALOG_PAGE_BYTES:
+            raise ValueError('catalog page outside row/byte bounds')
+        outputs[str(MISSION / relative)] = data
+        header['pages'].append({'Path': '$mission:hollow-country/' + relative,
+                                'Bytes': len(data), 'Sha256': hashlib.sha256(data).hexdigest(),
+                                'IdentitySha256': page['identity_sha256'],
+                                'Rows': len(rows)})
+    header['identity_sha256'] = digest(header)
+    header_data = (json.dumps(header, separators=(',', ':'), allow_nan=False) + '\n').encode()
+    if len(header_data) > CATALOG_PAGE_BYTES:
+        raise ValueError('catalog header outside byte bounds')
+    outputs[str(MISSION / CATALOG_INDEX)] = header_data
+    travel['gapcov_routes'] = {'catalog': CATALOG_INDEX, 'locality_candidates': header['row_count']}
     travel['gapcov_survey_receipt_contract'] = receipt_contract()
-    path.write_text(json.dumps(travel, indent=2) + '\n')
+    outputs[str(path.relative_to(root))] = (json.dumps(travel, indent=2) + '\n').encode()
     reference = {
-        'catalog': 'travel/route-surveys.json#gapcov_routes',
+        'catalog': CATALOG_INDEX,
         'receipt_contract': 'travel/route-surveys.json#gapcov_survey_receipt_contract',
         'locality_candidates': len(catalog['routes']), 'runtime_acceptance': 'PENDING',
         'admission': 'Existing features remain default-on with their existing opt-outs. Candidate catalog needs bounded runtime paging; current active Routes are unchanged. No native survey accepted.',
@@ -274,7 +351,15 @@ def write_catalog(root, catalog):
             document['gapcov_graph_counts'] = {key: value for key, value in catalog['graph'].items() if key != 'components'}
         if relative == 'infected/route-surveys.json':
             document['survey_contract']['evidence'] = 'Surveyed=true is the legacy authored-source binding flag, not a native verdict. Native evidence is a separate exact-source gapcov receipt; all runtime segment checks remain mandatory.'
-        target.write_text(json.dumps(document, indent=2) + '\n')
+        outputs[str(target.relative_to(root))] = (json.dumps(document, indent=2) + '\n').encode()
+    return outputs
+
+
+def write_catalog(root, catalog):
+    for name, data in catalog_outputs(root, catalog).items():
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
 
 
 def main():

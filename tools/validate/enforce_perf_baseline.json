@@ -4,6 +4,136 @@
   "findings": [
     {
       "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 446,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 446,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior; enqueue bounded startup work",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 464,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 405,
+      "symbol": "HCEventJournal.HCCheckDirectory",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory",
+      "native": false,
+      "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 405,
+      "symbol": "HCEventJournal.HCCheckDirectory",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory; enqueue bounded startup work",
+      "native": false,
+      "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 292,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.IndexOfFrom#1",
+      "message": "m_Buffer.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 300,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.Substring#1",
+      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 304,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCGapcodeStoryIndex.HCStep",
+      "native": false,
+      "reason": "W2-05 replaces per-line FGets with one ReadFile of at most 32768 bytes per visit, separate from JSON decode; MaxFileBytes bounds the total. HCStartupPump supplies the shared frame deadline, with STORY_INDEX tick fallback. Native atomic read latency and catchup/slice targets remain unverified."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 329,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.Substring#2",
+      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 195,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 198,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 409,
+      "symbol": "HCAdminTeleport.HCReadSites",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites",
+      "native": false,
+      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldCatalog.c",
+      "line": 60,
+      "symbol": "HCAdminJsonRows.Step",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites -> HCAdminJsonRows.Step",
+      "native": false,
+      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
+    },
+    {
+      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
       "line": 32,
       "symbol": "HCProfileDefaults.ReadText",
@@ -392,10 +522,55 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 62,
+      "line": 138,
       "symbol": "HCXAICaravanRoads.HCLine",
       "key": "FGets#1",
       "message": "FGets reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadNode -> HCXAICaravanRoads.HCLine",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.Substring#1",
+      "message": "m_ReadWindow.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.IndexOfFrom#2",
+      "message": "m_ReadWindow.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.IndexOfFrom#1",
+      "message": "m_ReadWindow.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 232,
+      "symbol": "HCXAICaravanRoads.HCStreamAt",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactHeader -> HCXAICaravanRoads.HCStreamAt",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 189,
+      "symbol": "HCXAICaravanRoads.HCLoadInstalled",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactFallback -> HCXAICaravanRoads.HCLoadInstalled",
       "native": false
     },
     {
@@ -518,7 +693,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 193,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "OpenFile#1",
       "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -527,7 +702,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 206,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -536,7 +711,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 227,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#2",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -1934,133 +2109,23 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 446,
-      "symbol": "HCEventJournal.HCCheckPrior",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 273,
+      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
       "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCManifestMatches -> HCGapcodeRoutesCatalog.HCReadBounded",
       "native": false,
-      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 446,
-      "symbol": "HCEventJournal.HCCheckPrior",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior; enqueue bounded startup work",
-      "native": false,
-      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+      "reason": "One bounded file per grant: header/page <=32768 bytes, manifest <=65536; read cap+1 detects oversize before JSON parsing. No second page or row resolution in that grant; engine timing remains pending."
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 464,
-      "symbol": "HCEventJournal.HCCheckPrior",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 273,
+      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
       "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCManifestMatches -> HCGapcodeRoutesCatalog.HCReadBounded",
       "native": false,
-      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 405,
-      "symbol": "HCEventJournal.HCCheckDirectory",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory",
-      "native": false,
-      "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 405,
-      "symbol": "HCEventJournal.HCCheckDirectory",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory; enqueue bounded startup work",
-      "native": false,
-      "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
-      "line": 292,
-      "symbol": "HCGapcodeStoryIndex.HCStep",
-      "key": "m_Buffer.IndexOfFrom#1",
-      "message": "m_Buffer.IndexOfFrom scans a string with no recognized small bound inside a loop",
-      "native": false,
-      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
-      "line": 300,
-      "symbol": "HCGapcodeStoryIndex.HCStep",
-      "key": "m_Buffer.Substring#1",
-      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
-      "native": false,
-      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
-      "line": 304,
-      "symbol": "HCGapcodeStoryIndex.HCStep",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCGapcodeStoryIndex.HCStep",
-      "native": false,
-      "reason": "W2-05 replaces per-line FGets with one ReadFile of at most 32768 bytes per visit, separate from JSON decode; MaxFileBytes bounds the total. HCStartupPump supplies the shared frame deadline, with STORY_INDEX tick fallback. Native atomic read latency and catchup/slice targets remain unverified."
-    },
-    {
-      "rule": "HC-P001",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
-      "line": 329,
-      "symbol": "HCGapcodeStoryIndex.HCStep",
-      "key": "m_Buffer.Substring#2",
-      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
-      "native": false,
-      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
-      "line": 195,
-      "symbol": "HCInteriorPackIndex.HCReadFile",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
-      "native": false,
-      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
-      "line": 198,
-      "symbol": "HCInteriorPackIndex.HCReadFile",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
-      "native": false,
-      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 409,
-      "symbol": "HCAdminTeleport.HCReadSites",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites",
-      "native": false,
-      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldCatalog.c",
-      "line": 60,
-      "symbol": "HCAdminJsonRows.Step",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites -> HCAdminJsonRows.Step",
-      "native": false,
-      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
+      "reason": "One bounded file per grant: header/page <=32768 bytes, manifest <=65536; read cap+1 detects oversize before JSON parsing. No second page or row resolution in that grant; engine timing remains pending."
     }
   ]
 }

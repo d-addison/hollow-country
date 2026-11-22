@@ -200,9 +200,9 @@
     }
   ],
   "gapcov_routes": {
-    "catalog": "travel/route-surveys.json#gapcov_routes",
+    "catalog": "travel/gapcov-roads/index.json",
     "receipt_contract": "travel/route-surveys.json#gapcov_survey_receipt_contract",
-    "locality_candidates": 88,
+    "locality_candidates": 523,
     "runtime_acceptance": "PENDING",
     "admission": "Existing features remain default-on with their existing opt-outs. Candidate catalog needs bounded runtime paging; current active Routes are unchanged. No native survey accepted."
   }

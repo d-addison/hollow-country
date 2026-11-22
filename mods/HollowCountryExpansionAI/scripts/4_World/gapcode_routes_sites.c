@@ -1,3 +1,20 @@
+// Serialized page DTOs shared with the catalog loader. No engine calls.
+class HCGapcodeRoutesPageIdentity
+{
+    string Path;
+    int Bytes;
+    string Sha256;
+    string IdentitySha256;
+    int Rows;
+}
+class HCGapcodeRoutesPage
+{
+    int schema;
+    string kind;
+    string identity_sha256;
+    ref array<ref HCGapcodeRoutesRow> routes;
+}
+
 // Runtime consumption belongs to the existing bounded HC-18 site owner.
 // Native scripts-1.30.164289: 1_Core/proto/EnConvert.c:196 Distance,
 // EnScript.c:380/407 Count/Insert; EnDebug.c:96 Print. No Expansion calls.
@@ -39,10 +56,8 @@ modded class HCXAISiteDirector
     void HCStartupRoutesSlice() { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); }
     override void Step()
     {
-        // A source-page hash remains atomic because Expansion's hasher is
-        // global. Isolate one page/unit from site native qualification; never
-        // retain that global hash state across ticks. Time the atomic page.
-        if (m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
+        // Pump owns catch-up; ordinary ticks only advance after its deadline.
+        if (m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && (!m_StartupRoutes || m_StartupRoutes.Finished) && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
         {
             m_HCRouteCatalogTurn = !m_HCRouteCatalogTurn;
             if (m_HCRouteCatalogTurn) { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); return; }
@@ -107,7 +122,7 @@ modded class HCXAISiteDirector
                     array<vector> points = route.Points;
                     foreach (vector roadWaypoint : points) { candidateSite.Waypoints.Insert(roadWaypoint); }
                     state.Site = candidateSite;
-                    Print("[HC Routes] bound site=" + candidateSite.Id + " candidate=" + route.id + " qualification=native_pending runtime=PENDING");
+                    HCModuleReadiness.HCUse("optional-expansion-human-ai", "regional_road_site_binding");
                 }
                 else
                 {
