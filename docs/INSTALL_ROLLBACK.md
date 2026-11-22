@@ -244,6 +244,48 @@ promoted by recovery. Incomplete/unrecognized bootstrap ownership or corrupted
 authoritative state is deliberately refused; preserve it for manual inspection.
 No active package is modified before initialization completes.
 
+## Search house journal crash points
+
+The house-search journal is per-record JSON, one file per step under its own
+root (`entry_`, `claim_`, `attempt_`, `result_` and `compact_` with the slot
+number, plus the retired-supply archive). Since Wave C every write and delete
+runs through the shared save scheduler, one native call per stage, in strict
+queue order. The bytes on disk are unchanged: a journal written by an older
+build loads as is, and an older build reads a journal written by this one. A
+new file is created directly at its final name (no rename step) and read back
+and byte-compared; an existing name is never overwritten. Entry, claim,
+attempt and result writes are synchronous barriers: the caller does not
+proceed until the file is verified. The compact intent, the five compaction
+removals and the removal of old `spent_*` tombstones are routine staged work.
+No journal file is ever deleted by a recovery decision except as the last
+step of a completed compaction. Nothing here is a world wipe, and none of
+these states needs operator action unless the table says the journal is
+preserved.
+
+| Crash point (process dies after) | State on disk | Next boot |
+| --- | --- | --- |
+| Entry create started, file partial | `entry_<n>` torn, nothing else for the slot | Entry unreadable: journal faults and is preserved with a reason; the supply is never handed out. Same as the old writer, no self-repair |
+| Entry create finished | `entry_<n>` complete | Row restored as available (phase 0) |
+| Claim create started, partial | `entry_<n>` plus torn `claim_<n>` | Claim does not match: row restored as quarantined, never searchable again |
+| Claim complete, no attempt | `entry_<n>`, `claim_<n>` | Intent without result: row restored as quarantined (spent for good) |
+| Attempt partial or complete, no result | claim plus torn or complete `attempt_<n>` | Quarantined, as above |
+| Result partial or missing after the native move | claim, attempt, torn or no `result_<n>` | Quarantined; a result that does not match its claim is never trusted |
+| Result complete | claim, attempt, `result_<n>` phase 2, 3 or 4 | Restored as spent, quarantined or no-transfer exactly as recorded |
+| Compact intent queued, not yet created | terminal slot files only | Nothing lost; the slot is compacted again by the normal pass |
+| Compact intent created, file partial | torn `compact_<n>` plus the slot files | Intent unreadable: journal faults and is preserved with a reason; nothing is deleted |
+| Compact intent complete, retirement archive not yet checkpointed | `compact_<n>` plus all slot files | Boot re-runs the cleanup: archive checkpoint first, then the removals below |
+| Archive checkpointed, no removal done | `compact_<n>` plus all slot files, supply listed in the archive | Boot repeats the same removals; the archive entry is idempotent |
+| Removal of `claim_<n>`, `attempt_<n>`, `result_<n>` or `entry_<n>` done, others pending | `compact_<n>` and a subset of the slot files | Boot finishes the remaining removals (missing files are accepted); a half-removed slot is never restored as an entry |
+| All four removed, `compact_<n>` not yet removed | `compact_<n>` only | Boot removes it; slot becomes free |
+| Compact intent removed | slot empty | Slot free for reuse; the supply stays known through the archive |
+| Legacy `spent_<supply>` removal pending or interrupted | old tombstone still present, supply also in the archive | Supply still counts as known; the tombstone is migrated and removed again in the background |
+| Queue full or writer failure (no crash) | whatever was already verified | Routine work waits and retries. A failed barrier write refuses the caller with a reason and the journal is preserved rather than guessed |
+
+Slot reuse is safe because the queue is first in, first out: the removals of a
+slot's previous files always precede the next create for that slot. Nothing
+about this table is proven in game; it follows from the code and from the
+recovery rules above, which are unchanged. Runtime acceptance stays PENDING.
+
 ## Validation and limits
 
 Run the behavioral suite on disposable temporary directories:

@@ -224,43 +224,6 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "line": 76,
-      "symbol": "HCSearchHouseJournal.SupplyKnown",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickRunner.HCHouseStage -> HCPickRunner.HCWalkStep -> HCPickSearchHousePort.HCReserve -> HCSearchHouses.HCReservePicker -> HCSearchHouses.Prepare -> HCSearchHouses.Bind -> HCSearchHouseJournal.SupplyKnown",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "line": 239,
-      "symbol": "HCSearchHouseJournal.DeleteIfPresent",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.Compact -> HCSearchHouseJournal.FinishCompaction -> HCSearchHouseJournal.DeleteIfPresent",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "line": 240,
-      "symbol": "HCSearchHouseJournal.DeleteIfPresent",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.Compact -> HCSearchHouseJournal.FinishCompaction -> HCSearchHouseJournal.DeleteIfPresent",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 404,
-      "symbol": "HCSearchRetirementStore.PruneLegacy",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.PruneLegacyTombstones -> HCSearchRetirementStore.PruneLegacy",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
       "line": 1220,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
