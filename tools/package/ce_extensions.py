@@ -1,31 +1,38 @@
 """Shared offline admission and class ownership for repo-written CE extensions."""
 
 
-def _registrations():
+def _stack():
     # Import lazily: writers also use this helper. Folder names stay owned by their writers;
     # a hollow-country prefix alone never grants admission to an operator extension.
     import importlib
     import importlib.util
-    from tools.package import economy, optional_overlays, travel
-    types = {'types.xml': 'types'}
-    registrations = {
-        economy.MANAGED + '/ce': types,
-        travel.MANAGED + '/ce': {name.removeprefix('ce/'): kind for name, kind in
-                               zip(travel.CE_FILES, ('types', 'events', 'spawnabletypes'))},
-        optional_overlays.MANAGED: {name: name[:-4] for name in optional_overlays.GENERATED
-                                   if name in {'types.xml', 'events.xml', 'spawnabletypes.xml'}},
-    }
+    from tools.package import economy, optional_overlays, overlay_stack, travel
+    layer = overlay_stack.Layer
+    layers = [
+        layer('economy', economy.MANAGED + '/ce', (('types.xml', 'types'),)),
+        layer('travel', travel.MANAGED + '/ce',
+              tuple((name.removeprefix('ce/'), kind) for name, kind in
+                    zip(travel.CE_FILES, ('types', 'events', 'spawnabletypes')))),
+        layer('optional_overlays', optional_overlays.MANAGED,
+              tuple((name, name[:-4]) for name in optional_overlays.GENERATED
+                    if name in {'types.xml', 'events.xml', 'spawnabletypes.xml'})),
+    ]
     # The standalone friend bundle omits weapon tools. Admit their registrations only
     # when those writers are available, without importing absent optional dependencies.
-    for name in ('snafu_optional', 'tactical_flava_optional'):
+    # tactical_flava builds on snafu, so it stacks after it when both are present.
+    for name, after in (('snafu_optional', ()), ('tactical_flava_optional', ('snafu_optional',))):
         qualified = 'tools.package.' + name
         if importlib.util.find_spec(qualified) is not None:
             writer = importlib.import_module(qualified)
-            files = dict(types)
+            files = [('types.xml', 'types')]
             if hasattr(writer, 'SPAWNABLE'):
-                files[writer.SPAWNABLE.removeprefix('ce/')] = 'spawnabletypes'
-            registrations[writer.MANAGED + '/ce'] = files
-    return registrations
+                files.append((writer.SPAWNABLE.removeprefix('ce/'), 'spawnabletypes'))
+            layers.append(layer(name, writer.MANAGED + '/ce', tuple(files), after=after))
+    return overlay_stack.Stack(layers)
+
+
+def _registrations():
+    return _stack().registrations()
 
 
 def checked_core(data):
@@ -68,7 +75,5 @@ def registered_types(source, core):
 
 def refuse_collisions(names, existing):
     """Class ownership is case-insensitive, including registered managed overrides."""
-    taken = {name.lower() for name in existing}
-    collisions = sorted(name for name in names if name.lower() in taken)
-    if collisions:
-        raise ValueError('classes already defined by stock or a registered CE extension: ' + ', '.join(collisions))
+    from tools.package import overlay_stack
+    overlay_stack.refuse_class_collisions(names, existing)
