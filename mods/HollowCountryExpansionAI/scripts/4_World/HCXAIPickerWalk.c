@@ -58,6 +58,9 @@ class HCXAIPickerWalk : HCScavengeInventory
     }
 
     protected eAIGroup m_Group;
+    // #334: m_Group is a raw handle; the hold keeps it valid until its members are deleted.
+    protected ref HCXAIGroupHold m_HCHold;
+    void ~HCXAIPickerWalk() { HCXAIGroupHolds.Retire(m_HCHold); }
     protected ref array<vector> m_PreviousPoints = new array<vector>();
     protected eAIWaypointBehavior m_PreviousBehavior;
     protected string m_WalkRefusal;
@@ -93,6 +96,7 @@ class HCXAIPickerWalk : HCScavengeInventory
             for (int priorIndex = 0; priorIndex < previous.Count(); priorIndex++) { m_PreviousPoints.Insert(previous[priorIndex]); }
             m_PreviousBehavior = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
             m_Group = group;
+            m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
         }
         HCXExpansionBridge.HCGroupClearWaypoints(group);
         for (int legIndex = 0; legIndex < points.Count(); legIndex++) { HCXExpansionBridge.HCGroupAddWaypoint(group, points[legIndex]); }
@@ -133,8 +137,8 @@ class HCXAIPickerWalk : HCScavengeInventory
 
     // Terminal custody, uncertain checkpoint or stop: resume the same group's
     // prior patrol list and behavior. Reset cursor via ClearWaypoints, exactly
-    // as a fresh patrol request; never move or respawn a member. Weak group
-    // handle can expire after native destruction; then there is nothing to resume.
+    // as a fresh patrol request; never move or respawn a member. The group
+    // handle stays valid through m_HCHold until the walk finishes (#334).
     void HCFinishWalk()
     {
         if (m_Group)
@@ -145,6 +149,8 @@ class HCXAIPickerWalk : HCScavengeInventory
             HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_PreviousBehavior);
         }
         m_Group = null;
+        HCXAIGroupHolds.Retire(m_HCHold);
+        m_HCHold = null;
         m_PreviousPoints.Clear();
     }
 

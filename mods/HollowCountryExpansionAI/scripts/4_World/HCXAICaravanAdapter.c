@@ -736,6 +736,15 @@ class HCXAICaravanAdapter : HCCaravanInventory
     int m_PartnerBehaviour;
     ref HCXAITradeAdapter m_StockReader;
     ref HCXAIStuckRecovery m_Recovery = new HCXAIStuckRecovery;
+    // #334: both group fields are raw handles; the holds keep them valid until their members are deleted.
+    protected ref HCXAIGroupHold m_HCHold;
+    protected ref HCXAIGroupHold m_HCPartnerHold;
+
+    void ~HCXAICaravanAdapter()
+    {
+        HCXAIGroupHolds.Retire(m_HCHold);
+        HCXAIGroupHolds.Retire(m_HCPartnerHold);
+    }
 
     override bool HCReady()
     {
@@ -760,6 +769,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
         if (!HCReady() || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || HCXExpansionBridge.HCBaseGetIdentity(actor)) { return false; }
         m_Recovery = new HCXAIStuckRecovery;
         m_Group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor); m_Lease = lease;
+        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
         LeftActor = actor;
         m_From = HCXExpansionBridge.HCBaseGetPosition(actor); m_To = destination;
         m_Original.Clear();
@@ -778,6 +788,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
         array<vector> waypoints = HCXExpansionBridge.HCGroupGetWaypoints(partnerGroup);
         if (waypoints.Count() > Corridor.MaxRouteNodes) { return false; }
         m_PartnerGroup = partnerGroup;
+        m_HCPartnerHold = HCXAIGroupHolds.Follow(m_HCPartnerHold, m_PartnerGroup);
         m_PartnerOriginal.Clear();
         foreach (vector waypoint : waypoints) { m_PartnerOriginal.Insert(waypoint); }
         m_PartnerBehaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(m_PartnerGroup);
@@ -797,6 +808,8 @@ class HCXAICaravanAdapter : HCCaravanInventory
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (director) { director.HCResetPartyJourney(m_PartnerGroup); }
         m_PartnerGroup = null;
+        HCXAIGroupHolds.Retire(m_HCPartnerHold);
+        m_HCPartnerHold = null;
     }
 
     // eAIGroup.c:222 GetWaypoints, :304 GetWaypointBehaviour. Restore the

@@ -689,15 +689,27 @@ class HCXAIGroupHold
     ref eAIGroup Group;
     ref array<DayZPlayerImplement> Members;
     int SettledAtMs;
+    int SettledSeenMs;
+    int SettledSeen;
     void HCXAIGroupHold(eAIGroup group)
     {
         Group = group;
         Members = new array<DayZPlayerImplement>;
         SettledAtMs = -1;
+        SettledSeenMs = -1;
     }
     void Track(DayZPlayerImplement member)
     {
         if (member && Members.Find(member) < 0) { Members.Insert(member); }
+    }
+    // Bounded: at most 16 current members of the held group.
+    void TrackGroup()
+    {
+        int count = HCXExpansionBridge.HCGroupCount(Group);
+        for (int memberIndex = 0; memberIndex < count && memberIndex < 16; memberIndex++)
+        {
+            this.Track(HCXExpansionBridge.HCGroupGetMember(Group, memberIndex));
+        }
     }
     // Entries are weak and turn null once the entity is deleted.
     bool Settled()
@@ -711,7 +723,9 @@ class HCXAIGroupHold
 }
 
 // Retired holds: bounded scan, two entries per call (each site patrol calls it from
-// its 5 s update). A hold is released 2 s after its last tracked member is deleted.
+// its 5 s update, the AI adapter from its tick). A hold is released once its last
+// tracked member has been gone for 2 s AND on three distinct frames, so one long
+// hitch cannot release it before the provider's queued group cleanup has run.
 class HCXAIGroupHolds
 {
     protected static ref array<ref HCXAIGroupHold> s_Retired;
@@ -721,7 +735,8 @@ class HCXAIGroupHolds
     static const int HC_HIGH_COUNT = 256;
     static void Retire(HCXAIGroupHold hold)
     {
-        if (!hold || !hold.Group) { return; }
+        // At shutdown (destructors) there is no game: never re-create the static list then.
+        if (!hold || !hold.Group || !GetGame()) { return; }
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
         s_Retired.Insert(hold);
         if (s_Retired.Count() > HC_HIGH_COUNT && !s_HighLogged)
@@ -738,11 +753,26 @@ class HCXAIGroupHolds
         {
             if (s_Cursor >= s_Retired.Count()) { s_Cursor = 0; }
             HCXAIGroupHold hold = s_Retired[s_Cursor];
-            if (hold && !hold.Settled()) { hold.SettledAtMs = -1; s_Cursor++; continue; }
+            if (hold && !hold.Settled()) { hold.SettledAtMs = -1; hold.SettledSeen = 0; s_Cursor++; continue; }
+            if (hold && hold.SettledSeenMs != nowMs) { hold.SettledSeenMs = nowMs; hold.SettledSeen++; }
             if (hold && hold.SettledAtMs < 0) { hold.SettledAtMs = nowMs; s_Cursor++; continue; }
-            if (hold && nowMs - hold.SettledAtMs < HC_SETTLE_MS) { s_Cursor++; continue; }
+            if (hold && (nowMs - hold.SettledAtMs < HC_SETTLE_MS || hold.SettledSeen < 3)) { s_Cursor++; continue; }
             s_Retired.Remove(s_Cursor);
         }
+    }
+    // Returns the hold for group and tracks its members; a hold on another group is retired.
+    static HCXAIGroupHold Follow(HCXAIGroupHold hold, eAIGroup group)
+    {
+        if (hold && hold.Group == group)
+        {
+            hold.TrackGroup();
+            return hold;
+        }
+        Retire(hold);
+        if (!group) { return null; }
+        HCXAIGroupHold next = new HCXAIGroupHold(group);
+        next.TrackGroup();
+        return next;
     }
     static int Count()
     {

@@ -64,7 +64,10 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected bool m_Healthy;
     protected string m_Reason;
     protected eAIGroup m_Group;
+    // #334: m_Group is a raw handle; the hold keeps it valid until its members are deleted.
+    protected ref HCXAIGroupHold m_HCHold;
     protected eAIWaypointBehavior m_Behaviour;
+    void ~HCXAIBaseRaid() { HCXAIGroupHolds.Retire(m_HCHold); }
     protected ref array<vector> m_Original = new array<vector>;
 
     void HCOpen()
@@ -330,6 +333,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
             }
             m_Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
             m_Group = group;
+            m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
         }
         if (m_Group != group) { return false; }
         HCXExpansionBridge.HCGroupClearWaypoints(group);
@@ -486,6 +490,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
             HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_Behaviour);
         }
         m_Group = null;
+        HCXAIGroupHolds.Retire(m_HCHold);
+        m_HCHold = null;
         m_Original.Clear();
         m_Reserved = false;
         m_Walking = false;
@@ -643,6 +649,8 @@ modded class HCXAIAdapter
         super.OnTick(deltaTime);
         if (HCXAIService.Adapter() == this)
         {
+            // #334: retired group holds also settle when no site patrol is updating.
+            HCXAIGroupHolds.PruneStep();
             // Alternate first service on the same bounded consumer so visits
             // cannot starve behind continuous raid sensing (or vice versa).
             int now = HCWorldClock.UTC();
