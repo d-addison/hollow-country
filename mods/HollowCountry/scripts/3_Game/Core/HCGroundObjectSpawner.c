@@ -37,7 +37,7 @@ modded class ObjectSpawnerHandler
 
     static void HCPathgraphSummary()
     {
-        Print("" + "[HC Pathgraph] domain=object_spawner marked=" + HCPathgraphMarked.ToString() + " regions=0 skipped_no_geom=" + HCPathgraphSkipped.ToString());
+        Print("" + "[HC Pathgraph] domain=object_spawner marked=" + HCPathgraphMarked.ToString() + " affected=0 skipped_no_geom=" + HCPathgraphSkipped.ToString());
     }
     override static void SpawnObject(ITEM_SpawnerObject item)
     {
