@@ -14,8 +14,8 @@
 // below uses a verified temporary intent, backup, copy/readback, then intent
 // removal. This is NOT atomic rename or fsync. The first open of a path per
 // session recovers an interrupted save from whole images (HCRecoverInterrupted);
-// A first pending image without any predecessor is archived, never promoted;
-// other unverified recovery states fail closed.
+// Without a backup, a whole pending image repairs an absent/torn primary;
+// a torn first pending image is archived only when the primary is absent.
 class HCV2ThreatStore<Class T>
 {
     // Paths already crash-checked this session. Only the first open recovers:
@@ -63,23 +63,35 @@ class HCV2ThreatStore<Class T>
         return HCPersistenceDisposition.HCReadArchive(path + suffix, limit, archived, true) && archived == original;
     }
 
-    // Only with no valid primary AND no backup at all. A torn first promotion
-    // never committed: keep its evidence, retire active names, start empty.
-    // An invalid existing backup remains an operator case, never a reset.
+    // Only an absent primary and absent backup admit retiring a torn first
+    // pending image. Never discard a torn primary: it may hold committed state.
     static bool HCRetireFirstPending(string path, string pending, int limit)
     {
+        if (FileExist(path) || FileExist(path + ".bak")) { return false; }
         if (!HCArchiveFirstPending(pending, limit)) { return false; }
+        return DeleteFile(pending) && !FileExist(pending);
+    }
+
+    // Boot-only copy after caller verifies the pending image. Archive a torn
+    // primary by content before touching it; retain pending until whole readback.
+    static bool HCPromoteWholePending(string path, string pending, int limit)
+    {
+        string intended;
+        if (!HCGroupIO.HCReadRaw(pending, limit, intended)) { return false; }
         if (FileExist(path))
         {
             if (!HCArchiveFirstPending(path, limit) || !DeleteFile(path)) { return false; }
         }
-        return DeleteFile(pending) && !FileExist(pending);
+        if (!CopyFile(pending, path)) { return false; }
+        string promoted;
+        if (!HCGroupIO.HCReadRaw(path, limit, promoted) || promoted != intended) { return false; }
+        return HCWholeImage(path);
     }
 
-    // Boot only: pending bytes are evidence, never an authoritative image.
-    // A readable primary wins. If promotion tore it, restore a verified backup,
-    // retaining pending/torn bytes in verified archives before any deletion.
-    // Legacy JSON and filenames are unchanged; no reset or pending replay.
+    // No backup decision table: whole pending + absent/torn primary -> promote
+    // with whole readback; torn pending + absent primary -> archive once/empty;
+    // both torn -> operator (never reset); whole primary -> primary wins.
+    // Any existing backup keeps the verified-predecessor recovery below.
     static void HCRecoverInterrupted(string path)
     {
         string tmp = path + ".tmp";
@@ -89,12 +101,34 @@ class HCV2ThreatStore<Class T>
         if (!hasTmp && (primaryWhole || !FileExist(bak))) { return; }
         if (hasTmp && !primaryWhole && !FileExist(bak))
         {
-            bool retired = HCRetireFirstPending(path, tmp, HCGroupIO.HC_RAW_READ_CAP);
+            string firstAction = "left_for_operator";
+            string firstReason = "no_whole_image";
+            if (HCWholeImage(tmp))
+            {
+                firstReason = "pending_promotion_failed";
+                if (HCPromoteWholePending(path, tmp, HCGroupIO.HC_RAW_READ_CAP))
+                {
+                    firstReason = "pending_clear_failed";
+                    if (DeleteFile(tmp) && !FileExist(tmp))
+                    {
+                        firstAction = "promoted_whole_pending";
+                        firstReason = "no_predecessor";
+                    }
+                }
+            }
+            else if (!FileExist(path))
+            {
+                firstReason = "first_pending_retirement_failed";
+                if (HCRetireFirstPending(path, tmp, HCGroupIO.HC_RAW_READ_CAP))
+                {
+                    firstAction = "archived_first_pending";
+                    firstReason = "no_predecessor";
+                }
+            }
             string firstName = path;
             int firstSlash = firstName.LastIndexOf("/");
             if (firstSlash >= 0) { firstName = firstName.Substring(firstSlash + 1, firstName.Length() - firstSlash - 1); }
-            if (retired) { Print("[HC Store] crash_recovery file=" + firstName + " action=archived_first_pending reason=no_predecessor runtime=PENDING"); }
-            else { Print("[HC Store] crash_recovery file=" + firstName + " action=left_for_operator reason=first_pending_retirement_failed runtime=PENDING"); }
+            Print("[HC Store] crash_recovery file=" + firstName + " action=" + firstAction + " reason=" + firstReason + " runtime=PENDING");
             return;
         }
         string action = "left_for_operator";

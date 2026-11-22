@@ -1,6 +1,6 @@
 // Fixed owned paths; bounded parsing and readback, no globbing or claimed fsync.
-// Startup restores the verified predecessor before archiving leftover pending bytes.
-// Invalid images and failed quarantine remain refused; no pending-image replay.
+// Startup restores a verified predecessor, or a whole pending image when no
+// backup exists. Invalid images and failed quarantine remain refused.
 class HCEcologyRuntimeIO
 {
 	static string Read(string path, int limit)
@@ -145,7 +145,10 @@ class HCEcologyRuntimeStore
 
     // Boot only. A whole pending image was verified before primary promotion.
     // If promotion started, the verified backup must be its exact predecessor.
-    // A torn pending image cannot have reached promotion, so primary stays good.
+    // No-backup table: whole intent + absent/torn primary -> verified promotion;
+    // torn intent + absent primary -> archive once/empty; both torn -> operator;
+    // whole primary wins through the existing primary/Revision checks below.
+    // Existing backups retain the verified-predecessor rules unchanged.
     protected bool HCRecoverPrior(string imagePath, string pendingPath, string world)
     {
         string pendingText = HCEcologyRuntimeIO.Read(pendingPath, 2048);
@@ -155,12 +158,43 @@ class HCEcologyRuntimeStore
         bool primaryValid = HCEcologyRuntimeRules.CheckpointValid(primary, world);
         if (!primaryValid && !FileExist(imagePath + ".bak"))
         {
+            if (HCEcologyRuntimeRules.CheckpointValid(intent, world))
+            {
+                bool promoted = HCV2ThreatStore<HCEcologyCheckpoint>.HCPromoteWholePending(imagePath, pendingPath, 2048);
+                if (promoted)
+                {
+                    HCEcologyCheckpoint readback = HCEcologyRuntimeIO.Decode(HCEcologyRuntimeIO.Read(imagePath, 2048));
+                    promoted = HCEcologyRuntimeRules.CheckpointValid(readback, world);
+                    if (promoted) { promoted = readback.Revision == intent.Revision; }
+                }
+                if (!promoted)
+                {
+                    Print("[HC Ecology] action=left_for_operator reason=pending_promotion_failed runtime=PENDING");
+                    return false;
+                }
+                if (!DeleteFile(pendingPath) || FileExist(pendingPath))
+                {
+                    Print("[HC Ecology] action=left_for_operator reason=pending_clear_failed runtime=PENDING");
+                    return false;
+                }
+                Print("[HC Ecology] action=promoted_whole_pending reason=no_predecessor runtime=PENDING");
+                return true;
+            }
+            if (FileExist(imagePath))
+            {
+                Print("[HC Ecology] action=left_for_operator reason=no_whole_image runtime=PENDING");
+                return false;
+            }
             bool retired = HCV2ThreatStore<HCEcologyCheckpoint>.HCRetireFirstPending(imagePath, pendingPath, 2048);
             if (retired) { Print("[HC Ecology] action=archived_first_pending reason=no_predecessor runtime=PENDING"); }
             else { Print("[HC Ecology] action=left_for_operator reason=first_pending_retirement_failed runtime=PENDING"); }
             return retired;
         }
-        if (!HCEcologyRuntimeRules.CheckpointValid(intent, world)) { return primaryValid; }
+        if (!HCEcologyRuntimeRules.CheckpointValid(intent, world))
+        {
+            if (primaryValid) { Print("[HC Ecology] action=retained_verified_primary reason=pending_unverified runtime=PENDING"); }
+            return primaryValid;
+        }
         // Legacy writer had no backup: a fully promoted pending revision is
         // already authoritative even if it crashed before deleting the intent.
         if (primaryValid && (primaryText == pendingText || primary.Revision == intent.Revision))
