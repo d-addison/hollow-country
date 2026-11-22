@@ -168,7 +168,10 @@ class PrelandTests(unittest.TestCase):
         }
         for name, output in cases.items():
             with self.subTest(name=name):
-                self.assertEqual(0, self.invoke(outputs={name: output})[0])
+                code, _, text = self.invoke(outputs={name: output})
+                self.assertEqual(preland.SKIPPED, code)
+                self.assertIn('status=needs-host-check', text)
+                self.assertIn('tools.release.test_queue submit --commit', text)
                 self.assertEqual(1, self.invoke(['--strict'], outputs={name: output})[0])
 
     def test_ci_allows_only_named_installed_coverage_notices(self):
@@ -212,7 +215,9 @@ class PrelandTests(unittest.TestCase):
                     outputs={'regenerate_all': output})[0])
                 self.assertEqual(1, self.invoke(['--profile', 'ci', '--strict'],
                     outputs={'regenerate_all': output})[0])
-                self.assertEqual(0, self.invoke(outputs={'regenerate_all': output})[0])
+                code, _, text = self.invoke(outputs={'regenerate_all': output})
+                self.assertEqual(preland.SKIPPED, code)
+                self.assertIn('status=needs-host-check', text)
                 for invalid in (notice + ' unexpected',
                                 notice.replace('SKIP ', 'SKIP unknown_', 1)):
                     self.assertEqual(1, self.invoke(['--profile', 'ci'],

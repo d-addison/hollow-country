@@ -20,6 +20,9 @@ from tools.release.rpt_summary import filtered
 from tools.setup.winproc import InteropError
 
 ROOT = Path(__file__).resolve().parents[2]
+# A --check run whose host-only inputs are missing is not a pass: it exits with this code and names
+# the test_queue submit line that runs the check on the lead host.
+NEEDS_HOST_CHECK = 3
 MANIFEST = Path('config/generated-digests.json')
 
 
@@ -452,7 +455,9 @@ def verify_release(tree, addons, workshop, waive_unavailable=False):
     """
     argv = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--check',
             '--addons', str(addons), '--workshop', str(workshop)]
-    if not waive_unavailable:
+    if waive_unavailable:
+        argv.append('--waive-unavailable')
+    else:
         argv.insert(5, '--require-installed')
     result = subprocess.run(argv, cwd=tree, capture_output=True, text=True, timeout=1800)
     waived = []
@@ -479,6 +484,8 @@ def main(argv=None):
     mode.add_argument('--compare', help=argparse.SUPPRESS)
     parser.add_argument('--artefact', action='append', help='limit receipt updates to named artefacts')
     parser.add_argument('--require-installed', action='store_true')
+    parser.add_argument('--waive-unavailable', action='store_true',
+                        help='local test builds and the CI profile: report skipped artefacts but exit 0')
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--workshop', type=Path, default=Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100'))
     parser.add_argument('--source', type=Path, default=os.environ.get('HC_GENERATED_SOURCE'))
@@ -555,7 +562,15 @@ def main(argv=None):
     if args.update:
         # Only proven records are replaced; failed or unavailable entries stay pending/stale.
         path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
-    return int(bool(failures or (args.require_installed and skips)))
+    if failures or (args.require_installed and skips):
+        return 1
+    if skips and not (args.update or args.compare or args.waive_unavailable):
+        # Host-only inputs are missing (worker checkout): a skip is never a pass here.
+        from tools.release.test_queue import submit_line
+        print('STATUS needs-host-check: %d artefact(s) could not be verified without host-only inputs' % skips)
+        print('SUBMIT ' + submit_line(ROOT))
+        return NEEDS_HOST_CHECK
+    return 0
 
 
 if __name__ == '__main__':

@@ -122,3 +122,4 @@ mods/HollowCountry/data/defaults/templates/
 !/docs/ACTIVITY_CHECK.md
 !/docs/WIRING_AUDIT.md
 !/docs/R3_SMOKE_SCRIPT.md
+/.hc-queue/
