@@ -1603,26 +1603,6 @@
     },
     {
       "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
-      "line": 706,
-      "symbol": "HCStagedSaveImage.HCStepImage",
-      "key": "OpenFile#3",
-      "message": "OpenFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
-      "line": 718,
-      "symbol": "HCStagedSaveImage.HCStepImage",
-      "key": "OpenFile#4",
-      "message": "OpenFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
       "line": 175,
       "symbol": "HCWorldIncidentPolicy.HCGet",
@@ -1970,6 +1950,26 @@
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
       "reason": "W1-11 legacy budget caller: HCXEmoteObservation.EventWork still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 616,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 638,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#2",
+      "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
     }
   ]
 }
