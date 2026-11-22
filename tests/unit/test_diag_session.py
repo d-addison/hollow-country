@@ -149,7 +149,7 @@ class DiagSessionTests(unittest.TestCase):
             parsed = pbo.parse(bootstrap.read_bytes(), prefixes=(prefix,))
             self.assertEqual(parsed, (prefix, {'config.cpp': files['config.cpp'].read_bytes()}))
         cfg = (plan.runtime / 'serverDZ.cfg').read_text()
-        for setting in ('maxPlayers=1;', 'BattlEye=0;', 'verifySignatures=0;', 'allowFilePatching=1;'):
+        for setting in ('maxPlayers=6;', 'instanceId=1;', 'shardId="hcdia1";', 'BattlEye=0;', 'verifySignatures=0;', 'allowFilePatching=1;'):
             self.assertIn(setting, cfg)
         staged = plan.runtime / 'mpmissions' / diag.MISSION
         self.assertTrue((staged / 'db/types.xml').is_file())
