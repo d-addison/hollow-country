@@ -2,7 +2,7 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnConvert.c:30,115 int/float ToString.
-// Bounded HCGroupIO + HCJsonFields; no engine/Expansion gameplay calls added.
+// Bounded HCGroupIO + HCJsonSchema loader; HCJsonFields retains optional-field guards; no engine/Expansion gameplay calls added.
 class GCActorsReachConfig
 {
     bool Enabled = true;
@@ -48,7 +48,7 @@ class GCActorsReachConfig
         string error;
         GCActorsReachConfig decoded;
         if (!HCGroupIO.Read(path, 4096, text)) { HCRefuse("read"); return; }
-        if (!JsonFileLoader<GCActorsReachConfig>.LoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
+        if (!HCJsonSchemaLoader<GCActorsReachConfig>.HCLoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
         if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
         if (HCJsonFields.Has(text, "Slots") && HCValid("Slots", decoded.Slots, 1, 16)) { Slots = decoded.Slots; }
         if (HCJsonFields.Has(text, "EvaluationsPerTick") && HCValid("EvaluationsPerTick", decoded.EvaluationsPerTick, 1, 6)) { EvaluationsPerTick = decoded.EvaluationsPerTick; }
