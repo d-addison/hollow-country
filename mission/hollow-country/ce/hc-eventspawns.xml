@@ -1,253 +1,237 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <eventposdef>
   <event name="StaticHCConvoyAmbush">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="558.86" z="12918.953" a="-1" group="HCConvoyAmbush" />
-    <pos x="7599.338" z="4697.928" a="343.564819" group="HCConvoyAmbush" />
-    <pos x="13664.461" z="13842.46" a="119.565926" group="HCConvoyAmbush" />
-    <pos x="8954.078" z="4934.135" a="0" group="HCConvoyAmbush" />
-    <pos x="6297.925" z="9011.773" a="-1" group="HCConvoyAmbush" />
-    <pos x="4392.249" z="14725.83" a="-1" group="HCConvoyAmbush" />
-    <pos x="706.2" z="12121.522" a="0" group="HCConvoyAmbush" />
-    <pos x="6938.221" z="4391.662" a="171.816132" group="HCConvoyAmbush" />
-    <pos x="3178.521" z="13502.986" a="-1" group="HCConvoyAmbush" />
-    <pos x="6427.827" z="6284.355" a="242.556915" group="HCConvoyAmbush" />
-    <pos x="1762.899" z="12215.013" a="-1" group="HCConvoyAmbush" />
-    <pos x="5338.701" z="11767.565" a="-1" group="HCConvoyAmbush" />
+    <pos x="558.86" z="12918.953" a="-1" group="HCConvoyAmbush" y="472.086000" />
+    <pos x="7599.338" z="4697.928" a="343.564819" group="HCConvoyAmbush" y="214.441000" />
+    <pos x="13664.461" z="13842.46" a="119.565926" group="HCConvoyAmbush" y="43.912700" />
+    <pos x="8954.078" z="4934.135" a="0" group="HCConvoyAmbush" y="118.028000" />
+    <pos x="6297.925" z="9011.773" a="-1" group="HCConvoyAmbush" y="358.401000" />
+    <pos x="4392.249" z="14725.83" a="-1" group="HCConvoyAmbush" y="371.572000" />
+    <pos x="706.2" z="12121.522" a="0" group="HCConvoyAmbush" y="365.133000" />
+    <pos x="6938.221" z="4391.662" a="171.816132" group="HCConvoyAmbush" y="186.156000" />
+    <pos x="3178.521" z="13502.986" a="-1" group="HCConvoyAmbush" y="217.264000" />
+    <pos x="6427.827" z="6284.355" a="242.556915" group="HCConvoyAmbush" y="329.618000" />
+    <pos x="1762.899" z="12215.013" a="-1" group="HCConvoyAmbush" y="262.645000" />
+    <pos x="5338.701" z="11767.565" a="-1" group="HCConvoyAmbush" y="232.365000" />
   </event>
   <event name="StaticHCArmorRecovery">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="13165.598" z="4027.116" a="245.227646" group="HCArmorRecovery" />
-    <pos x="917.922" z="4781.029" a="-1" group="HCArmorRecovery" />
-    <pos x="7971.545" z="9373.179" a="357.329285" group="HCArmorRecovery" />
-    <pos x="3886.951" z="13213.516" a="-1" group="HCArmorRecovery" />
-    <pos x="1984.825" z="2126.238" a="0" group="HCArmorRecovery" />
-    <pos x="5779.945" z="11852.006" a="0" group="HCArmorRecovery" />
-    <pos x="11338.114" z="14814.724" a="230.709915" group="HCArmorRecovery" />
-    <pos x="5806.582" z="3205.064" a="88.681503" group="HCArmorRecovery" />
-    <pos x="13012.065" z="7367.066" a="176.06189" group="HCArmorRecovery" />
-    <pos x="2979.074" z="5374.772" a="45.403248" group="HCArmorRecovery" />
-    <pos x="2692.553" z="8262.088" a="-1" group="HCArmorRecovery" />
-    <pos x="5732.232" z="14279.796" a="-1" group="HCArmorRecovery" />
-    <pos x="5970.65" z="9867.348" a="-1" group="HCArmorRecovery" />
+    <pos x="13165.598" z="4027.116" a="245.227646" group="HCArmorRecovery" y="6.000000" />
+    <pos x="917.922" z="4781.029" a="-1" group="HCArmorRecovery" y="145.313000" />
+    <pos x="7971.545" z="9373.179" a="357.329285" group="HCArmorRecovery" y="461.968000" />
+    <pos x="3886.951" z="13213.516" a="-1" group="HCArmorRecovery" y="194.953000" />
+    <pos x="1984.825" z="2126.238" a="0" group="HCArmorRecovery" y="2.077580" />
+    <pos x="5779.945" z="11852.006" a="0" group="HCArmorRecovery" y="218.565000" />
+    <pos x="11338.114" z="14814.724" a="230.709915" group="HCArmorRecovery" y="104.058000" />
+    <pos x="5806.582" z="3205.064" a="88.681503" group="HCArmorRecovery" y="106.604000" />
+    <pos x="13012.065" z="7367.066" a="176.06189" group="HCArmorRecovery" y="5.776830" />
+    <pos x="2979.074" z="5374.772" a="45.403248" group="HCArmorRecovery" y="224.416000" />
+    <pos x="2692.553" z="8262.088" a="-1" group="HCArmorRecovery" y="301.160000" />
+    <pos x="5732.232" z="14279.796" a="-1" group="HCArmorRecovery" y="321.143000" />
+    <pos x="5970.65" z="9867.348" a="-1" group="HCArmorRecovery" y="293.547000" />
   </event>
   <event name="StaticHCSupplyTruck">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="13237.445" z="6675.368" a="0" group="HCSupplyTruck" />
-    <pos x="2409.519" z="3719.609" a="357.686584" group="HCSupplyTruck" />
-    <pos x="6475.087" z="3728.882" a="256.482513" group="HCSupplyTruck" />
-    <pos x="1352.28" z="6332.202" a="0" group="HCSupplyTruck" />
-    <pos x="9869.0" z="10973.1" a="0" group="HCSupplyTruck" />
-    <pos x="2098.057" z="12618.232" a="-1" group="HCSupplyTruck" />
-    <pos x="956.85" z="5630.502" a="0" group="HCSupplyTruck" />
-    <pos x="4552.201" z="11486.54" a="-1" group="HCSupplyTruck" />
-    <pos x="1728.482" z="10094.251" a="-1" group="HCSupplyTruck" />
-    <pos x="8089.79" z="8794.119" a="0" group="HCSupplyTruck" />
-    <pos x="3322.967" z="10625.593" a="-1" group="HCSupplyTruck" />
-    <pos x="2809.101" z="6676.424" a="326.307922" group="HCSupplyTruck" />
+    <pos x="13237.445" z="6675.368" a="0" group="HCSupplyTruck" y="6.571000" />
+    <pos x="2409.519" z="3719.609" a="357.686584" group="HCSupplyTruck" y="142.190000" />
+    <pos x="6475.087" z="3728.882" a="256.482513" group="HCSupplyTruck" y="78.767400" />
+    <pos x="1352.28" z="6332.202" a="0" group="HCSupplyTruck" y="173.597000" />
+    <pos x="9869.0" z="10973.1" a="0" group="HCSupplyTruck" y="202.001000" />
+    <pos x="2098.057" z="12618.232" a="-1" group="HCSupplyTruck" y="255.537000" />
+    <pos x="956.85" z="5630.502" a="0" group="HCSupplyTruck" y="165.262000" />
+    <pos x="4552.201" z="11486.54" a="-1" group="HCSupplyTruck" y="293.058000" />
+    <pos x="1728.482" z="10094.251" a="-1" group="HCSupplyTruck" y="262.682000" />
+    <pos x="8089.79" z="8794.119" a="0" group="HCSupplyTruck" y="460.335000" />
+    <pos x="3322.967" z="10625.593" a="-1" group="HCSupplyTruck" y="363.146000" />
+    <pos x="2809.101" z="6676.424" a="326.307922" group="HCSupplyTruck" y="365.286000" />
   </event>
   <event name="StaticHCPoliceEvidence">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="12202.224" z="15014.096" a="279.330658" group="HCPoliceEvidence" />
-    <pos x="10635.377" z="10260.771" a="0" group="HCPoliceEvidence" />
-    <pos x="11909.245" z="3623.134" a="4.999045" group="HCPoliceEvidence" />
-    <pos x="1053.39" z="10812.615" a="-1" group="HCPoliceEvidence" />
-    <pos x="2161.417" z="4678.316" a="84.642365" group="HCPoliceEvidence" />
-    <pos x="4018.187" z="7302.031" a="-1" group="HCPoliceEvidence" />
-    <pos x="6696.018" z="5754.719" a="144.01329" group="HCPoliceEvidence" />
-    <pos x="3700.656" z="13899.145" a="0" group="HCPoliceEvidence" />
-    <pos x="5915.251" z="2275.621" a="46.634834" group="HCPoliceEvidence" />
-    <pos x="10670.832" z="10848.663" a="238.585175" group="HCPoliceEvidence" />
-    <pos x="1410.0" z="4299.216" a="-1" group="HCPoliceEvidence" />
-    <pos x="2505.887" z="4958.349" a="121.072502" group="HCPoliceEvidence" />
+    <pos x="12202.224" z="15014.096" a="279.330658" group="HCPoliceEvidence" y="164.753000" />
+    <pos x="10635.377" z="10260.771" a="0" group="HCPoliceEvidence" y="94.493800" />
+    <pos x="11909.245" z="3623.134" a="4.999045" group="HCPoliceEvidence" y="21.653700" />
+    <pos x="1053.39" z="10812.615" a="-1" group="HCPoliceEvidence" y="348.232000" />
+    <pos x="2161.417" z="4678.316" a="84.642365" group="HCPoliceEvidence" y="219.257000" />
+    <pos x="4018.187" z="7302.031" a="-1" group="HCPoliceEvidence" y="295.842000" />
+    <pos x="6696.018" z="5754.719" a="144.01329" group="HCPoliceEvidence" y="342.712000" />
+    <pos x="3700.656" z="13899.145" a="0" group="HCPoliceEvidence" y="225.929000" />
+    <pos x="5915.251" z="2275.621" a="46.634834" group="HCPoliceEvidence" y="12.413400" />
+    <pos x="10670.832" z="10848.663" a="238.585175" group="HCPoliceEvidence" y="152.826000" />
+    <pos x="1410.0" z="4299.216" a="-1" group="HCPoliceEvidence" y="145.674000" />
+    <pos x="2505.887" z="4958.349" a="121.072502" group="HCPoliceEvidence" y="192.380000" />
   </event>
   <event name="StaticHCPrisonTransfer">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="6517.38" z="8027.553" a="0" group="HCPrisonTransfer" />
-    <pos x="3533.335" z="8078.458" a="0" group="HCPrisonTransfer" />
-    <pos x="8106.999" z="7146.479" a="305.96933" group="HCPrisonTransfer" />
-    <pos x="5135.984" z="7630.08" a="-1" group="HCPrisonTransfer" />
-    <pos x="10921.165" z="7750.293" a="0" group="HCPrisonTransfer" />
-    <pos x="11754.741" z="12398.057" a="200.236343" group="HCPrisonTransfer" />
-    <pos x="5158.11" z="6510.306" a="0" group="HCPrisonTransfer" />
-    <pos x="9924.277" z="4667.238" a="0" group="HCPrisonTransfer" />
-    <pos x="5678.208" z="10208.027" a="0" group="HCPrisonTransfer" />
-    <pos x="3227.688" z="4530.327" a="0" group="HCPrisonTransfer" />
-    <pos x="1503.997" z="4832.346" a="-1" group="HCPrisonTransfer" />
-    <pos x="5341.531" z="3006.211" a="259.403046" group="HCPrisonTransfer" />
-    <pos x="2062.41" z="7450.988" a="114.292984" group="HCPrisonTransfer" />
+    <pos x="6517.38" z="8027.553" a="0" group="HCPrisonTransfer" y="326.041000" />
+    <pos x="3533.335" z="8078.458" a="0" group="HCPrisonTransfer" y="295.546000" />
+    <pos x="8106.999" z="7146.479" a="305.96933" group="HCPrisonTransfer" y="354.594000" />
+    <pos x="5135.984" z="7630.08" a="-1" group="HCPrisonTransfer" y="339.764000" />
+    <pos x="10921.165" z="7750.293" a="0" group="HCPrisonTransfer" y="272.003000" />
+    <pos x="11754.741" z="12398.057" a="200.236343" group="HCPrisonTransfer" y="142.476000" />
+    <pos x="5158.11" z="6510.306" a="0" group="HCPrisonTransfer" y="270.762000" />
+    <pos x="9924.277" z="4667.238" a="0" group="HCPrisonTransfer" y="107.525000" />
+    <pos x="5678.208" z="10208.027" a="0" group="HCPrisonTransfer" y="277.685000" />
+    <pos x="3227.688" z="4530.327" a="0" group="HCPrisonTransfer" y="289.491000" />
+    <pos x="1503.997" z="4832.346" a="-1" group="HCPrisonTransfer" y="166.987000" />
+    <pos x="5341.531" z="3006.211" a="259.403046" group="HCPrisonTransfer" y="46.873000" />
+    <pos x="2062.41" z="7450.988" a="114.292984" group="HCPrisonTransfer" y="279.776000" />
   </event>
   <event name="StaticHCBanditCache">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="6578.547" z="2175.466" a="54.544193" group="HCBanditCache" />
-    <pos x="10115.519" z="8512.211" a="0" group="HCBanditCache" />
-    <pos x="2532.083" z="13382.64" a="-1" group="HCBanditCache" />
-    <pos x="8666.821" z="12954.542" a="260.224731" group="HCBanditCache" />
-    <pos x="13977.732" z="14897.463" a="0" group="HCBanditCache" />
-    <pos x="4478.34" z="12218.993" a="-1" group="HCBanditCache" />
-    <pos x="2043.23" z="10662.374" a="-1" group="HCBanditCache" />
-    <pos x="5829.355" z="4199.144" a="139.835999" group="HCBanditCache" />
-    <pos x="7129.198" z="8360.585" a="234.476318" group="HCBanditCache" />
-    <pos x="6538.302" z="12507.082" a="0" group="HCBanditCache" />
-    <pos x="5416.428" z="5648.295" a="-1" group="HCBanditCache" />
-    <pos x="3184.68" z="2666.967" a="276.591461" group="HCBanditCache" />
-    <pos x="1207.821" z="5279.723" a="-1" group="HCBanditCache" />
+    <pos x="6578.547" z="2175.466" a="54.544193" group="HCBanditCache" y="-6.312190" />
+    <pos x="10115.519" z="8512.211" a="0" group="HCBanditCache" y="282.109000" />
+    <pos x="2532.083" z="13382.64" a="-1" group="HCBanditCache" y="257.790000" />
+    <pos x="8666.821" z="12954.542" a="260.224731" group="HCBanditCache" y="115.928000" />
+    <pos x="13977.732" z="14897.463" a="0" group="HCBanditCache" y="131.952000" />
+    <pos x="4478.34" z="12218.993" a="-1" group="HCBanditCache" y="247.897000" />
+    <pos x="2043.23" z="10662.374" a="-1" group="HCBanditCache" y="255.089000" />
+    <pos x="5829.355" z="4199.144" a="139.835999" group="HCBanditCache" y="116.877000" />
+    <pos x="7129.198" z="8360.585" a="234.476318" group="HCBanditCache" y="329.631000" />
+    <pos x="6538.302" z="12507.082" a="0" group="HCBanditCache" y="170.156000" />
+    <pos x="5416.428" z="5648.295" a="-1" group="HCBanditCache" y="309.623000" />
+    <pos x="3184.68" z="2666.967" a="276.591461" group="HCBanditCache" y="74.847200" />
+    <pos x="1207.821" z="5279.723" a="-1" group="HCBanditCache" y="168.265000" />
   </event>
   <event name="StaticHCSniperExtraction">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="6710.409" z="14637.134" a="272.756622" group="HCSniperExtraction" />
-    <pos x="350.116" z="9787.409" a="-1" group="HCSniperExtraction" />
-    <pos x="5140.353" z="3659.493" a="344.729034" group="HCSniperExtraction" />
-    <pos x="422.324" z="3059.927" a="0" group="HCSniperExtraction" />
-    <pos x="1310.789" z="3723.9" a="-1" group="HCSniperExtraction" />
-    <pos x="5970.769" z="4972.972" a="298.539276" group="HCSniperExtraction" />
-    <pos x="10760.524" z="4568.996" a="0" group="HCSniperExtraction" />
-    <pos x="8425.391" z="11490.679" a="0" group="HCSniperExtraction" />
-    <pos x="11999.426" z="6432.04" a="0" group="HCSniperExtraction" />
-    <pos x="8378.737" z="4847.336" a="288.541168" group="HCSniperExtraction" />
-    <pos x="1460.165" z="11699.333" a="-1" group="HCSniperExtraction" />
-    <pos x="5016.493" z="13341.447" a="-1" group="HCSniperExtraction" />
+    <pos x="6710.409" z="14637.134" a="272.756622" group="HCSniperExtraction" y="386.517000" />
+    <pos x="350.116" z="9787.409" a="-1" group="HCSniperExtraction" y="368.747000" />
+    <pos x="5140.353" z="3659.493" a="344.729034" group="HCSniperExtraction" y="183.359000" />
+    <pos x="422.324" z="3059.927" a="0" group="HCSniperExtraction" y="98.548500" />
+    <pos x="1310.789" z="3723.9" a="-1" group="HCSniperExtraction" y="114.478000" />
+    <pos x="5970.769" z="4972.972" a="298.539276" group="HCSniperExtraction" y="165.077000" />
+    <pos x="10760.524" z="4568.996" a="0" group="HCSniperExtraction" y="151.393000" />
+    <pos x="8425.391" z="11490.679" a="0" group="HCSniperExtraction" y="215.771000" />
+    <pos x="11999.426" z="6432.04" a="0" group="HCSniperExtraction" y="54.361700" />
+    <pos x="8378.737" z="4847.336" a="288.541168" group="HCSniperExtraction" y="157.059000" />
+    <pos x="1460.165" z="11699.333" a="-1" group="HCSniperExtraction" y="281.198000" />
+    <pos x="5016.493" z="13341.447" a="-1" group="HCSniperExtraction" y="187.361000" />
   </event>
   <event name="StaticHCFieldHospital">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="1106.205" z="7437.663" a="-1" group="HCFieldHospital" />
-    <pos x="9524.659" z="13915.317" a="0" group="HCFieldHospital" />
-    <pos x="4989.249" z="8937.19" a="-1" group="HCFieldHospital" />
-    <pos x="5220.596" z="11018.128" a="-1" group="HCFieldHospital" />
-    <pos x="8344.497" z="14003.119" a="0" group="HCFieldHospital" />
-    <pos x="2902.542" z="11594.443" a="-1" group="HCFieldHospital" />
-    <pos x="11734.539" z="8980.707" a="308.160736" group="HCFieldHospital" />
-    <pos x="4308.359" z="8577.781" a="-1" group="HCFieldHospital" />
-    <pos x="7666.97" z="11698.39" a="-1" group="HCFieldHospital" />
-    <pos x="13537.282" z="6117.846" a="199.893906" group="HCFieldHospital" />
-    <pos x="2340.269" z="11938.213" a="-1" group="HCFieldHospital" />
-    <pos x="2462.15" z="10404.454" a="0" group="HCFieldHospital" />
+    <pos x="1106.205" z="7437.663" a="-1" group="HCFieldHospital" y="188.778000" />
+    <pos x="9524.659" z="13915.317" a="0" group="HCFieldHospital" y="101.267000" />
+    <pos x="4989.249" z="8937.19" a="-1" group="HCFieldHospital" y="349.868000" />
+    <pos x="5220.596" z="11018.128" a="-1" group="HCFieldHospital" y="278.897000" />
+    <pos x="8344.497" z="14003.119" a="0" group="HCFieldHospital" y="210.354000" />
+    <pos x="2902.542" z="11594.443" a="-1" group="HCFieldHospital" y="275.573000" />
+    <pos x="11734.539" z="8980.707" a="308.160736" group="HCFieldHospital" y="76.681000" />
+    <pos x="4308.359" z="8577.781" a="-1" group="HCFieldHospital" y="317.241000" />
+    <pos x="7666.97" z="11698.39" a="-1" group="HCFieldHospital" y="280.924000" />
+    <pos x="13537.282" z="6117.846" a="199.893906" group="HCFieldHospital" y="0.588707" />
+    <pos x="2340.269" z="11938.213" a="-1" group="HCFieldHospital" y="241.797000" />
+    <pos x="2462.15" z="10404.454" a="0" group="HCFieldHospital" y="277.286000" />
   </event>
   <event name="StaticHCTransportDown">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="12519.167" z="9363.032" a="0" group="HCTransportDown" />
-    <pos x="6380.73" z="10285.702" a="0" group="HCTransportDown" />
-    <pos x="2509.957" z="5827.196" a="-1" group="HCTransportDown" />
-    <pos x="5317.983" z="2021.05" a="238.44812" group="HCTransportDown" />
-    <pos x="7031.529" z="6950.645" a="196.812347" group="HCTransportDown" />
-    <pos x="405.998" z="8094.959" a="-1" group="HCTransportDown" />
-    <pos x="4673.944" z="2606.916" a="168.804062" group="HCTransportDown" />
-    <pos x="410.192" z="3820.057" a="-1" group="HCTransportDown" />
-    <pos x="1703.106" z="3153.739" a="-1" group="HCTransportDown" />
-    <pos x="328.248" z="2437.281" a="-1" group="HCTransportDown" />
-    <pos x="9151.843" z="13259.135" a="148.532974" group="HCTransportDown" />
-    <pos x="12061.069" z="14547.688" a="92.995743" group="HCTransportDown" />
-    <pos x="6204.925" z="8301.29" a="-1" group="HCTransportDown" />
+    <pos x="12519.167" z="9363.032" a="0" group="HCTransportDown" y="10.960200" />
+    <pos x="6380.73" z="10285.702" a="0" group="HCTransportDown" y="293.123000" />
+    <pos x="2509.957" z="5827.196" a="-1" group="HCTransportDown" y="263.383000" />
+    <pos x="5317.983" z="2021.05" a="238.44812" group="HCTransportDown" y="6.410730" />
+    <pos x="7031.529" z="6950.645" a="196.812347" group="HCTransportDown" y="276.384000" />
+    <pos x="405.998" z="8094.959" a="-1" group="HCTransportDown" y="276.917000" />
+    <pos x="4673.944" z="2606.916" a="168.804062" group="HCTransportDown" y="9.954230" />
+    <pos x="410.192" z="3820.057" a="-1" group="HCTransportDown" y="56.304300" />
+    <pos x="1703.106" z="3153.739" a="-1" group="HCTransportDown" y="90.153900" />
+    <pos x="328.248" z="2437.281" a="-1" group="HCTransportDown" y="110.947000" />
+    <pos x="9151.843" z="13259.135" a="148.532974" group="HCTransportDown" y="90.489600" />
+    <pos x="12061.069" z="14547.688" a="92.995743" group="HCTransportDown" y="75.530800" />
+    <pos x="6204.925" z="8301.29" a="-1" group="HCTransportDown" y="331.972000" />
   </event>
   <event name="StaticHCCargoSpill">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="9109.445" z="11616.038" a="0" group="HCCargoSpill" />
-    <pos x="5303.885" z="12757.521" a="343.701782" group="HCCargoSpill" />
-    <pos x="4284.406" z="6468.135" a="23.625641" group="HCCargoSpill" />
-    <pos x="13518.236" z="5437.328" a="170.925858" group="HCCargoSpill" />
-    <pos x="12757.88" z="8318.63" a="0" group="HCCargoSpill" />
-    <pos x="9473.696" z="2099.09" a="247.898407" group="HCCargoSpill" />
-    <pos x="4607.622" z="13640.049" a="-1" group="HCCargoSpill" />
-    <pos x="10869.206" z="14218.698" a="102.856834" group="HCCargoSpill" />
-    <pos x="12288.245" z="9991.995" a="78.135597" group="HCCargoSpill" />
-    <pos x="11476.917" z="14148.951" a="36.157398" group="HCCargoSpill" />
-    <pos x="361.245" z="9215.24" a="212.97258" group="HCCargoSpill" />
-    <pos x="12783.966" z="3729.957" a="0" group="HCCargoSpill" />
-    <pos x="4810.453" z="12709.971" a="-1" group="HCCargoSpill" />
+    <pos x="9109.445" z="11616.038" a="0" group="HCCargoSpill" y="225.684000" />
+    <pos x="5303.885" z="12757.521" a="343.701782" group="HCCargoSpill" y="165.187000" />
+    <pos x="4284.406" z="6468.135" a="23.625641" group="HCCargoSpill" y="309.319000" />
+    <pos x="13518.236" z="5437.328" a="170.925858" group="HCCargoSpill" y="-9.918510" />
+    <pos x="12757.88" z="8318.63" a="0" group="HCCargoSpill" y="18.391300" />
+    <pos x="9473.696" z="2099.09" a="247.898407" group="HCCargoSpill" y="13.834900" />
+    <pos x="4607.622" z="13640.049" a="-1" group="HCCargoSpill" y="193.309000" />
+    <pos x="10869.206" z="14218.698" a="102.856834" group="HCCargoSpill" y="48.097600" />
+    <pos x="12288.245" z="9991.995" a="78.135597" group="HCCargoSpill" y="23.918700" />
+    <pos x="11476.917" z="14148.951" a="36.157398" group="HCCargoSpill" y="57.760200" />
+    <pos x="361.245" z="9215.24" a="212.97258" group="HCCargoSpill" y="278.896000" />
+    <pos x="12783.966" z="3729.957" a="0" group="HCCargoSpill" y="7.382630" />
+    <pos x="4810.453" z="12709.971" a="-1" group="HCCargoSpill" y="177.724000" />
   </event>
   <event name="StaticHCAPCColumn">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="3952.23" z="11094.624" a="-1" group="HCAPCColumn" />
-    <pos x="10188.079" z="3909.974" a="136.275024" group="HCAPCColumn" />
-    <pos x="1629.345" z="15056.105" a="-1" group="HCAPCColumn" />
-    <pos x="7068.992" z="11344.011" a="15.38874" group="HCAPCColumn" />
-    <pos x="3608.464" z="9122.509" a="0" group="HCAPCColumn" />
-    <pos x="12777.671" z="14114.373" a="0" group="HCAPCColumn" />
-    <pos x="3059.183" z="7348.792" a="-1" group="HCAPCColumn" />
-    <pos x="1994.934" z="9014.11" a="-1" group="HCAPCColumn" />
-    <pos x="8304.813" z="3191.136" a="297.957184" group="HCAPCColumn" />
-    <pos x="12909.059" z="6159.367" a="44.306522" group="HCAPCColumn" />
-    <pos x="4573.761" z="7261.095" a="0" group="HCAPCColumn" />
-    <pos x="3517.861" z="12911.35" a="224.067352" group="HCAPCColumn" />
-    <pos x="3275.31" z="9366.687" a="-1" group="HCAPCColumn" />
+    <pos x="3952.23" z="11094.624" a="-1" group="HCAPCColumn" y="333.659000" />
+    <pos x="10188.079" z="3909.974" a="136.275024" group="HCAPCColumn" y="55.094200" />
+    <pos x="1629.345" z="15056.105" a="-1" group="HCAPCColumn" y="444.695000" />
+    <pos x="7068.992" z="11344.011" a="15.38874" group="HCAPCColumn" y="357.522000" />
+    <pos x="3608.464" z="9122.509" a="0" group="HCAPCColumn" y="315.391000" />
+    <pos x="12777.671" z="14114.373" a="0" group="HCAPCColumn" y="16.150500" />
+    <pos x="3059.183" z="7348.792" a="-1" group="HCAPCColumn" y="338.397000" />
+    <pos x="1994.934" z="9014.11" a="-1" group="HCAPCColumn" y="291.315000" />
+    <pos x="8304.813" z="3191.136" a="297.957184" group="HCAPCColumn" y="6.886910" />
+    <pos x="12909.059" z="6159.367" a="44.306522" group="HCAPCColumn" y="38.987700" />
+    <pos x="4573.761" z="7261.095" a="0" group="HCAPCColumn" y="311.619000" />
+    <pos x="3517.861" z="12911.35" a="224.067352" group="HCAPCColumn" y="195.537000" />
+    <pos x="3275.31" z="9366.687" a="-1" group="HCAPCColumn" y="297.716000" />
   </event>
   <event name="StaticHCMedicalEvacuation">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="9951.79" z="6034.926" a="0" group="HCMedicalEvacuation" />
-    <pos x="5918.543" z="5954.523" a="0" group="HCMedicalEvacuation" />
-    <pos x="5256.021" z="14484.883" a="0" group="HCMedicalEvacuation" />
-    <pos x="7618.768" z="5945.318" a="339.935364" group="HCMedicalEvacuation" />
-    <pos x="13682.116" z="11750.819" a="43.827141" group="HCMedicalEvacuation" />
-    <pos x="8676.341" z="6429.293" a="100.049149" group="HCMedicalEvacuation" />
-    <pos x="8784.155" z="9191.064" a="275.632751" group="HCMedicalEvacuation" />
-    <pos x="3540.564" z="6409.337" a="-1" group="HCMedicalEvacuation" />
-    <pos x="2629.02" z="3090.506" a="241.529846" group="HCMedicalEvacuation" />
-    <pos x="4130.533" z="7949.016" a="-1" group="HCMedicalEvacuation" />
-    <pos x="907.425" z="4236.119" a="-1" group="HCMedicalEvacuation" />
-    <pos x="10306.093" z="9917.225" a="33.89756" group="HCMedicalEvacuation" />
-    <pos x="4126.941" z="6903.794" a="-1" group="HCMedicalEvacuation" />
+    <pos x="9951.79" z="6034.926" a="0" group="HCMedicalEvacuation" y="285.591000" />
+    <pos x="5918.543" z="5954.523" a="0" group="HCMedicalEvacuation" y="231.728000" />
+    <pos x="5256.021" z="14484.883" a="0" group="HCMedicalEvacuation" y="346.773000" />
+    <pos x="7618.768" z="5945.318" a="339.935364" group="HCMedicalEvacuation" y="204.725000" />
+    <pos x="13682.116" z="11750.819" a="43.827141" group="HCMedicalEvacuation" y="21.504600" />
+    <pos x="8676.341" z="6429.293" a="100.049149" group="HCMedicalEvacuation" y="343.091000" />
+    <pos x="8784.155" z="9191.064" a="275.632751" group="HCMedicalEvacuation" y="384.925000" />
+    <pos x="3540.564" z="6409.337" a="-1" group="HCMedicalEvacuation" y="345.695000" />
+    <pos x="2629.02" z="3090.506" a="241.529846" group="HCMedicalEvacuation" y="127.409000" />
+    <pos x="4130.533" z="7949.016" a="-1" group="HCMedicalEvacuation" y="305.188000" />
+    <pos x="907.425" z="4236.119" a="-1" group="HCMedicalEvacuation" y="125.058000" />
+    <pos x="10306.093" z="9917.225" a="33.89756" group="HCMedicalEvacuation" y="135.499000" />
+    <pos x="4126.941" z="6903.794" a="-1" group="HCMedicalEvacuation" y="299.645000" />
   </event>
   <event name="StaticHCHuntersLastStand">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="3844.9" z="4910.077" a="-1" group="HCHuntersLastStand" />
-    <pos x="8692.475" z="2646.438" a="346.372528" group="HCHuntersLastStand" />
-    <pos x="11355.356" z="6444.369" a="66.905937" group="HCHuntersLastStand" />
-    <pos x="2345.891" z="7780.261" a="-1" group="HCHuntersLastStand" />
-    <pos x="8006.187" z="8178.071" a="-1" group="HCHuntersLastStand" />
-    <pos x="2364.617" z="6718.591" a="-1" group="HCHuntersLastStand" />
-    <pos x="3721.485" z="10297.698" a="-1" group="HCHuntersLastStand" />
-    <pos x="10638.04" z="7060.106" a="165.036652" group="HCHuntersLastStand" />
-    <pos x="3427.893" z="3295.283" a="-1" group="HCHuntersLastStand" />
-    <pos x="460.39" z="10667.038" a="-1" group="HCHuntersLastStand" />
-    <pos x="4667.531" z="13098.943" a="227.354401" group="HCHuntersLastStand" />
-    <pos x="4433.444" z="4489.846" a="0" group="HCHuntersLastStand" />
-    <pos x="9505.038" z="11732.627" a="115.868042" group="HCHuntersLastStand" />
+    <pos x="3844.9" z="4910.077" a="-1" group="HCHuntersLastStand" y="240.877000" />
+    <pos x="8692.475" z="2646.438" a="346.372528" group="HCHuntersLastStand" y="45.143200" />
+    <pos x="11355.356" z="6444.369" a="66.905937" group="HCHuntersLastStand" y="88.045800" />
+    <pos x="2345.891" z="7780.261" a="-1" group="HCHuntersLastStand" y="358.047000" />
+    <pos x="8006.187" z="8178.071" a="-1" group="HCHuntersLastStand" y="398.977000" />
+    <pos x="2364.617" z="6718.591" a="-1" group="HCHuntersLastStand" y="363.518000" />
+    <pos x="3721.485" z="10297.698" a="-1" group="HCHuntersLastStand" y="359.082000" />
+    <pos x="10638.04" z="7060.106" a="165.036652" group="HCHuntersLastStand" y="140.061000" />
+    <pos x="3427.893" z="3295.283" a="-1" group="HCHuntersLastStand" y="131.170000" />
+    <pos x="460.39" z="10667.038" a="-1" group="HCHuntersLastStand" y="426.608000" />
+    <pos x="4667.531" z="13098.943" a="227.354401" group="HCHuntersLastStand" y="175.435000" />
+    <pos x="4433.444" z="4489.846" a="0" group="HCHuntersLastStand" y="213.153000" />
+    <pos x="9505.038" z="11732.627" a="115.868042" group="HCHuntersLastStand" y="239.541000" />
   </event>
   <event name="StaticHCSmugglerExchange">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="10473.51" z="1772.764" a="190.854614" group="HCSmugglerExchange" />
-    <pos x="1928.816" z="11528.619" a="336.442993" group="HCSmugglerExchange" />
-    <pos x="11991.653" z="13569.978" a="206.331055" group="HCSmugglerExchange" />
-    <pos x="7639.34" z="3364.872" a="0" group="HCSmugglerExchange" />
-    <pos x="9082.34" z="3591.036" a="0" group="HCSmugglerExchange" />
-    <pos x="7143.305" z="9730.669" a="-1" group="HCSmugglerExchange" />
-    <pos x="2759.578" z="2405.061" a="-1" group="HCSmugglerExchange" />
-    <pos x="2991.67" z="10143.977" a="-1" group="HCSmugglerExchange" />
-    <pos x="10044.793" z="6761.148" a="0" group="HCSmugglerExchange" />
-    <pos x="1737.581" z="7819.769" a="-1" group="HCSmugglerExchange" />
-    <pos x="6672.245" z="7508.025" a="0" group="HCSmugglerExchange" />
-    <pos x="12325.314" z="13974.181" a="287.685181" group="HCSmugglerExchange" />
-    <pos x="1650.722" z="2355.521" a="-1" group="HCSmugglerExchange" />
+    <pos x="10473.51" z="1772.764" a="190.854614" group="HCSmugglerExchange" y="-8.920060" />
+    <pos x="1928.816" z="11528.619" a="336.442993" group="HCSmugglerExchange" y="258.091000" />
+    <pos x="11991.653" z="13569.978" a="206.331055" group="HCSmugglerExchange" y="115.115000" />
+    <pos x="7639.34" z="3364.872" a="0" group="HCSmugglerExchange" y="5.943940" />
+    <pos x="9082.34" z="3591.036" a="0" group="HCSmugglerExchange" y="222.314000" />
+    <pos x="7143.305" z="9730.669" a="-1" group="HCSmugglerExchange" y="383.830000" />
+    <pos x="2759.578" z="2405.061" a="-1" group="HCSmugglerExchange" y="107.949000" />
+    <pos x="2991.67" z="10143.977" a="-1" group="HCSmugglerExchange" y="300.187000" />
+    <pos x="10044.793" z="6761.148" a="0" group="HCSmugglerExchange" y="174.197000" />
+    <pos x="1737.581" z="7819.769" a="-1" group="HCSmugglerExchange" y="292.602000" />
+    <pos x="6672.245" z="7508.025" a="0" group="HCSmugglerExchange" y="283.406000" />
+    <pos x="12325.314" z="13974.181" a="287.685181" group="HCSmugglerExchange" y="71.065400" />
+    <pos x="1650.722" z="2355.521" a="-1" group="HCSmugglerExchange" y="17.575000" />
   </event>
   <event name="StaticHCFireResponse">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="3206.127" z="15053.466" a="195.03183" group="HCFireResponse" />
-    <pos x="2385.404" z="9651.739" a="0" group="HCFireResponse" />
-    <pos x="10827.433" z="11672.69" a="213.453003" group="HCFireResponse" />
-    <pos x="612.269" z="14440.186" a="-1" group="HCFireResponse" />
-    <pos x="4848.87" z="4719.773" a="-1" group="HCFireResponse" />
-    <pos x="12768.56" z="4834.562" a="0" group="HCFireResponse" />
-    <pos x="4222.739" z="5649.462" a="0" group="HCFireResponse" />
-    <pos x="7311.409" z="7640.874" a="11.367666" group="HCFireResponse" />
-    <pos x="10495.985" z="9050.423" a="104.979721" group="HCFireResponse" />
-    <pos x="13396.335" z="14385.743" a="275.701233" group="HCFireResponse" />
-    <pos x="1610.004" z="11090.438" a="-1" group="HCFireResponse" />
-    <pos x="5393.896" z="10571.463" a="-1" group="HCFireResponse" />
-    <pos x="2257.371" z="6329.823" a="0" group="HCFireResponse" />
+    <pos x="3206.127" z="15053.466" a="195.03183" group="HCFireResponse" y="339.762000" />
+    <pos x="2385.404" z="9651.739" a="0" group="HCFireResponse" y="251.372000" />
+    <pos x="10827.433" z="11672.69" a="213.453003" group="HCFireResponse" y="234.283000" />
+    <pos x="612.269" z="14440.186" a="-1" group="HCFireResponse" y="446.646000" />
+    <pos x="4848.87" z="4719.773" a="-1" group="HCFireResponse" y="285.627000" />
+    <pos x="12768.56" z="4834.562" a="0" group="HCFireResponse" y="82.162400" />
+    <pos x="4222.739" z="5649.462" a="0" group="HCFireResponse" y="336.118000" />
+    <pos x="7311.409" z="7640.874" a="11.367666" group="HCFireResponse" y="299.520000" />
+    <pos x="10495.985" z="9050.423" a="104.979721" group="HCFireResponse" y="184.514000" />
+    <pos x="13396.335" z="14385.743" a="275.701233" group="HCFireResponse" y="26.005200" />
+    <pos x="1610.004" z="11090.438" a="-1" group="HCFireResponse" y="288.235000" />
+    <pos x="5393.896" z="10571.463" a="-1" group="HCFireResponse" y="309.726000" />
+    <pos x="2257.371" z="6329.823" a="0" group="HCFireResponse" y="316.395000" />
   </event>
   <event name="StaticHCSupplyTrailer">
-    <zone smin="0" smax="0" dmin="0" dmax="0" r="0" />
-    <pos x="12699.581" z="12108.345" a="51.90778" group="HCSupplyTrailer" />
-    <pos x="7173.585" z="12630.826" a="87.517349" group="HCSupplyTrailer" />
-    <pos x="10390.187" z="15000.468" a="270.976105" group="HCSupplyTrailer" />
-    <pos x="3523.691" z="3953.545" a="0" group="HCSupplyTrailer" />
-    <pos x="1990.223" z="14233.742" a="-1" group="HCSupplyTrailer" />
-    <pos x="1160.677" z="2613.634" a="-1" group="HCSupplyTrailer" />
-    <pos x="7607.877" z="14048.492" a="0" group="HCSupplyTrailer" />
-    <pos x="5198.47" z="8283.579" a="0" group="HCSupplyTrailer" />
-    <pos x="370.531" z="5023.798" a="-1" group="HCSupplyTrailer" />
-    <pos x="5834.804" z="9286.175" a="0" group="HCSupplyTrailer" />
-    <pos x="1820.858" z="3596.832" a="306.243286" group="HCSupplyTrailer" />
-    <pos x="2084.925" z="11061.72" a="339.045166" group="HCSupplyTrailer" />
+    <pos x="12699.581" z="12108.345" a="51.90778" group="HCSupplyTrailer" y="105.794000" />
+    <pos x="7173.585" z="12630.826" a="87.517349" group="HCSupplyTrailer" y="144.690000" />
+    <pos x="10390.187" z="15000.468" a="270.976105" group="HCSupplyTrailer" y="215.691000" />
+    <pos x="3523.691" z="3953.545" a="0" group="HCSupplyTrailer" y="196.530000" />
+    <pos x="1990.223" z="14233.742" a="-1" group="HCSupplyTrailer" y="411.035000" />
+    <pos x="1160.677" z="2613.634" a="-1" group="HCSupplyTrailer" y="5.596680" />
+    <pos x="7607.877" z="14048.492" a="0" group="HCSupplyTrailer" y="256.029000" />
+    <pos x="5198.47" z="8283.579" a="0" group="HCSupplyTrailer" y="360.287000" />
+    <pos x="370.531" z="5023.798" a="-1" group="HCSupplyTrailer" y="133.904000" />
+    <pos x="5834.804" z="9286.175" a="0" group="HCSupplyTrailer" y="320.798000" />
+    <pos x="1820.858" z="3596.832" a="306.243286" group="HCSupplyTrailer" y="135.484000" />
+    <pos x="2084.925" z="11061.72" a="339.045166" group="HCSupplyTrailer" y="256.573000" />
   </event>
 </eventposdef>

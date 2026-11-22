@@ -132,6 +132,32 @@ def check_anchor_separation(events, positions):
             same_type.append((x, z))
 
 
+def check_anchor_invariants(positions):
+    """Refuse missing/nonfinite heights and degenerate explicit CE zones.
+
+    Fixed anchors may omit zones, as stock fixed events do. A numeric height
+    alone is not native spawn proof; measurement screening remains separate.
+    """
+    for event in positions:
+        name = event.get('name', '')
+        for index, pos in enumerate(event.findall('pos'), 1):
+            try:
+                height = float(pos.get('y', ''))
+            except ValueError:
+                height = math.nan
+            if not math.isfinite(height):
+                raise ValueError('missing or invalid anchor y: %s:site%03d' % (name, index))
+        for zone in event.findall('zone'):
+            try:
+                values = [float(zone.get(a, '')) for a in ('smin', 'smax', 'dmin', 'dmax', 'r')]
+            except ValueError:
+                raise ValueError('invalid anchor zone: ' + name) from None
+            if any(not math.isfinite(v) or v < 0 for v in values):
+                raise ValueError('invalid anchor zone: ' + name)
+            if not any(values):
+                raise ValueError('zero anchor zone: ' + name)
+
+
 def apply_measurements(positions, cache_positions, measured, *, relocated=None,
                        retired=None, events=None):
     """Apply native observations using authored indices, never renumbering survivors.
@@ -224,6 +250,8 @@ def validate(source=SOURCE):
     data = {name: economy.read_plain(source, 'ce/' + name) for name in DATA}
     events, positions, groups, proto = [economy.xml(data[n], tag)
                                        for n, tag in zip(DATA, ROOTS)]
+    # Check authored bytes before measurement application can conceal regressions.
+    check_anchor_invariants(positions)
     for root in (events, positions, groups, proto):
         economy._unique(root)
         names = [n.get('name', '').casefold() for n in root]
@@ -359,6 +387,8 @@ def validate(source=SOURCE):
         data[MEASUREMENTS] = economy.read_plain(source, MEASUREMENTS)
         unusable = apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]),
                                       relocated=relocated, retired=retired, events=events)
+        check_anchor_invariants(positions)
+        check_anchor_invariants(cache_positions)
         check_anchor_separation(events, positions)
         active_groups = {p.get('group') for e in positions for p in e.findall('pos')}
         groups[:] = [g for g in groups if g.get('name') in active_groups]
@@ -565,12 +595,17 @@ def rollback(target):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('plan', 'install', 'rollback'))
+    parser.add_argument('command', choices=('check', 'plan', 'install', 'rollback'))
     parser.add_argument('--source', type=Path, default=SOURCE)
-    parser.add_argument('--mission', type=Path, required=True)
+    parser.add_argument('--mission', type=Path)
     args = parser.parse_args(argv)
+    if args.command != 'check' and args.mission is None:
+        parser.error('--mission is required for ' + args.command)
     try:
-        if args.command == 'rollback':
+        if args.command == 'check':
+            report = validate(args.source)[3]
+            print(json.dumps(dict(report, valid=True), sort_keys=True))
+        elif args.command == 'rollback':
             print(json.dumps({'rolled_back': rollback(args.mission), 'runtime': 'PENDING'}))
         else:
             report = install(args.source, args.mission) if args.command == 'install' else plan(args.mission, args.source)['report']
