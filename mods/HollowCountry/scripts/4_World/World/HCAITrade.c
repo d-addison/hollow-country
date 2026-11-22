@@ -54,14 +54,15 @@ class HCTradeRecipe
 
     void HCApplyDefaults(string encoded)
     {
-        if (!HCJsonFields.Has(encoded, "OfferIntervalSeconds")) { OfferIntervalSeconds = 900; }
-        if (!HCJsonFields.Has(encoded, "MinimumCampMembers")) { MinimumCampMembers = 2; }
-        if (!HCJsonFields.Has(encoded, "MinimumCampReserve")) { MinimumCampReserve = 4; }
-        if (!HCJsonFields.Has(encoded, "LossSupplyDebit")) { LossSupplyDebit = 1; }
-        if (!HCJsonFields.Has(encoded, "MaxLossReceipts")) { MaxLossReceipts = 128; }
-        if (!HCJsonFields.Has(encoded, "PairCandidatesPerTick")) { PairCandidatesPerTick = 1; }
-        if (!HCJsonFields.Has(encoded, "GestureRequests")) { GestureRequests = HCTradeRecipe.DEFAULT_GESTURE_REQUESTS; }
-        if (!HCJsonFields.Has(encoded, "InventoryScanLimit")) { InventoryScanLimit = HCTradeRecipe.DEFAULT_INVENTORY_SCAN_LIMIT; }
+        HCTradeRecipe defaults = new HCTradeRecipe;
+        OfferIntervalSeconds = HCJsonSchema.HCApplyInt(encoded, "OfferIntervalSeconds", OfferIntervalSeconds, defaults.OfferIntervalSeconds);
+        MinimumCampMembers = HCJsonSchema.HCApplyInt(encoded, "MinimumCampMembers", MinimumCampMembers, defaults.MinimumCampMembers);
+        MinimumCampReserve = HCJsonSchema.HCApplyInt(encoded, "MinimumCampReserve", MinimumCampReserve, defaults.MinimumCampReserve);
+        LossSupplyDebit = HCJsonSchema.HCApplyInt(encoded, "LossSupplyDebit", LossSupplyDebit, defaults.LossSupplyDebit);
+        MaxLossReceipts = HCJsonSchema.HCApplyInt(encoded, "MaxLossReceipts", MaxLossReceipts, defaults.MaxLossReceipts);
+        PairCandidatesPerTick = HCJsonSchema.HCApplyInt(encoded, "PairCandidatesPerTick", PairCandidatesPerTick, defaults.PairCandidatesPerTick);
+        GestureRequests = HCJsonSchema.HCApplyInt(encoded, "GestureRequests", GestureRequests, defaults.GestureRequests);
+        InventoryScanLimit = HCJsonSchema.HCApplyInt(encoded, "InventoryScanLimit", InventoryScanLimit, defaults.InventoryScanLimit);
     }
 
     bool HCOfferConfigValid()
@@ -669,8 +670,7 @@ class HCAITrade : HCModule
         m_Status.HCPublish("ready", reason);
     }
 
-    // One line, first tick: every module has started by then, so a missing addon
-    // is a fact and not a start-order artefact. Never repeats.
+    // One line after every start hook: addon binding is settled. Never repeats.
     protected void HCProviderLine()
     {
         if (m_ProviderLogged) { return; }
@@ -683,6 +683,7 @@ class HCAITrade : HCModule
         Print("[HC Plan] HC-35 provider=absent reason=expansion_ai_addon_not_loaded trade=none runtime=PENDING");
     }
     override string GetName() { return "AITrade"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override HCOperationalStatus HCGetOperationalStatus()
     {
@@ -722,7 +723,7 @@ class HCAITrade : HCModule
         bool parsed = false;
         if (encoded.Length() > 0 && encoded.Length() <= 4096)
         {
-            parsed = JsonFileLoader<HCTradeRecipe>.LoadData(encoded, recipe, error);
+            parsed = HCJsonSchemaLoader<HCTradeRecipe>.HCLoadData(encoded, recipe, error);
         }
         if (parsed && recipe) { recipe.HCApplyDefaults(encoded); }
         if (!parsed || !recipe || !recipe.HCValid() || !recipe.HCOfferConfigValid())
@@ -755,6 +756,15 @@ class HCAITrade : HCModule
         m_Trade.HCLog();
     }
 
+    override void OnAllModulesStarted()
+    {
+        if (!m_Trade || !m_Trade.m_Enabled) { return; }
+        HCProviderLine();
+        HCRefreshStatus();
+        // Finalize the World dependency before core captures the ready receipt.
+        HCGetOperationalStatus();
+    }
+
     // Lead's provider activity calls with two already claimed/funded leases.
     // The adapter only starts a swap when the pair is funded; no scan or repeated offer loop.
     // CONSUMER NOTE (#193): ANY HCBegin releases a terminal journal (cancelled, rolled_back
@@ -783,7 +793,6 @@ class HCAITrade : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_Ready) { return; }
-        HCProviderLine();
         HCRefreshStatus();
         if (!m_Trade.HCActive()) { return; }
         m_Units.HCReset(1);
