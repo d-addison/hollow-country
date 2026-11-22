@@ -252,11 +252,12 @@ class HCPersistenceDisposition
             index++;
         }
         // Close the directory iterator before deleting each bounded batch.
+        // At most 8 passes of at most HC_ARCHIVES_KEEP (8) deletions: 64 deletes
+        // per call. Archives beyond that stay on disk (they are retention
+        // surplus, never state) and the next Open/Load call continues the prune.
         ref array<string> obsolete = new array<string>;
-        bool removed = true;
-        while (removed)
+        for (int sweep = 0; sweep < 8; sweep++)
         {
-            removed = false;
             handle = FindFile(path + archiveKind + "*", filename, attr, FindFileFlags.DIRECTORIES);
             if (!handle) { return true; }
             found = filename != "";
@@ -271,14 +272,16 @@ class HCPersistenceDisposition
                 found = FindNextFile(handle, filename, attr);
             }
             CloseFindFile(handle);
-            foreach (string obsoletePath : obsolete)
+            if (obsolete.Count() < 1) { return true; }
+            for (int victim = 0; victim < 8; victim++)
             {
+                if (victim >= obsolete.Count()) { break; }
+                string obsoletePath = obsolete.Get(victim);
                 if (!DeleteFile(obsoletePath) || FileExist(obsoletePath))
                 {
                     Print("[HC Plan] HC-28 recovery=archive_prune_refused reason=archive_delete_failed runtime=PENDING");
                     return false;
                 }
-                removed = true;
             }
         }
         return true;
