@@ -155,12 +155,115 @@ class WorldMeshAuditTests(unittest.TestCase):
         rows = [audit.Placement('g', 'b', 'P'), audit.Placement('g', 'a', 'P')]
         result = audit.audit(rows, Installed({'P': obj}))
         codes = {f['reason'] for f in result['findings']}
-        self.assertTrue({'PIVOT_OFFSET', 'FLOATING_ORIGIN', 'VIEW_GEOMETRY_EMPTY_OR_MISSING',
-                         'VISUAL_TRIANGLE_COST', 'VISUAL_SECTION_COST', 'PIECE_AABB_OVERLAP'} <= codes)
+        self.assertTrue({'VISUAL_TRIANGLE_COST', 'VISUAL_SECTION_COST', 'PIECE_GEOMETRY_INTERSECTION'} <= codes)
+        # Facts about the model are informational, never findings.
+        self.assertFalse(codes & {'PIVOT_OFFSET', 'FLOATING_ORIGIN', 'SINKING_ORIGIN',
+                                  'VIEW_GEOMETRY_EMPTY_OR_MISSING'})
+        self.assertTrue({'PIVOT_OFFSET', 'FLOATING_ORIGIN', 'VIEW_GEOMETRY_EMPTY_OR_MISSING'}
+                        <= {m['fact'] for m in result['models']})
         self.assertEqual(result['classes'][0]['lowest_visual_triangles'], cost)
         self.assertEqual(result['checked'], len({'P'}))
         # Sort input in the API as well as the inventory to make pair witnesses stable.
         self.assertEqual(result, audit.audit(list(reversed(rows)), Installed({'P': obj})))
+
+    # ---- Geometry-LOD convex-component intersection (AABB is only the pre-filter) ----
+
+    def components(self, *boxes):
+        """A Geometry LOD whose convex components are the given (low, high) boxes."""
+        vertices, faces, selections = [], [], []
+        for number, (low, high) in enumerate(boxes):
+            base = len(vertices)
+            vertices.extend(audit.corners((low, high)))
+            first = len(faces)
+            faces.extend(tuple(base + i for i in face)
+                         for face in ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1),
+                                      (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)))
+            selections.append(NS(name='component%02d' % number, faces=list(range(first, len(faces))),
+                                 vertices=list(range(base, len(vertices)))))
+        return lod(audit.GEOMETRY, vertices, faces, selections)
+
+    def pair(self, a, b, pos_a=(0, 0, 0), pos_b=(0, 0, 0), yaw_a=0, yaw_b=0):
+        rows = [audit.Placement('g', 'a', 'A', pos_a, (yaw_a, 0, 0)),
+                audit.Placement('g', 'b', 'B', pos_b, (yaw_b, 0, 0))]
+        result = audit.audit(rows, Installed({'A': prop(a), 'B': prop(b)}))
+        return [f for f in result['findings'] if f['reason'] == 'PIECE_GEOMETRY_INTERSECTION'], result
+
+    def test_true_component_penetration_is_a_finding_with_depth(self):
+        box = self.components(((-1, 0, -1), (1, 4, 1)))
+        found, _ = self.pair(box, box, pos_b=(.5, 0, 0))
+        self.assertEqual(len(found), 1)
+        self.assertAlmostEqual(found[0]['penetration_m'], 1.5, places=3)
+        self.assertEqual({found[0]['key'], found[0]['other_key']}, {'a', 'b'})
+
+    def test_touching_or_tolerance_contact_is_not_an_intersection(self):
+        box = self.components(((-1, 0, -1), (1, 1, 1)))
+        tolerance = audit.POLICY['contact_epsilon_m']
+        self.assertEqual(self.pair(box, box, pos_b=(2, 0, 0))[0], [])
+        self.assertEqual(self.pair(box, box, pos_b=(2 - tolerance / 2, 0, 0))[0], [])
+        self.assertEqual(len(self.pair(box, box, pos_b=(2 - 3 * tolerance, 0, 0))[0]), 1)
+
+    def test_aabb_overlap_without_component_contact_is_not_an_intersection(self):
+        # Two L-shapes whose bounding boxes overlap while their solid components interlock
+        # without touching: the old AABB verdict reported this as a finding.
+        ell = self.components(((0, 0, 0), (3, 1, 1)), ((0, 0, 1), (1, 1, 3)))
+        other = self.components(((0, 0, 0), (1, 1, 1)))
+        found, _ = self.pair(ell, other, pos_b=(1.5, 0, 1.5))
+        self.assertEqual(found, [])
+        boxes = [audit.placed_box(((0, 0, 0), (3, 1, 3)), audit.Placement('g', 'a', 'A')),
+                 audit.placed_box(((0, 0, 0), (1, 1, 1)), audit.Placement('g', 'b', 'B', (1.5, 0, 1.5)))]
+        self.assertTrue(audit.overlaps(*boxes))
+        self.assertEqual(len(self.pair(ell, other, pos_b=(.5, 0, 1.5))[0]), 1)
+
+    def test_rotated_pieces_use_their_real_shape_not_the_enclosing_box(self):
+        plank = self.components(((-2, 0, -.1), (2, 1, .1)))
+        box = self.components(((-.3, 0, -.3), (.3, 1, .3)))
+        # A plank turned 45 degrees: its AABB covers the corner the box sits in, the plank does not.
+        corner = (1.2, 0, 1.2)
+        self.assertEqual(self.pair(plank, box, pos_b=corner, yaw_a=45)[0], [])
+        self.assertEqual(len(self.pair(plank, box, pos_b=(.5, 0, -.5), yaw_a=45)[0]), 1)
+
+    # ---- Model facts versus placement consequences ----
+
+    def test_model_facts_are_informational_and_placements_decide_the_findings(self):
+        floating = cube((-.3, .5, -.3), (.3, 1, .3))  # lowest geometry 0.5 m above the origin
+        facts = audit.audit([audit.Placement('g', 'a', 'P', (0, 0, 0), ground_y=0.)], Installed({'P': prop(floating)}))
+        self.assertIn('FLOATING_ORIGIN', {m['fact'] for m in facts['models']})
+        # Placed at the terrain height the model origin is meant for: the gap is a placement defect.
+        self.assertIn('FLOATING_PLACEMENT', {f['reason'] for f in facts['findings']})
+        # Lowering the row by the measured offset compensates it; the model fact stays informational.
+        fixed = audit.audit([audit.Placement('g', 'a', 'P', (0, -.5, 0), ground_y=0.)],
+                            Installed({'P': prop(floating)}))
+        self.assertFalse([f for f in fixed['findings'] if 'PLACEMENT' in f['reason']])
+        self.assertIn('FLOATING_ORIGIN', {m['fact'] for m in fixed['models']})
+
+    def test_burial_matters_only_for_rows_with_interaction(self):
+        sunk = cube((-.3, -.5, -.3), (.3, .5, .3))
+        installed = Installed({'P': prop(sunk)})
+        plain = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0.)], installed)
+        loot = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0., interactive=True)], installed)
+        self.assertFalse([f for f in plain['findings'] if 'PLACEMENT' in f['reason']])
+        self.assertEqual([f['reason'] for f in loot['findings'] if 'PLACEMENT' in f['reason']],
+                         ['SINKING_PLACEMENT'])
+        raised = audit.audit([audit.Placement('g', 'a', 'P', (0, .5, 0), ground_y=0., interactive=True)], installed)
+        self.assertFalse([f for f in raised['findings'] if 'PLACEMENT' in f['reason']])
+
+    def test_ground_contact_uses_the_visible_mesh_not_geometry_below_it(self):
+        # Geometry reaches below the visible base (a collision skirt): the visible bottom touches the ground.
+        geometry = cube((-.3, -.8, -.3), (.3, .5, .3))
+        visual = lod(1, list(audit.corners(((-.3, 0, -.3), (.3, .5, .3)))), [(0, 1, 2)])
+        result = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0., interactive=True)],
+                             Installed({'P': prop(geometry, [visual])}))
+        self.assertFalse([f for f in result['findings'] if 'PLACEMENT' in f['reason']])
+
+    def test_interaction_needs_view_geometry_but_decoration_does_not(self):
+        installed = Installed({'P': prop(view=False)})
+        decorative = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0.)], installed)
+        interactive = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0., interactive=True)], installed)
+        self.assertNotIn('INTERACTION_WITHOUT_VIEW_GEOMETRY', {f['reason'] for f in decorative['findings']})
+        self.assertIn('INTERACTION_WITHOUT_VIEW_GEOMETRY', {f['reason'] for f in interactive['findings']})
+        both = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0., interactive=True)],
+                           Installed({'P': prop()}))
+        self.assertNotIn('INTERACTION_WITHOUT_VIEW_GEOMETRY', {f['reason'] for f in both['findings']})
 
     def test_missing_models_lods_and_section_api_are_explicit_skips(self):
         visual = lod(5, [(0, 0, 0)], [])
@@ -170,7 +273,8 @@ class WorldMeshAuditTests(unittest.TestCase):
                              Installed({'P': obj}))
         self.assertEqual({s['reason'] for s in result['skipped']},
                          {'MODEL_UNRESOLVED', 'GEOMETRY_LOD_EMPTY_OR_MISSING', 'SECTION_COUNT_UNAVAILABLE'})
-        self.assertTrue(any(f['reason'] == 'VIEW_GEOMETRY_EMPTY_OR_MISSING' for f in result['findings']))
+        self.assertTrue(any(m['fact'] == 'VIEW_GEOMETRY_EMPTY_OR_MISSING' for m in result['models']))
+        self.assertFalse(any(f['reason'] == 'VIEW_GEOMETRY_EMPTY_OR_MISSING' for f in result['findings']))
 
     def test_server_visuals_not_accepted(self):
         installed = Installed({'P': prop()})
@@ -338,7 +442,8 @@ class WorldMeshAuditTests(unittest.TestCase):
                 self.assertEqual({call.args[0] for call in read_index.call_args_list}, set(archives))
                 installed.classes['Parent']['model'] = 'gear_test/mesh'
                 self.assertEqual(installed.model('Prop').bounding_center, (1, 2, 3))
-                self.assertEqual(installed.model('Land_Building').bounding_center, (0, 0, 0))
+                # Standalone placed classes restore the bounding centre, Land_ buildings included.
+                self.assertEqual(installed.model('Land_Building').bounding_center, (1, 2, 3))
                 self.assertEqual(installed.model('Prop', host=True).bounding_center, (0, 0, 0))
                 self.assertIsNone(installed.model('Missing'))
                 read_odol.assert_called_with(b'synthetic')
