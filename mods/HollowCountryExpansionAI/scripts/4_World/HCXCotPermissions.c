@@ -35,7 +35,7 @@ class HCXCotPermissionPort : HCAdminPermissionPort
 {
     protected string m_HCReason;
 
-    string HCProblem() { return m_HCReason; }
+    override string HCProblem() { return m_HCReason; }
 
     override bool HCReady()
     {

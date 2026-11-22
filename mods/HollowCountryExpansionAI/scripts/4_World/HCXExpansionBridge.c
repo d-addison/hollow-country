@@ -24,6 +24,8 @@ class HCXExpansionBridge
 
     // Native EnSystem UTC out-parameter APIs; sample date again across midnight.
     // CF owns epoch conversion; its bridge validates ranges before provider calls.
+    // Returns -1 on refusal, including dates outside 1970-2037. Callers must
+    // reject negative results before updating lockouts or persisting an epoch.
     static int HCGetTimestamp()
     {
         int year, month, day, hour, minute, second;
@@ -34,7 +36,7 @@ class HCXExpansionBridge
         if (year != endYear || month != endMonth || day != endDay)
         {
             HCRefuse("GetTimestamp", "UTC_DATE_CHANGED");
-            return 0;
+            return -1;
         }
         return HCXCFBridge.HCTimestamp(year, month, day, hour, minute, second);
     }

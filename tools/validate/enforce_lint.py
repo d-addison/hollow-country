@@ -888,7 +888,7 @@ _CF_GLOBALS = frozenset("""Assert_Empty Assert_False Assert_Log Assert_Null Asse
     IsMissionClient IsMissionHost IsMissionOffline ModuleManagerExists""".split())
 _CF_LEGACY_TYPES = frozenset("""JMAnimRegister JMModuleBase JMModuleBinding
     JMModuleConstructor JMModuleConstructorBase JMModuleManager JMModuleManagerBase
-    JM_CommunityFramework""".split())
+    JM_CommunityFramework JMDate""".split())
 _DEPENDENCY_GLOBALS.update({name: (kind, _COT_BRIDGE) for name, kind in (
     ('GetCOT', 'CommunityOnlineTools'), ('GetCommunityOnlineTools', 'CommunityOnlineTools'),
     ('GetCOTBase', 'CommunityOnlineToolsBase'), ('GetCommunityOnlineToolsBase', 'CommunityOnlineToolsBase'),
@@ -1199,22 +1199,22 @@ def rule_dependency_bridges(project, source):
                 continue
             if begin + call.start(2) in covered:
                 continue
-            # HC methods/functions can share a helper name with a vendor global.
-            # Resolve the authored owner first, as the engine does for bare calls.
-            if owner and any(candidate.name == call[2]
-                             for ancestor in project.lineage(owner.name)
-                             for definition in project.links.get(ancestor, ())
-                             for candidate in definition.methods):
+            # Bare calls resolve against visible authored/native members first.
+            if owner and call[2] in project.receiver_members(owner.name, source.layer)[0]:
                 continue
             if any(function.name == call[2]
                    for item in project.sources
                    if item.layer is None or source.layer is None or item.layer <= source.layer
                    for function in item.functions):
                 continue
+            if any(source.layer is None or layer <= source.layer
+                   for layer in project.native_globals.get(call[2], ())):
+                continue
+            # Resolve typedefs and legacy CF names before vendor prefix/global rules.
             bridge = _dependency_bridge(project, call[2])
-            if call[2] in _COT_GLOBALS:
+            if not bridge and call[2] in _COT_GLOBALS:
                 bridge = _COT_BRIDGE
-            elif call[2] in _CF_GLOBALS:
+            elif not bridge and call[2] in _CF_GLOBALS:
                 bridge = _CF_BRIDGE
             kind, bridge = _DEPENDENCY_GLOBALS.get(call[2], (call[2], bridge))
             if not bridge:
@@ -2142,25 +2142,6 @@ def lint_texts(files, native=None, rules=ALL_RULES):
     return lint(sources, native, rules)
 
 
-# W1-04 owns bridges/lint only. These precise pre-existing callers remain with
-# their owning workers for migration to HCXExpansionBridge.HCGetTimestamp().
-# Counts are one each: new calls in the same method still fail, and removal
-# makes the exception stale. No whole-file or whole-method suppression.
-_DEPENDENCY_LEGACY_TIMESTAMPS = (
-    ('HCXAIEncounters.c', 'HCXAIEncounters.Step', 'encounter token epoch; migrate encounter owner'),
-    ('HCXAIPickerCaches.c', 'HCXAISiteDirector.StepCache', 'picker cache epoch; migrate cache owner'),
-    ('HCXAIPickerLifecycle.c', 'HCXAISiteDirector.StepTransients', 'party epoch; migrate lifecycle owner'),
-    ('HCXAIPickerLifecycle.c', 'HCXAISiteDirector.FinishTransient', 'materialized party epoch; migrate lifecycle owner'),
-    ('HCXAIPickerWalk.c', 'HCXAIPickerWalk.HCAtHome', 'home cooldown epoch; migrate walk owner'),
-    ('HCXAIPickerWalk.c', 'HCScavengeTrip.HCCheckpoint', 'trip cooldown epoch; migrate walk owner'),
-    ('HCXAISites.c', 'HCXAISiteDirector.HCStepLocalities', 'locality epoch; migrate sites owner'),
-    ('HCXAISites.c', 'HCXAISiteDirector.SpawnProblemFor', 'raid lockout epoch; migrate sites owner'),
-    ('HCXAISites.c', 'HCXAISiteDirector.HCRefreshDepleted', 'depletion epoch; migrate sites owner'),
-    ('HCXAISites.c', 'HCXAISiteDirector.RecordCleared', 'cleared-site epoch; migrate sites owner'),
-    ('HCXAISites.c', 'HCXAISiteDirector.CacheStep', 'cache expiry epoch; migrate sites owner'),
-)
-
-
 # ---------------------------------------------------------------- baseline
 
 def load_baseline(path=BASELINE):
@@ -2170,13 +2151,7 @@ def load_baseline(path=BASELINE):
     if path.exists() and path.resolve() == BASELINE.resolve():
         identities = {(entry['rule'], entry['path'], entry['symbol'], entry['key'])
                       for entry in baseline.get('entries', [])}
-        dependency_entries = [
-            {'rule': 'HC-E027', 'path': str(Path(_EXPANSION_BRIDGE).with_name(filename)),
-             'symbol': symbol, 'key': f'{symbol}:ExpansionStatic.GetTimestamp',
-             'count': 1, 'review': f'W1-04 scoped legacy: {reason}'}
-            for filename, symbol, reason in _DEPENDENCY_LEGACY_TIMESTAMPS
-        ]
-        for entry in (*enforce_json.LEGACY_BASELINE, *dependency_entries):
+        for entry in enforce_json.LEGACY_BASELINE:
             identity = (entry['rule'], entry['path'], entry['symbol'], entry['key'])
             if identity not in identities:
                 baseline.setdefault('entries', []).append(dict(entry))
@@ -2262,6 +2237,7 @@ def main(argv=None):
     if symbols is not None:
         names = {m.name for source in sources for c in source.classes for m in c.methods
                  if m.name != c.name and 'override' not in m.modifiers}
+        names.update(_COT_GLOBALS | _CF_GLOBALS | _DEPENDENCY_GLOBALS.keys())
         symbols = dict(symbols, globals=native_global_functions(path, names))
     provider_layers = {}
     if not args.no_native:

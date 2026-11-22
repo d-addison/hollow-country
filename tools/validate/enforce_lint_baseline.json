@@ -50,6 +50,94 @@
       "line_at_review": 1790,
       "review": "pending ownership hardening (build 161 review)",
       "severity": "warning"
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIEncounters.c",
+      "symbol": "HCXAIEncounters.Step",
+      "key": "HCXAIEncounters.Step:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIEncounters to HCXExpansionBridge.HCGetTimestamp; encounter token epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerCaches.c",
+      "symbol": "HCXAISiteDirector.StepCache",
+      "key": "HCXAISiteDirector.StepCache:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIPickerCaches to HCXExpansionBridge.HCGetTimestamp; picker cache epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerLifecycle.c",
+      "symbol": "HCXAISiteDirector.StepTransients",
+      "key": "HCXAISiteDirector.StepTransients:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIPickerLifecycle to HCXExpansionBridge.HCGetTimestamp; party epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerLifecycle.c",
+      "symbol": "HCXAISiteDirector.FinishTransient",
+      "key": "HCXAISiteDirector.FinishTransient:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIPickerLifecycle to HCXExpansionBridge.HCGetTimestamp; materialized party epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerWalk.c",
+      "symbol": "HCXAIPickerWalk.HCAtHome",
+      "key": "HCXAIPickerWalk.HCAtHome:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIPickerWalk to HCXExpansionBridge.HCGetTimestamp; home cooldown epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerWalk.c",
+      "symbol": "HCScavengeTrip.HCCheckpoint",
+      "key": "HCScavengeTrip.HCCheckpoint:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAIPickerWalk to HCXExpansionBridge.HCGetTimestamp; trip cooldown epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "symbol": "HCXAISiteDirector.HCStepLocalities",
+      "key": "HCXAISiteDirector.HCStepLocalities:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAISites to HCXExpansionBridge.HCGetTimestamp; locality epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "symbol": "HCXAISiteDirector.SpawnProblemFor",
+      "key": "HCXAISiteDirector.SpawnProblemFor:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAISites to HCXExpansionBridge.HCGetTimestamp; raid lockout epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "symbol": "HCXAISiteDirector.HCRefreshDepleted",
+      "key": "HCXAISiteDirector.HCRefreshDepleted:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAISites to HCXExpansionBridge.HCGetTimestamp; depletion epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "symbol": "HCXAISiteDirector.RecordCleared",
+      "key": "HCXAISiteDirector.RecordCleared:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAISites to HCXExpansionBridge.HCGetTimestamp; cleared-site epoch. Callers must reject the invalid -1 sentinel."
+    },
+    {
+      "rule": "HC-E027",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "symbol": "HCXAISiteDirector.CacheStep",
+      "key": "HCXAISiteDirector.CacheStep:ExpansionStatic.GetTimestamp",
+      "count": 1,
+      "review": "Wave 2 migrates HCXAISites to HCXExpansionBridge.HCGetTimestamp; cache expiry epoch. Callers must reject the invalid -1 sentinel."
     }
   ]
 }
