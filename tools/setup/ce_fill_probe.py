@@ -4,6 +4,8 @@ import contextlib
 import datetime
 import io
 import json
+import math
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import re
 import secrets
@@ -16,6 +18,7 @@ from tools.package import (optional_overlays as overlays, loot_boost, travel, ma
                            snafu_optional as sf, weapon_pack_guards)
 
 PLAN_NAME = 'ce-fill-probe-plan.json'
+CATALOG_NAME = 'ce-fill-type-catalog.json'
 FRIEND = Path('/mnt/e/HollowCountryLocal/friend-local-1')
 HARD_CAP = 8
 MAX_RPT_BYTES = 128 * 1024 * 1024
@@ -59,7 +62,7 @@ def installed_mods(friend=FRIEND):
 def binding(plan):
     fields = {key: plan[key] for key in ('variant', 'layers', 'mods', 'mod_source',
               'stock_mission_sha256', 'run_id', 'hold_seconds', 'server_exe_sha256')}
-    for key in ('authored_inputs_sha256', 'tool_sha256'):
+    for key in ('authored_inputs_sha256', 'tool_sha256', 'variants', 'variant_receipts', 'type_catalog'):
         if key in plan:
             fields[key] = plan[key]
     return rt.sha256(json.dumps(fields, sort_keys=True, separators=(',', ':')).encode())
@@ -152,10 +155,128 @@ def apply_layers(mission, layers, bundle, workshop, mods, reports):
             raise ValueError('unknown treatment layer')
 
 
+
+PACK_FILES = (sf.MANAGED + '/ce/types.xml', tf.MANAGED + '/ce/types.xml')
+
+
+def parse_variants(values, treatment):
+    """Normalize repeatable knobs before any runtime is built; duplicates refuse."""
+    result = {}
+    for item in values or ():
+        name, sep, value = item.partition('=')
+        if not sep or name in result:
+            raise ValueError('variant must be a unique NAME=VALUE')
+        if name == 'pack_tiers':
+            if value != 'widen':
+                raise ValueError('pack_tiers requires widen')
+            result[name] = value
+        elif name in ('weapons_capacity', 'pack_nominal'):
+            try:
+                factor = float(value)
+            except ValueError as error:
+                raise ValueError('variant factor must be numeric') from error
+            if not math.isfinite(factor) or not (1 < factor <= 4 if name == 'weapons_capacity' else 0 < factor < 1):
+                raise ValueError('variant factor outside diagnostic range')
+            result[name] = factor
+        else:
+            raise ValueError('unknown variant name')
+    if result and 'weapons' not in TREATMENTS[treatment]:
+        raise ValueError('variants require the weapons layer')
+    return dict(sorted(result.items()))
+
+
+def type_catalog(mission):
+    """Resolve effective rows from this mission's XML registrations, in load order."""
+    result = {}
+    for name in loot_boost.types_files(mission, include_optional=True):
+        data = loot_boost.economy.read_plain(mission, name)
+        for row in ET.fromstring(data).findall('type'):
+            result[row.get('name').lower()] = dict(
+                file=name, file_sha256=rt.sha256(data),
+                category=sorted({n.get('name') for n in row.findall('category')}),
+                usage=sorted({n.get('name') for n in row.findall('usage')}),
+                tier=sorted({n.get('name') for n in row.findall('value')}))
+    return result
+
+
+def apply_variants(mission, variants):
+    """Only mutate disposable copies; receipt each edited file and aggregate counts."""
+    receipts = {}
+    for knob, factor in variants.items():
+        report = dict(files=[], edited_rows=0)
+        names = ['mapgroupproto.xml'] if knob == 'weapons_capacity' else PACK_FILES
+        for name in names:
+            before = loot_boost.economy.read_plain(mission, name)
+            root = ET.fromstring(before)
+            counts = dict(edited_rows=0)
+            if knob == 'weapons_capacity':
+                defaults = {n.get('name'): int(n.get('lootmax')) for n in root.findall('./defaults/default')
+                            if n.get('lootmax') is not None}
+                counts.update(containers=0, groups=0, capacity_before=0, capacity_after=0,
+                              group_caps_before=0, group_caps_after=0)
+                for group in root.findall('group'):
+                    if int(group.get('lootmax', defaults.get('group', 12))) == 0:
+                        continue
+                    if not {n.get('name') for n in group.findall('usage')} & {'Military', 'Police'}:
+                        continue
+                    changed = False
+                    for container in group.findall('container'):
+                        if 'weapons' not in {n.get('name') for n in container.findall('category')}:
+                            continue
+                        old = int(container.get('lootmax', defaults.get('container', 8)))
+                        new = math.ceil(old * factor)
+                        counts['containers'] += 1
+                        counts['capacity_before'] += old
+                        counts['capacity_after'] += new
+                        if new != old:
+                            container.set('lootmax', str(new))
+                            counts['edited_rows'] += 1
+                            changed = True
+                    if changed:
+                        old = int(group.get('lootmax', defaults.get('group', 12)))
+                        new = max(old, sum(int(c.get('lootmax', defaults.get('container', 8)))
+                                           for c in group.findall('container')))
+                        group.set('lootmax', str(new))
+                        counts['groups'] += 1
+                        counts['group_caps_before'] += old
+                        counts['group_caps_after'] += new
+            else:
+                counts.update(nominal_before=0, nominal_after=0, min_before=0, min_after=0)
+                for row in root.findall('type'):
+                    if knob == 'pack_tiers':
+                        usages = {n.get('name') for n in row.findall('usage')}
+                        if (usages and usages <= {'Military', 'Police', 'Prison'}
+                                and 'Tier2' not in {n.get('name') for n in row.findall('value')}):
+                            ET.SubElement(row, 'value', name='Tier2')
+                            counts['edited_rows'] += 1
+                    else:
+                        changed = False
+                        for field in ('nominal', 'min'):
+                            node = row.find(field)
+                            old = int(node.text)
+                            new = loot_boost.scaled(old, factor)
+                            node.text = str(new)
+                            counts[field + '_before'] += old
+                            counts[field + '_after'] += new
+                            changed |= new != old
+                        counts['edited_rows'] += int(changed)
+            after = ET.tostring(root, encoding='utf-8', xml_declaration=True) if counts['edited_rows'] else before
+            (mission / name).write_bytes(after)
+            report['files'].append(dict(path=name, before_sha256=rt.sha256(before),
+                                        after_sha256=rt.sha256(after), **counts))
+            report['edited_rows'] += counts['edited_rows']
+        report['diagnostic_only'] = True
+        if knob == 'pack_nominal':
+            report['policy_warning'] = 'Never a shipped policy: owner fixed both packs at 2x.'
+        receipts[knob] = report
+    return receipts
+
+
 def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_guards.WORKSHOP,
-          hold_seconds=240, wait_minutes=10, native_scripts=None, dry_run=False):
+          hold_seconds=240, wait_minutes=10, native_scripts=None, dry_run=False, variant=None):
     if len(TREATMENTS) > HARD_CAP or treatment not in TREATMENTS:
         raise ValueError('invalid treatment set or hard cap exceeded')
+    variants = parse_variants(variant, treatment)
     if not 240 <= hold_seconds <= 3600 or not 5 <= wait_minutes <= 120 or wait_minutes*60 < hold_seconds+120:
         raise ValueError('hold needs at least 240 seconds and timeout needs 120 seconds headroom')
     # Even dry-run verifies all source bytes, mod hashes and installer composition.
@@ -166,7 +287,7 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
     source = rt.verify_source(source_runtime, rt.BATTLEYE_SHA256)
     stock_sha = ce_site_probe.stock_digest(source['records'])
     plan = rt.plan_header('ce-fill-probe', None, after={'variant': treatment})
-    plan.update(layers=list(TREATMENTS[treatment]), mods=mods, mod_source=mod_source,
+    plan.update(variants=variants, layers=list(TREATMENTS[treatment]), mods=mods, mod_source=mod_source,
                 stock_control='verified vanilla-p0-001; supplied bundle-src-005 is already HC-layered',
                 stock_mission_sha256=stock_sha, run_id=secrets.token_hex(16),
                 hold_seconds=hold_seconds, server_exe_sha256=rt.SERVER_EXE_SHA256)
@@ -204,7 +325,25 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
                 candidate['before'] = {n: candidate['before'][n] for n in candidate['files']}
             overlays.install(candidate, built['mission_dest'], managed_name=overlays.BUNDLE_MANAGED)
             apply_layers(built['mission_dest'], TREATMENTS[treatment], bundle, Path(workshop), mods, scratch/'reports')
+            plan['variant_receipts'] = apply_variants(built['mission_dest'], variants)
+            catalog_raw = json.dumps(type_catalog(built['mission_dest']), separators=(',', ':')).encode()
+            (context['destination'] / CATALOG_NAME).write_bytes(catalog_raw)
+            plan['type_catalog'] = dict(path=CATALOG_NAME, sha256=rt.sha256(catalog_raw))
             profiles(context['destination'], bundle)
+        old_hook = hook
+        plan['binding'] = binding(plan)
+        hook = render_hook(plan['binding'], hold_seconds)
+        init = built['mission_dest'] / 'init.c'
+        data = init.read_bytes()
+        if data.count(old_hook) != 1:
+            raise ValueError('staged hook differs before final binding')
+        init.write_bytes(data.replace(old_hook, hook))
+        manifest = built['manifest']
+        manifest['hook_sha256'] = rt.sha256(hook)
+        manifest['files']['init.c'].update(staged_sha256=rt.sha256(init.read_bytes()),
+                                           staged_bytes=init.stat().st_size)
+        (built['mission_dest'] / rt.dm.MARKER_NAME).write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         # write_plan re-verifies the complete mod inventory after installers finish.
         built['staged'] = [dict(path=n, sha256=rt._hash_file(context['destination']/n)[0],
                                 bytes=size) for n, size in sorted(rt.dm.walk_plain(context['destination']).items())]
@@ -220,6 +359,7 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
         rt.write_plan(context['destination'], PLAN_NAME, plan)
     if dry_run:
         return dict(kind=plan['kind'], status='inputs-validated-not-staged', variant=treatment,
+                    variants=variants, variant_receipts=plan['variant_receipts'],
                     layers=plan['layers'], mod_directories=sum(map(len, mods.values())))
     return plan
 
@@ -248,6 +388,9 @@ def ingest(rpt, out, plan_path=None):
             or plan.get('binding') != binding(plan) or plan['server_exe_sha256'] != rt.SERVER_EXE_SHA256
             or not 240 <= plan['hold_seconds'] <= 3600):
         raise ValueError('invalid fill probe plan or binding')
+    normalized = parse_variants([f'{k}={v}' for k, v in plan.get('variants', {}).items()], plan['variant'])
+    if normalized != plan.get('variants', {}):
+        raise ValueError('invalid variants')
     rt.validate_mods(plan['mods'])
     if plan['arguments'] != rt.server_arguments(plan['runtime_root'], plan['mods']):
         raise ValueError('invalid fill probe arguments')
@@ -281,7 +424,19 @@ def ingest(rpt, out, plan_path=None):
             summaries.append(dict(timestamp=timestamp(line), text=line[line.index('[CE]'):]))
     if not summaries:
         raise ValueError('missing CE init summary')
-    result = dict(schema=1, status='observed-not-accepted', treatment=plan['variant'],
+    catalog = {}
+    if 'type_catalog' in plan:
+        pin = plan['type_catalog']
+        if pin.get('path') != CATALOG_NAME:
+            raise ValueError('invalid type catalog path')
+        catalog_raw = rt._read_bounded(plan_path.parent / CATALOG_NAME, MAX_RPT_BYTES)
+        if rt.sha256(catalog_raw) != pin['sha256']:
+            raise ValueError('type catalog hash drift')
+        catalog = json.loads(catalog_raw)
+    for name, row in counts.items():
+        row['definition'] = catalog.get(name.lower())
+    result = dict(schema=1, variants=plan.get('variants', {}),
+                  variant_receipts=plan.get('variant_receipts', {}), status='observed-not-accepted', treatment=plan['variant'],
                   total=sum(r['count'] for r in counts.values()), first_timestamp=first, last_timestamp=last,
                   types=dict(sorted(counts.items())), ce_init_summaries=summaries, mission_hold_seconds=elapsed,
                   provenance=dict(plan_sha256=rt.sha256(plan_raw), rpt_sha256=rt.sha256(raw),
@@ -291,6 +446,40 @@ def ingest(rpt, out, plan_path=None):
                     staged_utc=plan['staged_utc'], ingested_utc=datetime.datetime.now(datetime.timezone.utc).isoformat()))
     rt.new_file(out, (json.dumps(result, indent=2)+'\n').encode())
     return result
+
+
+def compare(paths):
+    """Compare every run against the first; refuse incompatible native controls."""
+    if len(paths) < 2:
+        raise ValueError('compare requires at least two summaries')
+    runs = [json.loads(rt._read_bounded(Path(p), MAX_RPT_BYTES)) for p in paths]
+    controls = ('server_exe_sha256', 'stock_mission_sha256')
+    expected = tuple(runs[0]['provenance'].get(k) for k in controls)
+    if not all(expected):
+        raise ValueError('missing compare control hashes')
+    output = []
+    base = runs[0]['types']
+    for run in runs:
+        if tuple(run['provenance'].get(k) for k in controls) != expected:
+            raise ValueError('compare server executable or stock mission mismatch')
+        files, signatures = {}, {}
+        for row in run['types'].values():
+            definition = row.get('definition')
+            if not definition:
+                raise ValueError('compare requires staged runtime type attribution; re-ingest with a new plan')
+            file = definition['file']
+            signature = json.dumps([definition[k] for k in ('category', 'usage', 'tier')], separators=(',', ':'))
+            files[file] = files.get(file, 0) + row['count']
+            signatures[signature] = signatures.get(signature, 0) + row['count']
+        if run['total'] != sum(row['count'] for row in run['types'].values()):
+            raise ValueError('summary total differs from type counts')
+        names = set(base) | set(run['types'])
+        deltas = {n: (base.get(n, {}).get('count', 0), run['types'].get(n, {}).get('count', 0)) for n in names}
+        output.append(dict(treatment=run['treatment'], variants=run.get('variants', {}), total=run['total'],
+                           per_defining_file=dict(sorted(files.items())), per_signature=dict(sorted(signatures.items())),
+                           went_to_zero=sorted(n for n, (a, b) in deltas.items() if a > 0 and b == 0),
+                           rose={n: dict(before=a, after=b) for n, (a, b) in sorted(deltas.items()) if b > a}))
+    return dict(status='compared-not-accepted', baseline='first summary', runs=output)
 
 
 def main(argv=None):
@@ -304,16 +493,25 @@ def main(argv=None):
     st.add_argument('--native-scripts', type=Path)
     st.add_argument('--hold-seconds', type=int, default=240)
     st.add_argument('--wait-minutes', type=int, default=10)
+    st.add_argument('--variant', action='append', default=[])
     st.add_argument('--dry-run', action='store_true')
     ing = sub.add_parser('ingest')
     ing.add_argument('--rpt', type=Path, required=True)
     ing.add_argument('--out', type=Path, required=True)
     ing.add_argument('--plan', type=Path)
+    cmp = sub.add_parser('compare')
+    cmp.add_argument('summaries', type=Path, nargs='+')
     args = vars(parser.parse_args(argv))
     command = args.pop('command')
     try:
-        result = stage(**args) if command == 'stage' else ingest(args['rpt'], args['out'], args['plan'])
-        print(json.dumps({k: result[k] for k in ('status', 'variant', 'total') if k in result}))
+        if command == 'compare':
+            result = compare(args['summaries'])
+        elif command == 'stage':
+            result = stage(**args)
+        else:
+            result = ingest(args['rpt'], args['out'], args['plan'])
+        print(json.dumps(result if command == 'compare' else {k: result[k] for k in
+              ('status', 'variant', 'variants', 'variant_receipts', 'total') if k in result}))
         return 0
     except (OSError, ValueError, KeyError, TypeError, friend_install.Refused, friend_bundle.Refused) as error:
         # Native logs and operator paths are never echoed into public output.
