@@ -102,6 +102,7 @@ rules report review candidates, without timing or native acceptance claims:
 | HC-P008 | Save on a declared type ending in Store on a tick path | Uses P003 reachability; review durability barriers manually and prefer dirty state plus HCSaveScheduler for routine work. |
 | HC-P009 | File I/O (open, exist, copy, delete, JSON load or save) inside a loop of unbounded trip count on the OnStart path | A constant trip count within the tool's small cap is bounded; once-only load latches and calls into OnStop overrides are not followed. Queue the files as bounded startup work (HCStartupPump, HCWorkBudget) instead of a synchronous loop. |
 | HC-P010 | Raw `HCTake` on a typed HCUnitBudget or the shared tick budget | Bypasses consumer fairness and attribution; use `HCTakeFor` with an owned `HC_WORK_*` slot. A budget the class owns privately is exempt. |
+| HC-P011 | Loop over a class array/map/set field on a tick path doing per-item world work with no budget, clock or authored cap | Unbounded per-tick work grows with world state; move the walk into an `HCBoundedJob` (cursor + per-tick `HCWorkBudget`) or bound it. Exempt: budget/clock tests, literal bounds <= 16, roster collections, authored `Count() >= limit` caps, first-match exits. |
 
 There is no HC-P002: source-only configured float bounds are ambiguous, so the
 number is deliberately unused. The tick roots are OnTick, OnUpdate, HCStep*, names
