@@ -120,6 +120,10 @@ def cycle(args):
             # Reusing signed artifacts must not bypass today's available gate.
             # The manifest is outside its own hashed file inventory.
             manifest['compile_gate'] = native_compile_gate(tree, sha, args.workshop)
+            if (manifest['compile_gate'].get('passed') is True
+                    and compat_addon.check_hashes(manifest.get('compat_addon'),
+                                                  manifest['compile_gate'].get('compat_sha256'))):
+                raise ValueError('Compile gate compat PBOs differ from the release receipt; rebuild required')
             manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         command = [sys.executable, '-B', '-m', 'tools.setup.friend_bundle', 'build']
         help_text = run([*command, '--help'], tree)

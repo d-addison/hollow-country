@@ -16,7 +16,7 @@ from collections import namedtuple
 from pathlib import Path
 import re
 
-from tools.package import pbo, weapon_pack_guards, workshop_publish
+from tools.package import pbo, workshop_publish
 
 KINDS = {'base': 'base', 'expansionai': 'addon'}  # CLI kind -> workshop_publish item
 Finding = namedtuple('Finding', 'code detail')
@@ -31,13 +31,15 @@ def expected_spec(kind):
     item = KINDS[kind]
     entry = workshop_publish.item_spec(item)
     names = (entry['pbo'],) + tuple(entry['extra_pbos'])
-    # The guard PBO's file name is not its lowercased prefix; the guard packer owns it.
-    by_name = {(weapon_pack_guards.PBO_NAME if prefix == pbo.GUARD_PREFIX else prefix.lower() + '.pbo'): prefix
-               for prefix in pbo.PREFIXES}
+    # Nested prefixes (the guard, the compat addon and its provider slots) have their own file names;
+    # pbo.pbo_file_name owns that mapping for every registered prefix.
+    by_name = {pbo.pbo_file_name(prefix): prefix for prefix in pbo.PREFIXES}
     unknown = [n for n in names if n not in by_name]
     if unknown:
         raise ValueError('publish tool names a PBO without a packaging prefix: %s' % ', '.join(unknown))
     return {'kind': kind, 'pbos': names, 'prefixes': {n: by_name[n] for n in names},
+            # Optional PBOs (per-provider compat slots) need a signature only when present.
+            'optional': tuple(n for n in names if n in entry.get('optional_pbos', ())),
             'published_id': workshop_publish.WORKSHOP_IDS[item]}
 
 
@@ -77,13 +79,19 @@ def check(mod, spec, signed=False, vdf=None):
     found = []
     addons, keys = mod / 'addons', mod / 'keys'
     addon_files = _listing(addons)
+    optional = {name.casefold() for name in spec.get('optional', ())}
+    present = []
     for name in spec['pbos']:
         real = addon_files.get(name.casefold())
         if real is None or not _nonempty(addons, real):
-            found.append(Finding('missing_pbo', 'addons/' + name))
+            if name.casefold() not in optional:
+                found.append(Finding('missing_pbo', 'addons/' + name))
+        else:
+            present.append(name)
     if signed:
         key_names = set()
-        for name in spec['pbos']:
+        # An optional PBO that is shipped must be signed like every other one.
+        for name in [n for n in spec['pbos'] if n.casefold() not in optional or n in present]:
             pattern = re.compile(re.escape(name) + r'\.(.+)\.bisign$', re.IGNORECASE)
             signs = [(m.group(1), real) for real in addon_files.values()
                      for m in [pattern.match(real)] if m and _nonempty(addons, real)]

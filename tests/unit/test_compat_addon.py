@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -18,12 +19,53 @@ class CompatAddonTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        config = self.root / 'mods/Own/config.cpp'
+        config = self.root / 'mods/HollowCountryExpansionAI/config.cpp'
         config.parent.mkdir(parents=True)
         config.write_text('class CfgPatches\n{\n    class %s\n    {\n        requiredAddons[] = {"X"};\n'
                           '    };\n};\nclass CfgVehicles { class Other {}; };\n' % OWN)
+        # Built offline and never shipped: must not widen the mandatory set.
+        assets = self.root / 'mods/HollowCountryAssets/config.cpp'
+        assets.parent.mkdir(parents=True)
+        assets.write_text('class CfgPatches\n{\n    class AssetsPatch\n    {\n'
+                          '        requiredAddons[] = {"AssetOnly"};\n    };\n};\n')
         self.strings = self.root / 'strings.json'
         self.strings.write_text(json.dumps({'schema': 1, 'strings': []}))
+        self.vanilla = self.root / 'vanilla'
+        self.vanilla.mkdir()
+
+    @staticmethod
+    def config_text(patch, sections):
+        """Plain config text: sections is {section: [(class, parent or None)]}."""
+        lines = ['class CfgPatches', '{', '    class %s' % patch, '    {',
+                 '        requiredAddons[] = {};', '    };', '};']
+        for section, rows in sections.items():
+            lines += ['class %s' % section, '{']
+            lines += ['    class %s: %s {};' % (name, parent) if parent else '    class %s {};' % name
+                      for name, parent in rows]
+            lines.append('};')
+        return '\n'.join(lines) + '\n'
+
+    def put_pbo(self, directory, name, patch, sections):
+        directory.mkdir(parents=True, exist_ok=True)
+        text = self.config_text(patch, sections).encode()
+        (directory / name).write_bytes(pbo.pack({'config.cpp': text}, prefix='HollowCountryExpansionAI'))
+
+    def upstream(self, rows, patch='X', skip=()):
+        """Vanilla PBO defining every rule target with its own parent, and every parent as a root.
+
+        The patch X is also the fixture's mandatory requiredAddons entry, so the parent lives in the chain."""
+        sections = {}
+        targets = {(r['section'], r['class'].casefold()) for r in rows}
+        for r in rows:
+            if r['class'] in skip:
+                continue
+            sections.setdefault(r['section'], []).append((r['class'], r['parent']))
+        for r in rows:
+            if (r['section'], r['parent'].casefold()) not in targets:
+                known = {name.casefold() for name, _ in sections.setdefault(r['section'], [])}
+                if r['parent'].casefold() not in known:
+                    sections[r['section']].append((r['parent'], None))
+        self.put_pbo(self.vanilla, 'x.pbo', patch, sections)
 
     def rules(self, own=(), dependency=(), required=(OWN,), name='rules.json', providers=None):
         path = self.root / name
@@ -47,25 +89,32 @@ class CompatAddonTests(unittest.TestCase):
     def provider_rule(self, **over):
         return self.rule(provider='a', requires=['DepAddon'], **over)
 
-    def generate(self, **kw):
-        return addon.generate([self.rules(**kw)], self.strings, self.root)
+    def generate(self, upstream=True, **kw):
+        rows = [*kw.get('own', ()), *kw.get('dependency', ())]
+        if upstream:
+            self.upstream(rows)
+        return addon.generate([self.rules(**kw)], self.strings, self.root, vanilla=self.vanilla)
 
-    def stack(self, declared=True, installed=True):
+    def stack(self, declared=True, installed=True, provider_patch='DepAddon'):
         """Fixture Workshop root and stack manifest for the provider item."""
         item = '1234567'
         workshop = self.root / 'workshop'
         workshop.mkdir(exist_ok=True)
         if installed:
             (workshop / item).mkdir(exist_ok=True)
+            if provider_patch:
+                self.put_pbo(workshop / item / 'addons', 'dep.pbo', provider_patch, {})
         manifest = self.root / 'stack.json'
         manifest.write_text(json.dumps({'schema': 1, 'mods': (
             [{'id': item, 'publish': False}] if declared else [])}))
         return item, workshop, manifest
 
-    def generate_providers(self, rows, declared=True, installed=True):
-        item, workshop, manifest = self.stack(declared, installed)
+    def generate_providers(self, rows, declared=True, installed=True, provider_patch='DepAddon', upstream=True):
+        item, workshop, manifest = self.stack(declared, installed, provider_patch)
+        if upstream:
+            self.upstream(rows)
         path = self.rules(dependency=rows, providers=[{'slot': 'a', 'item': item}])
-        return addon.generate_all([path], self.strings, self.root, workshop, manifest)
+        return addon.generate_all([path], self.strings, self.root, workshop, manifest, self.vanilla)
 
     def test_committed_rules_validate_against_repo(self):
         block, rules, providers = addon.load_rules()
@@ -158,10 +207,12 @@ class CompatAddonTests(unittest.TestCase):
     def test_multiple_rule_files_share_one_addon_block(self):
         extra = self.root / 'extra.json'
         extra.write_text(json.dumps({'schema': 1, 'dependency_rules': [self.rule(id='x', **{'class': 'Extra'})]}))
-        _, files, _ = addon.generate([self.rules(), extra], self.strings, self.root)
+        self.upstream([self.rule(id='x', **{'class': 'Extra'})])
+        _, files, _ = addon.generate([self.rules(), extra], self.strings, self.root, vanilla=self.vanilla)
         self.assertIn('class Extra: Base', files['config.cpp'].decode())
         with self.assertRaises(ValueError):
-            addon.generate([self.rules(), self.rules(name='again.json')], self.strings, self.root)
+            addon.generate([self.rules(), self.rules(name='again.json')], self.strings, self.root,
+                           vanilla=self.vanilla)
 
     def test_casefold_collisions_are_refused(self):
         bad = [
@@ -242,7 +293,7 @@ class CompatAddonTests(unittest.TestCase):
         self.assertEqual([addon.PBO_NAME], [name for name, _, _ in outputs])
         self.assertEqual([addon.PBO_NAME], receipt['pbos'])
         self.assertEqual('absent', receipt['optional'][0]['status'])
-        (self.root / 'workshop/1234567').rmdir()
+        shutil.rmtree(self.root / 'workshop/1234567')
         with self.assertRaisesRegex(ValueError, 'missing'):
             self.generate_providers([self.provider_rule()], installed=False)
 
@@ -275,6 +326,179 @@ class CompatAddonTests(unittest.TestCase):
         stray = dict(absent, **{addon.ADDONS_DIR + addon.slot_pbo('a'): '0' * 64})
         self.assertTrue(addon.check_receipt(receipt, stray))
 
+    # ---- shipped-catalogue own set (P2-a)
+    def test_own_set_follows_the_shipped_catalogue_not_every_config(self):
+        self.assertEqual({OWN}, addon.own_patches(self.root))
+        self.assertEqual({OWN.casefold(), 'x'}, addon.chain_addons(self.root))
+        self.assertNotIn('assetonly', addon.mandatory_addons(self.root))
+        self.assertNotIn('assetspatch', addon.mandatory_addons(self.root))
+        with self.assertRaisesRegex(ValueError, 'optional addon'):
+            addon.load_rules([self.rules(dependency=[self.rule(requires=['AssetOnly'])])], self.root)
+        with self.assertRaises(ValueError):
+            addon.load_rules([self.rules(required=['AssetsPatch'])], self.root)
+
+    def test_release_injected_blocks_do_not_widen_the_mandatory_set(self):
+        config = self.root / 'mods/HollowCountryExpansionAI/config.cpp'
+        config.write_text(config.read_text().replace(
+            'requiredAddons[] = {"X"};',
+            'requiredAddons[] = {"X"/* BEGIN HC inventory dependencies */, "PackOnly"/* END HC inventory dependencies */};'))
+        self.assertNotIn('packonly', addon.chain_addons(self.root))
+        config.write_text(config.read_text().replace('"PackOnly"', '"Y"').replace(
+            'requiredAddons[] = {"X"/*', 'requiredAddons[] = {"X", "Z"/*'))
+        self.assertIn('z', addon.chain_addons(self.root))
+
+    def test_vanilla_patches_resolve_as_vanilla_not_optional(self):
+        row = self.rule(requires=['Vanilla_Gear'])
+        addon.load_rules([self.rules(dependency=[row])], self.root, frozenset({'vanilla_gear'}))
+        with self.assertRaisesRegex(ValueError, 'optional addon'):
+            addon.load_rules([self.rules(dependency=[row])], self.root)
+        item, _, _ = self.stack()
+        providers = [{'slot': 'a', 'item': item}]
+        # A vanilla parent never needs a provider slot.
+        with self.assertRaisesRegex(ValueError, 'only mandatory addons'):
+            addon.load_rules([self.rules(dependency=[dict(row, provider='a')], providers=providers)],
+                             self.root, frozenset({'vanilla_gear'}))
+
+    def test_vanilla_requires_end_to_end(self):
+        row = self.rule(requires=['Vanilla_Gear'])
+        self.put_pbo(self.vanilla, 'gear.pbo', 'Vanilla_Gear', {addon.SECTIONS[0]: [('Base', None)]})
+        self.put_pbo(self.vanilla, 'x.pbo', 'X', {addon.SECTIONS[0]: [('Child', 'Base')]})
+        _, files, receipt = addon.generate([self.rules(dependency=[row])], self.strings, self.root,
+                                           vanilla=self.vanilla)
+        self.assertIn('"Vanilla_Gear"', files['config.cpp'].decode())
+        self.assertEqual([OWN, 'Vanilla_Gear'], receipt['requiredAddons'])
+
+    # ---- upstream verification (P2-b, P2-c)
+    def refused(self, code, rows=(), upstream=None, **kw):
+        if upstream is not None:
+            for stale in self.vanilla.glob('*.pbo'):
+                stale.unlink()
+            for name, patch, sections in upstream:
+                self.put_pbo(self.vanilla, name, patch, sections)
+        with self.assertRaisesRegex(ValueError, code):
+            addon.generate([self.rules(dependency=list(rows), **kw)], self.strings, self.root,
+                           vanilla=self.vanilla)
+
+    def test_parent_must_match_the_installed_class(self):
+        veh = addon.SECTIONS[0]
+        self.refused('parent_mismatch', [self.rule()],
+                     [('x.pbo', 'X', {veh: [('Base', None), ('Other2', None), ('Child', 'Other2')]})])
+        self.refused('parent_ambiguous', [self.rule()],
+                     [('x.pbo', 'X', {veh: [('Base', None), ('Other2', None), ('Child', 'Base')]}),
+                      ('y.pbo', 'Y', {veh: [('Child', 'Other2')]})])
+        self.refused('parent_unverified', [self.rule()],
+                     [('x.pbo', 'X', {veh: [('Base', None), ('Child', None)]})])
+        for stale in self.vanilla.glob('*.pbo'):
+            stale.unlink()
+        self.upstream([self.rule()])
+        _, files, _ = addon.generate([self.rules(dependency=[self.rule(parent='BASE')])], self.strings,
+                                     self.root, vanilla=self.vanilla)
+        self.assertIn('class Child: BASE', files['config.cpp'].decode())
+
+    def test_class_absent_upstream_needs_new_class_with_evidence(self):
+        veh = addon.SECTIONS[0]
+        absent = [('x.pbo', 'X', {veh: [('Base', None)]})]
+        self.refused('class_absent_upstream', [self.rule()], absent)
+        self.refused('class_absent_upstream', [self.rule(**{'class': 'Child', 'new_class': False})], absent)
+        with self.assertRaisesRegex(ValueError, 'evidence'):
+            addon.load_rules([self.rules(own=[self.rule(new_class=True, evidence='', requires=[])])], self.root)
+        with self.assertRaisesRegex(ValueError, 'new_class'):
+            addon.load_rules([self.rules(own=[self.rule(new_class='yes')])], self.root)
+        _, files, _ = addon.generate([self.rules(dependency=[self.rule(new_class=True)])], self.strings,
+                                     self.root, vanilla=self.vanilla)
+        self.assertIn('class Child: Base', files['config.cpp'].decode())
+        self.upstream([self.rule()])
+        self.refused('new_class_exists', [self.rule(new_class=True)])
+
+    def test_parent_must_exist_and_be_reachable(self):
+        veh = addon.SECTIONS[0]
+        self.refused('parent_missing', [self.rule()],
+                     [('x.pbo', 'X', {veh: [('Child', 'Base')]})])
+        outside = [('x.pbo', 'X', {veh: [('Child', 'Base')]}), ('z.pbo', 'Z', {veh: [('Base', None)]})]
+        self.refused('parent_requires_missing', [self.rule()], outside)
+        _, files, receipt = addon.generate([self.rules(dependency=[self.rule(requires=['X', 'Z'])])],
+                                           self.strings, self.root, vanilla=self.vanilla)
+        self.assertEqual([OWN, 'X', 'Z'], receipt['requiredAddons'])
+        self.assertIn('class Child: Base', files['config.cpp'].decode())
+
+    def test_provider_requires_must_come_from_the_installed_provider_item(self):
+        rows = [self.provider_rule()]
+        self.generate_providers(rows)
+        with self.assertRaisesRegex(ValueError, 'provider_requires_missing'):
+            self.generate_providers(rows, provider_patch='SomethingElse')
+        with self.assertRaisesRegex(ValueError, 'provider_requires_missing'):
+            self.generate_providers(rows, provider_patch=None)
+        # The required patch exists, but in another declared item.
+        item, workshop, manifest = self.stack(provider_patch='SomethingElse')
+        other = workshop / '7654321'
+        self.put_pbo(other / 'addons', 'other.pbo', 'DepAddon', {})
+        manifest.write_text(json.dumps({'schema': 1, 'mods': [{'id': item, 'publish': False},
+                                                              {'id': '7654321', 'publish': False}]}))
+        self.upstream(rows)
+        path = self.rules(dependency=rows, providers=[{'slot': 'a', 'item': item}])
+        with self.assertRaisesRegex(ValueError, 'provider_requires_foreign'):
+            addon.generate_all([path], self.strings, self.root, workshop, manifest, self.vanilla)
+
+    def test_undeclared_provider_rules_are_not_verified(self):
+        outputs, _ = self.generate_providers([self.provider_rule()], declared=False, provider_patch=None)
+        self.assertEqual([addon.PBO_NAME], [name for name, _, _ in outputs])
+
+    def test_unreadable_installed_config_refuses_with_a_fixed_reason(self):
+        self.upstream([self.rule()])
+        (self.vanilla / 'broken.pbo').write_bytes(b'not a pbo')
+        with self.assertRaisesRegex(ValueError, 'unreadable installed config in broken.pbo'):
+            addon.generate([self.rules(dependency=[self.rule()])], self.strings, self.root,
+                           vanilla=self.vanilla)
+
+    # ---- reserved words and receipt hashes (P3)
+    def test_reserved_words_are_refused_as_names(self):
+        for word in ('class', 'delete', 'import', 'Delete', 'ENUM', 'include'):
+            for row in (self.rule(**{'class': word}), self.rule(parent=word), self.rule(requires=[word]),
+                        self.rule(set={word: 1}), self.rule(set={word + '[]': [1]})):
+                with self.subTest(word=word, row=row), self.assertRaises(ValueError):
+                    addon.load_rules([self.rules(dependency=[row])], self.root)
+        addon.load_rules([self.rules(dependency=[self.rule(**{'class': 'classy'}, set={'delete_me': 1})])],
+                         self.root)
+
+    def test_check_receipt_needs_64_hex_values(self):
+        outputs, receipt = self.generate_providers([self.provider_rule()])
+        base = addon.ADDONS_DIR + addon.PBO_NAME
+        slot = addon.ADDONS_DIR + addon.slot_pbo('a')
+        good = {base: receipt['sha256'], slot: receipt['optional'][0]['sha256']}
+        self.assertEqual([], addon.check_receipt(receipt, good))
+        self.assertEqual([], addon.check_receipt(receipt, {k: v.upper() for k, v in good.items()}))
+        for bad in (None, '', 'abc', 'g' * 64, '0' * 63):
+            with self.subTest(bad=bad):
+                self.assertTrue(addon.check_receipt(receipt, dict(good, **{base: bad})))
+        # None == None must not pass: a receipt without hashes is refused even when the shipped side has none.
+        broken = json.loads(json.dumps(receipt))
+        broken['sha256'] = None
+        self.assertTrue(addon.check_receipt(broken, dict(good, **{base: None})))
+        broken = json.loads(json.dumps(receipt))
+        broken['optional'][0]['sha256'] = None
+        self.assertTrue(addon.check_receipt(broken, dict(good, **{slot: None})))
+
+    def test_check_hashes_compares_every_compat_pbo(self):
+        outputs, receipt = self.generate_providers([self.provider_rule()])
+        shas = {name: hashlib.sha256(blob).hexdigest() for name, blob, _ in outputs}
+        self.assertEqual([], addon.check_hashes(receipt, shas))
+        self.assertTrue(addon.check_hashes(receipt, {addon.PBO_NAME: shas[addon.PBO_NAME]}))
+        self.assertTrue(addon.check_hashes(receipt, None))
+        self.assertTrue(addon.check_hashes(receipt, dict(shas, **{addon.slot_pbo('a'): '1' * 64})))
+        self.assertTrue(addon.check_hashes(receipt, dict(shas, **{addon.slot_pbo('b'): '1' * 64})))
+        outputs, receipt = self.generate_providers([self.provider_rule()], declared=False)
+        self.assertEqual([], addon.check_hashes(receipt, {addon.PBO_NAME: receipt['sha256']}))
+        self.assertTrue(addon.check_hashes(receipt, {addon.PBO_NAME: receipt['sha256'],
+                                                     addon.slot_pbo('a'): '1' * 64}))
+
+    def test_declared_providers_lists_only_declared_slots_with_rules(self):
+        item, workshop, manifest = self.stack()
+        path = self.rules(dependency=[self.provider_rule()], providers=[{'slot': 'a', 'item': item}])
+        self.assertEqual({'a': item}, addon.declared_providers([path], self.root, manifest))
+        self.stack(declared=False)
+        self.assertEqual({}, addon.declared_providers([path], self.root, manifest))
+        self.assertEqual({}, addon.declared_providers([self.rules()], self.root, manifest))
+
     def test_strings_are_packed_when_present(self):
         self.strings.write_text(json.dumps({'schema': 1, 'strings': [{'key': 'STR_k', 'text': 'Own words'}]}))
         blob, files, receipt = self.generate()
@@ -284,12 +508,14 @@ class CompatAddonTests(unittest.TestCase):
 
     def test_cli_writes_provider_pbos_and_source(self):
         item, workshop, manifest = self.stack()
+        self.put_pbo(workshop / item / 'addons', 'dep.pbo', 'DepAddon', {addon.SECTIONS[0]: [('Base', None)]})
         # The CLI validates against the real repository, so use one of its own patches.
-        path = self.rules(dependency=[self.provider_rule()], providers=[{'slot': 'a', 'item': item}],
+        path = self.rules(dependency=[self.provider_rule(new_class=True)], providers=[{'slot': 'a', 'item': item}],
                           required=sorted(addon.own_patches())[:1])
         out = self.root / 'out2'
         args = ['--out', str(out), '--rules', str(path), '--strings', str(self.strings),
-                '--workshop', str(workshop), '--manifest', str(manifest), '--source']
+                '--workshop', str(workshop), '--addons', str(self.vanilla), '--manifest', str(manifest),
+                '--source']
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(0, addon.main(args))
         receipt = json.loads((out / 'compat-addon.json').read_text())

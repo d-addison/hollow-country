@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 
+from tools.package import compat_addon
 from tools.package.sign_wine import CACHE, sign
 from tools.package.weapon_pack_guards import WORKSHOP
 from tools.release import compile_gate, ship_inputs, wb_compile
@@ -184,7 +185,8 @@ def native_compile_gate(tree, sha, workshop=WORKSHOP, addons=ADDONS):
         print(compile_gate.private(line), flush=True)
     if result.returncode:
         raise ValueError('Native compile gate failed for pinned commit')
-    return {'ran': True, 'passed': True, 'status': 'passed', 'commit': sha}
+    return {'ran': True, 'passed': True, 'status': 'passed', 'commit': sha,
+            'compat_sha256': compile_gate.parse_compat_shas((result.stdout + '\n' + result.stderr).splitlines())}
 
 
 def build(args):
@@ -237,12 +239,21 @@ def build(args):
             # optional provider. They ship in @HollowCountryExpansionAI/addons and are signed
             # like every other PBO; the compile gate stages and loads the same generator output.
             compat_dir = scratch / 'compat'
-            run([*py, '-m', 'tools.package.compat_addon', '--workshop', workshop, '--out', compat_dir], tree)
+            run([*py, '-m', 'tools.package.compat_addon', '--workshop', workshop,
+                 '--addons', args.addons.absolute(), '--out', compat_dir], tree)
             compat_receipt = json.loads((compat_dir / 'compat-addon.json').read_bytes())
             compat_names = list(compat_receipt['pbos'])
             if not compat_names or compat_names[0] != ship_inputs.COMPAT_STEM + '.pbo':
                 raise ValueError('compat receipt does not list the base PBO first')
+            compat_shas = {name: digest(compat_dir / name) for name in compat_names}
+            if compat_addon.check_hashes(compat_receipt, compat_shas):
+                raise ValueError('compat PBOs differ from the generator receipt')
             gate_result = native_compile_gate(tree, sha, workshop, args.addons.absolute())
+            if gate_result['passed'] is True:
+                # The gate compiled its own generator run: every compat PBO it staged must be the
+                # exact one this build ships (None == None must never pass: check_hashes needs 64-hex).
+                if compat_addon.check_hashes(compat_receipt, gate_result.get('compat_sha256')):
+                    raise ValueError('compile gate compat PBOs differ from the shipped compat receipt')
             if guard_receipt['status'] == 'generated' and gate_result['passed'] is True:
                 guard_receipt['native_compile'] = 'passed'
             if gate_result['passed'] is True:

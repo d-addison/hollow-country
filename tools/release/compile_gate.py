@@ -201,25 +201,42 @@ def validate_adapter_dependencies(tree, extra_mods):
           + ' dependency_mods=' + str(len(extra_mods)))
 
 
+def dependency_stack(tree, workshop):
+    """Installed dependency mods of the declared stack in rank order, validated before launch.
+
+    Matches the friend server's entire declared dependency stack, including the living-pack
+    providers required by the full adapter. No Wine exclusions. Partial stacks fail here, never
+    silently compile only the base mod."""
+    manifest = json.loads((tree / 'tools/setup/workshop_mods.json').read_bytes())
+    dependencies = [row for row in manifest['mods'] if not row['publish']]
+    extra_mods = [workshop / row['id'] for row in sorted(dependencies, key=lambda row: row['rank'])]
+    probe.referenced_mods(extra_mods)
+    validate_adapter_dependencies(tree, extra_mods)
+    return extra_mods
+
+
 @contextlib.contextmanager
 def compatibility_inputs(tree, workshop, cache):
-    """Stage our original addons only; load installed dependency mods read-only."""
+    """Stage our original addons only; load installed dependency mods read-only.
+
+    Loading the dependency stack is separate from the weapon-pack guard: a declared compat
+    provider needs its stack loaded even when the weapon pack itself is not declared."""
     manifest_path = tree / 'tools/setup/workshop_mods.json'
     if not weapon_pack_guards.declared(manifest_path):
-        print('compile_gate: weapon_pack_guards=absent (pack not declared)')
-        yield {}
+        providers = compat_addon.declared_providers(compat_addon.rule_paths(tree), tree, manifest_path)
+        if not providers:
+            print('compile_gate: weapon_pack_guards=absent (pack not declared)')
+            yield {}
+            return
+        for item in providers.values():
+            if not (workshop / item).exists():
+                raise ValueError('declared compat provider missing; complete compile stack required')
+        print('compile_gate: weapon_pack_guards=absent (pack not declared) compat_providers=' + str(len(providers)))
+        yield {'extra_mods': dependency_stack(tree, workshop)}
         return
     if not (workshop / weapon_pack_guards.ITEM).exists():
         raise ValueError('declared weapon pack missing; complete compile stack required')
-    manifest = json.loads(manifest_path.read_bytes())
-    # Match the friend server's entire declared dependency stack, including the
-    # living-pack providers required by the full adapter. No Wine exclusions.
-    dependencies = [row for row in manifest['mods'] if not row['publish']]
-    extra_mods = [workshop / row['id'] for row in sorted(dependencies, key=lambda row: row['rank'])]
-    # Validate before launching: partial dependency stacks must fail, never silently
-    # compile only the base mod and label that as guard acceptance.
-    probe.referenced_mods(extra_mods)
-    validate_adapter_dependencies(tree, extra_mods)
+    extra_mods = dependency_stack(tree, workshop)
     with tempfile.TemporaryDirectory(prefix='guard-inputs-', dir=cache) as directory:
         root = Path(directory)
         guard_mod = root / '@HCWeaponPackGuards'
@@ -244,17 +261,36 @@ def compatibility_inputs(tree, workshop, cache):
                'server_extra_pbos': [guard_mod / 'addons' / weapon_pack_guards.PBO_NAME]}
 
 
+COMPAT_SHA_PREFIX = 'compile_gate: compat_sha256 '
+
+
+def compat_sha_lines(shas):
+    """One gate output line per compat PBO ('name=sha256'), so the release can compare every one."""
+    return [COMPAT_SHA_PREFIX + name + '=' + sha for name, sha in sorted(shas.items())]
+
+
+def parse_compat_shas(lines):
+    """{pbo name: sha256} from the gate's output lines (last value wins; other lines are ignored)."""
+    shas = {}
+    for line in lines:
+        if line.startswith(COMPAT_SHA_PREFIX):
+            name, _, sha = line[len(COMPAT_SHA_PREFIX):].strip().partition('=')
+            shas[name] = sha
+    return shas
+
+
 @contextlib.contextmanager
-def compat_inputs(tree, workshop, cache):
+def compat_inputs(tree, workshop, cache, addons=ship_inputs.ADDONS):
     """Build the compat PBO(s) exactly as the release does and yield their staged paths.
 
     The base PBO is always produced; an optional provider PBO only when its Workshop item is
-    declared (tools.package.compat_addon owns that gate). Generation runs in the selected tree."""
+    declared (tools.package.compat_addon owns that gate). Generation runs in the selected tree.
+    Every staged PBO is hashed and compared with the generator receipt; every sha is printed."""
     with tempfile.TemporaryDirectory(prefix='compat-inputs-', dir=cache) as directory:
         out = Path(directory) / 'compat'
         result = subprocess.run(
             [sys.executable, '-B', '-m', 'tools.package.compat_addon', '--workshop', str(workshop),
-             '--out', str(out)],
+             '--addons', str(addons), '--out', str(out)],
             cwd=tree, capture_output=True, text=True,
             env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), timeout=300)
         if result.returncode:
@@ -263,8 +299,12 @@ def compat_inputs(tree, workshop, cache):
         names = receipt.get('pbos')
         if not isinstance(names, list) or compat_addon.PBO_NAME not in names:
             raise ValueError('compat receipt does not list the base PBO')
-        print('compile_gate: compat_addon=staged pbos=' + ','.join(names) + ' sha256=' + receipt['sha256']
-              + ' layout=hcx_addons')
+        shas = {name: hashlib.sha256((out / name).read_bytes()).hexdigest() for name in names}
+        if compat_addon.check_hashes(receipt, shas):
+            raise ValueError('staged compat PBOs differ from the generator receipt')
+        print('compile_gate: compat_addon=staged pbos=' + ','.join(names) + ' layout=hcx_addons')
+        for line in compat_sha_lines(shas):
+            print(line)
         yield [out / name for name in names]
 
 
@@ -389,7 +429,7 @@ def main():
             ship_config(tree, bool(args.commit))
             workshop = args.workshop.expanduser().resolve()
             inputs = stack.enter_context(compatibility_inputs(tree, workshop, cache))
-            inputs = dict(inputs, compat_pbos=stack.enter_context(compat_inputs(tree, workshop, cache)))
+            inputs = dict(inputs, compat_pbos=stack.enter_context(compat_inputs(tree, workshop, cache, args.addons.expanduser().absolute())))
             blob = pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountry'))
             digest = hashlib.sha256(blob).hexdigest()
             package = cache / (digest + '.pbo')

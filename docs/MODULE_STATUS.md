@@ -156,6 +156,17 @@ Source only, **implemented-unverified**; native compile, boot and soak evidence 
 - `SaveCaches` barrier failure (intent delete or save) requeues the staged cache save (dirty flag restored) so the retry is not lost; barrier semantics are otherwise unchanged.
 - Measurement notes (no code): (P3-d) the synchronous `SaveCaches` barrier cost per picker seed is to be measured against R2 in a soak; (P3-f) the ownership-fault writer is rebuilt every 30 s while faulted, a cost to confirm in the same soak. Neither is measured.
 
+## Compat config addon review fixes (wc-compat-r2, 2026-11-22)
+
+Source and offline tests only, **implemented-unverified**; the native compile gate with the compat PBO(s) staged and a one-server boot are pending (lead). Rules are still empty, so the base PBO bytes are unchanged. No acceptance claim or release waiver added. Details: `docs/tools/COMPAT_ADDON.md`.
+
+| Item | State | Remaining evidence |
+| --- | --- | --- |
+| Compat PBO publication and manifest (P1) | `workshop_publish` allows and requires the base compat PBO; slot PBOs `hollowcountry_compat_[a-f]` are optional and must be signed when present; `package_manifest` knows them | Lead release gate; a real Workshop upload only on the owner's go-ahead |
+| Installed-config checks (P2) | Own set from the shipped catalogue; provider `requires` checked against the installed provider item; target parent checked against the installed class; absent classes need `new_class` plus evidence | Static file evidence only; native boot must show no `Updating base class` line for compat classes |
+| Receipt and gate shas (P3) | 64-hex required; the gate prints every compat sha and release/friendcycle compare them with the receipt | Unit-tested offline only; the lead runs the real gate |
+| Deferred: nested `No entry` RPT rows | Damage zones, optics and beam sub-classes of vanilla and third-party base classes are nested entries; the schema forbids them and no top-level class with a verified parent was found. No rule is filled; no content dropped for them | Owner decision on dropping or a verified top-level class from a future RPT; traceable here and in `docs/tools/COMPAT_ADDON.md` ("No dependency rules yet") |
+
 ## Earlier implementation snapshots
 
 Older tables and round notes preserve evidence for their stated source versions. Their old
