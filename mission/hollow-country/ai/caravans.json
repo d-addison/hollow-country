@@ -29,7 +29,7 @@
     "road_virtual_path": "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads",
     "road_sha256": "c01879230450c847365d91bee19b0df06d40e80829dabe67cc9a4f89ee891521",
     "localities_sha256": "67c83df0e44b17c0259e153ce12ef39cb26e31be4bfcc6deb6e8a1ecb78a73a9",
-    "sites_sha256": "433c8a79329d971eada9cce9c8f6a2a8ed6a67987b603db8b6c551aa571145b3"
+    "sites_sha256": "cfbb52ade1ea9a101a999e88457bba1aa8b9a235d3cec17ce5f742e1f0b3aa25"
   },
   "gapcov_graph_counts": {
     "nodes": 38820,
