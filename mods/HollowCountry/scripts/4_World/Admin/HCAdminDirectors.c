@@ -544,6 +544,9 @@ modded class HCEscalationClock
         candidate.EpochUtc = epoch;
         candidate.SavedUtc = now;
         reason = "escalation-persistence-refused";
+        // Reply promises durable day. Drain the routine writer first so its
+        // older image cannot later overwrite this synchronous admin barrier.
+        if (!clock.m_Writer.FinishSave()) { clock.Fail(); return false; }
         if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, candidate, 2048)) { clock.Fail(); return false; }
         clock.m_State = candidate;
         clock.m_NowUtc = now;

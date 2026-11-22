@@ -38,7 +38,12 @@
     "W001b": {},
     "W002": {},
     "W003": {},
-    "W004": {},
+    "W004": {
+      "HCInfectedMemorySaveJob": "File-local staged save job retained and registered with HCSaveScheduler by HCInfectedMemory; no external constructor is required.",
+      "HCSearchRetirementSaveJob": "File-local staged save job retained and registered with HCSaveScheduler by HCSearchRetirementStore; no external constructor is required.",
+      "HCCellarSamplerSaveJob": "File-local staged save job retained and registered with HCSaveScheduler by HCCellarSampler; no external constructor is required.",
+      "HCXAIFortificationSaveJob": "File-local staged save job retained and registered with HCSaveScheduler by HCXAIFortification; no external constructor is required."
+    },
     "W005": {},
     "W006": {},
     "W007": {},

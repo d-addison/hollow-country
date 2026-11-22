@@ -39,6 +39,8 @@ class HCCellarSampler : HCModule
     static const string MARKER = "$profile:HollowCountry/measure-cellars";
     static const string OUTPUT = "$profile:HollowCountry/cellars-measured.json";
     protected ref HCCellarSamplerData m_Data;
+    protected ref HCCellarSamplerSaveJob m_SaveJob;
+    protected ref HCV2ThreatStore<HCCellarSamplerData> m_Writer = new HCV2ThreatStore<HCCellarSamplerData>;
     protected ref array<Object> m_Objects;
     protected ref array<CargoBase> m_Cargos;
     protected ref set<Object> m_Hits;
@@ -437,21 +439,36 @@ class HCCellarSampler : HCModule
         }
         m_Data.Complete = true;
         m_Data.SkippedTiles = m_SkippedTiles;
-        if (!HCV2ThreatStore<HCCellarSamplerData>.Save(OUTPUT, m_Data, 4194304))
-        {
-            HCAbort("JSON save/readback failed; preserve .tmp and .bak");
-            return;
-        }
+        // Immutable completion image: a crash before commit leaves the boot's
+        // Complete=false image, or recovery intent. Never report done early.
+        m_SaveJob = new HCCellarSamplerSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
+        m_SaveJob.HCDirty = true;
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
         m_Running = false;
         m_Objects.Clear();
         m_Cargos.Clear();
         m_Hits.Clear();
-        HCReceipt("ready", "measurement_complete_native_stair_route_unobserved");
-        Print("[HC Cellars] sampler done skipped_tiles=" + m_SkippedTiles.ToString());
+        HCReceipt("ready", "measurement_checkpoint_pending");
+    }
+
+    int HCStepCompletion()
+    {
+        int result = m_Writer.SaveStep(OUTPUT, m_Data, 4194304);
+        if (result == HCSaveJob.STEP_FAILED) { HCAbort("JSON save/readback failed; preserve .tmp and .bak"); }
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            HCReceipt("ready", "measurement_complete_native_stair_route_unobserved");
+            Print("[HC Cellars] sampler done skipped_tiles=" + m_SkippedTiles.ToString());
+        }
+        return result;
     }
 
     override void OnTick(float deltaTime)
     {
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
         if (!m_Running) { return; }
         if (!FileExist(MARKER)) { HCAbort("measurement marker removed"); return; }
         m_Units.HCReset(24);
@@ -517,6 +534,13 @@ class HCCellarSampler : HCModule
 
     override void OnStop()
     {
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCFlush(m_SaveJob);
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.Owner = null;
+            m_SaveJob = null;
+        }
         if (m_Running) { HCAbort("mission stopped before completion"); }
         m_House = null;
         m_Instance = null;
@@ -549,5 +573,16 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCCellarSampler);
+    }
+}
+
+class HCCellarSamplerSaveJob : HCSaveJob
+{
+    HCCellarSampler Owner;
+    override string HCName() { return "CellarSampler"; }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepCompletion();
     }
 }
