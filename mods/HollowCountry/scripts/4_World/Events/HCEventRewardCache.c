@@ -17,19 +17,59 @@ class HCEventPoliceRewardIO : HCEventRewardIO
 // In-memory view of one site's generation receipts. Ok: highest completed generation;
 // Gen: highest readable receipt (Gen > Ok = generation started and not completed);
 // Num: highest receipt number on disk, readable or torn (numbering only); Id: persistent id of
-// the barrel recorded with the completed generation ("" = unknown, never deleted).
+// the barrel recorded with the completed generation ("" = unknown, never deleted); Prev: id of the
+// barrel the generation replaced (a crash before the native save can restore it: it is accepted
+// as ours and re-armed); Adopt: the id was taken from a barrel HC did not create (refill only,
+// never drained or deleted).
 class HCPoliceGeneration
 {
     int Num;
     string Id;
-    // Open generation only: its kind and the id of the barrel it is working on ("" = unknown).
+    string Prev;
+    bool Adopt;
+    // Open generation only: its kind and the id/prev/adopt of the barrel it is working on.
     string GenKind;
     string GenId;
+    string GenPrev;
+    bool GenAdopt;
     int Ok;
     int OkUtc;
     int Gen;
     int GenUtc;
     int GenItems;
+
+    bool Open() { return Gen > Ok; }
+    string ExpectedId()
+    {
+        if (Gen > Ok) { return GenId; }
+        return Id;
+    }
+    string ExpectedPrev()
+    {
+        if (Gen > Ok) { return GenPrev; }
+        return Prev;
+    }
+    bool ExpectedAdopt()
+    {
+        if (Gen > Ok) { return GenAdopt; }
+        return Adopt;
+    }
+}
+// One parsed receipt file. Id/Prev are four space-joined integers or "".
+class HCPoliceReceipt
+{
+    int Utc;
+    int Items;
+    string Kind;
+    string Id;
+    string Prev;
+    bool Adopt;
+}
+// Bounded retry of a persistent id that read zero right after this process created the barrel.
+class HCPoliceIdWatch
+{
+    Barrel_Green Barrel;
+    int Tries;
 }
 // Unlike the legacy per-boot allowance, these immutable site grants survive restart.
 // One orphan repair ever: spent .txt, no .pos/.repair and no ground barrel in the
@@ -39,9 +79,16 @@ class HCPoliceGeneration
 // Existing HCEventJournalIO provides bounded write/readback; no other replay or refund.
 // Generation receipts (immutable WriteNew files, same pattern as .repair):
 //   <site>.gen-N  written BEFORE any native create/delete/item: generation N, utc, kind, items.
+//                 replace/recreate carry "prev <old id>"; refill carries the id it works on.
 //   <site>.ok-N   written after the items exist: N, the generation utc (cooldown/lifetime anchor)
 //                 and the barrel's persistent id (only that barrel may ever be drained or deleted).
-//   <site>.bar-N  replace/recreate only: the new barrel's id, written before its items (crash recovery).
+//   <site>.bar-N  replace/recreate only: the new barrel's id (+ prev), written before its items.
+// Receipt text: "<tag> v1 <site> gen N utc U kind K items I" then optional groups in this order:
+//   "id a b c d" (four ints), "prev a b c d" (previous barrel), "adopt 1" (needs id; the id was taken
+//   from a barrel HC did not create: refill only, never drained or deleted). Exactly 11 tokens plus
+//   whole groups; anything else is torn. Older receipts (11 tokens, or 16 with id) still parse.
+// A barrel matching the current OR the previous id is ours: a replace that finished before the
+// native save leaves the old barrel on restore; a prev match is re-armed as ok-(max+1) with that id.
 // No receipt = legacy record, migrated in place by writing ok-1 (utc now, id of the barrel found).
 // A missing or future-dated anchor is re-armed durably (ok-(max+1), utc now). The highest N wins;
 // lower files are pruned best effort. Cooldown and lifetime read the durable utc, never memory.
@@ -51,6 +98,8 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     protected ref array<string> m_RepairPending = new array<string>;
     protected ref map<string, ref HCPoliceGeneration> m_Generations = new map<string, ref HCPoliceGeneration>;
     protected bool m_PruneLogged;
+    protected bool m_ListLogged;
+    static const int RECEIPT_LIMIT = 384;
 
     // A positive barrel observation may refuse early; absence requires a completed scan.
     void HCRepairOrphan(string siteId, bool barrelPresent)
@@ -148,25 +197,72 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (value < 1 || value.ToString() != digits) { return 0; }
         return value;
     }
-    protected bool HCReadReceipt(string name, string tag, int generation, out int utc, out int items, out string barrelId, out string kind)
+    static bool HCIntToken(string token)
     {
-        utc = 0;
-        items = 0;
-        barrelId = "";
-        kind = "";
-        if (!m_IO.Exists(name)) { return false; }
-        string text = m_IO.Read(name, 256);
-        if (text == "") { return false; }
+        if (token == "") { return false; }
+        return token.ToInt().ToString() == token;
+    }
+    // Four tokens starting at index -> "a b c d" or "" when any is not an integer.
+    protected string HCJoinId(array<string> tokens, int index)
+    {
+        if (index + 4 > tokens.Count()) { return ""; }
+        for (int part = 0; part < 4; part++)
+        {
+            if (!HCIntToken(tokens[index + part])) { return ""; }
+        }
+        return tokens[index] + " " + tokens[index + 1] + " " + tokens[index + 2] + " " + tokens[index + 3];
+    }
+    // null = unreadable or torn: exactly 11 base tokens plus whole id / prev / adopt groups.
+    protected HCPoliceReceipt HCReadReceipt(string name, string tag, int generation)
+    {
+        if (!m_IO.Exists(name)) { return null; }
+        string text = m_IO.Read(name, RECEIPT_LIMIT);
+        if (text == "") { return null; }
         array<string> tokens = new array<string>;
         text.Split(" ", tokens);
-        if (tokens.Count() < 11) { return false; }
-        if (tokens[0] != tag || tokens[1] != "v1" || tokens[3] != "gen" || tokens[4].ToInt() != generation || tokens[5] != "utc" || tokens[9] != "items") { return false; }
-        utc = tokens[6].ToInt();
-        items = tokens[10].ToInt();
-        kind = tokens[8];
-        // Optional barrel identity (persistent id) recorded with the completed generation.
-        if (tokens.Count() >= 16 && tokens[11] == "id") { barrelId = tokens[12] + " " + tokens[13] + " " + tokens[14] + " " + tokens[15]; }
-        return utc > 0;
+        int count = tokens.Count();
+        if (count < 11) { return null; }
+        if (tokens[0] != tag || tokens[1] != "v1" || tokens[3] != "gen" || tokens[4].ToInt() != generation || tokens[5] != "utc" || tokens[7] != "kind" || tokens[9] != "items") { return null; }
+        HCPoliceReceipt receipt = new HCPoliceReceipt;
+        receipt.Utc = tokens[6].ToInt();
+        receipt.Items = tokens[10].ToInt();
+        receipt.Kind = tokens[8];
+        receipt.Id = "";
+        receipt.Prev = "";
+        int at = 11;
+        while (at < count)
+        {
+            string key = tokens[at];
+            if (key == "adopt")
+            {
+                if (receipt.Adopt || at + 2 > count || tokens[at + 1] != "1") { return null; }
+                receipt.Adopt = true;
+                at = at + 2;
+            }
+            else if (key == "id" || key == "prev")
+            {
+                string joined = HCJoinId(tokens, at + 1);
+                if (joined == "") { return null; }
+                if (key == "id")
+                {
+                    if (receipt.Id != "") { return null; }
+                    receipt.Id = joined;
+                }
+                else
+                {
+                    if (receipt.Prev != "") { return null; }
+                    receipt.Prev = joined;
+                }
+                at = at + 5;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        if (receipt.Adopt && receipt.Id == "") { return null; }
+        if (receipt.Utc < 1) { return null; }
+        return receipt;
     }
     // Best-effort delete of one receipt; a persistent failure is logged once per process.
     protected void HCPrune(string name)
@@ -176,11 +272,37 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         m_PruneLogged = true;
         Print("[HC Police] action=receipt_prune_failed reason=delete_refused file=" + name);
     }
+    // Identity an open generation works on. refill: its own id group, else the completed state's;
+    // replace/recreate: the bar-N id (when written) and the prev carried by gen-N/bar-N.
+    protected void HCGenIdentity(string siteId, int number, HCPoliceReceipt gen, HCPoliceGeneration state, out string id, out string prev, out bool adopt)
+    {
+        id = "";
+        prev = gen.Prev;
+        adopt = false;
+        if (gen.Kind == "refill")
+        {
+            id = gen.Id;
+            adopt = gen.Adopt;
+            if (id == "")
+            {
+                id = state.Id;
+                prev = state.Prev;
+                adopt = state.Adopt;
+            }
+            return;
+        }
+        HCPoliceReceipt bar = HCReadReceipt(siteId + ".bar-" + number.ToString(), "HC-POLICE-BAR", number);
+        if (bar)
+        {
+            id = bar.Id;
+            if (bar.Prev != "") { prev = bar.Prev; }
+        }
+    }
     // Loads the receipts once per process; null = unavailable this process (never refuses boot).
     // Num is the highest number of any receipt file (readable or torn) so a new WriteNew never collides.
     // A torn gen-N is ignored (native work starts only after a successful readback). A torn ok-N
-    // falls back to the readable gen-N utc (identity unknown). No readable anchor: Ok = 0 and the
-    // caller re-arms durably.
+    // falls back to the readable gen-N utc and the identity gen-N/bar-N recorded. No readable anchor:
+    // Ok = 0 and the caller re-arms durably.
     HCPoliceGeneration HCGeneration(string siteId)
     {
         if (!HCSiteValid(siteId) || !m_IO || m_Fault) { return null; }
@@ -188,7 +310,15 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (m_Generations.Find(siteId, state)) { return state; }
         // Bounded directory listing (27 files, no sub-directories); null = unavailable.
         array<string> names = m_IO.Names();
-        if (!names) { return null; }
+        if (!names)
+        {
+            if (!m_ListLogged)
+            {
+                m_ListLogged = true;
+                Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=listing_unavailable_stock_only");
+            }
+            return null;
+        }
         state = new HCPoliceGeneration;
         int genMax = 0;
         int okMax = 0;
@@ -201,48 +331,57 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         }
         state.Num = genMax;
         if (okMax > state.Num) { state.Num = okMax; }
-        int utc;
-        int items;
-        string barrelId;
-        string kind;
+        HCPoliceReceipt receipt;
+        string identityId;
+        string identityPrev;
+        bool identityAdopt;
         bool okReadable = false;
         if (okMax > 0)
         {
-            if (HCReadReceipt(siteId + ".ok-" + okMax.ToString(), "HC-POLICE-OK", okMax, utc, items, barrelId, kind))
+            receipt = HCReadReceipt(siteId + ".ok-" + okMax.ToString(), "HC-POLICE-OK", okMax);
+            if (receipt)
             {
                 okReadable = true;
                 state.Ok = okMax;
-                state.OkUtc = utc;
-                state.Id = barrelId;
-            }
-            else if (HCReadReceipt(siteId + ".gen-" + okMax.ToString(), "HC-POLICE-GEN", okMax, utc, items, barrelId, kind))
-            {
-                // Torn ok-N: the generation utc is the anchor; identity is unknown, gen-N is kept.
-                Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=ok_receipt_torn");
-                state.Ok = okMax;
-                state.OkUtc = utc;
+                state.OkUtc = receipt.Utc;
+                state.Id = receipt.Id;
+                state.Prev = receipt.Prev;
+                state.Adopt = receipt.Adopt;
             }
             else
             {
-                Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=ok_receipt_no_anchor");
+                receipt = HCReadReceipt(siteId + ".gen-" + okMax.ToString(), "HC-POLICE-GEN", okMax);
+                if (receipt)
+                {
+                    // Torn ok-N: the generation utc is the anchor; gen-N/bar-N supply the identity.
+                    Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=ok_receipt_torn");
+                    state.Ok = okMax;
+                    state.OkUtc = receipt.Utc;
+                    HCGenIdentity(siteId, okMax, receipt, state, identityId, identityPrev, identityAdopt);
+                    state.Id = identityId;
+                    state.Prev = identityPrev;
+                    state.Adopt = identityAdopt;
+                }
+                else
+                {
+                    Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=ok_receipt_no_anchor");
+                }
             }
         }
         state.Gen = state.Ok;
         if (genMax > state.Ok)
         {
-            if (HCReadReceipt(siteId + ".gen-" + genMax.ToString(), "HC-POLICE-GEN", genMax, utc, items, barrelId, kind))
+            receipt = HCReadReceipt(siteId + ".gen-" + genMax.ToString(), "HC-POLICE-GEN", genMax);
+            if (receipt)
             {
                 state.Gen = genMax;
-                state.GenUtc = utc;
-                state.GenItems = items;
-                state.GenKind = kind;
-                state.GenId = state.Id;
-                // A replace/recreate generation recorded the id of the barrel it created (bar-N).
-                if (kind != "refill")
-                {
-                    state.GenId = "";
-                    if (HCReadReceipt(siteId + ".bar-" + genMax.ToString(), "HC-POLICE-BAR", genMax, utc, items, barrelId, kind)) { state.GenId = barrelId; }
-                }
+                state.GenUtc = receipt.Utc;
+                state.GenItems = receipt.Items;
+                state.GenKind = receipt.Kind;
+                HCGenIdentity(siteId, genMax, receipt, state, identityId, identityPrev, identityAdopt);
+                state.GenId = identityId;
+                state.GenPrev = identityPrev;
+                state.GenAdopt = identityAdopt;
             }
             else
             {
@@ -250,6 +389,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             }
         }
         // Best-effort prune of superseded receipts; torn higher files are pruned by a later generation.
+        // bar-N is kept while ok-N is torn: it is the only record of that generation's barrel id.
         foreach (string stale : names)
         {
             int staleGen = HCEpochOf(siteId, stale, "gen-");
@@ -257,7 +397,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             int staleOk = HCEpochOf(siteId, stale, "ok-");
             if (staleOk > 0 && staleOk < state.Ok) { HCPrune(stale); }
             int staleBar = HCEpochOf(siteId, stale, "bar-");
-            if (staleBar > 0 && staleBar <= state.Ok) { HCPrune(stale); }
+            if (staleBar > 0 && (staleBar < state.Ok || (staleBar == state.Ok && okReadable))) { HCPrune(stale); }
         }
         m_Generations.Insert(siteId, state);
         return state;
@@ -268,32 +408,60 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (state.Gen > state.Ok) { return state.GenUtc; }
         return state.OkUtc;
     }
-    // Writes a completed-generation marker that is not tied to an open gen: legacy migration,
-    // first creation ("initial") or re-arm after a missing/future-dated anchor ("rearm").
-    // barrelId is the exact identity to record ("" = unknown). utc = now.
-    bool HCEpochMark(string siteId, HCPoliceGeneration state, int now, string kind, string barrelId)
+    // Identity groups appended to a receipt: id [prev] [adopt]. adopt needs an id.
+    protected string HCIdentityText(string barrelId, string prevId, bool adopt)
     {
-        if (!m_IO || m_Fault || now < 1 || state.Num >= 1000000000) { return false; }
-        int next = state.Num + 1;
-        string text = "HC-POLICE-OK v1 " + siteId + " gen " + next.ToString() + " utc " + now.ToString() + " kind " + kind + " items 0";
+        string text = "";
         if (barrelId != "") { text = text + " id " + barrelId; }
-        if (!m_IO.WriteNew(siteId + ".ok-" + next.ToString(), text, 256)) { Fault(); return false; }
+        if (prevId != "") { text = text + " prev " + prevId; }
+        if (barrelId != "" && adopt) { text = text + " adopt 1"; }
+        return text;
+    }
+    // Writes a completed-generation marker that is not tied to an open gen: legacy migration,
+    // first creation ("initial"), re-arm after a missing/future-dated anchor or a restored previous
+    // barrel ("rearm") and a late-learned id ("idfix"). barrelId is the exact identity to record
+    // ("" = unknown); utc is the anchor to record.
+    bool HCEpochMark(string siteId, HCPoliceGeneration state, int utc, string kind, string barrelId, string prevId, bool adopt)
+    {
+        if (!m_IO || m_Fault || utc < 1 || state.Num >= 1000000000) { return false; }
+        int next = state.Num + 1;
+        string text = "HC-POLICE-OK v1 " + siteId + " gen " + next.ToString() + " utc " + utc.ToString() + " kind " + kind + " items 0" + HCIdentityText(barrelId, prevId, adopt);
+        if (!m_IO.WriteNew(siteId + ".ok-" + next.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
         state.Num = next;
         state.Ok = next;
         state.Gen = next;
-        state.OkUtc = now;
+        state.OkUtc = utc;
         state.GenUtc = 0;
         state.GenItems = 0;
         state.Id = barrelId;
+        state.Prev = prevId;
+        state.Adopt = adopt && barrelId != "";
         return true;
     }
     // Durable intent, written BEFORE any native create/delete/item of this generation.
-    bool HCEpochBegin(string siteId, HCPoliceGeneration state, int now, string kind, int items, string carryId)
+    // carryId/carryPrev/carryAdopt: the identity of the barrel being worked on right now.
+    // refill keeps that id (written explicitly, so a crashed earlier generation cannot lose it);
+    // replace/recreate record it as prev when it is a deletable (not adopted) barrel.
+    bool HCEpochBegin(string siteId, HCPoliceGeneration state, int now, string kind, int items, string carryId, string carryPrev, bool carryAdopt)
     {
         if (!m_IO || m_Fault || now < 1 || items < 1 || state.Num >= 1000000000) { return false; }
         int next = state.Num + 1;
-        string text = "HC-POLICE-GEN v1 " + siteId + " gen " + next.ToString() + " utc " + now.ToString() + " kind " + kind + " items " + items.ToString();
-        if (!m_IO.WriteNew(siteId + ".gen-" + next.ToString(), text, 256)) { Fault(); return false; }
+        string newId = "";
+        string newPrev = "";
+        bool newAdopt = false;
+        if (kind == "refill")
+        {
+            newId = carryId;
+            newPrev = carryPrev;
+            newAdopt = carryAdopt;
+        }
+        else
+        {
+            if (carryId == "") { newPrev = carryPrev; }
+            else if (!carryAdopt) { newPrev = carryId; }
+        }
+        string text = "HC-POLICE-GEN v1 " + siteId + " gen " + next.ToString() + " utc " + now.ToString() + " kind " + kind + " items " + items.ToString() + HCIdentityText(newId, newPrev, newAdopt);
+        if (!m_IO.WriteNew(siteId + ".gen-" + next.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
         int prior = state.Gen;
         bool priorIncomplete = state.Gen > state.Ok;
         state.Num = next;
@@ -301,8 +469,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         state.GenUtc = now;
         state.GenItems = items;
         state.GenKind = kind;
-        state.GenId = "";
-        if (kind == "refill") { state.GenId = carryId; }
+        state.GenId = newId;
+        state.GenPrev = newPrev;
+        state.GenAdopt = newAdopt;
         if (priorIncomplete)
         {
             HCPrune(siteId + ".gen-" + prior.ToString());
@@ -311,35 +480,45 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         return true;
     }
     // Identity of the barrel a replace/recreate generation just created, written BEFORE its items
-    // so a crash mid-fill leaves a barrel the next boot can recognise as its own.
+    // so a crash mid-fill leaves a barrel the next boot can recognise as its own. Carries prev.
     bool HCEpochBarrel(string siteId, HCPoliceGeneration state, int now, string barrelId)
     {
         if (!m_IO || m_Fault || state.Gen <= state.Ok || barrelId == "") { return false; }
-        string text = "HC-POLICE-BAR v1 " + siteId + " gen " + state.Gen.ToString() + " utc " + now.ToString() + " kind " + state.GenKind + " items 0 id " + barrelId;
-        if (!m_IO.WriteNew(siteId + ".bar-" + state.Gen.ToString(), text, 256)) { Fault(); return false; }
+        string text = "HC-POLICE-BAR v1 " + siteId + " gen " + state.Gen.ToString() + " utc " + now.ToString() + " kind " + state.GenKind + " items 0" + HCIdentityText(barrelId, state.GenPrev, false);
+        if (!m_IO.WriteNew(siteId + ".bar-" + state.Gen.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
         state.GenId = barrelId;
+        state.GenAdopt = false;
         return true;
     }
-    // Completion marker for the open generation; carries the generation utc as the anchor and the
-    // exact barrel identity of the generation ("" = unknown).
-    bool HCEpochComplete(string siteId, HCPoliceGeneration state, string kind, int now, string barrelId)
+    // Completion marker for the open generation; carries the generation utc as the anchor, the
+    // exact barrel identity of the generation ("" = unknown), its prev and the adopt flag.
+    bool HCEpochComplete(string siteId, HCPoliceGeneration state, string kind, int now, string barrelId, bool adopt)
     {
         if (!m_IO || m_Fault || state.Gen <= state.Ok) { return false; }
         int generation = state.Gen;
         int utc = state.GenUtc;
         if (utc < 1) { utc = now; }
         int items = state.GenItems;
-        string text = "HC-POLICE-OK v1 " + siteId + " gen " + generation.ToString() + " utc " + utc.ToString() + " kind " + kind + " items " + items.ToString();
-        if (barrelId != "") { text = text + " id " + barrelId; }
-        if (!m_IO.WriteNew(siteId + ".ok-" + generation.ToString(), text, 256)) { Fault(); return false; }
+        string prevId = state.GenPrev;
+        string text = "HC-POLICE-OK v1 " + siteId + " gen " + generation.ToString() + " utc " + utc.ToString() + " kind " + kind + " items " + items.ToString() + HCIdentityText(barrelId, prevId, adopt);
+        if (!m_IO.WriteNew(siteId + ".ok-" + generation.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
         int priorOk = state.Ok;
         state.Ok = generation;
         state.OkUtc = utc;
         state.Id = barrelId;
+        state.Prev = prevId;
+        state.Adopt = adopt && barrelId != "";
         HCPrune(siteId + ".gen-" + generation.ToString());
         HCPrune(siteId + ".bar-" + generation.ToString());
         if (priorOk > 0) { HCPrune(siteId + ".ok-" + priorOk.ToString()); }
         return true;
+    }
+    // True when the recorded position file exists but is unreadable or zero (torn).
+    bool HCPositionTorn(string siteId)
+    {
+        if (!m_IO || m_Fault || !m_IO.Exists(siteId + ".pos")) { return false; }
+        vector ignored;
+        return !CachePosition(siteId, ignored);
     }
 
     bool CachePosition(string siteId, out vector position)
@@ -376,12 +555,13 @@ class HCEventPoliceStockSlice
     ref array<Object> Nearby;
     int Next;
     int Stage;
-    Barrel_Green OwnedCache;
     vector OwnedPosition;
     bool HasOwnedPosition;
     bool GroundBarrelPresent;
-    // Any live barrel within 2 m of the recorded position (ruined or not).
-    Barrel_Green NearBarrel;
+    // Up to 4 live barrels within 2 m of the recorded position (ruined or not); the one whose
+    // persistent id matches the receipt is the site container (PoliceContainer decides).
+    ref array<Barrel_Green> NearBarrels;
+    bool NearCapped;
     ItemBase GroundItem;
     ItemBase DeliveryContainer;
     ItemBase CargoOwner;
@@ -395,7 +575,17 @@ class HCEventCacheSpawner
     protected static ref map<string, ref HCEventPoliceStockSlice> s_StockSlices = new map<string, ref HCEventPoliceStockSlice>;
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<string> s_PoliceLogged = new array<string>;
+    // Per process only: a restart forgets every live event target (and so every bound container).
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
+    protected static ref map<string, ref HCPoliceIdWatch> s_PoliceIdWatch;
+    protected static ref array<string> s_PoliceCreatedSites = new array<string>;
+    protected static int s_PoliceProbeLines;
+    static const int POLICE_OWN_FOREIGN = -1;
+    static const int POLICE_OWN_NONE = 0;
+    static const int POLICE_OWN_OURS = 1;
+    static const int POLICE_OWN_ADOPTED = 2;
+    static const int POLICE_OWN_ROLLBACK = 3;
+    static const int POLICE_OWN_UNREADABLE = 4;
 
     protected static int s_PoliceQueryPeak;
     protected static int s_CacheQueryPeak;
@@ -543,6 +733,7 @@ class HCEventCacheSpawner
         {
             job = new HCEventPoliceStockSlice;
             job.Nearby = new array<Object>;
+            job.NearBarrels = new array<Barrel_Green>;
             array<CargoBase> proxies = new array<CargoBase>;
             int began = TickCount(0);
             GetGame().GetObjectsAtPosition3D(mission.Source, Math.Min(mission.Radius, SCAN_RADIUS_MAX), job.Nearby, proxies);
@@ -554,6 +745,7 @@ class HCEventCacheSpawner
         {
             HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
             job.HasOwnedPosition = ledger && ledger.CachePosition(mission.SiteId, job.OwnedPosition);
+            if (ledger && !job.HasOwnedPosition && ledger.HCPositionTorn(mission.SiteId)) { PoliceLogOnceAs(mission.SiteId, "record_unreadable", "pos_torn_stock_only"); }
             job.Stage = 1;
             return null;
         }
@@ -624,12 +816,14 @@ class HCEventCacheSpawner
                     HCEventPoliceStockLedger barrelLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
                     if (barrelLedger) { barrelLedger.HCRepairOrphan(mission.SiteId, true); }
                 }
-                // A barrel (even ruined) at the recorded position is the site container.
-                if (nearbyBarrel && job.HasOwnedPosition && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && vector.DistanceSq(nearbyBarrel.GetPosition(), job.OwnedPosition) <= 4) { job.NearBarrel = nearbyBarrel; }
+                // Barrels (even ruined) at the recorded position are candidates for the site container.
+                if (nearbyBarrel && job.HasOwnedPosition && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && vector.DistanceSq(nearbyBarrel.GetPosition(), job.OwnedPosition) <= 4)
+                {
+                    if (job.NearBarrels.Count() < 4) { job.NearBarrels.Insert(nearbyBarrel); }
+                    else { job.NearCapped = true; }
+                }
                 if (!HCPhysicalGround(cache)) { continue; }
                 if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
-                Barrel_Green tagged = Barrel_Green.Cast(cache);
-                if (tagged && job.HasOwnedPosition && vector.DistanceSq(tagged.GetPosition(), job.OwnedPosition) <= 4) { job.OwnedCache = tagged; }
                 if (!job.GroundItem && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { job.GroundItem = cache; }
                 if (cache.GetType() != mission.ContainerClass || !cache.GetInventory() || !cache.GetInventory().GetCargo()) { continue; }
                 if (vector.DistanceSq(cache.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius) { job.DeliveryContainer = cache; }
@@ -719,26 +913,161 @@ class HCEventCacheSpawner
         if (b1 == 0 && b2 == 0 && b3 == 0 && b4 == 0) { return ""; }
         return b1.ToString() + " " + b2.ToString() + " " + b3.ToString() + " " + b4.ToString();
     }
-    // 1 = the recorded id matches; 0 = no id recorded for this site; -1 = another barrel.
-    // An open replace/recreate generation uses the id its own bar-N receipt recorded.
-    static string PoliceExpectedId(HCPoliceGeneration state)
+    // Bounded observation line for the lead: does GetPersistentID work on a barrel created this
+    // session (created=1) and on one first resolved on a later boot (created=0)?
+    static void PoliceProbe(string siteId, Barrel_Green barrel, int created)
     {
-        if (state.Gen > state.Ok) { return state.GenId; }
-        return state.Id;
+        if (s_PoliceProbeLines >= 24) { return; }
+        if (created == 0)
+        {
+            if (s_PoliceCreatedSites.Find(siteId) >= 0) { return; }
+            string probeKey = siteId + ":probe";
+            if (s_PoliceLogged.Find(probeKey) >= 0) { return; }
+            if (s_PoliceLogged.Count() < 32) { s_PoliceLogged.Insert(probeKey); }
+        }
+        else if (s_PoliceCreatedSites.Find(siteId) < 0)
+        {
+            s_PoliceCreatedSites.Insert(siteId);
+        }
+        s_PoliceProbeLines++;
+        int b1;
+        int b2;
+        int b3;
+        int b4;
+        string shown = "zero";
+        if (barrel)
+        {
+            barrel.GetPersistentID(b1, b2, b3, b4);
+            if (b1 != 0 || b2 != 0 || b3 != 0 || b4 != 0) { shown = b1.ToString() + "-" + b2.ToString() + "-" + b3.ToString() + "-" + b4.ToString(); }
+        }
+        Print("[HC Police] site=" + siteId + " action=id_probe created=" + created.ToString() + " id=" + shown);
     }
+    static void PoliceIdWatchSet(string siteId, Barrel_Green barrel)
+    {
+        if (!s_PoliceIdWatch) { s_PoliceIdWatch = new map<string, ref HCPoliceIdWatch>; }
+        HCPoliceIdWatch watch = new HCPoliceIdWatch;
+        watch.Barrel = barrel;
+        s_PoliceIdWatch.Set(siteId, watch);
+    }
+    // A barrel this process created read a zero id: retry on later grants (at most 4) and record
+    // the id as soon as it reads. Only the barrel object this process created qualifies, so the
+    // learned id is a deletable identity; every other id learned later is adopted (refill only).
+    static void PoliceIdWatchStep(HCEventPoliceStockLedger ledger, HCPoliceGeneration state, string siteId, Barrel_Green barrel, int now)
+    {
+        if (!s_PoliceIdWatch) { return; }
+        HCPoliceIdWatch watch;
+        if (!s_PoliceIdWatch.Find(siteId, watch)) { return; }
+        if (!barrel || watch.Barrel != barrel) { s_PoliceIdWatch.Remove(siteId); return; }
+        string learned = PoliceBarrelId(barrel);
+        if (learned == "")
+        {
+            watch.Tries++;
+            if (watch.Tries >= 4)
+            {
+                s_PoliceIdWatch.Remove(siteId);
+                PoliceLogOnceAs(siteId, "id_probe", "id_unknown_after_retries");
+            }
+            return;
+        }
+        s_PoliceIdWatch.Remove(siteId);
+        if (state.Open())
+        {
+            if (state.GenKind != "refill" && state.GenId == "") { ledger.HCEpochBarrel(siteId, state, now, learned); }
+        }
+        else if (state.Id == "")
+        {
+            int anchorUtc = state.OkUtc;
+            if (anchorUtc < 1) { anchorUtc = now; }
+            ledger.HCEpochMark(siteId, state, anchorUtc, "idfix", learned, state.Prev, false);
+        }
+        PoliceProbe(siteId, barrel, 1);
+    }
+    // The barrel's standing against the receipt (POLICE_OWN_*). FOREIGN: a different barrel;
+    // NONE: no id recorded (nothing proves it ours); UNREADABLE: an id is recorded but this
+    // barrel's reads zero; ROLLBACK: the previous barrel came back (re-armed by the caller);
+    // ADOPTED: recorded id taken from a barrel HC did not create (refill only).
     static int PoliceOwnership(Barrel_Green barrel, HCPoliceGeneration state)
     {
-        string expected = PoliceExpectedId(state);
-        if (expected == "") { return 0; }
-        if (PoliceBarrelId(barrel) == expected) { return 1; }
-        return -1;
+        string expected = state.ExpectedId();
+        string prev = state.ExpectedPrev();
+        if (expected == "" && prev == "") { return POLICE_OWN_NONE; }
+        string id = PoliceBarrelId(barrel);
+        if (id == "") { return POLICE_OWN_UNREADABLE; }
+        if (id == expected)
+        {
+            if (state.ExpectedAdopt()) { return POLICE_OWN_ADOPTED; }
+            return POLICE_OWN_OURS;
+        }
+        if (prev != "" && id == prev) { return POLICE_OWN_ROLLBACK; }
+        if (expected == "") { return POLICE_OWN_NONE; }
+        return POLICE_OWN_FOREIGN;
+    }
+    // Log reason for a barrel that may not be replaced.
+    static string PoliceOwnershipReason(int ownership)
+    {
+        if (ownership == POLICE_OWN_NONE) { return "id_unknown"; }
+        if (ownership == POLICE_OWN_ADOPTED) { return "adopted_refill_only"; }
+        if (ownership == POLICE_OWN_UNREADABLE) { return "id_unreadable"; }
+        return "not_ours";
+    }
+    // Which barrel within 2 m of the record is the site container. Identity first (current id,
+    // then the previous id); with no identity recorded an intact barrel is preferred. When an id
+    // is recorded and none matches, the barrels standing there are foreign: they are neither
+    // "present" nor touched (logged once) and the recreate path stays reachable. A barrel whose
+    // id reads zero while an id is recorded is kept as the container (UNREADABLE: refuse, never
+    // recreate beside what may be our own).
+    static Barrel_Green PolicePickBarrel(string siteId, HCEventPoliceStockSlice job, HCPoliceGeneration state)
+    {
+        if (!job.NearBarrels) { return null; }
+        if (job.NearCapped) { PoliceLogOnceAs(siteId, "scan_note", "candidates_capped_at_4"); }
+        string expected = "";
+        string prev = "";
+        if (state)
+        {
+            expected = state.ExpectedId();
+            prev = state.ExpectedPrev();
+        }
+        Barrel_Green best = null;
+        Barrel_Green prevMatch = null;
+        Barrel_Green unreadable = null;
+        int total = job.NearBarrels.Count();
+        for (int index = 0; index < total; index++)
+        {
+            Barrel_Green candidate = job.NearBarrels[index];
+            if (!candidate || candidate.IsSetForDeletion() || candidate.GetHierarchyParent()) { continue; }
+            string id = PoliceBarrelId(candidate);
+            if (id != "" && id == expected) { return candidate; }
+            if (id != "" && id == prev) { prevMatch = candidate; }
+            if (id == "" && !unreadable) { unreadable = candidate; }
+            if (!best || (!HCPhysicalGround(best) && HCPhysicalGround(candidate))) { best = candidate; }
+        }
+        if (prevMatch) { return prevMatch; }
+        if (expected == "") { return best; }
+        if (unreadable) { return unreadable; }
+        if (best) { PoliceLogOnceAs(siteId, "replace_refused", "foreign_barrel_ignored"); }
+        return null;
+    }
+    static void PoliceLogOnceAs(string siteId, string action, string reason)
+    {
+        string key = siteId + ":" + action + ":" + reason;
+        if (s_PoliceLogged.Count() >= 32 || s_PoliceLogged.Find(key) >= 0) { return; }
+        s_PoliceLogged.Insert(key);
+        Print("[HC Police] site=" + siteId + " action=" + action + " reason=" + reason);
     }
     static void PoliceLogOnce(string siteId, string reason)
     {
-        string key = siteId + ":" + reason;
-        if (s_PoliceLogged.Count() >= 16 || s_PoliceLogged.Find(key) >= 0) { return; }
-        s_PoliceLogged.Insert(key);
-        Print("[HC Police] site=" + siteId + " action=replace_refused reason=" + reason);
+        PoliceLogOnceAs(siteId, "replace_refused", reason);
+    }
+    // A live police delivery event holds this barrel as its container: never delete it.
+    // s_PoliceTargets is per process, so this guards the current process only.
+    static bool PoliceContainerBound(Barrel_Green barrel)
+    {
+        if (!s_PoliceTargets || !barrel) { return false; }
+        foreach (HCEventTarget target : s_PoliceTargets)
+        {
+            if (target.DeliveryContainer == barrel) { return true; }
+        }
+        return false;
     }
     static bool PoliceInPlan(HCEventRewardPlan plan, string className)
     {
@@ -770,7 +1099,8 @@ class HCEventCacheSpawner
     {
         array<Man> players = HCPerfPlayers.HCGet();
         int count = players.Count();
-        if (count > 64) { count = 64; }
+        // More than the scan cap: cannot prove the area clear, so treat players as near.
+        if (count > 64) { return true; }
         for (int index = 0; index < count; index++)
         {
             Man player = players[index];
@@ -805,11 +1135,15 @@ class HCEventCacheSpawner
         }
         return true;
     }
+    // Lifecycle unavailable: serve the stock of the container that is there, never mutate it.
+    static HCEventTarget PoliceStockOnly(HCEventMission mission, Barrel_Green cache)
+    {
+        if (cache) { return PoliceStockTarget(mission, cache); }
+        PoliceRefused("police_cache_position_recorded");
+        return null;
+    }
     static HCEventTarget PoliceContainer(HCEventMission mission, HCEventPoliceStockSlice job)
     {
-        Barrel_Green cache = job.OwnedCache;
-        Barrel_Green barrel = cache;
-        if (!barrel) { barrel = job.NearBarrel; }
         HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         vector recorded;
@@ -824,31 +1158,57 @@ class HCEventCacheSpawner
             ready = state != null;
         }
         if (ready) { plan = ledger.HCFreshPlan(mission.SiteId); }
+        // The container among the barrels at the record, chosen by persistent id.
+        Barrel_Green barrel = PolicePickBarrel(mission.SiteId, job, state);
+        Barrel_Green cache = null;
+        if (barrel && HCPhysicalGround(barrel)) { cache = barrel; }
+        if (barrel) { PoliceProbe(mission.SiteId, barrel, 0); }
         if (ready && state.Num < 1)
         {
             // Old record without receipts: migrate in place; the cooldown starts now. The identity
-            // of the barrel found is recorded only when it holds nothing but untouched plan items.
+            // of the barrel found is recorded only when it holds nothing but untouched plan items
+            // (the legacy migration is the one place a found barrel becomes deletable).
             string legacyId = "";
             if (barrel && PoliceCargoRefusal(barrel, plan) == "") { legacyId = PoliceBarrelId(barrel); }
-            if (ledger.HCEpochMark(mission.SiteId, state, now, "migrate", legacyId)) { Print("[HC Police] site=" + mission.SiteId + " action=ledger_migrated reason=legacy_record"); }
+            if (ledger.HCEpochMark(mission.SiteId, state, now, "migrate", legacyId, "", false)) { Print("[HC Police] site=" + mission.SiteId + " action=ledger_migrated reason=legacy_record"); }
             ready = state.Ok > 0;
         }
+        if (ready) { PoliceIdWatchStep(ledger, state, mission.SiteId, barrel, now); }
         int anchor = 0;
         if (ready) { anchor = ledger.HCEpochAnchor(state); }
         if (ready && (anchor < 1 || anchor > now + 86400))
         {
             // No readable or a future-dated anchor: re-arm durably (ok-(max+1), utc now) so recovery
-            // takes exactly one cooldown across restarts. The recorded identity is carried over.
+            // takes exactly one cooldown across restarts. The identity in force (the open generation's
+            // when one is open) is carried over; a barrel present with no recorded id is adopted
+            // (refill only) unless it is the recorded previous barrel.
+            string rearmId = state.ExpectedId();
+            string rearmPrev = state.ExpectedPrev();
+            bool rearmAdopt = state.ExpectedAdopt();
+            if (rearmId == "" && barrel)
+            {
+                string presentId = PoliceBarrelId(barrel);
+                if (presentId != "" && presentId != rearmPrev)
+                {
+                    rearmId = presentId;
+                    rearmAdopt = true;
+                }
+            }
             Print("[HC Police] site=" + mission.SiteId + " action=receipt_rearmed reason=anchor_unusable");
-            ready = ledger.HCEpochMark(mission.SiteId, state, now, "rearm", state.Id);
+            ready = ledger.HCEpochMark(mission.SiteId, state, now, "rearm", rearmId, rearmPrev, rearmAdopt);
             anchor = now;
         }
-        if (!ready)
+        if (!ready) { return PoliceStockOnly(mission, cache); }
+        int ownership = POLICE_OWN_NONE;
+        if (barrel) { ownership = PoliceOwnership(barrel, state); }
+        if (ownership == POLICE_OWN_ROLLBACK)
         {
-            // Lifecycle unavailable (clock, record or receipt IO): stock lookup only.
-            if (cache) { return PoliceStockTarget(mission, cache); }
-            PoliceRefused("police_cache_position_recorded");
-            return null;
+            // The previous barrel came back (the replace finished but the native save did not): it is
+            // ours. Re-arm durably with its id; this closes the rolled-back generation. One cooldown.
+            Print("[HC Police] site=" + mission.SiteId + " action=receipt_rearmed reason=previous_barrel_restored");
+            if (!ledger.HCEpochMark(mission.SiteId, state, now, "rearm", PoliceBarrelId(barrel), "", false)) { return PoliceStockOnly(mission, cache); }
+            anchor = now;
+            ownership = PoliceOwnership(barrel, state);
         }
         int remaining = policy.RefillCooldownSeconds - (now - anchor);
         bool cooled = remaining <= 0;
@@ -858,26 +1218,32 @@ class HCEventCacheSpawner
             if (PolicePlayersWithin(recorded, policy.RefillClearRadius)) { PoliceRefused("police_container_players_near"); return null; }
             return PoliceGenerate(mission, state, recorded, null, "recreate", "missing_entity", now);
         }
-        int ownership = PoliceOwnership(barrel, state);
-        if (ownership < 0)
+        if (ownership == POLICE_OWN_UNREADABLE)
         {
-            // A different barrel stands on the record (for example a player's own): never touched.
-            PoliceLogOnce(mission.SiteId, "not_ours");
+            // An id is recorded but this barrel reports none: cannot prove it is not ours, so neither
+            // serve nor replace nor recreate beside it. The id_probe line shows whether this can occur.
+            PoliceLogOnce(mission.SiteId, "id_unreadable");
             PoliceRefused("police_container_not_ours");
             return null;
         }
         string cargoRefusal = PoliceCargoRefusal(barrel, plan);
         int count = PoliceCargoCount(barrel);
-        string keepId = PoliceExpectedId(state);
-        if (keepId == "") { keepId = PoliceBarrelId(barrel); }
-        bool incomplete = state.Gen > state.Ok;
+        string keepId = state.ExpectedId();
+        bool keepAdopt = state.ExpectedAdopt();
+        if (keepId == "")
+        {
+            // No identity recorded: a barrel taken up now is adopted, never deletable.
+            keepId = PoliceBarrelId(barrel);
+            keepAdopt = keepId != "";
+        }
+        bool incomplete = state.Open();
         if (cache && incomplete && count >= 0 && cargoRefusal == "")
         {
             // A generation that crashed after its items but before its marker is completed,
             // never regenerated: its items are present.
             int planned = state.GenItems;
             if (planned < 1) { planned = plan.Items.Count(); }
-            if (count >= planned && ledger.HCEpochComplete(mission.SiteId, state, "resume", now, keepId))
+            if (count >= planned && ledger.HCEpochComplete(mission.SiteId, state, "resume", now, keepId, keepAdopt))
             {
                 Print("[HC Police] site=" + mission.SiteId + " action=generation_completed reason=items_present");
                 incomplete = false;
@@ -888,8 +1254,9 @@ class HCEventCacheSpawner
             // Ruined barrel at the record: replace only our own, untouched one.
             if (!cooled) { PoliceRefused("police_container_cooldown", "; wait_s=" + remaining.ToString()); return null; }
             if (PolicePlayersWithin(recorded, policy.RefillClearRadius)) { PoliceRefused("police_container_players_near"); return null; }
-            if (ownership != 1) { PoliceLogOnce(mission.SiteId, "not_ours"); PoliceRefused("police_container_not_ours"); return null; }
+            if (ownership != POLICE_OWN_OURS) { PoliceLogOnce(mission.SiteId, PoliceOwnershipReason(ownership)); PoliceRefused("police_container_not_ours"); return null; }
             if (cargoRefusal != "") { PoliceLogOnce(mission.SiteId, cargoRefusal); PoliceRefused("police_container_not_ours"); return null; }
+            if (PoliceContainerBound(barrel)) { PoliceLogOnce(mission.SiteId, "container_bound"); PoliceRefused("police_container_bound"); return null; }
             return PoliceGenerate(mission, state, recorded, barrel, "replace", "ruined", now);
         }
         bool expired = !incomplete && (now - anchor) >= policy.ContainerLifetimeSeconds;
@@ -900,22 +1267,33 @@ class HCEventCacheSpawner
             if (empty) { return PoliceGenerate(mission, state, recorded, barrel, "refill", "depleted", now); }
             string why = "lifetime";
             if (incomplete) { why = "incomplete_generation"; }
-            if (ownership != 1) { PoliceLogOnce(mission.SiteId, "not_ours"); }
+            if (ownership != POLICE_OWN_OURS) { PoliceLogOnce(mission.SiteId, PoliceOwnershipReason(ownership)); }
             else if (cargoRefusal != "") { PoliceLogOnce(mission.SiteId, cargoRefusal); }
+            else if (PoliceContainerBound(barrel)) { PoliceLogOnce(mission.SiteId, "container_bound"); }
             else { return PoliceGenerate(mission, state, recorded, barrel, "replace", why, now); }
         }
         return PoliceStockTarget(mission, cache);
     }
     // kind: refill (in place), replace (drain + delete + create), recreate (missing: create).
-    // Callers verified identity and cargo before any replace.
+    // Callers verified identity and cargo before any replace; the checks that can change between
+    // grants (hierarchy, distance, a bound delivery container) are repeated here, before any write.
+    // Crash points: see docs/MODULE_STATUS.md (Police stock container lifecycle).
     static HCEventTarget PoliceGenerate(HCEventMission mission, HCPoliceGeneration state, vector position, Barrel_Green old, string kind, string reason, int now)
     {
         if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { PoliceRefused("police_position_outside_radius"); return null; }
+        if (kind == "replace")
+        {
+            if (!old) { PoliceRefused("police_container_changed"); return null; }
+            if (PoliceContainerBound(old)) { PoliceLogOnce(mission.SiteId, "container_bound"); PoliceRefused("police_container_bound"); return null; }
+            if (old.IsSetForDeletion() || old.GetHierarchyParent() || old.GetHierarchyRootPlayer() || vector.DistanceSq(old.GetPosition(), position) > 4) { PoliceRefused("police_container_changed"); return null; }
+        }
         HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
         HCEventRewardPlan plan = ledger.HCFreshPlan(mission.SiteId);
-        // Durable receipt first: a crash after it loses one generation, never doubles one.
-        string barrelId = PoliceExpectedId(state);
-        if (!ledger.HCEpochBegin(mission.SiteId, state, now, kind, plan.Items.Count(), barrelId)) { PoliceRefused("police_receipt_write_failed"); return null; }
+        // Durable receipt first: a crash after it loses one generation, never doubles one. The
+        // identity of the barrel being replaced is carried as prev (see the receipt format).
+        string barrelId = state.ExpectedId();
+        bool adopt = state.ExpectedAdopt();
+        if (!ledger.HCEpochBegin(mission.SiteId, state, now, kind, plan.Items.Count(), barrelId, state.ExpectedPrev(), adopt)) { PoliceRefused("police_receipt_write_failed"); return null; }
         Barrel_Green barrel = old;
         if (kind != "refill")
         {
@@ -927,6 +1305,7 @@ class HCEventCacheSpawner
             barrel = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
             if (!barrel) { PoliceRefused("police_cache_create_failed"); return null; }
             HCGroundSnap.Snap(barrel);
+            PoliceProbe(mission.SiteId, barrel, 1);
             if (vector.DistanceSq(barrel.GetPosition(), position) > 4)
             {
                 // The new barrel is still empty: delete it; the open receipt retries after a cooldown.
@@ -934,8 +1313,14 @@ class HCEventCacheSpawner
                 PoliceRefused("police_cache_position_drift");
                 return null;
             }
+            // HC created this barrel: its id is a deletable identity.
             barrelId = PoliceBarrelId(barrel);
-            if (barrelId != "" && !ledger.HCEpochBarrel(mission.SiteId, state, now, barrelId))
+            adopt = false;
+            if (barrelId == "")
+            {
+                PoliceIdWatchSet(mission.SiteId, barrel);
+            }
+            else if (!ledger.HCEpochBarrel(mission.SiteId, state, now, barrelId))
             {
                 GetGame().ObjectDelete(barrel);
                 PoliceRefused("police_receipt_write_failed");
@@ -944,10 +1329,12 @@ class HCEventCacheSpawner
         }
         else if (barrelId == "")
         {
+            // No identity recorded for this barrel: adopted, refill only.
             barrelId = PoliceBarrelId(barrel);
+            adopt = barrelId != "";
         }
         if (!PoliceFillCargo(barrel, plan)) { PoliceRefused("police_cache_cargo_failed"); return null; }
-        ledger.HCEpochComplete(mission.SiteId, state, kind, now, barrelId);
+        ledger.HCEpochComplete(mission.SiteId, state, kind, now, barrelId, adopt);
         if (kind == "refill")
         {
             Print("[HC Police] site=" + mission.SiteId + " action=refilled reason=" + reason);
@@ -978,6 +1365,8 @@ class HCEventCacheSpawner
         Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
         if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
         HCGroundSnap.Snap(cache);
+        PoliceProbe(mission.SiteId, cache, 1);
+        if (PoliceBarrelId(cache) == "") { PoliceIdWatchSet(mission.SiteId, cache); }
         HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
         if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
         {
@@ -993,7 +1382,7 @@ class HCEventCacheSpawner
         int createdUtc = HCInfectedClock.UtcSeconds();
         HCPoliceGeneration createdState;
         if (owner) { createdState = owner.HCGeneration(mission.SiteId); }
-        if (createdState && createdState.Num < 1 && createdUtc > 0) { owner.HCEpochMark(mission.SiteId, createdState, createdUtc, "initial", PoliceBarrelId(cache)); }
+        if (createdState && createdState.Num < 1 && createdUtc > 0) { owner.HCEpochMark(mission.SiteId, createdState, createdUtc, "initial", PoliceBarrelId(cache), "", false); }
         Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite_until_depleted; refill=after_cooldown runtime=PENDING");
         return cache;
     }
@@ -1037,7 +1426,7 @@ class HCEventCacheSpawner
 
     static HCEventTarget PoliceStockTarget(HCEventMission mission, Barrel_Green cache)
     {
-        // OwnedCache can come from an earlier scan grant: validate before dereference.
+        // The cache can come from an earlier scan grant: validate before dereference.
         if (!HCPhysicalGround(cache) || !cache.GetInventory() || vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius)
         {
             PoliceRefused("police_target_changed");
