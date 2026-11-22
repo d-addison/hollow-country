@@ -10,7 +10,10 @@ from bisect import bisect_right
 from dataclasses import dataclass, field
 from pathlib import Path
 from functools import cached_property
+import os
 import re
+
+from tools.validate import source_cache
 
 LAYERS = ('1_Core', '2_GameLib', '3_Game', '4_World', '5_Mission')
 PRIMITIVES = frozenset({'int', 'float', 'bool', 'string', 'vector', 'void', 'typename', 'auto', 'func', 'Class'})
@@ -447,12 +450,30 @@ class Source:
                 for m in _ENUM.finditer(self.code)]
 
 
+def parse(path, text, root=None, mod=None, stat=None, persist=False):
+    """Source(path, text, root, mod) through the shared parsed-source cache (see source_cache).
+
+    Equal inputs return the same parsed object within a process, so callers must treat it as read-only.
+    ``stat`` is (size, mtime_ns) of a file the text came from; ``persist`` also uses the on-disk cache
+    when $HC_SOURCE_CACHE_DIR is set."""
+    return source_cache.shared().get(lambda: Source(path, text, root, mod), path, text, root, mod, stat, persist)
+
+
+def _read_file(path, root, mod):
+    path = Path(path)
+    with path.open('rb') as handle:
+        info = os.fstat(handle.fileno())
+        data = handle.read()
+    # Same text as Path.read_text: universal newlines, so offsets match the pre-cache behaviour.
+    text = data.decode('utf-8', errors='replace').replace('\r\n', '\n').replace('\r', '\n')
+    return parse(path, text, root, mod, (info.st_size, info.st_mtime_ns), True)
+
+
 def read_source(path, root=None):
     """Read a source once, or reuse an already parsed Source supplied by a check."""
     if isinstance(path, Source):
         return path
-    path = Path(path)
-    return Source(path, path.read_text(encoding='utf-8', errors='replace'), root)
+    return _read_file(path, root, None)
 
 
 def mod_sources(root, mods=('HollowCountry', 'HollowCountryAnims', 'HollowCountryExpansionAI')):
@@ -464,7 +485,7 @@ def mod_sources(root, mods=('HollowCountry', 'HollowCountryAnims', 'HollowCountr
         if not scripts.is_dir():
             continue
         for path in sorted(scripts.rglob('*.c'), key=lambda p: p.relative_to(scripts).as_posix().lower()):
-            result.append(Source(path, path.read_text(encoding='utf-8', errors='replace'), root, mod))
+            result.append(_read_file(path, root, mod))
     return result
 
 

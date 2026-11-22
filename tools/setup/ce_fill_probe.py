@@ -370,8 +370,7 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
         raise ValueError('hold needs at least 240 seconds and timeout needs 120 seconds headroom')
     # Even dry-run verifies all source bytes, mod hashes and installer composition.
     windows_root = rt.windows_runtime_root(destination)
-    if Path(destination).exists() or Path(destination).is_symlink():
-        raise ValueError('fresh destination required')
+    rt.fresh_destination(destination)
     mods, mod_source = installed_mods()
     source = rt.verify_source(source_runtime, rt.BATTLEYE_SHA256)
     stock_sha = ce_site_probe.stock_digest(source['records'])

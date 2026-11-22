@@ -15,7 +15,7 @@ from tools.release.rpt_summary import filtered
 from tools.release.test_queue import submit_line
 from tools.release.ship_inputs import ADDONS
 from tools.validate.wiring_audit import OFFLINE_EXCLUSIONS
-from tools.validate import layout_lint
+from tools.validate import layout_lint, source_cache
 
 ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
@@ -162,8 +162,15 @@ def world_mesh_gap(args):
     return ''
 
 
+# Checks run as separate processes; this git-ignored directory lets them share parsed Enforce sources
+# (tools/validate/source_cache.py), so each authored file is parsed once per run.
+SOURCE_CACHE_DIR = ROOT / 'build' / 'source-cache'
+
+
 def run_check(module, arguments):
-    result = subprocess.run([sys.executable, '-B', '-m', module, *arguments], cwd=ROOT,
+    environment = {**os.environ}
+    environment.setdefault(source_cache.ENV, str(SOURCE_CACHE_DIR))
+    result = subprocess.run([sys.executable, '-B', '-m', module, *arguments], cwd=ROOT, env=environment,
                             capture_output=True, text=True, errors='replace', timeout=600)
     for line in (result.stdout + '\n' + result.stderr).splitlines():
         safe = filtered(line)
@@ -200,6 +207,21 @@ def anim_lint_step(args, paths):
     if 'not run (no installed Addons)' in result.output:
         return ('anim_lint', 'pass (stock comparison not run)', 'changed files'), False, True
     return ('anim_lint', 'pass', 'changed files'), False, False
+
+
+def changed_unit_tests(paths):
+    """(row name, status, failed) for the unit-test modules mapped to the changed Python files."""
+    python = [path for path in paths if path.endswith('.py')]
+    if not python:
+        return ('unit_tests_changed', 'no applicable changes', False)
+    print('preland: running unit_tests_changed (tests mapped to changed Python files)', flush=True)
+    try:
+        result = run_check('tools.validate.test_changed', ['--files', *python])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return ('unit_tests_changed', 'FAIL (launch/timeout)', True)
+    if result.code:
+        return ('unit_tests_changed', f'FAIL ({result.code})', True)
+    return ('unit_tests_changed', 'pass', False)
 
 
 def main(argv=None):
@@ -360,6 +382,10 @@ def execute(args, paths, scratch):
         rows.append(animation[0])
         failed |= animation[1]
         incomplete |= animation[2]
+    if paths is not None:
+        changed_tests = changed_unit_tests(paths)
+        rows.append(changed_tests[:2] + ('changed files',))
+        failed |= changed_tests[2]
     print('\nCheck | Result | Scope')
     print('--- | --- | ---')
     for row in rows:
