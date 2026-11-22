@@ -9891,17 +9891,7 @@
       "target_addon": "HollowCountryExpansionAI"
     },
     {
-      "folder": "@SurvivorAnimations",
-      "enabled": true,
-      "target_addon": "HollowCountryExpansionAI"
-    },
-    {
       "folder": "@AmbientAnimals",
-      "enabled": true,
-      "target_addon": "HollowCountryExpansionAI"
-    },
-    {
-      "folder": "@DayZ-Bicycle",
       "enabled": true,
       "target_addon": "HollowCountryExpansionAI"
     },
