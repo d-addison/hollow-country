@@ -13,7 +13,9 @@ class HCEventPoliceRewardIO : HCEventRewardIO
 }
 // Unlike the legacy per-boot allowance, these immutable site grants survive restart.
 // One orphan repair ever: spent .txt, no .pos/.repair and no ground barrel in the
-// completed capped scan. Write the immutable .repair before one process-local grant.
+// completed capped scan. The scan only marks the site eligible in process memory;
+// Commit writes the immutable .repair when it grants, so a refused SpawnPosition or a
+// restart before the grant leaves the repair available for the next boot.
 // Existing HCEventJournalIO provides bounded write/readback; no other replay or refund.
 class HCEventPoliceStockLedger : HCEventRewardLedger
 {
@@ -29,12 +31,10 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (m_Granted.Find(siteId) >= 0 || !m_IO.Exists(siteId + ".txt") || m_IO.Exists(siteId + ".pos") || m_IO.Exists(siteId + ".repair")) { return; }
         if (barrelPresent)
         {
-            Print("[HC Events] police grant orphan kept; " + siteId + "; reason=barrel_present");
+            Print("[HC Events] police grant orphan kept; " + siteId + "; reason=barrel_present runtime=PENDING");
             return;
         }
-        if (!m_IO.WriteNew(siteId + ".repair", "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128)) { Fault(); return; }
         m_RepairPending.Insert(siteId);
-        Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
     }
 
     override HCEventRewardPlan Commit(string siteId)
@@ -45,7 +45,14 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (m_Granted.Find(siteId) >= 0 || m_IO.Exists(siteId + ".pos")) { return null; }
         int repair = m_RepairPending.Find(siteId);
         if (repair < 0 && (m_IO.Exists(name) || m_IO.Exists(siteId + ".repair"))) { return null; }
-        if (repair >= 0) { m_RepairPending.Remove(repair); }
+        if (repair >= 0)
+        {
+            m_RepairPending.Remove(repair);
+            // The marker is the spend: it is durable before any native creation.
+            if (m_IO.Exists(siteId + ".repair")) { return null; }
+            if (!m_IO.WriteNew(siteId + ".repair", "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128)) { Fault(); return null; }
+            Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
+        }
         m_Granted.Insert(siteId);
         HCEventRewardPlan plan = new HCEventRewardPlan;
         plan.SiteId = siteId;

@@ -667,16 +667,18 @@ Leave these files alone.
 What v1-test-14 does once, the first time a police event runs at that site:
 
 - If a supply barrel is still on the ground near the site, it keeps the old grant:
-  `[HC Events] police grant orphan kept; <site>; reason=barrel_present`
-- If no barrel is there, it writes a one-time `<site>.repair` marker and makes one
-  new barrel:
+  `[HC Events] police grant orphan kept; <site>; reason=barrel_present runtime=PENDING`
+- If no barrel is there, it writes a one-time `<site>.repair` marker at the moment
+  it grants one new barrel (never earlier, so a restart before that point does not
+  use up the repair):
   `[HC Events] police grant orphan repaired; <site>; runtime=PENDING`
   followed by
   `[HC Events] police cache created; <site>; stock=finite; refill=never runtime=PENDING`
 
 The `.repair` marker means the repair has already happened. It never repeats, so a
-repaired site cannot hand out a second barrel. The repair needs a player near the
-police station before it starts, so it may happen hours after the upgrade.
+repaired site cannot hand out a second barrel. The repair runs only when a police
+event at that site needs a new barrel (no usable police stock is lying nearby), so
+it may happen minutes or hours after the upgrade, or not at all while stock lasts.
 
 Report to the owner: whether the server stays up past 10 minutes, and any of the
 lines above from the server RPT (site ids only, no player names).
