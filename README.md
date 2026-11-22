@@ -283,6 +283,7 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `AILimits.CautionRangeM` | `30` | Metres within which an AI warns a player holding a raised weapon (1-100). |
 | `AILimits.CautionHostileRangeM` | `60` | Same range when the player's standing with that faction is hostile (1-100). |
 | `AILimits.CautionGunfireRangeM` | `80` | Same range after recent gunfire (1-100). |
+| `AILimits.CautionGraceSeconds` | `3` | Seconds a neutral AI faces and shouts at a player raising a weapon between 40 m and the caution range before it turns hostile; lowering the weapon in time de-escalates (1-30). |
 
 ### Performance, situations and camp theft profiles
 

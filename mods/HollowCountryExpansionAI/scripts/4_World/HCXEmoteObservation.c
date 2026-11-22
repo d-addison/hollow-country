@@ -302,15 +302,6 @@ class HCXEmoteObservation
         }
         return serial;
     }
-    // Raised-weapon caution gesture. The caller (HCXCautionObservation) owns the
-    // pair cooldown and the shared Work() admission; this only drives the provider.
-    static bool CautionGesture(eAIBase actor)
-    {
-        if (!HCXEmoteObservation.ControlReady() || !actor) { return false; }
-        if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_HOLD)) { return true; }
-        HCXEmoteObservation.RefuseControl("emote_failed");
-        return false;
-    }
     static bool Warn(eAIBase actor, PlayerBase player)
     {
         // HCXWarning.NextWarning owns the per-actor warning interval. Greeting

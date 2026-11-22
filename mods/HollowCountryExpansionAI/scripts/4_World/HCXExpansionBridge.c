@@ -873,6 +873,9 @@ modded class eAIBase
     }
 
     PlayerBase HCXWarningPlayer;
+    // Caution grace (HCXCautionObservation): fire stays held for this raised-weapon contact until then.
+    PlayerBase HCXCautionPlayer;
+    int HCXCautionUntil;
     PlayerBase HCXWarningShotPlayer;
     int HCXWarningSeen;
     int HCXWarningStarted;
@@ -886,7 +889,9 @@ modded class eAIBase
         eAITarget target = GetTarget();
         if (age < 0 || age > 2000 || !target || HCXExpansionBridge.HCTargetGetEntity(target) != HCXWarningPlayer || !eAI_HasLOS()) { return false; }
         if (!IsAlive() || IsUnconscious() || IsRestrained() || !HCXWarningPlayer.IsAlive()) { return false; }
-        if (HCXStance.Relation(this, HCXWarningPlayer) < 0 || HCXStance.RaisedWeapon(HCXWarningPlayer)) { return false; }
+        if (HCXStance.Relation(this, HCXWarningPlayer) < 0) { return false; }
+        // A raised weapon normally ends the hold; a running caution grace keeps it.
+        if (HCXStance.RaisedWeapon(HCXWarningPlayer) && (HCXCautionPlayer != HCXWarningPlayer || GetGame().GetTime() >= HCXCautionUntil)) { return false; }
         float distance = vector.Distance(GetPosition(), HCXWarningPlayer.GetPosition());
         if (distance <= 40 || distance > 80 || HCXDefence.Hostile(this, HCXWarningPlayer, target)) { return false; }
         return true;
@@ -1030,13 +1035,16 @@ modded class eAIPlayerTargetInformation
         float distance = vector.Distance(HCXExpansionBridge.HCBaseGetPosition(ai), player.GetPosition());
         bool raised = HCXStance.RaisedWeapon(player);
         int relation = HCXStance.Relation(ai, player);
-        // Raised-weapon caution: observed contacts only (LOS and fresh ray above).
-        // Never changes threat; Expansion's own logic below owns any escalation.
-        HCXCautionObservation.Observe(ai, player, distance, raised, relation);
+        // Raised-weapon caution: the step BEFORE raised-weapon hostility. Observed
+        // contacts only (LOS and fresh ray above). A non-zero result is the end of a
+        // bounded grace (neutral, 40 m < d <= caution range, weapon raised).
+        int graceEnd = HCXCautionObservation.Observe(ai, player, distance, raised, relation, warning.Hostile);
+        bool cautionHold = graceEnd > 0;
         // Hostile factions skip the warning sequence. Non-hostile contacts engage
-        // at 40m or on aiming, with no elapsed-time escalation at a safe distance.
-        if (relation < 0 || distance <= 40 || (raised && distance <= 80))
+        // at 40m, or on aiming within 80m unless a caution grace is still running.
+        if (relation < 0 || distance <= 40 || (raised && distance <= 80 && !cautionHold))
         {
+            ai.HCXCautionUntil = 0;
             if (!warning.Hostile) { Print("[HollowCountry] Stance hostile: faction, closing within 40m or raised weapon"); }
             warning.Hostile = true;
             state.m_ThreatLevelActive = 0.6;
@@ -1053,6 +1061,25 @@ modded class eAIPlayerTargetInformation
             return 0.1;
         }
         if (!currentPlayer) { state.m_ThreatLevelActive = 0.15; return 0.15; }
+        if (cautionHold)
+        {
+            // Grace: stay non-hostile, face (eAI_UpdateFSM) and shout via the shared
+            // per-player admission. Fire stays held by HCXWarningBlocked. No warning
+            // shot is queued for a raised weapon: this path never opens fire.
+            ai.HCXWarningPlayer = player;
+            ai.HCXWarningSeen = nowMs;
+            ai.HCXCautionPlayer = player;
+            ai.HCXCautionUntil = graceEnd;
+            ai.HCXWarningPending = false;
+            if (warning.Started < 0 && nowMs >= warning.NextWarning)
+            {
+                warning.NextWarning = nowMs + HCXWarningShout.COOLDOWN_MS;
+                if (ai.HCXWarnPlayer(player, nowMs)) { warning.Started = nowMs; }
+            }
+            state.m_ThreatLevelActive = 0.2;
+            state.m_AggressionTimeout = 0;
+            return 0.2;
+        }
         ai.HCXWarningPlayer = player;
         ai.HCXWarningSeen = nowMs;
         if (warning.Started < 0 && nowMs >= warning.NextWarning)

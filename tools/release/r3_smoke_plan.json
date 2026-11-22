@@ -702,6 +702,16 @@
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], approach an actually owned live AI with working living-world signal provider. 2. Keep interaction calm and visible. 3. Wait normal stance application and require actor_admitted.",
       "est_minutes": 3,
       "prerequisites": "EnableEncounters; provider ownership/faction and actual emote observation readiness; config-read readiness alone is not enough."
+    },
+    {
+      "module": "v2-expansion-living-world",
+      "feature": "caution_warn",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c:105",
+      "trigger": "A grace starts: owned non-hostile AI observes (native LOS plus fresh ray) a player with a raised weapon at 40 m < distance <= the caution range, once per actor-group/player pair per 45 s.",
+      "exercise": "server_soak",
+      "steps": "1. Near an owned live neutral AI (for example the Chernogorsk police loop), stay in view at about 50 m. 2. Precondition: the AI must have heard gunfire in the last 30 s (caution range 80 m) or AILimits.CautionRangeM must be at least 50; at the default 30 m a neutral contact is hostile at once inside 40 m and unchanged beyond 80 m. 3. Raise a weapon: the AI faces you and shouts (status text), keeps its own weapon up and does not fire. 4. Lower the weapon within 3 s (AILimits.CautionGraceSeconds): no shots, stance de-escalates. 5. Repeat and keep the weapon raised past 3 s: the AI turns hostile exactly as before. Require [HC Use] caution_warn count>=1 and one first-warn line with grace_s=3 and fire=none.",
+      "est_minutes": 5,
+      "prerequisites": "EnableEncounters; provider ownership/faction and emote observation readiness; heard gunfire or CautionRangeM >= 50 (see steps); one server plus at most one client."
     }
   ]
 }

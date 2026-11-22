@@ -66,7 +66,8 @@
     "MaxObservedAI": 1024,
     "CautionRangeM": 30,
     "CautionHostileRangeM": 60,
-    "CautionGunfireRangeM": 80
+    "CautionGunfireRangeM": 80,
+    "CautionGraceSeconds": 3
   },
   "MaxFamiliarityRows": 0,
   "SearchDensityScale": 0,
