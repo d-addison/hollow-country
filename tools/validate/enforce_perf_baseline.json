@@ -505,7 +505,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 349,
+      "line": 414,
       "symbol": "HCXAIDefaults.ProvisionLoadout",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
@@ -514,7 +514,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 360,
+      "line": 434,
       "symbol": "HCXAIDefaults.ProvisionLoadout",
       "key": "CopyFile#1",
       "message": "CopyFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
@@ -523,7 +523,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 366,
+      "line": 418,
       "symbol": "HCXAIDefaults.ProvisionLoadout",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
@@ -532,7 +532,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 366,
+      "line": 442,
       "symbol": "HCXAIDefaults.ProvisionLoadout",
       "key": "DeleteFile#2",
       "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
@@ -541,7 +541,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 370,
+      "line": 443,
       "symbol": "HCXAIDefaults.ProvisionLoadout",
       "key": "DeleteFile#3",
       "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
@@ -3043,7 +3043,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 67,
+      "line": 81,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
@@ -3053,7 +3053,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 67,
+      "line": 81,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3063,7 +3063,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 81,
+      "line": 95,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#2",
       "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
@@ -3073,7 +3073,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 81,
+      "line": 95,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3083,7 +3083,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 99,
+      "line": 113,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "OpenFile#1",
       "message": "OpenFile reachable via HCXAILoadoutSave.HCStep",
@@ -3093,7 +3093,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 99,
+      "line": 113,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3103,7 +3103,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 109,
+      "line": 123,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCXAILoadoutSave.HCStep",
@@ -3111,59 +3111,9 @@
       "reason": "W3-01 loadout publication/recovery: each HCStep performs at most one file operation (probe, open, <=4096-byte read, close, delete) or one shared-image stage; file reads <=65536 bytes total. Private intent is verified before target copy and retained through readback; failures continue to the next name. The HCCampModule.OnStart -> HCBuildingClaim.HCStop witness is a false virtual-dispatch edge: that stop flushes only HCBuildingClaimSave, never this loadout job. No native acceptance."
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 179,
-      "symbol": "HCXAICacheSave.HCStep",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCXAICacheSave.HCStep",
-      "native": false,
-      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages."
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 179,
-      "symbol": "HCXAICacheSave.HCStep",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAICacheSave.HCStep; enqueue bounded startup work",
-      "native": false,
-      "reason": "W3-01 superseded-image cleanup: one DeleteFile or existence probe per job visit; cleanup precedes arming a fresh snapshot. HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCFlush is a false virtual-dispatch edge: HCStop flushes only HCBuildingClaimSave, never HCXAICacheSave. No native acceptance."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 185,
-      "symbol": "HCXAICacheSave.HCStep",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAICacheSave.HCStep",
-      "native": false,
-      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 185,
-      "symbol": "HCXAICacheSave.HCStep",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAICacheSave.HCStep; enqueue bounded startup work",
-      "native": false,
-      "reason": "W3-01 superseded-image cleanup: one DeleteFile or existence probe per job visit; cleanup precedes arming a fresh snapshot. HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCFlush is a false virtual-dispatch edge: HCStop flushes only HCBuildingClaimSave, never HCXAICacheSave. No native acceptance."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 563,
-      "symbol": "HCXAISiteStorage.SaveCaches",
-      "key": "JsonFileLoader.SaveFile#1",
-      "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
-      "native": false,
-      "reason": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches; moved by W3-01 split. Owner-required synchronous durability barrier before picker/holdout inventory creation; routine cache saves use scheduler stages. Same schema and refusal semantics; engine evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 747,
+      "line": 753,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3173,7 +3123,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 751,
+      "line": 757,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3183,7 +3133,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 752,
+      "line": 758,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3193,7 +3143,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 759,
+      "line": 765,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3203,7 +3153,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 759,
+      "line": 765,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3213,7 +3163,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 760,
+      "line": 766,
       "symbol": "HCXAISiteStore.HCPreserveRoute",
       "key": "OpenFile#2",
       "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
@@ -3223,7 +3173,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 794,
+      "line": 800,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3233,7 +3183,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 794,
+      "line": 800,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3243,7 +3193,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 795,
+      "line": 801,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3253,7 +3203,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 796,
+      "line": 802,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3263,7 +3213,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 796,
+      "line": 802,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3273,7 +3223,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 799,
+      "line": 805,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3283,7 +3233,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 799,
+      "line": 805,
       "symbol": "HCXAISiteStore.LoadRoutes",
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
@@ -3293,7 +3243,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 89,
+      "line": 103,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#3",
       "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
@@ -3303,7 +3253,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 89,
+      "line": 103,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3313,7 +3263,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 190,
+      "line": 254,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#4",
       "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
@@ -3323,7 +3273,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 190,
+      "line": 254,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#4",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3333,7 +3283,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 145,
+      "line": 159,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCXAILoadoutSave.HCStep",
@@ -3343,7 +3293,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 145,
+      "line": 159,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3353,7 +3303,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 151,
+      "line": 172,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "OpenFile#2",
       "message": "OpenFile reachable via HCXAILoadoutSave.HCStep",
@@ -3363,7 +3313,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 151,
+      "line": 172,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "OpenFile#2",
       "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3373,7 +3323,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 166,
+      "line": 182,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "ReadFile#2",
       "message": "ReadFile reachable via HCXAILoadoutSave.HCStep",
@@ -3383,7 +3333,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 196,
+      "line": 205,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#2",
       "message": "DeleteFile reachable via HCXAILoadoutSave.HCStep",
@@ -3393,7 +3343,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 196,
+      "line": 205,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3403,7 +3353,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 203,
+      "line": 267,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#5",
       "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
@@ -3413,7 +3363,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 203,
+      "line": 267,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "FileExist#5",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3423,7 +3373,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 218,
+      "line": 260,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#3",
       "message": "DeleteFile reachable via HCXAILoadoutSave.HCStep",
@@ -3433,7 +3383,7 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
-      "line": 218,
+      "line": 260,
       "symbol": "HCXAILoadoutSave.HCStep",
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
@@ -3443,7 +3393,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 556,
+      "line": 545,
       "symbol": "HCXAISiteStorage.SaveCaches",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
@@ -3453,12 +3403,132 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 556,
+      "line": 545,
       "symbol": "HCXAISiteStorage.SaveCaches",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
       "native": false,
       "reason": "W3-01 synchronous picker/inventory durability barrier retained by owner decision: abort retained image handles and remove the prior intent before writing current journal, preventing recovery/promotion of superseded state. One exact journal path, one existence probe and at most one DeleteFile before the existing synchronous SaveFile. Routine saves use the bounded scheduler. No native timing or acceptance claim."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 21,
+      "symbol": "HCXAILoadoutImage.HCStepImage",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAILoadoutImage.HCStepImage",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 21,
+      "symbol": "HCXAILoadoutImage.HCStepImage",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCXAILoadoutImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Startup chain is a false virtual-dispatch edge: HCLeadStore owns a concrete HCStagedSaveImage, never this HCXAILoadoutImage subclass. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 166,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 166,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCFlush is a false job-dispatch edge: the claim flushes its building-claim job, never HCXAILoadoutSave. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 215,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "OpenFile#3",
+      "message": "OpenFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 215,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "OpenFile#3",
+      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCFlush is a false job-dispatch edge: the claim flushes its building-claim job, never HCXAILoadoutSave. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 230,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "ReadFile#3",
+      "message": "ReadFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 282,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 282,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 R5: bounded loadout job performs at most one native file operation per visit, reads <=4096 bytes per visit and <=65536 bytes per file. Torn HC targets are copied and byte-verified before deletion; whole targets retire stale HC intents. Failed names continue independently. HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCFlush is a false job-dispatch edge: the claim flushes its building-claim job, never HCXAILoadoutSave. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 416,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
+      "native": false,
+      "reason": "W3-01 R5: required synchronous zone-guard copy/readback barrier retained; safe HC loadout names only, shared HCProfileDefaults reads are capped at 1048576 bytes; stale-intent cleanup accepts only whole targets <=65536 bytes. Existing whole target retires only its HC intent, and target absence is rechecked before copy; cleanup DeleteFile failures refuse explicitly. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 433,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
+      "native": false,
+      "reason": "W3-01 R5: required synchronous zone-guard copy/readback barrier retained; safe HC loadout names only, shared HCProfileDefaults reads are capped at 1048576 bytes; stale-intent cleanup accepts only whole targets <=65536 bytes. Existing whole target retires only its HC intent, and target absence is rechecked before copy; cleanup DeleteFile failures refuse explicitly. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 448,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
+      "native": false,
+      "reason": "W3-01 R5: required synchronous zone-guard copy/readback barrier retained; safe HC loadout names only, shared HCProfileDefaults reads are capped at 1048576 bytes; stale-intent cleanup accepts only whole targets <=65536 bytes. Existing whole target retires only its HC intent, and target absence is rechecked before copy; cleanup DeleteFile failures refuse explicitly. Offline candidate; native disk latency unverified."
     }
   ]
 }

@@ -9,7 +9,20 @@ class HCXAILoadoutProbe
 // A retained .hcdefault.tmp is provenance for an interrupted HC publication.
 class HCXAILoadoutImage : HCStagedSaveImage
 {
+    protected bool m_CopyChecked;
     bool HCPublished() { return m_PrimaryExists; }
+    override int HCStepImage()
+    {
+        // One file operation: recheck immediately before the copy visit. No
+        // target delete is performed by this adapter; existing files are refused.
+        if (m_Phase == 3 && !m_CopyChecked)
+        {
+            m_CopyChecked = true;
+            if (FileExist(m_Path)) { return HCFail(); }
+            return HCSaveJob.STEP_MORE;
+        }
+        return super.HCStepImage();
+    }
     bool HCArmNew(string path, string text)
     {
         if (Active() || m_Failed || text.Length() < 1 || text.Length() > 65536) { return false; }
@@ -42,6 +55,7 @@ class HCXAILoadoutSave : HCSaveJob
     protected bool m_Open;
     protected string m_Text;
     protected string m_Existing;
+    protected string m_Preserved;
     protected string m_Target;
     bool Finished;
     int Provisioned;
@@ -133,17 +147,67 @@ class HCXAILoadoutSave : HCSaveJob
         {
             if (HCXAIDefaults.HCWholeLoadout(m_Existing))
             {
-                // Valid operator edits always win, even with a stale HC intent.
+                // Retire provenance now: later operator errors are not ours.
                 HCXAIDefaults.HCSetLoadoutPresent(name, true);
-                this.HCNext();
+                m_Phase = 141;
             }
             else { m_Phase = 15; }
             return STEP_MORE;
         }
+        if (m_Phase == 141)
+        {
+            if (!DeleteFile(m_Target + ".hcdefault.tmp")) { this.HCRefused("intent_delete"); }
+            else { Print("[HC Expansion AI] loadout default intent cleared name=" + name + " reason=whole_target"); }
+            this.HCNext();
+            return STEP_MORE;
+        }
         if (m_Phase == 15)
         {
+            if (!CopyFile(m_Target, m_Target + ".hcdefault.torn")) { this.HCRefused("torn_preserve"); this.HCNext(); }
+            else { m_Phase = 17; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 17)
+        {
+            m_Source = OpenFile(m_Target + ".hcdefault.torn", FileMode.READ);
+            m_Open = m_Source != 0;
+            m_Preserved = "";
+            if (!m_Open) { this.HCRefused("torn_preserve"); this.HCNext(); }
+            else { m_Phase = 18; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 18)
+        {
+            string preservedPiece;
+            int preservedCount = ReadFile(m_Source, preservedPiece, 4096);
+            if (preservedCount < 0 || preservedCount != preservedPiece.Length() || m_Preserved.Length() + preservedCount > 65536)
+            {
+                this.HCRefused("torn_preserve");
+                m_Phase = 16;
+            }
+            else
+            {
+                m_Preserved += preservedPiece;
+                if (preservedCount < 4096) { m_Phase = 19; }
+            }
+            return STEP_MORE;
+        }
+        if (m_Phase == 19)
+        {
+            CloseFile(m_Source);
+            m_Open = false;
+            if (m_Preserved != m_Existing) { this.HCRefused("torn_preserve"); this.HCNext(); }
+            else { m_Phase = 21; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 21)
+        {
             if (!DeleteFile(m_Target)) { this.HCRefused("torn_delete"); this.HCNext(); }
-            else { m_Phase = 2; }
+            else
+            {
+                Print("[HC Expansion AI] loadout default recovered name=" + name + " reason=torn_preserved");
+                m_Phase = 2;
+            }
             return STEP_MORE;
         }
         if (m_Phase == 2)
@@ -215,7 +279,7 @@ class HCXAILoadoutSave : HCSaveJob
             // Only remove a target this writer successfully published. A failed
             // CopyFile may mean an operator file appeared: preserve it, retain
             // provenance, and let next boot distinguish whole objects/HC tears.
-            if (m_Image.HCPublished()) { DeleteFile(m_Target); }
+            if (m_Image.HCPublished() && !DeleteFile(m_Target)) { this.HCRefused("torn_delete"); }
             this.HCNext();
             return STEP_MORE;
         }
@@ -344,9 +408,18 @@ class HCXAIDefaults
         if (!HCXAIDefaults.LoadoutNameSafe(name)) { return false; }
         string target = EXPANSION_LOADOUT_FOLDER + name + ".json";
         string temporary = target + ".hcdefault.tmp";
-        // Existing-file semantics stay synchronous and unchanged for zone
-        // guards. The provider-ready boot job handles interrupted HC intents.
-        if (FileExist(target)) { return false; }
+        // Existing-file semantics stay synchronous for zone guards. Retire a
+        // stale intent only after proving the target is whole; preserve tears
+        // for the bounded boot recovery job above.
+        if (FileExist(target))
+        {
+            if (FileExist(temporary) && HCXAIDefaults.HCWholeLoadout(HCProfileDefaults.ReadText(target)))
+            {
+                if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
+                else { Print("[HC Expansion AI] loadout default intent cleared name=" + name + " reason=whole_target"); }
+            }
+            return false;
+        }
         string source = HCXAIDefaults.Shipped() + "loadouts/" + name + ".json";
         string text = HCProfileDefaults.ReadText(source);
         if (text == "")
@@ -357,17 +430,22 @@ class HCXAIDefaults
         // The target was absent before this copy, so a copy that fails readback is removed and retried next boot.
         bool provCopied = false;
         bool provOk = HCProfileDefaults.WriteText(temporary, text);
+        if (provOk) { provOk = !FileExist(target); }
         if (provOk) { provCopied = CopyFile(temporary, target); provOk = provCopied; }
         if (provOk) { provOk = HCProfileDefaults.ReadText(target) == text; }
         if (!provOk)
         {
             // Remove our copied target on mismatch. On a failed copy retain
             // intent: a newly appeared whole operator file must be preserved.
-            if (provCopied && DeleteFile(target)) { DeleteFile(temporary); }
+            if (provCopied)
+            {
+                if (!DeleteFile(target)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=torn_delete"); }
+                else if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
+            }
             Print("[HC Expansion AI] loadout default refused name=" + name + " reason=write_readback");
             return false;
         }
-        DeleteFile(temporary);
+        if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); return false; }
         Print("[HC Expansion AI] loadout default provisioned name=" + name + " source=pbo; operator files are never overwritten; runtime=PENDING");
         return true;
     }

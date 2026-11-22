@@ -528,6 +528,7 @@ class HCXAISiteBase : Managed
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         m_Ticks++;
+        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.HCQueueOwned(); }
         this.HCPumpSiteSave(m_CacheSave);
         this.HCPumpSiteSave(m_OwnedSave);
         if (m_RouteSave && m_RouteSave.HCDirty && !m_RouteSave.HCFaulted && !HCSaveScheduler.HCRegistered(m_RouteSave))
@@ -744,7 +745,6 @@ class HCXAISiteBase : Managed
     }
     protected void StepRun()
     {
-        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.HCQueueOwned(); }
         int stage = 0;
         if (m_RunStage % 2 == 1) { stage = 1 + m_RunStage / 2; }
         m_RunStage = (m_RunStage + 1) % 8;

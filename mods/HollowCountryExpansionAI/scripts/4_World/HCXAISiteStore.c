@@ -2,7 +2,7 @@
 // coalesce on HCSaveScheduler and transfer <=4096 bytes per image stage.
 // SaveCaches is still the synchronous picker/inventory barrier. It aborts the
 // pending image and closes its handles before writing current state; no old
-// stage can promote after that barrier, including when SaveFile returns false.
+// stage can promote after that barrier, including when the shared save fails.
 // Ownership death/reconciliation barriers flush the same revision-aware writer.
 // Installed native APIs: EnSystem.c OpenFile/ReadFile/CloseFile/DeleteFile;
 // JsonFileLoader.c SaveFile/MakeData; EnScript.c map Get/Set/Find/Remove.
@@ -146,7 +146,6 @@ class HCXAIRouteSave : HCSaveJob
 }
 class HCXAICacheSave : HCSaveJob
 {
-    protected int m_CleanupPhase;
     HCXAISiteDirector Owner;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
@@ -160,8 +159,7 @@ class HCXAICacheSave : HCSaveJob
         m_Image = new HCStagedSaveImage();
         // Abort drains at most two retained handles, one per HCAbort call.
         // This synchronous inventory barrier never advances/promotes an old
-        // image. Defer its temporary-file deletion to a one-op save visit.
-        m_CleanupPhase = 1;
+        // image. SaveCaches clears the superseded intent before its new save.
         HCDirty = false;
         HCInFlight = false;
         HCUrgent = false;
@@ -173,19 +171,6 @@ class HCXAICacheSave : HCSaveJob
     {
         if (!Owner) { return STEP_FAILED; }
         if (!HCDirty) { return STEP_DONE; }
-        if (m_CleanupPhase == 1)
-        {
-            // One native file operation on this visit, even if no temp exists.
-            DeleteFile(HCXAISiteDirector.CACHES + ".tmp");
-            m_CleanupPhase = 2;
-            return STEP_MORE;
-        }
-        if (m_CleanupPhase == 2)
-        {
-            if (FileExist(HCXAISiteDirector.CACHES + ".tmp")) { return STEP_FAILED; }
-            m_CleanupPhase = 0;
-            return STEP_MORE;
-        }
         if (!m_Image.Active())
         {
             string text;
@@ -218,6 +203,7 @@ class HCXAIOwnedSave : HCSaveJob
 class HCXAISiteStorage : HCXAISiteBase
 {
     protected float m_OwnedRetryAt;
+    protected int m_OwnedFailures;
     protected bool HCRetryOwned()
     {
         if (!m_OwnedSave || !m_OwnedSave.HCFaulted) { return m_OwnedSave != null; }
@@ -234,6 +220,9 @@ class HCXAISiteStorage : HCXAISiteBase
         m_OwnedSave = new HCXAIOwnedSave();
         m_OwnedSave.Owner = HCXAISiteDirector.Cast(this);
         HCSaveScheduler.HCRegister(m_OwnedSave);
+        m_OwnedSave.HCDue = now;
+        m_OwnedSave.HCUrgent = true;
+        if (m_OwnedFailures == 1 || m_OwnedFailures % 10 == 0) { Print("[HC Expansion AI] ownership retry writer rebuilt reason=retry_due runtime=PENDING"); }
         return true;
     }
     override protected bool HCStartLocalities()
@@ -558,9 +547,10 @@ class HCXAISiteStorage : HCXAISiteBase
         {
             if (!m_CacheRows.Contains(barrierRow.SiteId)) { m_CacheRows.Set(barrierRow.SiteId, barrierRow); }
         }
-        string error;
-        MakeDirectory("$profile:HollowCountry");
-        bool saved = JsonFileLoader<HCXAICacheJournal>.SaveFile(HCXAISiteDirector.CACHES, m_Caches, error);
+        // Same synchronous return/durability contract for picker and seeding.
+        // Verified tmp + backup rotation + primary readback; never truncate the
+        // primary in place. LoadCaches refuses backup-only rollback.
+        bool saved = HCV2ThreatStore<HCXAICacheJournal>.Save(CACHES, m_Caches, HCWorldStore.MAX_BYTES);
         if (saved && m_CacheSave) { m_CacheSave.HCCommitted(GetGame().GetTickTime()); }
         return saved;
     }
@@ -644,15 +634,31 @@ class HCXAISiteStorage : HCXAISiteBase
     override void HCOwnershipSaved(bool saved)
     {
         m_OwnedSaved = saved && !m_OwnershipClockFault;
-        if (!saved) { m_OwnedRetryAt = GetGame().GetTickTime() + 30; }
+        if (saved) { m_OwnedFailures = 0; }
+        else
+        {
+            m_OwnedRetryAt = GetGame().GetTickTime() + 30;
+            m_OwnedFailures++;
+            if (m_OwnedFailures == 1 || m_OwnedFailures % 10 == 0)
+            {
+                Print("[HC Expansion AI] ownership save refused: reason=ownership_checkpoint_failed retries=" + m_OwnedFailures.ToString() + "; new spawns and cache seeds held");
+            }
+        }
     }
     override bool SaveOwned()
     {
-        if (!this.HCUpdateMembers()) { return false; }
+        if (!this.HCUpdateMembers()) { this.HCOwnershipSaved(false); return false; }
         if (!this.HCRetryOwned()) { return false; }
         m_OwnedSave.HCChanged();
+        int failuresBeforeFlush = m_OwnedFailures;
         m_OwnedSaved = HCSaveScheduler.HCFlush(m_OwnedSave) && !m_OwnershipClockFault;
-        if (!m_OwnedSaved) { Print("[HC Expansion AI] ownership save refused: reason=ownership_checkpoint_failed; new spawns and cache seeds held"); }
+        // HCFlush may abort at its stage guard without calling the owner.
+        if (!m_OwnedSaved)
+        {
+            m_OwnedSave.HCFaulted = true;
+            if (m_OwnedFailures == failuresBeforeFlush) { this.HCOwnershipSaved(false); }
+        }
+        if (!m_OwnedSaved) { m_OwnedRetryAt = GetGame().GetTickTime() + 30; }
         return m_OwnedSaved;
     }
 }
@@ -815,8 +821,14 @@ class HCXAISiteStore
     static HCXAICacheJournal LoadCaches()
     {
         string path = HCXAISiteDirector.CACHES;
-        // Shared first-open recovery promotes a whole tmp, else restores bak,
-        // preserving a torn primary as .torn. Existing schema/files stay intact.
+        // A backup is the PRIOR committed image, never proof of latest loot
+        // state. Refuse backup-only rollback (including legacy sync tears).
+        // Recovery may promote a whole newer intent; never refill from old bak.
+        if (!HCV2ThreatStore<HCXAICacheJournal>.HCWholeImage(path) && !HCV2ThreatStore<HCXAICacheJournal>.HCWholeImage(path + ".tmp") && FileExist(path + ".bak"))
+        {
+            HCCachesRefused("backup_only_rollback");
+            return null;
+        }
         if (!HCV2ThreatStore<HCXAICacheJournal>.CanOpen(path)) { HCCachesRefused("recovery"); return null; }
         if (!FileExist(path))
         {
@@ -829,7 +841,6 @@ class HCXAISiteStore
         if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches) { HCCachesRefused("invalid_json"); return null; }
         if (caches.SchemaVersion != 1) { HCCachesRefused("schema"); return null; }
         if (!caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { HCCachesRefused("rows"); return null; }
-        if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCCachesRefused("tmp_delete_failed"); return null; }
         return caches;
     }
     static HCXAIOwnership LoadOwned()
