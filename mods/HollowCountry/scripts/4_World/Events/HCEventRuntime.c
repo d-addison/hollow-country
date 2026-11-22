@@ -159,6 +159,8 @@ class HCEventRuntime
     protected ref HCEventRuntimeState m_AnnounceCandidate;
     bool HCAnnouncePending() { return m_AnnounceStage > 0; }
     bool HCPublishPending() { return m_PendingPublish != null || HCAnnouncePending(); }
+    // True only while a journal image is unpublished (excludes announce stages without a journal job).
+    bool HCJournalPending() { return m_PendingPublish != null; }
     bool HCOperational() { return m_Ready; }
     bool HCCancelPending()
     {
@@ -209,6 +211,9 @@ class HCEventRuntime
         // These are durable continuations, not debounced routine snapshots.
         m_JournalJob.HCDirty = true;
         m_JournalJob.HCUrgent = true;
+        // Issue #333: every admission waits on two journal images; the scheduler runs this
+        // job ahead of a retained routine save and drives it per frame.
+        m_JournalJob.HCPreempt = true;
         m_JournalJob.HCDue = 0;
         return true;
     }
@@ -394,10 +399,10 @@ class HCEventRuntime
         if (HCAnnouncePending()) { return false; }
         // Refuse before any mutation. Callers return BLOCKED/false and may retry;
         // player ingress must never drain hundreds of journal stages in one tick.
-        // The scheduler retains an active large job until it completes: an
-        // urgent journal can wait behind that job (up to its bounded stage count,
-        // e.g. <=10,304 stages at 8 MiB). BLOCKED lasts through that wait plus
-        // journal commit; callers retry without mutating or losing an action.
+        // The journal job is a scheduler preempt job: it parks a retained routine
+        // job between stages and is driven per frame under a stage and ms cap, so
+        // BLOCKED lasts a few seconds of journal commit. Callers retry without
+        // mutating or losing an action.
         if (m_PendingPublish) { return false; }
         return HCReadAllowed(context);
     }

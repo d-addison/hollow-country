@@ -19,13 +19,13 @@ modded class HCSaveScheduler
 {
     protected float m_PeakStageMs;
 
-    override void OnTick(float deltaTime)
+    // Runs after every dispatch, per-frame urgent ones included (issue #333).
+    override protected void HCAfterDispatch()
     {
-        super.OnTick(deltaTime);
         if (m_TickStages == 0) { return; }
         float elapsedMs = m_StageBudget.HCElapsedMs();
         if (elapsedMs <= HCPerfConfig.HCGet().SaveStageTargetMs || elapsedMs <= m_PeakStageMs) { return; }
         m_PeakStageMs = elapsedMs;
-        Print("[HC PerfControl] WorldSaves stage_over_target_ms=" + elapsedMs.ToString() + " stages=" + m_TickStages.ToString() + " scope=tick_stages runtime=PENDING");
+        Print("[HC PerfControl] WorldSaves stage_over_target_ms=" + elapsedMs.ToString() + " stages=" + m_TickStages.ToString() + " scope=dispatch_stages runtime=PENDING");
     }
 }

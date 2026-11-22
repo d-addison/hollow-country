@@ -45,6 +45,12 @@ class HCEventModule : HCModule
     protected int m_RosterCursor = 0;
     protected bool m_BindContinuing;
     protected bool m_StartupSweep;
+    // Issue #333: one bounded roster summary per 60 s window (counters, no allocation per tick).
+    protected float m_RosterWindow;
+    protected int m_RosterBlockedPublish;
+    protected int m_RosterBlockedAnnounce;
+    protected int m_RosterRefreshes;
+    protected int m_RosterAdmitted;
     protected ref HCEventMission m_Announcing;
     protected int m_AnnouncingSlot;
     protected bool m_AnnouncingPolice;
@@ -345,6 +351,11 @@ class HCEventModule : HCModule
         }
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
+        m_RosterWindow = 0;
+        m_RosterBlockedPublish = 0;
+        m_RosterBlockedAnnounce = 0;
+        m_RosterRefreshes = 0;
+        m_RosterAdmitted = 0;
         m_BindContinuing = false;
         m_StartupSweep = true;
         m_PoliceRetryReady = false;
@@ -447,15 +458,26 @@ class HCEventModule : HCModule
             // aggregate out of HCItem so it cannot hide a measured chunk name.
             m_TickSteps.HCAdd(m_RuntimeStep, TickCount(runtimeStarted));
             m_RosterElapsed = m_RosterElapsed + deltaTime;
+            HCRosterSummaryTick(deltaTime);
             if (m_Announcing && !m_Runtime.HCAnnouncePending())
             {
                 HCCompleteAnnouncement(context);
                 return;
             }
-            if (journalTick || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return; }
+            if (journalTick || m_Runtime.HCJournalPending())
+            {
+                m_RosterBlockedPublish = m_RosterBlockedPublish + 1;
+                return;
+            }
+            if (m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned())
+            {
+                m_RosterBlockedAnnounce = m_RosterBlockedAnnounce + 1;
+                return;
+            }
             if (m_StartupSweep || m_BindContinuing || m_RosterElapsed >= 5)
             {
                 m_RosterElapsed = 0;
+                m_RosterRefreshes = m_RosterRefreshes + 1;
                 int rosterStarted = TickCount(0);
                 RefreshRoster(context);
                 HCMeasureStep(m_RosterStep, "roster", rosterStarted);
@@ -463,6 +485,20 @@ class HCEventModule : HCModule
             }
         }
     }
+    // One line per 60 s window while the runtime is up: ticks the roster could not run
+    // behind an unpublished journal image / an owned announcement, refreshes run, missions admitted.
+    protected void HCRosterSummaryTick(float deltaTime)
+    {
+        m_RosterWindow = m_RosterWindow + deltaTime;
+        if (m_RosterWindow < 60) { return; }
+        m_RosterWindow = 0;
+        Print("[HC Events] roster summary window_s=60 blocked_publish_pending=" + m_RosterBlockedPublish.ToString() + " blocked_announce=" + m_RosterBlockedAnnounce.ToString() + " refreshes=" + m_RosterRefreshes.ToString() + " admitted=" + m_RosterAdmitted.ToString() + " runtime=PENDING");
+        m_RosterBlockedPublish = 0;
+        m_RosterBlockedAnnounce = 0;
+        m_RosterRefreshes = 0;
+        m_RosterAdmitted = 0;
+    }
+
     // Only HC-owned AI starts consume the situation budget. Native CE events,
     // existing infected objectives and passive recovery/delivery offers keep
     // their own owners and are never disabled by this pacing gate.
@@ -506,6 +542,7 @@ class HCEventModule : HCModule
         }
         if (result == HCEventCode.OK)
         {
+            m_RosterAdmitted = m_RosterAdmitted + 1;
             if (RememberAnnounced(m_Announcing.Id))
             {
                 Print("[HC Events] mission admitted later; " + m_Announcing.Id + " runtime=PENDING");
@@ -645,6 +682,7 @@ class HCEventModule : HCModule
                 }
                 if (admission == HCEventCode.OK)
                 {
+                    m_RosterAdmitted = m_RosterAdmitted + 1;
                     // Remembered once, so this line appears once per mission id.
                     if (RememberAnnounced(mission.Id))
                     {
