@@ -339,6 +339,8 @@ class HCInfectedLODState
 class HCInfectedLODSaveJob : HCSaveJob
 {
     HCInfectedLODStore Owner;
+    // Inherit the operator's SaveCoalesceSeconds interval. Shutdown's HCFlush
+    // bypasses this interval and drains the latest revision.
     override int HCStep()
     {
         if (!Owner) { return STEP_FAILED; }
