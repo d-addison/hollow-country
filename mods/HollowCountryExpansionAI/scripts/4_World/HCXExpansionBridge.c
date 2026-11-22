@@ -22,6 +22,25 @@ class HCXExpansionBridge
         Print("[HCX Bridge] refused " + call + " reason=" + reason);
     }
 
+    // Native EnSystem UTC out-parameter APIs; sample date again across midnight.
+    // CF owns epoch conversion; its bridge validates ranges before provider calls.
+    // Returns -1 on refusal, including dates outside 1970-2037. Callers must
+    // reject negative results before updating lockouts or persisting an epoch.
+    static int HCGetTimestamp()
+    {
+        int year, month, day, hour, minute, second;
+        int endYear, endMonth, endDay;
+        GetYearMonthDayUTC(year, month, day);
+        GetHourMinuteSecondUTC(hour, minute, second);
+        GetYearMonthDayUTC(endYear, endMonth, endDay);
+        if (year != endYear || month != endMonth || day != endDay)
+        {
+            HCRefuse("GetTimestamp", "UTC_DATE_CHANGED");
+            return -1;
+        }
+        return HCXCFBridge.HCTimestamp(year, month, day, hour, minute, second);
+    }
+
     static bool HCEntity(EntityAI entity, string call, bool requireAlive = true)
     {
         if (!entity) { HCRefuse(call, "ENTITY_NULL"); return false; }

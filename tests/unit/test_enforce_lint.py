@@ -119,6 +119,91 @@ class ExpansionBridgeRule(unittest.TestCase):
 
 
 
+
+class DependencyBridgeRule(unittest.TestCase):
+    def findings(self, text, support='', path=W + 'Caller.c', symbols=None):
+        sources = [lint.es.Source(path, text)]
+        if support:
+            sources.append(lint.es.Source(W + 'Types.c', support))
+        return lint.lint(sources, rules=(lint.rule_dependency_bridges,), symbols=symbols)
+
+    def test_dependency_calls_route_to_their_owned_bridges(self):
+        for call, bridge in (
+            ('GetPermissionsManager()', lint._COT_BRIDGE),
+            ('GetRPCManager()', lint._CF_BRIDGE),
+            ('CF_Date.Timestamp(1970, 1, 1, 0, 0, 0)', lint._CF_BRIDGE),
+            ('ExpansionStatic.GetTimestamp()', lint._EXPANSION_BRIDGE),
+        ):
+            text = 'class HCProbe { void Run() { ' + call + '; } }'
+            with self.subTest(call=call):
+                result = self.findings(text)
+                self.assertEqual(['HC-E027'], [f.rule for f in result])
+                self.assertIn(lint.Path(bridge).stem, result[0].message)
+                self.assertEqual([], self.findings(text, path=bridge))
+                self.assertTrue(self.findings(text, path=W + 'Other/' + lint.Path(bridge).name))
+
+    def test_native_owner_and_inherited_methods_shadow_vendor_globals(self):
+        symbols = {'classes': {
+            'PlayerBase': [dict(layer=3, modded=False, parent='Man', methods={'Message': []}, fields={})],
+            'Man': [dict(layer=3, modded=False, parent='', methods={'GetPlayer': []}, fields={})],
+            'StateBase': [dict(layer=3, modded=False, parent='', methods={'GetPlayer': []}, fields={})],
+            'ModifierBase': [dict(layer=3, modded=False, parent='', methods={'GetPlayer': []}, fields={})],
+        }}
+        for owner, call in (('PlayerBase', 'Message("a", "b")'),
+                            ('PlayerBase', 'GetPlayer()'),
+                            ('StateBase', 'GetPlayer()'), ('ModifierBase', 'GetPlayer()')):
+            with self.subTest(owner=owner, call=call):
+                self.assertEqual([], self.findings(
+                    'modded class ' + owner + ' { void Run() { ' + call + '; } }', symbols=symbols))
+        self.assertEqual(['HC-E027'], [f.rule for f in self.findings(
+            'class HCProbe { void Run() { Message("a", "b"); } }', symbols=symbols)])
+
+    def test_native_globals_shadow_vendor_globals_only_at_visible_layers(self):
+        text = 'class HCProbe { void Run() { GetPlayer(); } }'
+        self.assertEqual([], self.findings(text, symbols={'globals': {'GetPlayer': {0}}}))
+        self.assertEqual(['HC-E027'], [f.rule for f in self.findings(
+            text, symbols={'globals': {'GetPlayer': {4}}})])
+
+    def test_authored_members_and_globals_shadow_vendor_globals(self):
+        text = 'class HCProbe : HCBase { void Run() { GetPlayer(); Message("a", "b"); } }'
+        support = 'class HCBase { void GetPlayer() {} } void Message(string a, string b) {}'
+        self.assertEqual([], self.findings(text, support))
+
+    def test_cf_aliases_and_legacy_names_precede_jm_prefix(self):
+        for support, call in (
+            ('typedef CF_Date JMDate;', 'JMDate()'),
+            ('typedef CF_Date JMDate;', 'JMDate.Timestamp(1970, 1, 1, 0, 0, 0)'),
+            ('typedef CF_Date JMDate; typedef JMDate COTDate;', 'COTDate()'),
+            ('', 'JMDate()'),
+            ('', 'JMModuleManager()'),
+        ):
+            text = 'class HCProbe { void Run() { ' + call + '; } }'
+            with self.subTest(support=support, call=call):
+                result = self.findings(text, support)
+                self.assertEqual(['HC-E027'], [f.rule for f in result])
+                self.assertIn('HCXCFBridge', result[0].message)
+                self.assertEqual([], self.findings(text, support, path=lint._CF_BRIDGE))
+                self.assertTrue(self.findings(text, support, path=lint._COT_BRIDGE))
+
+    def test_baseline_data_round_trips_without_dependency_injection(self):
+        import json
+        import tempfile
+        baseline = lint.load_baseline()
+        with tempfile.TemporaryDirectory() as folder:
+            path = lint.Path(folder) / 'baseline.json'
+            path.write_text(json.dumps(baseline), encoding='utf-8')
+            self.assertEqual(baseline, lint.load_baseline(path))
+            path.write_text('{"entries": []}', encoding='utf-8')
+            self.assertEqual({'entries': []}, lint.load_baseline(path))
+        entries = [entry for entry in baseline['entries'] if entry['rule'] == 'HC-E027']
+        self.assertTrue(entries)
+        for entry in entries:
+            self.assertIn(lint.Path(entry['path']).stem, entry['review'])
+            self.assertIn('Wave 2 migrates', entry['review'])
+            self.assertIn('HCXExpansionBridge.HCGetTimestamp', entry['review'])
+
+
+
 class NativeCompileRetroRules(unittest.TestCase):
     path = 'mods/HollowCountry/scripts/4_World/Probe.c'
 

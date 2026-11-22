@@ -19,6 +19,7 @@
 // Optional COT binding lives in HCXCotPermissions.c; the base has no vendor types.
 class HCAdminPermissionPort
 {
+    string HCProblem() { return "cot_permission_provider_unavailable"; }
     bool HCReady() { return false; }
     bool HCAllowed(PlayerIdentity sender, string permission) { return false; }
 }
@@ -30,6 +31,7 @@ class HCAdminPermissionAdapter
     protected bool m_Enabled;
     protected ref HCAdminPermissionPort m_Port;
     protected string m_Reason;
+    protected float m_NextPortRefusalAt;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     HCOperationalStatus HCGetOperationalStatus()
@@ -81,16 +83,29 @@ class HCAdminPermissionAdapter
     bool HCAllowed(PlayerIdentity sender)
     {
         if (!m_Running || !m_Enabled || !GetGame() || !GetGame().IsServer() || !sender || !m_Port) { return false; }
-        if (!m_Port.HCReady()) { return false; }
-        return m_Port.HCAllowed(sender, HCAdminPermissionAdapter.PERMISSION);
+        if (!m_Port.HCReady()) { HCRefuse(m_Port.HCProblem(), true); return false; }
+        if (!m_Port.HCAllowed(sender, HCAdminPermissionAdapter.PERMISSION))
+        {
+            HCRefuse(m_Port.HCProblem(), true);
+            return false;
+        }
+        return true;
     }
 
-    protected void HCRefuse(string reason)
+    protected void HCRefuse(string reason, bool portRefusal = false)
     {
-        if (m_Reason == reason) { return; }
+        if (m_Reason == reason || !GetGame() || !GetGame().IsServer()) { return; }
+        // Bound permission failures separately so startup readiness cannot hide
+        // the first denied check. Existing readiness transitions stay visible.
+        if (portRefusal)
+        {
+            float now = GetGame().GetTickTime();
+            if (now < m_NextPortRefusalAt) { return; }
+            m_NextPortRefusalAt = now + 60;
+        }
         m_Reason = reason;
-        // No peer identity or role contents in diagnostics. Once per change.
-        if (GetGame() && GetGame().IsServer()) { Print("[HC Admin] COTAuthorization reason=" + reason + " runtime=PENDING"); }
+        // No peer identity or role contents; at most one port refusal per minute.
+        Print("[HC Admin] COTAuthorization reason=" + reason + " runtime=PENDING");
     }
 
     void HCRefresh()
