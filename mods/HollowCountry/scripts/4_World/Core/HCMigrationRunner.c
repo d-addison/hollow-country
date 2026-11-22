@@ -12,11 +12,15 @@
 //   3 delete T, copy P to T, read T back == P
 //   4 delete P
 // Refusals never delete T, B or any operator file and never edit a file they cannot classify.
-// A scratch image is deleted only when it is provably ours (identical to the target, a torn
-// prefix of the image being written, or a CURRENT image); anything else is refused and kept.
+// A scratch image is deleted only when it is provably ours (empty, identical to the target, a
+// torn prefix of the image being written, or reproduced by the transform from a retained backup);
+// anything else is refused and kept. A refused scratch cleanup closes the store.
 //
 // Step contract (the runner enforces what it can, the rest is on the step author):
-//   - One step per target file (a second step on the same HCTarget is refused at registration).
+//   - One step per target file (a second step on the same HCTarget, compared case-folded, is
+//     refused at registration; registering the same id on the same target again is a no-op).
+//   - HCStore() must equal the recovery gate's store for the target (HCRecoveryGate.HCStoreFor),
+//     so a target a store writes can never be migrated without that store being gated.
 //     A schema change on a file that already has a step edits that step: CURRENT is always
 //     what THIS build writes, and OLD widens to every earlier schema (v1 -> v3 is one
 //     transform, never v1 -> v2 then v2 -> v3 as separate steps).
@@ -36,8 +40,9 @@ class HCMigrationStep
     // Stable token, [a-z0-9-], 1..48 chars; names the scratch and backup files.
     string HCId() { return ""; }
     // Gate store refused on this boot when the step refuses or is deferred:
-    // "world", "escalation", "groups", or "" for a file no store gate covers. A step with
-    // store "" has no gate to close, so it is never deferred: it always runs in the boot pass.
+    // "world", "escalation", "groups", or "" for a file no store gate covers. It must equal
+    // HCRecoveryGate.HCStoreFor(HCTarget()). A step with store "" has no gate to close, so it
+    // is never deferred: it always runs in the boot pass.
     string HCStore() { return ""; }
     // Full profile path, starting "$profile:HollowCountry/".
     string HCTarget() { return ""; }
@@ -58,11 +63,18 @@ class HCMigrationStep
 class HCMigrationProbeStep : HCMigrationStep
 {
     static const string PATH = "$profile:HollowCountry/migrate-selftest.probe";
+    // Maps to the "escalation" gate by prefix; only ever holds scratch probe text.
+    static const string STORE_PATH = "$profile:HollowCountry/escalation.json.migrate-selftest.probe";
     protected string m_Id = "selftest-probe";
-    // Self-test only: lets a second probe carry another id on the same target.
+    protected string m_Target = PATH;
+    protected string m_Store = "";
+    // Self-test only: lets a second probe carry another id, target or store.
     void HCSetId(string id) { m_Id = id; }
+    void HCSetTarget(string target) { m_Target = target; }
+    void HCSetStore(string store) { m_Store = store; }
     override string HCId() { return m_Id; }
-    override string HCTarget() { return PATH; }
+    override string HCStore() { return m_Store; }
+    override string HCTarget() { return m_Target; }
     override int HCLimit() { return 256; }
     override int HCClassify(string text)
     {
@@ -101,6 +113,8 @@ class HCMigrationRunner
     // lifetime, so HCHalt must not clear these; HCGate applies them on every boot.
     protected static ref array<string> s_RegStores = new array<string>;
     protected static ref array<string> s_RegReasons = new array<string>;
+    // Registration refusals this script lifetime (not cleared by HCHalt; shown in every summary).
+    protected static int s_RegRefused;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
     protected static bool s_BuiltinsRegistered;
     protected static bool s_SelfTested;
@@ -126,35 +140,64 @@ class HCMigrationRunner
         if (!step) { return false; }
         string id = step.HCId();
         string why = HCRegistrationWhy(step, s_Steps);
+        if (why == "already_registered") { return true; }
         if (why != "")
         {
+            s_RegRefused++;
             HCReceipt(id, HCMigrationRunner.RESULT_REFUSED, why);
             // A refused step never runs, so its store would otherwise open on an unmigrated
-            // file. Remember the closure; HCHalt does not clear it and HCGate applies it.
-            string store = step.HCStore();
-            if (store == "world" || store == "escalation" || store == "groups")
-            {
-                s_RegStores.Insert(store);
-                s_RegReasons.Insert(why);
-            }
+            // file. Close both the declared store and the one the gate maps the target to;
+            // HCHalt does not clear this and HCGate applies it on every boot.
+            HCRegClose(step.HCStore(), why);
+            HCRegClose(HCStoreOfTarget(step.HCTarget()), why);
             return false;
         }
         s_Steps.Insert(step);
         return true;
     }
 
-    // Returns "" when the step may join the registry, otherwise a refusal token. One step per
-    // target: two steps on one file cannot chain (the first would see the second's output as NEWER).
+    protected static void HCRegClose(string store, string why)
+    {
+        if (store != "world" && store != "escalation" && store != "groups") { return; }
+        if (s_RegStores.Find(store) >= 0) { return; }
+        s_RegStores.Insert(store);
+        s_RegReasons.Insert(why);
+    }
+
+    // Store the recovery gate maps this path to. The gate matches case-sensitively but the
+    // profile filesystem may not, so a path that maps differently once case-folded still names a
+    // store file; report the store in that case too.
+    protected static string HCStoreOfTarget(string target)
+    {
+        string store = HCRecoveryGate.HCStoreFor(target);
+        if (store != "") { return store; }
+        string folded = target;
+        folded.ToLower();
+        if (folded.IndexOf("$profile:hollowcountry/groups/state/") == 0) { return "groups"; }
+        if (folded.IndexOf("$profile:hollowcountry/world.json") == 0) { return "world"; }
+        if (folded.IndexOf("$profile:hollowcountry/escalation.json") == 0) { return "escalation"; }
+        return "";
+    }
+    // Returns "" when the step may join the registry, "already_registered" when this exact id on
+    // this target is already in it (a no-op), otherwise a refusal token. One step per target
+    // (case-folded): two steps on one file cannot chain (the first would see the second's output
+    // as NEWER).
     protected static string HCRegistrationWhy(HCMigrationStep step, array<ref HCMigrationStep> registered)
     {
         string why = HCStepInvalid(step);
         if (why != "") { return why; }
         string id = step.HCId();
         string target = step.HCTarget();
+        string foldedTarget = target;
+        foldedTarget.ToLower();
+        string knownTarget;
         foreach (HCMigrationStep known : registered)
         {
+            knownTarget = known.HCTarget();
+            knownTarget.ToLower();
+            if (known.HCId() == id && knownTarget == foldedTarget) { return "already_registered"; }
             if (known.HCId() == id) { return "duplicate_id"; }
-            if (known.HCTarget() == target) { return "duplicate_target"; }
+            if (knownTarget == foldedTarget) { return "duplicate_target"; }
         }
         return "";
     }
@@ -178,7 +221,8 @@ class HCMigrationRunner
         }
         if (s_Steps.Count() < 1)
         {
-            Print("[HC Migrate] id=runner action=skipped reason=no_registered_migrations");
+            if (s_RegRefused < 1) { Print("[HC Migrate] id=runner action=skipped reason=no_registered_migrations"); }
+            else { HCSummary(); }
             return;
         }
         if (!s_SelfTestPassed)
@@ -277,7 +321,8 @@ class HCMigrationRunner
 
     protected static void HCSummary()
     {
-        Print("[HC Migrate] id=runner action=skipped reason=summary applied=" + s_Applied.ToString() + " skipped=" + s_Skipped.ToString() + " refused=" + s_Refused.ToString());
+        int refused = s_Refused + s_RegRefused;
+        Print("[HC Migrate] id=runner action=skipped reason=summary applied=" + s_Applied.ToString() + " skipped=" + s_Skipped.ToString() + " refused=" + refused.ToString());
     }
 
     // Refuse every registered step without touching a file and close every store it gates.
@@ -320,6 +365,13 @@ class HCMigrationRunner
         {
             result = HCRunStep(step, reason);
         }
+        HCCount(store, result, reason);
+        HCReceipt(step.HCId(), result, reason);
+    }
+
+    // Per-boot counters; a refusal (including a failed scratch cleanup) closes the step's store.
+    protected static void HCCount(string store, int result, string reason)
+    {
         if (result == HCMigrationRunner.RESULT_APPLIED) { s_Applied++; }
         if (result == HCMigrationRunner.RESULT_SKIPPED) { s_Skipped++; }
         if (result == HCMigrationRunner.RESULT_REFUSED)
@@ -327,7 +379,6 @@ class HCMigrationRunner
             s_Refused++;
             HCBlock(store, reason);
         }
-        HCReceipt(step.HCId(), result, reason);
     }
 
     // Returns "" when the step is well formed, otherwise a refusal token.
@@ -344,8 +395,12 @@ class HCMigrationRunner
         }
         string prefix = HCMigrationRunner.HC_PREFIX;
         if (target.Length() <= prefix.Length() || target.Length() > 160 || target.IndexOf(prefix) != 0) { return "step_invalid_target"; }
-        if (target.IndexOf("..") >= 0 || target.IndexOf("\\") >= 0 || target.IndexOf("//") >= 0) { return "step_invalid_target"; }
+        if (target.IndexOf("..") >= 0 || target.IndexOf("\\") >= 0 || target.IndexOf("//") >= 0 || target.IndexOf("/./") >= 0) { return "step_invalid_target"; }
+        if (target.Substring(target.Length() - 2, 2) == "/." || target.Substring(target.Length() - 1, 1) == "/") { return "step_invalid_target"; }
         if (store != "" && store != "world" && store != "escalation" && store != "groups") { return "step_invalid_store"; }
+        // The declared store must be the one the recovery gate maps this file to: a store file
+        // declared ungated, or gated by the wrong store, would be migrated while it stays open.
+        if (store != HCStoreOfTarget(target)) { return "step_invalid_store"; }
         if (step.HCLimit() < 1 || step.HCLimit() > HCGroupIO.HC_RAW_READ_CAP) { return "step_invalid_limit"; }
         return "";
     }
@@ -394,16 +449,23 @@ class HCMigrationRunner
                 // A scratch image beside a CURRENT target is a finished commit only when it is the
                 // same text. A torn prefix that misclassified CURRENT is recovered; anything else
                 // is not ours to delete: refuse and keep both files.
+                // An empty scratch file (a crash right after creating it) is ours and removable.
                 string leftover;
-                if (!HCGroupIO.HCReadRaw(pending, limit, leftover)) { reason = "pending_conflicts_current"; return HCMigrationRunner.RESULT_REFUSED; }
-                if (leftover != text)
+                if (!HCPersistenceDisposition.HCReadArchive(pending, limit, leftover, true)) { reason = "pending_conflicts_current"; return HCMigrationRunner.RESULT_REFUSED; }
+                if (leftover.Length() > 0 && leftover != text)
                 {
                     if (HCHasPrefix(leftover, text)) { return HCRecover(step, target, pending, limit, true, text, "recovered_torn_commit", reason); }
                     reason = "pending_conflicts_current";
                     return HCMigrationRunner.RESULT_REFUSED;
                 }
-                if (!DeleteFile(pending) || FileExist(pending)) { reason = "current_pending_cleanup_failed"; }
-                else { reason = "current_pending_removed"; }
+                // A scratch image that stays beside a store that later writes a newer target is
+                // dangerous (a torn swap could be "recovered" from it): refuse, which closes the store.
+                if (!DeleteFile(pending) || FileExist(pending))
+                {
+                    reason = "current_pending_cleanup_failed";
+                    return HCMigrationRunner.RESULT_REFUSED;
+                }
+                reason = "current_pending_removed";
             }
             return HCMigrationRunner.RESULT_SKIPPED;
         }
@@ -449,8 +511,10 @@ class HCMigrationRunner
             return HCMigrationRunner.RESULT_REFUSED;
         }
         // A scratch image beside an OLD target was never committed and is recomputed. Delete it
-        // only if it is provably ours: empty or a torn prefix of the image about to be written,
-        // or a complete CURRENT image (for example from an earlier build's transform).
+        // only if it is provably ours: empty, identical to the target (or a torn prefix of the
+        // image about to be written), or an image a retained backup reproduces through the
+        // transform. A complete CURRENT image without that proof may be the only newest copy
+        // (for example after the operator restored an older target): refuse and keep both.
         if (FileExist(pending))
         {
             string stale;
@@ -459,7 +523,9 @@ class HCMigrationRunner
                 reason = "pending_conflicts_old";
                 return HCMigrationRunner.RESULT_REFUSED;
             }
-            if (!HCHasPrefix(migrated, stale) && step.HCClassify(stale) != HCMigrationStep.STATE_CURRENT)
+            bool ours = HCHasPrefix(migrated, stale) || stale == text;
+            if (!ours) { ours = HCProvenance(step, target, limit, stale); }
+            if (!ours)
             {
                 reason = "pending_conflicts_old";
                 return HCMigrationRunner.RESULT_REFUSED;
@@ -593,7 +659,8 @@ class HCMigrationRunner
         }
         // The target is committed and verified, but a scratch image that cannot be deleted leaves
         // the step unfinished: close the store for this boot. The next boot sees a CURRENT target
-        // with an identical scratch image and removes it.
+        // with an identical scratch image and tries to remove it again; if that also fails it
+        // refuses as current_pending_cleanup_failed (store closed) until the file is removed.
         if (!DeleteFile(pending) || FileExist(pending))
         {
             HCBlock(store, "pending_delete_failed");
@@ -625,6 +692,9 @@ class HCMigrationRunner
         HCProbeDelete(HCPendingPath(target, probe.HCId()));
         HCProbeDelete(HCBackupPath(target, probe.HCId(), 1));
         HCProbeDelete(HCBackupPath(target, probe.HCId(), 2));
+        HCProbeDelete(HCMigrationProbeStep.STORE_PATH);
+        HCProbeDelete(HCPendingPath(HCMigrationProbeStep.STORE_PATH, probe.HCId()));
+        HCProbeDelete(HCBackupPath(HCMigrationProbeStep.STORE_PATH, probe.HCId(), 1));
     }
 
     protected static void HCProbeDelete(string path)
@@ -641,6 +711,53 @@ class HCMigrationRunner
     protected static bool HCProbePut(string path, string text)
     {
         return HCPersistenceDisposition.HCWriteRawNew(path, text, 256);
+    }
+
+    // A zero-byte scratch file (HCWriteRawNew refuses empty text). EnSystem.c:417/443 OpenFile/CloseFile.
+    protected static bool HCProbeEmpty(string path)
+    {
+        if (FileExist(path)) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.WRITE);
+        if (!handle) { return false; }
+        CloseFile(handle);
+        return FileExist(path);
+    }
+
+    // Runs one refused step through HCRunOne and checks the escalation store is closed and the
+    // per-boot counters and blocks are restored afterwards (the self-test is not a real step run).
+    protected static bool HCSelfTestStoreClose(HCMigrationProbeStep gated, out string detail)
+    {
+        string savedBlock = s_BlockEscalation;
+        bool savedWorld = s_WorldEnabled;
+        int savedApplied = s_Applied;
+        int savedSkipped = s_Skipped;
+        int savedRefused = s_Refused;
+        string storeTarget = HCMigrationProbeStep.STORE_PATH;
+        string storePending = HCPendingPath(storeTarget, gated.HCId());
+        gated.HCSetTarget(storeTarget);
+        gated.HCSetStore("escalation");
+        s_WorldEnabled = true;
+        s_BlockEscalation = "";
+        bool closed = false;
+        string reason;
+        int result;
+        bool setup = HCProbePut(storeTarget, "probe-v2:alpha;") && HCProbePut(storePending, "probe-v2:beta;");
+        if (setup)
+        {
+            result = HCRunStep(gated, reason);
+            HCCount(gated.HCStore(), result, reason);
+            closed = s_BlockEscalation == "pending_conflicts_current" && s_Refused == savedRefused + 1;
+        }
+        s_BlockEscalation = savedBlock;
+        s_WorldEnabled = savedWorld;
+        s_Applied = savedApplied;
+        s_Skipped = savedSkipped;
+        s_Refused = savedRefused;
+        HCProbeDelete(storeTarget);
+        HCProbeDelete(storePending);
+        if (!setup) { detail = "setup_storeclose"; return false; }
+        if (!closed) { detail = "storeclose_refused_not_blocked"; return false; }
+        return true;
     }
 
     protected static bool HCSelfTestCases(out string detail)
@@ -707,6 +824,12 @@ class HCMigrationRunner
         result = HCRunStep(probe, reason);
         if (result != HCMigrationRunner.RESULT_REFUSED || reason != "pending_conflicts_current" || !HCProbeIs(target, "probe-v2:alpha;") || !HCProbeIs(pending, "probe-v2:beta;")) { detail = "conflict_" + reason; return false; }
 
+        // An empty scratch file beside a CURRENT target is removed, not refused.
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v2:alpha;") || !HCProbeEmpty(pending)) { detail = "setup_emptycur"; return false; }
+        result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_SKIPPED || reason != "current_pending_removed" || FileExist(pending) || !HCProbeIs(target, "probe-v2:alpha;")) { detail = "emptycur_" + reason; return false; }
+
         // Beside an OLD target a foreign scratch image is kept and refused; a torn one is recomputed.
         HCProbeClear();
         if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(pending, "garbage")) { detail = "setup_oldforeign"; return false; }
@@ -716,6 +839,23 @@ class HCMigrationRunner
         if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(pending, "probe-v2:al")) { detail = "setup_oldtorn"; return false; }
         result = HCRunStep(probe, reason);
         if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:alpha;") || FileExist(pending)) { detail = "oldtorn_" + reason; return false; }
+
+        // A complete CURRENT scratch image beside an OLD target is not proof it is ours: it may be the
+        // only newest copy (operator restored an older target). Without backup provenance it is kept.
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(pending, "probe-v2:beta;")) { detail = "setup_oldcurrent"; return false; }
+        result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_REFUSED || reason != "pending_conflicts_old" || !HCProbeIs(target, "probe-v1:alpha;") || !HCProbeIs(pending, "probe-v2:beta;") || FileExist(backup)) { detail = "oldcurrent_" + reason; return false; }
+        // The same image is deleted once a retained backup reproduces it (slot 1 holds another old text).
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(backup, "probe-v1:beta;") || !HCProbePut(pending, "probe-v2:beta;")) { detail = "setup_oldprov"; return false; }
+        result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:alpha;") || FileExist(pending) || !HCProbeIs(backup, "probe-v1:beta;") || !HCProbeIs(HCBackupPath(target, probe.HCId(), 2), "probe-v1:alpha;")) { detail = "oldprov_" + reason; return false; }
+        // A scratch image identical to the old target is a stray copy and is deleted.
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(pending, "probe-v1:alpha;")) { detail = "setup_oldsame"; return false; }
+        result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:alpha;") || FileExist(pending)) { detail = "oldsame_" + reason; return false; }
 
         // A torn-commit recovery only replaces a prefix of its own image, and never an unreadable target.
         HCProbeClear();
@@ -729,16 +869,48 @@ class HCMigrationRunner
         result = HCRunStep(probe, reason);
         if (result != HCMigrationRunner.RESULT_REFUSED || reason != "target_unreadable" || !FileExist(target) || !FileExist(pending)) { detail = "unreadable_" + reason; return false; }
 
-        // Registration: one step per target; a second step on the same target or id is refused.
+        // Registration: one step per target (case-folded); the same id on the same target again is a
+        // no-op, another id on the target or another target with the id is refused.
         array<ref HCMigrationStep> known = new array<ref HCMigrationStep>;
         known.Insert(probe);
         HCMigrationProbeStep alt = new HCMigrationProbeStep;
         alt.HCSetId("selftest-probe-alt");
         HCMigrationProbeStep twin = new HCMigrationProbeStep;
+        HCMigrationProbeStep elsewhere = new HCMigrationProbeStep;
+        elsewhere.HCSetTarget("$profile:HollowCountry/migrate-selftest-other.probe");
+        HCMigrationProbeStep shouting = new HCMigrationProbeStep;
+        shouting.HCSetId("selftest-probe-shout");
+        shouting.HCSetTarget("$profile:HollowCountry/MIGRATE-SELFTEST.PROBE");
         array<ref HCMigrationStep> empty = new array<ref HCMigrationStep>;
         if (HCRegistrationWhy(alt, known) != "duplicate_target") { detail = "duplicate_target"; return false; }
-        if (HCRegistrationWhy(twin, known) != "duplicate_id") { detail = "duplicate_id"; return false; }
+        if (HCRegistrationWhy(shouting, known) != "duplicate_target") { detail = "duplicate_target_case"; return false; }
+        if (HCRegistrationWhy(elsewhere, known) != "duplicate_id") { detail = "duplicate_id"; return false; }
+        if (HCRegistrationWhy(twin, known) != "already_registered") { detail = "already_registered"; return false; }
         if (HCRegistrationWhy(alt, empty) != "") { detail = "register_clean"; return false; }
+
+        // The declared store must equal the gate's store for the target, and path tricks are refused.
+        HCMigrationProbeStep gated = new HCMigrationProbeStep;
+        gated.HCSetTarget(HCMigrationProbeStep.STORE_PATH);
+        if (HCStepInvalid(gated) != "step_invalid_store") { detail = "store_undeclared"; return false; }
+        gated.HCSetStore("world");
+        if (HCStepInvalid(gated) != "step_invalid_store") { detail = "store_wrong"; return false; }
+        gated.HCSetStore("escalation");
+        if (HCStepInvalid(gated) != "") { detail = "store_declared"; return false; }
+        gated.HCSetTarget("$profile:HollowCountry/ESCALATION.JSON");
+        if (HCStepInvalid(gated) != "") { detail = "store_declared_case"; return false; }
+        gated.HCSetStore("");
+        if (HCStepInvalid(gated) != "step_invalid_store") { detail = "store_undeclared_case"; return false; }
+        HCMigrationProbeStep ungated = new HCMigrationProbeStep;
+        ungated.HCSetStore("groups");
+        if (HCStepInvalid(ungated) != "step_invalid_store") { detail = "store_on_plain_file"; return false; }
+        ungated.HCSetStore("");
+        ungated.HCSetTarget("$profile:HollowCountry/./migrate-selftest.probe");
+        if (HCStepInvalid(ungated) != "step_invalid_target") { detail = "dot_segment"; return false; }
+        ungated.HCSetTarget("$profile:HollowCountry/..");
+        if (HCStepInvalid(ungated) != "step_invalid_target") { detail = "dotdot_segment"; return false; }
+
+        // A refused step closes its real store: a conflicting scratch image on a gated target.
+        if (!HCSelfTestStoreClose(gated, detail)) { return false; }
         detail = "cases_ok";
         return true;
     }
