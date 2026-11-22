@@ -324,6 +324,14 @@ class HCEventRuntime
         {
             return HCRefuse("persistence_admission_failed");
         }
+        // A torn top revision that could not be preserved blocks every journal save
+        // (see HCEventJournalIO.PreserveTorn); name that reason instead of failing the
+        // first publish. The next boot retries the preservation.
+        HCEventJournal loadedJournal = HCEventJournal.Cast(store);
+        if (loadedJournal && loadedJournal.HCTornUnpreserved())
+        {
+            return HCRefuse("torn_preservation_failed");
+        }
         m_State = state;
         if (state.Director.Session != context.Session)
         {
