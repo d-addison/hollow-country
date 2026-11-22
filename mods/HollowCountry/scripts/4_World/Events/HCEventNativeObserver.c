@@ -19,6 +19,10 @@ class HCEventNativeLease
     bool SceneCache;
     float CacheProbeAfter;
     float CacheStartedAt;
+    // Scene cache only: the fill of the bound case reached a final state (HCEventCacheFill.Step);
+    // CacheGranted counts the items HC created in it (the real cargo_granted).
+    bool CacheFillResolved;
+    int CacheGranted;
 }
 class HCEventDwell
 {
@@ -27,7 +31,8 @@ class HCEventDwell
     int Since;
     int Last;
 }
-// Server-owned references only. No item is created, moved, consumed or deleted.
+// Server-owned references only. The one item creation is the single scene-cache fill
+// (HCEventCacheFill); nothing else is created, moved, consumed or deleted.
 // Targets must be registered from a reviewed server site by the integration.
 class HCEventNativeObserver : HCEventObjectiveProvider
 {
@@ -50,19 +55,37 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         return false;
     }
-    // Normal CE events in events/cache-events.xml own creation and replenishment.
+    // Normal CE events in events/cache-events.xml own creation, lifetime and replacement of the
+    // (empty) case; its hourly replacement is the drain-and-replace of the owner's container rule.
     // Borrow one actual ground container, including persisted empty containers:
-    // the case itself is the recovery objective. Never manufacture cargo or claim
-    // that a class/position match proves incident ownership.
+    // the case itself is the recovery objective. HC adds one fill per case identity
+    // (HCEventCacheFill) and never claims that a class/position match proves incident ownership.
+    void HCFillSceneCache(HCEventNativeLease binding)
+    {
+        int granted;
+        int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
+        if (!HCServer.HCTickWork().HCTakeFor(consumer, 4)) { return; }
+        if (HCEventCacheFill.Step(binding.Objective, binding.Item, granted)) { binding.CacheFillResolved = true; }
+        binding.CacheGranted = binding.CacheGranted + granted;
+    }
     void HCBindSceneCache(HCEventNativeLease binding)
     {
-        if (binding.Item || GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
+        if (GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
+        if (binding.Item)
+        {
+            // Bound case whose fill is still waiting (cooldown, players near, budget): same 30 s probe.
+            if (binding.CacheFillResolved) { return; }
+            binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
+            HCFillSceneCache(binding);
+            return;
+        }
         binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
         HCEventMission mission = binding.Objective;
         HCEventTarget current = Target(mission.Id);
         if (current && HCEventCacheSpawner.HCPhysicalGround(current.Item))
         {
             binding.Item = current.Item;
+            HCFillSceneCache(binding);
             return;
         }
         int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
@@ -81,7 +104,8 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         if (!selected || !RegisterTarget(mission.Id, selected)) { return; }
         binding.Item = selected;
-        Print("[HC Events] scene cache bound; " + mission.Id + "; route=normal_ce; cargo_granted=0 runtime=PENDING");
+        HCFillSceneCache(binding);
+        Print("[HC Events] scene cache bound; " + mission.Id + "; route=normal_ce; cargo_granted=" + binding.CacheGranted.ToString() + " runtime=PENDING");
     }
 
     // HC-41 uses a separate server receipt capability, never the retired quest
@@ -446,7 +470,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         string reason = "runtime_closed";
         if (!binding.Item) { reason = "target_unavailable_on_close"; }
         if (!binding.Item && GetGame().GetTickTime() - binding.CacheStartedAt >= binding.Objective.LifetimeSeconds) { reason = "ce_target_timeout"; }
-        Print("[HC Events] scene cache mission closed; " + binding.Objective.Id + "; reason=" + reason + "; refill=0 runtime=PENDING");
+        Print("[HC Events] scene cache mission closed; " + binding.Objective.Id + "; reason=" + reason + "; cargo_granted=" + binding.CacheGranted.ToString() + "; replace=ce_lifetime runtime=PENDING");
     }
     override bool Release(string lease)
     {

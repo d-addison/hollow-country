@@ -96,6 +96,21 @@ class AnchorInvariantTests(unittest.TestCase):
                     self.assertIn('anchor', output.getvalue())
                     self.assertEqual(path.read_bytes(), hc._serialized(positions))
 
+    def test_cache_events_must_be_created_empty_by_ce(self):
+        # HC fills each CE-created case once at runtime; CE stock would double the fill.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.source_copy(root)
+            path = root / 'events' / hc.CACHE_DATA[0]
+            events = ET.fromstring(path.read_bytes())
+            events[0].find('children/child').set('lootmax', '2')
+            path.write_bytes(hc._serialized(events))
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = hc.main(['check', '--source', str(root)])
+            self.assertEqual(result, 2)
+            self.assertIn('invalid cache stock lifecycle', output.getvalue())
+
     def test_offline_cli_without_mission_checks_generated_anchors_and_reports(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

@@ -616,6 +616,268 @@ class HCEventPoliceStockSlice
     int CargoNext;
     ref array<ItemBase> CargoItems;
 }
+// Scene cache fill (owner 2026-11-22: a container item refills or drains and is replaced by a new
+// one with new loot). CE alone creates, ages and replaces the SmallProtectorCase (events/cache-events.xml,
+// lootmax=0, lifetime 3600): its hourly replacement IS the drain-and-replace. HC adds ONE fill per
+// case identity (the persistent id) and never creates, moves or deletes the case or anything in it.
+// Durable order, same intent-then-ok pattern as the police generations (immutable WriteNew files):
+//   <site>.<id key>.int  written BEFORE any item exists (id, utc, planned count);
+//   <site>.<id key>.ok   written after the items exist (id, the fill utc = cooldown anchor, real count).
+// Reload with an open intent: a non-empty case is adopted as filled (ok written, never refilled); an
+// empty one is filled again (no plan item can be duplicated into an empty case). An ok means this
+// identity is never filled again, even once a player emptied the case. A case already holding
+// anything without a receipt is skipped (logged once). An unreadable or zero id fails closed.
+// Receipts older than ContainerLifetimeSeconds are pruned (bounded) when a site is scanned.
+// Native: EntityAI.c:3374 GetPersistentID; Inventory.c CreateInInventory/GetCargo; EnSystem.c FindFile.
+class HCEventCacheFillIO : HCEventJournalIO
+{
+    void HCEventCacheFillIO()
+    {
+        m_Root = "$profile:HollowCountry/Events/cache-fill";
+        m_Label = "cache fill directory";
+    }
+}
+class HCEventCacheFillSite
+{
+    bool Loaded;
+    // Newest completed fill (items > 0) of this site: the refill cooldown anchor.
+    int LastUtc;
+    int Attempts;
+}
+class HCEventCacheFill
+{
+    static const int RECEIPT_LIMIT = 192;
+    static const int SCAN_LIMIT = 48;
+    static const int PRUNE_LIMIT = 4;
+    static const int ATTEMPT_LIMIT = 3;
+    protected static ref HCEventCacheFillIO s_IO;
+    protected static ref map<string, ref HCEventCacheFillSite> s_Sites = new map<string, ref HCEventCacheFillSite>;
+    protected static ref array<string> s_Done = new array<string>;
+    protected static ref array<string> s_Logged = new array<string>;
+    protected static bool s_Fault;
+    protected static float s_FillStamp = -1;
+
+    // "" = zero id (not yet assigned or unreadable): never fill.
+    static string CacheId(ItemBase item)
+    {
+        int b1;
+        int b2;
+        int b3;
+        int b4;
+        if (!item) { return ""; }
+        item.GetPersistentID(b1, b2, b3, b4);
+        if (b1 == 0 && b2 == 0 && b3 == 0 && b4 == 0) { return ""; }
+        return b1.ToString() + " " + b2.ToString() + " " + b3.ToString() + " " + b4.ToString();
+    }
+    // File-name safe form of an id: spaces become '_', a minus sign becomes 'n'.
+    static string KeyOf(string id)
+    {
+        string key = id;
+        key.Replace(" ", "_");
+        key.Replace("-", "n");
+        return key;
+    }
+    protected static bool HasSuffix(string name, string suffix)
+    {
+        int at = name.Length() - suffix.Length();
+        if (at < 1) { return false; }
+        return name.Substring(at, suffix.Length()) == suffix;
+    }
+    protected static void Say(string siteId, string action, string reason)
+    {
+        string key = siteId + ":" + action + ":" + reason;
+        if (s_Logged.Count() >= 32 || s_Logged.Find(key) >= 0) { return; }
+        s_Logged.Insert(key);
+        Print("[HC Events] scene cache fill; " + siteId + "; action=" + action + "; reason=" + reason + " runtime=PENDING");
+    }
+    // Not resolved: retried on the next bounded probe.
+    protected static bool Wait(string siteId, string reason)
+    {
+        Say(siteId, "waiting", reason);
+        return false;
+    }
+    // Resolved without a fill for this case.
+    protected static bool Refuse(string siteId, string reason)
+    {
+        Say(siteId, "refused", reason);
+        return true;
+    }
+    protected static void MarkDone(string doneKey)
+    {
+        if (s_Done.Count() >= 16) { s_Done.RemoveOrdered(0); }
+        s_Done.Insert(doneKey);
+    }
+    protected static bool Journal()
+    {
+        if (s_Fault) { return false; }
+        if (!s_IO) { s_IO = new HCEventCacheFillIO; }
+        return s_IO.Ensure();
+    }
+    // 12 tokens: tag v1 site id a b c d utc U items N. Anything else is torn.
+    protected static bool ReadReceipt(string name, string tag, string siteId, out int utc, out int items)
+    {
+        utc = 0;
+        items = 0;
+        string text = s_IO.Read(name, RECEIPT_LIMIT);
+        if (text == "") { return false; }
+        array<string> tokens = new array<string>;
+        text.Split(" ", tokens);
+        if (tokens.Count() != 12) { return false; }
+        if (tokens[0] != tag || tokens[1] != "v1" || tokens[2] != siteId || tokens[3] != "id" || tokens[8] != "utc" || tokens[10] != "items") { return false; }
+        utc = tokens[9].ToInt();
+        items = tokens[11].ToInt();
+        return utc > 0 && items >= 0;
+    }
+    protected static bool WriteReceipt(string name, string tag, string siteId, string id, int utc, int items)
+    {
+        string text = tag + " v1 " + siteId + " id " + id + " utc " + utc.ToString() + " items " + items.ToString();
+        return s_IO.WriteNew(name, text, RECEIPT_LIMIT);
+    }
+    // One scan per site and process: the newest completed fill becomes the cooldown anchor, and
+    // receipts older than the container lifetime (never the current identity) are pruned, at most
+    // PRUNE_LIMIT per scan. At most SCAN_LIMIT names are read.
+    protected static void ScanSite(string siteId, string keepKey, int now, int lifetime, HCEventCacheFillSite site)
+    {
+        array<string> found = new array<string>;
+        string fileName;
+        FileAttr attributes;
+        FindFileHandle handle = FindFile(s_IO.HCPath(siteId + ".*"), fileName, attributes, FindFileFlags.ALL);
+        if (!handle) { return; }
+        bool more = fileName != "";
+        while (more && found.Count() < SCAN_LIMIT)
+        {
+            if (attributes != FileAttr.DIRECTORY) { found.Insert(fileName); }
+            more = FindNextFile(handle, fileName, attributes);
+        }
+        CloseFindFile(handle);
+        string keepOk = siteId + "." + keepKey + ".ok";
+        string keepInt = siteId + "." + keepKey + ".int";
+        int removed = 0;
+        foreach (string name : found)
+        {
+            bool isOk = HasSuffix(name, ".ok");
+            if (!isOk && !HasSuffix(name, ".int")) { continue; }
+            int utc;
+            int items;
+            string tag = "HC-CACHEFILL-INT";
+            if (isOk) { tag = "HC-CACHEFILL-OK"; }
+            if (!ReadReceipt(name, tag, siteId, utc, items)) { continue; }
+            if (isOk && items > 0 && utc > site.LastUtc) { site.LastUtc = utc; }
+            if (removed < PRUNE_LIMIT && name != keepOk && name != keepInt && utc < now - lifetime)
+            {
+                if (s_IO.Remove(name)) { removed++; }
+            }
+        }
+    }
+    // One bounded step for the case bound to a scene cache mission. Returns true when this case is
+    // resolved (filled, adopted, already done, skipped or refused for good) and need not be probed
+    // again; false when a later probe may still fill it. granted = items created by this call.
+    static bool Step(HCEventMission mission, ItemBase item, out int granted)
+    {
+        granted = 0;
+        if (!mission || !item || !GetGame() || !GetGame().IsServer()) { return true; }
+        if (!HCEventCacheSpawner.HCPhysicalGround(item)) { return true; }
+        string siteId = mission.SiteId;
+        HCEventRewardPlan plan = HCEventReviewedSites.StockPlan(siteId);
+        if (!plan) { return Refuse(siteId, "no_stock_plan"); }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        int now = HCInfectedClock.UtcSeconds();
+        if (!policy || now < 1) { return Wait(siteId, "clock_or_policy_unavailable"); }
+        if (!Journal()) { return Refuse(siteId, "journal_unavailable"); }
+        string id = CacheId(item);
+        if (id == "") { return Wait(siteId, "id_unreadable"); }
+        string key = KeyOf(id);
+        string doneKey = siteId + "|" + key;
+        if (s_Done.Find(doneKey) >= 0) { return true; }
+        string okName = siteId + "." + key + ".ok";
+        string intName = siteId + "." + key + ".int";
+        if (s_IO.Exists(okName))
+        {
+            MarkDone(doneKey);
+            return true;
+        }
+        CargoBase cargo = null;
+        if (item.GetInventory()) { cargo = item.GetInventory().GetCargo(); }
+        if (!cargo) { return Refuse(siteId, "no_cargo"); }
+        int held = cargo.GetItemCount();
+        HCEventCacheFillSite site;
+        if (!s_Sites.Find(siteId, site))
+        {
+            site = new HCEventCacheFillSite;
+            s_Sites.Set(siteId, site);
+        }
+        if (!site.Loaded)
+        {
+            site.Loaded = true;
+            ScanSite(siteId, key, now, policy.ContainerLifetimeSeconds, site);
+        }
+        bool intentOpen = s_IO.Exists(intName);
+        if (intentOpen && held > 0)
+        {
+            // Intent without ok and items present: the fill happened, only the ok was lost.
+            int intentUtc;
+            int intentItems;
+            if (!ReadReceipt(intName, "HC-CACHEFILL-INT", siteId, intentUtc, intentItems)) { intentUtc = now; }
+            if (!WriteReceipt(okName, "HC-CACHEFILL-OK", siteId, id, intentUtc, held))
+            {
+                s_Fault = true;
+                return Refuse(siteId, "receipt_write_failed");
+            }
+            MarkDone(doneKey);
+            if (intentUtc > site.LastUtc) { site.LastUtc = intentUtc; }
+            Print("[HC Events] scene cache fill; " + siteId + "; action=adopted; items=" + held.ToString() + "; id=" + key + " runtime=PENDING");
+            return true;
+        }
+        if (!intentOpen && held > 0)
+        {
+            // Never touch a case that already holds anything (a player's items).
+            Say(siteId, "skip_nonempty", "case_not_empty");
+            return false;
+        }
+        if (site.Attempts >= ATTEMPT_LIMIT) { return Refuse(siteId, "fill_failed"); }
+        if (!intentOpen && site.LastUtc > 0)
+        {
+            int last = site.LastUtc;
+            if (last > now) { last = now; }
+            if (now - last < policy.RefillCooldownSeconds) { return Wait(siteId, "cooldown"); }
+        }
+        if (HCEventCacheSpawner.PolicePlayersWithin(item.GetPosition(), policy.RefillClearRadius)) { return Wait(siteId, "players_near"); }
+        // One fill per tick across all sites; the caller took the shared work budget for this step.
+        float tickTime = GetGame().GetTickTime();
+        if (s_FillStamp == tickTime) { return false; }
+        s_FillStamp = tickTime;
+        if (!intentOpen && !WriteReceipt(intName, "HC-CACHEFILL-INT", siteId, id, now, plan.Items.Count()))
+        {
+            s_Fault = true;
+            return Refuse(siteId, "receipt_write_failed");
+        }
+        int created = 0;
+        foreach (string itemClass : plan.Items)
+        {
+            if (!HCEventCacheSpawner.HCPhysicalGround(item) || !item.GetInventory() || !item.GetInventory().CreateInInventory(itemClass)) { break; }
+            created++;
+        }
+        if (created < 1)
+        {
+            site.Attempts++;
+            return Wait(siteId, "create_failed");
+        }
+        if (!WriteReceipt(okName, "HC-CACHEFILL-OK", siteId, id, now, created))
+        {
+            // The items exist and the intent is durable: the next boot adopts this case.
+            s_Fault = true;
+            return Refuse(siteId, "ok_write_failed");
+        }
+        MarkDone(doneKey);
+        site.LastUtc = now;
+        granted = created;
+        if (created < plan.Items.Count()) { Say(siteId, "partial", "created_" + created.ToString() + "_of_" + plan.Items.Count().ToString()); }
+        Print("[HC Events] scene cache fill; " + siteId + "; action=filled; items=" + created.ToString() + "; id=" + key + " runtime=PENDING");
+        HCModuleReadiness.HCUse("Events", "cache_filled");
+        ScanSite(siteId, key, now, policy.ContainerLifetimeSeconds, site);
+        return true;
+    }
+}
 class HCEventCacheSpawner
 {
     // Upper bound for the native physical-stock sphere around a mission source (metres).
