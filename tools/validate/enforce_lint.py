@@ -682,35 +682,60 @@ def rule_collection_keys(project, source):
 def _null_handle_comparisons(code):
     """Read simple member operands, allowing balanced parentheses on either side.
 
-    Calls and compound expressions are not handle variables. Keep token offsets
-    so scope lookup and diagnostic lines still refer to the original source.
+    Calls and compound expressions are not handle variables. An operand may end
+    in one balanced [index] (reported as indexed). Keep token offsets so scope
+    lookup and diagnostic lines still refer to the original source.
     """
     tokens = list(re.finditer(r'[A-Za-z_]\w*|==|!=|[^\s]', code))
+
+    def skip_index(index, step):
+        """Step over one balanced [..] starting at index; None if unbalanced."""
+        opening, closing = ('[', ']') if step == 1 else (']', '[')
+        depth = 0
+        while 0 <= index < len(tokens):
+            depth += (tokens[index][0] == opening) - (tokens[index][0] == closing)
+            index += step
+            if not depth:
+                return index
+        return None
 
     def operand(index, step):
         if not 0 <= index < len(tokens):
             return None
         token = tokens[index][0]
         opening, closing = ('(', ')') if step == 1 else (')', '(')
+        indexed = False
         if token == opening:
             inner = operand(index + step, step)
             if inner is None:
                 return None
-            parts, index = inner
+            parts, index, indexed = inner
             if not 0 <= index < len(tokens) or tokens[index][0] != closing:
                 return None
             index += step
-        elif re.fullmatch(r'[A-Za-z_]\w*', token):
-            parts, index = [token], index + step
+            if indexed:
+                return parts, index, indexed
         else:
-            return None
+            if step == -1 and token == ']':
+                index = skip_index(index, step)
+                if index is None or not 0 <= index < len(tokens):
+                    return None
+                token, indexed = tokens[index][0], True
+            if not re.fullmatch(r'[A-Za-z_]\w*', token):
+                return None
+            parts, index = [token], index + step
         while 0 <= index < len(tokens) and tokens[index][0] == '.':
             index += step
             if not 0 <= index < len(tokens) or not re.fullmatch(r'[A-Za-z_]\w*', tokens[index][0]):
                 return None
             parts.append(tokens[index][0])
             index += step
-        return parts, index
+        if step == 1 and 0 <= index < len(tokens) and tokens[index][0] == '[' and not indexed:
+            index = skip_index(index, step)
+            if index is None:
+                return None
+            indexed = True
+        return parts, index, indexed
 
     for index, token in enumerate(tokens):
         if token[0] not in {'==', '!='}:
@@ -718,24 +743,24 @@ def _null_handle_comparisons(code):
         left, right = operand(index - 1, -1), operand(index + 1, 1)
         if left is None or right is None:
             continue
-        left_parts, before = left
-        right_parts, after = right
+        left_parts, before, left_indexed = left
+        right_parts, after, right_indexed = right
         # A closing call/index expression must not become a parenthesised
         # variable; likewise do not accept a prefix of a right-hand call.
         if (before >= 0 and (re.fullmatch(r'[A-Za-z_]\w*', tokens[before][0])
                              and tokens[before][0] not in {'return', 'case'}
                              or tokens[before][0] in {']', ')'})):
             continue
-        if after < len(tokens) and tokens[after][0] in {'(', '['}:
+        if after < len(tokens) and tokens[after][0] in {'(', '[', '.'}:
             continue
-        if left_parts == ['null']:
-            parts = right_parts
-        elif right_parts == ['null']:
-            parts = list(reversed(left_parts))
+        if left_parts == ['null'] and not left_indexed:
+            parts, indexed = right_parts, right_indexed
+        elif right_parts == ['null'] and not right_indexed:
+            parts, indexed = list(reversed(left_parts)), left_indexed
         else:
             continue
         start, end = tokens[before + 1].start(), tokens[after - 1].end()
-        yield start, code[start:end], parts
+        yield start, code[start:end], parts, indexed
 
 
 def _grouped_declarators(code, position, end):
@@ -785,8 +810,16 @@ def _handle_locals(source, method):
     return [bindings[start] for start in sorted(bindings)]
 
 
-def _handle_nonlocals(source, owner=None):
-    """Supplement HC-E016's field/global bindings with grouped declarations."""
+def _is_array_declarator(code, name, offset):
+    """True when the declarator `name` at offset is a fixed-size array (name[N])."""
+    return code[offset + len(name):].lstrip().startswith('[')
+
+
+def _handle_nonlocals(source, owner=None, arrays=False):
+    """Supplement HC-E016's field/global bindings with grouped declarations.
+
+    With arrays=True a fixed-size array declarator binds `Kind[]` so indexed
+    elements can be told from the array itself."""
     start, end = (owner.body_start + 1, owner.body_end) if owner else (0, len(source.code))
     excluded = [(m.offset, m.body_end) for m in source.methods]
     excluded += [(s.offset, s.end) for s in source.signatures]
@@ -799,16 +832,18 @@ def _handle_nonlocals(source, owner=None):
         kind = match[1]
         if kind in es.MODIFIERS or kind in {'return', 'new', 'delete', 'else', 'case', 'throw'}:
             continue
-        bindings[match[2]] = kind
-        for name, _ in _grouped_declarators(source.code, match.end(), end):
-            bindings[name] = kind
+        suffix = '[]' if arrays and _is_array_declarator(source.code, match[2], match.start(2)) else ''
+        bindings[match[2]] = kind + suffix
+        for name, offset in _grouped_declarators(source.code, match.end(), end):
+            suffix = '[]' if arrays and _is_array_declarator(source.code, name, offset) else ''
+            bindings[name] = kind + suffix
     return bindings
 
 
 def rule_handle_null(project, source):
     methods = list(_all_methods(source))
     # File-scope variables remain visible in functions and member initializers.
-    globals_ = _handle_nonlocals(source)
+    globals_ = _handle_nonlocals(source, arrays=True)
     field_cache = {}
 
     def fields_for(kind):
@@ -829,10 +864,18 @@ def rule_handle_null(project, source):
                 fields.update(definition['fields'])
             for definition in bodies:
                 fields.update({f.name: f.type for f in definition.fields})
-                fields.update(_handle_nonlocals(definition.source, definition))
+                fields.update(_handle_nonlocals(definition.source, definition, arrays=True))
         return field_cache[kind]
 
-    for offset, comparison, parts in _null_handle_comparisons(source.code):
+    def element_kind(kind):
+        """Element type of an array/typedef'd collection kind, else ''."""
+        kind = re.sub(r'\s+', '', project.resolve_typedef(re.sub(r'\s+', '', kind)))
+        if kind.endswith('[]'):
+            return kind[:-2]
+        generic = re.fullmatch(r'array<(?:ref|autoptr)?([A-Za-z_]\w*)>', kind)
+        return generic[1] if generic else ''
+
+    for offset, comparison, parts, indexed in _null_handle_comparisons(source.code):
         method = next((m for m in methods if m.body_start < offset < m.body_end), None)
         owner = (method.owner if method else
                  next((d for d in source.classes if d.body_start < offset < d.body_end), None))
@@ -840,16 +883,28 @@ def rule_handle_null(project, source):
         parameters = {name: kind for kind, name, _ in method.parameters()} if method else {}
         declarations = _handle_locals(source, method) if method else []
         first = parts.pop(0)
-        bindings = [kind for name, kind, start, end in declarations
+        bindings = [(kind, start, name) for name, kind, start, end in declarations
                     if name == first and start <= offset < end]
         if first == 'this' and owner:
             kind = owner.name
         elif bindings:
-            kind = bindings[-1]
+            kind, start, name = bindings[-1]
+            declared = _LOCAL.match(source.code, start)
+            at = declared.start(2) if declared and declared[2] == name else start
+            if _is_array_declarator(source.code, name, at):
+                kind = re.sub(r'\s+', '', kind) + '[]'
         else:
             kind = parameters.get(first, fields.get(first, globals_.get(first, '')))
+            # A bare class name is the receiver of a static member.
+            if not kind and parts and first in project.links:
+                kind = first
         for member in parts:
             kind = fields_for(project.resolve_typedef(kind)).get(member, '')
+        if indexed:
+            kind = element_kind(kind)
+        elif kind.endswith('[]'):
+            # Comparing the array itself is not a handle comparison.
+            continue
         # Preserve handle names before typedef expansion to int[]. Follow
         # authored aliases without treating all int arrays as file handles.
         seen = set()

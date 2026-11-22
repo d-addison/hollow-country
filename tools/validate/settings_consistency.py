@@ -290,6 +290,24 @@ def check_local_policy(rows):
     return errors
 
 
+def check_retired_settings(source, images, rules, fields):
+    """Retired top-level HCSettings keys: declared in HCApplyLegacy, ignored, never shipped.
+
+    `images` is [(label, parsed shipped/profile JSON)]; every shipped operator
+    profile is scanned for each declared retired key (top level or nested)."""
+    retired = set(re.findall(r'^        HCRetiredKey\(content, "(\w+)"\);', source, re.M))
+    errors = []
+    if retired and 'static void HCRetiredKey(string content, string key)' not in source:
+        errors.append('Retired settings keys are declared but HCRetiredKey is not defined')
+    for key in sorted(retired & (set(fields) | {k.split('.')[-1] for k in rules})):
+        errors.append(f'Retired settings key {key} must be ignored, not registered or decoded')
+    for label, image in images:
+        names = {k.split('.')[-1] for k in flatten(image)}
+        for key in sorted(retired & names):
+            errors.append(f'{label}: retired key {key} must not ship')
+    return errors
+
+
 def flatten(value, prefix=''):
     result = {}
     for key, item in value.items():
@@ -443,6 +461,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
         r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
     top_rules = {key: row for key, row in rules.items() if '.' not in key and row['type'] != 'object'}
+    errors.extend(check_retired_settings(source, images, rules, fields))
     for key in fields.keys() - top_rules.keys(): errors.append(f'Unregistered native field {key}')
     for key, row in top_rules.items():
         if fields.get(key) != (row['type'], row['default']):
