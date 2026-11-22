@@ -31,25 +31,15 @@ import sys
 
 try:
     from . import diagnostic_mission as dm  # noqa: F401  (kept importable from this module)
-    from . import probe_runtime as rt
+    from . import probe_core, probe_runtime as rt
 except ImportError:  # executed as a script from tools/setup
     import diagnostic_mission as dm  # noqa: F401
+    import probe_core
     import probe_runtime as rt
 
 # Shared names are the one implementation in probe_runtime (same objects, not copies).
-SERVER_EXE, SERVER_INSTALL = rt.SERVER_EXE, rt.SERVER_INSTALL
-SERVER_EXE_SHA256, BATTLEYE_SHA256 = rt.SERVER_EXE_SHA256, rt.BATTLEYE_SHA256
-WINDOWS_PARENT, VERIFIED_RUNTIME_NAME = rt.WINDOWS_PARENT, rt.VERIFIED_RUNTIME_NAME
-DEFAULT_SOURCE_RUNTIME, MISSION_NAME, PORT = rt.DEFAULT_SOURCE_RUNTIME, rt.MISSION_NAME, rt.PORT
-MAX_PLAN_BYTES, NAME_RULE, IDENT_RULE, PLAN_PIN_DELTAS = rt.MAX_PLAN_BYTES, rt.NAME_RULE, rt.IDENT_RULE, rt.PLAN_PIN_DELTAS
-ENGINE_TYPE_NAMES, RESERVED_WORDS = rt.ENGINE_TYPE_NAMES, rt.RESERVED_WORDS
-SENSITIVE_PART, ALLOWED_MISSION_DIRS, ALLOWED_MISSION_FILE = rt.SENSITIVE_PART, rt.ALLOWED_MISSION_DIRS, rt.ALLOWED_MISSION_FILE
-sha256, native_type_names, lint_hook = rt.sha256, rt.native_type_names, rt.lint_hook
-_clean, _split_arguments, _parameter_names, _function_bodies = rt._clean, rt._split_arguments, rt._parameter_names, rt._function_bodies
-_read_bounded, _hash_file, _safe_plan_path = rt._read_bounded, rt._hash_file, rt._safe_plan_path
-_check_mission_entry, _new_file = rt._check_mission_entry, rt._new_file
-_MODIFIERS, _DECLARATION, _NOT_TYPES, _FUNCTION = rt._MODIFIERS, rt._DECLARATION, rt._NOT_TYPES, rt._FUNCTION
-_STRING, _EXPONENT, _OUT_CALLS = rt._STRING, rt._EXPONENT, rt._OUT_CALLS
+BATTLEYE_SHA256, DEFAULT_SOURCE_RUNTIME, IDENT_RULE = rt.BATTLEYE_SHA256, rt.DEFAULT_SOURCE_RUNTIME, rt.IDENT_RULE
+sha256, native_type_names, lint_hook, _read_bounded = rt.sha256, rt.native_type_names, rt.lint_hook, rt._read_bounded
 
 WSL_PARENT = Path("/mnt/d/HollowCountryLocal")
 PLAN_NAME = "taped-light-probe-plan.json"
@@ -150,6 +140,8 @@ def select_targets(document):
 # ---------------------------------------------------------------------------
 # Generated Enforce hook
 # ---------------------------------------------------------------------------
+
+JSON_HELPERS = probe_core.enforce_sanitizing_json_helpers("HCTL", "m_HCTLQuote", "m_HCTLSlash")
 
 HOOK_TEMPLATE = r"""
 
@@ -260,32 +252,7 @@ class HCDisposableDiagnosticMission : CustomMission
     }
 
 @@HOST_LOADERS@@
-    string HCTLKey(string name)
-    {
-        return m_HCTLQuote + name + m_HCTLQuote + ":";
-    }
-
-    string HCTLStr(string value)
-    {
-        string text = value;
-        if (text.Length() > 96)
-            text = text.Substring(0, 96);
-        text.Replace(m_HCTLQuote, "'");
-        text.Replace(m_HCTLSlash, "/");
-        return m_HCTLQuote + text + m_HCTLQuote;
-    }
-
-    string HCTLBool(bool value)
-    {
-        if (value)
-            return "true";
-        return "false";
-    }
-
-    string HCTLVector(vector value)
-    {
-        return "[" + value[0].ToString() + "," + value[1].ToString() + "," + value[2].ToString() + "]";
-    }
+@@JSON_HELPERS@@
 
     // The single creation point of the probe. Round 8: the flags are a parameter so the one control spawn can leave out
     // ECE_IN_INVENTORY and show whether that flag changes what the model reports.
@@ -1789,7 +1756,7 @@ def render_hook(targets, start_delay_s=DEFAULT_START_DELAY_S, per_class_ms=DEFAU
     loaders = "".join("    void HCTLLoadHosts%d()\n    {\n%s\n    }\n\n" % (n, "\n".join(chunk))
                       for n, chunk in enumerate(chunks))
     text = (HOOK_TEMPLATE.replace("@@LOADER_CALLS@@", calls).replace("@@META_ADDS@@", "\n".join(meta))
-            .replace("@@HOST_LOADERS@@", loaders).replace("@@HARD_CAP@@", str(HARD_CAP))
+            .replace("@@HOST_LOADERS@@", loaders).replace("@@JSON_HELPERS@@", JSON_HELPERS).replace("@@HARD_CAP@@", str(HARD_CAP))
             .replace("@@CENSUS_LIMIT@@", str(CENSUS_SCAN_LIMIT))
             .replace("@@PER_CLASS_MS@@", str(per_class_ms)).replace("@@START_MS@@", str(start_delay_s * 1000))
             .replace("@@STEP_MS@@", str(STEP_MS))
