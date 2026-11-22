@@ -25,7 +25,7 @@ except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import xml_text
 
-from tools.package import HCWildlife_habitats, rag_optional, travel
+from tools.package import HCWildlife_habitats, rag_optional, travel, variety_optional
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
@@ -33,8 +33,10 @@ MANAGED = 'hollow-country-optional-packs'
 BUNDLE_MANAGED = 'hollow-country-bundle'
 CELLARS_MANAGED = 'hollow-country-cellars'
 ANIMALS_ID = '3114410963'
+VARIETY_TYPES = ROOT / 'mission/hollow-country/optional' / variety_optional.RELATIVE
+# The variety packs are default packs too: the shipped variety CE document names exactly which ones.
 DEFAULT_OVERLAY_IDS = (rag_optional.NAVIGATION_ID, rag_optional.RAG_CORE_ID,
-                       rag_optional.RAG_VEHICLES_ID, ANIMALS_ID)
+                       rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, *variety_optional.pack_ids(VARIETY_TYPES))
 # Retired 2026-11-22 (owner): Survivor Animations 2918418331 and DayZ-Bicycle 2971190303 are never
 # loaded, planned or required. A folder an older install left in the Workshop dir is ignored.
 AMBIENT_SPECIES = ('otter', 'rabbit', 'rat', 'raven', 'seagull', 'squirrel')
@@ -238,7 +240,9 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     loaded = loaded_paths(loaded_mods)
     candidate = {'files': {}, 'before': {}, 'diagnostics': [], 'sources': {}, 'mission': str(mission)}
     packs = {}
-    for name, item in (('AmbientAnimals', ANIMALS_ID), *rag_optional.OVERLAY_PACKS):
+    variety_path = Path(policy_path).parent / variety_optional.RELATIVE
+    for name, item in (('AmbientAnimals', ANIMALS_ID), *rag_optional.OVERLAY_PACKS,
+                       *variety_optional.overlay_packs(variety_path)):
         path = workshop / item if workshop else None
         present = bool(path and safe(path).is_dir())
         active = present and path.absolute() in loaded
@@ -277,6 +281,9 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     if 'AmbientAnimals' in packs:
         eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
     rag_optional.append_types(packs, workshop, loaded, types, source, sys.modules[__name__])
+    variety_optional.append_types(packs, variety_path, types, source, sys.modules[__name__])
+    for target, data in variety_optional.mission_settings(packs, variety_path, source, mission):
+        put(target, data)
     if 'AmbientAnimals' in packs:
         animals = packs['AmbientAnimals']
         options = policy['ambient']
@@ -442,7 +449,8 @@ def allowed(relative, managed_name=MANAGED):
         return clean and (relative in ('cfgeconomycore.xml', 'cfggameplay.json', 'cfgenvironment.xml', 'db/events.xml') or authored or relative == 'expansion/settings/AIPatrolSettings.json')
     if managed_name != MANAGED:
         return False
-    return relative in BASE_TARGETS or relative in {MANAGED + '/' + name for name in GENERATED}
+    return (relative in BASE_TARGETS or relative in {MANAGED + '/' + name for name in GENERATED}
+            or relative in variety_optional.mission_targets(VARIETY_TYPES))
 
 
 def atomic(path, data, managed):
@@ -863,7 +871,9 @@ def friend_bundle_plan(mission, rows):
         result.append((relative, content))
     result += [('tools/package/optional_overlays.py', read(Path(__file__))),
                ('tools/package/rag_optional.py', read(Path(rag_optional.__file__))),
-               ('mission/hollow-country/optional/overlay-policy.json', read(POLICY))]
+               ('tools/package/variety_optional.py', read(Path(variety_optional.__file__))),
+               ('mission/hollow-country/optional/overlay-policy.json', read(POLICY)),
+               ('mission/hollow-country/optional/' + variety_optional.RELATIVE, read(VARIETY_TYPES))]
     return result
 
 
@@ -917,7 +927,8 @@ def launcher_run(args, repo, out, launcher):
         for destination in (session['mission'], session['profiles'], session['mod']['dest'], session['server_root']):
             if Path(destination).is_relative_to(workshop):
                 raise ValueError('Workshop sources must remain read only; destination overlaps Workshop directory')
-        for item in (rag_optional.RAG_CORE_ID, rag_optional.RAG_VEHICLES_ID, ANIMALS_ID):
+        for item in (rag_optional.RAG_CORE_ID, rag_optional.RAG_VEHICLES_ID, ANIMALS_ID,
+                     *variety_optional.pack_ids(VARIETY_TYPES)):
             path = workshop / item
             if path.is_dir():
                 if not launcher.has_addons(path):
@@ -1076,7 +1087,7 @@ def main(argv=None):
                 loaded = args.loaded_mods or ';'.join(str(args.workshop_dir / ident) for ident in
                                                    DEFAULT_OVERLAY_IDS)
                 if not all((args.workshop_dir / ident).is_dir() for ident in DEFAULT_OVERLAY_IDS):
-                    raise ValueError('default bundle needs Navigation, RaG_Core, RaG Immersive Vehicles and Ambient Animals')
+                    raise ValueError('default bundle needs Navigation, RaG_Core, RaG Immersive Vehicles, Ambient Animals and the variety packs')
                 bundle_apply(args.bundle, args.mission, args.workshop_dir, loaded)
             print('HC bundle ' + args.command + ' complete; runtime acceptance pending')
         elif args.command == 'rollback':

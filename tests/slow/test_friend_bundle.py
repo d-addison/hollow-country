@@ -28,7 +28,7 @@ import unittest
 import unittest.mock
 import xml.etree.ElementTree as ET
 
-from tools.setup import friend_bundle as fb
+from tools.setup import friend_bundle as fb, workshop_sync as ws
 
 CFG = '''hostname = "Local";
 password = "S3CRET-PASS-71";
@@ -504,8 +504,8 @@ else:
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
-        self.assertIn('"-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;'
-                      '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI"', bat)
+        expected = ws.launch_lines(ws.select(ws.load_manifest(), ws.GROUPS))[0]
+        self.assertIn('"' + expected + '"', bat)
         self.assertNotIn('-serverMod', bat)
         self.assertIn('-config=serverDZ.cfg', bat)
         self.assertIn('-profiles=profiles', bat)

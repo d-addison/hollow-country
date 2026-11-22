@@ -87,6 +87,7 @@ Thumbs.db
 !/docs/EVENTS.md
 !/docs/VEHICLES.md
 !/docs/AI_FACTIONS.md
+!/docs/VARIETY_PACKS.md
 !/docs/tools/
 /tools/project/
 /tools/validate/project.py

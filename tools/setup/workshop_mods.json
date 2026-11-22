@@ -85,6 +85,78 @@
       "publish": false
     },
     {
+      "id": "3534507229",
+      "name": "MoreFood V2",
+      "folder": "@MoreFoodV2",
+      "rank": 61,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "3302732231",
+      "name": "CookZ",
+      "folder": "@CookZ",
+      "rank": 62,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "1762444175",
+      "name": "Uncuepas Civilian Clothing",
+      "folder": "@UncuepasCivilianClothing",
+      "rank": 63,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "1797720064",
+      "name": "Windstride's Clothing Pack",
+      "folder": "@WindstridesClothingPack",
+      "rank": 64,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "2579252958",
+      "name": "AdditionalMedicSupplies",
+      "folder": "@AdditionalMedicSupplies",
+      "rank": 65,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "2752192852",
+      "name": "dzr_notes",
+      "folder": "@dzr_notes",
+      "rank": 66,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "2670506982",
+      "name": "Building Fortifications",
+      "folder": "@BuildingFortifications",
+      "rank": 67,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "2757509117",
+      "name": "gebsfish",
+      "folder": "@gebsfish",
+      "rank": 68,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
       "id": "2646817942",
       "name": "Tactical Flava",
       "folder": "@TacticalFlava",
@@ -98,6 +170,15 @@
       "name": "RaG_Core",
       "folder": "@RaG_Core",
       "rank": 71,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "3157695626",
+      "name": "RaG_BaseBuilding",
+      "folder": "@RaG_BaseBuilding",
+      "rank": 72,
       "side": "client",
       "group": "living_packs",
       "publish": false
