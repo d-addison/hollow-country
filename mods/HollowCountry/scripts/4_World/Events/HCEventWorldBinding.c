@@ -210,6 +210,8 @@ class HCEventWorldBinding
         if (s_FailReason == "police_cache_repair_spent") { return true; }
         if (s_FailReason == "police_container_cooldown") { return true; }
         if (s_FailReason == "police_container_players_near") { return true; }
+        if (s_FailReason == "police_container_not_ours") { return true; }
+        if (s_FailReason == "police_cache_position_drift") { return true; }
         if (s_FailReason == "police_receipt_write_failed") { return true; }
         return s_FailReason == "police_cache_depleted";
     }
