@@ -454,9 +454,36 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     for key, row in nested.items():
         if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
             errors.append(f'AILimits default/range differs for {key}')
+    errors.extend(check_wildlife_providers({k: r for k, r in rules.items() if k.startswith('WildlifeProviders.')}))
     # External owners use their own optional profile JSON, not HCSettings.
     for owner, (path, prefix, var) in EXTERNAL_OWNERS.items():
         errors.extend(check_external_owner(rules, owner, ROOT / path, prefix, var))
+    return errors
+
+
+WILDLIFE_JSON = ROOT / 'mission/hollow-country/ecology/HCWildlife-providers.json'
+WILDLIFE_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c'
+
+
+def check_wildlife_providers(rules, provider=None, source=None):
+    """The wildlife module owns a separate mission DTO; its scalar registry rows
+    must match the shipped mission JSON and be validated through the registry."""
+    errors = []
+    if not rules:
+        return errors
+    provider = json.loads(WILDLIFE_JSON.read_text()) if provider is None else provider
+    source = WILDLIFE_NATIVE.read_text() if source is None else source
+    for key, row in sorted(rules.items()):
+        field = key.removeprefix('WildlifeProviders.')
+        if field not in provider:
+            errors.append('Wildlife provider JSON missing ' + key)
+            continue
+        if provider[field] != row['default'] or type(provider[field]) is not type(row['default']):
+            errors.append('Wildlife provider default/type differs for ' + key)
+        if row['type'] in ('int', 'float'):
+            binding = 'HCOperatorSettingsRegistry.HCValid("' + key + '", config.' + field + ')'
+            if binding not in source:
+                errors.append('Wildlife provider validation binding differs for ' + key)
     return errors
 
 
