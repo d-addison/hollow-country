@@ -145,6 +145,23 @@ step that changes behaviour is registered until a plan names the schema change;
 with none registered the runner only prints the line below and a self-test
 receipt. Native behaviour is `runtime=PENDING` until the lead's boot check.
 
+Step contract: one step per target file, compared case-folded (a second step on
+the same target is refused at registration as `duplicate_target`, and a second
+step reusing an id on another target as `duplicate_id`; both close the step's
+store on every boot until the build changes, because the registry is rebuilt
+from the code at each server start). Registering the same id on the same target
+twice is a no-op. A step's declared store must be the one the recovery gate maps
+its target to (a store file declared ungated or gated by another store is refused
+as `step_invalid_store`), and targets with `.`/`..` segments are refused as
+`step_invalid_target`.
+A schema change on a file that already has a step edits that step: `current` is
+what this build writes and `old` widens to every earlier schema. The step's
+classifier must return unknown for every torn prefix of any text it calls
+current or old, and for an empty file; this is the load-bearing invariant the
+torn-commit recovery below relies on. A step with no store gate (`""`) is never
+deferred; if the runner's own self-test fails, every registered step is refused
+and its store closed for that boot.
+
 Per step, with target `T`, scratch image `P` (`T.mig-<id>.tmp`) and backup `B`
 (`T.pre-<id>.bak`, then `.bak2`..`.bak4` when a slot holds other bytes):
 
@@ -163,15 +180,74 @@ that step's store for this boot through the shared quarantine line
 Deferred steps then finish one per tick, so the next boot is clean. No file is
 deleted or wiped to make a refusal go away.
 
+A leftover `P` is deleted only when it is provably ours: beside a current `T` an
+empty file or one identical to `T`; beside an old `T` an empty file, a torn prefix
+of the image about to be written, a copy of `T`, or an image a retained backup
+slot reproduces through the transform. A complete current `P` without that proof
+may be the only newest copy (for example after you restored an older `T`), so it
+is kept and the step refuses. Any other `P` is kept and the step refuses
+(`pending_conflicts_current`, `pending_conflicts_old`). If `P` cannot be deleted
+after a verified commit the store is closed for that boot (`pending_delete_failed`).
+The next boot removes it only if the delete then succeeds (`current_pending_removed`);
+if it still fails the step refuses as `current_pending_cleanup_failed` and the store
+stays closed on every boot until you remove `P` by hand.
+
 | Interruption | Next boot |
 | --- | --- |
 | Before or during the backup copy | `T` is still old; a torn backup slot is skipped, a fresh slot is used |
 | After backup, before or during `P` | `T` is old; stale `P` is deleted and recomputed, an identical backup is reused |
 | After `P`, before deleting `T` | Same as above |
 | After deleting `T`, before the copy | `T` absent and `P` present: `P` is restored only if a backup slot proves it descends from that backup (old class plus the deterministic transform reproduces `P`) -> `recovered_missing_target` |
-| During the copy over `T` | `T` is an empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other content is refused as `target_schema_unknown` |
+| During the copy over `T` | `T` is a readable empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other readable content is refused as `target_schema_unknown`; an unreadable or oversize `T` is refused as `target_unreadable` and never replaced |
 | After the copy, before deleting `P` | `T` is current; the stale `P` is removed (`current_pending_removed`) |
 | Newer schema on disk (a rollback of the mod without the saves) | `refused reason=newer_schema`; install the matching mod version, or restore the matching `B` by hand with the server stopped |
+
+Operator steps for a refusal (server stopped, every file kept until you decide):
+
+- `backup_slots_full`: all four `.pre-<id>.bak*` slots hold other bytes. Compare
+  them with `T`; move the ones you no longer need out of the profile folder (do
+  not delete the only copy of anything), then start the server again.
+- `pending_provenance_missing`: `P` exists but no backup slot proves it descends
+  from an old file. Do not copy `P` over `T`. If `T` is intact and old, move `P`
+  aside; the next boot recomputes it. If `T` is missing or torn, restore the
+  matching `.pre-<id>.bak*` over `T` by hand, move `P` aside, and start again.
+- `target_schema_unknown` with `P` present: `T` is not a prefix of `P`. Keep both,
+  restore `T` from the matching backup (or from your own snapshot), move `P`
+  aside and start again. Never copy `P` over an unrecognised `T`.
+- `target_schema_unknown` without `P`: `T` is not a format this build knows;
+  restore the matching backup or the matching mod version.
+- `pending_conflicts_current` / `pending_conflicts_old`: `P` is not the image this
+  build would write. Inspect it, move it aside, start again. If `P` is a complete
+  image newer than `T` (you restored an older `T`), keep `P` and decide by hand
+  which of the two you want before starting again.
+- `target_unreadable` with `P` present: `T` is oversize or cannot be opened, so it
+  is evidence and is never replaced from `P`. Check the file size, permissions and
+  whether another program holds it; fix that or restore `T` from a backup, keep
+  `P`, and start again. Do not delete either file to clear the refusal.
+- `pending_image_invalid`: `P` is empty, unreadable or does not classify as current
+  (a torn or foreign scratch image). If `T` is intact move `P` aside and start
+  again; if `T` is missing or torn restore the matching `.pre-<id>.bak*` over `T`
+  first.
+- `commit_failed_pending_kept`: the copy of `P` over `T` or its readback failed
+  (disk full, a lock, antivirus). `P` and `B` are kept and `T` may be missing or
+  partial. Free space or remove the lock and start again: a missing or torn `T` is
+  recovered from `P` automatically. If it repeats, restore `B` over `T` by hand and
+  move `P` aside.
+- `pending_cleanup_failed`: a stale `P` beside an old `T` is ours but could not be
+  deleted, so nothing was migrated. `T` is untouched. Remove the lock or fix the
+  folder permissions, or delete that one `P` by hand, and start again.
+- `current_pending_cleanup_failed`: `T` is current and an identical or empty `P`
+  could not be deleted. The store stays closed on every boot until `P` is gone;
+  delete that one `P` by hand (or fix the permissions) and start again.
+- `duplicate_target` / `duplicate_id` / `step_invalid_*`: a defect in the build's
+  step list, not in your data. The affected store stays closed on every boot until
+  the build changes; no file edit helps. Install the build that fixes it or the
+  previous release.
+- `selftest_failed`: the runner's own file IO on its scratch probe files failed
+  (read-only or full profile folder, a lock). Every registered step is refused and
+  its store closed for that boot. Read the
+  `[HC SelfTest] name=migration_runner pass=false detail=<d>` line, fix the folder
+  problem, remove any `migrate-selftest.probe*` scratch files, and start again.
 
 To undo a migration by hand with the server stopped, copy the `.pre-<id>.bak`
 file back over the target and install the previous PBOs. `storage_*` (the DayZ
