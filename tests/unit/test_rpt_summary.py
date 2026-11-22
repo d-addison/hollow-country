@@ -102,6 +102,14 @@ class ReadinessTimingTests(unittest.TestCase):
             '00:00:29.500 [HC Ready] module=Events enabled=true ready=true'])
         self.assertEqual(result['status'], 'passed')
         self.assertEqual(result['max_after_hive_seconds'], 30)
+        self.assertEqual(result['ready_before_hive'], ['Core'])
+
+    def test_only_pre_hive_readiness_has_zero_elapsed(self):
+        result = self.timing(['12:00:00 [HC Ready] module=Core enabled=true ready=true',
+                              '12:00:05 ' + rpt.HIVE_FINISHED])
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['max_after_hive_seconds'], 0)
+        self.assertEqual(result['ready_before_hive'], ['Core'])
 
     def test_missing_markers_timestamps_and_repeated_boot_fail_closed(self):
         hive = '12:00:00 ' + rpt.HIVE_FINISHED

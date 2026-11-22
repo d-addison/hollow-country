@@ -628,7 +628,7 @@ class HCSettings
         return scaled;
     }
 
-    // Preserve effective key/value receipts for overrides; defaults need one digest.
+    // Preserve effective key/value receipts for overrides; defaults need one summary.
     protected bool HCLogNonDefault(string key, string value, string baseline)
     {
         if (value == baseline) { return false; }
@@ -716,7 +716,7 @@ class HCSettings
         float effectiveSearchDensityScale = HCEffectiveSearchDensity();
         float defaultSearchDensityScale = defaults.HCEffectiveSearchDensity();
         if (HCLogNonDefault("SearchDensityScale", effectiveSearchDensityScale.ToString(), defaultSearchDensityScale.ToString())) { changed++; }
-        Print("[HC Settings] digest SchemaVersion=" + SchemaVersion.ToString() + " nondefaults=" + changed.ToString());
+        Print("[HC Settings] summary SchemaVersion=" + SchemaVersion.ToString() + " nondefault_count=" + changed.ToString());
     }
 
     static HCSettings LoadFromProfile()

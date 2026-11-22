@@ -4,7 +4,7 @@ python3 -B -m tools.release.checkstart --bundle 'D:\\HollowCountryLocal\\friend-
 Without --start, attach to the newest RPT (or --rpt); never launch a process.
 With --start, require no server running, invoke start-server.bat, follow a NEW RPT.
 Exit codes: 0 connect-enabled after settle, readiness convergence and R4 <= configured Hive allowance; 2 install check failed; 3 compile;
-4 crash/dump; 5 process gone; 6 stall; 7 ready=false at readiness deadline; 8 interop unknown;
+4 crash/dump; 5 process gone; 6 stall; 7 readiness exceeds R4 on the RPT clock; 8 interop unknown;
 9 input/start/timeout error; 10 persistence corruption; 11 runtime script error; 130 interrupted. No exit path stops the server.
 """
 import argparse
@@ -17,7 +17,7 @@ import time
 
 from tools.setup import winproc
 from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED, READY, ReadinessTiming
-from tools.release.acceptance_targets import load_targets
+from tools.release.acceptance_targets import load_targets, TargetsError
 
 CODES = {'compile_failed': 3, 'crashed': 4, 'process_gone': 5,
          'stalled': 6, 'not_ready': 7, 'interop_unknown': 8,
@@ -43,9 +43,12 @@ def dumps(profiles):
 
 
 def watch(args, before, old_dumps):
-    r4_limit = load_targets()['readiness_max_after_hive_seconds']
+    try:
+        r4_limit = load_targets()['readiness_max_after_hive_seconds']
+    except TargetsError as error:
+        print('checkstart acceptance targets invalid: ' + str(error), flush=True)
+        return 'input_error', args.rpt
     timing = ReadinessTiming()
-    hive_observed_at = None
     began = last_growth = time.monotonic()
     connected_at = None
     rpt = args.rpt
@@ -72,11 +75,11 @@ def watch(args, before, old_dumps):
     while True:
         now = time.monotonic()
         if now - began >= args.timeout_seconds:
-            # Equal deadlines still give pending readiness its specific verdict.
+            # A wall deadline without RPT proof cannot establish an R4 failure.
             modules = pending_modules()
             if now - began >= args.ready_deadline_minutes * 60 and modules:
-                report_pending(modules)
-                return 'not_ready', rpt
+                print('checkstart R4 unavailable: readiness observation deadline reached without RPT timing proof', flush=True)
+                return 'input_error', rpt
             return 'timed_out', rpt
         if any(old_dumps.get(p) != stamp for p, stamp in dumps(args.profiles).items()):
             return 'crashed', rpt
@@ -108,8 +111,6 @@ def watch(args, before, old_dumps):
                     if not discard:
                         line = pending.decode('utf-8', errors='replace')
                         timing.observe(line)
-                        if timing.hive_at is not None and hive_observed_at is None:
-                            hive_observed_at = now
                         mission_loaded = mission_loaded or bool(MISSION_LOADED.search(line))
                         verdict = failure(line, mission_loaded)
                         if verdict == 'script_error':
@@ -150,20 +151,27 @@ def watch(args, before, old_dumps):
         caught_up = rpt is not None and rpt.stat().st_size <= position
         modules = pending_modules()
         r4 = timing.result(r4_limit)
-        if caught_up and r4['late']:
+        if caught_up and r4['status'] != 'unavailable' and r4['late']:
             print('checkstart R4 failed: ready after Hive allowance: ' + ', '.join(r4['late']), flush=True)
             return 'not_ready', rpt
-        if (caught_up and hive_observed_at is not None and modules
-                and (now - hive_observed_at > r4_limit
-                     or timing.clock - timing.hive_at > r4_limit)):
+        # Only the RPT clock can establish a missed R4 allowance. Buffered
+        # output may arrive long after the events it describes.
+        if (caught_up and not timing.invalid and timing.hive_at is not None and modules
+                and timing.clock - timing.hive_at > r4_limit):
             report_pending(modules)
             print('checkstart R4 failed: Hive readiness allowance exceeded', flush=True)
             return 'not_ready', rpt
         if state == 'running' and connected_at is not None and caught_up and now - connected_at >= args.settle_minutes * 60:
             if not modules:
+                if r4['status'] == 'failed':
+                    print('checkstart R4 failed: enabled modules lack timely readiness evidence', flush=True)
+                    return 'not_ready', rpt
                 if r4['status'] != 'passed':
                     print('checkstart R4 unavailable: Hive/readiness timing evidence missing or invalid', flush=True)
                     return 'script_error' if script_error else 'input_error', rpt
+                if r4['ready_before_hive']:
+                    print('checkstart R4 ready before Hive; counted at 0s: '
+                          + ', '.join(r4['ready_before_hive']), flush=True)
                 if pending_at_settle is not None:
                     safe = filtered(f'checkstart readiness converged after {now - began:g}s '
                                     f'(pending at settle: {", ".join(pending_at_settle)})')
@@ -176,8 +184,8 @@ def watch(args, before, old_dumps):
                 if safe:
                     print(safe, flush=True)
         if now - began >= args.ready_deadline_minutes * 60 and modules and caught_up:
-            report_pending(modules)
-            return 'not_ready', rpt
+            print('checkstart R4 unavailable: readiness observation deadline reached without RPT timing proof', flush=True)
+            return 'input_error', rpt
         time.sleep(args.poll_seconds if caught_up or rpt is None else 0)
 
 
@@ -265,7 +273,8 @@ def main(argv=None):
             try:
                 summary.scan().print()
                 activity_result = summary.activity
-                if (summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted')
+                if (summary.outcome in ('compile_failed', 'crashed', 'persistence_corrupted')
+                        or (summary.outcome == 'not_ready' and outcome != 'input_error')
                         or (summary.outcome == 'script_error' and outcome == 'connect_enabled')):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
@@ -283,6 +292,10 @@ def main(argv=None):
             from tools.release.activity_check import summary_line
             print(summary_line(activity_result))
         return CODES.get(outcome, 9)
+    except TargetsError as error:
+        print('checkstart acceptance targets invalid: ' + str(error))
+        print('boot_verdict=input_error')
+        return 9
     except LockRefused as error:
         print(str(error))
         return 9

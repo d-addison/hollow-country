@@ -296,9 +296,10 @@ private source checkout with:
 python3 -B -m tools.validate.runtime /path/to/profile/HollowCountry/settings.json
 ```
 
-Startup prints one `[HC Settings] effective <key>=<value>` per scalar setting;
-the four density budgets show their scaled caps and `SearchDensityScale` shows
-its resolved multiplier. The Interiors readiness reason distinguishes admitted
+Startup prints one `[HC Settings] summary SchemaVersion=<version> nondefault_count=<count>`
+plus `[HC Settings] effective <key>=<value>` for each non-default scalar setting;
+Non-default density budgets show their scaled caps, and a non-default
+`SearchDensityScale` shows its resolved multiplier. The Interiors readiness reason distinguishes admitted
 templates from an admitted legacy pilot; admission still requires native testing.
 
 **Gunfire and AI caution.** This is deliberate: any audible shot within 80 m of

@@ -89,10 +89,14 @@ class ReadinessTiming:
                     and self.first_ready[m] - self.hive_at > limit]
         status = 'unavailable' if self.invalid or self.hive_at is None or not self.modules else (
             'failed' if pending or late else 'passed')
-        elapsed = [self.first_ready[m] - self.hive_at for m in enabled
+        before_hive = [] if self.hive_at is None else [m for m in enabled
+                       if m in self.first_ready and self.first_ready[m] < self.hive_at]
+        # Ready before Hive is already ready at the R4 baseline. Keep the
+        # affected modules visible rather than emitting negative durations.
+        elapsed = [max(0, self.first_ready[m] - self.hive_at) for m in enabled
                    if m in self.first_ready and self.hive_at is not None]
         return dict(status=status, max_after_hive_seconds=max(elapsed, default=None),
-                    limit_seconds=limit, pending=pending, late=late)
+                    limit_seconds=limit, pending=pending, late=late, ready_before_hive=before_hive)
 
 
 def filtered(line):
