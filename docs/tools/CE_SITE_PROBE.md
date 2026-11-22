@@ -69,6 +69,17 @@ python3 -B -m tools.setup.ce_site_probe stage \
   --treatment measured --measurements tmp/logs/ce-site-current-measured.json
 ```
 
+Native `float.ToString()` prints six significant digits, so a row echoes coordinates
+only to about 0.1 m at 10 km. Ingest checks each echo against the plan within that print
+precision and stores the exact plan coordinates.
+
+For a cause-isolating lead diagnostic, `--treatment factorial --variants V.json
+--measurements M.json` applies explicit per-event spawn-definition variants to the
+installed `cfgeventspawns.xml` before the staged manifest is hashed: `y` (measured
+terrain height), `zone` (`[dmin, dmax, r]`) and `angle` (replaces `a="-1"`). Every HC
+event must be listed; `{}` is an explicit control. The variants are recorded in the
+plan. A factorial runtime is evidence for choosing a fix, never a shipped treatment.
+
 Run and ingest this second fresh runtime in the same way. The measured treatment
 refuses missing group observations, water, slope above `MAX_SLOPE_DEG=12`, or any
 geometry blocker inside the clearance box. It emits terrain `y` on every group

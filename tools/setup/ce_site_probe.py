@@ -173,9 +173,82 @@ def render_hook(rows, token, hold_seconds=240):
     return text.encode('ascii')
 
 
+VARIANT_KEYS = frozenset(('y', 'zone', 'angle'))
+
+
+def load_variants(path, measured_path):
+    """Lead diagnostic: per-event CE spawn-definition variants for one disposable run.
+
+    {"StaticHCConvoyAmbush": {"y": true, "zone": [dmin, dmax, r], "angle": 0}, ...}
+    "y" takes terrain heights from a complete ingested measurement document. Every HC
+    event must be listed (an empty object is an explicit control), so nothing is implicit.
+    """
+    doc = json.loads(rt._read_bounded(path, rt.MAX_PLAN_BYTES))
+    if (not isinstance(doc, dict) or not doc
+            or any(not isinstance(v, dict) or set(v) - VARIANT_KEYS for v in doc.values())):
+        raise ValueError('invalid variants document')
+    for v in doc.values():
+        zone = v.get('zone')
+        if zone is not None and (not isinstance(zone, list) or len(zone) != 3
+                                 or any(type(n) is not int or not 0 <= n <= 50 for n in zone)):
+            raise ValueError('invalid variant zone')
+        if 'angle' in v and (type(v['angle']) is not int or not 0 <= v['angle'] < 360):
+            raise ValueError('invalid variant angle')
+        if 'y' in v and v['y'] is not True:
+            raise ValueError('invalid variant y')
+    heights = {}
+    if any(v.get('y') for v in doc.values()):
+        if measured_path is None:
+            raise ValueError('y variants require --measurements')
+        measured = json.loads(rt._read_bounded(measured_path, rt.MAX_PLAN_BYTES))
+        heights = {(round(r['x'], 2), round(r['z'], 2)): float(r['y']) for r in measured['targets']}
+    return doc, heights
+
+
+def apply_variants(mission_dest, doc, heights):
+    path = Path(mission_dest) / 'cfgeventspawns.xml'
+    root = ET.fromstring(path.read_bytes())
+    seen = set()
+    for event in root:
+        name = event.get('name', '')
+        if not name.startswith(('StaticHC', 'ItemHC')):
+            continue
+        if name not in doc:
+            raise ValueError('variants omit event: ' + name)
+        seen.add(name)
+        variant = doc[name]
+        for pos in event.findall('pos'):
+            if variant.get('y'):
+                key = (round(float(pos.get('x')), 2), round(float(pos.get('z')), 2))
+                if key not in heights:
+                    raise ValueError('no measured height for ' + name)
+                pos.set('y', format(heights[key], '.3f'))
+            if 'angle' in variant and pos.get('a') == '-1':
+                pos.set('a', str(variant['angle']))
+        if 'zone' in variant:
+            zone = event.find('zone')
+            if zone is None:
+                zone = ET.Element('zone', smin='0', smax='0')
+                event.insert(0, zone)
+            for attr, value in zip(('dmin', 'dmax', 'r'), variant['zone']):
+                zone.set(attr, str(value))
+    if seen != set(doc):
+        raise ValueError('variants name unknown events')
+    path.write_bytes(b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                     + ET.tostring(root, encoding='utf-8') + b'\n')
+
+
 def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current', measured=None,
-          native_scripts=None, hold_seconds=240, wait_minutes=10, dry_run=False):
-    if treatment not in ('current', 'measured') or (treatment == 'measured') != (measured is not None):
+          native_scripts=None, hold_seconds=240, wait_minutes=10, dry_run=False, variants=None):
+    variant_doc = heights = None
+    if treatment == 'factorial':
+        if variants is None:
+            raise ValueError('factorial treatment requires --variants')
+        variant_doc, heights = load_variants(variants, measured)
+        measured = None  # heights only; the CE install itself stays the current control
+    elif variants is not None:
+        raise ValueError('--variants requires the factorial treatment')
+    elif treatment not in ('current', 'measured') or (treatment == 'measured') != (measured is not None):
         raise ValueError('measured treatment requires --measurements; current refuses it')
     if not 240 <= hold_seconds <= 3600 or not 5 <= wait_minutes <= 120 or wait_minutes * 60 < hold_seconds + 120:
         raise ValueError('hold must be 240..3600 seconds with at least 120 seconds timeout headroom')
@@ -215,6 +288,8 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
         # Shared generic generated CE-hook purpose; no change to shared runtime scope.
         built = rt.build_runtime(context, hook, purpose='ce-probe')
         hc.install(snapshot, built['mission_dest'])
+        if variant_doc is not None:
+            apply_variants(built['mission_dest'], variant_doc, heights)
         built['staged'] = []
         for name in sorted(rt.dm.walk_plain(destination)):
             digest, size = rt._hash_file(Path(destination) / name)
@@ -226,6 +301,8 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             if entry['sha256'] != entry['source_sha256'] and entry['path'] != 'init.c':
                 entry['origin'] = 'hc-ce-install'
         plan = rt.plan_header('ce-site-probe', None, after={'variant': treatment})
+        if variant_doc is not None:
+            plan['factorial_variants'] = variant_doc
         plan.update(rt.plan_runtime_fields(context, built))
         plan.update(targets=rows, binding=token, run_id=run_id, stock_mission_sha256=stock_sha,
                     mission_files=built['mission_files'], staged_files=built['staged'],
@@ -245,6 +322,14 @@ NUMBER = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
 ROW = re.compile(r'\[HC SiteProbe\] id=([A-Za-z0-9_:]+) x=(' + NUMBER + r') z=(' + NUMBER
                  + r') y=(' + NUMBER + r') slope_deg=(' + NUMBER + r') water=([01]) blockers=(\d+) nearest=([A-Za-z0-9_]+)@(' + NUMBER + r')')
 FAILURE = re.compile(r'\[CE\]\[VehicleRespawner\].*?:: (Init|Respawning): "([A-Za-z0-9_]+)" - Failed to spawn the requested amount \((\d+) < (\d+)\) within (\d+) attempts\.')
+
+
+def print_tolerance(value):
+    """Native float.ToString() (simple=true) prints 6 significant digits (observed 1.30:
+    12918.953 -> "12919", 7599.338 -> "7599.34"). Allow half a printed unit plus float32
+    error, never below 0.01 m."""
+    magnitude = math.floor(math.log10(abs(value))) if value else 0
+    return max(0.01, 0.5 * 10 ** (magnitude - 5) + 0.002)
 
 
 def ingest(rpt, out, plan_path=None):
@@ -295,8 +380,12 @@ def ingest(rpt, out, plan_path=None):
         hc.measurement_usable(row)  # validates even an unusable site, retained as evidence
         if ident not in expected or ident in observed:
             raise ValueError('unexpected or duplicate probe target')
-        if any(abs(row[a] - expected[ident][a]) > 0.01 for a in ('x', 'z')):
+        if any(abs(row[a] - expected[ident][a]) > print_tolerance(expected[ident][a])
+               for a in ('x', 'z')):
             raise ValueError('probe coordinate drift')
+        # The hook samples the plan's float coordinates; the row only echoes them at print
+        # precision. Keep the exact plan coordinates so measurements match the authored XML.
+        row['x'], row['z'] = expected[ident]['x'], expected[ident]['z']
         observed[ident] = row
     if observed.keys() != expected.keys():
         raise ValueError('incomplete probe targets')
@@ -322,7 +411,8 @@ def main(argv=None):
     st.add_argument('--destination', type=Path, required=True)
     st.add_argument('--source-runtime', default=rt.DEFAULT_SOURCE_RUNTIME)
     st.add_argument('--source', type=Path, default=hc.SOURCE)
-    st.add_argument('--treatment', choices=('current', 'measured'), default='current')
+    st.add_argument('--treatment', choices=('current', 'measured', 'factorial'), default='current')
+    st.add_argument('--variants', type=Path, help='factorial only: per-event variants JSON')
     st.add_argument('--measurements', type=Path)
     st.add_argument('--native-scripts', type=Path)
     st.add_argument('--hold-seconds', type=int, default=240)
@@ -337,7 +427,8 @@ def main(argv=None):
         if args.command == 'stage':
             result = stage(args.source_runtime, args.destination, source=args.source, treatment=args.treatment,
                            measured=args.measurements, native_scripts=args.native_scripts,
-                           hold_seconds=args.hold_seconds, wait_minutes=args.wait_minutes, dry_run=args.dry_run)
+                           hold_seconds=args.hold_seconds, wait_minutes=args.wait_minutes, dry_run=args.dry_run,
+                           variants=args.variants)
             print(json.dumps({'status': result['status'], 'kind': result['kind']}))
         else:
             result = ingest(args.rpt, args.out, args.plan)
