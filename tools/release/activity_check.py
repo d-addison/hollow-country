@@ -39,10 +39,11 @@ RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED')
 
 
 class UseActivity:
-    """Cumulative maxima, bounded across both peers; zero lines register features.
+    """Cumulative maxima from change-only checkpoints; zero lines register features.
 
     Readiness determines enabled modules on the server only. Registration and
-    first use may precede readiness. Repeated summaries must never be summed.
+    first use may precede readiness. Delta emission suppresses unchanged lines,
+    but count remains cumulative: checkpoints must never be summed.
     The caller runs this audit at the end of the release scenario window.
     """
     def __init__(self):
@@ -50,6 +51,7 @@ class UseActivity:
         self.modules = {}
         self.counts = {}
         self.fixtures = {}
+        self.registry_count = None
 
     def observe(self, raw, *, client=False):
         safe = filtered(raw)
@@ -60,6 +62,13 @@ class UseActivity:
             if ready[1] not in self.modules and len(self.modules) >= 256:
                 raise ValueError('module limit')
             self.modules[ready[1]] = ready[2] == 'true'
+        if '[HC UseRegistry]' in safe:
+            match = re.search(r'\[HC UseRegistry\] registered=([0-9]{1,3})\s*$', safe)
+            if not match or int(match[1]) > 512:
+                raise ValueError('invalid use registry')
+            if not client:
+                self.registry_count = int(match[1])
+            return
         if '[HC Use]' not in safe:
             return
         match = USE_LINE.search(safe)
@@ -108,7 +117,7 @@ class UseActivity:
         failures = totals['INERT'] if self.targets['activity_requires_active_for_default_on'] else 0
         return dict(features=features, totals=totals, count=failures,
                     activity='inert' if failures else 'waived' if totals['WAIVED'] else 'ok',
-                    release=True, readiness_observed=True)
+                    release=True, readiness_observed=True, registry_count=self.registry_count)
 
 
 def scan_release(path, *, client_rpt=None):

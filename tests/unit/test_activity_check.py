@@ -41,6 +41,22 @@ class UseActivityTests(unittest.TestCase):
         self.assertEqual(row['status'], 'ACTIVE')
         self.assertEqual(result['count'], 0)
 
+    def test_change_only_checkpoints_keep_cumulative_maxima(self):
+        result = self.report(['[HC UseRegistry] registered=2\n', ready('World'),
+                              use('World', 'active', 1), use('World', 'active', 5),
+                              use('World', 'idle', 0)])
+        self.assertEqual(result['registry_count'], 2)
+        rows = {row['feature']: row for row in result['features']}
+        self.assertEqual(rows['active']['count'], 5)
+        self.assertEqual(rows['idle']['status'], 'INERT')
+
+    def test_registry_digest_does_not_prove_activity(self):
+        result = self.report(['[HC UseRegistry] registered=1\n', ready('World')])
+        self.assertEqual(result['features'][0]['status'], 'INERT')
+        for digest in ('[HC Use] registered=1', '[HC UseRegistry] registered=bad'):
+            with self.subTest(digest=digest), self.assertRaises(ValueError):
+                self.report([digest, ready('World')])
+
     def test_fixture_counts_merge_as_maxima_and_remain_active(self):
         module, feature = 'Materializer', 'actors_materialized'
         samples = [(3, 1), (4, 2), (4, 2)]

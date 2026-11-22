@@ -628,79 +628,95 @@ class HCSettings
         return scaled;
     }
 
+    // Preserve effective key/value receipts for overrides; defaults need one summary.
+    protected bool HCLogNonDefault(string key, string value, string baseline)
+    {
+        if (value == baseline) { return false; }
+        Print("[HC Settings] effective " + key + "=" + value);
+        return true;
+    }
+
     void HCLogEffective()
     {
-        Print("[HC Settings] effective SchemaVersion=" + SchemaVersion.ToString());
-        Print("[HC Settings] effective EnableInteriors=" + EnableInteriors.ToString());
-        Print("[HC Settings] effective EnableSearch=" + EnableSearch.ToString());
-        Print("[HC Settings] effective EnableCrafting=" + EnableCrafting.ToString());
-        Print("[HC Settings] effective EnableInfected=" + EnableInfected.ToString());
-        Print("[HC Settings] effective EnableHordes=" + EnableHordes.ToString());
-        Print("[HC Settings] effective EnableAlertChains=" + EnableAlertChains.ToString());
-        Print("[HC Settings] effective EnableGroups=" + EnableGroups.ToString());
-        Print("[HC Settings] effective EnableAtmosphere=" + EnableAtmosphere.ToString());
-        Print("[HC Settings] effective EnableGrade=" + EnableGrade.ToString());
-        Print("[HC Settings] effective ClientPresentationMask=" + ClientPresentationMask.ToString());
-        Print("[HC Settings] effective EnableAmbientLife=" + EnableAmbientLife.ToString());
-        Print("[HC Settings] effective EnableSignsOfLife=" + EnableSignsOfLife.ToString());
-        Print("[HC Settings] effective EnableTravel=" + EnableTravel.ToString());
-        Print("[HC Settings] effective EnableWorld=" + EnableWorld.ToString());
-        Print("[HC Settings] effective EnableLeads=" + EnableLeads.ToString());
-        Print("[HC Settings] effective EnableCamps=" + EnableCamps.ToString());
-        Print("[HC Settings] effective EnableEncounters=" + EnableEncounters.ToString());
-        Print("[HC Settings] effective EnableInfectedVariety=" + EnableInfectedVariety.ToString());
-        Print("[HC Settings] effective EnableDebugSnapshot=" + EnableDebugSnapshot.ToString());
-        Print("[HC Settings] effective EnableSmokeFixtures=" + EnableSmokeFixtures.ToString());
-        Print("[HC Settings] effective EnableAdminMap=" + EnableAdminMap.ToString());
-        Print("[HC Settings] effective EnableCampRespawn=" + EnableCampRespawn.ToString());
-        Print("[HC Settings] effective EnableTeamPing=" + EnableTeamPing.ToString());
-        Print("[HC Settings] effective EnableMelee=" + EnableMelee.ToString());
-        Print("[HC Settings] effective EnableVehicleFlip=" + EnableVehicleFlip.ToString());
-        Print("[HC Settings] effective EnableForage=" + EnableForage.ToString());
-        Print("[HC Settings] effective EnableProgression=" + EnableProgression.ToString());
-        Print("[HC Settings] effective EnableGroupScaling=" + EnableGroupScaling.ToString());
-        Print("[HC Settings] effective EnableTapedPackMounts=" + EnableTapedPackMounts.ToString());
-        Print("[HC Settings] effective TickIntervalMs=" + TickIntervalMs.ToString());
-        Print("[HC Settings] effective MaxTickWorkItems=" + MaxTickWorkItems.ToString());
-        Print("[HC Settings] effective MaxActiveHordes=" + MaxActiveHordes.ToString());
-        Print("[HC Settings] effective MaxActiveHordeMembers=" + MaxActiveHordeMembers.ToString());
+        HCSettings defaults = new HCSettings();
+        int changed = 0;
+        if (HCLogNonDefault("SchemaVersion", SchemaVersion.ToString(), defaults.SchemaVersion.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableInteriors", EnableInteriors.ToString(), defaults.EnableInteriors.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableSearch", EnableSearch.ToString(), defaults.EnableSearch.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableCrafting", EnableCrafting.ToString(), defaults.EnableCrafting.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableInfected", EnableInfected.ToString(), defaults.EnableInfected.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableHordes", EnableHordes.ToString(), defaults.EnableHordes.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableAlertChains", EnableAlertChains.ToString(), defaults.EnableAlertChains.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableGroups", EnableGroups.ToString(), defaults.EnableGroups.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableAtmosphere", EnableAtmosphere.ToString(), defaults.EnableAtmosphere.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableGrade", EnableGrade.ToString(), defaults.EnableGrade.ToString())) { changed++; }
+        if (HCLogNonDefault("ClientPresentationMask", ClientPresentationMask.ToString(), defaults.ClientPresentationMask.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableAmbientLife", EnableAmbientLife.ToString(), defaults.EnableAmbientLife.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableSignsOfLife", EnableSignsOfLife.ToString(), defaults.EnableSignsOfLife.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableTravel", EnableTravel.ToString(), defaults.EnableTravel.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableWorld", EnableWorld.ToString(), defaults.EnableWorld.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableLeads", EnableLeads.ToString(), defaults.EnableLeads.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableCamps", EnableCamps.ToString(), defaults.EnableCamps.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableEncounters", EnableEncounters.ToString(), defaults.EnableEncounters.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableInfectedVariety", EnableInfectedVariety.ToString(), defaults.EnableInfectedVariety.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableDebugSnapshot", EnableDebugSnapshot.ToString(), defaults.EnableDebugSnapshot.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableSmokeFixtures", EnableSmokeFixtures.ToString(), defaults.EnableSmokeFixtures.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableAdminMap", EnableAdminMap.ToString(), defaults.EnableAdminMap.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableCampRespawn", EnableCampRespawn.ToString(), defaults.EnableCampRespawn.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableTeamPing", EnableTeamPing.ToString(), defaults.EnableTeamPing.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableMelee", EnableMelee.ToString(), defaults.EnableMelee.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableVehicleFlip", EnableVehicleFlip.ToString(), defaults.EnableVehicleFlip.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableForage", EnableForage.ToString(), defaults.EnableForage.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableProgression", EnableProgression.ToString(), defaults.EnableProgression.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableGroupScaling", EnableGroupScaling.ToString(), defaults.EnableGroupScaling.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableTapedPackMounts", EnableTapedPackMounts.ToString(), defaults.EnableTapedPackMounts.ToString())) { changed++; }
+        if (HCLogNonDefault("TickIntervalMs", TickIntervalMs.ToString(), defaults.TickIntervalMs.ToString())) { changed++; }
+        if (HCLogNonDefault("MaxTickWorkItems", MaxTickWorkItems.ToString(), defaults.MaxTickWorkItems.ToString())) { changed++; }
+        if (HCLogNonDefault("MaxActiveHordes", MaxActiveHordes.ToString(), defaults.MaxActiveHordes.ToString())) { changed++; }
+        if (HCLogNonDefault("MaxActiveHordeMembers", MaxActiveHordeMembers.ToString(), defaults.MaxActiveHordeMembers.ToString())) { changed++; }
         float effectiveMaxActiveInteriors = HCSearchCap("MaxActiveInteriors", MaxActiveInteriors);
-        Print("[HC Settings] effective MaxActiveInteriors=" + effectiveMaxActiveInteriors.ToString());
+        float defaultMaxActiveInteriors = defaults.HCSearchCap("MaxActiveInteriors", defaults.MaxActiveInteriors);
+        if (HCLogNonDefault("MaxActiveInteriors", effectiveMaxActiveInteriors.ToString(), defaultMaxActiveInteriors.ToString())) { changed++; }
         float effectiveMaxPropsPerInterior = HCSearchCap("MaxPropsPerInterior", MaxPropsPerInterior);
-        Print("[HC Settings] effective MaxPropsPerInterior=" + effectiveMaxPropsPerInterior.ToString());
+        float defaultMaxPropsPerInterior = defaults.HCSearchCap("MaxPropsPerInterior", defaults.MaxPropsPerInterior);
+        if (HCLogNonDefault("MaxPropsPerInterior", effectiveMaxPropsPerInterior.ToString(), defaultMaxPropsPerInterior.ToString())) { changed++; }
         float effectiveMaxFurnishedProps = HCSearchCap("MaxFurnishedProps", MaxFurnishedProps);
-        Print("[HC Settings] effective MaxFurnishedProps=" + effectiveMaxFurnishedProps.ToString());
+        float defaultMaxFurnishedProps = defaults.HCSearchCap("MaxFurnishedProps", defaults.MaxFurnishedProps);
+        if (HCLogNonDefault("MaxFurnishedProps", effectiveMaxFurnishedProps.ToString(), defaultMaxFurnishedProps.ToString())) { changed++; }
         float effectiveMaxBoundSearchSites = HCSearchCap("MaxBoundSearchSites", MaxBoundSearchSites);
-        Print("[HC Settings] effective MaxBoundSearchSites=" + effectiveMaxBoundSearchSites.ToString());
-        Print("[HC Settings] effective InfectedBindRadius=" + InfectedBindRadius.ToString());
-        Print("[HC Settings] effective MaxBindQueriesPerTick=" + MaxBindQueriesPerTick.ToString());
-        Print("[HC Settings] effective AILimits.MaxLiveGroups=" + AILimits.MaxLiveGroups.ToString());
-        Print("[HC Settings] effective AILimits.MaxLiveAI=" + AILimits.MaxLiveAI.ToString());
-        Print("[HC Settings] effective AILimits.OccupationMin=" + AILimits.OccupationMin.ToString());
-        Print("[HC Settings] effective AILimits.OccupationMax=" + AILimits.OccupationMax.ToString());
-        Print("[HC Settings] effective AILimits.HoldoutMin=" + AILimits.HoldoutMin.ToString());
-        Print("[HC Settings] effective AILimits.HoldoutMax=" + AILimits.HoldoutMax.ToString());
-        Print("[HC Settings] effective AILimits.PartyMin=" + AILimits.PartyMin.ToString());
-        Print("[HC Settings] effective AILimits.PartyMax=" + AILimits.PartyMax.ToString());
-        Print("[HC Settings] effective AILimits.PatrolMin=" + AILimits.PatrolMin.ToString());
-        Print("[HC Settings] effective AILimits.PatrolMax=" + AILimits.PatrolMax.ToString());
-        Print("[HC Settings] effective AILimits.CampMin=" + AILimits.CampMin.ToString());
-        Print("[HC Settings] effective AILimits.CampMax=" + AILimits.CampMax.ToString());
-        Print("[HC Settings] effective AILimits.MaxOccupiedPlaces=" + AILimits.MaxOccupiedPlaces.ToString());
-        Print("[HC Settings] effective AILimits.MaxParties=" + AILimits.MaxParties.ToString());
-        Print("[HC Settings] effective AILimits.MaxMaterialized=" + AILimits.MaxMaterialized.ToString());
-        Print("[HC Settings] effective AILimits.FactionStrengthMax=" + AILimits.FactionStrengthMax.ToString());
-        Print("[HC Settings] effective AILimits.MaxActiveSites=" + AILimits.MaxActiveSites.ToString());
-        Print("[HC Settings] effective AILimits.MaxActiveAI=" + AILimits.MaxActiveAI.ToString());
-        Print("[HC Settings] effective AILimits.MaxEncounters=" + AILimits.MaxEncounters.ToString());
-        Print("[HC Settings] effective AILimits.MaxHoldouts=" + AILimits.MaxHoldouts.ToString());
-        Print("[HC Settings] effective AILimits.MaxCamps=" + AILimits.MaxCamps.ToString());
-        Print("[HC Settings] effective AILimits.MaxCampItems=" + AILimits.MaxCampItems.ToString());
-        Print("[HC Settings] effective AILimits.WorldSeed=" + AILimits.WorldSeed.ToString());
-        Print("[HC Settings] effective AILimits.MaxObservedAI=" + AILimits.MaxObservedAI.ToString());
-        Print("[HC Settings] effective MaxFamiliarityRows=" + MaxFamiliarityRows.ToString());
+        float defaultMaxBoundSearchSites = defaults.HCSearchCap("MaxBoundSearchSites", defaults.MaxBoundSearchSites);
+        if (HCLogNonDefault("MaxBoundSearchSites", effectiveMaxBoundSearchSites.ToString(), defaultMaxBoundSearchSites.ToString())) { changed++; }
+        if (HCLogNonDefault("InfectedBindRadius", InfectedBindRadius.ToString(), defaults.InfectedBindRadius.ToString())) { changed++; }
+        if (HCLogNonDefault("MaxBindQueriesPerTick", MaxBindQueriesPerTick.ToString(), defaults.MaxBindQueriesPerTick.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxLiveGroups", AILimits.MaxLiveGroups.ToString(), defaults.AILimits.MaxLiveGroups.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxLiveAI", AILimits.MaxLiveAI.ToString(), defaults.AILimits.MaxLiveAI.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.OccupationMin", AILimits.OccupationMin.ToString(), defaults.AILimits.OccupationMin.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.OccupationMax", AILimits.OccupationMax.ToString(), defaults.AILimits.OccupationMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.HoldoutMin", AILimits.HoldoutMin.ToString(), defaults.AILimits.HoldoutMin.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.HoldoutMax", AILimits.HoldoutMax.ToString(), defaults.AILimits.HoldoutMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.PartyMin", AILimits.PartyMin.ToString(), defaults.AILimits.PartyMin.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.PartyMax", AILimits.PartyMax.ToString(), defaults.AILimits.PartyMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.PatrolMin", AILimits.PatrolMin.ToString(), defaults.AILimits.PatrolMin.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.PatrolMax", AILimits.PatrolMax.ToString(), defaults.AILimits.PatrolMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CampMin", AILimits.CampMin.ToString(), defaults.AILimits.CampMin.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CampMax", AILimits.CampMax.ToString(), defaults.AILimits.CampMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxOccupiedPlaces", AILimits.MaxOccupiedPlaces.ToString(), defaults.AILimits.MaxOccupiedPlaces.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxParties", AILimits.MaxParties.ToString(), defaults.AILimits.MaxParties.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxMaterialized", AILimits.MaxMaterialized.ToString(), defaults.AILimits.MaxMaterialized.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.FactionStrengthMax", AILimits.FactionStrengthMax.ToString(), defaults.AILimits.FactionStrengthMax.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxActiveSites", AILimits.MaxActiveSites.ToString(), defaults.AILimits.MaxActiveSites.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxActiveAI", AILimits.MaxActiveAI.ToString(), defaults.AILimits.MaxActiveAI.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxEncounters", AILimits.MaxEncounters.ToString(), defaults.AILimits.MaxEncounters.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxHoldouts", AILimits.MaxHoldouts.ToString(), defaults.AILimits.MaxHoldouts.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxCamps", AILimits.MaxCamps.ToString(), defaults.AILimits.MaxCamps.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxCampItems", AILimits.MaxCampItems.ToString(), defaults.AILimits.MaxCampItems.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.WorldSeed", AILimits.WorldSeed.ToString(), defaults.AILimits.WorldSeed.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.MaxObservedAI", AILimits.MaxObservedAI.ToString(), defaults.AILimits.MaxObservedAI.ToString())) { changed++; }
+        if (HCLogNonDefault("MaxFamiliarityRows", MaxFamiliarityRows.ToString(), defaults.MaxFamiliarityRows.ToString())) { changed++; }
         float effectiveSearchDensityScale = HCEffectiveSearchDensity();
-        Print("[HC Settings] effective SearchDensityScale=" + effectiveSearchDensityScale.ToString());
+        float defaultSearchDensityScale = defaults.HCEffectiveSearchDensity();
+        if (HCLogNonDefault("SearchDensityScale", effectiveSearchDensityScale.ToString(), defaultSearchDensityScale.ToString())) { changed++; }
+        Print("[HC Settings] summary SchemaVersion=" + SchemaVersion.ToString() + " nondefault_count=" + changed.ToString());
     }
 
     static HCSettings LoadFromProfile()
