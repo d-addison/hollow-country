@@ -1,7 +1,7 @@
 // Native 1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile;
 // :520-522 FindFile/FindNextFile/CloseFindFile (vanilla VideoPlayer.c:81-93);
 // EnString.c:20/113 ToInt/Substring; discovery validates canonical names before use.
-// 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove; :852 map.Count.
+// 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove (swaps in the LAST element), :470 RemoveOrdered (FIFO); :852 map.Count.
 // 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :448 Get. Existing HCSearchJson owns JSON I/O.
 // Sparse active slots retain indices; bounded FIFO/archive tombstones prevent regrant.
 // HCSearchRetirementStore in HCSearchRefresh.c owns a maximum of 2048 exact
@@ -10,7 +10,13 @@
 // commit; the caller permits <=32 compactions/minute, never per-frame work.
 // A compact_<slot> intent survives interruption and finishes cleanup before restore.
 // Lazy per-house search journal (contract section 8). Same immutable, bounded record
-// discipline as HCSearchEconomyStore (HCSearchJson.WriteNew, no overwrite or replay of transfer records), but the row set grows as sites bind instead of being fixed by a manifest.
+// discipline as HCSearchEconomyStore (no overwrite or replay of transfer records), but the row set grows as sites bind instead of being fixed by a manifest.
+// Wave C: every write/delete runs on the shared HCSaveScheduler through HCSearchJournalJob
+// (HCStagedSaveImage BeginNew/BeginRemove: one native call per stage after Begin's two existence
+// probes, bytes identical to the former HCSearchJson.WriteNew). Entry/claim/attempt/result writes are synchronous durability
+// barriers (queue + HCSaveScheduler.HCFlush, FIFO behind any queued cleanup); compact intent,
+// compaction cleanup and legacy spent_* removal are routine staged work. Crash-point table:
+// docs/INSTALL_ROLLBACK.md (Search house journal).
 //   entry_<n>.json   the bound supply (Phase 0, ActorId "bind")
 //   claim_<n>.json   intent before any move (Phase 1)
 //   attempt_<n>.json second intent immediately before the single native move (Phase 1)
@@ -44,6 +50,14 @@ class HCSearchHouseJournal
     protected ref map<string, int> m_Sites = new map<string, int>;
     protected ref array<string> m_ReleasedSites = new array<string>;
     protected ref HCSearchRetirementStore m_Retired;
+    protected ref HCSearchJournalJob m_Job;
+    // Legacy spent_<supply>.json names, discovered once during recovery so SupplyKnown never probes the
+    // filesystem. Static after recovery: only shrinks as PruneLegacy queues removals.
+    static const int LEGACY_MAX = 65536;
+    static const int RECORD_LIMIT = 8192;
+    protected ref map<string, bool> m_LegacySpent = new map<string, bool>;
+    protected int m_LegacyCount;
+    protected bool m_LegacyOverflow;
 
     bool Fail(string reason)
     {
@@ -150,9 +164,30 @@ class HCSearchHouseJournal
     {
         if (m_Supplies.Contains(supplyId)) { return true; }
         if (m_Retired && m_Retired.Contains(supplyId)) { return true; }
-        // One validated existence probe, independent of legacy directory size.
-        string legacyPath = TombstonePath(supplyId);
-        return legacyPath != "" && FileExist(legacyPath);
+        // Legacy spent_* tombstones were indexed once by recovery: a map lookup, never a per-supply
+        // filesystem probe. Past LEGACY_MAX names the index is incomplete, so an unindexed supply is
+        // conservatively known (never regranted) until PruneLegacy drains the directory.
+        if (TombstonePath(supplyId) == "") { return false; }
+        if (m_LegacySpent.Contains(supplyId)) { return true; }
+        return m_LegacyOverflow;
+    }
+
+    // PruneLegacy calls these. The archive already holds the id before a removal is queued, so
+    // dropping the index entry never reopens replay.
+    bool HCLegacyRemove(string path, string supplyId)
+    {
+        if (!m_Job) { return false; }
+        // A busy routine queue defers the removal to a later minute; the barrier file stays in place.
+        if (m_Job.HCQueued(path) || !m_Job.HCRoutineRoom(1)) { return true; }
+        if (!m_Job.HCQueueRemove(path)) { return false; }
+        m_LegacySpent.Remove(supplyId);
+        return true;
+    }
+
+    void HCLegacyDrained()
+    {
+        m_LegacySpent.Clear();
+        m_LegacyOverflow = false;
     }
 
     string TombstonePath(string supplyId)
@@ -221,6 +256,8 @@ class HCSearchHouseJournal
         if (!FileExist(parent) && !MakeDirectory(parent)) return Fail("search houses profile unavailable");
         m_Root = parent + "/pin_" + sourcePin.Substring(0, 16);
         if (!FileExist(m_Root) && !MakeDirectory(m_Root)) return Fail("journal directory unavailable");
+        m_Job = new HCSearchJournalJob;
+        m_Job.Owner = this;
         m_Open = true;
         m_RestoreOpened = GetGame().GetTickTime();
         m_StartupRecovery = new HCStartupHouseRecovery;
@@ -314,13 +351,61 @@ class HCSearchHouseJournal
         m_Sites.Set(row.SiteId, perSite + 1);
     }
 
-    bool DeleteIfPresent(string path)
+    bool EncodeRecord(HCSearchRecord record, out string text)
     {
-        if (!FileExist(path)) { return true; }
-        return DeleteFile(path);
+        string error;
+        if (!JsonFileLoader<HCSearchRecord>.MakeData(record, text, error)) { return false; }
+        return text.Length() >= 1 && text.Length() <= RECORD_LIMIT;
     }
 
-    bool FinishCompaction(int index, HCSearchRecord retired)
+    // Durability barrier: the record is on disk and read back, or this returns false. Runs on the shared
+    // scheduler job and drains any earlier queued cleanup first (FIFO), so a reused slot never meets a
+    // stale file. Never retried; failure is a journal fault with the caller's reason.
+    protected bool CommitRecord(string path, HCSearchRecord record, string reason)
+    {
+        string text;
+        if (!m_Job || path == "" || !EncodeRecord(record, text)) { return Fail(reason); }
+        // Routine producers stop at HCSearchJournalJob.ROUTINE_MAX, so a barrier normally finds room. A full
+        // queue is drained first instead of faulting a player claim.
+        if (!m_Job.HCRoom(1) && !HCSaveScheduler.HCFlush(m_Job)) { return Fail(reason); }
+        if (!m_Job.HCQueueCreate(path, text)) { return Fail(reason); }
+        if (!HCSaveScheduler.HCFlush(m_Job)) { return Fail(reason); }
+        return true;
+    }
+
+    // Recovery-only synchronous removal of one exact file (torn intent or torn entry).
+    protected bool HCRemoveNow(string path, string reason)
+    {
+        if (!m_Job || path == "" || !m_Job.HCQueueRemove(path)) { return Fail(reason); }
+        if (!HCSaveScheduler.HCFlush(m_Job)) { return Fail(reason); }
+        return true;
+    }
+
+    // Called by the job when a staged write/remove failed. Same fail-closed outcome as the former direct write.
+    void HCJobFailed(string operation)
+    {
+        Fail("journal stage failed op=" + operation + "; no retries, preserve journal");
+    }
+
+    void HCPumpJob() { if (m_Job) { HCSaveScheduler.HCPumpFallback(m_Job); } }
+
+    // Shutdown: finish queued cleanup before the owner lets go of the journal. The job stays registered
+    // while idle (see HCDrained), so this explicit unregister releases its scheduler slot.
+    void HCStopJob()
+    {
+        if (!m_Job) { return; }
+        if (!m_Fault && !HCSaveScheduler.HCFlush(m_Job)) { m_Fault = true; }
+        HCSaveScheduler.HCUnregister(m_Job);
+        m_Job.Owner = null;
+        m_Job = null;
+    }
+
+    bool CompactPending(int index) { return m_Job && m_Job.HCQueued(PathFor(index, "compact")); }
+
+    // barrier=true (boot recovery, base Compact): cleanup finishes before return.
+    // barrier=false (routine): the five removals are queued in order, compact intent last; a crash at any
+    // point leaves compact_<n> in place, and boot recovery re-runs this same cleanup.
+    bool FinishCompaction(int index, HCSearchRecord retired, bool barrier = true)
     {
         HCSearchHouseRow retiredRow = new HCSearchHouseRow;
         if (!retired) { return Fail("unreadable compact intent; preserve journal"); }
@@ -331,13 +416,18 @@ class HCSearchHouseJournal
         if (retired.Phase < 2 || retired.Phase > 4) { return Fail("nonterminal compact intent"); }
         if (TombstonePath(retired.SupplyId) == "") { return Fail("unsafe retired supply identity"); }
         if (!EnsureRetirement()) { return false; }
+        if (!m_Job) { return Fail("journal writer unavailable; preserve journal"); }
+        // A busy routine queue is not a fault: the routine caller retries once the scheduler has drained it.
+        if (!barrier && !m_Job.HCRoutineRoom(5)) { return false; }
+        if (barrier && !m_Job.HCRoom(5) && !HCSaveScheduler.HCFlush(m_Job)) { return Fail("compact cleanup failed"); }
         // Durable conservative identity barrier BEFORE destroying any transfer row.
         if (!m_Retired.Retire(retired.SupplyId)) { return Fail("retirement commit failed; preserve journal"); }
-        if (!DeleteIfPresent(PathFor(index, "claim"))) { return Fail("compact claim cleanup failed"); }
-        if (!DeleteIfPresent(PathFor(index, "attempt"))) { return Fail("compact attempt cleanup failed"); }
-        if (!DeleteIfPresent(PathFor(index, "result"))) { return Fail("compact result cleanup failed"); }
-        if (!DeleteIfPresent(PathFor(index, "entry"))) { return Fail("compact entry cleanup failed"); }
-        if (!DeleteIfPresent(PathFor(index, "compact"))) { return Fail("compact intent cleanup failed"); }
+        if (!m_Job.HCQueueRemove(PathFor(index, "claim"))) { return Fail("compact claim cleanup failed"); }
+        if (!m_Job.HCQueueRemove(PathFor(index, "attempt"))) { return Fail("compact attempt cleanup failed"); }
+        if (!m_Job.HCQueueRemove(PathFor(index, "result"))) { return Fail("compact result cleanup failed"); }
+        if (!m_Job.HCQueueRemove(PathFor(index, "entry"))) { return Fail("compact entry cleanup failed"); }
+        if (!m_Job.HCQueueRemove(PathFor(index, "compact"))) { return Fail("compact intent cleanup failed"); }
+        if (barrier && !HCSaveScheduler.HCFlush(m_Job)) { return Fail("compact cleanup failed"); }
         return true;
     }
 
@@ -383,7 +473,7 @@ class HCSearchHouseJournal
         }
     }
 
-    // Discover only the five legacy record kinds, incrementally. No format
+    // Discover the five legacy record kinds plus the legacy spent_* tombstone names, incrementally. No format
     // change: all sparse old records and orphan intents contribute to the discovered
     // high-water slot. Restore through that slot, then probe the remaining entry
     // paths too: discovery may have missed the highest file or every file.
@@ -393,7 +483,8 @@ class HCSearchHouseJournal
         if (m_DiscoveryKind == 1) { return "entry"; }
         if (m_DiscoveryKind == 2) { return "claim"; }
         if (m_DiscoveryKind == 3) { return "attempt"; }
-        return "result";
+        if (m_DiscoveryKind == 4) { return "result"; }
+        return "spent";
     }
 
     protected void HCDiscoverRecord()
@@ -411,10 +502,22 @@ class HCSearchHouseJournal
             CloseFindFile(m_Find);
             m_FindOpen = false;
             m_DiscoveryKind++;
-            if (m_DiscoveryKind == 5) { m_RestorePhase = 1; }
+            if (m_DiscoveryKind == 6) { m_RestorePhase = 1; }
             return;
         }
         int prefix = kind.Length() + 1;
+        if (kind == "spent")
+        {
+            // Legacy tombstone: spent_<supply>.json, indexed by supply id (names only, no file reads).
+            int idLength = m_FindName.Length() - prefix - 5;
+            if (idLength < 1 || idLength > 64) { return; }
+            string legacyId = m_FindName.Substring(prefix, idLength);
+            if (TombstonePath(legacyId) == "" || m_FindName != "spent_" + legacyId + ".json") { return; }
+            m_LegacyCount++;
+            if (m_LegacyCount > LEGACY_MAX) { m_LegacyOverflow = true; return; }
+            m_LegacySpent.Set(legacyId, true);
+            return;
+        }
         int digits = m_FindName.Length() - prefix - 5;
         if (digits < 1 || digits > 4) { return; }
         int slot = m_FindName.Substring(prefix, digits).ToInt();
@@ -430,20 +533,70 @@ class HCSearchHouseJournal
         return m_RestoreFiles.Contains(kind + "_" + index.ToString() + ".json");
     }
 
+    // Recovery duplicate check. Past LEGACY_MAX names the in-memory index is incomplete and SupplyKnown
+    // answers true for everything, which would flag every live entry; probe the exact tombstone instead.
+    // The overflow path skips the virtual SupplyKnown override (the pilot journal's catalog check); that
+    // is harmless while the pilot is retired.
+    protected bool HCRestoreKnown(string supplyId)
+    {
+        if (!m_LegacyOverflow) { return SupplyKnown(supplyId); }
+        if (m_Supplies.Contains(supplyId)) { return true; }
+        if (m_Retired && m_Retired.Contains(supplyId)) { return true; }
+        string tombstone = TombstonePath(supplyId);
+        if (tombstone == "") { return false; }
+        return m_LegacySpent.Contains(supplyId) || FileExist(tombstone);
+    }
+
+    // A bound entry that passes every check boot applies (phase 0, bind actor, identity, text limits),
+    // or null. Never mutates the journal.
+    protected HCSearchHouseRow HCValidEntryRow(HCSearchRecord candidate)
+    {
+        if (!candidate || candidate.Phase != 0 || candidate.ActorId != BIND_ACTOR) { return null; }
+        HCSearchHouseRow validRow = new HCSearchHouseRow;
+        validRow.SiteId = candidate.SiteId;
+        validRow.SupplyId = candidate.SupplyId;
+        validRow.ItemClass = candidate.ItemClass;
+        bool textOk = HCSearchRules.TextValid(validRow.SiteId, 768) && HCSearchRules.TextValid(validRow.SupplyId, 64);
+        if (!Matches(candidate, validRow) || !textOk || !HCSearchRules.TextValid(validRow.ItemClass, 128)) { return null; }
+        return validRow;
+    }
+
     protected bool HCRestoreSlot(int index)
     {
         // Search is refused and no compaction/binding writes run during recovery.
         // A directory miss must never silently turn a recorded entry into free stock.
         bool entryExists = FileExist(PathFor(index, "entry"));
         if (entryExists != HCRestorePresent(index, "entry")) { return Fail("entry discovery mismatch; preserve journal"); }
+        bool tornIntent = false;
         if (HCRestorePresent(index, "compact"))
         {
             HCSearchRecord compactedRecord = LoadRecord(index, "compact");
-            if (!FinishCompaction(index, compactedRecord)) { return false; }
-            // Cleanup removed every transfer file for this slot. The directory
-            // snapshot must never resurrect its now-retired entry.
-            m_Rows.Insert(null);
-            return true;
+            // A torn compact_<n> (crash while the intent was being created) is harmless when the entry is
+            // intact: removals are queued only after the intent was read back, so nothing of the slot was
+            // removed. Only an unreadable intent AND an unreadable or missing entry is preserved as a fault.
+            // The entry must pass every boot check and its supply must not already be recorded: if the
+            // supply is archived the intent was durable and merely failed to read, so compact_<n> is KEPT
+            // (nothing deleted, the next boot retries) rather than turned into a permanent fault.
+            HCSearchHouseRow intentRow;
+            HCSearchRecord intentEntry;
+            if (!compactedRecord && HCRestorePresent(index, "entry"))
+            {
+                intentEntry = LoadRecord(index, "entry");
+                intentRow = HCValidEntryRow(intentEntry);
+            }
+            bool entryIntact = intentRow != null;
+            if (entryIntact && HCRestoreKnown(intentRow.SupplyId)) { return Fail("compact intent unreadable and supply already recorded; preserve journal"); }
+            if (compactedRecord || !entryIntact)
+            {
+                if (!FinishCompaction(index, compactedRecord)) { return false; }
+                // Cleanup removed every transfer file for this slot. The directory
+                // snapshot must never resurrect its now-retired entry.
+                m_Rows.Insert(null);
+                return true;
+            }
+            if (!HCRemoveNow(PathFor(index, "compact"), "torn compact intent cleanup failed; preserve journal")) { return false; }
+            tornIntent = true;
+            Print("[HC Search Houses] torn compact intent removed slot=" + index.ToString() + "; row restored as terminal");
         }
         if (!HCRestorePresent(index, "entry"))
         {
@@ -453,15 +606,28 @@ class HCSearchHouseJournal
             return true;
         }
         HCSearchRecord record = LoadRecord(index, "entry");
-        if (!record || record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
-        HCSearchHouseRow row = new HCSearchHouseRow;
-        row.SiteId = record.SiteId;
-        row.SupplyId = record.SupplyId;
-        row.ItemClass = record.ItemClass;
-        bool validText = HCSearchRules.TextValid(row.SiteId, 768) && HCSearchRules.TextValid(row.SupplyId, 64);
-        if (!Matches(record, row) || !validText || !HCSearchRules.TextValid(row.ItemClass, 128)) { return Fail("stored entry identity changed; migration required"); }
-        if (SupplyKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
+        if (!record)
+        {
+            // A torn entry with no claim, attempt or result was never handed out (the create is a barrier
+            // and the claim follows it): drop it and treat the slot as free instead of faulting for good.
+            // The directory snapshot can miss files, so probe each sibling by exact name before deleting.
+            bool hasIntent = HCRestorePresent(index, "claim") || HCRestorePresent(index, "attempt") || HCRestorePresent(index, "result") || HCRestorePresent(index, "compact");
+            if (!hasIntent) { hasIntent = FileExist(PathFor(index, "claim")) || FileExist(PathFor(index, "attempt")); }
+            if (!hasIntent) { hasIntent = FileExist(PathFor(index, "result")) || FileExist(PathFor(index, "compact")); }
+            if (hasIntent) { return Fail("stored entry unreadable; preserve journal"); }
+            if (!HCRemoveNow(PathFor(index, "entry"), "torn entry cleanup failed; preserve journal")) { return false; }
+            Print("[HC Search Houses] torn entry removed slot=" + index.ToString() + "; slot free, supply never handed out");
+            m_Rows.Insert(null);
+            return true;
+        }
+        if (record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
+        HCSearchHouseRow row = HCValidEntryRow(record);
+        if (!row) { return Fail("stored entry identity changed; migration required"); }
+        if (HCRestoreKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
         row.Phase = Recover(index, row);
+        // A compact intent exists only for a terminal row; no transfer files left means the intent was
+        // complete after all, so the row is quarantined (spent for good), never available.
+        if (tornIntent && row.Phase < 2) { row.Phase = 3; }
         m_Rows.Insert(row);
         m_RestoreRows++;
         m_Supplies.Set(row.SupplyId, index);
@@ -544,7 +710,7 @@ class HCSearchHouseJournal
         if (spentPath == "") { return Fail("unsafe compact supply identity"); }
         HCSearchRecord retired = Record(row.SiteId, row.SupplyId, row.ItemClass, "retired", row.Phase);
         // Intent precedes tombstone creation, so restart can finish either stage.
-        if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "compact"), retired, 8192)) { return Fail("compact intent write/readback failed"); }
+        if (!CommitRecord(PathFor(index, "compact"), retired, "compact intent write/readback failed")) { return false; }
         if (!FinishCompaction(index, retired)) { return false; }
         m_Rows[index] = null;
         Reindex();
@@ -567,7 +733,7 @@ class HCSearchHouseJournal
         if (index < 0) { index = m_Rows.Count(); }
         string entryPath = PathFor(index, "entry");
         HCSearchRecord entryRecord = Record(siteId, supplyId, itemClass, BIND_ACTOR, 0);
-        if (!HCSearchJson<HCSearchRecord>.WriteNew(entryPath, entryRecord, 8192)) return Fail("entry write/readback failed; no retries");
+        if (!CommitRecord(entryPath, entryRecord, "entry write/readback failed; no retries")) return false;
         Track(row);
         return true;
     }
@@ -585,7 +751,7 @@ class HCSearchHouseJournal
         if (!HCSearchRules.TextValid(actorId, 128)) return Fail("invalid actor id");
         string writePath = PathFor(index, kind);
         HCSearchRecord writeRecord = Record(row.SiteId, row.SupplyId, row.ItemClass, actorId, phase);
-        if (!HCSearchJson<HCSearchRecord>.WriteNew(writePath, writeRecord, 8192)) return Fail("write/readback failed; no retries");
+        if (!CommitRecord(writePath, writeRecord, "write/readback failed; no retries")) return false;
         return true;
     }
 
@@ -593,5 +759,114 @@ class HCSearchHouseJournal
     {
         HCSearchHouseRow row = Row(index);
         if (row) row.Phase = phase;
+    }
+}
+
+// Journal file operations on the shared HCSaveScheduler. A bounded FIFO of exact-path operations:
+// create-new (immutable record, BeginNew) or remove (BeginRemove, an absent file is already done).
+// Exactly one HCStagedSaveImage operation is in flight; each scheduler stage performs ONE native call
+// (open, <=4096-byte transfer, close, existence probe or delete; Begin adds two existence probes to the
+// first stage). FIFO order is the ordering contract (pops use RemoveOrdered; array.Remove would move
+// the LAST element into the gap):
+// compaction removes a slot's claim, attempt, result, entry and finally compact_<n>, and a reused slot's
+// new entry is queued behind those removals. Barriers drain this queue through HCSaveScheduler.HCFlush.
+class HCSearchJournalJob : HCSaveJob
+{
+    // Hard ceiling, reached only by a barrier. Routine producers (compact intent, compaction removals,
+    // legacy tombstone removals) stop at ROUTINE_MAX queued ops and ROUTINE_CREATES queued creates, so a
+    // barrier that drains the whole queue inside a player action pays at most about 70 native calls
+    // (a remove is 2, a create about 8) and a caller never meets a full queue.
+    static const int MAX_OPS = 256;
+    static const int ROUTINE_MAX = 16;
+    static const int ROUTINE_CREATES = 3;
+    HCSearchHouseJournal Owner;
+    protected ref array<string> m_Paths = new array<string>;
+    protected ref array<string> m_Texts = new array<string>;
+    protected ref map<string, int> m_Queued = new map<string, int>;
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+    protected int m_Creates;
+    protected bool m_Registered;
+
+    override string HCName() { return "SearchJournal"; }
+    override bool HCPendingCheckpoint() { return m_Paths.Count() > 0; }
+
+    bool HCQueued(string path) { return m_Queued.Contains(path); }
+    bool HCRoom(int count) { return m_Paths.Count() + count <= MAX_OPS; }
+    bool HCRoutineRoom(int count) { return m_Paths.Count() + count <= ROUTINE_MAX; }
+    bool HCRoutineCreateRoom() { return m_Creates < ROUTINE_CREATES && HCRoutineRoom(1); }
+
+    protected bool HCEnqueue(string path, string text)
+    {
+        if (path == "" || path.Length() > 256 || !HCRoom(1)) { return false; }
+        m_Paths.Insert(path);
+        m_Texts.Insert(text);
+        int queued = 0;
+        m_Queued.Find(path, queued);
+        m_Queued.Set(path, queued + 1);
+        if (text != "") { m_Creates++; }
+        HCDirty = true;
+        HCUrgent = true;
+        // Registered once, on the first write, and kept for the journal's life: later enqueue/drain churn
+        // never touches the scheduler's SaveJobLimit, so it cannot latch save_job_capacity. A refused
+        // registration still advances through HCPumpFallback.
+        if (!m_Registered)
+        {
+            m_Registered = true;
+            HCSaveScheduler.HCRegister(this);
+        }
+        return true;
+    }
+
+    bool HCQueueCreate(string path, string text)
+    {
+        if (text.Length() < 1 || text.Length() > HCSearchHouseJournal.RECORD_LIMIT) { return false; }
+        return HCEnqueue(path, text);
+    }
+
+    bool HCQueueRemove(string path) { return HCEnqueue(path, ""); }
+
+    protected int HCFailStep(string operation)
+    {
+        if (Owner) { Owner.HCJobFailed(operation); }
+        return STEP_FAILED;
+    }
+
+    protected void HCPopHead()
+    {
+        string path = m_Paths[0];
+        int queued = 0;
+        m_Queued.Find(path, queued);
+        if (queued > 1) { m_Queued.Set(path, queued - 1); }
+        else { m_Queued.Remove(path); }
+        if (m_Texts[0] != "" && m_Creates > 0) { m_Creates--; }
+        // Ordered removal: array.Remove would move the LAST element into slot 0 and break FIFO.
+        m_Paths.RemoveOrdered(0);
+        m_Texts.RemoveOrdered(0);
+    }
+
+    // The job stays registered while idle (a clean job is skipped by the scheduler), so a drain never
+    // reorders the scheduler's job list mid-tick.
+    protected int HCDrained() { return STEP_DONE; }
+
+    override int HCStep()
+    {
+        if (m_Paths.Count() == 0) { return HCDrained(); }
+        string operation = "create";
+        if (m_Texts[0] == "") { operation = "remove"; }
+        if (!m_Image.Active())
+        {
+            bool began;
+            if (operation == "remove") { began = m_Image.BeginRemove(m_Paths[0]); }
+            else { began = m_Image.BeginNew(m_Paths[0], m_Texts[0], HCSearchHouseJournal.RECORD_LIMIT); }
+            if (!began) { return HCFailStep(operation + "_begin"); }
+        }
+        int result = m_Image.HCStepImage();
+        if (result == STEP_FAILED) { return HCFailStep(operation); }
+        if (result == STEP_DONE)
+        {
+            HCPopHead();
+            if (m_Paths.Count() == 0) { return HCDrained(); }
+        }
+        return STEP_MORE;
     }
 }

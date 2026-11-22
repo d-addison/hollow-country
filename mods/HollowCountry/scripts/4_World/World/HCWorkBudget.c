@@ -286,6 +286,9 @@ class HCSaveScheduler : HCModule
         // Journal shutdown drains need room for three capped immutable images,
         // their prior checks and pruning, even with a low routine operator limit.
         if (job.HCName() == "EventJournal") { flushLimit = Math.Max(flushLimit, 3 * HCStagedSaveImage.HC_MAX_STAGES + 128); }
+        // Search journal barrier: up to 256 queued ops (HCSearchJournalJob.MAX_OPS) at <=12 stages each
+        // (a record is <=8192 bytes). A literal: a cross-class constant expression read as 0 natively.
+        if (job.HCName() == "SearchJournal") { flushLimit = Math.Max(flushLimit, 3136); }
         if (custodyBarrier && flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
         while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
@@ -300,6 +303,8 @@ class HCSaveScheduler : HCModule
         if (result != HCSaveJob.STEP_DONE || job.HCPendingCheckpoint())
         {
             job.HCFaulted = true;
+            // A faulted job is never dispatched again; release its scheduler slot.
+            HCUnregister(job);
             Print("[HC WorldRuntime] save_flush_failed job=" + job.HCName() + " stages=" + guard.ToString() + " runtime=PENDING");
             return false;
         }
@@ -387,10 +392,11 @@ class HCSaveScheduler : HCModule
             // Faulted writer preserves its intent; no every-tick retry.
             job.HCFaulted = true;
             HCUnregister(job);
-            // Events owns journal admission/failure readiness; an unrelated
-            // store must not become unready because this one candidate failed.
-            if (job.HCName() != "EventJournal") { m_Fault = "save_job_write_faulted"; }
-            else { Print("[HC Save] job=EventJournal state=failed reason=job_local runtime=PENDING"); }
+            // Events and the search journal own their journal admission/failure readiness (the search
+            // journal reports through HCJobFailed); an unrelated store must not become unready because
+            // this one candidate failed.
+            if (job.HCName() == "EventJournal" || job.HCName() == "SearchJournal") { Print("[HC Save] job=" + job.HCName() + " state=failed reason=job_local runtime=PENDING"); }
+            else { m_Fault = "save_job_write_faulted"; }
         }
         m_Stages = 0;
         m_StageMax = 0;

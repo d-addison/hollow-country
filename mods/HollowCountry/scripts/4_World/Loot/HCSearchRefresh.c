@@ -227,7 +227,8 @@ class HCSearchRetirementPolicy
             int mask = 1 << (oldest.Fingerprint % 29);
             int archived = state.Archive[bucket] | mask;
             state.Archive[bucket] = archived;
-            state.Recent.Remove(0);
+            // Ordered: array.Remove would move the newest entry into slot 0 and retire it first.
+            state.Recent.RemoveOrdered(0);
         }
         HCSearchRetirementEntry entry = new HCSearchRetirementEntry;
         entry.SupplyId = supplyId;
@@ -259,6 +260,7 @@ class HCSearchRetirementStore
     protected int m_SnapshotRevision;
     protected int m_CommittedRevision;
     protected bool m_Fault;
+    protected int m_EmptyLegacyScans;
 
     bool Open(string root)
     {
@@ -378,9 +380,16 @@ class HCSearchRetirementStore
         FileAttr legacyAttributes;
         FindFileHandle handle = FindFile(m_Root + "/spent_*.json", legacyName, legacyAttributes, FindFileFlags.DIRECTORIES);
         bool more = legacyName != "";
+        // No spent_* file remains: the recovery index of legacy names is obsolete. One empty scan can be a
+        // transient native failure, so the index is dropped only after two consecutive empty scans.
+        if (more) { m_EmptyLegacyScans = 0; }
+        else
+        {
+            m_EmptyLegacyScans++;
+            if (m_EmptyLegacyScans >= 2) { journal.HCLegacyDrained(); }
+        }
         bool ok = true;
         int examined = 0;
-        bool committedImage = !HCPendingCheckpoint();
         HCUnitBudget legacyWork = HCServer.HCTickWork();
         while (more && examined < limit)
         {
@@ -398,10 +407,13 @@ class HCSearchRetirementStore
             if (journal.TombstonePath(legacy.SupplyId) != legacyPath) { ok = false; break; }
             // Archive readback precedes deletion. An interruption retains both
             // barriers, or a poisoned .tmp that rejects the next journal open.
-            bool durable = committedImage && Contains(legacy.SupplyId);
+            // Re-checked per file: an id queued earlier in this loop (or an eviction bit it set) is in memory
+            // only until its image commits and must not authorize a removal.
+            bool durable = !HCPendingCheckpoint() && Contains(legacy.SupplyId);
             if (!HCQueueRetirement(legacy.SupplyId)) { ok = false; break; }
-            // Queued ids share an image; keep their legacy barriers until readback.
-            if (durable && !DeleteFile(legacyPath)) { ok = false; break; }
+            // Queued ids share an image; keep their legacy barriers until readback. The removal itself is a
+            // staged journal-job operation, never a delete in this tick.
+            if (durable && !journal.HCLegacyRemove(legacyPath, legacy.SupplyId)) { ok = false; break; }
             more = FindNextFile(handle, legacyName, legacyAttributes);
         }
         CloseFindFile(handle);
@@ -1009,8 +1021,16 @@ modded class HCSearchHouseJournal
     }
     void HCAdvanceCompact() { m_HCCompactCursor++; }
     bool HCRetirementPending() { return m_Retired && m_Retired.HCPendingCheckpoint(); }
-    void HCPumpRetirement() { if (m_Retired) { m_Retired.HCPump(); } }
-    void HCStopRetirement() { if (m_Retired) { m_Retired.Stop(); } }
+    void HCPumpRetirement()
+    {
+        HCPumpJob();
+        if (m_Retired) { m_Retired.HCPump(); }
+    }
+    void HCStopRetirement()
+    {
+        if (m_Retired) { m_Retired.Stop(); }
+        HCStopJob();
+    }
 
     override bool Compact(int index)
     {
@@ -1023,16 +1043,26 @@ modded class HCSearchHouseJournal
         {
             if (m_HCCompactIndices.Count() >= HCSearchLimits.HCGet().CompactRowsPerMinute) { return false; }
             if (TombstonePath(row.SupplyId) == "") { return Fail("unsafe compact supply identity"); }
+            if (!m_Job) { return Fail("journal writer unavailable; preserve journal"); }
+            // A busy routine queue is not a fault: compaction retries on a later tick.
+            // The routine queue is capped (ROUTINE_MAX, a few creates), so a barrier never pays for a backlog;
+            // the five cleanup removals are admitted separately by FinishCompaction.
+            if (!m_Job.HCRoutineCreateRoom()) { return false; }
             HCSearchRecord intent = Record(row.SiteId, row.SupplyId, row.ItemClass, "retired", row.Phase);
-            if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "compact"), intent, 8192)) { return Fail("compact intent write/readback failed"); }
+            string intentText;
+            if (!EncodeRecord(intent, intentText) || !m_Job.HCQueueCreate(PathFor(index, "compact"), intentText)) { return Fail("compact intent write/readback failed"); }
             m_HCCompactIndices.Insert(index);
+            return false;
         }
+        // The intent is staged by the shared scheduler. Retirement and cleanup wait until it is durable, so
+        // an archive entry can never exist without a compact intent that lets boot finish the slot.
+        if (CompactPending(index)) { return false; }
         if (!m_Retired.HCQueueRetirement(row.SupplyId)) { return Fail("retirement queue failed; preserve journal"); }
         // A pending result is cooperative, never a journal fault. The durable
         // compact intent lets boot recovery finish if the process stops here.
         if (m_Retired.HCPendingCheckpoint()) { return false; }
         HCSearchRecord retired = LoadRecord(index, "compact");
-        if (!FinishCompaction(index, retired)) { return false; }
+        if (!FinishCompaction(index, retired, false)) { return false; }
         m_Rows[index] = null;
         m_HCCompactIndices.RemoveItem(index);
         Reindex();
