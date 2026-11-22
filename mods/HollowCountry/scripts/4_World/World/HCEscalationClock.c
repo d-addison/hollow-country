@@ -49,13 +49,10 @@ class HCV2ThreatStore<Class T>
         return JsonFileLoader<T>.LoadData(text, probe, error) && probe != null;
     }
 
-    // Crash recovery at first open (HCStagedSaveImage stages: write_tmp,
-    // read_tmp, copy_backup, copy_primary, read_primary, clear_intent).
-    // A whole primary is the last committed state, so a leftover .tmp is
-    // dropped. A torn or missing primary is restored from a whole .tmp (the
-    // newer verified intent), else from a whole .bak. Otherwise the files stay
-    // untouched and the store fails closed as before. A torn primary is kept
-    // as <name>.torn before it is overwritten.
+    // Boot only: pending bytes are evidence, never an authoritative image.
+    // A readable primary wins. If promotion tore it, restore a verified backup,
+    // retaining pending/torn bytes in verified archives before any deletion.
+    // Legacy JSON and filenames are unchanged; no reset or pending replay.
     static void HCRecoverInterrupted(string path)
     {
         string tmp = path + ".tmp";
@@ -63,26 +60,53 @@ class HCV2ThreatStore<Class T>
         bool hasTmp = FileExist(tmp);
         bool primaryWhole = HCWholeImage(path);
         if (!hasTmp && (primaryWhole || !FileExist(bak))) { return; }
-        string action = "";
-        if (primaryWhole)
+        string action = "left_for_operator";
+        string reason = "no_verified_predecessor";
+        string suffix = ".interrupted-" + HCGroupClock.Utc().ToString();
+        bool pendingArchived = !hasTmp;
+        if (hasTmp)
         {
-            if (DeleteFile(tmp)) { action = "dropped_unpromoted_tmp"; }
+            reason = "pending_unverified";
+            if (HCWholeImage(tmp)) { reason = "pending_not_committed"; }
+            pendingArchived = HCPersistenceDisposition.HCArchive(tmp, suffix, HCGroupIO.HC_RAW_READ_CAP, true);
+            if (!pendingArchived) { reason = "pending_archive_failed"; }
         }
-        else if (hasTmp && HCWholeImage(tmp))
+        bool recovered = primaryWhole;
+        if (!primaryWhole && pendingArchived && HCWholeImage(bak))
         {
-            if (FileExist(path)) { CopyFile(path, path + ".torn"); }
-            if (CopyFile(tmp, path) && HCWholeImage(path) && DeleteFile(tmp)) { action = "promoted_tmp"; }
+            string prior;
+            string restored;
+            if (HCGroupIO.HCReadRaw(bak, HCGroupIO.HC_RAW_READ_CAP, prior))
+            {
+                bool retained = true;
+                if (FileExist(path))
+                {
+                    retained = HCPersistenceDisposition.HCArchive(path, suffix, HCGroupIO.HC_RAW_READ_CAP, true);
+                    if (retained) { retained = DeleteFile(path); }
+                }
+                if (retained && CopyFile(bak, path))
+                {
+                    recovered = HCGroupIO.HCReadRaw(path, HCGroupIO.HC_RAW_READ_CAP, restored) && restored == prior;
+                    if (recovered) { recovered = HCWholeImage(path); }
+                }
+            }
+            if (recovered) { action = "restored_verified_backup"; }
+            else { reason = "backup_restore_failed"; }
         }
-        else if (HCWholeImage(bak))
+        if (recovered && pendingArchived)
         {
-            if (FileExist(path)) { CopyFile(path, path + ".torn"); }
-            if (CopyFile(bak, path) && HCWholeImage(path) && (!hasTmp || DeleteFile(tmp))) { action = "restored_bak"; }
+            bool cleared = !hasTmp;
+            if (hasTmp) { cleared = DeleteFile(tmp); }
+            if (cleared)
+            {
+                if (primaryWhole) { action = "retained_verified_primary"; }
+            }
+            else { action = "left_for_operator"; reason = "pending_clear_failed"; }
         }
         string name = path;
         int slash = name.LastIndexOf("/");
         if (slash >= 0) { name = name.Substring(slash + 1, name.Length() - slash - 1); }
-        if (action == "") { action = "left_for_operator"; }
-        Print("[HC Store] crash_recovery file=" + name + " action=" + action + " runtime=PENDING");
+        Print("[HC Store] crash_recovery file=" + name + " action=" + action + " reason=" + reason + " runtime=PENDING");
     }
 
     static bool Load(string path, int limit, out T state)

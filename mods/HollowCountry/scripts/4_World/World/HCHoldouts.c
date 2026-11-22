@@ -31,6 +31,7 @@ class HCEncounterStore<Class T>
 {
     protected ref HCStagedSaveImage m_Writer = new HCStagedSaveImage;
     protected string m_SaveText;
+    protected string m_CommittedText;
     protected bool m_Prepared;
     protected string m_Path;
     protected bool m_Fault;
@@ -59,10 +60,12 @@ class HCEncounterStore<Class T>
         T result;
         if (FileExist(m_Path))
         {
-            string encoded = HCWorldStore.Read(m_Path);
+            string encoded;
+            if (!HCGroupIO.HCReadRaw(m_Path, 262144, encoded)) { Fault(); return null; }
             if (encoded.Length() > 262144 || encoded.IndexOf("\"Version\"") < 0 || encoded.IndexOf("\"" + collection + "\"") < 0) { Fault(); return null; }
             if (!HCV2ThreatStore<T>.Load(m_Path, 262144, result)) { Fault(); return null; }
             m_LoadedText = encoded;
+            m_CommittedText = encoded;
             return result;
         }
         if (!Save(fresh)) return null;
@@ -112,12 +115,12 @@ class HCEncounterStore<Class T>
         if (m_Prepared)
         {
             HCSaveJob.HCOperation = "admit";
-            if (!m_Writer.Begin(m_Path, m_SaveText, 262144)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            if (!m_Writer.Begin(m_Path, m_SaveText, 262144, true, true, m_CommittedText)) { Fault(); return HCSaveJob.STEP_FAILED; }
             m_Prepared = false;
-            m_SaveText = "";
             return HCSaveJob.STEP_MORE;
         }
-        int result = m_Writer.HCStepImage();
+        int result = m_Writer.HCStepBoundedImage();
+        if (result == HCSaveJob.STEP_DONE) { m_CommittedText = m_SaveText; m_SaveText = ""; }
         if (result == HCSaveJob.STEP_FAILED) { Fault(); }
         return result;
     }

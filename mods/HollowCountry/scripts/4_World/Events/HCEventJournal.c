@@ -155,6 +155,49 @@ class HCEventCodec
 // instance owns exactly one file; all streaming/readback stays in the core writer.
 modded class HCStagedSaveImage
 {
+    // Scoped replacement stores stream the already-verified predecessor and
+    // frozen candidate through a second core writer in CREATE mode. Each core
+    // step opens, transfers <=4096 bytes, or closes one file. No whole-file copy.
+    // These private targets are admitted by the outer writer: the backup may be
+    // truncated only while primary + verified pending survive, and primary only
+    // after backup readback. The pending name remains until outer verification.
+    protected ref HCStagedSaveImage m_BoundedWriter;
+
+    int HCStepBoundedImage()
+    {
+        if (m_Failed || m_CheckPrior || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCStepImage(); }
+        bool backupCopy = m_Phase == 2 && m_Backup && m_PrimaryKnown && m_PrimaryExists;
+        if (backupCopy && m_PriorUnchanged && m_BackupExists) { backupCopy = false; }
+        if (backupCopy && m_BackupStage == 1 && !m_BackupExists)
+        {
+            m_BackupStage = 2;
+            return HCSaveJob.STEP_MORE;
+        }
+        backupCopy = backupCopy && m_BackupStage == 2;
+        bool primaryCopy = m_Phase == 3;
+        if (!backupCopy && !primaryCopy) { return HCStepImage(); }
+        if (!m_BoundedWriter)
+        {
+            string target = m_Path;
+            string text = m_Text;
+            if (backupCopy) { target += ".bak"; text = m_ExpectedPrior; }
+            // All scoped replacement owners supply exact committed bytes.
+            // Never rotate a backup from an unknown predecessor.
+            if (text == "") { return HCFail(); }
+            m_BoundedWriter = new HCStagedSaveImage;
+            if (!m_BoundedWriter.HCPrepareJournal(target, text, m_Limit)) { return HCFail(); }
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_BoundedWriter.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { return HCFail(); }
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        m_BoundedWriter = null;
+        HCClose();
+        if (backupCopy) { m_BackupStage = 3; }
+        else { m_PrimaryExists = true; m_Phase = 4; }
+        return HCSaveJob.STEP_MORE;
+    }
+
     bool HCPrepareJournal(string path, string text, int limit)
     {
         if (Active() || m_Failed || limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }

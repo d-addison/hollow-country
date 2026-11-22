@@ -123,7 +123,7 @@ class HCEcologyRuntimeStore
             }
             return HCSaveJob.STEP_MORE;
         }
-        int result = m_SaveImage.HCStepImage();
+        int result = m_SaveImage.HCStepBoundedImage();
         if (result == HCSaveJob.STEP_FAILED)
         {
             m_Fault = true;
