@@ -513,6 +513,7 @@ class HCPerfSampler
         HCWorkBudget.HCSetTicksPerMs(m_TicksPerMs);
         HCRefreshOwnerCalibration();
         EmitCosts(m_TicksPerMs);
+        HCWorkBudget.HCPrintCalibrationSummary();
         Print("" + report);
         ResetWindow();
     }
