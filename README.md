@@ -404,6 +404,8 @@ retain defaults; explicit `Enabled=false` opts out. Native vault outcomes remain
 | `RouteCacheSeconds` | float | `3` | 1–15 |
 | `OutcomeCapSeconds` | float | `8` | 3–15 |
 | `RetireAttempts` | int | `12` | 3–50 |
+| `LegStrikes` | bool | `true` | false / true |
+| `BackOff` | bool | `true` | false / true |
 
 ### Wildlife provider and habitat controls
 
@@ -1711,6 +1713,8 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | 51 | `HC_WORK_PICK_CARRY` | Scavenger carried-goods unload receipts. |
 | 52 | `HC_WORK_PICK_HOUSES` | Scavenger run house scan. |
 | 53 | `HC_WORK_MISSION_BEACON` | Public mission map table poll (one unit every two seconds). |
+| 54 | `HC_WORK_NAV_INF` | Infected navigation `FindPath` through HCNavScheduler (at most one per tick across all infected). |
+| 55 | `HC_WORK_NAV_XAI` | Reserved for the XAI navigation consumers (same scheduler; no infected caller). |
 
 Package hash caching serializes read/merge/replace with persistent OS-held locks; process exit releases ownership. Stop older lock-file builds before switching protocols. Windows contention remains unverified.
 

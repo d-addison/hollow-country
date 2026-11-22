@@ -19,5 +19,7 @@ modded class HCOperatorSettingsRegistry
         HCAdd("InfectedClimb.RouteCacheSeconds", "float", 3, 1, 15, "HCInfectedClimbConfig");
         HCAdd("InfectedClimb.OutcomeCapSeconds", "float", 8, 3, 15, "HCInfectedClimbConfig");
         HCAdd("InfectedClimb.RetireAttempts", "int", 12, 3, 50, "HCInfectedClimbConfig");
+        HCAdd("InfectedClimb.LegStrikes", "bool", 1, 0, 1, "HCInfectedClimbConfig");
+        HCAdd("InfectedClimb.BackOff", "bool", 1, 0, 1, "HCInfectedClimbConfig");
     }
 }

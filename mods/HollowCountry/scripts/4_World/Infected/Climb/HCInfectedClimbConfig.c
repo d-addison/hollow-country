@@ -17,6 +17,8 @@ class HCInfectedClimbConfig
     float RouteCacheSeconds = 3;
     float OutcomeCapSeconds = 8;
     int RetireAttempts = 12;
+    bool LegStrikes = true;
+    bool BackOff = true;
 
     protected string m_LastRefusal;
     void HCRefuse(string reason)
@@ -39,6 +41,7 @@ class HCInfectedClimbConfig
     {
         HCOperatorSettingsRegistry.HCInfectedClimbInit();
         string path = "$profile:HollowCountry/gc-infected-climb.json";
+        HCInfectedReachPolicy.HCSetFixes(LegStrikes, BackOff);
         if (!FileExist(path)) { return; }
         string text;
         string error;
@@ -55,6 +58,9 @@ class HCInfectedClimbConfig
         if (HCJsonFields.Has(text, "RouteCacheSeconds") && HCValid("RouteCacheSeconds", decoded.RouteCacheSeconds, 1, 15)) { RouteCacheSeconds = decoded.RouteCacheSeconds; }
         if (HCJsonFields.Has(text, "OutcomeCapSeconds") && HCValid("OutcomeCapSeconds", decoded.OutcomeCapSeconds, 3, 15)) { OutcomeCapSeconds = decoded.OutcomeCapSeconds; }
         if (HCJsonFields.Has(text, "RetireAttempts") && HCValid("RetireAttempts", decoded.RetireAttempts, 3, 50)) { RetireAttempts = decoded.RetireAttempts; }
+        if (HCJsonFields.Has(text, "LegStrikes")) { LegStrikes = decoded.LegStrikes; }
+        if (HCJsonFields.Has(text, "BackOff")) { BackOff = decoded.BackOff; }
+        HCInfectedReachPolicy.HCSetFixes(LegStrikes, BackOff);
         if (MinHeightMetres >= MaxHeightMetres)
         {
             HCRefuse("height_band");
@@ -67,5 +73,6 @@ class HCInfectedClimbConfig
     {
         Print("[HC Reach] climb effective Enabled=" + HCV2Admission.OnOff(Enabled) + " MinHeightMetres=" + MinHeightMetres.ToString() + " MaxHeightMetres=" + MaxHeightMetres.ToString() + " MaxHorizontalMetres=" + MaxHorizontalMetres.ToString() + " runtime=PENDING");
         Print("[HC Reach] climb effective FacingDegrees=" + FacingDegrees.ToString() + " CooldownSeconds=" + CooldownSeconds.ToString() + " Concurrent=" + Concurrent.ToString() + " RouteCacheSeconds=" + RouteCacheSeconds.ToString() + " OutcomeCapSeconds=" + OutcomeCapSeconds.ToString() + " RetireAttempts=" + RetireAttempts.ToString() + " runtime=PENDING");
+        Print("[HC Reach] climb effective LegStrikes=" + HCV2Admission.OnOff(LegStrikes) + " BackOff=" + HCV2Admission.OnOff(BackOff) + " runtime=PENDING");
     }
 }

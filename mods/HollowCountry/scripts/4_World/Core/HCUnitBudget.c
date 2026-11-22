@@ -108,7 +108,9 @@ class HCUnitBudget
     static const int HC_WORK_PICK_CARRY = 51;
     static const int HC_WORK_PICK_HOUSES = 52;
     static const int HC_WORK_MISSION_BEACON = 53;
-    static const int HC_WORK_CONSUMERS = 54;
+    static const int HC_WORK_NAV_INF = 54;
+    static const int HC_WORK_NAV_XAI = 55;
+    static const int HC_WORK_CONSUMERS = 56;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
@@ -185,6 +187,8 @@ class HCUnitBudget
         HCRegisterConsumer(HC_WORK_PICK_CARRY, "PICK_CARRY", 1);
         HCRegisterConsumer(HC_WORK_PICK_HOUSES, "PICK_HOUSES", 1);
         HCRegisterConsumer(HC_WORK_MISSION_BEACON, "MISSION_BEACON", 1);
+        HCRegisterConsumer(HC_WORK_NAV_INF, "NAV_INF", 1);
+        HCRegisterConsumer(HC_WORK_NAV_XAI, "NAV_XAI", 1);
     }
 
     static string HCConsumerName(int slot)

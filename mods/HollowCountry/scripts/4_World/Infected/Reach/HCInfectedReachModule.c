@@ -449,6 +449,7 @@ class HCInfectedReachModule : HCModule
                 state.Side = 1;
                 if (Math.RandomInt(0, 2) == 0) { state.Side = -1; }
                 m_Backoffs++;
+                HCModuleReadiness.HCUse("InfectedReach", "backoff_started");
                 if (!m_FirstBackoff)
                 {
                     m_FirstBackoff = true;
