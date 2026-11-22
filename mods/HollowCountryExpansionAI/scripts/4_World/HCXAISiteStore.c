@@ -1,8 +1,9 @@
 // Site persistence: schema-1 DTOs and filenames remain unchanged. Routine saves
 // coalesce on HCSaveScheduler and transfer <=4096 bytes per image stage.
-// SaveCaches is still the synchronous picker/inventory barrier. It aborts the
-// pending image and closes its handles before writing current state; no old
-// stage can promote after that barrier, including when the shared save fails.
+// SaveCaches is still the synchronous picker/inventory barrier, but it never aborts
+// a staged image or touches its intent file: while an image (or its intent repair)
+// is in flight the barrier refuses with the newest state requeued, and the staged
+// job itself reaps a stale intent one native operation per stage.
 // Ownership death/reconciliation barriers flush the same revision-aware writer.
 // Installed native APIs: EnSystem.c OpenFile/ReadFile/CloseFile/DeleteFile;
 // JsonFileLoader.c SaveFile/MakeData; EnScript.c map Get/Set/Find/Remove.
@@ -146,26 +147,56 @@ class HCXAIRouteSave : HCSaveJob
 }
 class HCXAICacheSave : HCSaveJob
 {
+    // Consecutive failed images/refusals before the job faults (a barrier rearms it).
+    static const int MAX_REAPS = 2;
     HCXAISiteDirector Owner;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
     protected int m_SnapshotRevision;
+    // A stale intent is reaped by a staged remove image (probe, then delete: one
+    // native operation per stage), never by the synchronous barrier.
+    protected bool m_NeedReap;
+    protected bool m_Reaping;
+    protected int m_Reaps;
     override string HCName() { return "HCX-caches"; }
     void HCChanged() { m_Revision++; HCDirty = true; }
-    void HCSupersede()
+    // The synchronous barrier defers to a staged image in flight or an intent repair
+    // in progress; a faulted job is rearmed (it reaps the stale intent, then retries).
+    // True means "not now": the caller requeues the newest state and refuses.
+    bool HCBusy()
     {
-        m_Image.HCAbort();
-        m_Image.HCAbort();
-        m_Image = new HCStagedSaveImage();
-        // Abort drains at most two retained handles, one per HCAbort call.
-        // This synchronous inventory barrier never advances/promotes an old
-        // image. SaveCaches clears the superseded intent before its new save.
+        if (HCFaulted)
+        {
+            HCFaulted = false;
+            m_Reaps = 0;
+            m_Reaping = false;
+            m_Image = new HCStagedSaveImage();
+            m_NeedReap = true;
+            this.HCChanged();
+            return true;
+        }
+        return m_Image.Active() || m_NeedReap;
+    }
+    // The barrier wrote the newest in-memory image itself; nothing staged is pending.
+    void HCBarrierCommitted()
+    {
         HCDirty = false;
         HCInFlight = false;
         HCUrgent = false;
-        HCFaulted = false;
         m_Revision++;
         m_SnapshotRevision = m_Revision;
+        this.HCCommitted(GetGame().GetTickTime());
+    }
+    // A failed or refused image may have left its intent: reap it, then retry, a
+    // bounded number of times. Persistent failure faults the job (barrier rearm).
+    protected int HCRepair()
+    {
+        m_Reaps++;
+        m_Reaping = false;
+        m_Image = new HCStagedSaveImage();
+        if (m_Reaps > MAX_REAPS) { return STEP_FAILED; }
+        m_NeedReap = true;
+        return STEP_MORE;
     }
     override int HCStep()
     {
@@ -173,14 +204,27 @@ class HCXAICacheSave : HCSaveJob
         if (!HCDirty) { return STEP_DONE; }
         if (!m_Image.Active())
         {
+            if (m_NeedReap)
+            {
+                m_NeedReap = false;
+                m_Reaping = true;
+                if (!m_Image.BeginRemove(HCXAISiteDirector.CACHES + ".tmp")) { return this.HCRepair(); }
+                return STEP_MORE;
+            }
             string text;
             if (!Owner.HCCachesText(text)) { return STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
-            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
+            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false)) { return this.HCRepair(); }
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();
-        if (result == STEP_DONE && m_SnapshotRevision != m_Revision) { return STEP_MORE; }
+        if (result == STEP_FAILED) { return this.HCRepair(); }
+        if (result == STEP_DONE)
+        {
+            if (m_Reaping) { m_Reaping = false; return STEP_MORE; }
+            m_Reaps = 0;
+            if (m_SnapshotRevision != m_Revision) { return STEP_MORE; }
+        }
         return result;
     }
 }
@@ -539,12 +583,10 @@ class HCXAISiteStorage : HCXAISiteBase
     override bool SaveCaches()
     {
         if (!m_Caches || m_Caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
-        if (m_CacheSave) { m_CacheSave.HCSupersede(); }
-        // Supersede the crash-recovery intent too, before the synchronous
-        // inventory barrier can write a newer (possibly failed) primary.
-        // HCSupersede cleared the dirty flag; a failed barrier must requeue the
-        // staged save so the in-memory image is retried, never silently dropped.
-        if (FileExist(CACHES + ".tmp") && !DeleteFile(CACHES + ".tmp")) { if (m_CacheSave) { m_CacheSave.HCChanged(); } return false; }
+        // A staged image owns the intent file until it commits; the barrier neither
+        // aborts it nor probes/clears the intent. Requeue the newest state (the staged
+        // job persists it after the image in flight) and refuse; callers retry.
+        if (m_CacheSave && m_CacheSave.HCBusy()) { m_CacheSave.HCChanged(); return false; }
         foreach (HCXAICacheRow barrierRow : m_Caches.Rows)
         {
             if (!m_CacheRows.Contains(barrierRow.SiteId)) { m_CacheRows.Set(barrierRow.SiteId, barrierRow); }
@@ -553,7 +595,7 @@ class HCXAISiteStorage : HCXAISiteBase
         // Verified tmp + backup rotation + primary readback; never truncate the
         // primary in place. LoadCaches refuses backup-only rollback.
         bool saved = HCV2ThreatStore<HCXAICacheJournal>.Save(CACHES, m_Caches, HCWorldStore.MAX_BYTES);
-        if (saved && m_CacheSave) { m_CacheSave.HCCommitted(GetGame().GetTickTime()); }
+        if (saved && m_CacheSave) { m_CacheSave.HCBarrierCommitted(); }
         if (!saved && m_CacheSave) { m_CacheSave.HCChanged(); }
         return saved;
     }
