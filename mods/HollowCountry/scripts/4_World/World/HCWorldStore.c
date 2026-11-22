@@ -59,15 +59,16 @@ class HCWorldStore
         return text;
     }
 
-    static bool Write(string path, string text)
+    // Unlike Read(), preserve read failures separately from readable invalid JSON.
+    // An empty/oversize file was read successfully and must fail DTO validation.
+    static bool ReadChecked(string path, out string text)
     {
-        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
-        if (text.Length() < 1 || text.Length() > MAX_BYTES) { return false; }
-        FileHandle handle = OpenFile(path, FileMode.WRITE);
+        text = "";
+        FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) { return false; }
-        FPrint(handle, text);
+        int count = ReadFile(handle, text, MAX_BYTES + 1);
         CloseFile(handle);
-        return Read(path) == text;
+        return count >= 0 && count == text.Length();
     }
 
     // JSON serializer compatibility can ignore unknown fields. Since the DTOs
@@ -77,35 +78,7 @@ class HCWorldStore
     static bool KeysAllowed(string text)
     {
         string keys = "|Meta|SchemaVersion|Epoch|LastTick|BuildId|Places|Id|Name|Position|Facts|Kind|PlaceId|Severity|At|Expires|FactHead|Factions|Ethos|ProviderFaction|Strength|Territory|Hostile|Neutral|Alert|LastAlertDecay|LastRegrowth|Holdouts|FactionId|HouseClass|HousePos|CacheRef|Occupants|State|Since|ReoccupyAfter|Routine|Parties|Size|Route|Edge|Progress|Carry|Home|DailyTransfers|TransferDay|LastMoved|Materialized|SiteMemory|Event|MemoryHead|Leads|TargetPlaceId|Source|GroupId|TextId|Scenes|SiteId|ChainId|Stage|NoteId|Notes|SceneId|EntityRef|CreatedAt|Camps|FireRef|Tier|Members|LastLit|Flag|LastVisit|LastProbe|LastTheft|NeighboursLost|TheftRows|CampId|ContainerRef|ItemRef|PartyId|Phase|Salvage|WreckId|Remaining|Journal|Escalation|Day|PressureCaps|Maximum|";
-        HCTextWindow window = new HCTextWindow(text);
-        bool quoted;
-        bool escaped;
-        int start;
-        for (int keyIndex = 0; keyIndex < window.Length(); keyIndex++)
-        {
-            string character = window.At(keyIndex);
-            if (quoted)
-            {
-                if (escaped) { escaped = false; continue; }
-                if (character == "\\") { escaped = true; continue; }
-                if (character != "\"") { continue; }
-                quoted = false;
-                int after = keyIndex + 1;
-                while (after < window.Length() && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after++; }
-                if (after < window.Length() && window.At(after) == ":")
-                {
-                    // No allowed key is longer than the whole allow-list; refuse before copying.
-                    if (keyIndex - start > 64) { return false; }
-                    string key = window.Range(start, keyIndex - start);
-                    if (key.Length() < 1 || keys.IndexOf("|" + key + "|") < 0) { return false; }
-                }
-            }
-            else
-            {
-                if (character == "\"") { quoted = true; start = keyIndex + 1; }
-            }
-        }
-        return !quoted;
+        return HCJsonSchema.HCKeysAllowed(text, keys, MAX_BYTES, 0);
     }
 
     static bool Migrate(HCWorldData data)
@@ -334,5 +307,21 @@ class HCWorldStore
             guard = guard + 1;
         }
         return result == HCSaveJob.STEP_DONE;
+    }
+}
+
+// Scheduler adapter for the materializer-owned custody transaction. The owner
+// retains the snapshot and resumes provider callbacks only after commit.
+
+class HCWorldCustodySaveJob : HCSaveJob
+{
+    HCWorldMaterializer Owner;
+    override string HCName() { return "WorldCustody"; }
+    override float HCInterval() { return 0; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCCustodyCheckpointPending(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepCustody();
     }
 }

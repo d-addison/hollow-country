@@ -200,6 +200,8 @@ class HCEscalationClock : HCModule
     protected int m_LogUtc;
     protected int m_LogDay = -1;
     protected bool m_Healthy;
+    protected bool m_Stopping;
+    protected float m_SaveStepTime = -1;
     protected ref HCEscalationSaveJob m_SaveJob;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     static const string PATH = "$profile:HollowCountry/escalation.json";
@@ -299,6 +301,7 @@ class HCEscalationClock : HCModule
             if (!HCGroupIO.Read(PATH, 2048, tuningText)) { Fail(); return; }
             if (m_State.HCNormalize(tuningText)) { Print("[HC Config] HCEscalationState invalid_range defaults_restored runtime=PENDING"); }
         }
+        m_Stopping = false;
         m_Healthy = true;
         m_Operational.HCPublish("ready", "files_validated_runtime_pending");
         s_Instance = this;
@@ -348,13 +351,19 @@ class HCEscalationClock : HCModule
     int HCStepRoutine()
     {
         if (!m_Healthy || !HCRecoveryGate.HCReady("escalation")) { return HCSaveJob.STEP_FAILED; }
-        int result = m_Writer.SaveStep(PATH, m_State, 2048);
+        float now = GetGame().GetTickTime();
+        if (!m_Stopping && now == m_SaveStepTime) { return HCSaveJob.STEP_MORE; }
+        m_SaveStepTime = now;
+        // A day/hour watermark can advance while an older image is in flight.
+        // Retain the existing SaveStep revision-refresh contract at commit.
+        int result = m_Writer.SaveStep(PATH, m_State, 2048, m_State.SavedUtc);
         if (result == HCSaveJob.STEP_FAILED) { Fail(); }
         return result;
     }
 
     override void OnStop()
     {
+        m_Stopping = true;
         if (m_Healthy)
         {
             if (m_SaveJob.HCInFlight && !HCSaveScheduler.HCFlush(m_SaveJob))

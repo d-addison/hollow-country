@@ -486,6 +486,8 @@ class HCStagedSaveImage
     protected int m_OpenStage;
     protected bool m_SourceAbsent;
     protected bool m_TargetExists;
+    protected ref array<string> m_PriorChunks = new array<string>;
+    protected int m_PriorBytes;
     protected int m_BackupStage;
     protected bool m_BackupExists;
     protected bool m_Unchanged = true;
@@ -521,6 +523,13 @@ class HCStagedSaveImage
         return HCSaveJob.STEP_FAILED;
     }
 
+    // Owners whose validation fails mid-image still drain one handle per stage.
+    int HCAbort()
+    {
+        m_Failed = true;
+        return HCStepImage();
+    }
+
     bool Active() { return m_Phase >= 0; }
     bool Begin(string path, string text, int limit, bool backup = true, bool checkPrior = true, string expectedPrior = "", int mode = 0, string temporaryPath = "")
     {
@@ -543,6 +552,8 @@ class HCStagedSaveImage
             Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
             return false;
         }
+        m_PriorChunks.Clear();
+        m_PriorBytes = 0;
         m_BackupStage = 0;
         m_BackupExists = false;
         m_Unchanged = true;
@@ -555,7 +566,10 @@ class HCStagedSaveImage
         m_Text = text;
         m_Limit = limit;
         m_Backup = backup;
-        m_CheckPrior = checkPrior;
+        // Backup rotation needs a readable prior image even when the caller
+        // skips expected-prior comparison (e.g. HCXAISites and HCHints). Refuse
+        // unreadable existing primaries rather than rotate unverified bytes.
+        m_CheckPrior = checkPrior || backup;
         m_ExpectedPrior = expectedPrior;
         m_Phase = 0;
         if (mode != HC_IMAGE_REPLACE) { m_CheckPrior = false; m_Backup = false; }
@@ -648,7 +662,7 @@ class HCStagedSaveImage
                 // An identical primary may keep an existing backup, but must
                 // create one when absent. Retain primary and verified temp
                 // throughout backup rotation: neither is deleted on failure.
-                if (!m_PriorUnchanged || !m_BackupExists)
+                if ((!m_PriorUnchanged || !m_BackupExists) && m_BackupStage < 3)
                 {
                     if (m_BackupStage == 1)
                     {
@@ -662,10 +676,27 @@ class HCStagedSaveImage
                     }
                     HCSaveJob.HCOperation = "copy_backup";
                     if (!CopyFile(m_Path, backup)) { return HCFail(); }
+                    m_BackupStage = 3;
+                    return HCSaveJob.STEP_MORE;
                 }
             }
-            m_Phase = 3;
-            return HCSaveJob.STEP_MORE;
+            if (m_BackupStage == 3)
+            {
+                // Verify the copied prior image before deleting the primary.
+                // Reuse the bounded open/read/close stages below.
+                HCSaveJob.HCOperation = "read_backup";
+                source = m_Path + ".bak";
+                // Compare backup chunks to the observed prior, without a growing
+                // concatenated string (linear storage even for large images).
+                compare = true;
+            }
+            else
+            {
+                m_PriorChunks.Clear();
+                m_PriorBytes = 0;
+                m_Phase = 3;
+                return HCSaveJob.STEP_MORE;
+            }
         }
         else if (m_Phase == 3)
         {
@@ -730,7 +761,7 @@ class HCStagedSaveImage
                         m_PrimaryExists = !m_SourceAbsent;
                     }
                     // Absent prior is legitimate only for an originally fresh store.
-                    if (m_SourceAbsent && m_CheckPrior && compare) { return HCFail(); }
+                    if (m_SourceAbsent && (m_Phase == 2 || (m_CheckPrior && compare))) { return HCFail(); }
                     return HCSaveJob.STEP_MORE;
                 }
             }
@@ -777,21 +808,31 @@ class HCStagedSaveImage
             if (count < 0 || count != piece.Length() || m_Offset + count > m_Limit) { return HCFail(); }
             if (m_CheckPrior && count > 0)
             {
+                if (m_Backup) { m_PriorChunks.Insert(piece); m_PriorBytes += count; }
                 if (m_Offset + count > m_Text.Length()) { m_Unchanged = false; }
                 else if (piece != m_Text.Substring(m_Offset, count)) { m_Unchanged = false; }
             }
             if (compare)
             {
-                if (m_Offset + count > expected.Length()) { return HCFail(); }
-                if (count > 0)
+                if (m_Phase == 2 && !m_CheckPrior)
                 {
-                    string want = expected.Substring(m_Offset, count);
-                    if (want.Length() != count || piece != want) { return HCFail(); }
+                    int chunk = m_Offset / HC_CHUNK_BYTES;
+                    if (m_Offset + count > m_PriorBytes || (count == 0 && m_Offset != m_PriorBytes)) { return HCFail(); }
+                    if (count > 0 && (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk])) { return HCFail(); }
+                }
+                else
+                {
+                    if (m_Offset + count > expected.Length()) { return HCFail(); }
+                    if (count > 0)
+                    {
+                        string want = expected.Substring(m_Offset, count);
+                        if (want.Length() != count || piece != want) { return HCFail(); }
+                    }
                 }
             }
             if (count == 0)
             {
-                if (m_Offset < 1 || (compare && m_Offset != expected.Length())) { return HCFail(); }
+                if (m_Offset < 1 || (compare && m_Phase != 2 && m_Offset != expected.Length())) { return HCFail(); }
                 m_StreamDone = true;
             }
             if (m_WriteOpen) { m_Piece = piece; }
@@ -831,6 +872,7 @@ class HCStagedSaveImage
         {
             m_PriorUnchanged = m_PrimaryExists && m_Unchanged && m_Offset == m_Text.Length();
         }
+        if (m_Phase == 2 && !m_CheckPrior) { m_PriorChunks.Clear(); m_PriorBytes = 0; }
         HCClose();
         if (m_CheckPrior) { m_CheckPrior = false; }
         else { m_Phase++; }
@@ -845,6 +887,9 @@ class HCStagedSaveImage
         m_Text = text;
         m_Phase = 0;
         m_Backup = false;
+        m_BackupStage = 0;
+        m_PriorChunks.Clear();
+        m_PriorBytes = 0;
         m_CheckPrior = false;
         return true;
     }
