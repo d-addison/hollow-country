@@ -59,6 +59,7 @@ STAIR_MIN_RISE, STAIR_MAX_RISE = 0.35, 1.0
 INSTANCE_RADIUS = 0.75
 SLOT_GAP = 0.3
 WALL_INSET = 0.05
+NUDGE_STEP = 0.05
 TOWN_USAGES = ("Town", "Village")
 MAX_POS_ROWS = 200000
 DEFAULT_MIN_AGREEMENT = 0.6
@@ -143,7 +144,7 @@ def reconcile_positions(proto, rows):
     return normalized, dict(sorted(aliases.items()))
 
 
-def generator_sha256(boxes_bytes=None, authored_bytes=None):
+def generator_sha256(boxes_bytes=None, authored_bytes=None, clearance=None):
     """Pin all generator inputs without adding unrecognised runtime Source keys."""
     if boxes_bytes is None:
         boxes_bytes = _read(BOXES_PATH, FILE_CAP)
@@ -153,6 +154,9 @@ def generator_sha256(boxes_bytes=None, authored_bytes=None):
     if authored_bytes is not None:
         # Distinguish an empty authored queue from the legacy diagnostic mode too.
         pins["authored"] = {name: sha256(raw) for name, raw in sorted(authored_bytes.items())}
+    if clearance is not None:
+        # The host-geometry rules select slots, so a change to them must invalidate the pack pin.
+        pins["host_clearance"] = clearance.pin()
     return sha256(_dump(pins))
 
 
@@ -613,7 +617,7 @@ def _connected(members, removed, neighbours):
     return bool(rest) and len(_components(rest, neighbours)) == 1
 
 
-def _place(kind, room, lattice, step, keepouts, taken, specs=None):
+def _place(kind, room, lattice, step, keepouts, taken, specs=None, check=None):
     spec = (PROP_TYPES if specs is None else specs)[kind]
     width, depth, height = spec["Size"]
     x0, z0 = lattice
@@ -622,6 +626,55 @@ def _place(kind, room, lattice, step, keepouts, taken, specs=None):
     def near(k):
         return ((k[0] + 1, k[1], k[2]), (k[0] - 1, k[1], k[2]), (k[0], k[1] + 1, k[2]), (k[0], k[1] - 1, k[2]))
 
+    def fit(member, cell, dx, dz, yaw, cx, cz):
+        """The slot at wall-prop centre (cx, cz) when it obeys every rule of this builder, else None."""
+        fx, fz = (depth, width) if dx else (width, depth)
+        bounds = _box((cx - fx / 2, cell["y"], cz - fz / 2), (cx + fx / 2, cell["y"] + height, cz + fz / 2))
+        lo_x = math.floor((bounds["Min"][0] - x0) / step + 0.5 + EPS)
+        hi_x = math.ceil((bounds["Max"][0] - x0) / step - 0.5 - EPS)
+        lo_z = math.floor((bounds["Min"][2] - z0) / step + 0.5 + EPS)
+        hi_z = math.ceil((bounds["Max"][2] - z0) / step - 0.5 - EPS)
+        footprint = {(i, j, member[2]) for i in range(lo_x, hi_x + 1) for j in range(lo_z, hi_z + 1)}
+        if not footprint <= members:
+            return None
+        if any(abs(room["cells"][k]["y"] - cell["y"]) > 0.1 or room["cells"][k]["clearance"] < height + 0.05
+               for k in footprint):
+            return None
+        if not _inside(room["box"], bounds):
+            return None
+        for keep in keepouts:
+            if keep["Kind"] == "door":
+                if _overlap(bounds, keep, DOOR_FLOOR_MARGIN + EPS, (0, 2)):
+                    return None
+            # The reader rejects touching faces as well as positive-volume intersections.
+            elif all(bounds["Max"][i] >= keep["Min"][i] and bounds["Min"][i] <= keep["Max"][i] for i in range(3)):
+                return None
+        if any(_overlap(bounds, other["Bounds"], SLOT_GAP) for other in taken["slots"]):
+            return None
+        removed = taken["cells"].get(room["id"], set()) | footprint
+        if not _connected(members, removed, near):
+            return None
+        origin = [cx, cell["y"], cz]
+        if "NativeMin" in spec:
+            low, high = spec["NativeMin"], spec["NativeMax"]
+            center = [(low[i] + high[i]) / 2 for i in range(3)]
+            ox, oz = {0: (center[0], center[2]), 90: (center[2], -center[0]),
+                      180: (-center[0], -center[2]), 270: (-center[2], center[0])}[yaw]
+            origin = [cx - ox, cell["y"] - low[1], cz - oz]
+        return bounds, removed, origin
+
+    def clear(origin, yaw):
+        # Host Geometry, door apron, Paths LOD and prop-to-prop rules of the world mesh audit,
+        # judged on the rounded origin that is written.
+        return check is None or check(kind, _vec(origin), yaw, taken["slots"])
+
+    def slot(yaw, found):
+        bounds, removed, origin = found
+        taken["cells"][room["id"]] = removed
+        return {"Room": room["id"], "Type": kind, "Position": _vec(origin),
+                "Orientation": [yaw, 0, 0], "Bounds": bounds, "History": list(spec["History"])}
+
+    refused = []
     for member in room["members"]:
         cell = room["cells"][member]
         for dx, dz, yaw in WALLS:
@@ -629,43 +682,21 @@ def _place(kind, room, lattice, step, keepouts, taken, specs=None):
                 continue
             inset = step / 2 - depth / 2 - WALL_INSET
             cx, cz = cell["x"] + dx * inset, cell["z"] + dz * inset
-            fx, fz = (depth, width) if dx else (width, depth)
-            bounds = _box((cx - fx / 2, cell["y"], cz - fz / 2), (cx + fx / 2, cell["y"] + height, cz + fz / 2))
-            lo_x = math.floor((bounds["Min"][0] - x0) / step + 0.5 + EPS)
-            hi_x = math.ceil((bounds["Max"][0] - x0) / step - 0.5 - EPS)
-            lo_z = math.floor((bounds["Min"][2] - z0) / step + 0.5 + EPS)
-            hi_z = math.ceil((bounds["Max"][2] - z0) / step - 0.5 - EPS)
-            footprint = {(i, j, member[2]) for i in range(lo_x, hi_x + 1) for j in range(lo_z, hi_z + 1)}
-            if not footprint <= members:
+            found = fit(member, cell, dx, dz, yaw, cx, cz)
+            if found is None:
                 continue
-            if any(abs(room["cells"][k]["y"] - cell["y"]) > 0.1 or room["cells"][k]["clearance"] < height + 0.05
-                   for k in footprint):
-                continue
-            if not _inside(room["box"], bounds):
-                continue
-            blocked = False
-            for keep in keepouts:
-                if keep["Kind"] == "door":
-                    blocked = blocked or _overlap(bounds, keep, DOOR_FLOOR_MARGIN + EPS, (0, 2))
-                else:
-                    # The reader rejects touching faces as well as positive-volume intersections.
-                    blocked = blocked or all(bounds["Max"][i] >= keep["Min"][i]
-                                              and bounds["Min"][i] <= keep["Max"][i] for i in range(3))
-            if blocked or any(_overlap(bounds, other["Bounds"], SLOT_GAP) for other in taken["slots"]):
-                continue
-            removed = taken["cells"].get(room["id"], set()) | footprint
-            if not _connected(members, removed, near):
-                continue
-            taken["cells"][room["id"]] = removed
-            origin = [cx, cell["y"], cz]
-            if "NativeMin" in spec:
-                low, high = spec["NativeMin"], spec["NativeMax"]
-                center = [(low[i] + high[i]) / 2 for i in range(3)]
-                ox, oz = {0: (center[0], center[2]), 90: (center[2], -center[0]),
-                          180: (-center[0], -center[2]), 270: (-center[2], center[0])}[yaw]
-                origin = [cx - ox, cell["y"] - low[1], cz - oz]
-            return {"Room": room["id"], "Type": kind, "Position": _vec(origin),
-                    "Orientation": [yaw, 0, 0], "Bounds": bounds, "History": list(spec["History"])}
+            if clear(found[2], yaw):
+                return slot(yaw, found)
+            refused.append((member, cell, dx, dz, yaw, cx, cz))
+    # Every wall position that obeys this builder's own rules but meets the host mesh is nudged
+    # along its wall and away from it, in the smallest steps that clear, within the same room rules.
+    for member, cell, dx, dz, yaw, cx, cz in refused:
+        for distance in range(1, int(step / NUDGE_STEP + EPS) + 1):
+            for tx, tz in ((dz, dx), (-dz, -dx), (-dx, -dz)):
+                found = fit(member, cell, dx, dz, yaw, cx + tx * distance * NUDGE_STEP,
+                            cz + tz * distance * NUDGE_STEP)
+                if found is not None and clear(found[2], yaw):
+                    return slot(yaw, found)
     return None
 
 
@@ -677,7 +708,7 @@ def _inside(outer, inner):
     return all(outer["Min"][i] <= inner["Min"][i] and inner["Max"][i] <= outer["Max"][i] for i in range(3))
 
 
-def _slots(rooms, lattice, step, keepouts, name="", specs=None):
+def _slots(rooms, lattice, step, keepouts, name="", specs=None, check=None):
     taken = {"slots": [], "cells": {}}
     # Class identity varies the catalog order; reserve a chance for each history
     # before filling spare slots. All candidate boxes still share the same keepouts.
@@ -697,7 +728,7 @@ def _slots(rooms, lattice, step, keepouts, name="", specs=None):
                 continue
             for offset in range(len(rooms)):
                 room = rooms[(index + offset) % len(rooms)]
-                slot = _place(kind, room, lattice, step, keepouts, taken, specs)
+                slot = _place(kind, room, lattice, step, keepouts, taken, specs, check)
                 if slot is not None:
                     taken["slots"].append({"Id": len(taken["slots"]) + 1, **slot})
                     break
@@ -707,7 +738,7 @@ def _slots(rooms, lattice, step, keepouts, name="", specs=None):
             for slot in taken["slots"]]
 
 
-def _authored_slots(theme, rooms, lattice, step, keepouts, specs):
+def _authored_slots(theme, rooms, lattice, step, keepouts, specs, check=None):
     """Sparse measured props through the existing origin-aware HC-24 placement check."""
     if theme is None:
         return [], "authored_queue"
@@ -720,7 +751,7 @@ def _authored_slots(theme, rooms, lattice, step, keepouts, specs):
         slot = None
         for offset in range(len(rooms)):
             room = rooms[(index + offset) % len(rooms)]
-            slot = _place(kind, room, lattice, step, keepouts, taken, specs)
+            slot = _place(kind, room, lattice, step, keepouts, taken, specs, check)
             if slot is not None:
                 break
         if slot is None:
@@ -810,7 +841,7 @@ def _nearest_room(rooms, point):
 # Template, furnish and chunk assembly
 # ----------------------------------------------------------------------------------------------
 
-def _template(name, measurement, group, ids, frame, specs=None, authored=None):
+def _template(name, measurement, group, ids, frame, specs=None, authored=None, clearance=None):
     rooms, lattice, step = _build_rooms(measurement)
     if not rooms:
         return "unsupported_geometry", None
@@ -829,10 +860,12 @@ def _template(name, measurement, group, ids, frame, specs=None, authored=None):
     keepouts, keeps_dropped = _keepouts(measurement, rooms, step, model, stock, frame)
     theme_reason = ""
     theme = None if authored is None else authored.get(name)
+    check = None if clearance is None else (lambda kind, origin, yaw, placed:
+                                            clearance.clear(name, kind, origin, yaw, placed))
     if authored is None:
-        slots = _slots(rooms, lattice, step, keepouts, name, specs)
+        slots = _slots(rooms, lattice, step, keepouts, name, specs, check)
     else:
-        slots, theme_reason = _authored_slots(theme, rooms, lattice, step, keepouts, specs)
+        slots, theme_reason = _authored_slots(theme, rooms, lattice, step, keepouts, specs, check)
     sites, supported, dropped, sites_dropped = ([], 0, 0, 0)
     if group:
         sites, supported, dropped, sites_dropped = _sites(group, ids, frame, rooms, model)
@@ -969,15 +1002,20 @@ def _count(values):
 
 
 def build(censuses, proto, pos, reach_source="strict", min_agreement=DEFAULT_MIN_AGREEMENT,
-          max_furnished=MAX_FURNISHED, types_bytes=None, boxes_bytes=None, authored_bytes=None):
+          max_furnished=MAX_FURNISHED, types_bytes=None, boxes_bytes=None, authored_bytes=None, *, clearance):
     """Build HC-24 files; pass authored_inputs() for HC-56 measured-only furnishing.
 
-    None retains the pre-existing diagnostic API for its callers/fixtures. An explicit empty
-    mapping queues every furnishing family. Neither mode establishes native acceptance.
+    clearance is required: the host-geometry rule object (clear(host, kind, position, yaw, placed) ->
+    bool, pin() -> str, refusals mapping) that applies the world mesh audit rules to every candidate
+    slot, see tools/audit/interior_slot_clearance.py. The room, keep-out, door-margin and slot-gap rules
+    always apply; clearance adds host Geometry, door apron, Paths LOD and prop-to-prop geometry.
+
+    authored_bytes=None retains the pre-existing diagnostic API for its callers/fixtures. An explicit
+    empty mapping queues every furnishing family. Neither mode establishes native acceptance.
     """
     try:
         return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes,
-                      authored_bytes)
+                      authored_bytes, clearance)
     except TemplateError:
         raise
     except ValueError as error:
@@ -985,7 +1023,7 @@ def build(censuses, proto, pos, reach_source="strict", min_agreement=DEFAULT_MIN
 
 
 def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes,
-           authored_bytes):
+           authored_bytes, clearance=None):
     if boxes_bytes is None:
         boxes_bytes = _read(BOXES_PATH, FILE_CAP)
     specs = prop_specs(boxes_bytes)
@@ -1020,7 +1058,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if frame != "rot90":
         raise TemplateError("runtime templates require census frame rot90; got %r" % frame)
     instances = _instances(rows)
-    generator = generator_sha256(boxes_bytes, authored_bytes)
+    generator = generator_sha256(boxes_bytes, authored_bytes, clearance)
     sources = {"mapgroupproto": sha256(proto_bytes), "mapgrouppos": sha256(pos_bytes), "generator": generator}
     if types_bytes is not None:
         from tools.package import search_context
@@ -1037,7 +1075,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         group = proto.get(name)
         points = [c for c in (group["containers"] if group else []) if c["name"] in SOURCES and c["points"]]
         if reason is None:
-            reason, built = _template(name, measurement, group, ids, frame, specs, authored)
+            reason, built = _template(name, measurement, group, ids, frame, specs, authored, clearance)
             if reason is None:
                 templates[name] = built
         if reason is not None and points:
@@ -1127,6 +1165,8 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
                     for g in proto.values() for c in g["containers"]),
                "chunks": {"classes": len([n for n in files if n.startswith("classes-")]),
                           "furnish": len([n for n in files if n.startswith("furnish-")])}}
+    if clearance is not None:
+        summary["host_clearance_refusals"] = dict(sorted(clearance.refusals.items()))
     for field in FIELDS:
         values = [row[field] for row in table]
         summary[field.lower()] = {"covered": values.count("covered"),
@@ -1181,6 +1221,9 @@ def summary_lines(summary, pack_id):
     for row in summary.get("excluded_proto_classes", []):
         lines.append("excluded proto %s: %s" % (row["BuildingClass"], row["Reason"]))
     lines.append("unsupported_containers_dropped=%d" % summary["unsupported_containers_dropped"])
+    if "host_clearance_refusals" in summary:
+        refused = summary["host_clearance_refusals"]
+        lines.append("host clearance candidates refused: " + (" ".join("%s=%d" % kv for kv in refused.items()) or "none"))
     for name, source in summary.get("prop_boxes", {}).items():
         lines.append("prop box %s: %s" % (name, source))
     lines.append("histories: " + " ".join("%s=%d" % (h, summary.get("histories", {}).get(h, 0)) for h in HISTORIES))
@@ -1240,7 +1283,10 @@ def _write(path, build_):
             handle.write(files[name])
 
 
-def main(argv=None):
+def main(argv=None, clearance_factory=None):
+    """CLI. build needs clearance_factory(args) -> host-geometry rule object; the entry point that
+    supplies it is tools/audit/interior_slot_clearance.py (it needs the installed Addons and the
+    world mesh audit, which the shipped bundle does not carry)."""
     parser = argparse.ArgumentParser(prog="interior_templates", description=__doc__.split("\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
     build_parser = commands.add_parser("build", help="build classes-*, t-* and furnish-* into an empty directory")
@@ -1249,6 +1295,8 @@ def main(argv=None):
     build_parser.add_argument("--pos", required=True, help="stock mapgrouppos.xml")
     build_parser.add_argument("--types", help="stock types.xml; required to emit search sites")
     build_parser.add_argument("--out", required=True, help="empty (or new) output directory outside the checkout")
+    build_parser.add_argument("--addons", type=Path,
+                              help="installed Addons holding host and prop Geometry/Paths LODs (default: shared release Addons)")
     build_parser.add_argument("--reach-source", choices=pts.REACH_SOURCES, default="strict")
     build_parser.add_argument("--min-agreement", type=float, default=DEFAULT_MIN_AGREEMENT)
     build_parser.add_argument("--max-furnished", type=int, default=MAX_FURNISHED)
@@ -1281,13 +1329,18 @@ def main(argv=None):
                     temporary.unlink()
             print("prop boxes=%d; review native log measurements before rebuilding; acceptance pending" % len(measured["Props"]))
             return 0
+        if clearance_factory is None:
+            raise TemplateError("build applies the world mesh audit rules to every slot; run "
+                                "python3 -B -m tools.audit.interior_slot_clearance build ...")
         out = _output_dir(args.out)
+        clearance = clearance_factory(args)
         censuses = [_read(path, pts.MAX_CENSUS_BYTES) for path in args.census]
         result = build(censuses, _read(args.proto, pts.MAX_STOCK_BYTES), _read(args.pos, pts.MAX_STOCK_BYTES),
                        reach_source=args.reach_source, min_agreement=args.min_agreement,
                        max_furnished=args.max_furnished,
                        types_bytes=_read(args.types, pts.MAX_STOCK_BYTES) if args.types else None,
-                       authored_bytes=authored_inputs() if args.authored_themes else None)
+                       authored_bytes=authored_inputs() if args.authored_themes else None,
+                       clearance=clearance)
         _write(out, result)
     except (TemplateError, OSError, ValueError) as error:
         print("refused: %s" % error, file=sys.stderr)

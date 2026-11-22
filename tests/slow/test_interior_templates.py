@@ -26,6 +26,40 @@ XS = [x + 0.5 for x in range(-4, 4)]
 ZS = [z + 0.5 for z in range(-3, 3)]
 
 
+class OpenClearance:
+    """Host rules that accept every candidate and record what was judged: the fixtures carry no host mesh."""
+    refusals = {}
+
+    def __init__(self):
+        self.judged = []
+
+    def clear(self, host, kind, position, yaw, placed):
+        self.judged.append((host, kind, tuple(position), yaw))
+        return True
+
+    def pin(self):
+        return "0" * 64
+
+
+class PathClearance(OpenClearance):
+    """Refuses a candidate whose origin is within radius of a point: a slot standing on a Paths LOD line."""
+
+    def __init__(self, center, radius, kinds=None):
+        super().__init__()
+        self.center, self.radius, self.kinds = center, radius, kinds
+        self.refused = []
+
+    def clear(self, host, kind, position, yaw, placed):
+        if (self.kinds is None or kind in self.kinds) and math.dist(position[::2], self.center) < self.radius:
+            self.refused.append((kind, tuple(position), yaw))
+            return False
+        return super().clear(host, kind, position, yaw, placed)
+
+
+def build(*args, clearance=None, **kwargs):
+    return tpl.build(*args, clearance=OpenClearance() if clearance is None else clearance, **kwargs)
+
+
 def grid(xs, zs, y=0.0, clearance=2.8, reach=1):
     return [[x, y, z, clearance, 1.0, reach] for x in xs for z in zs]
 
@@ -121,7 +155,7 @@ TYPES = (b'<types><type name="Hammer"><nominal>5</nominal><category name="tools"
 def standard(classes=CLASSES, rows=None, proto=PROTO, pos=POS, **kwargs):
     rows = house_rows() + calibration_rows() if rows is None else rows
     kwargs.setdefault("types_bytes", TYPES)
-    return tpl.build([encode(census(rows, classes))], proto, pos, **kwargs)
+    return build([encode(census(rows, classes))], proto, pos, **kwargs)
 
 
 def load(result, name):
@@ -461,7 +495,7 @@ class ClassRowTests(unittest.TestCase):
         pos = pos_xml([(HOUSE, "1.0 2.0 3.0", "0"), (names["tight"], "100 0 0", "0"),
                        (names["nopoints"], "200 0 0", "0")])
         classes = list(CLASSES) + list(names.values())
-        result = tpl.build([encode(census(rows, classes))], proto, pos, types_bytes=TYPES)
+        result = build([encode(census(rows, classes))], proto, pos, types_bytes=TYPES)
         table = class_rows(result)
         self.assertEqual(sorted(table), sorted(classes))
         self.assertEqual(table[names["unmeasured"]]["Rooms"], "unmeasured")
@@ -525,7 +559,7 @@ class ClassRowTests(unittest.TestCase):
         pos = pos_xml([(n, "%d 0 0" % (i * 50), "0") for i, n in enumerate(names)] + [(names[3], "999 0 0", "0")])
         proto = proto_xml([group(n, [container("lootFloor", [point("2.0 0.0 3.0")])]) for n in names])
         with mock.patch.object(tpl, "MAX_TEMPLATES", 2):
-            result = tpl.build([encode(census(rows, list(CALIBRATION) + names))], proto, pos)
+            result = build([encode(census(rows, list(CALIBRATION) + names))], proto, pos)
         table = class_rows(result)
         over = [n for n in names if table[n]["Rooms"] == "over_budget"]
         self.assertEqual(len(over), 2)
@@ -549,7 +583,7 @@ class ClassRowTests(unittest.TestCase):
                                           run_id=format(offset + 1, '032x'))))
         pos = pos_xml([(name, '0 0 0', '0') for name in names])
         proto = proto_xml([group(name, [container('lootFloor', [point('2 0 3')])]) for name in names])
-        result = tpl.build(censuses, proto, pos)
+        result = build(censuses, proto, pos)
         built = [name for name in result.files if name.startswith('t-')]
         self.assertEqual(512, len(built))
         self.assertEqual(1, sum(row['Rooms'] == 'over_budget' for row in class_rows(result).values()))
@@ -602,14 +636,14 @@ class FurnishTests(unittest.TestCase):
         proto = proto_xml([HOUSE_GROUP, group(farm, [container("lootFloor", [point("2.0 0.0 3.0")])], ("Farm",))])
         entries = [(HOUSE, "%d 0 0" % (i * 10), "0") for i in range(20)] + [(farm, "%d 0 500" % (i * 10), "0")
                                                                           for i in range(20)]
-        result = tpl.build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))], proto, pos_xml(entries),
+        result = build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))], proto, pos_xml(entries),
                            max_furnished=9)
         # An actual comment-only source variant must change provenance, never selection.
         with tempfile.TemporaryDirectory() as temporary:
             variant = Path(temporary) / "interior_templates.py"
             variant.write_bytes(Path(tpl.__file__).read_bytes() + b"\n# Selection stability probe.\n")
             with mock.patch.object(tpl, "__file__", str(variant)):
-                commented = tpl.build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))],
+                commented = build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))],
                                       proto, pos_xml(entries), max_furnished=9)
         self.assertNotEqual(result.manifest["PackId"], commented.manifest["PackId"])
         self.assertEqual(furnish_rows(result), furnish_rows(commented), "comment changed furnishing selection")
@@ -737,7 +771,7 @@ class CapTests(unittest.TestCase):
 
     def test_class_and_template_files_respect_the_size_and_chunk_limits(self):
         names = ["Land_Bulk_%04d" % i for i in range(400)] + [HOUSE]
-        result = tpl.build([encode(census(house_rows() + calibration_rows(), list(CALIBRATION) + names))],
+        result = build([encode(census(house_rows() + calibration_rows(), list(CALIBRATION) + names))],
                            PROTO, POS)
         chunks = sorted(n for n in result.files if n.startswith("classes-"))
         self.assertEqual(chunks, ["classes-%03d.json" % i for i in range(len(chunks))])
@@ -756,7 +790,7 @@ class CapTests(unittest.TestCase):
     def test_more_than_two_thousand_classes_are_refused(self):
         names = ["Land_X_%04d" % i for i in range(2049)]
         with self.assertRaises(tpl.TemplateError):
-            tpl.build([encode(census([], names))], PROTO, POS)
+            build([encode(census([], names))], PROTO, POS)
 
 
 class DeterminismTests(unittest.TestCase):
@@ -799,7 +833,7 @@ class RefusalTests(unittest.TestCase):
     def refuse(self, document=None, proto=PROTO, pos=POS, raw=None, **kwargs):
         data = raw if raw is not None else encode(document)
         with self.assertRaises(tpl.TemplateError):
-            tpl.build([data], proto, pos, **kwargs)
+            build([data], proto, pos, **kwargs)
 
     def good(self):
         return census(house_rows() + calibration_rows(), CLASSES)
@@ -826,7 +860,7 @@ class RefusalTests(unittest.TestCase):
         self.refuse(raw=b"not json")
         self.refuse(raw=b"")
         with self.assertRaises(tpl.TemplateError):
-            tpl.build([], PROTO, POS)
+            build([], PROTO, POS)
 
     def test_a_placement_class_outside_the_house_list_is_refused(self):
         document = self.good()
@@ -836,13 +870,13 @@ class RefusalTests(unittest.TestCase):
     def test_object_house_class_rows_are_accepted(self):
         document = self.good()
         document["house_classes"] = [{"class": name, "scope": 2} for name in CLASSES]
-        result = tpl.build([encode(document)], PROTO, POS)
+        result = build([encode(document)], PROTO, POS)
         self.assertEqual(sorted(class_rows(result)), sorted(CLASSES))
 
     def test_two_censuses_with_one_run_id_are_refused(self):
         data = encode(self.good())
         with self.assertRaises(tpl.TemplateError):
-            tpl.build([data, data], PROTO, POS)
+            build([data, data], PROTO, POS)
 
     def test_two_censuses_are_merged_and_each_template_names_its_own_run(self):
         other = "b" * 32
@@ -850,7 +884,7 @@ class RefusalTests(unittest.TestCase):
         second = census(house_rows("Land_Second_House"), CLASSES + ("Land_Second_House",), run_id=other)
         first["house_classes"] = list(CLASSES) + ["Land_Second_House"]
         proto = proto_xml([HOUSE_GROUP, group("Land_Second_House", [container("lootFloor", [point("2.0 0.0 3.0")])])])
-        result = tpl.build([encode(first), encode(second)], proto, POS)
+        result = build([encode(first), encode(second)], proto, POS)
         self.assertEqual(template(result, "Land_Second_House")["Evidence"][0]["RunId"], other)
         self.assertEqual(template(result)["Evidence"][0]["RunId"], RUN)
         self.assertIn("census-" + other, result.manifest["Sources"])
@@ -872,6 +906,85 @@ class RefusalTests(unittest.TestCase):
             self.refuse(self.good(), **kwargs)
 
 
+class HostClearanceTests(unittest.TestCase):
+    """The generator applies the world mesh audit rules (host mesh, Paths LOD, doors) through the injected clearance."""
+
+    def slots(self, **kwargs):
+        return template(standard(**kwargs))["PropSlots"]
+
+    def test_a_build_needs_the_host_rules(self):
+        with self.assertRaises(TypeError):
+            tpl.build([encode(census(house_rows() + calibration_rows(), CLASSES))], PROTO, POS)
+
+    def test_clear_candidates_are_written_unchanged_and_judged_on_the_written_origin(self):
+        recorder = OpenClearance()
+        slots = self.slots(clearance=recorder)
+        self.assertTrue(slots)
+        self.assertEqual(standard().files, standard(clearance=OpenClearance()).files)
+        # Nothing was refused, so every judged candidate became a slot, at the rounded origin written.
+        self.assertEqual([(HOUSE, s["Type"], tuple(s["Position"]), s["Orientation"][0]) for s in slots],
+                         [c for c in recorder.judged if c[0] == HOUSE])
+
+    def test_a_slot_on_a_path_is_moved_and_still_obeys_the_builder_rules(self):
+        first = self.slots()[0]
+        centre = (first["Position"][0], first["Position"][2])
+        radius = 0.3
+        blocker = PathClearance(centre, radius, {first["Type"]})
+        built = standard(clearance=blocker)
+        self.assertTrue(blocker.refused)
+        moved = [s for s in template(built)["PropSlots"] if s["Type"] == first["Type"]]
+        self.assertEqual(1, len(moved))
+        slot = moved[0]
+        self.assertGreaterEqual(math.dist((slot["Position"][0], slot["Position"][2]), centre), radius)
+        self.assertNotEqual(first["Position"], slot["Position"])
+        t = template(built)
+        room = {r["Id"]: {"Min": r["Min"], "Max": r["Max"]} for r in t["Rooms"]}[slot["Room"]]
+        self.assertTrue(inside(room, slot["Bounds"]))
+        for other in t["PropSlots"]:
+            if other["Id"] != slot["Id"]:
+                self.assertFalse(overlap(slot["Bounds"], other["Bounds"], tpl.SLOT_GAP))
+
+    def test_a_blocked_wall_position_is_nudged_by_the_smallest_clearing_step(self):
+        first = self.slots()[0]
+        centre = (first["Position"][0], first["Position"][2])
+        radius = 0.3
+
+        class Ring(PathClearance):
+            """Only the immediate surroundings of the blocked position are free."""
+
+            def clear(self, host, kind, position, yaw, placed):
+                near = math.dist(position[::2], self.center) < radius + 2 * tpl.NUDGE_STEP
+                if kind == first["Type"] and not near:
+                    return False
+                return super().clear(host, kind, position, yaw, placed)
+
+        ring = Ring(centre, radius, {first["Type"]})
+        slot = [s for s in self.slots(clearance=ring) if s["Type"] == first["Type"]][0]
+        distance = math.dist((slot["Position"][0], slot["Position"][2]), centre)
+        self.assertTrue(radius <= distance <= radius + 2 * tpl.NUDGE_STEP, distance)
+        self.assertEqual(first["Orientation"], slot["Orientation"])
+
+    def test_a_slot_with_no_clear_position_is_refused_not_kept(self):
+        everywhere = PathClearance((0.0, 0.0), 1e9)
+        self.assertEqual([], self.slots(clearance=everywhere))
+        self.assertTrue(everywhere.refused)
+        self.assertEqual([], template(standard(clearance=everywhere, authored_bytes=tpl.authored_inputs()))["PropSlots"])
+
+    def test_the_rules_are_part_of_the_pack_identity_and_the_summary(self):
+        class Other(OpenClearance):
+            refusals = {"path_lod": 3}
+
+            def pin(self):
+                return "1" * 64
+        base, other = standard(), standard(clearance=Other())
+        self.assertNotEqual(base.manifest["PackId"], other.manifest["PackId"])
+        self.assertEqual({"path_lod": 3}, other.summary["host_clearance_refusals"])
+        self.assertIn("host clearance candidates refused: path_lod=3",
+                      "\n".join(tpl.summary_lines(other.summary, other.manifest["PackId"])))
+        self.assertIn("host clearance candidates refused: none",
+                      "\n".join(tpl.summary_lines(base.summary, base.manifest["PackId"])))
+
+
 class CliTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="hc-synthetic-templates-")
@@ -888,7 +1001,7 @@ class CliTests(unittest.TestCase):
                 "--out", str(out)] + list(extra)
         stdout, stderr = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            code = tpl.main(argv)
+            code = tpl.main(argv, clearance_factory=lambda args: OpenClearance())
         return code, stdout.getvalue(), stderr.getvalue()
 
     def test_build_writes_the_pack_and_prints_the_coverage_summary(self):
@@ -944,6 +1057,17 @@ class CliTests(unittest.TestCase):
         out = self.dir / "out"
         code, _text, err = self.run_cli(out)
         self.assertNotEqual(code, 0)
+        self.assertFalse(out.exists())
+
+    def test_build_without_the_host_rules_is_refused_and_names_the_entry_point(self):
+        out = self.dir / "out"
+        argv = ["build", "--census", str(self.dir / "census.json"), "--proto", str(self.dir / "mapgroupproto.xml"),
+                "--pos", str(self.dir / "mapgrouppos.xml"), "--out", str(out)]
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            code = tpl.main(argv)
+        self.assertEqual(2, code)
+        self.assertIn("interior_slot_clearance", stderr.getvalue())
         self.assertFalse(out.exists())
 
     def test_a_missing_input_is_a_refusal_not_a_traceback(self):

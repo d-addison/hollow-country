@@ -116,8 +116,9 @@ Expect `[HC Interiors] batch plan runs=<N> done=[<all planned indices>] missing=
 and `census_rejected=0`. Stock coverage retains its stock denominator: newly surveyed
 classes without stock groups do **not** automatically become accepted templates or
 loot points. For a template rebuild, pass those same `--census-dir`/`--batch-plan`
-arguments to `interiors_profile.py templates build` with `--proto`, `--pos`, `--types`
-and a fresh `--out`, as for #227. Preserve raw census files, hook plans, sentinels and
+arguments to `interiors_profile.py templates build` with `--proto`, `--pos`, `--types`,
+a fresh `--out` and, when the Addons are not at the shared release path, `--addons`, as for #227. The
+build applies the world mesh audit slot rules (`docs/tools/WORLD_MESH_AUDIT.md`). Preserve raw census files, hook plans, sentinels and
 logs outside Git for the lead's point-authoring and upper-floor review.
 
 Use the existing CE report for the treatment census:

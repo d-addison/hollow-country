@@ -12,6 +12,15 @@ most 80 source hashes. Every generated header/page is capped at 6,144 bytes. The
 header pins each page's path, byte size and SHA-256. Packaging and generated-digest
 inventories include the pages.
 
+The road source pin file `travel/gapcode_routes_source-pages.json` is written and verified by
+`tools.audit.gapcode_routes_pins` (`--check` writes nothing). Its road row follows the pin that
+`tools.audit.gapcov_routes` authors in `ai/caravans.json` (`gapcov_graph_source`), which the
+catalog index must repeat; the tool refuses when they disagree or when the installed road bytes
+no longer match that pin. Mission source rows are path declarations only, because
+`ai_route_precompute` computes fresh identities for authored mission files on every run, so
+ordinary mission edits never stale the file. Its SHA-256 is part of the manifest header, so a
+change to it is followed by `ai_route_precompute --write`.
+
 The catalog validates the header in one visit, then reads each page, verifies its
 SHA-256 with the existing provider adapter in at most 128-byte updates per visit,
 and parses it in a separate visit. All pages must pass before candidates resolve.

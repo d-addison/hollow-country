@@ -117,6 +117,27 @@ no authored path and is recorded, not skipped. Shelter terrain rows are not chec
 (live Y). The sampled column approximates a walk along the authored path; it is not
 the engine navmesh and not an infected-traversal proof.
 
+Interior template generation: `tools/package/interior_templates.py` applies these same rules
+when it picks a slot, so a regenerated pack does not undo a slot that was moved to clear the
+audit. The generator ships in the friend bundle and cannot import this tool, so it takes an
+injected rule object and the entry point `tools/audit/interior_slot_clearance.py` supplies it
+(`python3 -B -m tools.audit.interior_slot_clearance build --census ... --proto ... --pos ...
+--types ... --out DIR [--addons DIR]`; `interiors_profile.py templates build` takes `--addons`
+too, and `interior_templates.build` refuses to run without the rules). A candidate wall position
+that passes the builder's own room, keep-out, door-margin (0.6 m) and slot-gap (0.3 m) rules is
+judged with this module's helpers on the origin that is written, and refused when it would raise
+`HOST_GEOMETRY_ENCROACHMENT`, `DOOR_APRON_INTERSECTION`, `STAIR_PATH_INTERSECTION`,
+`PATH_LOD_INTERSECTION` or `PIECE_GEOMETRY_INTERSECTION`. The generator then tries its other
+wall positions, and last the refused ones nudged along the wall or away from it in 5 cm steps up
+to one lattice step; a prop with no clear position is dropped (the class reports
+`clearance_failed` when its theme has no slot left). The build summary prints the refused
+candidates per rule, and the rule code is part of the pack pin. A missing host or prop Geometry
+LOD is a refusal, never a skipped check. Regenerating the committed census with these rules
+gives `findings=0` here; the same census through the generator without them gave findings, which
+is the defect this closes. Slots whose only audit-clean position was off the census floor
+cells or inside a keep-out are dropped by a regeneration, the audit-clean committed row is not
+overwritten by this tool.
+
 Measured bounds: classes in `classes.json` that are not placed anywhere are
 measured too (Geometry LOD only; no placement checks) and listed under
 `catalog_bounds`; classes that cannot be measured are `CLASS_BOUNDS_UNMEASURED`
