@@ -16,45 +16,57 @@ class HCRadioDefaults
     int BroadcastGapSeconds = 600;
     protected static ref HCRadioDefaults s_Config;
 
+    // Exact float identity without unsupported native float set keys. Qualification
+    // scans at most 64 entries and makes 64 comparisons per membership query.
+    protected bool HCHasFrequency(array<float> frequencies, float frequency)
+    {
+        for (int index = 0; index < 64; index++)
+        {
+            if (index >= frequencies.Count()) break;
+            if (frequencies[index] == frequency) return true;
+        }
+        return false;
+    }
+
     // Validates a supplied candidate list only; no inspected native channel
     // catalogue is available. This helper is not a startup prerequisite.
     bool HCQualifyChannels(array<float> channels)
     {
-        if (!channels || channels.Count() < 1 || channels.Count() > this.ChannelCountLimit) { return false; }
+        if (!channels || channels.Count() < 1 || channels.Count() > this.ChannelCountLimit || channels.Count() > 64) { return false; }
         array<float> seen = new array<float>;
         foreach (float frequency : channels)
         {
-            if (!(frequency >= 87.8 && frequency <= 102.5) || seen.Find(frequency) >= 0) { return false; }
+            if (!(frequency >= 87.8 && frequency <= 102.5) || HCHasFrequency(seen, frequency)) { return false; }
             seen.Insert(frequency);
         }
         bool restored = false;
-        if (channels.Find(this.LocalsMHz) < 0)
+        if (!HCHasFrequency(seen, this.LocalsMHz))
         {
-            if (channels.Find(87.8) < 0) { return false; }
+            if (!HCHasFrequency(seen, 87.8)) { return false; }
             this.LocalsMHz = 87.8;
             restored = true;
         }
-        if (channels.Find(this.VolunteersMHz) < 0)
+        if (!HCHasFrequency(seen, this.VolunteersMHz))
         {
-            if (channels.Find(89.5) < 0) { return false; }
+            if (!HCHasFrequency(seen, 89.5)) { return false; }
             this.VolunteersMHz = 89.5;
             restored = true;
         }
-        if (channels.Find(this.ScavengersMHz) < 0)
+        if (!HCHasFrequency(seen, this.ScavengersMHz))
         {
-            if (channels.Find(91.3) < 0) { return false; }
+            if (!HCHasFrequency(seen, 91.3)) { return false; }
             this.ScavengersMHz = 91.3;
             restored = true;
         }
-        if (channels.Find(this.RaidersMHz) < 0)
+        if (!HCHasFrequency(seen, this.RaidersMHz))
         {
-            if (channels.Find(94.6) < 0) { return false; }
+            if (!HCHasFrequency(seen, 94.6)) { return false; }
             this.RaidersMHz = 94.6;
             restored = true;
         }
-        if (channels.Find(this.TravellersMHz) < 0)
+        if (!HCHasFrequency(seen, this.TravellersMHz))
         {
-            if (channels.Find(96.6) < 0) { return false; }
+            if (!HCHasFrequency(seen, 96.6)) { return false; }
             this.TravellersMHz = 96.6;
             restored = true;
         }

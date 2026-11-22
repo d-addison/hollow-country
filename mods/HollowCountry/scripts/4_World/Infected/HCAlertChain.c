@@ -21,9 +21,9 @@ class HCAlertRoot
     float RootObserved;
     float RootExpires;
     // At most twelve recipients including the seed. Native map keys must be
-    // int/string; bounded array membership also keeps entity handles local.
-    ref array<ZombieBase> Recipients = new array<ZombieBase>;
-    ref array<ZombieBase> Emitters = new array<ZombieBase>;
+    // int/string; native sets keep entity membership local to this root.
+    ref set<ZombieBase> Recipients = new set<ZombieBase>;
+    ref set<ZombieBase> Emitters = new set<ZombieBase>;
 }
 
 class HCAlertEmission

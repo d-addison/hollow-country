@@ -313,24 +313,6 @@
       "native": false
     },
     {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupVisibility.c",
-      "line": 70,
-      "symbol": "HCGroupVisibility.RadioMatches",
-      "key": "recipient.Frequencies.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
-      "line": 178,
-      "symbol": "HCAlertChain.ProcessPending",
-      "key": "emission.Root.Recipients.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
       "line": 455,
@@ -345,15 +327,6 @@
       "line": 359,
       "symbol": "HCInteriorsModule.InspectProp",
       "key": "m_Objects.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c",
-      "line": 27,
-      "symbol": "HCRadioDefaults.HCQualifyChannels",
-      "key": "seen.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },

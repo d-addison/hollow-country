@@ -65,9 +65,16 @@ class HCGroupVisibility
 
     static bool RadioMatches(HCGroupEquipment source, HCGroupEquipment recipient)
     {
-        foreach (float frequency : source.Frequencies)
+        // Read admits at most eight exact float frequencies. Float set keys are
+        // unsupported natively; make both scan bounds explicit (<=64 comparisons).
+        for (int sourceIndex = 0; sourceIndex < 8; sourceIndex++)
         {
-            if (recipient.Frequencies.Find(frequency) >= 0) return true;
+            if (sourceIndex >= source.Frequencies.Count()) break;
+            for (int recipientIndex = 0; recipientIndex < 8; recipientIndex++)
+            {
+                if (recipientIndex >= recipient.Frequencies.Count()) break;
+                if (source.Frequencies[sourceIndex] == recipient.Frequencies[recipientIndex]) return true;
+            }
         }
         return false;
     }
