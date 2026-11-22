@@ -51,6 +51,7 @@ GENERATORS = (
 EXCLUDED_CHECK_MODULES = {
     'regenerate_all': 'aggregate orchestrator; would recursively invoke itself',
     'generated_digests': 'digest orchestrator; checked separately before release packaging',
+    'hc_events': 'install-time CE scene installer with no committed outputs; friend_bundle runs hc_events.validate on every bundle build',
 }
 
 

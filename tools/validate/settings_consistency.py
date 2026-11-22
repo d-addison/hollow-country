@@ -433,12 +433,25 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     return errors
 
 
+# Addon defaults are the profile image when no profile copy exists; each must stay
+# byte-identical to its authored mission source (sites drifted once after R8).
+PROFILE_MIRRORS = (
+    ('mission/hollow-country/ai/sites.json', 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'),
+    ('mission/hollow-country/ai/localities.json', 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-localities.json'),
+)
+
+
+def check_profile_mirrors():
+    return [f'{copy} differs from {source}; copy the authored source bytes'
+            for source, copy in PROFILE_MIRRORS if (ROOT / source).read_bytes() != (ROOT / copy).read_bytes()]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
     try:
         load_targets()
-        errors = check_consistency()
+        errors = check_consistency() + check_profile_mirrors()
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]
     print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors,
