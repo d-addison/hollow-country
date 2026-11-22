@@ -65,11 +65,23 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
         return "Map Marker"; // :150; shared fallback for pins and legend
     }
 
-    static ExpansionIcon HCXIcon(string layer)
+    // Legend icon per registry name above. Same files ExpansionIcons registers (lines
+    // cited at HCXIconName). Each file is a literal at its own LoadImageFile call so
+    // the texture check resolves every path against the installed Core archive.
+    static void HCXLoadIcon(ImageWidget icon, string layer)
     {
-        ExpansionIcon icon = ExpansionIcons.Get(HCXIconName(layer));
-        if (!icon) icon = ExpansionIcons.Get("Map Marker"); // ExpansionIcons.c:150,312
-        return icon;
+        string iconName = HCXIconName(layer);
+        if (iconName == "Infected 1") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_zombie.paa");
+        else if (iconName == "Radiation") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_radiation.paa");
+        else if (iconName == "Trader") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_trader.paa");
+        else if (iconName == "Water 1") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_water.paa");
+        else if (iconName == "Backpack") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\misc\\T_BagPack_256x256.edds");
+        else if (iconName == "Vehicle Crash") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\crash.paa");
+        else if (iconName == "Exclamationmark") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\hud\\exclamationmark_64x64.edds");
+        else if (iconName == "Car 2") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\hud\\car_64x64.edds");
+        else if (iconName == "Base") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_home.paa");
+        else if (iconName == "Soldier") icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\misc\\T_Soldier_256x256.edds");
+        else icon.LoadImageFile(0, "DayZExpansion\\Core\\GUI\\icons\\marker\\marker_mapmarker.paa");
     }
 
     void Open(ExpansionMapMenu menu, Widget root, MapWidget mapWidget)
@@ -269,9 +281,8 @@ class HCXAdminMapLayers : ScriptedWidgetEventHandler
             name.SetText(text);
             name.SetColor(textColor);
             // Cached rows may be rebound after authorization/cache expiry.
-            ExpansionIcon registered = HCXIcon(style.Layer);
-            if (registered) icon.LoadImageFile(0, registered.IconPath);
-            icon.Show(registered != null);
+            HCXLoadIcon(icon, style.Layer);
+            icon.Show(true);
             icon.SetColor(iconColor);
         }
         for (int hide = 0; hide < mHCXRows.Count(); hide++) mHCXRows[hide].Show(hide < rows);

@@ -33,6 +33,33 @@ class TextureIndex(unittest.TestCase):
         self.assertEqual({index.canonical('dz/ui/' + entry[0])}, names)
         self.assertFalse(fallback)
 
+    def test_imageset_members_come_from_stored_definition_blocks_only(self):
+        atlas = (b'ImageSetClass {\n Name "atlas"\n Textures {\n  ImageSetTextureClass {\n   path "dz/gui/atlas.edds"\n  }\n }\n'
+                 b' Images {\n  ImageSetDefClass circle {\n   Name "circle"\n   Pos 1 2\n  }\n'
+                 b'  ImageSetDefClass dot {\n   Name "dot"\n  }\n }\n}')
+        path = self.root / 'gui.pbo'
+        path.write_bytes(archive([('imagesets/atlas.imageset', atlas), ('imagesets/atlas.edds', b'Name "fake"'),
+                                  ('imagesets/notes.imageset', b'arbitrary Name "x"')]))
+        self.assertEqual({'atlas': {'circle', 'dot'}}, index.pbo_imagesets(path))
+        # A compressed imageset cannot be read, so its set stays unknown instead of guessed.
+        path.write_bytes(archive([('imagesets/atlas.imageset', atlas)], compressed=True))
+        self.assertEqual({}, index.pbo_imagesets(path))
+
+    def test_imageset_names_are_cached_and_loadable_without_payload(self):
+        addons = self.root / 'addons'
+        addons.mkdir()
+        atlas = b'ImageSetClass {\n Name "atlas"\n Images {\n  ImageSetDefClass a {\n   Name "a"\n   Pos 987654 1\n  }\n }\n}'
+        (addons / 'gui.pbo').write_bytes(archive([('atlas.imageset', atlas)]))
+        cache = self.root / 'cache/index.json'
+        index.build_index([addons], cache)
+        self.assertEqual({'atlas': {'a'}}, index.load_imagesets(cache))
+        self.assertNotIn('987654', cache.read_text())
+        old = json.loads(cache.read_text())
+        del old['imagesets']
+        cache.write_text(json.dumps(old))
+        with self.assertRaises(ValueError):
+            index.load_imagesets(cache)
+
     def test_no_prefix_fallback_is_explicit(self):
         path = self.root / 'legacy.pbo'
         path.write_bytes(archive([('x.paa', b'')], prefix=None))
@@ -113,6 +140,19 @@ class TextureIndex(unittest.TestCase):
         (workshop / 'dependency/Addons/test.pbo').unlink()
         with self.assertRaisesRegex(ValueError, '@Dependency'):
             index.declared_directories(addons, workshop, manifest)
+
+    def test_vanilla_gui_archive_beside_addons_is_indexed(self):
+        manifest = self.manifest()
+        addons, core = self.root / 'game/Addons', self.root / 'game/dta'
+        workshop = self.root / 'workshop'
+        for directory in (addons, core, workshop / 'dependency/Addons', workshop / 'owned/addons'):
+            directory.mkdir(parents=True)
+            (directory / 'test.pbo').write_bytes(archive([('icon.paa', b'')], prefix=directory.parent.name))
+        directories, _ = index.declared_directories(addons, workshop, manifest)
+        self.assertIn(core, directories)
+        (core / 'test.pbo').unlink()
+        directories, _ = index.declared_directories(addons, workshop, manifest)
+        self.assertNotIn(core, directories)
 
     def test_incomplete_cache_cannot_pass_and_local_build_override(self):
         manifest = self.manifest()
