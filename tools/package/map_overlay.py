@@ -348,6 +348,8 @@ def validate(source, vanilla=None, proto_names=None):
                 if slope is None or slope > slope_cap:
                     errors.append('%s/%s: unsupported or excessive vanilla-row support slope' % (name, site.get('id')))
         objects = expand_layer(source, layer)
+        site_heights = {site['id']: float(site['pos'][1]) for site in sites
+                        if isinstance(site, dict) and isinstance(site.get('id'), str) and _finite_list(site.get('pos'), 3)}
         cap = limits['max_objects_per_layer']
         own = (layer.get('limits') or {}).get('max_objects')
         if own is not None:
@@ -370,9 +372,13 @@ def validate(source, vanilla=None, proto_names=None):
                 ids.add(item['id'])
             if pos is not None:
                 site_key = (name, item['site']) if isinstance(item.get('site'), str) else None
+                # #336: a composition piece's height carries its pivot dy; flat support is judged on the
+                # site's ground height, the same basis place_site uses, so pivot compensation never refuses.
+                ground_y = site_heights.get(item['site']) if site_key is not None else None
                 placed.append((name, item['id'] if isinstance(item.get('id'), str) else '?', pos,
                                dict(layer.get('limits') or {},
-                                    flat_radius_m=item.get('support_radius_m', limits['flat_radius_m'])), site_key))
+                                    flat_radius_m=item.get('support_radius_m', limits['flat_radius_m']),
+                                    **({'ground_y': ground_y} if ground_y is not None else {})), site_key))
             info = source.classes['classes'].get(item.get('class')) if isinstance(item, dict) else None
             if isinstance(item, dict) and item.get('loot') == 'proto' and 'site' not in item \
                     and isinstance(info, dict) and info.get('loot_group') is False:
@@ -462,7 +468,8 @@ def _vanilla_errors(placed, vanilla, limits):
             errors.append('vanilla group %s is %.1f m from %s/%s (clearance %.1f m)' % (
                 row[0], math.hypot(row[1] - pos[0], row[3] - pos[2]), layer_id, object_id, need))
         if site is not None:
-            errors.extend(_flat_errors('%s/%s' % (layer_id, object_id), pos, grid,
+            ground = [pos[0], own['ground_y'], pos[2]] if 'ground_y' in own else pos
+            errors.extend(_flat_errors('%s/%s' % (layer_id, object_id), ground, grid,
                                             dict(limits, flat_radius_m=own.get('flat_radius_m', limits['flat_radius_m']))))
     return errors
 
@@ -723,7 +730,8 @@ def place_site(source, composition, x, z, heading, rows, taken=None):
         pos = [px, round(y + float(piece.get('dy', 0.0)), 6), pz]
         if not (0.0 <= px <= limits['map_size'] and 0.0 <= pz <= limits['map_size']):
             return None
-        if any(True for _ in grid.near(px, pz, clearance)) or _flat_errors('', pos, grid, limits):
+        # #336: flat support is judged on the site ground height, never the pivot-compensated piece height.
+        if any(True for _ in grid.near(px, pz, clearance)) or _flat_errors('', [px, y, pz], grid, limits):
             return None
         if isinstance(taken, Grid):
             if any(True for _ in taken.near(px, pz, apart)):
