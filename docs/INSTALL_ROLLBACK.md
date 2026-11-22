@@ -145,6 +145,16 @@ step that changes behaviour is registered until a plan names the schema change;
 with none registered the runner only prints the line below and a self-test
 receipt. Native behaviour is `runtime=PENDING` until the lead's boot check.
 
+Step contract: one step per target file (a second step on the same target is
+refused at registration as `duplicate_target` and closes its store for the boot).
+A schema change on a file that already has a step edits that step: `current` is
+what this build writes and `old` widens to every earlier schema. The step's
+classifier must return unknown for every torn prefix of any text it calls
+current or old, and for an empty file; this is the load-bearing invariant the
+torn-commit recovery below relies on. A step with no store gate (`""`) is never
+deferred; if the runner's own self-test fails, every registered step is refused
+and its store closed for that boot.
+
 Per step, with target `T`, scratch image `P` (`T.mig-<id>.tmp`) and backup `B`
 (`T.pre-<id>.bak`, then `.bak2`..`.bak4` when a slot holds other bytes):
 
@@ -163,15 +173,39 @@ that step's store for this boot through the shared quarantine line
 Deferred steps then finish one per tick, so the next boot is clean. No file is
 deleted or wiped to make a refusal go away.
 
+A leftover `P` is deleted only when it is provably ours: identical to a current
+`T`, or beside an old `T` an empty file, a torn prefix of the image about to be
+written, or a complete current image. Any other `P` is kept and the step refuses
+(`pending_conflicts_current`, `pending_conflicts_old`). If `P` cannot be deleted
+after a verified commit the store is closed for that boot (`pending_delete_failed`)
+and the next boot removes it.
+
 | Interruption | Next boot |
 | --- | --- |
 | Before or during the backup copy | `T` is still old; a torn backup slot is skipped, a fresh slot is used |
 | After backup, before or during `P` | `T` is old; stale `P` is deleted and recomputed, an identical backup is reused |
 | After `P`, before deleting `T` | Same as above |
 | After deleting `T`, before the copy | `T` absent and `P` present: `P` is restored only if a backup slot proves it descends from that backup (old class plus the deterministic transform reproduces `P`) -> `recovered_missing_target` |
-| During the copy over `T` | `T` is an empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other content is refused as `target_schema_unknown` |
+| During the copy over `T` | `T` is a readable empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other readable content is refused as `target_schema_unknown`; an unreadable or oversize `T` is refused as `target_unreadable` and never replaced |
 | After the copy, before deleting `P` | `T` is current; the stale `P` is removed (`current_pending_removed`) |
 | Newer schema on disk (a rollback of the mod without the saves) | `refused reason=newer_schema`; install the matching mod version, or restore the matching `B` by hand with the server stopped |
+
+Operator steps for a refusal (server stopped, every file kept until you decide):
+
+- `backup_slots_full`: all four `.pre-<id>.bak*` slots hold other bytes. Compare
+  them with `T`; move the ones you no longer need out of the profile folder (do
+  not delete the only copy of anything), then start the server again.
+- `pending_provenance_missing`: `P` exists but no backup slot proves it descends
+  from an old file. Do not copy `P` over `T`. If `T` is intact and old, move `P`
+  aside; the next boot recomputes it. If `T` is missing or torn, restore the
+  matching `.pre-<id>.bak*` over `T` by hand, move `P` aside, and start again.
+- `target_schema_unknown` with `P` present: `T` is not a prefix of `P`. Keep both,
+  restore `T` from the matching backup (or from your own snapshot), move `P`
+  aside and start again. Never copy `P` over an unrecognised `T`.
+- `target_schema_unknown` without `P`: `T` is not a format this build knows;
+  restore the matching backup or the matching mod version.
+- `pending_conflicts_current` / `pending_conflicts_old`: `P` is not the image this
+  build would write. Inspect it, move it aside, start again.
 
 To undo a migration by hand with the server stopped, copy the `.pre-<id>.bak`
 file back over the target and install the previous PBOs. `storage_*` (the DayZ
