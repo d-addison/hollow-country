@@ -64,67 +64,11 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 57,
-      "symbol": "HCEventJournalIO.Read",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew -> HCEventJournalIO.Read",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 59,
-      "symbol": "HCEventJournalIO.Read",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew -> HCEventJournalIO.Read",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 67,
-      "symbol": "HCEventJournalIO.WriteNew",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 69,
-      "symbol": "HCEventJournalIO.WriteNew",
-      "key": "FPrint#1",
-      "message": "FPrint reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
       "line": 73,
       "symbol": "HCEventJournalIO.Remove",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventRewardLedger.Start -> HCEventJournalIO.Remove",
       "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1220,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1220,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
     },
     {
       "rule": "HC-P003",
@@ -147,51 +91,6 @@
       "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 138,
-      "symbol": "HCXAICaravanRoads.HCLine",
-      "key": "FGets#1",
-      "message": "FGets reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadNode -> HCXAICaravanRoads.HCLine",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 232,
-      "symbol": "HCXAICaravanRoads.HCStreamAt",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactHeader -> HCXAICaravanRoads.HCStreamAt",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 189,
-      "symbol": "HCXAICaravanRoads.HCLoadInstalled",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactFallback -> HCXAICaravanRoads.HCLoadInstalled",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 31,
-      "symbol": "HCXAIStore.ReadJournal",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal -> HCXAIStore.ReadJournal",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 34,
-      "symbol": "HCXAIStore.ReadJournal",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal -> HCXAIStore.ReadJournal",
-      "native": false
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
       "line": 54,
@@ -200,26 +99,6 @@
       "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn -> HCEventJournalIO.Exists; enqueue bounded startup work",
       "native": false,
       "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Exists remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 70,
-      "symbol": "HCEventJournalIO.Read",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn -> HCEventJournalIO.Read; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Read remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 91,
-      "symbol": "HCEventJournalIO.WriteNew",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCEventRuntime.Publish -> HCEventJournal.Save -> HCEventJournalIO.WriteNew; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.WriteNew remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
     },
     {
       "rule": "HC-P009",
@@ -333,66 +212,6 @@
     },
     {
       "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 48,
-      "symbol": "HCXAIStore.ReadJournal",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal -> HCXAIStore.ReadJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.ReadJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 67,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 76,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "JsonFileLoader.SaveFile#1",
-      "message": "JsonFileLoader.SaveFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 79,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "CopyFile#1",
-      "message": "CopyFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 82,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 83,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
       "line": 616,
       "symbol": "HCStagedSaveImage.HCStepImage",
@@ -410,171 +229,6 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 289,
-      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCIndexPageStep -> HCGapcodeRoutesCatalog.HCReadBounded",
-      "native": false,
-      "reason": "One bounded file per grant: root/index/catalog/hash pages <=4096 bytes, manifest root <=6144; read cap+1 detects oversize before JSON parsing. Index and manifest pages read, hash <=128 bytes, and parse in separate visits; no second page or row resolution in that grant. Engine timing remains pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 291,
-      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCIndexPageStep -> HCGapcodeRoutesCatalog.HCReadBounded",
-      "native": false,
-      "reason": "One bounded file per grant: root/index/catalog/hash pages <=4096 bytes, manifest root <=6144; read cap+1 detects oversize before JSON parsing. Index and manifest pages read, hash <=128 bytes, and parse in separate visits; no second page or row resolution in that grant. Engine timing remains pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1191,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1191,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 687,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 687,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1231,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1231,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 767,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 767,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep; enqueue bounded startup work",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 545,
-      "symbol": "HCXAISiteStorage.SaveCaches",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
-      "native": false,
-      "reason": "W3-01 synchronous picker/inventory durability barrier retained by owner decision: abort retained image handles and remove the prior intent before writing current journal, preventing recovery/promotion of superseded state. One exact journal path, one existence probe and at most one DeleteFile before the existing synchronous SaveFile. Routine saves use the bounded scheduler. No native timing or acceptance claim."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
-      "line": 545,
-      "symbol": "HCXAISiteStorage.SaveCaches",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
-      "native": false,
-      "reason": "W3-01 synchronous picker/inventory durability barrier retained by owner decision: abort retained image handles and remove the prior intent before writing current journal, preventing recovery/promotion of superseded state. One exact journal path, one existence probe and at most one DeleteFile before the existing synchronous SaveFile. Routine saves use the bounded scheduler. No native timing or acceptance claim."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 60,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.HCMeasuredTick -> HCEventRuntime.Tick -> HCEventRuntime.HCAdvanceAnnounce -> HCExpansionAIEventProvider.Start -> HCXAIEncounters.StartEncounter -> HCXAIJournal.Begin -> HCXAIStore.SaveJournal",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 69,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "JsonFileLoader.SaveFile#1",
-      "message": "JsonFileLoader.SaveFile reachable via HCEventModule.OnTick -> HCEventModule.HCMeasuredTick -> HCEventRuntime.Tick -> HCEventRuntime.HCAdvanceAnnounce -> HCExpansionAIEventProvider.Start -> HCXAIEncounters.StartEncounter -> HCXAIJournal.Begin -> HCXAIStore.SaveJournal",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 72,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "CopyFile#1",
-      "message": "CopyFile reachable via HCEventModule.OnTick -> HCEventModule.HCMeasuredTick -> HCEventRuntime.Tick -> HCEventRuntime.HCAdvanceAnnounce -> HCExpansionAIEventProvider.Start -> HCXAIEncounters.StartEncounter -> HCXAIJournal.Begin -> HCXAIStore.SaveJournal",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 75,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCEventModule.OnTick -> HCEventModule.HCMeasuredTick -> HCEventRuntime.Tick -> HCEventRuntime.HCAdvanceAnnounce -> HCExpansionAIEventProvider.Start -> HCXAIEncounters.StartEncounter -> HCXAIJournal.Begin -> HCXAIStore.SaveJournal",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
-      "line": 76,
-      "symbol": "HCXAIStore.SaveJournal",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.HCMeasuredTick -> HCEventRuntime.Tick -> HCEventRuntime.HCAdvanceAnnounce -> HCExpansionAIEventProvider.Start -> HCXAIEncounters.StartEncounter -> HCXAIJournal.Begin -> HCXAIStore.SaveJournal",
-      "native": false
     }
   ]
 }
