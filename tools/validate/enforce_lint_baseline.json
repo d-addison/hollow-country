@@ -31,6 +31,276 @@
       "line_at_review": 113,
       "review": "2026-11-22 ownership review: HCXExpansionBridge.HCBaseGet returns provider eAIBase.Get(index); no allocation in authored bridge, but provider ownership is outside the authored/native source model. Retain unresolved until provider getter lifetime is verified.",
       "severity": "warning"
+    },
+    {
+      "rule": "HC-E036",
+      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "symbol": "HCJsonFields.KeyMatches",
+      "key": "HCJsonFields.KeyMatchesAt(... new HCTextWindow(text) ...) [argument 1]",
+      "count": 1,
+      "line_at_review": 64,
+      "review": "2026-11-22 c10 lint review: the temporary HCTextWindow only needs to live for the duration of KeyMatchesAt (a read-only window over text); nothing keeps it afterwards. Retain."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "symbol": "HCAdminTeleport.HCStep",
+      "key": "GetGame().ConfigGetText(root + \" type\", kind);",
+      "count": 1,
+      "line_at_review": 365,
+      "review": "2026-11-22 c10 lint review: reads CfgWorlds Names children enumerated by ConfigGetChildName in the same loop (the child exists); a missing type/name/position yields an empty string or array, which the next line filters out (type not a town class) or rejects as a bad row. Retain until the loop moves to HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "symbol": "HCAdminTeleport.HCStep",
+      "key": "GetGame().ConfigGetText(root + \" name\", title);",
+      "count": 1,
+      "line_at_review": 368,
+      "review": "2026-11-22 c10 lint review: reads CfgWorlds Names children enumerated by ConfigGetChildName in the same loop (the child exists); a missing type/name/position yields an empty string or array, which the next line filters out (type not a town class) or rejects as a bad row. Retain until the loop moves to HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "symbol": "HCAdminTeleport.HCStep",
+      "key": "GetGame().ConfigGetFloatArray(root + \" position\", coordinates);",
+      "count": 1,
+      "line_at_review": 370,
+      "review": "2026-11-22 c10 lint review: reads CfgWorlds Names children enumerated by ConfigGetChildName in the same loop (the child exists); a missing type/name/position yields an empty string or array, which the next line filters out (type not a town class) or rejects as a bad row. Retain until the loop moves to HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycle.c",
+      "symbol": "HCEcologyCycle.ReadTown",
+      "key": "GetGame().ConfigGetText(path + \" type\", type);",
+      "count": 1,
+      "line_at_review": 171,
+      "review": "2026-11-22 c10 lint review: child comes from a ConfigGetChildName that just succeeded; an empty type fails the town-class check on the next line and an empty position array is rejected before use. Retain until the town reader adopts HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycle.c",
+      "symbol": "HCEcologyCycle.ReadTown",
+      "key": "GetGame().ConfigGetFloatArray(path + \" position\", xy);",
+      "count": 1,
+      "line_at_review": 174,
+      "review": "2026-11-22 c10 lint review: child comes from a ConfigGetChildName that just succeeded; an empty type fails the town-class check on the next line and an empty position array is rejected before use. Retain until the town reader adopts HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
+      "symbol": "HCGroupPlaces.NativeNames",
+      "key": "GetGame().ConfigGetText(entry + \" name\", title);",
+      "count": 1,
+      "line_at_review": 55,
+      "review": "2026-11-22 c10 lint review: child comes from a successful ConfigGetChildName; an empty name or position array drops the row (fail closed) in the following checks. Retain until HCConfigHelper adoption."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPlaces.c",
+      "symbol": "HCGroupPlaces.NativeNames",
+      "key": "GetGame().ConfigGetFloatArray(entry + \" position\", coords);",
+      "count": 1,
+      "line_at_review": 57,
+      "review": "2026-11-22 c10 lint review: child comes from a successful ConfigGetChildName; an empty name or position array drops the row (fail closed) in the following checks. Retain until HCConfigHelper adoption."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeath.c",
+      "symbol": "ZombieBase.EvaluateDeathAnimationEx",
+      "key": "int ammoHitAnimation = GetGame().ConfigGetInt(\"cfgAmmo \" + data.m_AmmoType + \" hitAnimation\");",
+      "count": 1,
+      "line_at_review": 81,
+      "review": "2026-11-22 c10 lint review: cfgAmmo hitAnimation of the ammo that hit the infected: absent reads 0, which is the vanilla meaning of no hit animation and what the replaced vanilla code evaluated. Retain."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVariety.c",
+      "symbol": "HCInfectedVariety.HCCompositionDraw",
+      "key": "GetGame().ConfigGetText(\"CfgVehicles \" + usedType + \" model\", model);",
+      "count": 1,
+      "line_at_review": 374,
+      "review": "2026-11-22 c10 lint review: CfgVehicles model of a type already drawn from the configured variety pool; an empty model only adds a blank key to the composition set (no gameplay effect, no crash). Retain until HCConfigHelper adoption."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
+      "symbol": "HCInfectedVarietyModule.HCPrintCEVariantClasses",
+      "key": "GetGame().ConfigGetTextArray(\"CfgPatches HollowCountryAnims units\", names);",
+      "count": 1,
+      "line_at_review": 227,
+      "review": "2026-11-22 c10 lint review: diagnostic print only: CfgPatches units array and CfgVehicles scope counted for the boot report; an absent patch prints zero present classes, which is the report the boot check must show. Retain."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
+      "symbol": "HCInfectedVarietyModule.HCPrintCEVariantClasses",
+      "key": "if (GetGame().ConfigGetInt(\"CfgVehicles \" + name + \" scope\") == 2) { present++; }",
+      "count": 1,
+      "line_at_review": 232,
+      "review": "2026-11-22 c10 lint review: diagnostic print only: CfgPatches units array and CfgVehicles scope counted for the boot report; an absent patch prints zero present classes, which is the report the boot check must show. Retain."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "symbol": "HCCellarSampler.HCBeginHouse",
+      "key": "GetGame().ConfigGetText(\"CfgVehicles \" + definition.BuildingClass + \" model\", model);",
+      "count": 1,
+      "line_at_review": 394,
+      "review": "2026-11-22 c10 lint review: empty model string is rejected on the next line (model == \"\" refuses the house with a recorded reason); fail closed."
+    },
+    {
+      "rule": "HC-E038",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "symbol": "HCSearchRetirementPolicy.Retain",
+      "key": "state.Recent.Remove(0);",
+      "count": 1,
+      "line_at_review": 230,
+      "review": "2026-11-22 c10 lint review: genuine unordered head remove on the recent-search list (silently breaks FIFO, the search journal P0); being fixed on another branch (HCSearchRefresh.c). Row exists only so main stays green until that branch merges; remove with --ratchet after the merge."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeFightLogic.c",
+      "symbol": "HCMeleeWeaponWeight.HCCoefficient",
+      "key": "kg = Math.Max(0, item.ConfigGetFloat(\"weight\") / 1000.0);",
+      "count": 1,
+      "line_at_review": 42,
+      "review": "2026-11-22 c10 lint review: ConfigGetFloat is the item own instance read (item.ConfigGetFloat) with a cached result; a missing weight reads 0 and the coefficient falls to the clamped minimum. Retain until the weight table moves to HCConfigHelper."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneKits.c",
+      "symbol": "HCSceneKits.HCPlaceOne",
+      "key": "string model = GetGame().ConfigGetTextOut(\"CfgVehicles \" + prop.Type + \" model\");",
+      "count": 1,
+      "line_at_review": 369,
+      "review": "2026-11-22 c10 lint review: empty model string closes the lease and returns false on the next line; fail closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c",
+      "symbol": "HCTapedHelmetMounts.NativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles Mich2001Helmet attachments\", hostSlots);",
+      "count": 1,
+      "line_at_review": 34,
+      "review": "2026-11-22 c10 lint review: slot arrays are searched for the named slot (Find >= 0); a missing config leaves the arrays empty so the mount reports unavailable. Fails closed; build identity is already checked first."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c",
+      "symbol": "HCTapedHelmetMounts.NativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles UniversalLight inventorySlot\", lightSlots);",
+      "count": 1,
+      "line_at_review": 35,
+      "review": "2026-11-22 c10 lint review: slot arrays are searched for the named slot (Find >= 0); a missing config leaves the arrays empty so the mount reports unavailable. Fails closed; build identity is already checked first."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightAttachmentGate.c",
+      "symbol": "HCTapedLightPermit.Put",
+      "key": "GetGame().ConfigGetTextArray(root + \" \" + host.GetType() + \" attachments\", slots);",
+      "count": 1,
+      "line_at_review": 77,
+      "review": "2026-11-22 c10 lint review: host attachment slots array is only searched for the flashlight slot names; empty means no permit (returns false). Fails closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "symbol": "HCTapedLightV1Qualification.Resolve",
+      "key": "GetGame().ConfigGetTextArray(configRoot + \" \" + row.HostClass + \" attachments\", hostSlots);",
+      "count": 1,
+      "line_at_review": 207,
+      "review": "2026-11-22 c10 lint review: hostSlots/lightSlots are checked with Find(row.SlotName) < 0 and the row is refused (return null); fail closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "symbol": "HCTapedLightV1Qualification.Resolve",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles \" + row.LightClass + \" inventorySlot\", lightSlots);",
+      "count": 1,
+      "line_at_review": 208,
+      "review": "2026-11-22 c10 lint review: hostSlots/lightSlots are checked with Find(row.SlotName) < 0 and the row is refused (return null); fail closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "symbol": "HCTapedPackMounts.NativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles TortillaBag attachments\", hostSlots);",
+      "count": 1,
+      "line_at_review": 109,
+      "review": "2026-11-22 c10 lint review: both arrays searched for the pair slot (Find >= 0 on both); missing config makes the slot unavailable. Fails closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "symbol": "HCTapedPackMounts.NativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles UniversalLight inventorySlot\", lightSlots);",
+      "count": 1,
+      "line_at_review": 110,
+      "review": "2026-11-22 c10 lint review: both arrays searched for the pair slot (Find >= 0 on both); missing config makes the slot unavailable. Fails closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "symbol": "HCTapedPackMounts.WeaponNativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgWeapons \" + row.HostClass + \" attachments\", hostSlots);",
+      "count": 1,
+      "line_at_review": 238,
+      "review": "2026-11-22 c10 lint review: both arrays searched for the row slot; missing config makes the slot unavailable. Fails closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "symbol": "HCTapedPackMounts.WeaponNativeSlotAvailable",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles \" + row.LightClass + \" inventorySlot\", lightSlots);",
+      "count": 1,
+      "line_at_review": 239,
+      "review": "2026-11-22 c10 lint review: both arrays searched for the row slot; missing config makes the slot unavailable. Fails closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCHeliPolicy.c",
+      "symbol": "HCHeliPolicy.HCIsHelicopter",
+      "key": "GetGame().ConfigGetText(\"CfgVehicles \" + typeName + \" vehicleClass\", vehicleClass);",
+      "count": 1,
+      "line_at_review": 197,
+      "review": "2026-11-22 c10 lint review: empty vehicleClass means not a helicopter and is cached as such; the answer for an unknown class is the correct negative. Retain."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "symbol": "HCWreckSalvage.HCWheelFits",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles \" + wheel + \" inventorySlot\", slots);",
+      "count": 1,
+      "line_at_review": 219,
+      "review": "2026-11-22 c10 lint review: slots/attachments arrays are intersected; empty arrays mean the wheel does not fit (returns false); fail closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "symbol": "HCWreckSalvage.HCWheelFits",
+      "key": "GetGame().ConfigGetTextArray(\"CfgVehicles \" + vehicle + \" attachments\", attachments);",
+      "count": 1,
+      "line_at_review": 220,
+      "review": "2026-11-22 c10 lint review: slots/attachments arrays are intersected; empty arrays mean the wheel does not fit (returns false); fail closed."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountryAnims/scripts/4_World/HCPoseInfected.c",
+      "symbol": "ZombieBase.HCPreflightBinds",
+      "key": "g_Game.ConfigGetText(\"CfgVehicles \" + GetType() + \" enfanimsys graphname\", graph);",
+      "count": 1,
+      "line_at_review": 311,
+      "review": "2026-11-22 c10 lint review: an empty graphname string fails the bind preflight (m_HCBindState stays -1, command refused); fail closed. Retain until HCConfigHelper adoption."
+    },
+    {
+      "rule": "HC-E031",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXWarningShot.c",
+      "symbol": "HCXWarningShot.Fire",
+      "key": "if (ammo.IndexOf(\"Bullet_\") != 0 || GetGame().ConfigGetFloat(configPath + \" indirectHit\") > 0 || GetGame().ConfigGetFloat(configPath + \" indirectHitRange\") > 0)",
+      "count": 1,
+      "line_at_review": 49,
+      "review": "2026-11-22 c10 lint review: CfgAmmo indirectHit/indirectHitRange of a chambered ammo type: a missing key reads 0, the same value vanilla ballistics use for ammo without splash, so the shot proceeds as an ordinary bullet. 0 is the true engine default here, not a masked failure."
     }
   ]
 }

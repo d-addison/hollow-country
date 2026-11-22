@@ -50,6 +50,12 @@ it cannot resolve returned stores, infer synchronous implementation details or
 distinguish required durability barriers. All rules report review candidates,
 never measured complexity, timing or native acceptance.
 
+CallLater roots (B-14): a method scheduled through CallLater/CallLaterByName is a
+tick root for P003/P005/P008 when the call repeats (any repeat argument other than
+a literal false/0) or when the callback re-arms itself (it reaches, through typed
+authored calls, a method that schedules it again). One-shot, non-rearming
+callbacks stay out of the roots. Update-queue Insert callbacks are not modelled.
+
 P009 follows the same bounded typed call graph from OnStart, carrying lexical
 loop context across calls. Repeated file opens, probes, copies, deletes and JSON
 file loads/saves are synchronous multi-file candidates; reads from an already
@@ -103,6 +109,7 @@ _BOUNDARIES = frozenset({'Begin', 'HCStepImage', 'HCRefreshIntent'})
 # Get is not a scan candidate; array.Find is a linear first-occurrence search.
 _ARRAY_SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Find|Contains|IndexOf)\s*\(')
 _SLOT_CALL = re.compile(r'\b(HCTakeFor|HCCharge)\s*\(')
+_CALL_LATER = re.compile(r'\b(CallLater|CallLaterByName)\s*\(')
 
 
 @dataclass(frozen=True)
@@ -600,6 +607,62 @@ def startup_file_loops(model, edges, ios, loop_spans):
                 queue.append((*state, chain + (target,)))
 
 
+def callback_roots(model, edges):
+    """Methods scheduled by a repeating or self-rearming CallLater/CallLaterByName.
+
+    Returns {target node: (scheduler node, 'repeat' | 'rearm')}. A bounded breadth-first
+    walk over the authored call edges decides re-arming; unresolved callbacks are ignored.
+    """
+    scheduled = []
+    for i, (s, m) in enumerate(model.nodes):
+        for call in _CALL_LATER.finditer(s.code, m.body_start, m.body_end):
+            opening = s.code.find('(', call.start(), call.end())
+            closing = es.matching_paren(s.code, opening)
+            arguments = es.split_top(s.code[opening + 1:closing], ',')
+            if call.group(1) == 'CallLater':
+                if not arguments or not arguments[0].strip():
+                    continue
+                expression, repeat_at = arguments[0], 2
+                targets = model.targets(i, expression)
+            else:
+                if len(arguments) < 2:
+                    continue
+                # The lexer blanks string contents; read the callback name from the raw text.
+                raw = es.split_top(s.text[opening + 1:closing], ',')[1].strip().strip('"')
+                if not re.fullmatch(_IDENT, raw):
+                    continue
+                owner = re.sub(r'\s+', '', arguments[0])
+                typ = (m.owner.name if m.owner else '') if owner == 'this' else model.type_of(owner, model.envs[i])
+                targets = sorted({t for ancestor in model.lineage(typ) if typ
+                                  for t in model.index.get((ancestor, raw), [])})
+                repeat_at = 3
+            repeat = re.sub(r'\s+', '', arguments[repeat_at]) if len(arguments) > repeat_at else 'false'
+            scheduled.append((i, targets, repeat not in ('false', '0', '')))
+    schedulers = {}
+    for i, targets, _ in scheduled:
+        for target in targets:
+            schedulers.setdefault(target, set()).add(i)
+    roots = {}
+    for i, targets, repeating in scheduled:
+        for target in targets:
+            if repeating and target not in roots:
+                roots[target] = (i, 'repeat')
+    for target, owners in sorted(schedulers.items()):
+        if target in roots:
+            continue
+        seen, queue = {target}, deque([target])
+        while queue:
+            current = queue.popleft()
+            if current in owners:
+                roots[target] = (current, 'rearm')
+                break
+            for _, nxt in edges[current]:
+                if nxt not in seen:
+                    seen.add(nxt)
+                    queue.append(nxt)
+    return roots
+
+
 def check(sources, root=ROOT):
     """Return deterministic Finding objects; does not load/write a baseline."""
     model = Model(sources)
@@ -685,6 +748,7 @@ def check(sources, root=ROOT):
 
     roots = [i for i, (_, m) in enumerate(model.nodes) if _ROOT.fullmatch(m.name) and not boundary(i)
              and (not m.owner or m.name != m.owner.name)]
+    roots.extend(i for i in sorted(callback_roots(model, edges)) if i not in roots and not boundary(i))
 
     def walk(skipped):
         """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only."""
