@@ -143,7 +143,7 @@ queries the engine per frame beyond projecting the cached rows. Server work runs
 through the shared situations work-budget unit, one poll every two seconds.
 Notifications use the vanilla notification system, at most two per mission per
 player and twelve per minute server-wide; a late joiner receives one summary
-toast. Counters: `[HC Use] module=Events feature=mission_marker` and
+toast per identity per minute (a new character gets the list without the toast); the summary cap is separate from the start/end toast cap. Counters: `[HC Use] module=Events feature=mission_marker` and
 `feature=mission_notice`. Native compile, client display and the one-client check
 (toast, Expansion marker and circle, group map zone, removal at end, 0 missing
 textures, 0 client script errors) remain pending.

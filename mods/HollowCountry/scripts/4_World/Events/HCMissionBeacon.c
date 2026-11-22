@@ -5,7 +5,8 @@
 // 1_Core/proto/EnString.c:223 Hash; EnConvert.c:30 int.ToString; EnDebug.c:96 Print.
 // Operator policy for the public mission map. Optional profile file
 // HollowCountry/mission-beacon.json; absent or invalid fields keep these defaults.
-// A radius override of 0 means "use MissionZoneRadiusMeters".
+// A per-type radius key that is absent follows MissionZoneRadiusMeters; a present value must be
+// 50-1500 and anything else is reset to MissionZoneRadiusMeters with the config marked invalid.
 class HCMissionBeaconConfig
 {
     bool MissionMapMarkers = true;
@@ -14,13 +15,13 @@ class HCMissionBeaconConfig
     float MissionZoneOffsetFraction = 0.35;
     int MissionNotificationSeconds = 10;
     int MissionMapMaxRows = 8;
-    int MissionRadiusRecovery = 0;
-    int MissionRadiusDelivery = 0;
-    int MissionRadiusInvestigation = 0;
-    int MissionRadiusSalvage = 0;
-    int MissionRadiusEncounter = 0;
-    int MissionRadiusPresence = 0;
-    int MissionRadiusInfectedClear = 0;
+    int MissionRadiusRecovery = 250;
+    int MissionRadiusDelivery = 250;
+    int MissionRadiusInvestigation = 250;
+    int MissionRadiusSalvage = 250;
+    int MissionRadiusEncounter = 250;
+    int MissionRadiusPresence = 250;
+    int MissionRadiusInfectedClear = 250;
     protected static ref HCMissionBeaconConfig s_Config;
 
     bool HCNormalize(string text)
@@ -36,20 +37,20 @@ class HCMissionBeaconConfig
         if (!HCOperatorSettingsRegistry.HCValid("Events.MissionNotificationSeconds", this.MissionNotificationSeconds)) { this.MissionNotificationSeconds = 10; invalid = true; }
         if (!HCJsonFields.Has(text, "MissionMapMaxRows")) { this.MissionMapMaxRows = 8; }
         if (!HCOperatorSettingsRegistry.HCValid("Events.MissionMapMaxRows", this.MissionMapMaxRows)) { this.MissionMapMaxRows = 8; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusRecovery")) { this.MissionRadiusRecovery = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusRecovery", this.MissionRadiusRecovery)) { this.MissionRadiusRecovery = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusDelivery")) { this.MissionRadiusDelivery = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusDelivery", this.MissionRadiusDelivery)) { this.MissionRadiusDelivery = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusInvestigation")) { this.MissionRadiusInvestigation = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusInvestigation", this.MissionRadiusInvestigation)) { this.MissionRadiusInvestigation = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusSalvage")) { this.MissionRadiusSalvage = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusSalvage", this.MissionRadiusSalvage)) { this.MissionRadiusSalvage = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusEncounter")) { this.MissionRadiusEncounter = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusEncounter", this.MissionRadiusEncounter)) { this.MissionRadiusEncounter = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusPresence")) { this.MissionRadiusPresence = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusPresence", this.MissionRadiusPresence)) { this.MissionRadiusPresence = 0; invalid = true; }
-        if (!HCJsonFields.Has(text, "MissionRadiusInfectedClear")) { this.MissionRadiusInfectedClear = 0; }
-        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusInfectedClear", this.MissionRadiusInfectedClear)) { this.MissionRadiusInfectedClear = 0; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusRecovery")) { this.MissionRadiusRecovery = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusRecovery", this.MissionRadiusRecovery)) { this.MissionRadiusRecovery = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusDelivery")) { this.MissionRadiusDelivery = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusDelivery", this.MissionRadiusDelivery)) { this.MissionRadiusDelivery = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusInvestigation")) { this.MissionRadiusInvestigation = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusInvestigation", this.MissionRadiusInvestigation)) { this.MissionRadiusInvestigation = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusSalvage")) { this.MissionRadiusSalvage = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusSalvage", this.MissionRadiusSalvage)) { this.MissionRadiusSalvage = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusEncounter")) { this.MissionRadiusEncounter = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusEncounter", this.MissionRadiusEncounter)) { this.MissionRadiusEncounter = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusPresence")) { this.MissionRadiusPresence = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusPresence", this.MissionRadiusPresence)) { this.MissionRadiusPresence = this.MissionZoneRadiusMeters; invalid = true; }
+        if (!HCJsonFields.Has(text, "MissionRadiusInfectedClear")) { this.MissionRadiusInfectedClear = this.MissionZoneRadiusMeters; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MissionRadiusInfectedClear", this.MissionRadiusInfectedClear)) { this.MissionRadiusInfectedClear = this.MissionZoneRadiusMeters; invalid = true; }
         return invalid;
     }
 
@@ -58,10 +59,10 @@ class HCMissionBeaconConfig
         Print("[HC Config] HCMissionBeaconConfig markers=" + MissionMapMarkers.ToString() + " notices=" + MissionNotifications.ToString() + " radius_m=" + MissionZoneRadiusMeters.ToString() + " offset=" + MissionZoneOffsetFraction.ToString() + " seconds=" + MissionNotificationSeconds.ToString() + " rows=" + MissionMapMaxRows.ToString() + " runtime=PENDING");
     }
 
-    // Zone radius in metres for one mission family; never below the registry floor.
+    // Zone radius in metres for one mission family (always 50-1500).
     int RadiusFor(int family)
     {
-        int value = 0;
+        int value = MissionZoneRadiusMeters;
         if (family == HCEventFamily.RECOVERY) { value = MissionRadiusRecovery; }
         else if (family == HCEventFamily.DELIVERY) { value = MissionRadiusDelivery; }
         else if (family == HCEventFamily.INVESTIGATION) { value = MissionRadiusInvestigation; }
@@ -69,7 +70,6 @@ class HCMissionBeaconConfig
         else if (family == HCEventFamily.AI_ENCOUNTER) { value = MissionRadiusEncounter; }
         else if (family == HCEventFamily.PRESENCE) { value = MissionRadiusPresence; }
         else if (family == HCEventFamily.INFECTED_CLEAR) { value = MissionRadiusInfectedClear; }
-        if (value < 50) { value = MissionZoneRadiusMeters; }
         return value;
     }
 
@@ -126,7 +126,7 @@ class HCMissionBeaconEntry
 // Owned by HCEventModule (created in OnStart, closed in OnStop).
 class HCMissionBeacon
 {
-    // Toast sends per minute across all missions and connects.
+    // Start/end toast sends per minute across all missions.
     static const int NOTICES_PER_MINUTE = 12;
     static const string ICON = "set:dayz_gui image:icon_flag";
     protected ref HCMissionBeaconConfig m_Config;
@@ -141,6 +141,10 @@ class HCMissionBeacon
     protected int m_NoticeCount = 0;
     protected bool m_CapLogged = false;
     protected bool m_FullLogged = false;
+    // Connect summaries have their own cap, apart from the start/end toasts: one per
+    // identity per minute, at most SUMMARY_TRACKED identities remembered.
+    static const int SUMMARY_TRACKED = 64;
+    protected ref map<string, float> m_SummaryAt = new map<string, float>();
 
     void HCOpen()
     {
@@ -153,6 +157,7 @@ class HCMissionBeacon
         m_NoticeCount = 0;
         m_CapLogged = false;
         m_FullLogged = false;
+        m_SummaryAt.Clear();
         m_Open = true;
     }
 
@@ -167,6 +172,7 @@ class HCMissionBeacon
             Print("[HC Events] mission ended id=" + entry.Id + " reason=shutdown");
         }
         m_Entries.Clear();
+        m_SummaryAt.Clear();
         if (hadRows) { HCBroadcast(); }
     }
 
@@ -266,7 +272,8 @@ class HCMissionBeacon
         while (index >= 0)
         {
             HCMissionBeaconEntry present = m_Entries[index];
-            if (!HCSourced(present.Id))
+            // Direct runtime check, never membership of the truncated source list.
+            if (!runtime.HCIsPublic(present.Id, context.Now))
             {
                 string reason = runtime.HCMissionOutcome(present.Id);
                 m_Entries.RemoveOrdered(index);
@@ -305,15 +312,6 @@ class HCMissionBeacon
     protected void HCLogFull(int cap, string id)
     {
         Print("[HC Events] mission map table full cap=" + cap.ToString() + " refused id=" + id + " reason=table_full");
-    }
-
-    protected bool HCSourced(string id)
-    {
-        foreach (HCEventBeaconSource source : m_Sources)
-        {
-            if (source.Id == id) { return true; }
-        }
-        return false;
     }
 
     protected bool HCHeld(string id)
@@ -399,6 +397,26 @@ class HCMissionBeacon
         return true;
     }
 
+    // One summary toast per identity per minute; does not draw on the start/end toast cap.
+    protected bool HCSummaryAllowed(PlayerIdentity identity)
+    {
+        string key = identity.GetId();
+        float now = GetGame().GetTickTime();
+        float last = 0;
+        if (m_SummaryAt.Find(key, last) && now >= last && now - last < 60) { return false; }
+        if (m_SummaryAt.Count() >= SUMMARY_TRACKED && !m_SummaryAt.Contains(key))
+        {
+            for (int index = m_SummaryAt.Count() - 1; index >= 0; index--)
+            {
+                float stamp = m_SummaryAt.GetElement(index);
+                if (now < stamp || now - stamp >= 60) { m_SummaryAt.RemoveElement(index); }
+            }
+            if (m_SummaryAt.Count() >= SUMMARY_TRACKED) { return false; }
+        }
+        m_SummaryAt.Set(key, now);
+        return true;
+    }
+
     // One vanilla toast broadcast to every connected player.
     protected void HCNotice(string title, string detail, int players)
     {
@@ -450,7 +468,7 @@ class HCMissionBeacon
         HCWriteSnapshot(rpc);
         rpc.Send(null, HCBeaconWire.RPC_PUBLIC, true, identity);
         if (!inWorld || !m_Config.MissionMapMarkers || !m_Config.MissionNotifications || m_Entries.Count() == 0) { return; }
-        if (!HCNoticeAllowed()) { return; }
+        if (!HCSummaryAllowed(identity)) { return; }
         string text = m_Entries.Count().ToString() + " active missions marked on your map";
         if (m_Entries.Count() == 1) { text = "1 active mission marked on your map"; }
         NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, m_Config.MissionNotificationSeconds, "Missions", text, ICON);

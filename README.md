@@ -673,19 +673,19 @@ Client-local profile, with a packaged mission template. `Enabled=false`, `season
 
 #### Events: `mission-beacon.json`
 
-Optional file under the profile's `HollowCountry/` directory; a missing file or missing key keeps the default and an out-of-range value falls back to the default with a log line. Restart after editing. Zone radius is per mission type when a `MissionRadius<Type>` key is above 0, otherwise the server default applies.
+Optional file under the profile's `HollowCountry/` directory; a missing file or missing key keeps the default and an out-of-range value falls back to the default with a log line. Restart after editing. Zone radius is per mission type when a `MissionRadius<Type>` key is present; an absent key follows `MissionZoneRadiusMeters`, and a present value outside 50-1500 is refused and reset to it.
 
 | Registry key | Default | Allowed range |
 | :--- | :--- | :--- |
 | `Events.MissionMapMarkers` | `true` | on/off |
 | `Events.MissionNotifications` | `true` | on/off |
 | `Events.MissionZoneRadiusMeters` | `250` | 50-1500 |
-| `Events.MissionZoneOffsetFraction` | `0.35` | 0-0.6 |
+| `Events.MissionZoneOffsetFraction` | `0.35` | 0.15-0.6 |
 | `Events.MissionNotificationSeconds` | `10` | 3-30 |
 | `Events.MissionMapMaxRows` | `8` | 1-16 |
-| `Events.MissionRadiusRecovery`, `Delivery`, `Investigation`, `Salvage`, `Encounter`, `Presence`, `InfectedClear` | `0` (server default) | 0 or 50-1500 |
+| `Events.MissionRadiusRecovery`, `Delivery`, `Investigation`, `Salvage`, `Encounter`, `Presence`, `InfectedClear` | `250` (follows `MissionZoneRadiusMeters` when absent) | 50-1500 |
 
-Check on one client: the toast appears, the Expansion map shows the marker and circle, the group map shows the same zone, both disappear when the mission ends, with 0 missing textures and 0 client script errors. Server evidence: `[HC Events] mission public id=... radius=... offset=... players=...`, `[HC Events] mission ended id=... reason=...` and the `[HC Use] module=Events feature=mission_marker` and `feature=mission_notice` counters.
+Connect summaries are limited to one per player per minute and are separate from the start and end toasts. A brand-new character receives the current list silently (no summary toast); respawn, reconnect and ready-in-world players get the single summary toast. Check on one client: the toast appears, the Expansion map shows the marker and circle, the group map shows the same zone, both disappear when the mission ends, with 0 missing textures and 0 client script errors. Server evidence: `[HC Events] mission public id=... radius=... offset=... players=...`, `[HC Events] mission ended id=... reason=...` and the `[HC Use] module=Events feature=mission_marker` and `feature=mission_notice` counters.
 
 ### Mission policy additions
 
