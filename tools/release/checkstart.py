@@ -171,8 +171,9 @@ def main(argv=None):
     parser.add_argument('--image', default='DayZServer_x64.exe')
     parser.add_argument('--stall-seconds', type=float, default=180)
     parser.add_argument('--settle-minutes', type=float, default=0)
-    parser.add_argument('--ready-deadline-minutes', type=float, default=15,
-                        help='readiness deadline from watch start; at least settle and at most total timeout')
+    parser.add_argument('--ready-deadline-minutes', type=float, default=None,
+                        help='readiness deadline from watch start; at least settle and at most total timeout '
+                             '(default: 15, or the settle minutes when longer, capped at the timeout)')
     parser.add_argument('--timeout-seconds', type=float, default=900,
                         help='total watch deadline, including settle and readiness (default: 900)')
     parser.add_argument('--poll-seconds', type=float, default=5)
@@ -189,6 +190,8 @@ def main(argv=None):
             parser.error('time limits must be finite and positive')
     if not math.isfinite(args.settle_minutes) or args.settle_minutes < 0:
         parser.error('settle minutes must be finite and nonnegative')
+    if args.ready_deadline_minutes is None:
+        args.ready_deadline_minutes = min(max(15.0, args.settle_minutes), args.timeout_seconds / 60)
     if not math.isfinite(args.ready_deadline_minutes) or args.ready_deadline_minutes < args.settle_minutes:
         parser.error('ready deadline minutes must be finite and at least settle minutes')
     if args.ready_deadline_minutes * 60 > args.timeout_seconds:

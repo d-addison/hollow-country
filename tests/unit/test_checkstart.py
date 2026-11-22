@@ -199,6 +199,16 @@ class CheckstartTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 2)
             install.assert_not_called()
 
+    def test_default_ready_deadline_follows_long_settle(self):
+        # release_gate passes a settle longer than 15 minutes and no deadline.
+        args = self.setup_watch('')
+        settle = 30
+        with patch.object(boot.winproc, 'run', side_effect=RuntimeError('reached install check')), \
+                contextlib.redirect_stderr(io.StringIO()), \
+                self.assertRaises(RuntimeError):
+            boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--start',
+                       '--settle-minutes', str(settle), '--timeout-seconds', str(settle * 60 + 900)])
+
     def test_pending_readiness_deadline_precedes_total_timeout(self):
         args, _, append = self.readiness_boot({})
         with contextlib.redirect_stdout(io.StringIO()):
