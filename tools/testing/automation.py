@@ -41,9 +41,9 @@ ADAPTERS = {
     "runtime": "Offline configuration checks; run through tools.testing.drivers",
     "hygiene": "Offline repository checks; run through tools.testing.drivers",
 }
-# Owner decision 2026-11-22: two licensed clients, audio judgement and load qualification
-# are deferred. They stay traceable here as NOTRUN and are never claimed.
-DEFERRED_REASON = "deferred_owner_2026-11-22"
+# Owner 2026-11-22: spec 002 is fully in scope; these tasks are not built yet and stay NOTRUN,
+# never claimed.
+DEFERRED_REASON = "in_scope_not_built"
 DEFERRED_DRIVER = "deferred.task"
 DEFERRED_TASKS = {
     "AV-T017": "Distinct two-client barriers, observation and races",

@@ -35,8 +35,8 @@ that is never runnable.
   The documents above do not describe them as working, and the lane below reports them as
   blocked or not run.
 - AV-T017, AV-T018, AV-T019 and AV-T022 (two licensed clients, network faults, audio
-  judgement, six- and ninety-player load qualification) are deferred by the owner on
-  2026-11-22 and stay NOTRUN with reason `deferred_owner_2026-11-22`.
+  judgement, six- and ninety-player load qualification) are in scope (owner, 2026-11-22) but
+  not built yet; they stay NOTRUN with reason `in_scope_not_built`.
 - No capability observes gameplay, so no catalogue row can pass a gameplay submethod today.
 
 ## Offline CI lane

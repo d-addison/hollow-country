@@ -22,9 +22,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 STATUSES = ("known", "absent", "unverified")
 PLANNER_STATUS = {"known": "available", "absent": "blocked", "unverified": "unknown"}
-DEFERRED = "deferred_owner_2026-11-22"
-# Owner 2026-11-22: two licensed clients, audio judgement and load qualification are not
-# built now. Discovery never reports them as anything but unverified.
+DEFERRED = "in_scope_not_built"
+# Owner 2026-11-22: spec 002 is fully in scope; these tasks are not built yet. Discovery never
+# reports them as anything but unverified.
 DEFERRED_CAPABILITIES = {
     "licensed_authenticated_rendered_client_pair": "two licensed clients (AV-T017/AV-T018)",
     "synchronized_client_capture": "two licensed clients (AV-T017)",
