@@ -14,6 +14,9 @@ class HCSearchLimitsRegistry : HCOperatorSettingsRegistry
         HCInit();
         if (s_SearchRegistered) { return; }
         s_SearchRegistered = true;
+        // RetryDelayMs and RetryAttempts are reserved: no effect since the interiors pilot
+        // retirement (2026-11-22). They stay registered so an existing search-limits.json
+        // that carries them still loads and validates; nothing reads their values.
         HCAdd("SearchLimits.RetryDelayMs", "int", 10000, 1000, 60000, "HCSearchLimits");
         HCAdd("SearchLimits.RetryAttempts", "int", 3, 1, 12, "HCSearchLimits");
         HCAdd("SearchLimits.RefreshRecordsPerMinute", "int", 32, 1, 32, "HCSearchLimits");
@@ -29,6 +32,8 @@ class HCSearchLimitsRegistry : HCOperatorSettingsRegistry
 
 class HCSearchLimits
 {
+    // Reserved, no effect since the interiors pilot retirement (2026-11-22): parsed and
+    // range-checked in HCApply so old operator files keep loading, never read elsewhere.
     int RetryDelayMs = 10000;
     int RetryAttempts = 3;
     int RefreshRecordsPerMinute = 32;
@@ -824,25 +829,6 @@ class HCSearchRefreshModule : HCModule
         if (!s_Instance) return false;
         HCSearchRefreshRow row = s_Instance.FindRow(scope, siteId);
         return row && row.Ready && !s_Instance.HCCheckpointPending();
-    }
-
-    bool RecycleReadyTimer()
-    {
-        int readyIndex = m_State.Rows.Count() - 1;
-        while (readyIndex >= 0)
-        {
-            HCSearchRefreshRow readyRow = m_State.Rows[readyIndex];
-            if (readyRow.Ready && !readyRow.Revisited)
-            {
-                // Revisited is durable routing history, not disposable timer
-                // metadata. Never evict it to make room; the fixed cap fails closed.
-                RemoveReadyTimer(readyRow);
-                Print("[HC Search Houses] expired refresh timer recycled");
-                return true;
-            }
-            readyIndex = readyIndex - 1;
-        }
-        return false;
     }
 
     // Only after all active transfer rows for a ready site have been compacted.

@@ -858,7 +858,7 @@ Shared save scheduling and retained world facts/leads/scenes; EnableSharedSaves=
 
 #### SearchLimits: `search-limits.json`
 
-Search retries, refresh records and journal maintenance; EnableSearch=false opts out. Work alternates within the shared tick budget.
+Search refresh records and journal maintenance (the retry keys are reserved, see below); EnableSearch=false opts out. Work alternates within the shared tick budget.
 
 | Key | Default | Allowed range |
 | :--- | :--- | :--- |
