@@ -81,12 +81,16 @@ modded class HCXAISiteDirector
     }
     // Called for one zone/tick by its HCWorkBudget admission. Use the existing
     // bind/qualify/create stages, never a second native patrol constructor.
-    void HCZoneService(HCXZoneGuardsRuntime zone)
+    // Returns true when this call ran one stage. A call runs at most one stage, and
+    // HCXZoneGuards.OnTick makes at most one call per tick inside its single
+    // HC_WORK_ZONE_GUARDS unit, so a tick can never run two sites' stages.
+    bool HCZoneService(HCXZoneGuardsRuntime zone)
     {
-        if (m_Phase != "run" || !m_Policy || !m_OwnedSaved) { return; }
+        if (m_Phase != "run" || !m_Policy || !m_OwnedSaved) { return false; }
+        int began = TickCount(0);
         if (!zone.Site)
         {
-            if (zone.Row.State != "held" || m_States.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return; }
+            if (zone.Row.State != "held" || m_States.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return false; }
             HCXZoneGuardsSite site = new HCXZoneGuardsSite;
             site.Id = "zg-" + zone.Zone.id;
             site.Kind = "patrol";
@@ -115,14 +119,35 @@ modded class HCXAISiteDirector
             zone.Site.Site = site;
             m_States.Insert(zone.Site);
             m_AdmittedTotal++;
-            return;
+            this.HCZoneStage(zone, "admit", began);
+            return true;
         }
         HCXAISiteState state = zone.Site;
-        if (zone.Row.State != "held" || zone.Row.Wiped) { return; }
-        if (state.Failed || state.Patrol) { return; }
-        if (!state.Bound) { this.Bind(state); return; }
-        if (!state.Qualified) { this.QualifyStep(state); return; }
+        if (zone.Row.State != "held" || zone.Row.Wiped) { return false; }
+        if (state.Failed || state.Patrol) { return false; }
+        if (!state.Bound)
+        {
+            this.Bind(state);
+            this.HCZoneStage(zone, "bind", began);
+            return true;
+        }
+        if (!state.Qualified)
+        {
+            this.QualifyStep(state);
+            this.HCZoneStage(zone, "qualify", began);
+            return true;
+        }
         this.Create(state);
+        this.HCZoneStage(zone, "create", began);
+        return true;
+    }
+    // Existing site_stage peak line (>= 40000 ticks) plus the zone-guards progress counters.
+    protected void HCZoneStage(HCXZoneGuardsRuntime zone, string stage, int began)
+    {
+        int elapsed = TickCount(began);
+        this.HCSiteStageCost("zone_" + stage, began);
+        HCXZoneGuards owner = HCXZoneGuards.Active();
+        if (owner) { owner.StageProgress(zone.Zone.id, stage, elapsed); }
     }
     override string HCPrepareRingSpawn(HCXAISitePatrol patrol)
     {
