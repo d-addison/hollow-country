@@ -20,9 +20,9 @@ class CheckstartTests(unittest.TestCase):
         path.write_text(text)
         return SimpleNamespace(rpt=path, profiles=root, start=False, image='fake',
                                interop={}, timeout_seconds=30, stall_seconds=20,
-                               settle_minutes=3 / 60, poll_seconds=1)
+                               settle_minutes=3 / 60, ready_deadline_minutes=10 / 60, poll_seconds=1)
 
-    def watch(self, args, on_sleep=None):
+    def watch(self, args, on_sleep=None, through_main=False):
         now = [0]
         def sleep(seconds):
             now[0] += seconds
@@ -31,7 +31,17 @@ class CheckstartTests(unittest.TestCase):
         with patch.object(boot.time, 'monotonic', side_effect=lambda: now[0]), \
                 patch.object(boot.time, 'sleep', side_effect=sleep), \
                 patch.object(boot.winproc, 'process_state', return_value='running') as process:
-            outcome, _ = boot.watch(args, set(), {})
+            if through_main:
+                result = SimpleNamespace(returncode=0, attempts=1, stdout='', stderr='')
+                with patch.object(boot.winproc, 'run', return_value=result):
+                    outcome = boot.main([
+                        '--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt),
+                        '--settle-minutes', str(args.settle_minutes),
+                        '--ready-deadline-minutes', str(args.ready_deadline_minutes),
+                        '--timeout-seconds', str(args.timeout_seconds),
+                        '--stall-seconds', str(args.stall_seconds), '--poll-seconds', str(args.poll_seconds)])
+            else:
+                outcome, _ = boot.watch(args, set(), {})
         return outcome, now[0], process
 
     def test_runtime_error_keeps_settling_and_collects_late_readiness(self):
@@ -106,3 +116,101 @@ class CheckstartTests(unittest.TestCase):
                 code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)])
             self.assertEqual(code, boot.CODES[outcome])
             self.assertIn('boot_verdict=' + outcome, output.getvalue())
+
+    def readiness_boot(self, updates):
+        """Stream authored readiness fixtures at selected fake poll times."""
+        modules = ('AIRoles', 'optional-expansion-human-ai')
+        def line(module, ready, reason):
+            return f'[HC Ready] module={module} enabled=true ready={str(ready).lower()} reason={reason} runtime=PENDING\n'
+        args = self.setup_watch(MISSION + CONNECT + ''.join(
+            line(module, False, 'source_pages') for module in modules))
+        ticks = [0]
+        def append():
+            ticks[0] += 1
+            with args.rpt.open('a') as stream:
+                stream.write('[HC Progress] source pages advancing\n')
+                for module, ready, reason in updates.get(ticks[0], ()):
+                    stream.write(line(module, ready, reason))
+        return args, modules, append
+
+    def test_late_readiness_converges_to_exit_zero(self):
+        args, modules, append = self.readiness_boot({
+            5: [('AIRoles', True, 'ok')],
+            7: [('optional-expansion-human-ai', True, 'ok')]})
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code, elapsed, _ = self.watch(args, append, through_main=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(elapsed, 7)
+        lines = output.getvalue().splitlines()
+        pending = [line for line in lines if line.startswith('checkstart settle window passed;')]
+        self.assertEqual(len(pending), 1)
+        for module in modules:
+            self.assertIn(module, pending[0])
+        self.assertIn('checkstart readiness converged after 7s (pending at settle: '
+                      + ', '.join(modules) + ')', lines)
+
+    def test_readiness_deadline_returns_seven_and_last_reasons(self):
+        args, modules, append = self.readiness_boot({
+            5: [('AIRoles', False, 'last_source_page')]})
+        # Equal overall and readiness deadlines must still return not_ready.
+        args.timeout_seconds = args.ready_deadline_minutes * 60
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code, elapsed, _ = self.watch(args, append, through_main=True)
+        self.assertEqual(code, 7)
+        self.assertEqual(elapsed, args.ready_deadline_minutes * 60)
+        deadline = [line for line in output.getvalue().splitlines()
+                    if line.startswith('checkstart readiness deadline exceeded:')]
+        self.assertEqual(len(deadline), 1)
+        self.assertIn(modules[0] + ' reason=last_source_page', deadline[0])
+        self.assertIn(modules[1] + ' reason=source_pages', deadline[0])
+        self.assertNotIn('runtime=', deadline[0])
+        self.assertNotIn('readiness converged', output.getvalue())
+
+    def test_ready_flips_back_to_false_and_keeps_waiting(self):
+        args, _, append = self.readiness_boot({
+            1: [('AIRoles', True, 'ok')],
+            2: [('AIRoles', False, 'rechecking')],
+            4: [('optional-expansion-human-ai', True, 'ok')],
+            8: [('AIRoles', True, 'ok')]})
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            code, elapsed, _ = self.watch(args, append, through_main=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(elapsed, 8)
+        self.assertIn('checkstart readiness converged after 8s', output.getvalue())
+
+    def test_disabled_readiness_does_not_block_settle(self):
+        args = self.setup_watch(MISSION + CONNECT
+                               + '[HC Ready] module=Disabled enabled=false ready=false reason=off\n')
+        outcome, elapsed, _ = self.watch(args)
+        self.assertEqual(outcome, 'connect_enabled')
+        self.assertEqual(elapsed, args.settle_minutes * 60)
+
+    def test_ready_deadline_validation_precedes_install_check(self):
+        args = self.setup_watch('')
+        invalid = [('--ready-deadline-minutes', value) for value in ('nan', 'inf', '-1')]
+        invalid += [('--ready-deadline-minutes', '1', '--settle-minutes', '2'),
+                    ('--ready-deadline-minutes', '2', '--timeout-seconds', '119')]
+        for options in invalid:
+            with self.subTest(options=options), \
+                    patch.object(boot.winproc, 'run') as install, \
+                    contextlib.redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit) as error:
+                boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), *options])
+            self.assertEqual(error.exception.code, 2)
+            install.assert_not_called()
+
+    def test_pending_readiness_deadline_precedes_total_timeout(self):
+        args, _, append = self.readiness_boot({})
+        with contextlib.redirect_stdout(io.StringIO()):
+            outcome, elapsed, _ = self.watch(args, append)
+        self.assertEqual(outcome, 'not_ready')
+        self.assertEqual(elapsed, args.ready_deadline_minutes * 60)
+        self.assertLess(elapsed, args.timeout_seconds)
+
+    def test_pending_readiness_does_not_extend_stall_limit(self):
+        args, _, _ = self.readiness_boot({})
+        args.stall_seconds = args.ready_deadline_minutes * 60 / 2
+        with contextlib.redirect_stdout(io.StringIO()):
+            outcome, elapsed, _ = self.watch(args)
+        self.assertEqual(outcome, 'stalled')
+        self.assertEqual(elapsed, args.stall_seconds)

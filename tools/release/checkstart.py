@@ -3,19 +3,20 @@
 python3 -B -m tools.release.checkstart --bundle 'D:\\HollowCountryLocal\\friend-bundle-N'
 Without --start, attach to the newest RPT (or --rpt); never launch a process.
 With --start, require no server running, invoke start-server.bat, follow a NEW RPT.
-Exit codes: 0 connect-enabled after settle; 2 install check failed; 3 compile;
-4 crash/dump; 5 process gone; 6 stall; 7 ready=false; 8 interop unknown;
+Exit codes: 0 connect-enabled after settle and readiness convergence; 2 install check failed; 3 compile;
+4 crash/dump; 5 process gone; 6 stall; 7 ready=false at readiness deadline; 8 interop unknown;
 9 input/start/timeout error; 10 persistence corruption; 11 runtime script error; 130 interrupted. No exit path stops the server.
 """
 import argparse
 from contextlib import ExitStack
 from tools.release.host_lock import host_lock, LockRefused
 import math
+import re
 from pathlib import Path
 import time
 
 from tools.setup import winproc
-from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED
+from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED, READY
 
 CODES = {'compile_failed': 3, 'crashed': 4, 'process_gone': 5,
          'stalled': 6, 'not_ready': 7, 'interop_unknown': 8,
@@ -52,9 +53,26 @@ def watch(args, before, old_dumps):
     mission_loaded = False
     script_error = False
     unknown_polls = 0
+    ready_last = {}
+    pending_at_settle = None
+
+    def pending_modules():
+        return sorted(module for module, (ready, _) in ready_last.items() if not ready)
+
+    def report_pending(modules):
+        details = '; '.join(f'{module} reason={ready_last[module][1]}' for module in modules)
+        safe = filtered('checkstart readiness deadline exceeded: ' + details)
+        if safe:
+            print(safe, flush=True)
+
     while True:
         now = time.monotonic()
         if now - began >= args.timeout_seconds:
+            # Equal deadlines still give pending readiness its specific verdict.
+            modules = pending_modules()
+            if now - began >= args.ready_deadline_minutes * 60 and modules:
+                report_pending(modules)
+                return 'not_ready', rpt
             return 'timed_out', rpt
         if any(old_dumps.get(p) != stamp for p, stamp in dumps(args.profiles).items()):
             return 'crashed', rpt
@@ -90,7 +108,13 @@ def watch(args, before, old_dumps):
                         if verdict == 'script_error':
                             script_error = True
                             verdict = None
-                        # Readiness is judged on the final summary (last [HC Ready] line per module).
+                        # Match Summary's last-line rule and bounded module inventory.
+                        if verdict == 'not_ready' or ('[HC Ready]' in line and READY.search(line)):
+                            field = re.search(r'\bmodule=([^\s;]+)', line)
+                            if field and (field.group(1) in ready_last or len(ready_last) < 256):
+                                reason = re.search(r'\breason=([^\s;]+)', line)
+                                ready_last[field.group(1)] = (
+                                    verdict != 'not_ready', reason.group(1).strip() if reason else 'unspecified')
                         if verdict == 'not_ready':
                             verdict = None
                         if verdict and (batch_outcome is None or verdict == 'compile_failed'):
@@ -117,8 +141,23 @@ def watch(args, before, old_dumps):
             return 'stalled', rpt
         # Drain all bytes present before passing, including errors after connect.
         caught_up = rpt is not None and rpt.stat().st_size <= position
+        modules = pending_modules()
         if state == 'running' and connected_at is not None and caught_up and now - connected_at >= args.settle_minutes * 60:
-            return 'script_error' if script_error else 'connect_enabled', rpt
+            if not modules:
+                if pending_at_settle is not None:
+                    safe = filtered(f'checkstart readiness converged after {now - began:g}s '
+                                    f'(pending at settle: {", ".join(pending_at_settle)})')
+                    if safe:
+                        print(safe, flush=True)
+                return 'script_error' if script_error else 'connect_enabled', rpt
+            if pending_at_settle is None:
+                pending_at_settle = modules
+                safe = filtered('checkstart settle window passed; readiness pending: ' + ', '.join(modules))
+                if safe:
+                    print(safe, flush=True)
+        if now - began >= args.ready_deadline_minutes * 60 and modules and caught_up:
+            report_pending(modules)
+            return 'not_ready', rpt
         time.sleep(args.poll_seconds if caught_up or rpt is None else 0)
 
 
@@ -132,7 +171,10 @@ def main(argv=None):
     parser.add_argument('--image', default='DayZServer_x64.exe')
     parser.add_argument('--stall-seconds', type=float, default=180)
     parser.add_argument('--settle-minutes', type=float, default=0)
-    parser.add_argument('--timeout-seconds', type=float, default=900, help='total watch deadline, including settle')
+    parser.add_argument('--ready-deadline-minutes', type=float, default=15,
+                        help='readiness deadline from watch start; at least settle and at most total timeout')
+    parser.add_argument('--timeout-seconds', type=float, default=900,
+                        help='total watch deadline, including settle and readiness (default: 900)')
     parser.add_argument('--poll-seconds', type=float, default=5)
     parser.add_argument('--interop-attempts', type=int, default=3)
     parser.add_argument('--interop-timeout', type=float, default=30)
@@ -147,6 +189,10 @@ def main(argv=None):
             parser.error('time limits must be finite and positive')
     if not math.isfinite(args.settle_minutes) or args.settle_minutes < 0:
         parser.error('settle minutes must be finite and nonnegative')
+    if not math.isfinite(args.ready_deadline_minutes) or args.ready_deadline_minutes < args.settle_minutes:
+        parser.error('ready deadline minutes must be finite and at least settle minutes')
+    if args.ready_deadline_minutes * 60 > args.timeout_seconds:
+        parser.error('ready deadline must not exceed timeout seconds')
     if not args.profiles.is_dir():
         parser.error('profiles directory unavailable')
     args.interop = dict(attempts=args.interop_attempts, timeout=args.interop_timeout,
