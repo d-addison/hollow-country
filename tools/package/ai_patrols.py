@@ -1,7 +1,10 @@
 """Bounded stdlib patrol/site contract validator and HC site generator. Never qualifies or installs AI.
 
 Only Id + Position crosses the events boundary; Reviewed is an admission input.
-Missions mirror HCXAIMission and may be merged into a separately verified profile.
+RETIRED: the `--patrols` Missions validator below described the removed HCXAIMission/profile
+model. No runtime class consumes it any more; it only checks the offline example
+(mission/hollow-country/ai/patrols.example.json) and is kept until that data is retired with
+its README section. Do not extend it.
 
 `sites` generates mission/hollow-country/ai/sites.json (HCXAISitePolicy) from the installed stock
 mapgrouppos.xml/mapgroupproto.xml, read-only; only the chosen coordinates are written, never a dump:
@@ -69,6 +72,7 @@ def position(value):
 
 
 def validate(data, sites):
+    # RETIRED contract (see module docstring): no runtime HCXAIMission/profile consumes this.
     need(type(data) is dict and type(sites) is dict, 'object-required')
     need(type(data.get('SchemaVersion')) is int and data['SchemaVersion'] == 1,
          'schema-version')

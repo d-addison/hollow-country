@@ -22,7 +22,9 @@ class HCXAILoadoutImage : HCStagedSaveImage
             {
                 // The target belongs to someone else now. Retire our private
                 // intent so a later operator file is never mistaken for our tear.
-                if (!DeleteFile(m_Temporary)) { Print("[HC Expansion AI] loadout default refused reason=intent_delete"); }
+                // The shared .tmp may already be gone (same-session provisioning
+                // published and retired it): absence is not an intent_delete failure.
+                if (FileExist(m_Temporary) && !DeleteFile(m_Temporary)) { Print("[HC Expansion AI] loadout default refused reason=intent_delete"); }
                 return HCFail();
             }
             return HCSaveJob.STEP_MORE;
@@ -64,6 +66,7 @@ class HCXAILoadoutSave : HCSaveJob
     protected string m_Preserved;
     protected string m_Target;
     protected string m_TornPath;
+    protected int m_TornSlot;
     bool Finished;
     int Provisioned;
     override string HCName() { return "HCX-loadouts"; }
@@ -74,6 +77,7 @@ class HCXAILoadoutSave : HCSaveJob
         m_Phase = 1;
         m_Text = "";
         m_Existing = "";
+        m_TornSlot = 0;
         m_Image = new HCXAILoadoutImage();
     }
     protected void HCRefused(string reason)
@@ -170,15 +174,18 @@ class HCXAILoadoutSave : HCSaveJob
         }
         if (m_Phase == 15)
         {
-            // CopyFile is not assumed to overwrite: use the first free numbered
-            // slot (like HCPreserveRoute) and refuse when all five are taken.
-            m_TornPath = "";
-            for (int tornSlot = 0; tornSlot < 5; tornSlot++)
-            {
-                if (!FileExist(m_Target + ".hcdefault.torn-" + tornSlot.ToString())) { m_TornPath = m_Target + ".hcdefault.torn-" + tornSlot.ToString(); break; }
-            }
-            if (m_TornPath == "") { this.HCRefused("torn_preserve_slots_full"); this.HCNext(); }
-            else if (!CopyFile(m_Target, m_TornPath)) { this.HCRefused("torn_preserve"); this.HCNext(); }
+            // CopyFile is not assumed to overwrite: probe the numbered slots
+            // (like HCPreserveRoute) ONE per visit and refuse when all five are
+            // taken. The copy itself is its own visit (phase 151).
+            if (m_TornSlot >= 5) { this.HCRefused("torn_preserve_slots_full"); this.HCNext(); return STEP_MORE; }
+            string tornCandidate = m_Target + ".hcdefault.torn-" + m_TornSlot.ToString();
+            if (FileExist(tornCandidate)) { m_TornSlot++; }
+            else { m_TornPath = tornCandidate; m_Phase = 151; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 151)
+        {
+            if (!CopyFile(m_Target, m_TornPath)) { this.HCRefused("torn_preserve"); this.HCNext(); }
             else { m_Phase = 17; }
             return STEP_MORE;
         }

@@ -3635,6 +3635,26 @@
       "key": "DeleteFile#5",
       "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
       "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 27,
+      "symbol": "HCXAILoadoutImage.HCStepImage",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXAILoadoutImage.HCStepImage",
+      "native": false,
+      "reason": "W4 wc-xai-fu: one existence probe on the loadout intent before its retirement delete, because same-session ProvisionLoadout can already have published and removed the shared intent (no false intent_delete refusal). Runs in the loadout job's pre-copy visit, one probe per visit, only after the target recheck found a foreign target. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 27,
+      "symbol": "HCXAILoadoutImage.HCStepImage",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCXAILoadoutImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4 wc-xai-fu: one existence probe on the loadout intent before its retirement delete, because same-session ProvisionLoadout can already have published and removed the shared intent (no false intent_delete refusal). Runs in the loadout job's pre-copy visit, one probe per visit, only after the target recheck found a foreign target. Offline candidate; native disk latency unverified. The startup chain is a false virtual-dispatch edge: HCLeadStore owns a concrete HCStagedSaveImage, and HCSaveScheduler.HCFlush(job) takes a base HCSaveJob so every HCSaveJob.HCStep override is assumed reachable; nothing flushes the loadout job (it is ticked by the scheduler, one file operation per visit)."
     }
   ]
 }

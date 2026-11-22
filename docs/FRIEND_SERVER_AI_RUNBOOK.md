@@ -617,6 +617,28 @@ hand with the server stopped:
 5. Start the server and look for the absence of the refusal line. The recovery path is
    source-built only; no native or soak evidence exists for it.
 
+### `[HC Expansion AI] loadout default refused ... reason=torn_preserve_slots_full`
+
+A shipped loadout file in `profiles\ExpansionMod\Loadouts\` that the server wrote and
+that was torn by a crash (half-written, with our `<name>.json.hcdefault.tmp` intent still
+beside it) is copied aside before it is replaced. The copy goes to the first free slot
+`<name>.json.hcdefault.torn-0` to `.torn-4`. The server never deletes these copies, so
+after five recoveries of the same loadout every later start refuses that loadout with the
+reason above and the loadout stays missing. The other loadouts and the rest of the boot
+are not affected. Clean up by hand with the server stopped:
+
+1. Look at the `.torn-N` files for that loadout (size and modified time). They are
+   evidence of earlier crashes; keep them outside the profile if you want them.
+2. Delete (or move out of the `Loadouts` folder) the `<name>.json.hcdefault.torn-0` to
+   `.torn-4` files for the refused loadout only. Do not touch `<name>.json` if it is a
+   whole file, and do not touch files that are not ours.
+3. Start the server. The loadout is recreated from the shipped default and the log shows
+   `loadout default provisioned`. If it is refused again, a crash is tearing the write
+   each start: report the RPT instead of cleaning up again.
+
+An older build wrote a single `<name>.json.hcdefault.torn` file (no number). The current
+build ignores it; it can be deleted at any time.
+
 ## Turning features off
 
 - A V2 feature: set its `Enable*` value to `false` in
