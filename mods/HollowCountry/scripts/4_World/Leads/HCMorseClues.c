@@ -92,19 +92,3 @@ class HCMorseRateStore
     }
 
 }
-
-// HC-20: unregistered compatibility shell. There is no second producer,
-// target scan, timer, RPC or save loop.
-// HCRadioChatter consumes delayed shared facts, including existing morse_lead.
-class HCMorseClues : HCModule
-{
-    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
-
-    override string GetName() { return "Morse"; }
-    override bool IsEnabled(HCSettings settings)
-    {
-        m_Status.HCPublish("off", "folded_into_radio");
-        return false;
-    }
-    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
-}

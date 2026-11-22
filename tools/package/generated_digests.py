@@ -304,7 +304,7 @@ def regenerate(contract, values, scratch):
             (source / 'db/events.xml').read_bytes(), policy, classes)
         policy['accessories']['explicit_classes'] = {
             n: b for n, b in policy['accessories']['explicit_classes'].items()
-            if n in {'HC_ZmbM_' + m for m in module.MODES}}
+            if n in module.PUBLIC}
         policy['accessories']['explicit_classes'].update({
             r['to']: r['from'] for r in policy['substitutions'] if r['to'].startswith('HC_')})
         config = module.render((ROOT / contract.outputs[0]).read_text(), policy, values['addons'])

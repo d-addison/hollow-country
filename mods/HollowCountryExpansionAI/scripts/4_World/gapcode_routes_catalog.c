@@ -62,10 +62,6 @@ class HCGapcodeRoutesData
     ref HCGapcodeRoutesGraph graph;
     ref array<ref HCGapcodeRoutesRow> routes;
 }
-class HCGapcodeRoutesDocument
-{
-    ref HCGapcodeRoutesData gapcov_routes;
-}
 class HCGapcodeRoutesSourceFile
 {
     string Path;

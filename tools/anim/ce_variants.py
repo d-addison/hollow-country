@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/infected/variants.json'
 CONFIG = ROOT / 'mods/HollowCountryAnims/config.cpp'
 MODES = ('Sitter', 'Sleeper', 'Riser', 'Feeder', 'Crawler')
+# Hand-authored public classes: the admin/herd sitter. Every other mode exists only as generated per-outfit children.
+PUBLIC = ('HC_ZmbM_Sitter',)
 BEGIN = '    // BEGIN GENERATED CE OUTFITS (tools.anim.ce_variants)'
 END = '    // END GENERATED CE OUTFITS'
 
@@ -139,7 +141,7 @@ def render(config, policy, addons):
     repeated = sorted({n for n in top if top.count(n) > 1})
     if repeated:
         raise ValueError('class declared more than once in config.cpp: ' + ', '.join(repeated))
-    names = ['HC_ZmbM_' + mode for mode in MODES] + sorted(generated)
+    names = list(PUBLIC) + sorted(generated)
     return re.sub(r'units\[\] = \{[^}]*\};', 'units[] = {' + ', '.join('"' + n + '"' for n in names) + '};', config)
 
 
@@ -151,7 +153,7 @@ def main():
     policy = json.loads(POLICY.read_bytes())
     classes, _, _ = stock_config(args.addons, policy)
     policy['substitutions'], policy['ce_pose_coverage'] = derive(args.stock_events.read_bytes(), policy, classes)
-    policy['accessories']['explicit_classes'] = {n: b for n, b in policy['accessories']['explicit_classes'].items() if n in {'HC_ZmbM_' + m for m in MODES}}
+    policy['accessories']['explicit_classes'] = {n: b for n, b in policy['accessories']['explicit_classes'].items() if n in PUBLIC}
     policy['accessories']['explicit_classes'].update({r['to']: r['from'] for r in policy['substitutions'] if r['to'].startswith('HC_')})
     config = render(CONFIG.read_text(), policy, args.addons)
     POLICY.write_text(json.dumps(policy, indent=2) + '\n')

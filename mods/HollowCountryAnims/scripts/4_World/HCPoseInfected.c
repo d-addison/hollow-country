@@ -14,11 +14,11 @@
 // Vanilla handlers keep running every tick (we never swallow death or hits); a posed infected
 // stands up by itself once its mind state reaches ALERTED.
 //
-// #279 CE route: HC_ZmbM_Sitter/Sleeper/Riser/Feeder (poses 1..4) and HC_ZmbM_Crawler
-// (vanilla graph, native crawl request) are public classes added as children of the
-// stock infected events by tools/package/infected_variety.py, so the vanilla CE owns
-// spawn, caps and cleanup. EEInit requests this class's pose once; the MaxPosed budget
-// still bounds held poses (a body over budget stays a normal standing infected).
+// #279 CE route: generated per-outfit HC_Zmb{M,F}_{Sitter,Sleeper,Riser,Feeder} (poses 1..4)
+// and HC_Zmb{M,F}_Crawler_* (pose 5: vanilla graph, native crawl request) are public classes
+// added as children of the stock infected events by tools/package/infected_variety.py,
+// so the vanilla CE owns spawn, caps and cleanup. EEInit requests this class's pose once;
+// the MaxPosed budget still bounds held poses (a body over budget stays a normal standing infected).
 // Counters live in the base mod (HCVarietyCounters); per-body lines are capped.
 //
 // #315 (build 135 ACCESS_VIOLATION, read at 0x8, top script frame = the
@@ -487,10 +487,6 @@ modded class ZombieBase
 	}
 }
 
-// Legacy admin/herd class identities remain available; generated config children
-// inherit their own stock outfit script classes and use the shared hook above.
+// The admin/herd sitter keeps its own class; generated config children inherit their
+// own stock outfit script classes and use the shared hook above.
 class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base {}
-class HC_ZmbM_Sleeper extends ZmbM_CitizenASkinny_Base {}
-class HC_ZmbM_Riser extends ZmbM_Jacket_Base {}
-class HC_ZmbM_Feeder extends ZmbM_FarmerFat_Base {}
-class HC_ZmbM_Crawler extends ZmbM_CitizenASkinny_Base {}

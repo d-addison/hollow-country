@@ -65,9 +65,10 @@ The body never consumes or creates food/loot through these visual clips.
 
 ## Graph and package
 
-Only the four public posed classes `HC_ZmbM_Sitter`, `HC_ZmbM_Sleeper`, `HC_ZmbM_Riser` and `HC_ZmbM_Feeder`
-use our graph; the CE spawns them as children of the vanilla infected events (`infected/variants.json`).
-`HC_ZmbM_Crawler` and every vanilla infected keep the native graph.
+Only the public posed classes use our graph: the admin/herd `HC_ZmbM_Sitter` and the generated per-outfit
+`HC_Zmb{M,F}_{Sitter,Sleeper,Riser,Feeder}_<outfit>` children, which the CE spawns as children of the vanilla
+infected events (`infected/variants.json`). The generated `HC_Zmb{M,F}_Crawler_<outfit>` children and every
+vanilla infected keep the native graph.
 `build_anims_addon.py` generates our `.agr` with DZ references to the installed template, sync table
 and vanilla Locomotion/Combat/Interaction sheets, plus our `hc_poses.agf`. It extracts the required
 ControlTemplate declarations at build time and appends `HCPose`, `HCPoseFrom` (both ints 0–4) and
