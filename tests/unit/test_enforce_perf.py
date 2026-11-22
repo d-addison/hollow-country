@@ -725,6 +725,137 @@ class M
         self.assertEqual([f.key for f in findings(looped, 'HC-P005')], ['Print#1'])
 
 
+class ParameterDispatchTests(unittest.TestCase):
+    """A parameter's virtual call dispatches only to the classes authored call sites pass."""
+    TEXT = '''
+class Job { int HCStep() { return 0; } }
+class QuietJob : Job { override int HCStep() { return 0; } }
+class FileJob : Job
+{
+    int m_Index;
+    override int HCStep()
+    {
+        for (int i = 0; i < 3; i++) { if (FileExist("$profile:f" + i + ".json")) { m_Index++; } }
+        return 0;
+    }
+}
+class Sched
+{
+    static void Flush(Job job) { while (job.HCStep() == 1) { } }
+}
+class Holder
+{
+    bool m_Flag;
+    %s
+    void Run() { Sched.Flush(%s); }
+}
+class M
+{
+    ref Holder m_Holder = new Holder;
+    void OnStart() { m_Holder.Run(); }
+}
+'''
+
+    def keys(self, field, argument, rule='HC-P009'):
+        return [f.key for f in findings(self.TEXT % (field, argument), rule)]
+
+    def test_exact_field_limits_dispatch_to_its_class(self):
+        self.assertEqual(self.keys('ref Job m_Job = new QuietJob;', 'm_Job'), [])
+
+    def test_new_expression_limits_dispatch_to_its_class(self):
+        self.assertEqual(self.keys('', 'new QuietJob'), [])
+
+    def test_caller_passing_the_io_class_still_flags(self):
+        self.assertTrue(self.keys('ref Job m_Job = new FileJob;', 'm_Job'))
+
+    def test_second_call_site_passing_the_io_class_still_flags(self):
+        text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
+            'class M\n', 'class Other { void Go() { Sched.Flush(new FileJob); } }\nclass M\n')
+        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+
+    def test_unresolvable_argument_keeps_full_dispatch(self):
+        text = (self.TEXT % ('', 'Pick()')).replace('void Run()', 'Job Pick() { return null; }\n    void Run()')
+        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+
+    def test_reassigned_parameter_keeps_full_dispatch(self):
+        text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
+            'static void Flush(Job job) {',
+            'static Job Fallback() { return new FileJob; }\n    static void Flush(Job job) { job = Fallback();')
+        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+
+    def test_field_written_elsewhere_with_the_io_class_still_flags(self):
+        text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
+            'void Run()', 'void Swap() { m_Job = new FileJob; }\n    void Run()')
+        self.assertTrue([f.key for f in findings(text, 'HC-P009')])
+
+    def test_field_assigned_from_a_call_that_returns_new(self):
+        text = (self.TEXT % ('ref Job m_Job;', 'm_Job')).replace(
+            'void Run()', 'Job Make() { return new QuietJob; }\n    void Init() { m_Job = Make(); }\n    void Run()')
+        self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
+        loose = text.replace('return new QuietJob;', 'if (m_Flag) { return new FileJob; } return new QuietJob;')
+        self.assertTrue([f.key for f in findings(loose, 'HC-P009')])
+
+    def test_qualified_field_chain(self):
+        other = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Box.m_Inner')).replace(
+            'class Holder', 'class Box { ref Job m_Inner = new QuietJob; }\nclass Holder').replace(
+            'void Run()', 'ref Box m_Box = new Box;\n    void Run()')
+        self.assertEqual([f.key for f in findings(other, 'HC-P009')], [])
+        wrote = other.replace('class M\n', 'class Writer { void Put(Box b) { b.m_Inner = new FileJob; } }\nclass M\n')
+        self.assertTrue([f.key for f in findings(wrote, 'HC-P009')])
+
+    def test_same_named_field_of_another_class_is_not_a_write(self):
+        text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
+            'class M\n', 'class Elsewhere { ref Job m_Job; void Put() { m_Job = new FileJob; } }\nclass M\n')
+        self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
+
+    # Blind spots: a write or call the authored call sites do not show keeps the declared dispatch.
+    def flagged(self, text):
+        return [f.key for f in findings(text, 'HC-P009')]
+
+    def quiet_text(self):
+        return self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')
+
+    def test_field_written_through_class_cast_to_still_flags(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Swap() { Job found = new FileJob; Class.CastTo(m_Job, found); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_field_written_through_an_out_parameter_still_flags(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Fill(out Job target) { target = new FileJob; }\n    void Swap() { Fill(m_Job); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_out_parameter_is_not_refined(self):
+        text = self.quiet_text().replace('static void Flush(Job job)', 'static void Flush(out Job job)')
+        self.assertTrue(self.flagged(text))
+
+    def test_parameter_reassigned_by_class_cast_to_still_flags(self):
+        text = self.quiet_text().replace(
+            'static void Flush(Job job) {',
+            'static void Flush(Job job) { Job other = new FileJob; Class.CastTo(job, other);')
+        self.assertTrue(self.flagged(text))
+
+    def test_call_later_argument_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Later() { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Sched.Flush, 100, false, new FileJob); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_param_string_dispatch_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Later() { GetGame().GameScript.CallFunctionParams(this, "Flush", null, new Param1<Job>(new FileJob)); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_engine_called_override_with_one_authored_site_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'class Sched\n{\n    static void Flush(Job job)', 'class Sched : NativeSched\n{\n    override void Flush(Job job)')
+        self.assertTrue(self.flagged(text))
+
+    def test_override_of_an_authored_base_is_still_refined(self):
+        text = self.quiet_text().replace(
+            'class Sched\n{\n    static void Flush(Job job)', 'class BaseSched { void Flush(Job job) { } }\nclass Sched : BaseSched\n{\n    override void Flush(Job job)')
+        self.assertEqual(self.flagged(text), [])
+
+
 class PairedReadTests(unittest.TestCase):
     """OpenFile plus the first bounded ReadFile on that local handle is one file visit."""
     TEXT = '''

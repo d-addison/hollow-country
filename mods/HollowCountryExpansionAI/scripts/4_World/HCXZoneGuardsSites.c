@@ -81,12 +81,17 @@ modded class HCXAISiteDirector
     }
     // Called for one zone/tick by its HCWorkBudget admission. Use the existing
     // bind/qualify/create stages, never a second native patrol constructor.
-    void HCZoneService(HCXZoneGuardsRuntime zone)
+    // Returns true when this call ran one stage that made progress; false when it ran none
+    // or a Create stage was refused (counted with a reason code, retried after 60 s). A call runs at most one stage, and
+    // HCXZoneGuards.OnTick makes at most one call per tick inside its single
+    // HC_WORK_ZONE_GUARDS unit, so a tick can never run two sites' stages.
+    bool HCZoneService(HCXZoneGuardsRuntime zone)
     {
-        if (m_Phase != "run" || !m_Policy || !m_OwnedSaved) { return; }
+        if (m_Phase != "run" || !m_Policy || !m_OwnedSaved) { return false; }
+        int began = TickCount(0);
         if (!zone.Site)
         {
-            if (zone.Row.State != "held" || m_States.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return; }
+            if (zone.Row.State != "held" || m_States.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return false; }
             HCXZoneGuardsSite site = new HCXZoneGuardsSite;
             site.Id = "zg-" + zone.Zone.id;
             site.Kind = "patrol";
@@ -103,7 +108,14 @@ modded class HCXAISiteDirector
                 site.Loadout = "HollowCountry_Raider";
             }
             if (zone.Zone.tier == 1) { site.Loadout = "HollowCountry_Holdout"; }
-            HCXAIDefaults.ProvisionLoadout(site.Loadout);
+            // Guards never spawn without the HC loadout: a missing default file refuses the
+            // admission (no site state, no stage) and is retried on the zone's next visit.
+            if (!HCXAIDefaults.ProvisionLoadout(site.Loadout))
+            {
+                HCXZoneGuards refusing = HCXZoneGuards.Active();
+                if (refusing) { refusing.StageRefused(zone, "zone_loadout_missing"); }
+                return false;
+            }
             int points;
             foreach (vector slot : zone.Zone.guard_slots)
             {
@@ -115,14 +127,46 @@ modded class HCXAISiteDirector
             zone.Site.Site = site;
             m_States.Insert(zone.Site);
             m_AdmittedTotal++;
-            return;
+            this.HCZoneStage(zone, "admit", began);
+            return true;
         }
         HCXAISiteState state = zone.Site;
-        if (zone.Row.State != "held" || zone.Row.Wiped) { return; }
-        if (state.Failed || state.Patrol) { return; }
-        if (!state.Bound) { this.Bind(state); return; }
-        if (!state.Qualified) { this.QualifyStep(state); return; }
+        if (zone.Row.State != "held" || zone.Row.Wiped) { return false; }
+        if (state.Failed || state.Patrol) { return false; }
+        if (!state.Bound)
+        {
+            this.Bind(state);
+            this.HCZoneStage(zone, "bind", began);
+            return true;
+        }
+        if (!state.Qualified)
+        {
+            this.QualifyStep(state);
+            this.HCZoneStage(zone, "qualify", began);
+            return true;
+        }
+        // A refused Create (provider issue, native setup refused) sets neither Patrol nor
+        // Failed. Retry it at most once a minute per zone, count the refusal with its reason
+        // code and report no progress, so a persistent refusal never holds the zone's visit.
+        if (GetGame().GetTickTime() < zone.CreateRetryAt) { return false; }
         this.Create(state);
+        this.HCZoneStage(zone, "create", began);
+        if (!state.Patrol && !state.Failed)
+        {
+            zone.CreateRetryAt = GetGame().GetTickTime() + 60;
+            HCXZoneGuards creating = HCXZoneGuards.Active();
+            if (creating) { creating.StageRefused(zone, "zone_create_refused"); }
+            return false;
+        }
+        return true;
+    }
+    // Existing site_stage peak line (>= 40000 ticks) plus the zone-guards progress counters.
+    protected void HCZoneStage(HCXZoneGuardsRuntime zone, string stage, int began)
+    {
+        int elapsed = TickCount(began);
+        this.HCSiteStageCost("zone_" + stage, began);
+        HCXZoneGuards owner = HCXZoneGuards.Active();
+        if (owner) { owner.StageProgress(zone.Zone.id, stage, elapsed); }
     }
     override string HCPrepareRingSpawn(HCXAISitePatrol patrol)
     {

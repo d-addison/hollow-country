@@ -66,11 +66,31 @@ class HCXZoneGuardsSave : HCSaveJob
     ref HCXZoneGuardsJournal Data;
     protected ref HCV2ThreatStore<HCXZoneGuardsJournal> m_Writer = new HCV2ThreatStore<HCXZoneGuardsJournal>;
     bool Fault;
+    // In-memory change counter (never serialised: the journal format is unchanged).
+    // HCMark queues a routine/urgent staged checkpoint; the owner never drains it
+    // synchronously on a tick. A change made while an image is in flight makes the
+    // shared writer refresh the intent before it is cleared, and HCPendingCheckpoint
+    // keeps the job dirty until a snapshot that included the change is committed.
+    int Revision;
+    protected int m_Snapshot;
+    protected int m_Committed;
     override string HCName() { return "zone_guards"; }
+    void HCMark()
+    {
+        Revision++;
+        HCDirty = true;
+        HCUrgent = true;
+    }
+    override bool HCPendingCheckpoint() { return Revision != m_Committed; }
     override int HCStep()
     {
-        int result = m_Writer.SaveStep("$profile:HollowCountry/zone-guards-state.json", Data, 65536);
+        // The writer snapshots the journal at its first stage and re-snapshots (refreshes the
+        // intent) when the revision moved before the intent is cleared. Commit exactly the
+        // revision the writer holds, never a newer one, so a refreshed image is not rewritten.
+        int result = m_Writer.SaveStep("$profile:HollowCountry/zone-guards-state.json", Data, 65536, Revision);
+        m_Snapshot = m_Writer.HCSnapshotRevision();
         if (result == STEP_FAILED) { Fault = true; }
+        if (result == STEP_DONE) { m_Committed = m_Snapshot; }
         return result;
     }
 }

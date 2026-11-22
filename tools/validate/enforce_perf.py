@@ -200,6 +200,10 @@ class Model:
                 self.consts[c.group(1)] = max(self.consts.get(c.group(1), 0), int(c.group(2)))
         self._writes = None
         self._concrete = {}
+        self._declared = {}
+        self._sites = None
+        self._out_names = None
+        self._scheduled = None
         self.envs = [self.environment(s, m) for s, m in self.nodes]
 
     def const_int(self, text):
@@ -257,33 +261,135 @@ class Model:
             for i, (s, m) in enumerate(self.nodes):
                 for write in pattern.finditer(s.code, m.body_start, m.body_end):
                     self._writes.setdefault(write.group(2), []).append(
-                        (i, re.sub(r'\s+', '', write.group(1)), write.group(3).strip()))
+                        (i, re.sub(r'\s+', '', write.group(1)).rstrip('.'), write.group(3).strip()))
         return self._writes
+
+    def out_written_names(self):
+        """Leaf names of fields or variables that a call may write through an out parameter.
+
+        `Class.CastTo(x, ...)` writes x; so does any call whose same-named authored method has
+        an out/inout parameter at the argument's position. Matched by method name alone (a
+        superset of the real targets), so it needs no type resolution and cannot recurse."""
+        if self._out_names is None:
+            out_positions = {}
+            for _, m in self.nodes:
+                for k, (_, _, is_out) in enumerate(m.parameters()):
+                    if is_out:
+                        out_positions.setdefault(m.name, set()).add(k)
+            names = set()
+            for s, m in self.nodes:
+                for call in _CALL.finditer(s.code, m.body_start, m.body_end):
+                    expression = re.sub(r'\s+', '', call.group(1))
+                    leaf = expression.split('.')[-1]
+                    positions = set(out_positions.get(leaf, ()))
+                    if leaf == 'CastTo':
+                        positions.add(0)
+                    if not positions:
+                        continue
+                    opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
+                    closing = es.matching_paren(s.code, opening)
+                    args = [a for a in es.split_top(s.code[opening + 1:closing], ',') if a.strip()]
+                    for k in positions:
+                        if k < len(args):
+                            argument = re.sub(r'\s+', '', args[k])
+                            if re.fullmatch(_CHAIN, argument):
+                                names.add(argument.split('.')[-1])
+            self._out_names = names
+        return self._out_names
+
+    def scheduled_names(self):
+        """Method names that the engine or a call queue can invoke with arguments the authored
+        call sites never show: CallLater/Call/Insert callbacks and string-named dispatch
+        (CallLaterByName, CallByName, CallFunction, CallFunctionParams with Param arguments)."""
+        if self._scheduled is None:
+            names = set()
+            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams)\s*\(')
+            for s, m in self.nodes:
+                for call in queue.finditer(s.code, m.body_start, m.body_end):
+                    opening = s.code.find('(', call.start(), call.end())
+                    closing = es.matching_paren(s.code, opening)
+                    for argument in es.split_top(s.code[opening + 1:closing], ','):
+                        leaf = re.sub(r'\s+', '', argument).split('.')[-1]
+                        if re.fullmatch(_IDENT, leaf):
+                            names.add(leaf)
+                    for argument in es.split_top(s.text[opening + 1:closing], ','):
+                        quoted = re.fullmatch(r'\s*"(\w+)"\s*', argument)
+                        if quoted:
+                            names.add(quoted.group(1))
+            self._scheduled = names
+        return self._scheduled
+
+    def engine_called(self, i):
+        """True when method i can be invoked by the engine or a vanilla caller: it is an override
+        whose declaration chain has no authored non-override method of that name."""
+        s, m = self.nodes[i]
+        if 'override' not in m.modifiers or not m.owner:
+            return False
+        for ancestor in self.lineage(m.owner.name):
+            for t in self.index.get((ancestor, m.name), []):
+                if t != i and 'override' not in self.nodes[t][1].modifiers:
+                    return False
+        return True
+
+    def returned_classes(self, i, value):
+        """Classes a call expression `qualifier.Method(args)` written in node i can return, else None.
+
+        Every authored target of the call must end each path in `return new T(...)` or
+        `return field;` with a field that concrete_type proves holds one class."""
+        call = re.match(rf'({_CHAIN})\s*\(', value)
+        if not call or es.matching_paren(value, call.end() - 1) != len(value) - 1:
+            return None
+        found = set()
+        targets = self.targets(i, call.group(1), False)
+        for t in targets:
+            s, m = self.nodes[t]
+            returns = re.findall(r'\breturn\s+([^;]+);', s.body(m))
+            if not returns:
+                return None
+            for returned in returns:
+                returned = returned.strip()
+                made = re.match(r'new\s+(\w+)', returned)
+                held = made.group(1) if made else (self.concrete_type(t, returned) if re.fullmatch(_IDENT, returned) else '')
+                if held not in self.classes:
+                    return None
+                found.add(held)
+        return found or None
 
     def concrete_type(self, i, expression):
         """Exact class that a field named by expression always holds, else ''.
 
         Holds when every write to the field, in its class or a derived class, and its
-        initializer, is `new T(...)` or null, with one T; and no code outside those
-        classes writes the field through a qualifier. Parameters, locals and fields
+        initializer, is `new T(...)`, null or a call whose targets only return `new T` or an
+        exact field (returned_classes), with one T; and no code outside those
+        classes writes the field through a qualifier. The expression is a field of the
+        method's class or a qualified chain of fields. Parameters, locals and fields
         assigned from other expressions keep their declared type."""
         s, m = self.nodes[i]
         parts = re.sub(r'\s+', '', expression).split('.')
         if parts[0] == 'this':
             parts = parts[1:]
-        if len(parts) != 1 or not m.owner or parts[0] in {n for _, n, _ in m.parameters()}:
+        if not parts:
             return ''
-        name = parts[0]
+        name = parts[-1]
         body = s.body(m)
-        if re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body):
+        if len(parts) == 1:
+            if not m.owner or name in {n for _, n, _ in m.parameters()}:
+                return ''
+            if re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body):
+                return ''
+            holder = m.owner.name
+        else:
+            holder = self.type_of('.'.join(parts[:-1]), self.envs[i])
+            if holder not in self.classes:
+                return ''
+        field = self.field_of(holder, name)
+        if not field or name in self.out_written_names():
             return ''
-        field = self.field_of(m.owner.name, name)
-        if not field:
-            return ''
-        defining = next(c.name for ancestor in self.lineage(m.owner.name) for c in self.classes.get(ancestor, [])
+        defining = next(c.name for ancestor in self.lineage(holder) for c in self.classes.get(ancestor, [])
                         if any(f is field for f in c.fields))
         key = (defining, name)
         if key not in self._concrete:
+            self._concrete[key] = ''
             kinds, exact = set(), True
             if field.initializer.strip():
                 made = re.match(r'\s*new\s+(\w+)', field.initializer)
@@ -293,19 +399,97 @@ class Model:
                     exact = False
             for node, qualifier, value in self.writes().get(name, []):
                 owner = self.nodes[node][1].owner
-                related = owner and defining in self.lineage(owner.name)
-                if qualifier not in {'', 'this'}:
-                    exact = False
-                elif related:
-                    made = re.match(r'new\s+(\w+)', value)
-                    if made:
-                        kinds.add(made.group(1))
-                    elif value not in {'null', 'NULL'}:
+                if qualifier in {'', 'this'}:
+                    if not (owner and defining in self.lineage(owner.name)):
+                        continue
+                else:
+                    # A write through a qualifier counts when its declared type has this field,
+                    # is ignored when that type has another field of the same name, and breaks
+                    # the proof when the qualifier's type is unknown.
+                    holder = self.type_of(qualifier, self.envs[node])
+                    if holder not in self.classes:
+                        exact = False
+                        continue
+                    if defining not in self.lineage(holder):
+                        continue
+                made = re.match(r'new\s+(\w+)', value)
+                if made:
+                    kinds.add(made.group(1))
+                elif value not in {'null', 'NULL'}:
+                    returned = self.returned_classes(node, value)
+                    if returned:
+                        kinds.update(returned)
+                    else:
                         exact = False
             self._concrete[key] = next(iter(kinds)) if exact and len(kinds) == 1 else ''
         return self._concrete[key] if self._concrete[key] in self.classes else ''
 
-    def targets(self, i, expression):
+    def declared_types(self, i, name):
+        """Allowed owner classes for a call through parameter `name` of method i, else None.
+
+        A parameter that the method never reassigns or redeclares can only hold what its
+        authored callers pass. Every authored call site is resolved without this rule (a
+        superset of the real callers); the argument at the parameter's position is `new T`,
+        a field proven to hold exactly one class (concrete_type: that class alone), or an
+        expression of declared type T (T and its derived classes). Any argument of unknown
+        type, any call site that omits the argument, or no call site at all, gives None and
+        leaves the declared type's full dispatch in place. The result is the set of those
+        classes and their ancestors (inherited methods). Blind spots keep the declared dispatch:
+        an out/inout parameter, a parameter written through an out argument or Class.CastTo, a
+        method scheduled through CallLater/CallByName/Param-style dispatch, and an override the
+        engine can call (no authored base declaration)."""
+        key = (i, name)
+        if key in self._declared:
+            return self._declared[key]
+        self._declared[key] = None
+        s, m = self.nodes[i]
+        params = m.parameters()
+        position = next((k for k, (typ, pname, _) in enumerate(params) if pname == name), None)
+        body = s.body(m)
+        if (position is None or params[position][0] not in self.classes
+                or params[position][2] or name in self.out_written_names()
+                or m.name in self.scheduled_names() or self.engine_called(i)
+                or re.search(rf'(?<![\w.]){re.escape(name)}\s*(?:=(?!=)|[-+*/]=)', body)
+                or re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body)):
+            return None
+        allowed = set()
+        sites = 0
+        for j, expression, args in self.call_sites().get(i, ()):
+            if position >= len(args):
+                return None
+            argument = re.sub(r'\s+', '', args[position])
+            if argument in {'null', 'NULL'}:
+                continue
+            made = re.match(r'\s*new\s+(\w+)\s*(?:\(|$)', args[position])
+            exact = made.group(1) if made else self.concrete_type(j, argument)
+            declared = exact or self.type_of(argument, self.envs[j])
+            if declared not in self.classes:
+                return None
+            sites += 1
+            allowed.update(self.lineage(declared))
+            if not exact:
+                allowed.update(self.descendants.get(declared, []))
+        if not sites:
+            return None
+        self._declared[key] = allowed
+        return allowed
+
+    def call_sites(self):
+        """target node -> [(caller node, expression, argument texts)] over authored calls,
+        each resolved with the unrefined (declared-type) dispatch, so a superset of the real callers."""
+        if self._sites is None:
+            self._sites = {}
+            for j, (s, m) in enumerate(self.nodes):
+                for call in _CALL.finditer(s.code, m.body_start, m.body_end):
+                    expression = re.sub(r'\s+', '', call.group(1))
+                    opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
+                    closing = es.matching_paren(s.code, opening)
+                    args = [a for a in es.split_top(s.code[opening + 1:closing], ',') if a.strip()]
+                    for target in self.targets(j, expression, False):
+                        self._sites.setdefault(target, []).append((j, expression, args))
+        return self._sites
+
+    def targets(self, i, expression, refine=True):
         s, m = self.nodes[i]
         parts = re.sub(r'\s+', '', expression).split('.')
         name = parts[-1]
@@ -329,6 +513,11 @@ class Model:
         if exact and typ:
             held = set(self.lineage(exact))
             result = [r for r in result if self.nodes[r][1].owner and self.nodes[r][1].owner.name in held]
+        # A parameter holds only what its authored callers pass (declared_types).
+        if refine and typ and len(parts) == 2 and parts[0] in {n for _, n, _ in m.parameters()}:
+            held = self.declared_types(i, parts[0])
+            if held is not None:
+                result = [r for r in result if self.nodes[r][1].owner and self.nodes[r][1].owner.name in held]
         if len(parts) == 1 and not result:
             result.extend(self.globals.get(name, []))
         return sorted(set(result))

@@ -7,30 +7,15 @@ class HCXAILoadoutProbe
 // Loadout adapter: caller probes separately, then streams to an HC-private
 // intent. The shared image verifies it BEFORE copying to the absent target.
 // A retained .hcdefault.tmp is provenance for an interrupted HC publication.
+// The pre-copy target recheck is a staged gate of HCXAILoadoutSave (one file
+// operation per visit); this adapter only reports when the copy visit is next.
 class HCXAILoadoutImage : HCStagedSaveImage
 {
-    protected bool m_CopyChecked;
     bool HCPublished() { return m_PrimaryExists; }
-    override int HCStepImage()
-    {
-        // One file operation: recheck immediately before the copy visit. No
-        // target delete is performed by this adapter; existing files are refused.
-        if (m_Phase == 3 && !m_CopyChecked)
-        {
-            m_CopyChecked = true;
-            if (FileExist(m_Path))
-            {
-                // The target belongs to someone else now. Retire our private
-                // intent so a later operator file is never mistaken for our tear.
-                // The shared .tmp may already be gone (same-session provisioning
-                // published and retired it): absence is not an intent_delete failure.
-                if (FileExist(m_Temporary) && !DeleteFile(m_Temporary)) { Print("[HC Expansion AI] loadout default refused reason=intent_delete"); }
-                return HCFail();
-            }
-            return HCSaveJob.STEP_MORE;
-        }
-        return super.HCStepImage();
-    }
+    // True while the image waits at the copy_primary stage (shared image phase 3).
+    bool HCCopyDue() { return m_Phase == 3; }
+    // Same latch HCAbort sets before its step; the caller steps the image itself.
+    void HCRefuseCopy() { m_Failed = true; }
     bool HCArmNew(string path, string text)
     {
         if (Active() || m_Failed || text.Length() < 1 || text.Length() > 65536) { return false; }
@@ -67,6 +52,11 @@ class HCXAILoadoutSave : HCSaveJob
     protected string m_Target;
     protected string m_TornPath;
     protected int m_TornSlot;
+    // Pre-copy recheck: 0 unchecked, 1 target absent (copy may proceed), 2 target present,
+    // 3 our intent present and to be retired, 4 refuse the image, 5 refused (the image drains).
+    protected int m_Gate;
+    // The pre-copy recheck found the target: the refusal reason is target_appeared, not a write fault.
+    protected bool m_Appeared;
     bool Finished;
     int Provisioned;
     override string HCName() { return "HCX-loadouts"; }
@@ -78,6 +68,8 @@ class HCXAILoadoutSave : HCSaveJob
         m_Text = "";
         m_Existing = "";
         m_TornSlot = 0;
+        m_Gate = 0;
+        m_Appeared = false;
         m_Image = new HCXAILoadoutImage();
     }
     protected void HCRefused(string reason)
@@ -305,8 +297,43 @@ class HCXAILoadoutSave : HCSaveJob
             this.HCNext();
             return STEP_MORE;
         }
+        // One file operation per visit: recheck the target immediately before the copy
+        // visit. No target delete is performed by this job; an existing file is refused.
+        if (m_Gate == 0 && m_Image.HCCopyDue())
+        {
+            if (FileExist(m_Target)) { m_Gate = 2; m_Appeared = true; }
+            else { m_Gate = 1; }
+            return STEP_MORE;
+        }
+        if (m_Gate == 2)
+        {
+            // The target belongs to someone else now. Retire our private intent so a
+            // later operator file is never mistaken for our tear. The shared .tmp may
+            // already be gone: absence is not an intent_delete failure.
+            if (FileExist(m_Target + ".hcdefault.tmp")) { m_Gate = 3; }
+            else { m_Gate = 4; }
+            return STEP_MORE;
+        }
+        if (m_Gate == 3)
+        {
+            m_Gate = 4;
+            if (!DeleteFile(m_Target + ".hcdefault.tmp")) { this.HCRefused("intent_delete"); }
+            return STEP_MORE;
+        }
+        if (m_Gate == 4)
+        {
+            // Latch the shared image failed (no file operation); the step below then
+            // drains it one stage per visit and ends in the terminal refusal.
+            m_Gate = 5;
+            m_Image.HCRefuseCopy();
+        }
         int result = m_Image.HCStepImage();
-        if (result == STEP_FAILED) { this.HCRefused("write_readback"); m_Phase = 8; }
+        if (result == STEP_FAILED)
+        {
+            if (m_Appeared) { this.HCRefused("target_appeared"); }
+            else { this.HCRefused("write_readback"); }
+            m_Phase = 8;
+        }
         if (result == STEP_DONE)
         {
             HCXAIDefaults.HCSetLoadoutPresent(name, true);
@@ -423,60 +450,22 @@ class HCXAIDefaults
         return JsonFileLoader<HCXAILoadoutProbe>.LoadData(text, probe, error) && probe != null;
     }
 
-    // Copies one shipped loadout into Expansion's loadout folder when that file
-    // is absent; temp, copy and readback, never overwriting an operator file.
+    // Zone guards ask for their loadout when they create a site, on a server tick.
+    // That path performs no file operation: the staged boot job (HCXAILoadoutSave)
+    // owns provisioning and recovery for every name in HCCommonLoadouts() and the
+    // site catalogue, and the site director reaches the run phase only after it
+    // finished. This answers from the boot snapshot: true when the loadout file is
+    // present. Operator loadout edits require restart.
     static bool ProvisionLoadout(string name)
     {
         if (!HCXAIDefaults.LoadoutNameSafe(name)) { return false; }
-        string target = EXPANSION_LOADOUT_FOLDER + name + ".json";
-        string temporary = target + ".hcdefault.tmp";
-        // Existing-file semantics stay synchronous for zone guards. Retire a
-        // stale intent only after proving the target is whole; preserve tears
-        // for the bounded boot recovery job above.
-        if (FileExist(target))
-        {
-            if (FileExist(temporary) && HCXAIDefaults.HCWholeLoadout(HCProfileDefaults.ReadText(target)))
-            {
-                if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
-                else { Print("[HC Expansion AI] loadout default intent cleared name=" + name + " reason=whole_target"); }
-            }
-            return false;
-        }
-        string source = HCXAIDefaults.Shipped() + "loadouts/" + name + ".json";
-        string text = HCProfileDefaults.ReadText(source);
-        if (text == "")
-        {
-            Print("[HC Expansion AI] loadout default missing name=" + name + " source=" + source + "; loadout admission keeps its own diagnostic");
-            return false;
-        }
-        // The target was absent before this copy, so a copy that fails readback is removed and retried next boot.
-        bool provCopied = false;
-        bool provRecheckHit = false;
-        bool provOk = HCProfileDefaults.WriteText(temporary, text);
-        if (provOk) { provOk = !FileExist(target); provRecheckHit = !provOk; }
-        if (provOk) { provCopied = CopyFile(temporary, target); provOk = provCopied; }
-        if (provOk) { provOk = HCProfileDefaults.ReadText(target) == text; }
-        if (!provOk)
-        {
-            // Remove our copied target on mismatch. On a failed copy retain
-            // intent: a newly appeared whole operator file must be preserved.
-            if (provRecheckHit)
-            {
-                // The pre-copy recheck found a target that is not ours: retire
-                // our intent so it is never mistaken for our tear later.
-                if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
-            }
-            if (provCopied)
-            {
-                if (!DeleteFile(target)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=torn_delete"); }
-                else if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
-            }
-            Print("[HC Expansion AI] loadout default refused name=" + name + " reason=write_readback");
-            return false;
-        }
-        if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); return false; }
-        Print("[HC Expansion AI] loadout default provisioned name=" + name + " source=pbo; operator files are never overwritten; runtime=PENDING");
-        return true;
+        return s_LoadoutsPresent.Contains(name) && s_LoadoutsPresent.Get(name);
+    }
+
+    // Every loadout name zone guards can assign (HCXZoneGuardsSite.HCZoneService).
+    static array<string> HCCommonLoadouts()
+    {
+        return {"HollowCountry_Holdout", "HollowCountry_Patrol", "HollowCountry_Raider", "HollowCountry_Scavenger"};
     }
 
     static void HCSetLoadoutPresent(string name, bool present) { s_LoadoutsPresent.Set(name, present); }
@@ -504,8 +493,8 @@ class HCXAIDefaults
                 seen.Set(site.Loadout, true);
                 s_LoadoutSave.Names.Insert(site.Loadout);
             }
-            array<string> common = {"HollowCountry_Holdout", "HollowCountry_Patrol", "HollowCountry_Scavenger"};
-            foreach (string commonName : common)
+            ref array<string> commonNames = HCXAIDefaults.HCCommonLoadouts();
+            foreach (string commonName : commonNames)
             {
                 if (seen.Contains(commonName)) { continue; }
                 s_LoadoutSave.Names.Insert(commonName);

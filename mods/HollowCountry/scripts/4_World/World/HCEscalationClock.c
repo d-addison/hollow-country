@@ -318,6 +318,8 @@ class HCV2ThreatStore<Class T>
     protected int m_SnapshotRevision;
 
     bool SaveInFlight() { return m_SaveImage.Active(); }
+    // Revision of the data the image in flight (or last begun) was encoded from, including a refreshed intent.
+    int HCSnapshotRevision() { return m_SnapshotRevision; }
     bool FinishSave()
     {
         if (m_SaveFault) { return false; }
