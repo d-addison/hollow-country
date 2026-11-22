@@ -13,13 +13,20 @@ class HCAdminWorldStyle
     int Color;
     bool Visible = true;
     int Count;
+    int StaticCount;
+    int DynamicCount;
 }
 class HCAdminWorldPin
 {
     HCAdminMark Mark;
+    HCAdminWorldStyle Style;
     vector Screen;
     int Count;
 }
+// Native CachedEquipmentStorage.c uses maps of ref arrays. Snapshot entries
+// reuse the pin DTO, resolving its style once before the pan/zoom hot path.
+typedef array<ref HCAdminWorldPin> HCAdminWorldBucket;
+typedef map<int, ref HCAdminWorldBucket> HCAdminWorldGrid;
 class HCAdminWorldClient
 {
     protected static ref HCAdminWorldClient s_Instance;
@@ -29,6 +36,9 @@ class HCAdminWorldClient
     protected ref array<ref HCAdminMark> m_Incoming = new array<ref HCAdminMark>;
     protected ref array<ref HCAdminWorldStyle> m_Styles = new array<ref HCAdminWorldStyle>;
     protected ref map<string, int> m_StyleIndex = new map<string, int>;
+    // Valid wire positions span 0..15360: at most 16 x 16 one-km buckets.
+    protected ref HCAdminWorldGrid m_StaticGrid = new HCAdminWorldGrid;
+    protected ref HCAdminWorldGrid m_DynamicGrid = new HCAdminWorldGrid;
     protected ref map<string, int> m_Cells = new map<string, int>;
     protected ref array<ref HCAdminWorldPin> m_Pins = new array<ref HCAdminWorldPin>;
     // Optional base-menu panel (hc_group_map.layout); null on the Expansion map.
@@ -192,6 +202,8 @@ class HCAdminWorldClient
         m_CacheAuthorized = false;
         m_CachePlayer = null;
         m_Version = 0;
+        m_StaticGrid.Clear();
+        m_DynamicGrid.Clear();
         StaticRows.Clear();
         DynamicRows.Clear();
         m_Pins.Clear();
@@ -278,8 +290,17 @@ class HCAdminWorldClient
         if (m_Incoming.Count() != reply.Total) { return; }
         m_RequestPending = false;
         // Publish atomically only after every reliable chunk arrived in sequence.
-        if (reply.IsStatic) { StaticRows = m_Incoming; m_Version = reply.CatalogRevision; }
-        else { DynamicRows = m_Incoming; }
+        if (reply.IsStatic)
+        {
+            StaticRows = m_Incoming;
+            m_Version = reply.CatalogRevision;
+            BuildGrid(StaticRows, m_StaticGrid, true);
+        }
+        else
+        {
+            DynamicRows = m_Incoming;
+            BuildGrid(DynamicRows, m_DynamicGrid, false);
+        }
         m_Incoming = new array<ref HCAdminMark>;
         m_Dropped = reply.Truncated;
         m_Dirty = true;
@@ -308,28 +329,51 @@ class HCAdminWorldClient
         m_StyleVersion++;
         return style;
     }
-    protected void Collect(MapWidget mapWidget, array<ref HCAdminMark> rows)
+    protected void BuildGrid(array<ref HCAdminMark> rows, HCAdminWorldGrid buckets, bool isStatic)
     {
-        float left, top, width, height;
-        mapWidget.GetScreenPos(left, top);
-        mapWidget.GetScreenSize(width, height);
-        // Pixel grid follows the real viewport/zoom. Zoomed-in marks remain individual.
-        float grid = 0;
-        if (mapWidget.GetScale() >= 0.20) { grid = 64; }
-        for (int index = 0; index < rows.Count(); index++)
+        buckets.Clear();
+        foreach (HCAdminWorldStyle previous : m_Styles)
         {
-            HCAdminMark mark = rows[index];
+            if (isStatic) { previous.StaticCount = 0; }
+            else { previous.DynamicCount = 0; }
+        }
+        // Snapshot count is wire-capped at ROWS; no row scan on view changes.
+        foreach (HCAdminMark mark : rows)
+        {
             HCAdminWorldStyle style = Style(mark.Layer);
             if (!style) { continue; }
-            style.Count++;
-            if (!m_Visible || !style.Visible) { continue; }
+            if (isStatic) { style.StaticCount++; }
+            else { style.DynamicCount++; }
+            int cellX = Math.Floor(mark.Position[0] / 1000);
+            int cellZ = Math.Floor(mark.Position[2] / 1000);
+            int key = cellZ * 16 + cellX;
+            HCAdminWorldBucket bucket;
+            if (!buckets.Find(key, bucket))
+            {
+                bucket = new HCAdminWorldBucket;
+                buckets.Set(key, bucket);
+            }
+            HCAdminWorldPin entry = new HCAdminWorldPin;
+            entry.Mark = mark;
+            entry.Style = style;
+            bucket.Insert(entry);
+        }
+        foreach (HCAdminWorldStyle counted : m_Styles) { counted.Count = counted.StaticCount + counted.DynamicCount; }
+    }
+    protected void CollectBucket(MapWidget mapWidget, HCAdminWorldBucket bucket, float grid)
+    {
+        foreach (HCAdminWorldPin entry : bucket)
+        {
+            HCAdminMark mark = entry.Mark;
+            HCAdminWorldStyle style = entry.Style;
+            if (!style.Visible) { continue; }
             vector screen = mapWidget.MapToScreen(mark.Position);
-            if (screen[0] < left || screen[1] < top || screen[0] > left + width || screen[1] > top + height) { continue; }
+            if (screen[0] < m_Left || screen[1] < m_Top || screen[0] > m_Left + m_Width || screen[1] > m_Top + m_Height) { continue; }
             string key = "";
             if (grid > 0)
             {
-                int cellX = Math.Floor((screen[0] - left) / grid);
-                int cellY = Math.Floor((screen[1] - top) / grid);
+                int cellX = Math.Floor((screen[0] - m_Left) / grid);
+                int cellY = Math.Floor((screen[1] - m_Top) / grid);
                 key = mark.Layer + ":" + cellX.ToString() + ":" + cellY.ToString();
                 int found;
                 if (m_Cells.Find(key, found)) { m_Pins[found].Count++; continue; }
@@ -337,10 +381,33 @@ class HCAdminWorldClient
             if (m_Pins.Count() >= m_DrawLimit) { continue; }
             HCAdminWorldPin pin = new HCAdminWorldPin;
             pin.Mark = mark;
+            pin.Style = style;
             pin.Screen = screen;
             pin.Count = 1;
             if (key != "") { m_Cells.Set(key, m_Pins.Count()); }
             m_Pins.Insert(pin);
+        }
+    }
+    protected void Collect(MapWidget mapWidget, HCAdminWorldGrid buckets)
+    {
+        if (!m_Visible || m_Width <= 0 || m_Height <= 0) { return; }
+        // Native MapWidget.ScreenToMap consumes screen pixels (gameplay.c:333).
+        vector first = mapWidget.ScreenToMap(Vector(m_Left, m_Top, 0));
+        vector last = mapWidget.ScreenToMap(Vector(m_Left + m_Width, m_Top + m_Height, 0));
+        int minX = Math.Clamp(Math.Floor(Math.Min(first[0], last[0]) / 1000), 0, 15);
+        int maxX = Math.Clamp(Math.Floor(Math.Max(first[0], last[0]) / 1000), 0, 15);
+        int minZ = Math.Clamp(Math.Floor(Math.Min(first[2], last[2]) / 1000), 0, 15);
+        int maxZ = Math.Clamp(Math.Floor(Math.Max(first[2], last[2]) / 1000), 0, 15);
+        float grid = 0;
+        if (mapWidget.GetScale() >= 0.20) { grid = 64; }
+        // At most 256 bucket lookups; project only rows in intersecting cells.
+        for (int z = minZ; z <= maxZ; z++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                HCAdminWorldBucket bucket;
+                if (buckets.Find(z * 16 + x, bucket)) { CollectBucket(mapWidget, bucket, grid); }
+            }
         }
     }
     // Re-cluster only when the view or data changed, throttled for view
@@ -353,10 +420,9 @@ class HCAdminWorldClient
         if (!m_DataDirty && now < m_CollectAt) { return false; }
         m_Pins.Clear();
         m_Cells.Clear();
-        for (int reset = 0; reset < m_Styles.Count(); reset++) { m_Styles[reset].Count = 0; }
         // Dynamic bodies get drawing priority; all layers retain legend counts.
-        Collect(mapWidget, DynamicRows);
-        Collect(mapWidget, StaticRows);
+        Collect(mapWidget, m_DynamicGrid);
+        Collect(mapWidget, m_StaticGrid);
         m_Dirty = false;
         m_DataDirty = false;
         m_CollectAt = now + COLLECT_SECONDS;
@@ -381,9 +447,7 @@ class HCAdminWorldClient
     HCAdminWorldStyle StyleOf(HCAdminWorldPin pin)
     {
         if (!pin || !pin.Mark) { return null; }
-        int index;
-        if (!m_StyleIndex.Find(pin.Mark.Layer, index)) { return null; }
-        return m_Styles[index];
+        return pin.Style;
     }
     bool LayersVisible() { return m_Visible; }
     bool IsSelected(HCAdminWorldPin pin)
