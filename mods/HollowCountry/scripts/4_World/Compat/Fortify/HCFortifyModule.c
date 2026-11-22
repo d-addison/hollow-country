@@ -84,9 +84,16 @@ modded class HCModuleRegistry
     }
 }
 
-// One extra stamp per watched door: the last time a barricade in the doorway
-// took infected pressure (HCInfectedDoors.Visit). Never persisted.
+// Per watched door (HCInfectedDoors.Visit), never persisted:
+//  m_BarricadeAt      last time a barricade in the doorway took infected pressure;
+//  m_Barricade        the standing door barricade bound to THIS door entry (cached so
+//                     later visits skip the scan; dropped when it no longer stands);
+//  m_ForeignBarricade a barricade found in this door's query that another door of the
+//                     same building is nearer to; skipped so it is never pressed from here.
+// Raw references go null when the entity is deleted.
 modded class HCInfectedDoorPressure
 {
     float m_BarricadeAt = -1;
+    Object m_Barricade;
+    Object m_ForeignBarricade;
 }

@@ -42,6 +42,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected eAIBase m_Actor;
     protected Object m_Seen;
     protected Building m_Building;
+    // Metres (squared) within which a raider can work on a barricade it can see.
+    static const float BREACH_REACH_SQ = 16;
     protected Object m_RayBarricade;
     protected Object m_Barricade;
     protected int m_BreachAt;
@@ -155,7 +157,14 @@ class HCXAIBaseRaid : HCBaseRaidPort
         return true;
     }
 
-    // One bounded breach step per raid step, standing at the barricade with it in sight.
+    // One bounded breach step per raid step, standing within BREACH_REACH_SQ of the
+    // barricade with the ray still reaching it (HCPerceive: line of sight and the
+    // ray contact within the native action distance of the doorway). The pace is derived
+    // from the raid window: the remaining window (m_Ends - now) is handed to the bridge,
+    // which never lets one part take longer than its share of that window, so a typical
+    // barricade falls inside the window instead of outlasting it at the configured
+    // per-part seconds. No contact, no step: a gap longer than one capped step (out of
+    // reach or sight) starts the clock again, so there is no stored-up burst either.
     protected void HCBreachBarricade(int now)
     {
         if (!m_Barricade || !HCBreachAllowed() || !HCLiveParty() || m_Barricade.IsPendingDeletion())
@@ -164,11 +173,11 @@ class HCXAIBaseRaid : HCBaseRaidPort
             m_BreachAt = 0;
             return;
         }
-        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Barricade.GetPosition()) > 16 || !HCPerceive(m_Barricade, m_Point)) { return; }
+        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Barricade.GetPosition()) > BREACH_REACH_SQ || !HCPerceive(m_Barricade, m_Point)) { return; }
         int last = m_BreachAt;
         m_BreachAt = now;
-        if (last < 1 || now <= last) { return; }
-        HCFortifyBridge.HCBreach(m_Barricade, now - last, false);
+        if (last < 1 || now <= last || now - last > HCFortifyBridge.MAX_STEP_SECONDS) { return; }
+        HCFortifyBridge.HCBreach(m_Barricade, now - last, false, m_Ends - now);
     }
 
     bool HCPerceive(Object target, vector point)

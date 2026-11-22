@@ -1349,7 +1349,7 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
       "scope": "runtime",
-      "note": "Fortification build or placement refused by the bridge (claim, scale, damage-disabled or build-anywhere reason code)."
+      "note": "Fortification build or placement refused by the bridge (claim, scale, damage-disabled or build-anywhere reason code); counted once per refused placement and once per barricade and reason for damage-disabled or no-part breach refusals. Exercised by a non-member building or placing a pack kit on a claimed building."
     },
     {
       "module": "Fortify",
@@ -1367,7 +1367,7 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
       "scope": "runtime",
-      "note": "Barricade damaged by infected door pressure or a raider breach step through the native damage path."
+      "note": "Counts barricade parts destroyed (ruined through the native damage path) by infected door pressure or a raider breach step, not individual damage steps."
     }
   ]
 }

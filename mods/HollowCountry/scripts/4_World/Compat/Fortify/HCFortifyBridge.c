@@ -1,8 +1,17 @@
 // The only place Hollow Country touches the optional base-fortification packs.
 // Pack classes are NEVER referenced as script types: everything goes through
-// config class names (Object.IsKindOf, Game.ConfigIsExisting), so the mission
-// compiles and boots with either pack absent. Calls refuse with a reason code
-// and print at most one bounded, identity-free line per minute.
+// config class names (Object.IsKindOf, Game.ConfigIsExisting) or one script type
+// resolved at runtime from a string (String.ToType, Class.IsInherited), so the
+// mission compiles and boots with either pack absent. Calls refuse with a reason
+// code and print at most one bounded, identity-free line per minute.
+//
+// Why two kinds of check: IsKindOf walks CONFIG parents only (Object.c:511). The
+// barricade pack's built objects have a config parent chain that reaches the
+// native base building class, and its kits are config-parented to the pack kit
+// base or to the door kit. The kit pack's built objects have NO common config
+// parent (each is parented to a plain inventory class); they share only a script
+// base, so that one type is resolved from its name once and tested with
+// IsInherited. Both parent chains were read from the installed packs' config.
 //
 // Native scripts-1.30.164289 evidence:
 //   Game.c:612 ConfigIsExisting, :1139 ServerConfigGetInt, :1120 IsServer, :1535 GetTime;
@@ -10,7 +19,8 @@
 //   :1191 GetAllowDamage; EntityAI.c IsPendingDeletion; DamageSystem.c:76
 //   GetDamageZoneFromComponentName; BaseBuildingBase.c:358 IsOpened, :882 GetConstruction;
 //   ConstructionBase.c:631 GetConstructionParts; ConstructionPart.c IsBuilt/IsBase/
-//   IsUtilityPart/GetPartName; EnSystem.c ReadFile/OpenFile; EnString.c IndexOfFrom/Substring.
+//   IsUtilityPart/GetPartName; EnSystem.c ReadFile/OpenFile; EnString.c IndexOfFrom/Substring/ToType;
+//   EnScript.c:23 Class.IsInherited; PlayerBase.c GetHologramServer; PlayerBase.MessageStatus.
 // Damage goes through DecreaseHealth, so a destroyed part follows the native
 // ruined-part path (Construction.DestroyPartServer). No instant destroy, no
 // immunity, and the server's disableBaseDamage is never overridden.
@@ -25,12 +35,29 @@ class HCFortifyBridge
     static const string REASON_DAMAGE_OFF = "damage_disabled";
     static const string REASON_NO_PART = "no_breakable_part";
 
+    // HCBreach results. REFUSED = not a valid target now (damage disabled, no
+    // standing part, opened or gone): the caller must not treat it as pressure.
+    // NONE = valid contact but no time has elapsed yet (first contact).
+    static const int BREACH_REFUSED = -1;
+    static const int BREACH_NONE = 0;
+    static const int BREACH_DAMAGED = 1;
+    static const int BREACH_DESTROYED = 2;
+
     // Bounds: parts read per barricade, bytes read per pack config, probe period.
     static const int MAX_PARTS = 32;
     static const int MAX_CONFIG_BYTES = 65536;
     static const int CONFIG_PROBE_MS = 30000;
     static const int REFUSAL_WINDOW_MS = 60000;
     static const float MAX_STEP_SECONDS = 5.0;
+    // With a caller time budget (the raid window), one standing part may take at most
+    // BREACH_BUDGET_SHARE / standingParts of the budget still remaining. The remainder
+    // shrinks as parts fall, so n parts use at most 1 - prod(1 - share/j) of the budget
+    // (about two thirds for 14 parts at 0.3) and the rest of the window stays for the raid.
+    static const float BREACH_BUDGET_SHARE = 0.3;
+    // Refused-breach counter bound: barricade+reason keys remembered per boot.
+    static const int MAX_REFUSED_KEYS = 64;
+    // Script base of the kit pack's built objects, resolved at runtime from this string.
+    static const string RAG_BUILT_BASE = "RaG_BB_Base";
     static const string RAG_CONFIG = "$profile:RaG_Core/Configs/RaG_BaseBuilding/RaG_BaseBuilding.json";
 
     protected static bool s_Probed;
@@ -38,9 +65,11 @@ class HCFortifyBridge
     protected static bool s_KitPack;
     protected static int s_NextConfigMs;
     protected static bool s_RagAnywhere;
-    protected static bool s_RagNoDamage;
+    protected static bool s_ConfigNoted;
+    protected static typename s_RagBuiltType;
     protected static int s_NextRefusalMs;
     protected static bool s_Refused;
+    protected static ref array<string> s_RefusedKeys;
 
     // Class-exists probe, once per run. Config presence is fixed for a boot.
     protected static void HCProbe()
@@ -49,6 +78,11 @@ class HCFortifyBridge
         s_Probed = true;
         s_BarricadePack = GetGame().ConfigIsExisting("CfgVehicles BuildingFortficationsCore") && GetGame().ConfigIsExisting("CfgVehicles BF_DoorBarricade");
         s_KitPack = GetGame().ConfigIsExisting("CfgVehicles RaG_BB_BaseKit");
+        if (s_KitPack)
+        {
+            s_RagBuiltType = RAG_BUILT_BASE.ToType();
+            if (!s_RagBuiltType) { Print("[HC Fortify] kit pack present but its built-object type did not resolve; kit-pack builds cannot be claim-gated reason=built_type_unresolved runtime=PENDING"); }
+        }
     }
 
     static bool HCBarricadePackPresent() { HCProbe(); return s_BarricadePack; }
@@ -81,43 +115,77 @@ class HCFortifyBridge
         return built.IsKindOf("RaG_BB_Floor_Hatch");
     }
 
+    // Kits of both packs. The barricade pack's door kits are config-parented to the
+    // plain inventory class (the double-door kit to the door kit), not to the pack's
+    // kit base, so the door kit is named too. The kit pack's kits all share one base.
     static bool HCIsPackKit(Object kit)
     {
         if (!kit || !HCPackPresent()) { return false; }
-        if (s_BarricadePack && kit.IsKindOf("BuildingFortficationsKit")) { return true; }
-        if (!s_KitPack) { return false; }
-        return kit.IsKindOf("RaG_BB_BaseKit") || kit.IsKindOf("RaG_BB_Pefab_BaseKit");
+        if (s_BarricadePack && (kit.IsKindOf("BuildingFortficationsKit") || kit.IsKindOf("BF_DoorBarricadeKit"))) { return true; }
+        return HCIsRagKit(kit);
     }
 
     static bool HCIsRagKit(Object kit)
     {
         if (!kit || !s_KitPack) { return false; }
-        return kit.IsKindOf("RaG_BB_BaseKit") || kit.IsKindOf("RaG_BB_Pefab_BaseKit");
+        return kit.IsKindOf("RaG_BB_BaseKit");
     }
 
-    // A built pack object (barricade core or kit-pack base) that further parts can be built on.
+    // A built barricade core (config parent chain reaches the pack's core class).
+    protected static bool HCIsBarricadeCore(BaseBuildingBase building)
+    {
+        return s_BarricadePack && building.IsKindOf("BuildingFortficationsCore");
+    }
+
+    // A built kit-pack object: script base resolved once from its name.
+    protected static bool HCIsRagBuilt(Object target)
+    {
+        if (!s_KitPack || !s_RagBuiltType || !target) { return false; }
+        return target.IsInherited(s_RagBuiltType);
+    }
+
+    // A built pack object (barricade core or kit-pack object) that further parts can be built on.
+    // The native base-building cast filters first so unrelated objects never reach IsKindOf.
     static bool HCIsPackBuilt(Object target)
     {
         if (!target || !HCPackPresent()) { return false; }
-        if (s_BarricadePack && target.IsKindOf("BuildingFortficationsCore")) { return true; }
-        return s_KitPack && target.IsKindOf("RaG_BB_Base");
+        BaseBuildingBase building = BaseBuildingBase.Cast(target);
+        if (!building) { return false; }
+        return HCIsBarricadeCore(building) || HCIsRagBuilt(building);
     }
 
     // A barricade that can stand in a doorway (window barricades never block a door).
+    protected static bool HCDoorBarricadeClass(BaseBuildingBase building)
+    {
+        return building.IsKindOf("BF_DoorBarricade") || building.IsKindOf("BF_DoubleDoorBarricade");
+    }
+
     static bool HCIsDoorBarricade(Object obj)
     {
         if (!obj || !s_BarricadePack) { return false; }
-        return obj.IsKindOf("BF_DoorBarricade") || obj.IsKindOf("BF_DoubleDoorBarricade");
+        BaseBuildingBase building = BaseBuildingBase.Cast(obj);
+        if (!building) { return false; }
+        return HCDoorBarricadeClass(building);
     }
 
     // The barricade currently stands: not opened, has a built non-base part with health left.
-    static bool HCBlocksDoor(Object obj)
+    static bool HCStanding(Object obj)
     {
-        if (!HCActive() || !HCIsDoorBarricade(obj)) { return false; }
         BaseBuildingBase barricade = BaseBuildingBase.Cast(obj);
         if (!barricade || barricade.IsPendingDeletion() || barricade.IsOpened()) { return false; }
         string zone;
-        return HCWeakestZone(barricade, zone) > 0;
+        int standing;
+        return HCWeakestZone(barricade, zone, standing) > 0;
+    }
+
+    // A standing door barricade (class-checked). Cheap negative: server only, pack present,
+    // native cast first, config name check only for base-building objects.
+    static bool HCBlocksDoor(Object obj)
+    {
+        if (!obj || !s_BarricadePack || !HCActive()) { return false; }
+        BaseBuildingBase barricade = BaseBuildingBase.Cast(obj);
+        if (!barricade || !HCDoorBarricadeClass(barricade)) { return false; }
+        return HCStanding(barricade);
     }
 
     // ---- claim ACL ---------------------------------------------------------
@@ -138,15 +206,31 @@ class HCFortifyBridge
     static string HCBuildReason(PlayerBase player, Object target)
     {
         if (!HCActive() || !HCIsPackBuilt(target)) { return REASON_NONE; }
-        if (s_KitPack && target.IsKindOf("RaG_BB_Base") && !HCShelterScaleBuilt(target)) { return REASON_SCALE; }
+        if (HCIsRagBuilt(target) && !HCShelterScaleBuilt(target)) { return REASON_SCALE; }
         return HCClaimReason(player, target.GetPosition());
     }
 
+    // Reason a kit deployment is refused before the action starts (server hologram
+    // position, player position as the fallback), or "". The client never refuses:
+    // the module is server-only, so the server's action condition rejects the start
+    // and the client never completes its local placement.
+    static string HCDeployReason(PlayerBase player, Object kit)
+    {
+        if (!HCActive() || !player || !HCIsPackKit(kit)) { return REASON_NONE; }
+        vector position = player.GetPosition();
+        Hologram hologram = player.GetHologramServer();
+        if (hologram && hologram.GetProjectionEntity()) { position = hologram.GetProjectionEntity().GetPosition(); }
+        return HCPlacementReason(player, kit, position);
+    }
+
     // Members of the claim covering the position may build; unclaimed ground follows the setting.
+    // An actor that cannot hold a claim identity (dead, unconscious, restrained, in a vehicle,
+    // no identity) is a claim-service refusal, never a membership verdict.
     protected static string HCClaimReason(PlayerBase player, vector position)
     {
         if (!HCBuildingClaim.HCConstructionAllowed(player, position))
         {
+            if (!HCBuildingClaim.HCActor(player)) { return REASON_CLAIM_UNAVAILABLE; }
             if (HCBuildingClaim.HCClaimCoversAt(position)) { return REASON_NOT_MEMBER; }
             return REASON_CLAIM_UNAVAILABLE;
         }
@@ -164,6 +248,27 @@ class HCFortifyBridge
         s_Refused = true;
         s_NextRefusalMs = nowMs + REFUSAL_WINDOW_MS;
         Print("[HC Fortify] refused reason=" + reason + " runtime=PENDING");
+    }
+
+    // Refusal plus the player's status line (start of an action, or its server finish).
+    static void HCRefuseTo(PlayerBase player, string reason)
+    {
+        HCRefuse(reason);
+        if (player) { player.MessageStatus(HCReasonText(reason)); }
+    }
+
+    // Breach refusals are not player attempts: count one per barricade and reason
+    // (bounded), so a barricade that stays refused is not recounted on every visit.
+    protected static void HCRefuseBreach(BaseBuildingBase barricade, string reason)
+    {
+        if (!s_RefusedKeys) { s_RefusedKeys = new array<string>; }
+        vector at = barricade.GetPosition();
+        int atX = Math.Round(at[0]);
+        int atZ = Math.Round(at[2]);
+        string key = reason + ":" + atX.ToString() + ":" + atZ.ToString();
+        if (s_RefusedKeys.Find(key) >= 0 || s_RefusedKeys.Count() >= MAX_REFUSED_KEYS) { return; }
+        s_RefusedKeys.Insert(key);
+        HCRefuse(reason);
     }
 
     // Player-facing text for a reason code (no identities, no class names).
@@ -190,13 +295,19 @@ class HCFortifyBridge
         if (GetGame()) { nowMs = GetGame().GetTime(); }
         if (!force && nowMs < s_NextConfigMs) { return; }
         s_NextConfigMs = nowMs + CONFIG_PROBE_MS;
-        s_RagAnywhere = false;
-        s_RagNoDamage = false;
-        if (!s_KitPack) { return; }
+        if (!s_KitPack) { s_RagAnywhere = false; return; }
         string text;
-        if (!HCGroupIO.HCReadRaw(RAG_CONFIG, MAX_CONFIG_BYTES, text)) { return; }
+        if (!HCGroupIO.HCReadRaw(RAG_CONFIG, MAX_CONFIG_BYTES, text))
+        {
+            // Last known value is kept (false before the first good read); say so once.
+            if (!s_ConfigNoted)
+            {
+                s_ConfigNoted = true;
+                Print("[HC Fortify] kit pack config unreadable or missing; build-anywhere keeps its last known value (off before the first read) reason=pack_config_unreadable runtime=PENDING");
+            }
+            return;
+        }
         s_RagAnywhere = HCFlagOn(text, "BaseBuildAnywhere") || HCFlagOn(text, "FlagBuildAnywhere");
-        s_RagNoDamage = HCFlagOn(text, "DisableAllDamage");
     }
 
     static bool HCRagBuildAnywhere()
@@ -208,6 +319,9 @@ class HCFortifyBridge
     static void HCProbeConfigs()
     {
         HCProbe();
+        s_ConfigNoted = false;
+        s_Refused = false;
+        s_RefusedKeys = new array<string>;
         HCRefreshRagConfig(true);
         if (s_RagAnywhere) { Print("[HC Fortify] kit pack build-anywhere is on; shelter kits will be refused until it is off runtime=PENDING"); }
     }
@@ -231,10 +345,12 @@ class HCFortifyBridge
 
     // ---- breach damage ------------------------------------------------------
 
-    // Weakest standing part: returns its health (0 when none) and its damage zone.
-    protected static float HCWeakestZone(BaseBuildingBase barricade, out string zone)
+    // Weakest standing part: returns its health (0 when none) and its damage zone,
+    // and how many built parts still stand (bounded by MAX_PARTS).
+    protected static float HCWeakestZone(BaseBuildingBase barricade, out string zone, out int standing)
     {
         zone = "";
+        standing = 0;
         Construction construction = barricade.GetConstruction();
         if (!construction) { return 0; }
         map<string, ref ConstructionPart> parts = construction.GetConstructionParts();
@@ -249,6 +365,7 @@ class HCFortifyBridge
             if (!DamageSystem.GetDamageZoneFromComponentName(barricade, part.GetPartName(), candidate)) { continue; }
             float health = barricade.GetHealth(candidate, "Health");
             if (health <= 0) { continue; }
+            standing = standing + 1;
             if (zone == "" || health < weakest)
             {
                 zone = candidate;
@@ -259,39 +376,48 @@ class HCFortifyBridge
     }
 
     // One bounded breach step by one attacker: the weakest standing part loses
-    // maxHealth * seconds / breachSeconds (heavy attackers take half the time).
-    // Returns 0 refused/none, 1 damaged, 2 part destroyed this step (native path).
-    static int HCBreach(Object target, float seconds, bool heavy)
+    // maxHealth * seconds / window, where window is the configured breach seconds
+    // (heavy attackers take half) and, when the caller has a finite time budget
+    // (a raid window), no longer than BREACH_BUDGET_SHARE / standing parts of the budget
+    // left. Returns BREACH_REFUSED, BREACH_NONE (valid, no time elapsed yet),
+    // BREACH_DAMAGED or BREACH_DESTROYED (part ruined, native path).
+    static int HCBreach(Object target, float seconds, bool heavy, float budgetSeconds = 0)
     {
-        if (!HCActive() || !GetGame().IsServer() || !HCIsDoorBarricade(target)) { return 0; }
+        if (!HCActive() || !GetGame().IsServer() || !HCIsDoorBarricade(target)) { return BREACH_REFUSED; }
         BaseBuildingBase barricade = BaseBuildingBase.Cast(target);
-        if (!barricade || barricade.IsPendingDeletion() || barricade.IsOpened()) { return 0; }
+        if (!barricade || barricade.IsPendingDeletion() || barricade.IsOpened()) { return BREACH_REFUSED; }
         if (!barricade.GetAllowDamage() || GetGame().ServerConfigGetInt("disableBaseDamage") > 0)
         {
-            HCRefuse(REASON_DAMAGE_OFF);
-            return 0;
+            HCRefuseBreach(barricade, REASON_DAMAGE_OFF);
+            return BREACH_REFUSED;
         }
         string zone;
-        float health = HCWeakestZone(barricade, zone);
+        int standing;
+        float health = HCWeakestZone(barricade, zone, standing);
         if (health <= 0 || zone == "")
         {
-            HCRefuse(REASON_NO_PART);
-            return 0;
+            HCRefuseBreach(barricade, REASON_NO_PART);
+            return BREACH_REFUSED;
         }
         float step = Math.Clamp(seconds, 0, MAX_STEP_SECONDS);
-        if (step <= 0) { return 0; }
+        if (step <= 0) { return BREACH_NONE; }
         float window = HCFortifyModule.BreachSeconds();
         if (heavy) { window = window * 0.5; }
+        if (budgetSeconds > 0 && standing > 0)
+        {
+            float paced = budgetSeconds * BREACH_BUDGET_SHARE / standing;
+            if (paced < window) { window = paced; }
+        }
         float damage = barricade.GetMaxHealth(zone, "Health") * step / Math.Max(1.0, window);
-        if (damage <= 0) { return 0; }
+        if (damage <= 0) { return BREACH_NONE; }
         // The object may be gone once the last part is ruined: decide before the call.
         bool destroyed = health - damage <= 0;
         barricade.DecreaseHealth(zone, "Health", damage);
         if (destroyed)
         {
             HCModuleReadiness.HCUse(HCFortifyModule.MODULE, "barricade_breached");
-            return 2;
+            return BREACH_DESTROYED;
         }
-        return 1;
+        return BREACH_DAMAGED;
     }
 }

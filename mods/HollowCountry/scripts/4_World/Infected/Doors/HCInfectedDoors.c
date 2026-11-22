@@ -59,6 +59,10 @@
 // so the warning uses client-side vanilla attack foley at the door instead.
 class HCInfectedDoorsModule : HCModule
 {
+    // Fortify: doors compared when binding a barricade to its nearest door entry, and the
+    // slack (seconds) added to the Grace lapse test for barricade pressure.
+    static const int MAX_BARRICADE_BIND_DOORS = 64;
+    static const float GRACE_SLACK = 0.25;
     protected bool m_Running;
     protected bool m_Printed;
     protected float m_Clock;
@@ -478,10 +482,11 @@ class HCInfectedDoorsModule : HCModule
         int candidates = 0;
         int kind = HCInfectedDoorPolicy.KIND_NONE;
         ZombieBase chosen;
+        // The barricade search is independent of the infected cap below.
         Object barricade;
+        if (fortified) { barricade = HCDoorBarricade(entry, building, doorIndex, doorPos, inspected); }
         for (int objectIndex = 0; objectIndex < inspected; objectIndex++)
         {
-            if (fortified && !barricade && HCFortifyBridge.HCBlocksDoor(m_Objects[objectIndex])) { barricade = m_Objects[objectIndex]; }
             ZombieBase infected = ZombieBase.Cast(m_Objects[objectIndex]);
             if (!infected) { continue; }
             candidates = candidates + 1;
@@ -524,22 +529,77 @@ class HCInfectedDoorsModule : HCModule
         Apply(entry, action, chosen, doorPos);
     }
 
+    // The standing door barricade that belongs to this door entry, or null. A bound
+    // barricade is cached on the entry (no rescan while it stands). Otherwise the nearest
+    // standing one among the already queried objects is taken (native cast filter first,
+    // no extra query), then bound only if no other door of the building is nearer to it,
+    // so an adjacent door's barricade is never pressed from the wrong entry.
+    protected Object HCDoorBarricade(HCInfectedDoorPressure entry, Building building, int doorIndex, vector doorPos, int inspected)
+    {
+        if (entry.m_Barricade)
+        {
+            if (HCFortifyBridge.HCStanding(entry.m_Barricade)) { return entry.m_Barricade; }
+            entry.m_Barricade = null;
+        }
+        Object nearest;
+        float nearestSq = 1000000;
+        for (int index = 0; index < inspected; index++)
+        {
+            Object candidate = m_Objects[index];
+            if (candidate == entry.m_ForeignBarricade || !HCFortifyBridge.HCBlocksDoor(candidate)) { continue; }
+            float candidateSq = vector.DistanceSq(candidate.GetPosition(), doorPos);
+            if (candidateSq < nearestSq)
+            {
+                nearestSq = candidateSq;
+                nearest = candidate;
+            }
+        }
+        if (!nearest) { return null; }
+        if (!HCBarricadeBelongs(building, doorIndex, nearest))
+        {
+            entry.m_ForeignBarricade = nearest;
+            return null;
+        }
+        entry.m_Barricade = nearest;
+        return nearest;
+    }
+
+    // True when no other door of the building is nearer to the barricade than this one.
+    // Native GetDoorSoundPos only; <=MAX_BARRICADE_BIND_DOORS indices, once per found barricade.
+    protected bool HCBarricadeBelongs(Building building, int doorIndex, Object barricade)
+    {
+        vector at = barricade.GetPosition();
+        float ownSq = vector.DistanceSq(at, building.GetDoorSoundPos(doorIndex));
+        int count = Math.Min(building.GetDoorCount(), MAX_BARRICADE_BIND_DOORS);
+        for (int other = 0; other < count; other++)
+        {
+            if (other == doorIndex) { continue; }
+            if (vector.DistanceSq(at, building.GetDoorSoundPos(other)) < ownSq) { return false; }
+        }
+        return true;
+    }
+
     // One bounded breach step per visit: elapsed time is clamped to the door
-    // tuning MaxStep and a lapsed contact starts fresh, like HCAdvance.
+    // tuning MaxStep and a lapsed contact starts fresh, like HCAdvance. The lapse
+    // limit carries a small slack so float-summed clocks and tick jitter never make a
+    // contact that is exactly Grace old look lapsed.
+    // A qualified contact keeps the door hot, so the next visit comes from the hot-first
+    // pass (the cold cursor alone revisits too rarely to ever build a step with several
+    // players). Only a real refusal (damage disabled by the server, no standing part)
+    // leaves it cold, so a refused barricade cannot starve the other doors (HC-8).
     protected void HCPressBarricade(HCInfectedDoorPressure entry, Object barricade, int kind, ZombieBase chosen, vector doorPos)
     {
         float step = 0;
-        if (entry.m_BarricadeAt >= 0 && m_Clock - entry.m_BarricadeAt <= HCInfectedTuning.Get().Doors.Grace)
+        if (entry.m_BarricadeAt >= 0 && m_Clock - entry.m_BarricadeAt <= HCInfectedTuning.Get().Doors.Grace + GRACE_SLACK)
         {
             step = Math.Min(m_Clock - entry.m_BarricadeAt, HCInfectedTuning.Get().Doors.MaxStep);
         }
         entry.m_BarricadeAt = m_Clock;
-        // A refused breach (damage disabled by the server) must not refresh the
-        // hot-priority stamp, or this door would starve the others (HC-8).
-        if (HCFortifyBridge.HCBreach(barricade, step, kind == HCInfectedDoorPolicy.KIND_HEAVY) == 0) { return; }
+        int result = HCFortifyBridge.HCBreach(barricade, step, kind == HCInfectedDoorPolicy.KIND_HEAVY);
+        if (result == HCFortifyBridge.BREACH_REFUSED) { return; }
         entry.m_LastHot = m_Clock;
         HCWarnPressure(entry, kind, doorPos);
-        Noise(chosen, doorPos);
+        if (result != HCFortifyBridge.BREACH_NONE) { Noise(chosen, doorPos); }
     }
 
     // <=4 visited doors/tick, <=32 roster entries per cue, one RPC per nearby
