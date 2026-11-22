@@ -8,7 +8,9 @@
 // 3_Game/Global/DayZPhysics.c:1-44,211 RayCastBullet and layer constants;
 // 4_World/Classes/MeleeTargeting.c:74,272-288 uses the same ray API.
 // Static-world subset excludes vehicles/items/characters; movable obstacles
-// are intentionally outside this wall diagnostic. No shift of layer constants.
+// are intentionally outside this wall diagnostic. The wall bucket reuses the
+// HCMeleeWall verdict (walls, doors, fences; doorway tolerances), which now also
+// drives the hard veto; this probe itself still decides nothing.
 // 1_Core/proto/EnConvert.c vector.DistanceSq; EnMath.c Sqrt/AbsFloat/Atan2/RAD2DEG.
 // ZombieBase.c:1090 IsCrawling; HCVarietyPosed is the existing HC pose accessor.
 class HCMeleeTargetingParity
@@ -101,11 +103,8 @@ class HCMeleeTargetingParity
             if (!s_HasLow || offset[1] > s_LowMaxDY) { s_LowMaxDY = offset[1]; }
             s_HasLow = true;
         }
-        Object hitObject;
-        vector hitPosition, hitNormal;
-        float hitFraction;
-        PhxInteractionLayers layers = PhxInteractionLayers.BUILDING | PhxInteractionLayers.DOOR | PhxInteractionLayers.ROADWAY | PhxInteractionLayers.TERRAIN | PhxInteractionLayers.FENCE;
-        bool blocked = DayZPhysics.RayCastBullet(head, zonePos, layers, attacker, hitObject, hitPosition, hitNormal, hitFraction);
+        // Same cached verdict the veto uses: one trace per attack, doorway tolerances included.
+        bool blocked = HCMeleeWall.Blocked(attacker, target, zone);
         bool oursOK = HCMeleeTarget.ImplausibleReason(attacker, target, zone, modelPos) == "";
         bool vanillaOK = distanceSq <= limit * limit;
         // Exclusive buckets: wall takes precedence; agree includes both rejected.
@@ -137,12 +136,14 @@ modded class HCMeleeLog
     {
         super.Reset();
         HCMeleeTargetingParity.Reset();
+        HCMeleeWall.Reset();
     }
 
     override static void Summary()
     {
         super.Summary();
         HCMeleeTargetingParity.Summary();
+        HCMeleeWall.Summary();
     }
 }
 
@@ -151,6 +152,10 @@ modded class HCModuleReadiness
     override static void HCRegisterModuleUses(string module)
     {
         super.HCRegisterModuleUses(module);
-        if (module == "Melee") { HCRegisterUse("Melee", "parity_probe"); }
+        if (module == "Melee")
+        {
+            HCRegisterUse("Melee", "parity_probe");
+            HCRegisterUse("Melee", "wall_veto");
+        }
     }
 }

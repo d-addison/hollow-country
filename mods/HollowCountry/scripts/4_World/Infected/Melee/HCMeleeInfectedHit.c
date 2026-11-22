@@ -6,8 +6,19 @@
 // :1129-1138 damageCoef multiplies applied ammo damage (model-space hit).
 // 3_Game/DamageSystem.c:1-4 TotalDamageResult.GetDamage.
 // 3_Game/Global/Game.c:1120 IsServer; :1535 GetTime (milliseconds).
+// 3_Game/Entities/Object.c:1144 EEOnDamageCalculated: false vetoes the hit (wall veto).
 modded class ZombieBase
 {
+    // Hard wall veto (Neon P2.4): no melee hit on an infected lands through a wall or
+    // closed door. HCMeleeWall owns the filters, the single cached trace and the counter.
+    override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+    {
+        bool allowed = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        if (!allowed) { return false; }
+        if (HCMeleeWall.Vetoes(this, damageType, source, dmgZone, ammo)) { return false; }
+        return true;
+    }
+
     override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
     {
         if (!GetGame().IsServer())
