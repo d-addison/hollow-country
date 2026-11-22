@@ -196,10 +196,16 @@ class HCEventRuntime
         {
             if (!drain && (m_JournalYielded || !m_WorkBudget.HCContinue())) { break; }
             int started = TickCount(0);
-            string stage = m_PendingJournal.HCStageName();
+            string stage;
+            if (!drain) { stage = m_PendingJournal.HCStageName(); }
             result = m_PendingJournal.HCStepSave();
-            bool nativeYield = m_PendingJournal.HCYieldRequested();
-            stage += " op=" + m_PendingJournal.HCNativeOperation();
+            int spent = TickCount(started);
+            bool nativeYield = false;
+            if (!drain)
+            {
+                nativeYield = m_PendingJournal.HCYieldRequested() && spent >= HCWorkBudget.HCTicksPerMs();
+                stage += " op=" + m_PendingJournal.HCNativeOperation();
+            }
             if (drain)
             {
                 if (m_TickSteps) { m_TickSteps.HCDeferred(TickCount(started)); }
