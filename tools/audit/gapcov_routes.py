@@ -18,9 +18,21 @@ from pathlib import Path
 MISSION = Path('mission/hollow-country')
 # HCXAISiteRules.c:10; fail before authoring a catalog the runtime cannot load.
 MAX_CATALOG_ROWS = 1024
+CATALOG_PAGE_ROWS = 32
+CATALOG_PAGE_BYTES = 32768
+CATALOG_INDEX = 'travel/gapcov-roads/index.json'
+
+
+def page_paths(root):
+    localities = root / MISSION / 'ai/localities.json'
+    count = len(json.loads(localities.read_bytes())['Localities']) if localities.is_file() else 0
+    return tuple('travel/gapcov-roads/page-%03d.json' % index
+                 for index in range((count + CATALOG_PAGE_ROWS - 1) // CATALOG_PAGE_ROWS))
+
 OUTPUTS = tuple(str(MISSION / name) for name in (
     'travel/route-surveys.json', 'ai/picker-routes.json', 'ai/caravans.json',
-    'infected/route-surveys.json'))
+    'infected/route-surveys.json', CATALOG_INDEX,
+    *page_paths(Path(__file__).resolve().parents[2])))
 ROAD_VIRTUAL_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 
 
@@ -119,10 +131,10 @@ def candidate_path(start, positions, links, limits):
 def locality_anchor(locality, sites):
     """Mirror HCXAISiteDirector's committed site binding, without ground sampling.
 
-    HCXAISites.c:755-766 removes unknown SiteIds; :1084-1098 selects in
+    HCXAISites.c:750-766 removes unknown SiteIds; :1080-1098 selects in
     SiteIds order (initial rotation cursor zero); :832-836 HCSiteAnchor uses
     HousePosition for holdouts and Waypoints[0] otherwise. gapcode_routes_sites.c:
-    84-88 likewise uses the source site's first waypoint for road approach.
+    99-102 likewise uses the source site's first waypoint for road approach.
     No source-name heuristic or nearby-house proxy can replace this binding.
     """
     for site_id in locality['SiteIds']:
@@ -301,11 +313,31 @@ def catalog_outputs(root, catalog):
     mission = root / MISSION
     path = mission / 'travel/route-surveys.json'
     travel = json.loads(path.read_text())
-    travel['gapcov_routes'] = catalog
+    header = {key: value for key, value in catalog.items() if key != 'routes'}
+    header['row_count'] = len(catalog['routes'])
+    header['pages'] = []
+    for index, relative in enumerate(page_paths(root)):
+        rows = catalog['routes'][index * CATALOG_PAGE_ROWS:(index + 1) * CATALOG_PAGE_ROWS]
+        page = {'schema': 1, 'kind': 'gapcov-road-page', 'routes': rows}
+        page['identity_sha256'] = digest(page)
+        data = (json.dumps(page, separators=(',', ':'), allow_nan=False) + '\n').encode()
+        if not rows or len(data) > CATALOG_PAGE_BYTES:
+            raise ValueError('catalog page outside row/byte bounds')
+        outputs[str(MISSION / relative)] = data
+        header['pages'].append({'Path': '$mission:hollow-country/' + relative,
+                                'Bytes': len(data), 'Sha256': hashlib.sha256(data).hexdigest(),
+                                'IdentitySha256': page['identity_sha256'],
+                                'Rows': len(rows)})
+    header['identity_sha256'] = digest(header)
+    header_data = (json.dumps(header, separators=(',', ':'), allow_nan=False) + '\n').encode()
+    if len(header_data) > CATALOG_PAGE_BYTES:
+        raise ValueError('catalog header outside byte bounds')
+    outputs[str(MISSION / CATALOG_INDEX)] = header_data
+    travel['gapcov_routes'] = {'catalog': CATALOG_INDEX, 'locality_candidates': header['row_count']}
     travel['gapcov_survey_receipt_contract'] = receipt_contract()
     outputs[str(path.relative_to(root))] = (json.dumps(travel, indent=2) + '\n').encode()
     reference = {
-        'catalog': 'travel/route-surveys.json#gapcov_routes',
+        'catalog': CATALOG_INDEX,
         'receipt_contract': 'travel/route-surveys.json#gapcov_survey_receipt_contract',
         'locality_candidates': len(catalog['routes']), 'runtime_acceptance': 'PENDING',
         'admission': 'Existing features remain default-on with their existing opt-outs. Candidate catalog needs bounded runtime paging; current active Routes are unchanged. No native survey accepted.',
@@ -325,7 +357,9 @@ def catalog_outputs(root, catalog):
 
 def write_catalog(root, catalog):
     for name, data in catalog_outputs(root, catalog).items():
-        (root / name).write_bytes(data)
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
 
 
 def main():

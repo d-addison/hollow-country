@@ -2015,6 +2015,26 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 273,
+      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCManifestMatches -> HCGapcodeRoutesCatalog.HCReadBounded",
+      "native": false,
+      "reason": "One bounded file per grant: header/page <=32768 bytes, manifest <=65536; read cap+1 detects oversize before JSON parsing. No second page or row resolution in that grant; engine timing remains pending."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 273,
+      "symbol": "HCGapcodeRoutesCatalog.HCReadBounded",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCManifestMatches -> HCGapcodeRoutesCatalog.HCReadBounded",
+      "native": false,
+      "reason": "One bounded file per grant: header/page <=32768 bytes, manifest <=65536; read cap+1 detects oversize before JSON parsing. No second page or row resolution in that grant; engine timing remains pending."
     }
   ]
 }

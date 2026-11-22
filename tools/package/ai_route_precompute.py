@@ -154,6 +154,13 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
                 'ChunkBytes': chunk, 'SourceCount': len(files), 'PageCount': page_start,
                 'Files': files, 'RoadGraphPath': '$mission:hollow-country/ai/road-graph.compact.json',
                 'RoadGraphSha256': sha(graph), 'Runtime': 'PENDING'}
+    if derived:
+        index_path = str(gapcov_routes.MISSION / gapcov_routes.CATALOG_INDEX)
+        header = json.loads(derived[index_path])
+        manifest['CatalogPath'] = '$mission:hollow-country/' + gapcov_routes.CATALOG_INDEX
+        manifest['CatalogIdentitySha256'] = header['identity_sha256']
+        manifest['CatalogSha256'] = sha(derived[index_path])
+        manifest['CatalogPages'] = header['pages']
     return {OUTPUTS[0]: encode(manifest), OUTPUTS[1]: graph, **derived}
 
 

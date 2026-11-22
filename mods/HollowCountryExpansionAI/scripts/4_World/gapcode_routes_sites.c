@@ -1,3 +1,20 @@
+// Serialized page DTOs shared with the catalog loader. No engine calls.
+class HCGapcodeRoutesPageIdentity
+{
+    string Path;
+    int Bytes;
+    string Sha256;
+    string IdentitySha256;
+    int Rows;
+}
+class HCGapcodeRoutesPage
+{
+    int schema;
+    string kind;
+    string identity_sha256;
+    ref array<ref HCGapcodeRoutesRow> routes;
+}
+
 // Runtime consumption belongs to the existing bounded HC-18 site owner.
 // Native scripts-1.30.164289: 1_Core/proto/EnConvert.c:196 Distance,
 // EnScript.c:380/407 Count/Insert; EnDebug.c:96 Print. No Expansion calls.

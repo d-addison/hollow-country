@@ -103,6 +103,9 @@ MISSION_FILES.add('ce/hc-site-measurements.json')
 # Regional road source pages for the paged route catalog.
 MISSION_FILES.update({'travel/gapcode_routes_source-pages.json',
                       'travel/routes-manifest.json', 'ai/road-graph.compact.json'})
+# Generated bounded regional road catalog inventory.
+MISSION_FILES.add('travel/gapcov-roads/index.json')
+MISSION_FILES.update('travel/gapcov-roads/page-%03d.json' % index for index in range(17))
 # Named-locality catalogue for clue direction/distance wording (Leads).
 MISSION_FILES.add('leads/localities.json')
 MISSION_FILES.update({
