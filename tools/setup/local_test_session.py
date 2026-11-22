@@ -1000,7 +1000,8 @@ def plan_interiors(profiles, repo, args):
                           'before installing templates. Nothing was changed.' % relative)
     if not args.interiors_pack:
         raise Refused('--interiors needs --interiors-pack <assembled template pack outside the checkout>; '
-                      'build with interior_templates build, then interiors_profile templates assemble')
+                      'build with python3 -B -m tools.package.interior_templates build, then '
+                      'python3 -B -m tools.package.interiors_profile templates assemble')
     pack = existing_dir(args.interiors_pack, 'assembled interior template pack', repo)
     tool = interiors_installer('templates')
     report = tool.validate(pack)
