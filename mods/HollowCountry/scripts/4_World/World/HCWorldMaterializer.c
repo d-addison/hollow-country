@@ -741,10 +741,14 @@ class HCWorldMaterializer : HCModule
             if (pending && (!selected || pending.NextLease >= selected.NextLease)) { selected = pending; selectedText = pendingText; }
             if (!selected && !prior)
             {
-                if (FileExist(m_CustodyPath)) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
-                Print("[HC " + GetName() + "] custody_retained_no_primary starting_empty=true");
+                bool nextEmpty = !FileExist(backup);
+                if (FileExist(backup + ".bak")) { nextEmpty = false; }
+                if (FileExist(m_CustodyPath) && nextEmpty) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
+                if (nextEmpty) { Print("[HC " + GetName() + "] custody_retained_no_primary starting_empty=true"); }
             }
-            if (selected && (!prior || selected.NextLease > prior.NextLease))
+            // A selected pending intent is already durable; never truncate it
+            // by opening the same backup intent for an in-place rewrite.
+            if (selected && (!prior || selected.NextLease > prior.NextLease) && selectedText != pendingText)
             {
                 // First drain any damaged backup intent with its own raw source
                 // preservation policy; never overwrite its only raw bytes.

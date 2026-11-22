@@ -2531,6 +2531,26 @@
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCCleanupCustodyWitness; enqueue bounded startup work",
       "native": false,
       "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 746,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#7",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 8: boot-only backup-level existence guards, preserving recovery through a deeper valid backup. Eight levels and up to 32 string image reads per selector invocation, not a global depth/read cap; nested selectors add reads. Shared per-start limits are 64 archive slot scans and 128 comparisons across the initial load plus three retries. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 755,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#8",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 8: boot-only backup-level existence guards, preserving recovery through a deeper valid backup. Eight levels and up to 32 string image reads per selector invocation, not a global depth/read cap; nested selectors add reads. Shared per-start limits are 64 archive slot scans and 128 comparisons across the initial load plus three retries. Native crash/upgrade and boot latency evidence pending."
     }
   ]
 }

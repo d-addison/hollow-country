@@ -179,7 +179,10 @@ class HCWorldStore
         FileHandle check = OpenFile(a, FileMode.READ);
         int length = -1;
         if (check) { length = ReadFile(check, fixture, 6000); CloseFile(check); }
-        bool qualified = fa && fb && fe;
+        bool qualified = true;
+        if (!fa) { qualified = false; }
+        if (!fb) { qualified = false; }
+        if (!fe) { qualified = false; }
         if (length != 5000) { qualified = false; }
         if (qualified) { qualified = HCRawCounts(a); }
         if (qualified) { qualified = HCRawCounts(b); }
