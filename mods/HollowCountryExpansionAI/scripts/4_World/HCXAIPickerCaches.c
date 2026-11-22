@@ -89,9 +89,9 @@ modded class HCXAISiteDirector
             return;
         }
         if (!survey.Routes || survey.Routes.Count() == 0) { return; }
-        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_CACHE, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         int now = HCXExpansionBridge.HCGetTimestamp();
         if (now < 0) { return; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_CACHE, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         int endpoints = survey.Routes.Count() * 2;
         if (m_HCPickerCacheCursor >= endpoints) { m_HCPickerCacheCursor = 0; }
         HCPickerRoute route = survey.Routes[m_HCPickerCacheCursor / 2];
@@ -210,7 +210,8 @@ modded class HCXAISiteDirector
         {
             crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME));
             HCGroundSnap.Snap(crate);
-            HCXAISiteDirector.HCPickerSchedulePathgraph(crate);
+            // Movable crates keep native item pathgraph behaviour; forcing a
+            // static obstacle here would leave it behind after a player moves it.
         }
         if (!crate || !crate.GetInventory()) { return; }
         row.HCPickerCrateId = HCSearchSupplyRegistry.PersistentId(crate);
@@ -237,32 +238,4 @@ modded class HCXAISiteDirector
         Print(receipt + " attempts=" + created.ToString() + " runtime=PENDING");
     }
 
-// One cache per existing budgeted endpoint visit. Capture final 3D bounds
-// after snapping; apply them after physics settles, rather than leaving a
-// runtime Mark() waiting for vanilla's boot-only marked-object flush.
-// Native 1.30.164289: Game.c:1206/1550, 2_GameLib/tools.c:61.
-    static void HCPickerSchedulePathgraph(Object object)
-    {
-        if (!object || !GetGame() || !GetGame().IsServer()) { return; }
-        HCPathgraphRefresh region = new HCPathgraphRefresh;
-        if (!region.Include(object)) { return; }
-        // Shared pending cap bounds retained regions and queued callbacks.
-        if (!HCPathgraphRefresh.Hold(region))
-        {
-            HCPickerApplyPathgraph(region);
-            return;
-        }
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCXAISiteDirector.HCPickerApplyPathgraph, 100, false, region);
-    }
-
-    static void HCPickerApplyPathgraph(HCPathgraphRefresh region)
-    {
-        if (!region) { return; }
-        if (GetGame() && GetGame().IsServer())
-        {
-            region.Update();
-            HCModuleReadiness.HCUse("Pickers", "pathgraph_refresh");
-        }
-        HCPathgraphRefresh.Release(region);
-    }
 }
