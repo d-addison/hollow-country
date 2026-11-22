@@ -39,6 +39,36 @@ class HCEventRuntime
     protected ref array<int> m_ReofferIds = new array<int>();
     protected ref array<int> m_ReofferAfter = new array<int>();
     protected string m_Refusal;
+    // Fixed reasons, retained across Start retries for this runtime lifetime.
+    protected int m_ObservationCloneRefusals;
+    protected int m_ObservationRunRefusals;
+
+    protected HCEventRun HCRunAt(HCEventRuntimeState state, int eventId)
+    {
+        if (!state || !state.Director || !state.Runs) { return null; }
+        if (eventId <= state.Director.PrunedThrough) { return null; }
+        int index = eventId - state.Director.PrunedThrough - 1;
+        if (index < 0 || index >= state.Runs.Count()) { return null; }
+        return state.Runs[eventId - state.Director.PrunedThrough - 1];
+    }
+    protected void HCObservationRefused(bool cloneMissing)
+    {
+        int count;
+        string reason;
+        if (cloneMissing)
+        {
+            if (m_ObservationCloneRefusals < 1000000000) { m_ObservationCloneRefusals++; }
+            count = m_ObservationCloneRefusals;
+            reason = "clone-unavailable";
+        }
+        else
+        {
+            if (m_ObservationRunRefusals < 1000000000) { m_ObservationRunRefusals++; }
+            count = m_ObservationRunRefusals;
+            reason = "clone-run-unavailable";
+        }
+        if (count == 1) { Print("[HC Events] observation refused reason=" + reason + " count=" + count.ToString()); }
+    }
     protected ref HCEventRuntimeState m_PendingPublish;
     protected ref HCEventJournal m_PendingJournal;
     protected ref HCStepTimer m_TickSteps;
@@ -86,11 +116,13 @@ class HCEventRuntime
     protected void HCFinishLeave(HCEventSubscription leaving)
     {
         int eventId = leaving.EventId;
+        HCEventRun leavingRun = HCRunAt(m_State, eventId);
+        if (!leavingRun) { return; }
         PlayerBase player = leaving.Player;
         m_Subscriptions.RemoveItem(leaving);
         m_PendingLeaves.Remove(leaving);
         m_Busy = true;
-        m_Observer.Forget(m_State.Runs[eventId - m_State.Director.PrunedThrough - 1].Lease, player);
+        m_Observer.Forget(leavingRun.Lease, player);
         m_Busy = false;
     }
 
@@ -176,7 +208,8 @@ class HCEventRuntime
                 if (m_PendingLeave) { HCFinishLeave(m_PendingLeave); }
                 if (m_PendingExpiryId > 0)
                 {
-                    RememberCooldown(HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId), m_PendingExpiryAt);
+                    HCEventRecord expiryRecord = HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId);
+                    if (expiryRecord) { RememberCooldown(expiryRecord, m_PendingExpiryAt); }
                 }
             }
             if (result != HCSaveJob.STEP_MORE)
@@ -306,7 +339,9 @@ class HCEventRuntime
             if (restoredRun.Phase == HCEventRunPhase.CLEANUP)
             {
                 if (!Cleanup(restoredRun.EventId)) { return HCRefuse("startup_cleanup_unconfirmed"); }
-                if (m_State.Runs[restoredRun.EventId - m_State.Director.PrunedThrough - 1].Phase == HCEventRunPhase.CLOSED)
+                HCEventRun closedRun = HCRunAt(m_State, restoredRun.EventId);
+                if (!closedRun) { return HCRefuse("startup_cleanup_run_unavailable"); }
+                if (closedRun.Phase == HCEventRunPhase.CLOSED)
                 {
                     closed = closed + 1;
                 }
@@ -316,7 +351,7 @@ class HCEventRuntime
                 }
             }
         }
-        if (closed > 0) { Print("[HC Events] startup cleanup closed " + closed.ToString() + " retained runs before roster"); }
+        if (closed > 0) { Print("[HC Events] startup cleanup closed " + closed.ToString() + " retained runs before roster; observation_clone_refusals=" + m_ObservationCloneRefusals.ToString() + " observation_run_refusals=" + m_ObservationRunRefusals.ToString()); }
         m_LastNow = context.Now;
         m_Ready = true;
         return true;
@@ -324,7 +359,7 @@ class HCEventRuntime
     // Observations read the last committed state while an announce owns its candidate.
     bool HCReadAllowed(HCEventContext context)
     {
-        return m_Ready && !m_Busy && !m_StopRequested && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
+        return m_Ready && !m_Busy && !m_StopRequested && m_State && m_State.Director && m_State.Runs && m_Settings.Enabled && context && context.Now >= m_LastNow && HCEventDirector.ContextValid(m_State.Director, context);
     }
     bool Allowed(HCEventContext context)
     {
@@ -356,18 +391,20 @@ class HCEventRuntime
     {
         // Existing durable intent authorizes a best-effort stop even when the
         // next write failed. Never publish CLOSED or infer successful cleanup.
-        if (!m_State)
+        if (!m_State || !m_State.Director || !m_State.Runs)
         {
             return;
         }
         m_Busy = true;
         foreach (HCEventRun run : m_State.Runs)
         {
+            if (!run) { m_Busy = false; return; }
             if (run.ProviderIntent && run.Phase != HCEventRunPhase.CLOSED)
             {
                 if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
                 {
                     HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+                    if (!aiRecord) { m_Busy = false; return; }
                     int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
                     string aiLease = run.Lease + ":" + aiGeneration.ToString();
                     m_AI.Stop(aiLease);
@@ -408,8 +445,10 @@ class HCEventRuntime
     }
     bool Retain(HCEventRuntimeState state)
     {
+        if (!state || !state.Director || !state.Runs) { return false; }
         while (state.Runs.Count() >= m_Settings.MaxRuns)
         {
+            if (!state.Runs[0]) { return false; }
             if (state.Runs[0].Phase != HCEventRunPhase.CLOSED || !HCEventDirector.PruneFirst(state.Director))
             {
                 int phase = state.Runs[0].Phase;
@@ -429,6 +468,8 @@ class HCEventRuntime
     }
     int Operation(HCEventRuntimeState state, int id, int op, string participant, HCEventContext context)
     {
+        HCEventRun operationRun = HCRunAt(state, id);
+        if (!operationRun) { return HCEventCode.NOT_FOUND; }
         HCEventRecord record = HCEventDirector.FindRecord(state.Director, id);
         if (!record)
         {
@@ -546,6 +587,7 @@ class HCEventRuntime
     }
     protected int HCAnnounceOperation(HCEventRuntimeState candidate, HCEventMission mission, HCEventContext context, int repeatId)
     {
+        if (!candidate || !candidate.Director || !candidate.Runs) { return HCEventCode.BLOCKED; }
         HCEventRun run;
         if (repeatId > 0)
         {
@@ -553,7 +595,10 @@ class HCEventRuntime
             // tombstones or changing the director's duplicate proposal policy.
             if (context.Now > 1000000000 - mission.LifetimeSeconds) { return HCEventCode.LIMIT; }
             PurgeTerminal();
+            run = HCRunAt(candidate, repeatId);
+            if (!run) { return HCEventCode.NOT_FOUND; }
             HCEventRecord repeated = HCEventDirector.FindRecord(candidate.Director, repeatId);
+            if (!repeated) { return HCEventCode.NOT_FOUND; }
             repeated.Definition = HCEventRuntimePolicy.Definition(mission);
             repeated.Revision = repeated.Revision + 1;
             repeated.Status = HCEventStatus.PROPOSED;
@@ -561,7 +606,6 @@ class HCEventRuntime
             repeated.Progress = 0;
             repeated.LastObservation = 0;
             repeated.Participants.Clear();
-            run = candidate.Runs[repeatId - candidate.Director.PrunedThrough - 1];
             run.Objective = mission;
             run.Phase = HCEventRunPhase.PREPARED;
             run.Tokens.Clear();
@@ -658,12 +702,14 @@ class HCEventRuntime
         }
         else if (m_AnnounceStage == 5)
         {
-            HCEventRun run = m_State.Runs[m_AnnounceId - m_State.Director.PrunedThrough - 1];
+            HCEventRun run = HCRunAt(m_State, m_AnnounceId);
+            if (!run) { HCFinishAnnounce(HCEventCode.BLOCKED); return; }
             m_Busy = true;
             if (m_StopRequested) { m_AnnounceStarted = false; }
             else if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
             {
                 HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+                if (!aiRecord) { m_Busy = false; HCFinishAnnounce(HCEventCode.BLOCKED); return; }
                 int generation = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
                 string lease = run.Lease + ":" + generation.ToString();
                 m_AnnounceStarted = m_AI.Start(lease, m_AnnounceContext.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
@@ -689,7 +735,15 @@ class HCEventRuntime
                 HCFinishAnnounce(HCEventCode.BLOCKED);
                 return;
             }
-            HCEventRun nextRun = m_AnnounceCandidate.Runs[m_AnnounceId - m_AnnounceCandidate.Director.PrunedThrough - 1];
+            HCEventRun nextRun = HCRunAt(m_AnnounceCandidate, m_AnnounceId);
+            if (!nextRun)
+            {
+                m_Ready = false;
+                FaultCleanup();
+                HCPublishRefused();
+                HCFinishAnnounce(HCEventCode.BLOCKED);
+                return;
+            }
             if (m_AnnounceStarted) { nextRun.Phase = HCEventRunPhase.ACTIVE; }
             else
             {
@@ -716,9 +770,11 @@ class HCEventRuntime
     }
     bool CanReoffer(HCEventRecord record, int now)
     {
+        if (!record) { return false; }
         bool repeatable = record.Status == HCEventStatus.COMPLETED || record.Status == HCEventStatus.EXPIRED;
         if (!repeatable || record.Revision >= 999998) { return false; }
-        HCEventRun run = m_State.Runs[record.Id - m_State.Director.PrunedThrough - 1];
+        HCEventRun run = HCRunAt(m_State, record.Id);
+        if (!run) { return false; }
         if (run.Phase != HCEventRunPhase.CLOSED) { return false; }
         int cooldownIndex = m_ReofferIds.Find(record.Id);
         if (cooldownIndex < 0) { return false; }
@@ -759,8 +815,10 @@ class HCEventRuntime
         {
             if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
+                HCEventRun run = HCRunAt(m_State, sub.EventId);
+                if (!run) { return; }
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
-                HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
+                if (!record) { return; }
                 if (record.Status == HCEventStatus.ACTIVE && context.Now < record.Expires && run.Objective.Family == HCEventFamily.DELIVERY)
                 {
                     m_Observer.RecordDelivery(run.Lease, item, participant, destination);
@@ -777,8 +835,10 @@ class HCEventRuntime
         {
             if (sub.Player == participant && sub.ParticipantId == identity && !m_PendingLeaves.Contains(sub))
             {
+                HCEventRun run = HCRunAt(m_State, sub.EventId);
+                if (!run) { return; }
                 HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
-                HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
+                if (!record) { return; }
                 if (record.Status == HCEventStatus.ACTIVE && context.Now < record.Expires && run.Objective.Family == HCEventFamily.INFECTED_CLEAR)
                 {
                     m_Observer.RecordKill(run.Lease, infected, identity);
@@ -820,7 +880,9 @@ class HCEventRuntime
         {
             return result;
         }
-        if (HCEventDirector.FindRecord(candidate.Director, id).Status == HCEventStatus.ANNOUNCED)
+        HCEventRecord joinedRecord = HCEventDirector.FindRecord(candidate.Director, id);
+        if (!joinedRecord) { return HCEventCode.NOT_FOUND; }
+        if (joinedRecord.Status == HCEventStatus.ANNOUNCED)
         {
             if (Operation(candidate, id, HCEventOp.ACTIVATE, "", context) != HCEventCode.OK)
             {
@@ -868,9 +930,11 @@ class HCEventRuntime
         {
             return HCEventCode.BLOCKED;
         }
+        HCEventRun departedRun = HCRunAt(m_State, id);
+        if (!departedRun) { return HCEventCode.NOT_FOUND; }
         m_Subscriptions.Remove(index);
         m_Busy = true;
-        m_Observer.Forget(m_State.Runs[id - m_State.Director.PrunedThrough - 1].Lease, player);
+        m_Observer.Forget(departedRun.Lease, player);
         m_Busy = false;
         m_LastNow = context.Now;
         return HCEventCode.OK;
@@ -897,7 +961,9 @@ class HCEventRuntime
         {
             return result;
         }
-        candidate.Runs[id - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+        HCEventRun cancelledRun = HCRunAt(candidate, id);
+        if (!cancelledRun) { return HCEventCode.NOT_FOUND; }
+        cancelledRun.Phase = HCEventRunPhase.CLEANUP;
         if (!Publish(candidate))
         {
             return HCEventCode.BLOCKED;
@@ -908,7 +974,8 @@ class HCEventRuntime
     bool Cleanup(int id, bool staged = false)
     {
         if (HCAnnouncePending()) { return false; }
-        HCEventRun run = m_State.Runs[id - m_State.Director.PrunedThrough - 1];
+        HCEventRun run = HCRunAt(m_State, id);
+        if (!run) { return false; }
         if (run.Phase != HCEventRunPhase.CLEANUP)
         {
             return true;
@@ -918,6 +985,7 @@ class HCEventRuntime
         if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
             HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+            if (!aiRecord) { m_Busy = false; return false; }
             int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
             string aiLease = run.Lease + ":" + aiGeneration.ToString();
             m_AI.Stop(aiLease);
@@ -931,7 +999,9 @@ class HCEventRuntime
         if (gone)
         {
             HCEventRuntimeState candidate = m_Store.Clone(m_State);
-            candidate.Runs[id - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLOSED;
+            HCEventRun closingRun = HCRunAt(candidate, id);
+            if (!closingRun) { return false; }
+            closingRun.Phase = HCEventRunPhase.CLOSED;
             if (staged) { return HCBeginPublish(candidate); }
             return Publish(candidate);
         }
@@ -939,9 +1009,11 @@ class HCEventRuntime
     }
     void Observe(HCEventSubscription sub, HCEventContext context)
     {
-        if (HCAnnouncePending()) { return; }
+        if (HCAnnouncePending() || !sub) { return; }
+        HCEventRun run = HCRunAt(m_State, sub.EventId);
+        if (!run) { return; }
         HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
-        HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
+        if (!record) { return; }
         if (record.Status != HCEventStatus.ACTIVE || run.Phase != HCEventRunPhase.ACTIVE)
         {
             return;
@@ -966,17 +1038,17 @@ class HCEventRuntime
             if (!observedState || !observedState.Director || !observedState.Runs)
             {
                 m_Busy = false;
-                Print("[HC Events] observation refused reason=clone-unavailable");
+                HCObservationRefused(true);
                 return;
             }
-            int observedIndex = sub.EventId - observedState.Director.PrunedThrough - 1;
-            if (observedIndex < 0 || observedIndex >= observedState.Runs.Count() || !observedState.Runs[observedIndex])
+            HCEventRun observedRun = HCRunAt(observedState, sub.EventId);
+            if (!observedRun)
             {
                 m_Busy = false;
-                Print("[HC Events] observation refused reason=clone-run-unavailable");
+                HCObservationRefused(false);
                 return;
             }
-            evidence = m_Observer.Observe(observedState.Runs[observedIndex], sub.Player, context.Now);
+            evidence = m_Observer.Observe(observedRun, sub.Player, context.Now);
         }
         m_Busy = false;
         if (!evidence || !evidence.Observed || evidence.Lease != expectedLease || evidence.Session != record.Session)
@@ -992,6 +1064,8 @@ class HCEventRuntime
             return;
         }
         HCEventRuntimeState candidate = m_Store.Clone(m_State);
+        HCEventRun completingRun = HCRunAt(candidate, sub.EventId);
+        if (!completingRun) { return; }
         HCEventObservation observation = new HCEventObservation;
         observation.ServerObserved = true;
         observation.WorldName = context.WorldName;
@@ -1005,15 +1079,16 @@ class HCEventRuntime
         {
             return;
         }
-        candidate.Runs[sub.EventId - candidate.Director.PrunedThrough - 1].Tokens.Insert(evidence.Token);
+        completingRun.Tokens.Insert(evidence.Token);
         if (Operation(candidate, sub.EventId, HCEventOp.COMPLETE, "", context) != HCEventCode.OK)
         {
             return;
         }
-        candidate.Runs[sub.EventId - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+        completingRun.Phase = HCEventRunPhase.CLEANUP;
         if (Publish(candidate))
         {
-            RememberCooldown(HCEventDirector.FindRecord(m_State.Director, sub.EventId), context.Now);
+            HCEventRecord completedRecord = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
+            if (completedRecord) { RememberCooldown(completedRecord, context.Now); }
         }
     }
     void Tick(HCEventContext context)
@@ -1060,7 +1135,9 @@ class HCEventRuntime
             if (!retirement) { HCRefuseSceneRetirement(retiring, "clone-refused"); return; }
             int retireResult = Operation(retirement, retiring, HCEventOp.CANCEL, "", context);
             if (retireResult != HCEventCode.OK) { HCRefuseSceneRetirement(retiring, "cancel-code-" + retireResult.ToString()); return; }
-            retirement.Runs[retiring - retirement.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+            HCEventRun retiringRun = HCRunAt(retirement, retiring);
+            if (!retiringRun) { HCRefuseSceneRetirement(retiring, "run-missing"); return; }
+            retiringRun.Phase = HCEventRunPhase.CLEANUP;
             if (HCBeginPublish(retirement)) { m_SceneRetirements.RemoveOrdered(0); m_LastNow = context.Now; }
             else { HCRefuseSceneRetirement(retiring, "publish-refused"); }
             return;
@@ -1096,7 +1173,9 @@ class HCEventRuntime
             {
                 return;
             }
+            if (!run) { return; }
             HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+            if (!record) { return; }
             if (!HCEventDirector.Terminal(record.Status) && context.Now >= record.Expires)
             {
                 int expiryStarted = TickCount(0);
@@ -1104,7 +1183,9 @@ class HCEventRuntime
                 HCMeasured("expiry_clone", expiryStarted);
                 if (Operation(candidate, run.EventId, HCEventOp.EXPIRE, "", context) == HCEventCode.OK)
                 {
-                    candidate.Runs[run.EventId - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
+                    HCEventRun expiringRun = HCRunAt(candidate, run.EventId);
+                    if (!expiringRun) { return; }
+                    expiringRun.Phase = HCEventRunPhase.CLEANUP;
                     if (HCBeginPublish(candidate) && m_PendingPublish)
                     {
                         m_PendingExpiryId = run.EventId;
@@ -1119,7 +1200,9 @@ class HCEventRuntime
             }
             if (m_Ready)
             {
-                RememberCooldown(HCEventDirector.FindRecord(m_State.Director, run.EventId), context.Now);
+                HCEventRecord cooldownRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+                if (!cooldownRecord) { return; }
+                RememberCooldown(cooldownRecord, context.Now);
                 int cleanupStarted = TickCount(0);
                 Cleanup(run.EventId, true);
                 HCMeasured("cleanup_prepare", cleanupStarted);
@@ -1160,9 +1243,10 @@ class HCEventRuntime
         }
         if (m_State)
         {
+            if (!m_State.Director || !m_State.Runs) { return false; }
             foreach (HCEventRun run : m_State.Runs)
             {
-                if (run.Phase != HCEventRunPhase.CLOSED)
+                if (!run || run.Phase != HCEventRunPhase.CLOSED)
                 {
                     return false;
                 }
@@ -1200,6 +1284,7 @@ class HCEventRuntime
         {
             return true;
         }
+        if (!m_State.Director || !m_State.Runs) { return false; }
         if (!GetGame() || !GetGame().IsServer())
         {
             return CleanupComplete();
@@ -1212,7 +1297,7 @@ class HCEventRuntime
         if (HCEventDirector.ContextValid(m_State.Director, cleanup))
         {
             HCEventRuntimeState candidate = m_Store.Clone(m_State);
-            if (!candidate)
+            if (!candidate || !candidate.Director || !candidate.Runs)
             {
                 FaultCleanup();
                 return false;
@@ -1220,7 +1305,9 @@ class HCEventRuntime
             bool changed = false;
             foreach (HCEventRun run : candidate.Runs)
             {
+                if (!run) { FaultCleanup(); return false; }
                 HCEventRecord record = HCEventDirector.FindRecord(candidate.Director, run.EventId);
+                if (!record) { FaultCleanup(); return false; }
                 if (!HCEventDirector.Terminal(record.Status))
                 {
                     if (Operation(candidate, run.EventId, HCEventOp.CANCEL, "", cleanup) != HCEventCode.OK)
@@ -1238,6 +1325,7 @@ class HCEventRuntime
             }
             foreach (HCEventRun pending : m_State.Runs)
             {
+                if (!pending) { return false; }
                 Cleanup(pending.EventId);
             }
         }
