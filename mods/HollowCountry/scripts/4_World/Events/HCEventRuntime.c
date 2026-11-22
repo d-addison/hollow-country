@@ -71,6 +71,7 @@ class HCEventRuntime
     }
     protected ref HCEventRuntimeState m_PendingPublish;
     protected ref HCEventJournal m_PendingJournal;
+    protected bool m_JournalYielded;
     protected ref HCStepTimer m_TickSteps;
     protected int m_PendingExpiryId;
     protected int m_PendingExpiryAt;
@@ -193,10 +194,18 @@ class HCEventRuntime
         int result = HCSaveJob.STEP_MORE;
         while (m_PendingPublish && result == HCSaveJob.STEP_MORE)
         {
-            if (!drain && !m_WorkBudget.HCContinue()) { break; }
+            if (!drain && (m_JournalYielded || !m_WorkBudget.HCContinue())) { break; }
             int started = TickCount(0);
-            string stage = m_PendingJournal.HCStageName();
+            string stage;
+            if (!drain) { stage = m_PendingJournal.HCStageName(); }
             result = m_PendingJournal.HCStepSave();
+            int spent = TickCount(started);
+            bool nativeYield = false;
+            if (!drain)
+            {
+                nativeYield = m_PendingJournal.HCYieldRequested() && spent >= HCWorkBudget.HCTicksPerMs();
+                stage += " op=" + m_PendingJournal.HCNativeOperation();
+            }
             if (drain)
             {
                 if (m_TickSteps) { m_TickSteps.HCDeferred(TickCount(started)); }
@@ -225,6 +234,11 @@ class HCEventRuntime
                 FaultCleanup();
                 HCPublishRefused();
                 return false;
+            }
+            if (!drain && nativeYield)
+            {
+                m_JournalYielded = true;
+                break;
             }
         }
         return true;
@@ -1096,6 +1110,7 @@ class HCEventRuntime
         // One shared four-millisecond slice, retained across all maintenance
         // stages in this tick. No second slice after completing a journal.
         m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        m_JournalYielded = false;
         if (m_AnnounceReceipt != "")
         {
             m_AnnounceReceiptTicks++;
