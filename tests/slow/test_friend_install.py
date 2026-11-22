@@ -25,6 +25,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -1942,3 +1943,273 @@ class CaseFoldTests(InstallerCase):
             fi.track_target(ctx, '@HollowCountry/addons/HollowCountry.PBO')
         recorded.assert_not_called()
         self.assertEqual(len(ctx.journal['entries']), 1)
+
+
+GLOBALS_STOCK = (b'\xef\xbb\xbf<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\r\n<variables>\r\n'
+                 b'\t<var name="IdleModeCountdown" type="0" value="60"/>\r\n'
+                 b'\t<var name="IdleModeStartup" type="0" value="1"/>\r\n'
+                 b'\t<var name="RespawnLimit" type="0" value="20"/>\r\n'
+                 b'\t<var name="RespawnTypes" type="0" value="12"/>\r\n'
+                 b'\t<!-- <var name="RespawnTypes" type="0" value="999"/> -->\r\n'
+                 b'</variables>\r\n')
+
+
+def install_loot(mission, stock, multiplier):
+    """Synthetic loot boost state for db/globals.xml only, in the real receipt layout and with the real scaler."""
+    managed = mission / fi.loot_boost.MANAGED
+    after, report = fi.loot_boost.scale_globals(stock, multiplier)
+    row = {'name': 'db/globals.xml', 'before': sha(stock), 'after': sha(after), 'backup': '00.backup'}
+    receipt = {'schema': 1, 'kind': 'hollow-country-loot-boost', 'multiplier': multiplier, 'files': [row],
+               'counts': {'globals': report}, 'runtime_acceptance': 'pending'}
+    put(managed, 'receipt.json', json.dumps(receipt))
+    put(managed, '00.backup', stock)
+    put(mission, 'db/globals.xml', after)
+    return after
+
+
+def loot_overlay(calls, multiplier):
+    """The synthetic bundle overlay plus a globals-only loot boost that uses the real rollback."""
+    base = fake_overlay(calls)
+
+    def main(argv):
+        mission = Path(argv[argv.index('--mission') + 1])
+        if argv[0] == 'bundle-rollback' and (mission / fi.loot_boost.MANAGED).exists():
+            try:
+                fi.loot_boost.rollback(mission)
+            except ValueError as error:
+                print('refused: %s' % error, file=sys.stderr)
+                return 1
+        code = base(argv)
+        if argv[0] == 'bundle-apply':
+            install_loot(mission, (mission / 'db/globals.xml').read_bytes(), multiplier)
+        return code
+    return main
+
+
+def var_values(path):
+    text = re.sub(r'<!--.*?-->', '', Path(path).read_bytes().decode('utf-8-sig'), flags=re.S)
+    return dict(re.findall(r'<var name="([^"]+)" type="\d+" value="([^"]*)"/>', text))
+
+
+class SelfHealingTests(InstallerCase):
+    """Drift repair, globals carry-forward and run rollback on synthetic trees; nothing here runs DayZ."""
+
+    def upgraded_bundle(self):
+        newer = make_bundle(self.tmp / 'newer')
+        put(newer, 'mission-overlay/hollow-country/events/scene-chains.json', '{"new": true}')
+        write_manifest(newer)
+        return newer
+
+    def tuned_server(self, edits):
+        """First install, then a loot boost on a stock globals.xml with the operator's edits on top."""
+        self.assertEqual(self.apply()[0], 0)
+        install_loot(self.mission, GLOBALS_STOCK, 2.0)
+        path = self.mission / 'db/globals.xml'
+        data = path.read_bytes()
+        for old, new in edits:
+            self.assertIn(old, data)
+            data = data.replace(old, new)
+        path.write_bytes(data)
+        patcher = mock.patch.object(fi.overlays, 'main', side_effect=loot_overlay(self.overlay_calls, 3.0))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return path
+
+    def latest_run(self):
+        return sorted(p.name for p in (self.server / fi.BACKUP_DIR).iterdir())[-1]
+
+    def receipt(self):
+        return json.loads((self.server / fi.RECEIPT).read_text())
+
+    def test_operator_globals_values_survive_an_upgrade_and_the_dry_run_names_them(self):
+        edited = (b'<var name="IdleModeStartup" type="0" value="1"/>', b'<var name="IdleModeStartup" type="0" value="0"/>')
+        path = self.tuned_server([edited, (b'value="60"', b'value="90"'),
+                                  (b'<var name="RespawnLimit" type="0" value="20"/>',
+                                   b'<var name="RespawnLimit" type="0" value="20"/>\r\n'
+                                   b'\t<var name="RespawnAttempt" type="0" value="5"/>')])
+        operator_bytes = path.read_bytes()
+        newer = self.upgraded_bundle()
+        before = snapshot(self.tmp)
+        code, out, err = self.run_cli(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(snapshot(self.tmp), before)
+        self.assertIn('Repair preview', out)
+        self.assertIn('IdleModeStartup 1 -> 0', out)
+        preview = out
+        self.assertEqual(self.run_cli('--check', bundle=newer)[1].count('would repair  globals'), 1)
+        code, out, err = self.apply(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        values = var_values(path)
+        self.assertEqual((values['IdleModeStartup'], values['IdleModeCountdown'], values['RespawnAttempt']),
+                         ('0', '90', '5'))
+        self.assertEqual(values['RespawnTypes'], '36')  # untouched by the operator: rescaled by the new boost
+        self.assertEqual(values['RespawnLimit'], '20')
+        data = path.read_bytes()
+        self.assertTrue(data.startswith(b'\xef\xbb\xbf'))
+        self.assertIn(b'\r\n', data)
+        self.assertIn(b'<!-- <var name="RespawnTypes" type="0" value="999"/> -->', data)
+        # The operator's exact bytes are backed up, and the preview rows equal the receipt rows.
+        backups = list((self.server / fi.BACKUP_DIR / self.latest_run()).rglob('globals.xml'))
+        self.assertEqual([b.read_bytes() for b in backups], [operator_bytes])
+        rows = self.receipt()['repairs'][-1]['rows']
+        self.assertEqual([r['kind'] for r in rows], ['globals'])
+        row = rows[0]
+        self.assertIn('  would repair  %s  %s: %s' % (row['kind'], row['path'], row['detail']), preview)
+        self.assertIn('  repaired  %s  %s: %s' % (row['kind'], row['path'], row['detail']), out)
+        # A second run changes nothing and reports nothing to repair.
+        before = snapshot(self.tmp)
+        code, out, err = self.apply(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(snapshot(self.tmp), before)
+        self.assertIn('nothing to repair', out)
+
+    def test_an_operator_respawn_types_value_wins_over_the_new_scale(self):
+        path = self.tuned_server([(b'<var name="RespawnTypes" type="0" value="24"/>',
+                                   b'<var name="RespawnTypes" type="0" value="40"/>')])
+        self.assertEqual(self.apply(bundle=self.upgraded_bundle())[0], 0)
+        self.assertEqual(var_values(path)['RespawnTypes'], '40')
+
+    def test_run_rollback_restores_the_pre_upgrade_tree_and_refuses_after_later_edits(self):
+        path = self.tuned_server([(b'value="60"', b'value="90"')])
+        before = live_snapshot(self.server)
+        self.assertEqual(self.apply(bundle=self.upgraded_bundle())[0], 0)
+        run = self.latest_run()
+        code, out, err = self.run_cli('--rollback', run)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('dry run', out)
+        self.assertNotEqual(live_snapshot(self.server), before)
+        # A file changed after the run is a conflict: nothing is rolled back.
+        edited = path
+        kept = edited.read_bytes()
+        edited.write_bytes(kept + b'<!-- later edit -->\r\n')
+        mid = live_snapshot(self.server)
+        code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_conflict', err)
+        self.assertEqual(live_snapshot(self.server), mid)
+        edited.write_bytes(kept)
+        code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertIn(b'value="90"', path.read_bytes())
+        self.assertIn('already rolled back', self.run_cli('--rollback', run, '--apply')[1])
+
+    def test_unreproducible_globals_evidence_still_blocks_and_changes_nothing(self):
+        self.tuned_server([(b'value="60"', b'value="90"')])
+        receipt_path = self.mission / fi.loot_boost.MANAGED / 'receipt.json'
+        receipt = json.loads(receipt_path.read_text())
+        receipt['files'][0]['after'] = '0' * 64
+        receipt_path.write_text(json.dumps(receipt))
+        newer = self.upgraded_bundle()
+        before = snapshot(self.server)
+        code, out, err = self.run_cli(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 5), 'blocked')
+        self.assertIn('cannot be reproduced', out)
+        code, out, err = self.apply(bundle=newer)
+        self.assertEqual(code, 2)
+        self.assertIn('globals_drift', err)
+        self.assertEqual(live_snapshot(self.server), live_snapshot_of(before))
+
+    def test_a_missing_globals_file_is_restored_from_the_loot_receipt(self):
+        path = self.tuned_server([])
+        stock_scaled = path.read_bytes()
+        path.unlink()
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('would repair  globals', out)
+        self.assertFalse(path.exists())
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(path.read_bytes(), stock_scaled)
+        self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'globals')
+
+    def test_repair_restores_edited_missing_and_retired_files_and_keeps_operator_files(self):
+        self.assertEqual(self.apply()[0], 0)
+        pbo = self.server / '@HollowCountry/addons/hollowcountry.pbo'
+        bikey = self.server / 'keys/hollowcountry.bikey'
+        launcher = self.server / 'start-server.bat'
+        profile = self.server / 'profiles/ExpansionMod/Settings/AISettings.json'
+        retired = self.server / '@HollowCountry/addons/retired.pbo'
+        for target, data in ((pbo, b'EDITED'), (launcher, b'echo mine\r\n'), (retired, b'OLD'),
+                             (profile, b'{"Enabled": 1, "Edited": true}')):
+            target.write_bytes(data)
+        bikey.unlink()
+        # Without --repair an edit is still a refusal that names the flag and changes nothing.
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2)
+        self.assertIn('--repair', err)
+        self.assertEqual(snapshot(self.server), before)
+        # The dry run with --repair names every repair and changes nothing.
+        code, out, err = self.run_cli('--repair')
+        self.assertEqual(code, 0, out + err)
+        kinds = sorted(line.split()[2] for line in out.splitlines() if line.startswith('  would repair'))
+        self.assertEqual(kinds, ['edited', 'edited', 'missing', 'retired'])
+        self.assertEqual(snapshot(self.server), before)
+        checked = self.run_cli('--check', '--repair')[1]
+        self.assertEqual(sorted(l for l in checked.splitlines() if l.startswith('  would repair')),
+                         sorted(l for l in out.splitlines() if l.startswith('  would repair')))
+        code, applied, err = self.apply('--repair')
+        self.assertEqual(code, 0, applied + err)
+        self.assertEqual(pbo.read_bytes(), b'PBO')
+        self.assertEqual(bikey.read_bytes(), b'KEY')
+        self.assertEqual(launcher.read_bytes(), (self.bundle / 'start-server.bat').read_bytes())
+        self.assertFalse(retired.exists())
+        self.assertEqual(profile.read_bytes(), b'{"Enabled": 1, "Edited": true}')
+        self.assertEqual((self.mission / 'storage_1/data/players.db').read_text(), 'SAVED PLAYERS')
+        saved = sorted(b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('*')
+                       if b.is_file() and b.name != fi.JOURNAL)
+        for original in (b'EDITED', b'echo mine\r\n', b'OLD'):
+            self.assertIn(original, saved)
+        rows = self.receipt()['repairs'][-1]['rows']
+        for row in rows:
+            self.assertIn('  repaired  %s  %s: %s' % (row['kind'], row['path'], row['detail']), applied)
+            self.assertIn('  would repair  %s  %s: %s' % (row['kind'], row['path'], row['detail']), out)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+        before = snapshot(self.tmp)
+        code, again, err = self.apply('--repair')
+        self.assertEqual(code, 0, again + err)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_an_unreadable_receipt_is_replaced_only_under_repair_with_the_old_bytes_kept(self):
+        self.assertEqual(self.apply()[0], 0)
+        (self.server / fi.RECEIPT).write_bytes(b'not json')
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2)
+        self.assertIn('receipt_invalid', err)
+        self.assertEqual(snapshot(self.server), before)
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.receipt()['schema'], 1)
+        self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'receipt')
+        kept = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob(fi.RECEIPT)]
+        self.assertEqual(kept, [b'not json'])
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_an_interrupted_run_is_recovered_and_recorded_in_the_repair_receipt(self):
+        class Crash(BaseException):
+            pass
+        planner = fi.PLANNERS['launcher']
+
+        def wrapped(ctx, analysis):
+            status, lines, action = planner(ctx, analysis)
+
+            def crash():
+                action()
+                raise Crash()
+            return status, lines, crash if action else None
+        with mock.patch.dict(fi.PLANNERS, {'launcher': wrapped}):
+            with self.assertRaises(Crash):
+                self.apply()
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual([r['kind'] for r in self.receipt()['repairs'][-1]['rows']], ['interrupted'])
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+
+def live_snapshot_of(rows):
+    return {rel: value for rel, value in rows.items()
+            if rel != fi.BACKUP_DIR and not rel.startswith(fi.BACKUP_DIR + '/')}

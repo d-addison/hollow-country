@@ -390,6 +390,30 @@ or an older journal without written hashes, can require this manual review.
 Never delete the journal to bypass a conflict. Identical dependency files are
 recorded as unchanged and receive no backup.
 
+The installer also repairs itself. A dry run and `--check` print a **Repair
+preview** of exactly what `--apply --repair` would change: managed files that are
+missing or were edited, retired files left behind by an older release, files from a
+partial previous install, and `db/globals.xml` values to carry forward. `--apply`
+without `--repair` still refuses on edited managed files and names the flag. With
+`--repair` each replaced file is copied into the run backup first and the run ends
+with a **Repair receipt** whose rows equal the preview; it is also stored under
+`repairs` in `hollow-country-install-receipt.json`. A second run reports nothing to
+repair. Files the installer does not manage and world saves (`storage_*`) are never
+deleted. An unreadable install receipt is rebuilt under `--repair` instead of
+blocking the install.
+
+Operator `db/globals.xml` values survive an upgrade. The installer rebuilds the
+bytes it wrote last time from the loot receipt, treats every variable that differs
+from them as the operator's own, undoes the old boost, applies the new one, then
+re-applies the operator's values (BOM, line endings and comments are preserved).
+The run lists each carried value and keeps the operator's exact file in the run
+backup. When the receipt or backup cannot prove what the installer wrote, the file
+is left untouched and the run refuses with the reason. After a carry-forward the
+file no longer equals the loot receipt's recorded result, so use
+`python -m tools.setup.friend_install --rollback <run>` (or rerun the installer)
+instead of the standalone `bundle-rollback`. `--rollback <run>` restores the
+files of that one run from its backup and refuses any file edited since the run.
+
 Rollback with the server stopped:
 
 ```sh
