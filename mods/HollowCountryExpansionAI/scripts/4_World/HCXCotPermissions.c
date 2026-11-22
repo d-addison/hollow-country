@@ -1,3 +1,4 @@
+// Sole COT call boundary, enforced by HC-E027.
 // #228/#289. Public API evidence from installed COT item 1564026768, addons/scripts.pbo:
 // config.bin: CfgPatches/JM_COT_Scripts. HCX must require JM_COT_Scripts
 // alongside JM_CF_Scripts so COT's World classes load before this binding.
@@ -32,24 +33,40 @@ modded class JMPermissionManager
 
 class HCXCotPermissionPort : HCAdminPermissionPort
 {
+    protected string m_HCReason;
+
+    string HCProblem() { return m_HCReason; }
+
     override bool HCReady()
     {
+        m_HCReason = "SERVER_REQUIRED";
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         JMPermissionManager manager = GetPermissionsManager();
-        return manager && manager.HCXCotReady();
+        m_HCReason = "COT_NOT_READY";
+        if (!manager || !manager.HCXCotReady()) { return false; }
+        m_HCReason = "";
+        return true;
     }
 
     override bool HCAllowed(PlayerIdentity sender, string permission)
     {
-        if (!sender || permission != HCAdminPermissionAdapter.PERMISSION || !HCReady()) { return false; }
+        m_HCReason = "IDENTITY_REQUIRED";
+        if (!sender) { return false; }
+        m_HCReason = "PERMISSION_UNSUPPORTED";
+        if (permission != HCAdminPermissionAdapter.PERMISSION || !HCReady()) { return false; }
         JMPermissionManager manager = GetPermissionsManager();
+        m_HCReason = "COT_MANAGER_MISSING";
         if (!manager) { return false; }
         // Query only the authenticated server GUID. Missing players deny quietly;
         // the manager HasPermission overload logs their identity on a miss and
         // has an offline grant shortcut. Neither belongs in HC authorization.
         JMPlayerInstance instance = manager.GetPlayer(sender.GetId());
+        m_HCReason = "COT_PLAYER_MISSING";
         if (!instance) { return false; }
-        return instance.HasPermission(permission);
+        m_HCReason = "COT_PERMISSION_DENIED";
+        if (!instance.HasPermission(permission)) { return false; }
+        m_HCReason = "";
+        return true;
     }
 }
 

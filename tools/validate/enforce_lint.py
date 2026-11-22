@@ -68,6 +68,7 @@ RULES = {
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
     'HC-E024': 'typename cannot return null; declare an empty typename and return it',
+    'HC-E027': 'COT/CF/ExpansionStatic call outside its owned dependency bridge',
     'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
     'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
     'HC-E025': 'method collides with a native global function or class and is called unqualified; rename it',
@@ -863,7 +864,61 @@ _EXPANSION_RETURNS = {
 _EXPANSION_PLAYER_PORTS = {'GetGroup', 'SetGroup', 'GetTargetInformation'}
 
 
-def expansion_calls(project, source):
+_COT_BRIDGE = 'mods/HollowCountryExpansionAI/scripts/4_World/HCXCotPermissions.c'
+_CF_BRIDGE = 'mods/HollowCountryExpansionAI/scripts/4_World/HCXCFBridge.c'
+_DEPENDENCY_GLOBALS = {
+    'GetPermissionsManager': ('JMPermissionManager', _COT_BRIDGE),
+    'GetRPCManager': ('RPCManager', _CF_BRIDGE),
+}
+# Public global API name census read from installed COT/CF scripts.pbo.
+# Names only: provider sources remain external. Receiver calls use type resolution.
+_COT_GLOBALS = frozenset("""ALT ArrayContains COTCreateLocalAdminNotification COTCreateNotification
+    COT_CameraRaycast COT_PerformRayCast COT_SurfaceIsWater CTRL CheckStringType
+    CreateCustomDefaultCharacter CreateWeapon DeleteFiles FileAttributeToString
+    FindFilesInLocation ForceTargetCollisionUpdate FormatFloat GetCOT GetCOTBase
+    GetCOTGame GetCOTWebhookSettings GetCOTWindowManager GetChildrenFromBaseClass
+    GetCommunityOnlineTools GetCommunityOnlineToolsBase GetCurrentPosition
+    GetCursorObject GetCursorPos GetObjectsAt GetPermissionsManager GetPlayer
+    GetPlayerObjectByIdentity GetPointerObject GetPointerPos GetRandomChildFromBaseClass
+    GetSpawnPoints GetWeaponInHands IsModLoaded JM_GetSelected LoadMag Message SHIFT
+    SnapToGround SnapToGroundNew SpawnInfected ToFloat ToSingleDigit ToggleCursor
+    VectorToString WINKEY WorkingZombieClasses""".split())
+_CF_GLOBALS = frozenset("""Assert_Empty Assert_False Assert_Log Assert_Null Assert_True
+    CreateModuleManager DestroyModuleManager GetModuleManager GetRPCManager GetXMLApi
+    IsMissionClient IsMissionHost IsMissionOffline ModuleManagerExists""".split())
+_CF_LEGACY_TYPES = frozenset("""JMAnimRegister JMModuleBase JMModuleBinding
+    JMModuleConstructor JMModuleConstructorBase JMModuleManager JMModuleManagerBase
+    JM_CommunityFramework""".split())
+_DEPENDENCY_GLOBALS.update({name: (kind, _COT_BRIDGE) for name, kind in (
+    ('GetCOT', 'CommunityOnlineTools'), ('GetCommunityOnlineTools', 'CommunityOnlineTools'),
+    ('GetCOTBase', 'CommunityOnlineToolsBase'), ('GetCommunityOnlineToolsBase', 'CommunityOnlineToolsBase'),
+    ('GetCOTGame', 'CommunityOnlineToolsGame'), ('GetCOTWindowManager', 'JMWindowManager'),
+    ('GetCOTWebhookSettings', 'JMWebhookSerialize'))})
+_DEPENDENCY_GLOBALS.update({
+    'GetXMLApi': ('CF_XML', _CF_BRIDGE), 'GetModuleManager': ('JMModuleManager', _CF_BRIDGE)})
+_DEPENDENCY_RETURNS = {
+    ('JMPermissionManager', 'GetPlayer'): 'JMPlayerInstance',
+    **{('CF_Date', name): 'CF_Date' for name in
+       ('Now', 'Epoch', 'CreateDate', 'CreateTime', 'CreateDateTime')},
+    ('CF_ModuleCoreManager', 'Get'): 'CF_ModuleCore',
+    ('CF_ModuleCoreManager', 'GetModule'): 'CF_ModuleCore',
+}
+
+
+def _dependency_bridge(project, kind):
+    for ancestor in project.lineage(project.resolve_typedef(kind)):
+        if ancestor == 'ExpansionStatic':
+            return _EXPANSION_BRIDGE
+        if ancestor in _CF_LEGACY_TYPES:
+            return _CF_BRIDGE
+        if ancestor.startswith(('JM', 'COT', 'CommunityOnlineTools')):
+            return _COT_BRIDGE
+        if ancestor.startswith('CF_') or ancestor in {'RPCManager', 'ScriptRPCManager'}:
+            return _CF_BRIDGE
+    return ''
+
+
+def expansion_calls(project, source, dependencies=False):
     """Yield (method, receiver start, dot offset, call name, receiver type).
 
     Resolve explicit declarations and authored return types, never runtime
@@ -873,8 +928,23 @@ def expansion_calls(project, source):
     def lineage(kind):
         return project.lineage(project.resolve_typedef(kind))
 
+    def fields_for(kind):
+        fields = dict(project.receiver_members(kind, source.layer)[1])
+        if dependencies:
+            if not hasattr(project, '_dependency_field_bindings'):
+                project._dependency_field_bindings = {}
+            key = kind, source.layer
+            if key not in project._dependency_field_bindings:
+                grouped = {}
+                for ancestor in reversed(lineage(kind)):
+                    for definition in project.links.get(ancestor, ()):
+                        grouped.update(_handle_nonlocals(definition.source, definition))
+                project._dependency_field_bindings[key] = grouped
+            fields.update(project._dependency_field_bindings[key])
+        return fields
+
     def field_type(kind, name):
-        fields = project.receiver_members(kind, source.layer)[1]
+        fields = fields_for(kind)
         if name in fields:
             return fields[name]
         # Public provider field signatures used by the owned patrol subclass.
@@ -893,11 +963,27 @@ def expansion_calls(project, source):
                         continue
                     if 'override' not in candidate.modifiers:
                         return True
-                    if receiver == 'super' and not definition.name.startswith('eAI'):
+                    if (receiver == 'super' and not definition.name.startswith('eAI')
+                            and not (dependencies and _dependency_bridge(project, definition.name))):
                         return True
         return False
 
+    def dependency_element(kind):
+        collection = re.fullmatch(r'(array|set|map)<(.+)>', kind)
+        if not collection:
+            return ''
+        element = collection[2]
+        if collection[1] == 'map':
+            _, separator, element = element.partition(',')
+            if not separator:
+                return ''
+        return re.sub(r'^ref', '', element)
+
     def result_type(kind, name):
+        if dependencies and name in {'Get', 'GetElement', 'GetIteratorElement'}:
+            element = dependency_element(kind)
+            if element:
+                return element
         if name == 'Get':
             element = re.fullmatch(r'(?:array|set)<(?:ref)?(.+)>', kind)
             if element:
@@ -909,9 +995,29 @@ def expansion_calls(project, source):
                 for candidate in definition.methods:
                     if candidate.name == name:
                         return candidate.return_type
+        if dependencies:
+            for ancestor in lineage(kind):
+                if (ancestor, name) in _DEPENDENCY_RETURNS:
+                    return _DEPENDENCY_RETURNS[ancestor, name]
+            if name in _DEPENDENCY_GLOBALS:
+                return _DEPENDENCY_GLOBALS[name][0]
         return _EXPANSION_RETURNS.get(name, '')
 
     methods = list(_all_methods(source))
+    global_bindings = {}
+    if dependencies:
+        if not hasattr(project, '_dependency_global_bindings'):
+            project._dependency_global_bindings = [
+                (item.layer, _handle_nonlocals(item)) for item in project.sources]
+        for layer, values in project._dependency_global_bindings:
+            if layer is None or source.layer is None or layer <= source.layer:
+                global_bindings.update(values)
+        excluded = [(d.offset, d.body_end) for d in source.classes]
+        excluded += [(m.offset, m.body_end) for m in methods]
+        for match in re.finditer(r'=([^;{}]+);', source.code):
+            if not any(begin <= match.start() <= end for begin, end in excluded):
+                methods.append(es.Method('<initializer>', '', frozenset(), '',
+                                         match.start(), match.start(1), match.end(1), None))
     for definition in source.classes:
         for field in definition.fields:
             if not field.initializer:
@@ -923,10 +1029,15 @@ def expansion_calls(project, source):
                                          field.offset, begin, end, definition))
     for method in methods:
         owner = method.owner
-        bindings = dict(project.receiver_members(owner.name, source.layer)[1]) if owner else {}
+        bindings = dict(global_bindings)
+        if owner:
+            bindings.update(fields_for(owner.name))
         if owner:
             bindings.update(this=owner.name, super=owner.base or owner.name)
-        bindings.update({name: kind for kind, name, _ in method.parameters()})
+        if dependencies:
+            bindings.update(_Ownership.parameters(method))
+        else:
+            bindings.update({name: kind for kind, name, _ in method.parameters()})
         declarations = source.local_declarations(method)
 
         def head_token(end, generic=False):
@@ -965,6 +1076,8 @@ def expansion_calls(project, source):
                     return '', end
                 if final == ']':
                     kind, start = expression(cursor + 1)
+                    if dependencies:
+                        return dependency_element(kind), start
                     element = re.fullmatch(r'(?:array|set)<(?:ref)?(.+)>', kind)
                     return (element[1] if element else ''), start
                 name, head_start = head_token(cursor + 1)
@@ -1009,11 +1122,15 @@ def expansion_calls(project, source):
             player_port = name in _EXPANSION_PLAYER_PORTS and any(
                 t in {'PlayerBase', 'DayZPlayer', 'DayZPlayerImplement'} for t in lineage(kind))
             settings_port = kind == 'ExpansionSettings' and name in {'GetAI', 'GetAIPatrol'}
-            if is_expansion or player_port or settings_port or name.startswith('eAI_'):
+            guarded = bool(_dependency_bridge(project, kind)) if dependencies else (
+                is_expansion or player_port or settings_port or name.startswith('eAI_'))
+            if guarded:
                 yield method, start, dot, name, kind
         # An unqualified call inside a provider subclass is a receiver call too.
         # Global builtins and authored functions are not dependency methods.
-        if owner and any(t.startswith('eAI') for t in lineage(owner.name)):
+        provider_owner = owner and (bool(_dependency_bridge(project, owner.name)) if dependencies
+                                    else any(t.startswith('eAI') for t in lineage(owner.name)))
+        if provider_owner:
             globals_ = {'GetGame', 'Print', 'PrintFormat', 'Error', 'ErrorEx', 'Vector'}
             globals_.update(function.name for item in project.sources for function in item.functions)
             for call in _CALL.finditer(source.body(method)):
@@ -1054,6 +1171,60 @@ def rule_expansion_bridge(project, source):
                        key=f'{call[1]}.{call[3]}')
 
 
+def rule_dependency_bridges(project, source):
+    covered = set()
+    for method, start, dot, name, kind in expansion_calls(project, source, dependencies=True):
+        covered.add(dot)
+        bridge = _dependency_bridge(project, kind)
+        if source.rel == bridge:
+            continue
+        receiver = source.code[start:dot].strip() or 'this'
+        yield _finding('HC-E027', source, dot, _symbol(method),
+                       f'{receiver}.{name} ({kind}): call {Path(bridge).stem}; '
+                       'direct dependency calls bypass invariant validation',
+                       key=f'{_symbol(method)}:{receiver}.{name}')
+
+    # Global APIs and static/global initializers have no declared receiver.
+    # clean code excludes comments and strings; bare-call matching excludes
+    # declarations by inspecting only method bodies or initializer expressions.
+    spans = [(m.body_start, m.body_end, _symbol(m), m.owner) for m in _all_methods(source)]
+    for match in re.finditer(r'=([^;{}]+);', source.code):
+        if not any(begin <= match.start() <= end for begin, end, _, _ in spans):
+            owner = next((d for d in source.classes if d.body_start < match.start() < d.body_end), None)
+            spans.append((match.start(1), match.end(1), '<initializer>', owner))
+    for begin, end, symbol, owner in spans:
+        code = source.code[begin:end]
+        for call in _CALL.finditer(code):
+            if call[1] or code[:call.start(2)].rstrip().endswith('.'):
+                continue
+            if begin + call.start(2) in covered:
+                continue
+            # HC methods/functions can share a helper name with a vendor global.
+            # Resolve the authored owner first, as the engine does for bare calls.
+            if owner and any(candidate.name == call[2]
+                             for ancestor in project.lineage(owner.name)
+                             for definition in project.links.get(ancestor, ())
+                             for candidate in definition.methods):
+                continue
+            if any(function.name == call[2]
+                   for item in project.sources
+                   if item.layer is None or source.layer is None or item.layer <= source.layer
+                   for function in item.functions):
+                continue
+            bridge = _dependency_bridge(project, call[2])
+            if call[2] in _COT_GLOBALS:
+                bridge = _COT_BRIDGE
+            elif call[2] in _CF_GLOBALS:
+                bridge = _CF_BRIDGE
+            kind, bridge = _DEPENDENCY_GLOBALS.get(call[2], (call[2], bridge))
+            if not bridge:
+                continue
+            if source.rel != bridge:
+                yield _finding('HC-E027', source, begin + call.start(2), symbol,
+                               f'{call[2]} ({kind}): call {Path(bridge).stem}',
+                               key=f'{symbol}:{call[2]}')
+
+
 
 class _Ownership:
     """Declared receiver resolution and conservative, cycle-safe factory summaries.
@@ -1075,7 +1246,8 @@ class _Ownership:
             self.declarations[key] = self.sources[key].local_declarations(method)
         return self.declarations[key]
 
-    def parameters(self, method):
+    @staticmethod
+    def parameters(method):
         # Parameter commas inside generic types do not separate parameters.
         parts, start, depth = [], 0, 0
         for index, char in enumerate(method.params):
@@ -1947,7 +2119,7 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_modded_module,
+             rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
@@ -1970,6 +2142,25 @@ def lint_texts(files, native=None, rules=ALL_RULES):
     return lint(sources, native, rules)
 
 
+# W1-04 owns bridges/lint only. These precise pre-existing callers remain with
+# their owning workers for migration to HCXExpansionBridge.HCGetTimestamp().
+# Counts are one each: new calls in the same method still fail, and removal
+# makes the exception stale. No whole-file or whole-method suppression.
+_DEPENDENCY_LEGACY_TIMESTAMPS = (
+    ('HCXAIEncounters.c', 'HCXAIEncounters.Step', 'encounter token epoch; migrate encounter owner'),
+    ('HCXAIPickerCaches.c', 'HCXAISiteDirector.StepCache', 'picker cache epoch; migrate cache owner'),
+    ('HCXAIPickerLifecycle.c', 'HCXAISiteDirector.StepTransients', 'party epoch; migrate lifecycle owner'),
+    ('HCXAIPickerLifecycle.c', 'HCXAISiteDirector.FinishTransient', 'materialized party epoch; migrate lifecycle owner'),
+    ('HCXAIPickerWalk.c', 'HCXAIPickerWalk.HCAtHome', 'home cooldown epoch; migrate walk owner'),
+    ('HCXAIPickerWalk.c', 'HCScavengeTrip.HCCheckpoint', 'trip cooldown epoch; migrate walk owner'),
+    ('HCXAISites.c', 'HCXAISiteDirector.HCStepLocalities', 'locality epoch; migrate sites owner'),
+    ('HCXAISites.c', 'HCXAISiteDirector.SpawnProblemFor', 'raid lockout epoch; migrate sites owner'),
+    ('HCXAISites.c', 'HCXAISiteDirector.HCRefreshDepleted', 'depletion epoch; migrate sites owner'),
+    ('HCXAISites.c', 'HCXAISiteDirector.RecordCleared', 'cleared-site epoch; migrate sites owner'),
+    ('HCXAISites.c', 'HCXAISiteDirector.CacheStep', 'cache expiry epoch; migrate sites owner'),
+)
+
+
 # ---------------------------------------------------------------- baseline
 
 def load_baseline(path=BASELINE):
@@ -1979,7 +2170,13 @@ def load_baseline(path=BASELINE):
     if path.exists() and path.resolve() == BASELINE.resolve():
         identities = {(entry['rule'], entry['path'], entry['symbol'], entry['key'])
                       for entry in baseline.get('entries', [])}
-        for entry in enforce_json.LEGACY_BASELINE:
+        dependency_entries = [
+            {'rule': 'HC-E027', 'path': str(Path(_EXPANSION_BRIDGE).with_name(filename)),
+             'symbol': symbol, 'key': f'{symbol}:ExpansionStatic.GetTimestamp',
+             'count': 1, 'review': f'W1-04 scoped legacy: {reason}'}
+            for filename, symbol, reason in _DEPENDENCY_LEGACY_TIMESTAMPS
+        ]
+        for entry in (*enforce_json.LEGACY_BASELINE, *dependency_entries):
             identity = (entry['rule'], entry['path'], entry['symbol'], entry['key'])
             if identity not in identities:
                 baseline.setdefault('entries', []).append(dict(entry))
