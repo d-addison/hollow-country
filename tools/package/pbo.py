@@ -17,7 +17,7 @@ PREFIX = 'HollowCountry'
 # The weapon-pack guard ships beside the HCX PBO in the same mod folder, so it needs its own
 # nested prefix: two PBOs with one prefix in one folder crash the native server at load.
 GUARD_PREFIX = 'HollowCountryExpansionAI\\weapon-pack-guards'
-PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', GUARD_PREFIX)
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX)
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024
