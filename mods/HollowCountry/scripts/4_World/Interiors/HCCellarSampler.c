@@ -17,6 +17,7 @@
 //
 // IDLE (no marker): reports ready, no scan, buffers, DTO allocation or IO beyond
 // the one marker check at start; OnTick returns at once.
+// Marker presence is a boot snapshot: adding/removing it takes effect on restart.
 // ON: each core tick handles ONE of: a 128m tile query (<=4096 returned objects,
 // overflowing tiles stay pending); <=16 cursor objects (<=64 class comparisons each); <=3
 // seed columns (<=21 rays); <=4 validation points (<=12 rays + 2 stair rays);
@@ -86,8 +87,8 @@ class HCCellarSampler : HCModule
 
     override bool IsEnabled(HCSettings settings)
     {
-        // Wave 16: the sampler is started on every server and idles ready until the
-        // operator creates MARKER; OnTick below is a cheap no-op while !m_Running.
+        // The sampler starts on every server; OnStart snapshots MARKER once.
+        // OnTick below is a cheap no-op when that boot snapshot was absent.
         if (!GetGame() || !GetGame().IsServer())
         {
             HCReceipt("off", "not_server");
@@ -470,7 +471,6 @@ class HCCellarSampler : HCModule
     {
         HCSaveScheduler.HCPumpFallback(m_SaveJob);
         if (!m_Running) { return; }
-        if (!FileExist(MARKER)) { HCAbort("measurement marker removed"); return; }
         m_Units.HCReset(24);
         m_Work.HCReset(24);
         HCReached.Mark("cellar_sampler.survey_tick");

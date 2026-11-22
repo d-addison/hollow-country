@@ -446,15 +446,46 @@ def check_profile_mirrors():
             for source, copy in PROFILE_MIRRORS if (ROOT / source).read_bytes() != (ROOT / copy).read_bytes()]
 
 
+def check_profile_default_sizes():
+    """Check every shipped profile image against the native bounded reader."""
+    native = ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c'
+    cap = int(re.search(r'static const int MAX_BYTES = (\d+);', native.read_text()).group(1))
+    errors, warnings = [], []
+    defaults = {path for path in (ROOT / 'mods').glob('*/data/defaults/**/*')
+                if path.is_file()}
+    images = set(defaults)
+    # HCXAISiteDirector selects these mission images as shipped before HCEnsure.
+    # Keep renamed AI defaults as well as same-path mission mirrors in coverage.
+    mission_root = ROOT / 'mission/hollow-country'
+    for default in defaults:
+        parts = default.relative_to(ROOT).parts
+        relative = Path(*parts[parts.index('defaults') + 1:])
+        candidates = [mission_root / relative]
+        if default.name.startswith('expansion-ai-'):
+            candidates.append(mission_root / 'ai' / default.name.removeprefix('expansion-ai-'))
+        images.update(path for path in candidates if path.is_file())
+    for path in sorted(images):
+        size = path.stat().st_size
+        message = f'profile default path={path.relative_to(ROOT).as_posix()} bytes={size} cap={cap}'
+        if size > cap:
+            errors.append(message + ' reason=too_large')
+        elif size * 10 > cap * 9:
+            warnings.append(message + ' reason=above_90_percent')
+    return errors, warnings
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
+    warnings = []
     try:
         load_targets()
         errors = check_consistency() + check_profile_mirrors()
+        size_errors, warnings = check_profile_default_sizes()
+        errors.extend(size_errors)
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]
-    print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors,
+    print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors, 'warnings': warnings,
                       'scope': 'settings source consistency; runtime=PENDING'}, indent=2))
     return bool(errors)
 

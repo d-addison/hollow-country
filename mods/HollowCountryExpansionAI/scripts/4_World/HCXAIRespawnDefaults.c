@@ -126,40 +126,206 @@ class HCXAIRespawnDefaults
     static bool HCEnsure(string relative, string source, bool localities = false)
     {
         if (!HCProfileDefaults.Valid(relative)) { return false; }
+        string refused = "[HC AI Defaults] refused file=" + relative + " reason=";
         string shipped = HCProfileDefaults.ReadText(source);
-        if (shipped == "") { return false; }
+        if (shipped == "") { Print(refused + "shipped_unreadable"); return false; }
         string target = "$profile:HollowCountry/" + relative;
         string originPath = target + ".hcdefault.origin";
-        string profile = HCProfileDefaults.ReadText(target);
+        string profile = HCProfileDefaults.ReadText(target, false);
         string origin = HCProfileDefaults.ReadText(originPath);
+        string backup = target + ".hcdefault.bak";
+        string temporary = target + ".hcdefault.tmp";
+        string priorPath = target + ".hcdefault.prior";
+        string mode = "provenance";
+        string staged = HCProfileDefaults.ReadText(temporary);
+        bool hasTemporary = FileExist(temporary);
+        // Empty ReadText can also mean oversized/unreadable. An open failure
+        // must keep our intent: a transient sharing lock cannot retire the only
+        // witness authorizing repair of a torn target on a later boot.
+        if (profile == "" && FileExist(target))
+        {
+            FileHandle probeHandle = OpenFile(target, FileMode.READ);
+            string probe;
+            int probeBytes = -1;
+            if (probeHandle)
+            {
+                probeBytes = ReadFile(probeHandle, probe, 1);
+                CloseFile(probeHandle);
+            }
+            if (probeBytes < 0)
+            {
+                Print(refused + "profile_unreadable");
+                return false;
+            }
+            if (probeBytes > 0)
+            {
+                if (hasTemporary && !DeleteFile(temporary)) { Print(refused + "tmp_delete"); return false; }
+                Print(refused + "profile_too_large");
+                return false;
+            }
+        }
+        // A stale complete intent still witnesses an absent/empty target or a
+        // strict prefix torn from that image, even after shipped bytes change.
+        bool staleTorn = false;
+        if (hasTemporary && staged != shipped)
+        {
+            staleTorn = profile == "";
+            if (!staleTorn && profile.Length() < staged.Length())
+            {
+                staleTorn = staged.Substring(0, profile.Length()) == profile;
+            }
+            if (!staleTorn)
+            {
+                if (!DeleteFile(temporary)) { Print(refused + "stale_tmp_delete"); return false; }
+                hasTemporary = false;
+                Print("[HC AI Defaults] recovered file=" + relative + " reason=stale_tmp_removed");
+            }
+        }
+        // Includes the old sequence's crash after tmp deletion but before origin.
+        // No target recopy (nearly 1 MiB for sites) on an ordinary warm boot.
         if (profile == shipped)
         {
-            if (origin == shipped) { return true; }
-            return HCProfileDefaults.WriteText(originPath, shipped);
-        }
-        string backup = target + ".bak";
-        string mode = "provenance";
-        if (FileExist(target))
-        {
-            if (profile == "") { return false; }
-            if (origin == "")
+            bool originRepaired = origin != shipped;
+            if (originRepaired && !HCProfileDefaults.WriteText(originPath, shipped)) { Print(refused + "origin_readback"); return false; }
+            if (hasTemporary && !DeleteFile(temporary)) { Print(refused + "tmp_delete"); return false; }
+            if (FileExist(priorPath) && !DeleteFile(priorPath)) { Print(refused + "prior_delete"); return false; }
+            if (originRepaired || hasTemporary)
             {
-                bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped);
-                if (!older && localities) { older = HCXAIRespawnDefaults.HCOlderLocalities(profile, shipped); }
-                if (!older) { return true; }
-                backup = target + ".legacy.bak";
-                mode = "legacy_schema";
-                if (FileExist(backup) && HCProfileDefaults.ReadText(backup) != profile) { return false; }
+                Print("[HC AI Defaults] adopted file=" + relative + " mode=resume_origin; runtime=PENDING");
             }
-            else if (profile != origin) { return true; }
-            if (!CopyFile(target, backup) || HCProfileDefaults.ReadText(backup) != profile) { return false; }
+            return true;
         }
-        else if (!HCProfileDefaults.PrepareParents(relative)) { return false; }
-        string temporary = target + ".hcdefault.tmp";
-        if (!HCProfileDefaults.WriteText(temporary, shipped)) { return false; }
-        if (!CopyFile(temporary, target) || HCProfileDefaults.ReadText(target) != shipped) { return false; }
-        DeleteFile(temporary);
-        if (!HCProfileDefaults.WriteText(originPath, shipped)) { return false; }
+        // A completed current origin plus differing data is an operator edit,
+        // even if an old release left a valid shipped temp alongside it.
+        if (origin == shipped && FileExist(target) && !staleTorn)
+        {
+            if (hasTemporary && !DeleteFile(temporary)) { Print(refused + "operator_tmp_delete"); return false; }
+            Print(refused + "operator_modified");
+            return true;
+        }
+        bool resume = staleTorn;
+        if (hasTemporary)
+        {
+            // One bounded bulk compare; do not scan schemas for torn targets.
+            bool torn = profile == "";
+            if (!torn && profile.Length() < shipped.Length())
+            {
+                torn = shipped.Substring(0, profile.Length()) == profile;
+            }
+            bool matchesBackup = false;
+            if (!torn && !staleTorn)
+            {
+                string prior = HCProfileDefaults.ReadText(backup);
+                string receipt = HCProfileDefaults.ReadText(priorPath);
+                bool verifiedPrior = prior != "" && (prior == origin || prior == receipt);
+                if (!verifiedPrior)
+                {
+                    // Read compatibility only: never rewrite an operator .bak.
+                    prior = HCProfileDefaults.ReadText(target + ".bak");
+                    verifiedPrior = prior != "" && (prior == origin || prior == receipt);
+                }
+                matchesBackup = verifiedPrior && profile == prior;
+                if (!matchesBackup)
+                {
+                    string legacy = HCProfileDefaults.ReadText(target + ".legacy.bak");
+                    if (legacy != "" && profile == legacy)
+                    {
+                        matchesBackup = HCXAIRespawnDefaults.HCOlderSchema(legacy, shipped);
+                        if (!matchesBackup && localities) { matchesBackup = HCXAIRespawnDefaults.HCOlderLocalities(legacy, shipped); }
+                    }
+                }
+            }
+            resume = resume || torn || matchesBackup;
+            if (!resume)
+            {
+                // Preserve operator data; a backup alone never authorizes it.
+                if (!DeleteFile(temporary)) { Print(refused + "operator_tmp_delete"); return false; }
+                Print(refused + "resume_target_modified");
+                return true;
+            }
+            mode = "resume_interrupted";
+        }
+        if (!resume)
+        {
+            if (FileExist(target))
+            {
+                if (profile == "") { Print(refused + "profile_empty_unprovenanced"); return false; }
+                if (origin == "")
+                {
+                    bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped);
+                    if (!older && localities) { older = HCXAIRespawnDefaults.HCOlderLocalities(profile, shipped); }
+                    if (!older) { Print(refused + "operator_unprovenanced"); return true; }
+                    backup = target + ".legacy.bak";
+                    mode = "legacy_schema";
+                }
+                else if (profile != origin) { Print(refused + "operator_modified"); return true; }
+                string saved = HCProfileDefaults.ReadText(backup);
+                bool rebuildLegacy = false;
+                // Older releases may already have made this exact backup. Do
+                // not rely on CopyFile overwriting it, nor copy 1 MiB again.
+                if (saved != profile)
+                {
+                    if (FileExist(backup))
+                    {
+                        // A torn legacy backup is replaceable only while its
+                        // full verified source profile is still intact.
+                        if (mode == "legacy_schema")
+                        {
+                            bool tornBackup = saved == "";
+                            if (tornBackup)
+                            {
+                                FileHandle backupHandle = OpenFile(backup, FileMode.READ);
+                                if (!backupHandle) { Print(refused + "legacy_backup_unreadable"); return false; }
+                                string backupProbe;
+                                int backupBytes = ReadFile(backupHandle, backupProbe, 1);
+                                CloseFile(backupHandle);
+                                if (backupBytes != 0) { Print(refused + "legacy_backup_not_empty"); return false; }
+                            }
+                            if (!tornBackup && saved.Length() < profile.Length())
+                            {
+                                tornBackup = profile.Substring(0, saved.Length()) == saved;
+                            }
+                            if (!tornBackup) { Print(refused + "legacy_backup_conflict"); return false; }
+                            rebuildLegacy = true;
+                        }
+                        if (!DeleteFile(backup)) { Print(refused + "backup_delete"); return false; }
+                    }
+                    if (!CopyFile(target, backup)) { Print(refused + "backup_copy"); return false; }
+                    if (HCProfileDefaults.ReadText(backup) != profile) { Print(refused + "backup_readback"); return false; }
+                    if (rebuildLegacy) { Print("[HC AI Defaults] recovered file=" + relative + " reason=legacy_backup_rebuilt"); }
+                }
+                if (mode == "provenance" && !HCProfileDefaults.WriteText(priorPath, profile)) { Print(refused + "prior_readback"); return false; }
+            }
+            else
+            {
+                if (!HCProfileDefaults.PrepareParents(relative)) { Print(refused + "directory"); return false; }
+                mode = "fresh";
+            }
+            // Durable intent follows verified backup (or an absent fresh target).
+            if (!HCProfileDefaults.WriteText(temporary, shipped)) { Print(refused + "tmp_readback"); return false; }
+        }
+        // Never assume CopyFile can overwrite. The backup/intent survives both
+        // a crash in the delete-copy gap and a torn copy/origin write.
+        if (FileExist(target) && !DeleteFile(target)) { Print(refused + "target_delete"); return false; }
+        // Keep the old intent intact until its torn target is gone. A crash
+        // while refreshing intent then leaves an absent, recoverable target.
+        if (staleTorn)
+        {
+            if (!HCProfileDefaults.WriteText(temporary, shipped)) { Print(refused + "tmp_readback"); return false; }
+            Print("[HC AI Defaults] recovered file=" + relative + " reason=stale_tmp_torn");
+        }
+        // A deleted profile can retain a current completed origin. Retire it
+        // before copying again: otherwise a crash here would make our own torn
+        // fresh/resumed target look like a completed adoption's operator edit.
+        if (origin == shipped && FileExist(originPath))
+        {
+            if (!DeleteFile(originPath)) { Print(refused + "origin_delete"); return false; }
+        }
+        if (!CopyFile(temporary, target)) { Print(refused + "target_copy"); return false; }
+        if (HCProfileDefaults.ReadText(target) != shipped) { Print(refused + "target_readback"); return false; }
+        if (!HCProfileDefaults.WriteText(originPath, shipped)) { Print(refused + "origin_readback"); return false; }
+        if (!DeleteFile(temporary)) { Print(refused + "tmp_delete"); return false; }
+        if (FileExist(priorPath) && !DeleteFile(priorPath)) { Print(refused + "prior_delete"); return false; }
         Print("[HC AI Defaults] adopted file=" + relative + " mode=" + mode + "; runtime=PENDING");
         return true;
     }

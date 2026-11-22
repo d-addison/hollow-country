@@ -135,15 +135,6 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
-      "line": 32,
-      "symbol": "HCProfileDefaults.ReadText",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.ReadText",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
       "line": 33,
       "symbol": "HCProfileDefaults.ReadText",
       "key": "OpenFile#1",
@@ -313,15 +304,6 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
-      "line": 455,
-      "symbol": "HCCellarSampler.OnTick",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCCellarSampler.OnTick",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
       "line": 359,
@@ -406,15 +388,6 @@
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCGraph -> HCWorldStore.Read",
       "native": false,
       "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P004",
-      "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c",
-      "line": 84,
-      "symbol": "HCSignsOfLifeSnapshotClient.HCReceiveHoldouts",
-      "key": "positions.Find#1",
-      "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
     },
     {
       "rule": "HC-P003",
