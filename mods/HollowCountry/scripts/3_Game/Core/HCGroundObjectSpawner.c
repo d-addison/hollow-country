@@ -74,8 +74,11 @@ modded class ObjectSpawnerHandler
         if (scale == 0) { scale = 1; }
         if (item.scale != 1) { placedObject.SetScale(scale); }
         placedObject.OnSpawnByObjectSpawner(item);
-        float drop = 3;
-        if (item.name.IndexOf("Land_") == 0 || item.name.IndexOf("StaticObj_") == 0) { drop = 25; }
+        // #335: HC layers store one flat height per site (offline estimate), so small
+        // props on a slope can sit up to ~25 m above the ground; a 3 m window left them
+        // floating (no_hit). Every HC layer prop gets the 25 m window; the ray still
+        // stops at the first surface below and the rise stays bounded.
+        float drop = 25;
         HCGroundSnap.Snap(placedObject, drop, 0.01, HCGroundStats);
         if (HCPathgraphRefresh.Mark(placedObject)) { HCPathgraphMarked++; }
         else { HCPathgraphSkipped++; }
