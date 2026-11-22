@@ -200,6 +200,94 @@ class WorldMeshAuditTests(unittest.TestCase):
                          'DOOR_SELECTION_UNAVAILABLE_OR_INCOMPLETE'} <= {s['reason'] for s in result['skipped']})
         self.assertFalse(any(f['reason'] == 'HOST_GEOMETRY_ENCROACHMENT' for f in result['findings']))
 
+    def paths_host(self):
+        # One level corridor along Z at floor height and one stair flight along X=3.
+        stair_rise = audit.POLICY['stair_min_slope'] * 3 * 2
+        vertices = [(0, 0, -2), (0, 0, 2), (3, 0, 0), (3, stair_rise, 3)]
+        return model(lod(audit.GEOMETRY), lod(audit.PATHS, vertices, [(0, 1), (2, 3)]))
+
+    def test_paths_lod_level_and_stair_segments_are_classified(self):
+        segments = audit.path_segments(self.paths_host())
+        self.assertEqual([seg[2] for seg in segments], [False, True])
+        self.assertIsNone(audit.path_segments(model(lod(audit.GEOMETRY))))
+
+    def test_paths_lod_blocking_findings_per_kind_and_clear_placements(self):
+        rise = audit.POLICY['stair_min_slope'] * 3 * 2
+        # Stair feet at z=1.5 are rise/2 high: a box in the column blocks, a box above the whole flight's head height does not.
+        on_corridor = audit.Placement('room', 'level', 'P', host='House')
+        on_stair = audit.Placement('room', 'stair', 'P', position=(3, rise / 2, 1.5), host='House')
+        overhead = audit.Placement('room', 'high', 'P', position=(3, rise + audit.POLICY['door_height_m'] + .1, 1.5),
+                                   host='House')
+        clear = audit.Placement('room', 'clear', 'P', position=(8, 0, 8), host='House')
+        result = audit.audit([on_corridor, on_stair, overhead, clear],
+                             Installed({'P': prop(), 'House': self.paths_host()}))
+        by_key = {}
+        for f in result['findings']:
+            if f['reason'] in ('STAIR_PATH_INTERSECTION', 'PATH_LOD_INTERSECTION'):
+                by_key.setdefault(f['key'], set()).add(f['reason'])
+                self.assertEqual(f['host'], 'House')
+                self.assertGreaterEqual(f['segments'], 1)
+        self.assertEqual(by_key, {'level': {'PATH_LOD_INTERSECTION'}, 'stair': {'STAIR_PATH_INTERSECTION'}})
+        self.assertEqual(result['hosts'], [{'classname': 'House', 'placements': 4, 'paths_lod': True,
+                                            'path_segments': 2, 'stair_segments': 1}])
+
+    def test_low_box_is_stepped_over_and_host_without_paths_is_recorded_not_skipped(self):
+        low = audit.POLICY['path_step_over_m'] / 2
+        flat = prop(cube((-.2, 0, -.2), (.2, low, .2)))
+        rows = [audit.Placement('room', 'rug', 'P', host='House')]
+        result = audit.audit(rows, Installed({'P': flat, 'House': self.paths_host()}))
+        self.assertFalse(any('PATH' in f['reason'] for f in result['findings']))
+        bare = audit.audit(rows, Installed({'P': prop(), 'House': model(lod(audit.GEOMETRY))}))
+        self.assertEqual(bare['hosts'][0]['paths_lod'], False)
+        self.assertFalse(any(s['reason'].startswith('PATH') for s in bare['skipped']))
+
+    def test_shelter_terrain_rows_get_no_path_verdict(self):
+        rows = [audit.Placement('rest', 'a', 'P', host='House', terrain=True)]
+        result = audit.audit(rows, Installed({'P': prop(), 'House': self.paths_host()}))
+        self.assertFalse(any('PATH' in f['reason'] for f in result['findings']))
+
+    def test_catalog_bounds_cover_unplaced_classes_and_reserve_status(self):
+        big = prop(cube((-2, 0, -4), (2, 3, 4)))
+        catalog = {'Placed': {'footprint_reserve_m': [4, 8]}, 'Unplaced': {'footprint_reserve_m': [1, 1]},
+                   'NoReserve': {}, 'Gone': {}, 'NoGeometry': {}}
+        installed = Installed({'Placed': big, 'Unplaced': big, 'NoReserve': big,
+                               'NoGeometry': model(lod(audit.VIEW_GEOMETRY))})
+        result = audit.audit([audit.Placement('g', 'a', 'Placed')], installed, catalog)
+        self.assertEqual(result['checked'], 1)  # unplaced catalogue classes are not audited as placements
+        self.assertEqual(set(result['catalog_bounds']), {'Unplaced', 'NoReserve'})
+        unmeasured = {s['classname'] for s in result['skipped'] if s['reason'] == 'CLASS_BOUNDS_UNMEASURED'}
+        self.assertEqual(unmeasured, {'Gone', 'NoGeometry'})
+        update = audit.bounds_update(result, catalog)
+        self.assertFalse(update['applied'])
+        self.assertEqual(update['unmeasured'], ['Gone', 'NoGeometry'])
+        self.assertEqual({n: r['reserve_status'] for n, r in update['classes'].items()},
+                         {'Placed': 'RESERVE_COVERS_MEASURED', 'Unplaced': 'RESERVE_BELOW_MEASURED',
+                          'NoReserve': 'NO_RESERVE'})
+        self.assertEqual(update['classes']['Placed']['footprint_m'], [4.0, 8.0])
+        self.assertEqual(update['classes']['Placed']['size_m'], [4.0, 3.0, 8.0])
+        self.assertEqual(update, audit.bounds_update(result, catalog))
+
+    def test_bounds_out_is_written_by_main_without_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.write(root, 'config/map-overlays/classes.json', {'classes': {'Crate': {}}})
+            readers, addons = root / 'reader', root / 'Addons'
+            readers.mkdir()
+            addons.mkdir()
+            (addons / 'a.pbo').touch()
+            out = root / 'bounds.json'
+            output = io.StringIO()
+            installed = Installed({'Crate': prop(cube((-1, 0, -2), (1, 1, 2)))})
+            with patch.object(audit, 'discover', return_value=[]), \
+                    patch.object(audit, 'Installed', return_value=installed), \
+                    contextlib.redirect_stdout(output):
+                code = audit.main(['--repo', str(root), '--addons', str(addons), '--reader', str(readers),
+                                   '--bounds-out', str(out), '--report', str(root / 'r.json')])
+            self.assertEqual(code, 0)
+            written = json.loads(out.read_text())
+            self.assertEqual(written['classes']['Crate']['footprint_m'], [2.0, 4.0])
+            self.assertNotIn(str(root), out.read_text())
+
     def test_missing_dependencies_permissive_and_strict_and_json(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
