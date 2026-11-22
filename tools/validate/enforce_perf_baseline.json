@@ -135,15 +135,6 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
-      "line": 32,
-      "symbol": "HCProfileDefaults.ReadText",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.ReadText",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
       "line": 33,
       "symbol": "HCProfileDefaults.ReadText",
       "key": "OpenFile#1",
@@ -328,15 +319,6 @@
       "symbol": "HCAlertChain.ProcessPending",
       "key": "emission.Root.Recipients.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
-      "line": 455,
-      "symbol": "HCCellarSampler.OnTick",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCCellarSampler.OnTick",
       "native": false
     },
     {

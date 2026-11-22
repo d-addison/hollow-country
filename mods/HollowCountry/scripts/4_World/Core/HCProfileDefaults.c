@@ -36,7 +36,18 @@ class HCProfileDefaults
         string text;
         int count = ReadFile(handle, text, MAX_BYTES + 1);
         CloseFile(handle);
-        if (count < 1 || count > MAX_BYTES || text.Length() < 1 || text.Length() > MAX_BYTES) { return ""; }
+        if (count > MAX_BYTES || text.Length() > MAX_BYTES)
+        {
+            // Log only a relative addon/profile path, never a host path. The
+            // bounded read reports observed bytes (at least MAX_BYTES + 1).
+            string relative = "unknown";
+            int prefix = path.IndexOf("data/defaults/");
+            if (prefix >= 0) { relative = path.Substring(prefix + 14, path.Length() - prefix - 14); }
+            else if (path.IndexOf(PROFILE_ROOT) == 0) { relative = path.Substring(PROFILE_ROOT.Length(), path.Length() - PROFILE_ROOT.Length()); }
+            Print("[HollowCountry] profile default refused reason=too_large path=" + relative + " bytes=" + count.ToString());
+            return "";
+        }
+        if (count < 1 || text.Length() < 1) { return ""; }
         return text;
     }
 
@@ -55,6 +66,7 @@ class HCProfileDefaults
             int length = total - offset;
             if (length > 4096) { length = 4096; }
             string piece = text.Substring(offset, length);
+            if (piece.Length() != length) { CloseFile(handle); return false; }
             FPrint(handle, piece);
             offset = offset + length;
         }
@@ -108,7 +120,7 @@ class HCProfileDefaults
         string text = ReadText(shipped);
         if (text == "")
         {
-            Print("[HollowCountry] profile default missing file=" + relative + " source=" + shipped + "; feature keeps its own admission diagnostic");
+            Print("[HollowCountry] profile default unavailable file=" + relative + " source=" + shipped + "; feature keeps its own admission diagnostic");
             return false;
         }
         if (!PrepareParents(relative))

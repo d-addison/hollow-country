@@ -132,13 +132,44 @@ class HCXAIRespawnDefaults
         string originPath = target + ".hcdefault.origin";
         string profile = HCProfileDefaults.ReadText(target);
         string origin = HCProfileDefaults.ReadText(originPath);
+        string backup = target + ".bak";
+        string temporary = target + ".hcdefault.tmp";
+        string priorPath = target + ".hcdefault.prior";
+        string mode = "provenance";
+        // A shipped temp is durable adoption intent, created only after the
+        // prior profile backup passes readback. Never infer intent from a torn
+        // target alone. Preserve prior provenance across a torn origin write.
+        bool resume = false;
+        if (HCProfileDefaults.ReadText(temporary) == shipped)
+        {
+            string prior = HCProfileDefaults.ReadText(backup);
+            string receipt = HCProfileDefaults.ReadText(priorPath);
+            if (prior != "" && (prior == origin || prior == receipt)) { resume = true; }
+            if (!resume)
+            {
+                string legacy = HCProfileDefaults.ReadText(target + ".legacy.bak");
+                if (legacy != "")
+                {
+                    resume = HCXAIRespawnDefaults.HCOlderSchema(legacy, shipped);
+                    if (!resume && localities) { resume = HCXAIRespawnDefaults.HCOlderLocalities(legacy, shipped); }
+                }
+            }
+        }
+        if (resume)
+        {
+            mode = "resume_interrupted";
+            if (!CopyFile(temporary, target) || HCProfileDefaults.ReadText(target) != shipped) { return false; }
+            if (!HCProfileDefaults.WriteText(originPath, shipped)) { return false; }
+            DeleteFile(temporary);
+            DeleteFile(priorPath);
+            Print("[HC AI Defaults] adopted file=" + relative + " mode=" + mode + "; runtime=PENDING");
+            return true;
+        }
         if (profile == shipped)
         {
             if (origin == shipped) { return true; }
             return HCProfileDefaults.WriteText(originPath, shipped);
         }
-        string backup = target + ".bak";
-        string mode = "provenance";
         if (FileExist(target))
         {
             if (profile == "") { return false; }
@@ -153,13 +184,14 @@ class HCXAIRespawnDefaults
             }
             else if (profile != origin) { return true; }
             if (!CopyFile(target, backup) || HCProfileDefaults.ReadText(backup) != profile) { return false; }
+            if (mode == "provenance" && !HCProfileDefaults.WriteText(priorPath, profile)) { return false; }
         }
         else if (!HCProfileDefaults.PrepareParents(relative)) { return false; }
-        string temporary = target + ".hcdefault.tmp";
         if (!HCProfileDefaults.WriteText(temporary, shipped)) { return false; }
         if (!CopyFile(temporary, target) || HCProfileDefaults.ReadText(target) != shipped) { return false; }
-        DeleteFile(temporary);
         if (!HCProfileDefaults.WriteText(originPath, shipped)) { return false; }
+        DeleteFile(temporary);
+        DeleteFile(priorPath);
         Print("[HC AI Defaults] adopted file=" + relative + " mode=" + mode + "; runtime=PENDING");
         return true;
     }

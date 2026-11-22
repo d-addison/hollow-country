@@ -433,15 +433,35 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     return errors
 
 
+def check_profile_default_sizes():
+    """Check every shipped profile image against the native bounded reader."""
+    native = ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c'
+    cap = int(re.search(r'static const int MAX_BYTES = (\d+);', native.read_text()).group(1))
+    errors, warnings = [], []
+    for path in sorted((ROOT / 'mods').glob('*/data/defaults/**/*')):
+        if not path.is_file():
+            continue
+        size = path.stat().st_size
+        message = f'profile default path={path.relative_to(ROOT).as_posix()} bytes={size} cap={cap}'
+        if size > cap:
+            errors.append(message + ' reason=too_large')
+        elif size * 10 > cap * 9:
+            warnings.append(message + ' reason=above_90_percent')
+    return errors, warnings
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
+    warnings = []
     try:
         load_targets()
         errors = check_consistency()
+        size_errors, warnings = check_profile_default_sizes()
+        errors.extend(size_errors)
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]
-    print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors,
+    print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors, 'warnings': warnings,
                       'scope': 'settings source consistency; runtime=PENDING'}, indent=2))
     return bool(errors)
 
