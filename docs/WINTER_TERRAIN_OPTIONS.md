@@ -61,7 +61,7 @@ different winter world as a transparent replacement without further design.
 HC-60's checked-in `winter-terrain-unidentified` record has no Workshop ID,
 author/source, rights or exact version. Its refusal is
 `NO_VERIFIED_TERRAIN_SOURCE_OR_RIGHTS`. Existing provenance entries identify
-Expansion AI/Navigation, CF/COT, animation/bicycle, animal and vehicle dependencies;
+Expansion AI/Navigation, CF/COT, animal and vehicle dependencies;
 none establishes a permitted white-terrain option. This is a compatibility input,
 not proof of the actual current launch set or its success. Only public Workshop
 page text may establish third-party author/licence details in a later research

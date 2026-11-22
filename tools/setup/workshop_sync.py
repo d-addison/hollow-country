@@ -27,7 +27,7 @@ Safety rules:
 
 The printed ``-mod=`` list is shared by server and clients and follows the documented load order (CF,
 COT, Dabs Framework, Expansion Core, AI, Navigation, the weapons packs, RaG_Core,
-RaG Immersive Vehicles, Ambient Animals, Survivor Animations, DayZ-Bicycle, @HollowCountry, then
+RaG Immersive Vehicles, Ambient Animals, @HollowCountry, then
 @HollowCountryExpansionAI). A ``-serverMod=`` line is omitted when no server-only items remain.
 Offline checks establish nothing about DayZ behaviour: the join-time auto-subscribe, signature checks and the
 mod set at runtime stay pending the owner's acceptance.
@@ -106,6 +106,20 @@ def load_manifest(path=None):
                 raise SyncError('%s: duplicate %s %r' % (name, key, mod[key]))
             seen.add(mod[key])
     data['mods'] = sorted(data['mods'], key=lambda m: m['rank'])
+    # Retired third-party items stay listed (id, folder, reason) so an install an older release made keeps
+    # validating and rolling back; they are never selected, fetched or put on the -mod line.
+    retired = data.get('retired', [])
+    if not isinstance(retired, list):
+        raise SyncError('manifest retired list is not a list')
+    for mod in retired:
+        if not (isinstance(mod, dict) and isinstance(mod.get('name'), str) and mod['name']
+                and isinstance(mod.get('folder'), str) and FOLDER.match(mod['folder'])
+                and isinstance(mod.get('id'), str) and ID.match(mod['id'])
+                and isinstance(mod.get('reason'), str) and mod['reason']):
+            raise SyncError('manifest retired entry needs name, id, folder and reason')
+        if mod['folder'] in seen_folders or mod['id'] in seen_ids:
+            raise SyncError('%s: retired item is still an active manifest entry' % mod['name'])
+    data['retired'] = retired
     return data
 
 
@@ -449,9 +463,11 @@ def resolve(args):
 def managed_folders(args):
     # A filtered --manifest (the friend installer passes only the pending mods) must not orphan folders an
     # earlier install created from the shipped manifest; those stay ours for receipt validation and rollback.
-    folders = {m['folder'] for m in load_manifest(args.manifest)['mods']}
-    if args.manifest:
-        folders |= {m['folder'] for m in load_manifest(None)['mods']}
+    # Retired items count too: a receipt an older release wrote can still name their folders.
+    folders = set()
+    for path in ([args.manifest, None] if args.manifest else [None]):
+        manifest = load_manifest(path)
+        folders |= {m['folder'] for m in manifest['mods'] + manifest['retired']}
     return folders
 
 

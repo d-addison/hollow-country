@@ -24,15 +24,12 @@ subscribe to Expansion-Licensed and Expansion-Vehicles, in the manifest order be
 | RaG_Core | 3556131153 | `@RaG_Core` |
 | RaG Immersive Vehicles | 3105330157 | `@RaG_Immersive_Vehicles` |
 | Ambient Animals Pack | 3114410963 | `@AmbientAnimals` |
-| Survivor Animations | 2918418331 | `@SurvivorAnimations` |
-| DayZ-Bicycle | 2971190303 | `@DayZ-Bicycle` |
 | Hollow Country | 3841628320 | `@HollowCountry` |
 | Hollow Country Expansion AI | 3841637854 | `@HollowCountryExpansionAI` |
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22 (see the upgrade note in INSTALL_ROLLBACK.md); an existing subscription is harmless and is no longer loaded.
 
-The manifest's `living_packs` group contains Ambient Animals, Survivor Animations
-and Bicycle. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
+The manifest's `living_packs` group contains Ambient Animals. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
 stack. The friend bundle selects these groups by default. Copy public `.bikey`
 files to the server `keys` directory. Keep signing private keys outside the bundle.
 
@@ -77,7 +74,7 @@ python -m tools.package.optional_overlays bundle-apply --mission /private/server
 `bundle-plan` previews the authored merge. `bundle-apply` requires all three default
 living-pack sources, rehearses the merge and travel/optional plans on scratch,
 then writes a backup receipt before any mission file mutation. It installs the
-base merge, travel CE and Bicycle/Ambient overlays, then the loot boost last. Each installer
+base merge, travel CE and Ambient overlays, then the loot boost last. Each installer
 has its own receipt, including the first installation. Unknown existing overlay
 files and conflicting edited values refuse. Interrupted installs remain reversible
 using those receipts; preserve every receipt and backup. No stock mission is
@@ -191,7 +188,7 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```
 
 ## Release notes (2026-11-19 persistence recovery)

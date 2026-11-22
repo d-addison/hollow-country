@@ -714,10 +714,10 @@ class WorkshopStepTests(InstallerCase):
         self.assertFalse((self.server / '@CF/addons/1559212036.pbo').exists())
 
     def test_missing_default_packs_block_the_overlay_step_with_a_clear_reason(self):
-        shutil.rmtree(self.content / '2971190303')
+        shutil.rmtree(self.content / '3114410963')
         code, out, err = self.apply('--skip', 'workshop')
         self.assertEqual(code, 2)
-        self.assertIn('2971190303', err)
+        self.assertIn('3114410963', err)
         self.assertEqual(self.overlay_calls, [])
 
     def test_the_prompt_says_to_type_the_login_name_only_and_never_the_password(self):

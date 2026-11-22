@@ -672,7 +672,7 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCOptionalPacksModule.c",
       "scope": "diagnostic",
-      "note": "Subscription-only shell: proves its config probe executed, never animal/bicycle CE activity. No runtime gameplay claim."
+      "note": "Subscription-only shell: proves its config probe executed, never animal CE activity. No runtime gameplay claim."
     },
     {
       "module": "Pickers",

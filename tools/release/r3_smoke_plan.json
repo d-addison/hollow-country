@@ -449,24 +449,13 @@
     {
       "module": "OptionalPacks",
       "feature": "animal_seen",
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:22",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:21",
       "trigger": "Server AnimalBase.EEInit observes actual Animal_Otter ancestry once.",
       "exercise": "not_deterministic",
       "steps": "1. During soak wait for installed CE to instantiate Animal_Otter. 2. If absent, ordinary observation on route cannot create the missing body. 3. Inspect animal_seen receipt; config class existence is insufficient.",
       "est_minutes": 5,
       "prerequisites": "Otter dependency loaded and actual CE route installed; not a generic vanilla animal.",
       "deterministic_exercise_proposal": "Use a real finite CE otter event at its installed habitat. If no reliable event, family C proposes one Animal_Otter fixture with real EEInit at a clear habitat, under finite animal cap and existing admin permission, default off. It proves instantiation, not wild behaviour; no config/probe counting."
-    },
-    {
-      "module": "OptionalPacks",
-      "feature": "bicycle_seen",
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:37",
-      "trigger": "Server EEInit on CarScript or ItemBase observes actual Old_Bike ancestry once.",
-      "exercise": "not_deterministic",
-      "steps": "1. During soak let installed bicycle CE overlay instantiate Old_Bike. 2. On route inspect a real bicycle if present; do not assume seeing any modded bike qualifies. 3. Require bicycle_seen.",
-      "est_minutes": 5,
-      "prerequisites": "Old_Bike dependency and actual installed CE event; class ancestry must match.",
-      "deterministic_exercise_proposal": "Use a real finite CE bicycle event near Chernogorsk. If event cannot be selected reliably, family C proposes one empty finite Old_Bike fixture through normal native creation/EEInit, permission guarded/default off; no read-only config counting or CE loot duplication."
     },
     {
       "module": "Pickers",

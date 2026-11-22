@@ -32,11 +32,11 @@ POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
 MANAGED = 'hollow-country-optional-packs'
 BUNDLE_MANAGED = 'hollow-country-bundle'
 CELLARS_MANAGED = 'hollow-country-cellars'
-BICYCLE_ID = '2971190303'
 ANIMALS_ID = '3114410963'
-ANIMATIONS_ID = '2918418331'
 DEFAULT_OVERLAY_IDS = (rag_optional.NAVIGATION_ID, rag_optional.RAG_CORE_ID,
-                       rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID)
+                       rag_optional.RAG_VEHICLES_ID, ANIMALS_ID)
+# Retired 2026-11-22 (owner): Survivor Animations 2918418331 and DayZ-Bicycle 2971190303 are never
+# loaded, planned or required. A folder an older install left in the Workshop dir is ignored.
 AMBIENT_SPECIES = ('otter', 'rabbit', 'rat', 'raven', 'seagull', 'squirrel')
 MAX_BYTES = 16 * 1024 * 1024
 # Pre-1.30 CE category -> the native category vanilla 1.30 uses for the same items
@@ -229,8 +229,7 @@ def ambient_caps(options):
 def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     """Read-only in-memory candidate; an absent/unloaded pack makes no changes.
 
-    loaded_mods is the actual server -mod list, not the subscription list. The
-    caller owns loading Survivor Animations before Bicycle on both clients/server.
+    loaded_mods is the actual server -mod list, not the subscription list.
     """
     mission = mission_target(mission)
     workshop = safe(workshop) if workshop else None
@@ -239,7 +238,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     loaded = loaded_paths(loaded_mods)
     candidate = {'files': {}, 'before': {}, 'diagnostics': [], 'sources': {}, 'mission': str(mission)}
     packs = {}
-    for name, item in (('AmbientAnimals', ANIMALS_ID), ('Bicycles', BICYCLE_ID), *rag_optional.OVERLAY_PACKS):
+    for name, item in (('AmbientAnimals', ANIMALS_ID), *rag_optional.OVERLAY_PACKS):
         path = workshop / item if workshop else None
         present = bool(path and safe(path).is_dir())
         active = present and path.absolute() in loaded
@@ -274,56 +273,10 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         source(mission / 'mapgrouppos.xml')
     # Separate CE registration preserves stock db/types.xml and other installers' pins.
     events, types, spawnable = ET.Element('events'), ET.Element('types'), ET.Element('spawnabletypes')
-    vehicle_events = []  # HC-32 owns only the bicycle events, never ambient ones.
     eventspawns = ET.Element('eventposdef')
-    if 'Bicycles' in packs or 'AmbientAnimals' in packs:
+    if 'AmbientAnimals' in packs:
         eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
     rag_optional.append_types(packs, workshop, loaded, types, source, sys.modules[__name__])
-    if 'Bicycles' in packs:
-        bicycle = packs['Bicycles']
-        options = policy['bicycle']
-        multiplier = options['count_multiplier']
-        if not 1 <= multiplier <= 4 or not 1 <= options['nominal_cap'] <= 160:
-            raise ValueError('bicycle count policy outside provisional bounds')
-        bike_events = xml(source(find_file(bicycle, 'events.xml')), 'events')
-        bike_points = xml(source(find_file(bicycle, 'cfgeventspawns_Chernarus.xml')), 'events')
-        preferred = positions(mission, options['preferred_group_fragments'])
-        budget = options['nominal_cap']
-        for event in bike_events:
-            nominal = event.find('nominal')
-            nominal.text = str(min(budget, int(int(nominal.text) * multiplier)))
-            budget -= int(nominal.text)
-            for tag in ('min', 'max'):
-                node = event.find(tag)
-                node.text = str(min(options['nominal_cap'], int(int(node.text) * multiplier)))
-            event.find('min').text = str(min(int(event.findtext('min')), int(nominal.text)))
-            for child in event.findall('children/child'):
-                for attribute in ('min', 'max'):
-                    child.set(attribute, str(min(options['nominal_cap'], int(int(child.get(attribute)) * multiplier))))
-            unique_append(events, event)
-            vehicle_events.append(event)
-            points = bike_points.findall("event[@name='%s']" % event.get('name'))
-            if len(points) != 1 or not list(points[0]):
-                raise ValueError('bicycle event has no unique installed placement list')
-            placements = list(points[0])
-            favoured = [p for p in placements if near(float(p.get('x')), float(p.get('z')),
-                                                    preferred, options['placement_radius'])]
-            # Retain only dependency-authored points; no invented doorway/shed coordinates.
-            if favoured:
-                required = max(int(nominal.text), math.ceil(len(favoured) / options['preferred_fraction']))
-                points[0][:] = favoured + [p for p in placements if p not in favoured][:max(0, required - len(favoured))]
-            unique_append(eventspawns, points[0])
-        for entry in xml(source(find_file(bicycle, 'types.xml')), 'types'):
-            unique_append(types, entry)
-        spawnable = xml(source(find_file(bicycle, 'spawnabletypes.xml')), 'spawnabletypes')
-        travel.validate_repairs(spawnable)
-        vehicle_names = set(travel.vehicle_owners(events))
-        for tag, rows in (('type', types), ('repair template', spawnable)):
-            available = [n.get('name', '').casefold() for n in rows.findall('type')]
-            if len(available) != len(set(available)) or not vehicle_names <= set(available):
-                raise ValueError('HC-32 bicycle missing or duplicate ' + tag)
-        put(MANAGED + '/spawnabletypes.xml', serialized(spawnable))
-
     if 'AmbientAnimals' in packs:
         animals = packs['AmbientAnimals']
         options = policy['ambient']
@@ -392,10 +345,9 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     # Refuse existing declarations of the same types/events across stock and CE
     # extensions. No duplicate loot or reliance on unobserved replacement order.
     core = xml(source(mission / 'cfgeconomycore.xml'), 'economycore')
-    owners = travel.vehicle_owners(vehicle_events)
-    travel.validate_vehicle_budgets(types, set(owners))
-    # An optional event with a new name can still duplicate a native/managed
-    # vehicle. Compare child classes against every effective source, too.
+    # No optional pack owns a vehicle event any more (DayZ-Bicycle retired), so every
+    # vehicle class in an effective event is native or managed: optional types must not
+    # give any of them a loot budget.
     event_files = ['db/events.xml']
     for ce in core.findall('ce'):
         for entry in ce.findall("file[@type='events']"):
@@ -404,16 +356,14 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     for relative in event_files:
         # Types-only plans do not need a stock events file; synthetic/stripped
         # missions may omit it. A declared CE file is always required.
-        if relative == 'db/events.xml' and not (mission / relative).exists() and not owners:
+        if relative == 'db/events.xml' and not (mission / relative).exists():
             continue
         existing = xml(source(mission / relative), 'events')
         for event in existing:
-            if set(owners) & {n.get('type', '').casefold() for n in event.findall('children/child')}:
-                raise ValueError('HC-32 vehicle has another event owner: ' + event.get('name', ''))
             effective_events[event.get('name', '').casefold()] = event
     existing_vehicles = {n.get('type', '').casefold() for event in effective_events.values()
                          for n in event.findall('children/child')}
-    travel.validate_vehicle_budgets(types, existing_vehicles | set(owners))
+    travel.validate_vehicle_budgets(types, existing_vehicles)
     if len(types):
         native_categories(types, xml(source(mission / 'cfglimitsdefinition.xml'), 'lists'))
     for kind, additions, stock in (('events', events, 'db/events.xml'), ('types', types, 'db/types.xml'),
@@ -441,12 +391,12 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
             name = Path(relative).name
             ET.SubElement(registration, 'file', {'name': name, 'type': name[:-4]})
     put('cfgeconomycore.xml', serialized(core))
-    if 'Bicycles' in packs or 'AmbientAnimals' in packs:
+    if 'AmbientAnimals' in packs:
         put('cfgeventspawns.xml', serialized(eventspawns))
     native_count = len(set(effective_events) & {n.casefold() for n in travel.NATIVE_FAMILIES})
     candidate['diagnostics'].append(
-        '[HC Plan] HC-32 vehicle_families=%d optional=%d refused=runtime_pending state=authored runtime=PENDING'
-        % (native_count, len(vehicle_events)))
+        '[HC Plan] HC-32 vehicle_families=%d optional=0 refused=runtime_pending state=authored runtime=PENDING'
+        % native_count)
     return candidate
 
 
@@ -919,15 +869,16 @@ def friend_bundle_plan(mission, rows):
 
 def friend_notes():
     return '\r\n'.join([
-        '', 'Default subscriptions: COT, Expansion Navigation (GPS), RaG_Core, RaG Immersive Vehicles, Ambient Animals Pack, Survivor Animations and DayZ-Bicycle.',
+        '', 'Default subscriptions: COT, Expansion Navigation (GPS), RaG_Core, RaG Immersive Vehicles and Ambient Animals Pack.',
+        'Survivor Animations and DayZ-Bicycle are retired: remove them from -mod; leaving them subscribed is harmless, nothing loads or reads them.',
         'Never repack or redistribute them. Download their original Workshop folders on the friend server.',
-        'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.',
+        'Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations.',
         'Keep the original numeric Workshop folders for the installer, alongside the @ copies used to launch.',
         'Install Python 3.10+. From this bundle folder, with the server stopped, run:',
         '  python -m tools.package.optional_overlays bundle-plan --mission <friend-mission>',
         '  python -m tools.package.optional_overlays bundle-apply --mission <friend-mission> --workshop-dir <content/221100>',
         'The installer rehearses merges on scratch bytes, then backs up every changed file in a receipt.',
-        'Our mission overlay, travel CE and Bicycle/Ambient/RaG/GPS overlays apply to your own stock mission.',
+        'Our mission overlay, travel CE and Ambient/RaG/GPS overlays apply to your own stock mission.',
         'RaG shipped types are generated locally from the installed item, never exported in this bundle.',
         'ExpansionGPS uses nominal 4 with Military/Police usage; do not add another CE owner for these types.',
         'No stock mission ships. Use an isolated dayzOffline.chernarusplus copy outside Steam and this bundle.',
@@ -966,18 +917,16 @@ def launcher_run(args, repo, out, launcher):
         for destination in (session['mission'], session['profiles'], session['mod']['dest'], session['server_root']):
             if Path(destination).is_relative_to(workshop):
                 raise ValueError('Workshop sources must remain read only; destination overlaps Workshop directory')
-        for item in (rag_optional.RAG_CORE_ID, rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID):
+        for item in (rag_optional.RAG_CORE_ID, rag_optional.RAG_VEHICLES_ID, ANIMALS_ID):
             path = workshop / item
             if path.is_dir():
                 if not launcher.has_addons(path):
                     raise ValueError('optional Workshop pack has no Addons: ' + item)
-                if item == BICYCLE_ID and not (workshop / ANIMATIONS_ID).is_dir():
-                    raise ValueError('DayZ-Bicycle requires subscribed Survivor Animations ' + ANIMATIONS_ID)
                 additions.append(path)
         if not args.expansion_ai:
             # Retain the base launcher's input gate unless a numeric CE source
             # is actually supplied. Alias-only framework folders are not overlays.
-            has_overlay_source = any(path.name in (ANIMALS_ID, BICYCLE_ID, rag_optional.RAG_VEHICLES_ID)
+            has_overlay_source = any(path.name in (ANIMALS_ID, rag_optional.RAG_VEHICLES_ID)
                                      for path in additions)
             has_overlay_source = has_overlay_source or (workshop / rag_optional.NAVIGATION_ID).is_dir()
             if not has_overlay_source:
@@ -1026,7 +975,7 @@ def launcher_run(args, repo, out, launcher):
     if session.get('expansion_ai'):
         loaded += [row['path'] for row in session['expansion_ai']['dependencies']]
     if not enabled:
-        loaded = [path for path in loaded if path.name not in (ANIMALS_ID, BICYCLE_ID)]
+        loaded = [path for path in loaded if path.name != ANIMALS_ID]
     candidate = plan(workshop, session['mission'], loaded,
                      Path(repo) / 'mission/hollow-country/optional/overlay-policy.json')
     # Source core may change when existing economy installers run. Replan after
@@ -1127,7 +1076,7 @@ def main(argv=None):
                 loaded = args.loaded_mods or ';'.join(str(args.workshop_dir / ident) for ident in
                                                    DEFAULT_OVERLAY_IDS)
                 if not all((args.workshop_dir / ident).is_dir() for ident in DEFAULT_OVERLAY_IDS):
-                    raise ValueError('default bundle needs Navigation, RaG_Core, RaG Immersive Vehicles, Ambient Animals, Survivor Animations and DayZ-Bicycle')
+                    raise ValueError('default bundle needs Navigation, RaG_Core, RaG Immersive Vehicles and Ambient Animals')
                 bundle_apply(args.bundle, args.mission, args.workshop_dir, loaded)
             print('HC bundle ' + args.command + ' complete; runtime acceptance pending')
         elif args.command == 'rollback':

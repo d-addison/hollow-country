@@ -16,8 +16,8 @@ a log line appeared.
   code.** The human operator types them into steamcmd themselves. You may run
   steamcmd in the operator's own terminal and wait.
 - Never repack, modify, rename inside, or redistribute third-party Workshop mods
-  (CF, COT, Dabs, Expansion, SNAFU, Tactical Flava, RaG, Ambient Animals,
-  Survivor Animations, DayZ-Bicycle). Copy them as downloaded.
+  (CF, COT, Dabs, Expansion, SNAFU, Tactical Flava, RaG, Ambient Animals).
+  Copy them as downloaded.
 - Never modify the signed Hollow Country PBOs or their `.bisign` files; a changed
   byte breaks the signature and kicks every player.
 - Keep `verifySignatures = 2` and BattlEye on. Do not disable either to "fix"
@@ -269,11 +269,12 @@ Players must subscribe to both **Expansion-Licensed** (2116157322) and
 load exactly this order:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```
 
-Do **not** add `@Expansion-Animations`: it conflicts with Survivor Animations,
-which DayZ-Bicycle needs. Expansion-AI brings its own AI animations.
+Do **not** add `@Expansion-Animations`: Expansion-AI brings its own AI animations.
+Survivor Animations and DayZ-Bicycle are retired (2026-11-22); remove `@SurvivorAnimations`
+and `@DayZ-Bicycle` from any older `-mod` line.
 
 ## 6. Install the Hollow Country mods from the bundle
 
@@ -397,8 +398,8 @@ py -3 -m tools.package.optional_overlays bundle-plan --mission "$MISSION"
 py -3 -m tools.package.optional_overlays bundle-apply --mission "$MISSION" --workshop-dir "$CONTENT"
 ```
 
-Read the plan output before applying. `bundle-apply` needs the Ambient Animals,
-Survivor Animations and Bicycle downloads under `CONTENT`; it rehearses on
+Read the plan output before applying. `bundle-apply` needs the Ambient Animals
+download under `CONTENT`; it rehearses on
 scratch, writes backup receipts, then installs the base merge, travel CE and the
 living-pack overlays. Success ends with
 `HC bundle bundle-apply complete; runtime acceptance pending`. Keep every

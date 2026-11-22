@@ -14,8 +14,8 @@ controller is introduced.
 - Existing native sedan/hatchback/offroad families remain repairable and retain
   their budgets. The Expansion sedan/hatchback packs extend those exact native
   class names; separate ExpansionSedan/ExpansionHatchback names are not invented.
-- Existing 28 native motorbikes and the separate installed bicycle overlay remain
-  intact. The installed Expansion TT650/250N/OldBike are scope-0 legacy prototypes,
+- Existing 28 native motorbikes remain
+  intact; the bicycle overlay was retired on 2026-11-22. The installed Expansion TT650/250N/OldBike are scope-0 legacy prototypes,
   not usable CE additions. Their vehicle base is obsolete; changing scope is not
   an implementation of working vehicle simulation. No third-party source is copied.
 - Seven Land Rover/UAZ variants share the existing nine-offroad budget. Native
