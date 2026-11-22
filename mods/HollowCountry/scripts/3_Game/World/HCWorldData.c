@@ -213,8 +213,8 @@ class HCWorldPlace
 // ai/sites.json HC43 is authored input only. No row here admits an actor,
 // creates a trace, changes the 64-place save cap or establishes native access.
 // HC-18 owns selection/history; HC-62 owns the fixed bounded status receipt.
-// Provider binding is pending: HCXAISitePolicy has no HC43 field yet.
-// Keep that integration debt visible; this DTO does not admit the authored rows.
+// The provider binds it: HCXAISitePolicy.HC43 (HCXAIData.c) validates the manifest
+// before native admission; this DTO itself does not admit the authored rows.
 // These DTOs live in 3_Game so both the core receipt and optional provider can
 // read the same content. No engine/provider API, controller or tick is added.
 class HC43AuditRanges
