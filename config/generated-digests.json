@@ -3,7 +3,7 @@
     "admin_world_catalog": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -560,7 +560,7 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c"
@@ -577,7 +577,7 @@
     "ai_patrols": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -1134,7 +1134,7 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c"
@@ -1165,7 +1165,7 @@
     "ai_route_precompute": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -1723,7 +1723,7 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c",
@@ -1880,7 +1880,7 @@
     "anims_config": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -2438,7 +2438,7 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c"
@@ -2462,7 +2462,7 @@
         "economy-report.json": "707479508d28416674df0f2e9d251a0230a8c66dc2aeb18dc03a98d5dd10f82d"
       },
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -3039,7 +3039,7 @@
         "tools/package/new_buildings.py": "dd09b6091a38b587987084f8af7a928df411f455776c23da6322a1e3e5f94f98",
         "tools/package/optional_overlays.py": "41734262cd5e14fe8e13b2135b023097b958981bfbba946a80c7e14ecb5e1d52",
         "tools/package/rag_optional.py": "252687579643f4f8a32a64e44117ab0ca4579e7ce7e653339d560673edcff5b3",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/search_context.py": "dab3827413358b3107b4aea45ee88886597881d3f0b26d8fc944f3acfca9897a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/snafu_optional.py": "00fabd6820480a3e716acfdc325bd1093f78e977a7e7023b48e3cc6465e31eea",
@@ -3101,7 +3101,7 @@
         "economy-report.json": "674d29468eb7c784dd0ab1d7fca4d7e4bfe351f43bd7214a33f6455dafbb5f8f"
       },
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -3678,7 +3678,7 @@
         "tools/package/new_buildings.py": "dd09b6091a38b587987084f8af7a928df411f455776c23da6322a1e3e5f94f98",
         "tools/package/optional_overlays.py": "41734262cd5e14fe8e13b2135b023097b958981bfbba946a80c7e14ecb5e1d52",
         "tools/package/rag_optional.py": "252687579643f4f8a32a64e44117ab0ca4579e7ce7e653339d560673edcff5b3",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/search_context.py": "dab3827413358b3107b4aea45ee88886597881d3f0b26d8fc944f3acfca9897a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/snafu_optional.py": "00fabd6820480a3e716acfdc325bd1093f78e977a7e7023b48e3cc6465e31eea",
@@ -3745,7 +3745,7 @@
         "art/gui-icons/shelter.png": "02397f6ab2c1ba749e43ccbcd9e2d9f5bceb39d1ba96ba2ac8313a8b739b82d4",
         "art/gui-icons/vehicle.png": "8443af9ca9871d7c1cd8bfa3316c6741cc8cc85dda68f19e456636ac27e5d6c4",
         "art/gui-icons/wreck.png": "f401861c874d63bf2d7491c3ddebda3ae465905b5bddd66e5d0120315a30a21e",
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -4291,11 +4291,13 @@
         "mods/HollowCountry/gui/icons/map/shelter.paa": "cf2c9fc4def962a491b5695172b67335edd8080c7665fcae0346d7ba13a00e13",
         "mods/HollowCountry/gui/icons/map/vehicle.paa": "fd8989d16ee883005b71dc229388f0023996f0254e07b1a78e2d9f22437c158a",
         "mods/HollowCountry/gui/icons/map/wreck.paa": "0e94724cbaf11ab048a1a863afcee22e212075d58c7fd406ec5106957fd1ed18",
+        "tools/audit/pbo_config.py": "1ea7749eb6239a4f169105953fa066a95d26faa6d0500b00613224908353d8b6",
+        "tools/audit/rpt_config_audit.py": "a229ca42888d8dab0bf23342c53d619e5bf247e1bd570174206d45b11e367c8e",
         "tools/package/datamined_items.json": "dacc16e3ee52d3af59866eff013d4643ee1e7a954f114ea347e6d76b85fc09db",
         "tools/package/essential_routes.json": "4ddc26e65acf42a865ed0988e22eea78286731a03fca23261f277bf3c1d9475e",
         "tools/package/firearms_roster.json": "17e313d7b7d8af07ce3e43ef6ad0f9a2982c3d0c98a428b930813b3bd3813c41",
         "tools/package/generated_digests.py": "2e35e340537ddc193440a8bbfb591f3e42ad105b13f8a6ab860d666aa050b216",
-        "tools/package/gui_icons.py": "120cfbb3b50ef49439dccf998f87825c116229db82c21800a1faa2ad3470d254",
+        "tools/package/gui_icons.py": "46d9fe21d7251a38c97aed53c6deb8c2f82fcb8bb8e69931b7724b81ffa0ceec",
         "tools/package/interior_prop_boxes.json": "a6e1379b86231cd8872ff9e60536a930949a6d4960cd22f8d00f1c8c1fbb6c7f",
         "tools/package/interior_themes/coverage-layouts-000.json": "50b7737e144a923cd74f874ae6d422482bd5911f5762ad0b48ee550b810f0211",
         "tools/package/interior_themes/coverage-layouts-001.json": "73661cb412274af21376efe62cf13c54960e4c5f06023d8e8e6067f4123376bb",
@@ -4311,11 +4313,11 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c",
-        "tools/release/acceptance_targets.py": "a1d1f01290cc29b2e7eb16b0f63b5577d750927bb5a78ea0db7356b427c571e2",
+        "tools/release/acceptance_targets.py": "f825ef2064dd32a39be89d74223b20dbfb7a590972623f640df0c52264a0b7a0",
         "tools/release/activity_check.py": "e021e0cce5dada15a0bf9fd6c46b9f4043e8239c8847f2db51be2022e1e28504",
         "tools/release/rpt_summary.py": "dc393f688caa4607ff53da236c74935f385a2e506dcbdc38082ff45d747ec3f0",
         "tools/setup/server_report.py": "225025599bc906042af345db33d17e463fd95693de8f81585bc91a84090e90cc",
@@ -4353,7 +4355,7 @@
     "inventory_sizes": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -4913,7 +4915,7 @@
         "tools/package/inventory_sizes.py": "368651e2fb42baace7ad78bca1f120e74c1f6122af044562cc2417e4aa155557",
         "tools/package/inventory_sources.py": "4d24545e4d366484932380c980afc3e208b517268b51a1fc58d21e0d2f9a9df7",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/tactical_flava_allowlist.json": "ff2bee7d880a503bcaa75e8104593726f70c845fb8894f270d93fe2d40e3a111",
         "tools/package/weapon_pack_sizes.json": "d740b67670e00e15270137c564514c382b2bad17d53acb7a0b94f4e120c22b1c",
@@ -5404,7 +5406,7 @@
     "military_loot": {
       "external_outputs": {},
       "inputs": {
-        "config/acceptance-targets.json": "80fdff0f4306f1b72cf3279afa56cd77127d2c13d8b137faac2ae6e0ce900a9e",
+        "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
         "config/activity-expectations.json": "8973e67cd67e16a800f71e8efcc38548ded0e68949d0d59624897e40ade2e19b",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
@@ -5981,7 +5983,7 @@
         "tools/package/new_buildings.py": "dd09b6091a38b587987084f8af7a928df411f455776c23da6322a1e3e5f94f98",
         "tools/package/optional_overlays.py": "41734262cd5e14fe8e13b2135b023097b958981bfbba946a80c7e14ecb5e1d52",
         "tools/package/rag_optional.py": "252687579643f4f8a32a64e44117ab0ca4579e7ce7e653339d560673edcff5b3",
-        "tools/package/regenerate_all.py": "9bf73b1785e1a63d4347e898a0e2dc5d0190e2c9f0134e988fe08f046e7a5853",
+        "tools/package/regenerate_all.py": "cfbbb468d826f3f0be7da58359c22e71183a516b43fe53177aaf8536e97a740a",
         "tools/package/search_context.py": "dab3827413358b3107b4aea45ee88886597881d3f0b26d8fc944f3acfca9897a",
         "tools/package/snafu_allowlist.json": "79272b6f30685509154ec2de4be55efc17a9b590a9327f3a3c0cffd7ba1bbddd",
         "tools/package/snafu_optional.py": "00fabd6820480a3e716acfdc325bd1093f78e977a7e7023b48e3cc6465e31eea",

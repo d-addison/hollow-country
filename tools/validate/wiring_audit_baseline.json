@@ -707,14 +707,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCGapcodeRoutesPins",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 65,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCGapcodeRoutesSourceFile",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
       "line": 58,
@@ -1870,14 +1862,6 @@
       "subject": "HCSiphonDiagnosticLocks",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
       "line": 52,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCSituationLimits",
-      "file": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
-      "line": 13,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
