@@ -623,32 +623,57 @@ def route_inventory(files):
         index = json.loads(files[index_name])
         manifest = json.loads(files[manifest_name])
         expected = {index_name, manifest_name}
-        catalog_pins = index['pages']
+        if not 0 < len(files[index_name]) <= 4096 or not 0 < len(files[manifest_name]) <= 6144:
+            raise ValueError('route inventory root size outside bounds')
+        index_pins = index['index_pages']
         manifest_pins = manifest['HashPages']
-        if not 1 <= len(catalog_pins) <= 1024 or not 1 <= len(manifest_pins) <= 32:
+        if not 1 <= len(index_pins) <= 32 or not 1 <= len(manifest_pins) <= 32:
             raise ValueError('route inventory page count outside bounds')
-        collected = []
-        for pins, pattern, cap in ((catalog_pins, 'travel/gapcov-roads/page-%03d.json', 4096),
-                                   (manifest_pins, 'travel/routes-manifest-%03d.json', 4096)):
+
+        def check_identity(document, identity):
+            if not isinstance(document, dict):
+                return False
+            unsigned = {key: value for key, value in document.items() if key != 'identity_sha256'}
+            canonical = json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode()
+            return (document['identity_sha256'] == identity
+                    and hashlib.sha256(canonical).hexdigest() == identity)
+
+        def pinned_documents(pins, pattern):
             for number, pin in enumerate(pins):
                 name = pattern % number
                 if pin['Path'] != '$mission:hollow-country/' + name:
                     raise ValueError('route inventory page path mismatch')
                 data = files[name]
-                if not 0 < len(data) <= cap or pin['Bytes'] != len(data):
+                if not 0 < len(data) <= 4096 or pin['Bytes'] != len(data):
                     raise ValueError('route inventory page size mismatch: ' + name)
                 if hashlib.sha256(data).hexdigest() != pin['Sha256']:
                     raise ValueError('route inventory page digest mismatch: ' + name)
-                document = json.loads(data)
-                if pins is catalog_pins:
-                    identity = document.pop('identity_sha256')
-                    canonical = json.dumps(document, sort_keys=True, separators=(',', ':')).encode()
-                    if (identity != pin['IdentitySha256'] or hashlib.sha256(canonical).hexdigest() != identity
-                            or len(document['routes']) != pin['Rows']):
-                        raise ValueError('route inventory page identity/rows mismatch: ' + name)
-                else:
-                    collected.extend(document['CatalogPages'])
                 expected.add(name)
+                yield pin, json.loads(data)
+
+        if not check_identity(index, index['identity_sha256']):
+            raise ValueError('route inventory root identity mismatch')
+        catalog_pins = []
+        for pin, document in pinned_documents(index_pins, 'travel/gapcov-roads/index-%03d.json'):
+            if (not check_identity(document, pin['IdentitySha256'])
+                    or document['schema'] != 1 or document['kind'] != 'gapcov-road-index-page'
+                    or document['page_start'] != len(catalog_pins) or not 1 <= len(document['pages']) <= 12):
+                raise ValueError('route inventory index page identity/order mismatch')
+            catalog_pins.extend(document['pages'])
+        if not 1 <= len(catalog_pins) <= 256:
+            raise ValueError('route inventory catalog page count outside bounds')
+        rows = 0
+        for pin, document in pinned_documents(catalog_pins, 'travel/gapcov-roads/page-%03d.json'):
+            if (not check_identity(document, pin['IdentitySha256'])
+                    or document['schema'] != 1 or document['kind'] != 'gapcov-road-page'
+                    or not 1 <= pin['Rows'] <= 5 or len(document['routes']) != pin['Rows']):
+                raise ValueError('route inventory page identity/rows mismatch')
+            rows += pin['Rows']
+        if rows != index['row_count']:
+            raise ValueError('route inventory row total mismatch')
+        collected = []
+        for pin, document in pinned_documents(manifest_pins, 'travel/routes-manifest-%03d.json'):
+            collected.extend(document['CatalogPages'])
         if collected != catalog_pins:
             raise ValueError('route inventory manifest/catalog pins mismatch')
         if (manifest['CatalogIdentitySha256'] != index['identity_sha256']

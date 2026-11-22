@@ -26,7 +26,8 @@ CATALOG_PAGE_OVERHEAD = len((json.dumps(
     {'schema': 1, 'kind': 'gapcov-road-page', 'routes': [],
      'identity_sha256': '0' * 64}, separators=(',', ':')) + '\n').encode())
 CATALOG_PAGE_ROWS = (CATALOG_PAGE_BYTES - CATALOG_PAGE_OVERHEAD) // (CATALOG_ROW_BYTES + 1)
-CATALOG_INDEX_BYTES = 32768
+CATALOG_INDEX_BYTES = 4096
+INDEX_PAGE_PINS = 12
 CATALOG_INDEX = 'travel/gapcov-roads/index.json'
 
 
@@ -36,10 +37,18 @@ def page_paths(root):
     return tuple('travel/gapcov-roads/page-%03d.json' % index
                  for index in range((count + CATALOG_PAGE_ROWS - 1) // CATALOG_PAGE_ROWS))
 
+
+def index_page_paths(root):
+    count = len(page_paths(root))
+    return tuple('travel/gapcov-roads/index-%03d.json' % index
+                 for index in range((count + INDEX_PAGE_PINS - 1) // INDEX_PAGE_PINS))
+
+
 OUTPUTS = tuple(str(MISSION / name) for name in (
     'travel/route-surveys.json', 'ai/picker-routes.json', 'ai/caravans.json',
     'infected/route-surveys.json', CATALOG_INDEX,
-    *page_paths(Path(__file__).resolve().parents[2])))
+    *page_paths(Path(__file__).resolve().parents[2]),
+    *index_page_paths(Path(__file__).resolve().parents[2])))
 ROAD_VIRTUAL_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 
 
@@ -320,7 +329,9 @@ def catalog_outputs(root, catalog):
     mission = root / MISSION
     path = mission / 'travel/route-surveys.json'
     travel = json.loads(path.read_text())
-    header = {key: value for key, value in catalog.items() if key != 'routes'}
+    header = {key: catalog[key] for key in
+              ('schema', 'kind', 'enabled_by_default', 'sources', 'limits', 'graph') if key in catalog}
+    header['graph'] = {key: value for key, value in header['graph'].items() if key != 'components'}
     header['row_count'] = len(catalog['routes'])
     header['pages'] = []
     if any(len(json.dumps(row, separators=(',', ':'), allow_nan=False).encode()) > CATALOG_ROW_BYTES
@@ -338,6 +349,20 @@ def catalog_outputs(root, catalog):
                                 'Bytes': len(data), 'Sha256': hashlib.sha256(data).hexdigest(),
                                 'IdentitySha256': page['identity_sha256'],
                                 'Rows': len(rows)})
+    pins = header.pop('pages')
+    header['index_pages'] = []
+    for number, relative in enumerate(index_page_paths(root)):
+        start = number * INDEX_PAGE_PINS
+        page = {'schema': 1, 'kind': 'gapcov-road-index-page', 'page_start': start,
+                'pages': pins[start:start + INDEX_PAGE_PINS]}
+        page['identity_sha256'] = digest(page)
+        data = (json.dumps(page, separators=(',', ':'), allow_nan=False) + '\n').encode()
+        if not page['pages'] or len(data) > CATALOG_INDEX_BYTES:
+            raise ValueError('catalog index page outside pin/byte bounds')
+        outputs[str(MISSION / relative)] = data
+        header['index_pages'].append({'Path': '$mission:hollow-country/' + relative,
+                                      'Bytes': len(data), 'Sha256': hashlib.sha256(data).hexdigest(),
+                                      'IdentitySha256': page['identity_sha256']})
     header['identity_sha256'] = digest(header)
     header_data = (json.dumps(header, separators=(',', ':'), allow_nan=False) + '\n').encode()
     if len(header_data) > CATALOG_INDEX_BYTES:

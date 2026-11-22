@@ -71,11 +71,15 @@ class RouteInventory(Case):
         index = json.loads(files['travel/gapcov-roads/index.json'])
         manifest = json.loads(files['travel/routes-manifest.json'])
         expected = {'travel/gapcov-roads/index.json', 'travel/routes-manifest.json'}
-        expected.update(pin['Path'].removeprefix('$mission:hollow-country/')
-                        for pin in index['pages'] + manifest['HashPages'])
+        catalog_pins = []
+        for pin in index['index_pages']:
+            document = json.loads(files[pin['Path'].removeprefix('$mission:hollow-country/')])
+            catalog_pins.extend(document['pages'])
+        pins = index['index_pages'] + catalog_pins + manifest['HashPages']
+        expected.update(pin['Path'].removeprefix('$mission:hollow-country/') for pin in pins)
         self.assertEqual(expected, pbo.route_inventory(files))
         self.assertTrue(expected <= pbo.MISSION_FILES)
-        for pin in index['pages'] + manifest['HashPages']:
+        for pin in pins:
             name = pin['Path'].removeprefix('$mission:hollow-country/')
             missing = dict(files)
             del missing[name]

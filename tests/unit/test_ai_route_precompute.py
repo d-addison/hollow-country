@@ -91,7 +91,7 @@ class RoutePrecomputeTests(unittest.TestCase):
 
     def test_catalog_row_packing_preserves_rows_identities_and_byte_bound(self):
         catalog = routes.gapcov_routes
-        count = catalog.CATALOG_PAGE_ROWS * 3 + 1
+        count = catalog.CATALOG_PAGE_ROWS * (catalog.INDEX_PAGE_PINS + 1) + 1
         self.save('mission/hollow-country/ai/localities.json',
                   {'Localities': [{'Id': str(i)} for i in range(count)]})
         self.save('mission/hollow-country/travel/route-surveys.json', {})
@@ -104,7 +104,20 @@ class RoutePrecomputeTests(unittest.TestCase):
         outputs = catalog.catalog_outputs(self.root, {'routes': rows, 'sources': {}, 'graph': {}})
         header = json.loads(outputs[str(catalog.MISSION / catalog.CATALOG_INDEX)])
         emitted = []
-        for pin in header['pages']:
+        pins = []
+        self.assertLessEqual(len(outputs[str(catalog.MISSION / catalog.CATALOG_INDEX)]),
+                             catalog.CATALOG_INDEX_BYTES)
+        for identity in header['index_pages']:
+            data = outputs[identity['Path'].replace('$mission:', 'mission/', 1)]
+            self.assertLessEqual(len(data), catalog.CATALOG_INDEX_BYTES)
+            self.assertEqual(len(data), identity['Bytes'])
+            self.assertEqual(routes.sha(data), identity['Sha256'])
+            page = json.loads(data)
+            self.assertEqual(page.pop('identity_sha256'), identity['IdentitySha256'])
+            self.assertEqual(catalog.digest(page), identity['IdentitySha256'])
+            self.assertEqual(len(pins), page['page_start'])
+            pins.extend(page['pages'])
+        for pin in pins:
             data = outputs[pin['Path'].replace('$mission:', 'mission/', 1)]
             page = json.loads(data)
             self.assertLessEqual(len(data), catalog.CATALOG_PAGE_BYTES)
@@ -118,7 +131,7 @@ class RoutePrecomputeTests(unittest.TestCase):
         self.assertEqual(rows, emitted)
         self.assertEqual(len(rows), header['row_count'])
         self.assertEqual(set(catalog.page_paths(self.root)),
-                         {p['Path'].removeprefix('$mission:hollow-country/') for p in header['pages']})
+                         {p['Path'].removeprefix('$mission:hollow-country/') for p in pins})
         rows[0]['padding'] += 'x'
         with self.assertRaises(ValueError):
             catalog.catalog_outputs(self.root, {'routes': rows, 'sources': {}, 'graph': {}})
@@ -130,9 +143,14 @@ class RoutePrecomputeTests(unittest.TestCase):
                  'Sha256': routes.sha(str(i).encode()),
                  'IdentitySha256': routes.sha(('identity-%d' % i).encode()),
                  'Rows': routes.gapcov_routes.CATALOG_PAGE_ROWS} for i in range(count)]
-        header = {'pages': pins, 'identity_sha256': routes.sha(b'catalog')}
-        derived = {str(routes.gapcov_routes.MISSION / routes.gapcov_routes.CATALOG_INDEX):
-                   routes.encode(header)}
+        header = {'index_pages': [], 'identity_sha256': routes.sha(b'catalog')}
+        derived = {}
+        for number, start in enumerate(range(0, len(pins), routes.gapcov_routes.INDEX_PAGE_PINS)):
+            name = 'mission/hollow-country/travel/gapcov-roads/index-%03d.json' % number
+            data = routes.encode({'pages': pins[start:start + routes.gapcov_routes.INDEX_PAGE_PINS]})
+            derived[name] = data
+            header['index_pages'].append({'Path': name.replace('mission/', '$mission:', 1)})
+        derived[str(routes.gapcov_routes.MISSION / routes.gapcov_routes.CATALOG_INDEX)] = routes.encode(header)
         # Enable the full-catalog branch without needing a dependency-sized graph.
         self.save(routes.gapcov_routes.OUTPUTS[0], {})
         with patch.object(routes.gapcov_routes, 'build', return_value={}), \

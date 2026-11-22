@@ -183,7 +183,9 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
         manifest['CatalogPath'] = '$mission:hollow-country/' + gapcov_routes.CATALOG_INDEX
         manifest['CatalogIdentitySha256'] = header['identity_sha256']
         manifest['CatalogSha256'] = sha(derived[index_path])
-        manifest['CatalogPages'] = header['pages']
+        manifest['CatalogPages'] = [pin for identity in header['index_pages']
+                                    for pin in json.loads(derived[identity['Path'].replace(
+                                        '$mission:', 'mission/', 1)])['pages']]
     # Keep graph fields/schema compatible with the shared compact-road reader.
     # The catalog pin list and source hash arrays each get bounded atomic parses.
     hashes = [value for row in files for value in row.pop('Pages')]
