@@ -17,7 +17,12 @@ PREFIX = 'HollowCountry'
 # The weapon-pack guard ships beside the HCX PBO in the same mod folder, so it needs its own
 # nested prefix: two PBOs with one prefix in one folder crash the native server at load.
 GUARD_PREFIX = 'HollowCountryExpansionAI\\weapon-pack-guards'
-PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX, 'HollowCountryExpansionAI\\compat')
+# The compat config addon (tools/package/compat_addon.py) ships beside the HCX PBO: one base PBO
+# for mandatory dependencies plus one PBO per optional provider slot, each on its own nested prefix.
+COMPAT_PREFIX = 'HollowCountryExpansionAI\\compat'
+COMPAT_SLOTS = ('a', 'b', 'c', 'd', 'e', 'f')
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX,
+            COMPAT_PREFIX) + tuple(COMPAT_PREFIX + '-' + slot for slot in COMPAT_SLOTS)
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024

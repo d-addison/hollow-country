@@ -233,9 +233,23 @@ def build(args):
             run([*py, '-m', 'tools.package.weapon_pack_guards', '--declared-stack',
                  '--workshop', workshop, '--out', guard_dir], tree)
             guard_receipt = json.loads((guard_dir / 'weapon-pack-guards.json').read_bytes())
+            # Built at bundle time from the pinned tree: base PBO always, one PBO per declared
+            # optional provider. They ship in @HollowCountryExpansionAI/addons and are signed
+            # like every other PBO; the compile gate stages and loads the same generator output.
+            compat_dir = scratch / 'compat'
+            run([*py, '-m', 'tools.package.compat_addon', '--workshop', workshop, '--out', compat_dir], tree)
+            compat_receipt = json.loads((compat_dir / 'compat-addon.json').read_bytes())
+            compat_names = list(compat_receipt['pbos'])
+            if not compat_names or compat_names[0] != ship_inputs.COMPAT_STEM + '.pbo':
+                raise ValueError('compat receipt does not list the base PBO first')
             gate_result = native_compile_gate(tree, sha, workshop, args.addons.absolute())
             if guard_receipt['status'] == 'generated' and gate_result['passed'] is True:
                 guard_receipt['native_compile'] = 'passed'
+            if gate_result['passed'] is True:
+                compat_receipt['native_compile'] = 'passed'
+                for entry in compat_receipt['optional']:
+                    if entry['status'] == 'generated':
+                        entry['native_compile'] = 'passed'
             print('Packing pinned commit ' + sha, flush=True)
             for mod, name, prefix in (
                     ('HollowCountry', 'hollowcountry', 'HollowCountry'),
@@ -253,7 +267,9 @@ def build(args):
             guard_name = guard_receipt['pbo'] if guard_receipt['status'] == 'generated' else None
             if guard_name:
                 shutil.copyfile(guard_dir / guard_name, scratch / guard_name)
-            signing_inputs = ship_inputs.signing_inputs(guard_name)
+            for name in compat_names:
+                shutil.copyfile(compat_dir / name, scratch / name)
+            signing_inputs = ship_inputs.signing_inputs(guard_name, compat_names)
             for name, mod, label in signing_inputs:
                 print('Signing and verifying ' + name, flush=True)
                 signed = scratch / ('signed-' + label)
@@ -286,6 +302,8 @@ def build(args):
             attachment_config.write_bytes(original_attachment_config)
             if is_dirty(tree):
                 raise ValueError('Build changed tracked/untracked source outside allowed injections')
+            # The optional vehicle rule file only exists once its rules land; it is a compat input then.
+            compat_rule_files = [p for p in ('tools/package/compat_vehicles.json',) if (tree / p).is_file()]
             manifest = {
                 'schema': 1, 'build_number': args.build, 'commit': sha, 'dirty': False,
                 'tool_versions': {'python': platform.python_version(),
@@ -294,8 +312,10 @@ def build(args):
                                   'signing_tools': reports['base']['tools'],
                                   'source_tools': {str(p): digest(tree / p) for p in (
                                       'tools/package/pbo.py', 'tools/package/weapon_pack_guards.py',
+                                      'tools/package/compat_addon.py', 'tools/package/compat_rules.json',
+                                      'tools/package/compat_stringtable.py', 'tools/package/compat_strings.json',
                                       'tools/setup/workshop_mods.json', 'tools/anim/build_infected_clips.py',
-                                      'tools/anim/build_anims_addon.py')},
+                                      'tools/anim/build_anims_addon.py', *compat_rule_files)},
                                   'driver_tools': {p: digest(ROOT / p) for p in (
                                       'tools/release/release.py', 'tools/release/compile_gate.py', 'tools/package/sign.py',
                                       'tools/package/sign_wine.py')}},
@@ -304,7 +324,7 @@ def build(args):
                 # friend_bundle --build-manifest compares this exact PBO catalogue.
                 'pbos': {p.relative_to(stage).as_posix(): digest(p)
                          for p in sorted(stage.rglob('*.pbo')) if p.is_file()},
-                'weapon_pack_guards': guard_receipt,
+                'weapon_pack_guards': guard_receipt, 'compat_addon': compat_receipt,
                 'templates': templates, 'attachment_scale': attachment_scale, 'source_json': sources,
                 'signatures_verified': True, 'compile_gate': gate_result, 'runtime_acceptance': 'pending',
                 'generated_digests': digests}

@@ -41,7 +41,7 @@ import subprocess
 import sys
 import tempfile
 
-from tools.package import ce_coverage
+from tools.package import ce_coverage, compat_addon
 from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.setup.friend_install import normalize_profile, globals_upgrade_problem, globals_recovery
@@ -815,6 +815,13 @@ def build(args):
                 raise Refused('weapon-pack guard receipt differs from addon plan')
             if guard_files and hashlib.sha256(overlays.read(guard_files[0])).hexdigest() != guard.get('sha256'):
                 raise Refused('weapon-pack guard receipt hash differs from addon plan')
+        compat = json.loads(release).get('compat_addon')
+        if compat is not None:
+            # The compat PBO(s) are built at bundle time; the receipt must match the addon plan.
+            present = {dest: hashlib.sha256(source if isinstance(source, bytes) else overlays.read(source)).hexdigest()
+                       for dest, source in plan if dest.lower().endswith('.pbo')}
+            if compat_addon.check_receipt(compat, present):
+                raise Refused('compat addon receipt differs from addon plan')
         plan.append(('BUILD_MANIFEST.json', release))
     else:
         print('build manifest: legacy input; PBO build provenance unverified')

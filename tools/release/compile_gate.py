@@ -20,7 +20,7 @@ import time
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-from tools.package import inventory_sizes, pbo, weapon_pack_guards
+from tools.package import compat_addon, inventory_sizes, pbo, weapon_pack_guards
 from tools.audit.pbo_config import parse_text_config, read_config_members
 from tools.setup import wine_compile_probe as probe
 from tools.release import ship_inputs
@@ -244,6 +244,30 @@ def compatibility_inputs(tree, workshop, cache):
                'server_extra_pbos': [guard_mod / 'addons' / weapon_pack_guards.PBO_NAME]}
 
 
+@contextlib.contextmanager
+def compat_inputs(tree, workshop, cache):
+    """Build the compat PBO(s) exactly as the release does and yield their staged paths.
+
+    The base PBO is always produced; an optional provider PBO only when its Workshop item is
+    declared (tools.package.compat_addon owns that gate). Generation runs in the selected tree."""
+    with tempfile.TemporaryDirectory(prefix='compat-inputs-', dir=cache) as directory:
+        out = Path(directory) / 'compat'
+        result = subprocess.run(
+            [sys.executable, '-B', '-m', 'tools.package.compat_addon', '--workshop', str(workshop),
+             '--out', str(out)],
+            cwd=tree, capture_output=True, text=True,
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), timeout=300)
+        if result.returncode:
+            raise ValueError('compat addon generation failed: ' + private(result.stderr.strip()[-200:]))
+        receipt = json.loads((out / 'compat-addon.json').read_bytes())
+        names = receipt.get('pbos')
+        if not isinstance(names, list) or compat_addon.PBO_NAME not in names:
+            raise ValueError('compat receipt does not list the base PBO')
+        print('compile_gate: compat_addon=staged pbos=' + ','.join(names) + ' sha256=' + receipt['sha256']
+              + ' layout=hcx_addons')
+        yield [out / name for name in names]
+
+
 def ship_config(tree, disposable):
     """Compile the HCX config the release ships, not the bare commit.
 
@@ -276,10 +300,10 @@ def build_command(command, cwd):
     return result.stdout
 
 
-def validate_staged_pbos(staged, guard_name=None):
+def validate_staged_pbos(staged, guard_name=None, compat_names=()):
     """Compare actual staged paths with the catalogue used by release signing."""
     expected = {f'@{mod}/addons/{name}.pbo'.casefold()
-                for name, mod, _ in ship_inputs.signing_inputs(guard_name)}
+                for name, mod, _ in ship_inputs.signing_inputs(guard_name, compat_names)}
     actual = {name.casefold() for name, path in staged.items() if path.is_file()}
     missing = sorted(expected - actual)
     if missing:
@@ -306,7 +330,8 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
                                                       prefix='HollowCountryExpansionAI'),
                                      prefix='HollowCountryExpansionAI'))
     extras = []
-    for source in inputs.get('server_extra_pbos', ()):
+    compat = list(inputs.get('compat_pbos', ()))
+    for source in [*inputs.get('server_extra_pbos', ()), *compat]:
         target = server / source.name
         shutil.copyfile(source, target)
         extras.append(target)
@@ -314,8 +339,9 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
               for path in scratch.glob('@*/addons/*.pbo')}
     guard_name = weapon_pack_guards.PBO_NAME if weapon_pack_guards.declared(
         tree / 'tools/setup/workshop_mods.json') else None
-    validate_staged_pbos(staged, guard_name)
-    return dict(inputs, server_mod=adapter, server_extra_pbos=extras,
+    validate_staged_pbos(staged, guard_name, [source.name for source in compat])
+    shipped = {key: value for key, value in inputs.items() if key != 'compat_pbos'}
+    return dict(shipped, server_mod=adapter, server_extra_pbos=extras,
                 base_extra_pbos=[base / 'hollowcountryanims.pbo'])
 
 
@@ -361,7 +387,9 @@ def main():
                 require_client_idle(args.allow_client)
             tree = stack.enter_context(source_tree(args.tree.resolve(), args.commit, cache))
             ship_config(tree, bool(args.commit))
-            inputs = stack.enter_context(compatibility_inputs(tree, args.workshop.expanduser().resolve(), cache))
+            workshop = args.workshop.expanduser().resolve()
+            inputs = stack.enter_context(compatibility_inputs(tree, workshop, cache))
+            inputs = dict(inputs, compat_pbos=stack.enter_context(compat_inputs(tree, workshop, cache)))
             blob = pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountry'))
             digest = hashlib.sha256(blob).hexdigest()
             package = cache / (digest + '.pbo')
