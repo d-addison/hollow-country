@@ -23,6 +23,10 @@ class Generator:
     arguments: tuple[str, ...]
     inputs: tuple[str, ...] = ()
     success: str = 'existing offline check passed'
+    package: str = 'tools.package'
+    # Generators whose outputs are bound in config/generated-digests.json; a repo-local derived
+    # document set (the pitfall cards) is compared by its own --check and has no digest contract.
+    digest: bool = True
 
 
 # All check-capable generators live here, including positional check subcommands.
@@ -48,6 +52,8 @@ GENERATORS = (
     Generator('anims_config', (), ('addons',)),
     Generator('new_buildings', ('check', '--mission', '{source}'), ('source',),
               'shipped layer dry-run passed; CLI does not regenerate geometry'),
+    Generator('pitfall_cards', ('--check',), (), 'committed docs/pitfalls cards match fresh generation',
+              package='tools.validate', digest=False),
 )
 # The aggregate has --check but is an orchestrator, not a generator. Never recurse.
 EXCLUDED_CHECK_MODULES = {
@@ -112,13 +118,15 @@ def check_generator(generator, values, timeout):
                 path = Path(scratch) / (name + '.json')
                 path.write_text(result.stdout)
                 arguments[name] = path
-        command = [sys.executable, '-B', '-m', 'tools.package.' + generator.name,
+        command = [sys.executable, '-B', '-m', generator.package + '.' + generator.name,
                    *(arg.format_map(arguments) for arg in generator.arguments)]
         if generator.arguments:
             result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
                                     errors='replace', timeout=timeout)
             if result.returncode:
                 return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
+        if not generator.digest:
+            return 'PASS', generator.success
         command = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--compare', generator.name,
                    '--timeout', str(timeout)]
         for key in ('addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'):
