@@ -19,9 +19,12 @@ folder containing pinned source/licence bytes and provenance.json. --addons (or
 DAYZ_ADDONS) supplies the installed skeleton read-only. Output cannot be in mods/.
 The provenance is an input admission receipt, not a sealed shipping candidate.
 
-Optional contact-based root foot lock and C1 loop easing are PROVISIONAL polish,
-pending native inspection; neither is a full IK solver. Loop easing closes to a
-stationary seam (zero endpoint velocity) and removes root travel at the boundary.
+--foot-lock runs tools.anim.ik_polish: contact detection, contact-pinned two-bone leg IK with
+heading hold, a bounded pelvis assist for unreachable pins, and a joint-velocity limit. It is
+offline authoring cleanup (no engine-behaviour claim) and the same pass can be run on its own on
+a retargeted clip or BVH. C1 loop easing (--loop-frames) stays PROVISIONAL polish, pending native
+inspection: it closes to a stationary seam (zero endpoint velocity) and removes root travel at the
+boundary.
 """
 import argparse
 from dataclasses import dataclass
@@ -35,7 +38,7 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 
-from tools.anim import anm, rig
+from tools.anim import anm, ik_polish, rig
 from tools.assets import licence_gate
 from tools.assets.provenance import build_provenance
 
@@ -327,25 +330,8 @@ def retarget(source, parents, rest, bones, *, manifest, licence, mapping=None,
 
 
 def lock_feet(poses, dt, height=0.04, speed=0.15):
-    """PROVISIONAL: hold slow, low feet via mean pelvis correction, no limb IK."""
-    feet = ('LeftFoot', 'RightFoot')
-    positions = [{n: p.pos(n) for n in feet} for p in poses]
-    floor = min(v[1] for row in positions for v in row.values())
-    anchors = {}
-    for i, pose in enumerate(poses):
-        corrections = []
-        for name in feet:
-            pos = positions[i][name]
-            previous = positions[max(0, i - 1)][name]
-            contact = pos[1] <= floor + height and rig.vlen(rig.vsub(pos, previous)) / dt <= speed
-            if contact:
-                anchors.setdefault(name, pos)
-                corrections.append(rig.vsub(anchors[name], pos))
-            else:
-                anchors.pop(name, None)
-        if corrections:
-            correction = tuple(sum(v[a] for v in corrections) / len(corrections) for a in range(3))
-            pose.set_root_pos('Pelvis', rig.vadd(pose.pos('Pelvis'), correction))
+    """Foot lock: contact-pinned two-bone leg IK, delegated to tools.anim.ik_polish (see its docstring)."""
+    return ik_polish.polish_poses(poses, dt, config=ik_polish.Config(contact_height=height, contact_speed=speed))
 
 
 def blend_loop(poses, window):
