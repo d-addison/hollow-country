@@ -4,6 +4,7 @@
   "ops": [
     {"op": "primitive", "id": "cube", "kind": "box", "size": [1, 1, 1]},
     {"op": "uv-unwrap", "target": "cube"},
+    {"op": "material-slot", "target": "cube", "texture": "", "material": "DZ\\data\\data\\default.rvmat"},
     {"op": "named-selection", "target": "cube", "name": "body"},
     {"op": "memory-point", "name": "center", "position": [0, 0, 0]}
   ]
