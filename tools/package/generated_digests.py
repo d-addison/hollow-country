@@ -48,7 +48,7 @@ def contracts():
         Contract('ai_route_precompute', 'tools.package.ai_route_precompute', ai_route_precompute.OUTPUTS,
                  (ai_route_precompute.PINS, 'mission/hollow-country/ai/caravans.json',
                   'tools/setup/workshop_mods.json')),
-        Contract('admin_world_catalog', 'tools.package.admin_world_catalog', (str(admin.CATALOG),),
+        Contract('admin_world_catalog', 'tools.package.admin_world_catalog', admin.OUTPUTS,
                  (*admin.JSON_INPUTS, *admin.CE_INPUTS, 'config/map-overlays/layers/*.json')),
         Contract('military_loot', 'tools.package.military_loot', ('mission/hollow-country/ce/types.xml',), package_data),
         Contract('inventory_sizes', 'tools.package.inventory_sizes',
@@ -247,7 +247,7 @@ def regenerate(contract, values, scratch):
     if name == 'admin_world_catalog':
         out = scratch / 'catalog.c'
         module.generate(out)
-        return {contract.outputs[0]: out.read_bytes()}
+        return {contract.outputs[0]: out.read_bytes(), contract.outputs[1]: out.with_suffix(".json").read_bytes()}
     if name == 'military_loot':
         out = scratch / 'types.xml'
         module.regenerate(out)

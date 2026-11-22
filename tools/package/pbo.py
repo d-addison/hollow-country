@@ -105,6 +105,7 @@ MISSION_FILES.update({'travel/gapcode_routes_source-pages.json',
                       'travel/routes-manifest.json', 'ai/road-graph.compact.json'})
 # Named-locality catalogue for clue direction/distance wording (Leads).
 MISSION_FILES.add('leads/localities.json')
+MISSION_FILES.add('admin/world-catalog.json')
 MISSION_FILES.update({
     'interiors/templates/classes-000.json',
     'interiors/templates/classes-001.json',

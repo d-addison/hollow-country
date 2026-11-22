@@ -114,6 +114,9 @@ class HCAdminTeleport
     protected ref array<ref HCAdminTeleportDestination> m_Destinations = new array<ref HCAdminTeleportDestination>;
     protected ref array<ref HCAdminTeleportDestination> m_FrozenDestinations;
     protected ref HCAdminTeleportSites m_Sites;
+    protected ref HCAdminJsonRows m_SiteStream;
+    protected bool m_SitesLoaded;
+    protected bool m_SitesHeaderChecked;
     protected ref HCEventRuntimeState m_EventSnapshot;
     protected ref HCWorkBudget m_Work = new HCPerfSlices("AdminTeleport");
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -174,17 +177,6 @@ class HCAdminTeleport
         if (m_Fault != "") { HCRefuse(m_Fault); return; }
         if (!m_Enabled) { return; }
         HCModuleReadiness.HCRegisterUse("AdminMap", "catalog_auto_refresh");
-        string sitesPath = "$profile:HollowCountry/expansion-ai-sites.json";
-        if (!FileExist(sitesPath)) { sitesPath = "$mission:hollow-country/ai/sites.json"; }
-        if (!HCV2ThreatStore<HCAdminTeleportSites>.Load(sitesPath, m_Config.SiteBytes, m_Sites)) { m_Fault = "teleport-sites-load"; }
-        string currentWorld = GetGame().GetWorldName();
-        currentWorld.ToLower();
-        if (!m_Sites || m_Sites.SchemaVersion != 1 || m_Sites.WorldName != currentWorld || !m_Sites.Sites)
-        {
-            m_Fault = "teleport-sites-invalid-or-missing";
-            m_Sites = null;
-        }
-        if (m_Fault != "") { HCRefuse(m_Fault); }
         m_CatalogStarted = true;
         m_Names = "CfgWorlds " + GetGame().GetWorldName() + " Names";
         m_NameCount = Math.Clamp(GetGame().ConfigGetChildrenCount(m_Names), 0, m_Config.MaxNameEntries);
@@ -198,6 +190,7 @@ class HCAdminTeleport
     void HCStop()
     {
         m_CatalogStarted = false;
+        if (m_SiteStream) { m_SiteStream.Close(); }
         HCStartupPump.HCFinish(m_StartupCatalog);
         if (m_StartupCatalog) { m_StartupCatalog.Catalog = null; }
     }
@@ -298,7 +291,7 @@ class HCAdminTeleport
         m_Work.HCReset(m_Config.RowsPerTick, HCStartupPump.HCSliceMs(2));
         while (m_Work.HCContinue())
         {
-            if (!HCStartupPump.HCInSlice() && !HCServer.Get().HCTickWork().HCTake(1)) { return; }
+            if (!HCStartupPump.HCInSlice() && !HCServer.Get().HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_TELEPORT, 1)) { return; }
             if (m_Destinations.Count() >= m_Config.MaxDestinations) { HCComplete(); return; }
             if (m_Stage == 0)
             {
@@ -381,6 +374,7 @@ class HCAdminTeleport
             }
             else if (m_Stage == 5)
             {
+                if (!m_SitesLoaded) { HCReadSites(); continue; }
                 if (!m_Sites) { m_DeferredStages.Insert(m_Stage); }
                 // #235: AI sites come last and share the slots the short lists left,
                 // strided across the whole catalogue so every region stays reachable.
@@ -403,6 +397,50 @@ class HCAdminTeleport
             m_Stage = m_Stage + 1;
             m_Cursor = 0;
         }
+    }
+
+    // Keep optional provider warmup out of OnStart. The retained reader admits
+    // one <=1024-byte scan/read or one site decode per shared slice visit.
+    protected void HCReadSites()
+    {
+        if (!m_SiteStream)
+        {
+            string path = "$profile:HollowCountry/expansion-ai-sites.json";
+            if (!FileExist(path)) { path = "$mission:hollow-country/ai/sites.json"; }
+            m_SiteStream = new HCAdminJsonRows(path, m_Config.SiteBytes);
+            m_Sites = new HCAdminTeleportSites;
+            m_Sites.Sites = new array<ref HCAdminTeleportSite>;
+            return;
+        }
+        string text;
+        bool found = m_SiteStream.Step(text);
+        string error;
+        if (!m_SitesHeaderChecked && m_SiteStream.HCArrayStarted())
+        {
+            HCAdminTeleportSites header;
+            string world = GetGame().GetWorldName();
+            world.ToLower();
+            if (!JsonFileLoader<HCAdminTeleportSites>.LoadData(m_SiteStream.Preamble + "]}", header, error) || !header || header.SchemaVersion != 1 || header.WorldName != world || !header.Sites)
+            {
+                m_SiteStream.Fail();
+            }
+            m_SitesHeaderChecked = true;
+        }
+        if (found && !m_SiteStream.Failed)
+        {
+            HCAdminTeleportSite site;
+            if (!JsonFileLoader<HCAdminTeleportSite>.LoadData(text, site, error) || !site) { m_SiteStream.Fail(); }
+            else { m_Sites.Sites.Insert(site); }
+        }
+        if (!m_SiteStream.Done) { return; }
+        m_SitesLoaded = true;
+        if (m_SiteStream.Failed || !m_SitesHeaderChecked)
+        {
+            m_Sites = null;
+            m_Fault = "teleport-sites-invalid-or-missing";
+            HCRefuse(m_Fault);
+        }
+        m_SiteStream = null;
     }
 
     bool HCList(HCAdminReply reply, int page)
@@ -489,7 +527,7 @@ class HCAdminTeleport
         m_Work.HCReset(m_Config.SearchAttempts);
         for (int attempt = 0; attempt < m_Config.SearchAttempts; attempt++)
         {
-            if (!m_Work.HCContinue() || !HCServer.Get().HCTickWork().HCTake(1)) { return vector.Zero; }
+            if (!m_Work.HCContinue() || !HCServer.Get().HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_TELEPORT, 1)) { return vector.Zero; }
             vector candidate = anchor;
             float distance = ((attempt + 3) / 4) * m_Config.SearchStepM;
             int direction = attempt % 4;
@@ -712,11 +750,12 @@ modded class HCAdminModule
     {
         HCOperationalStatus baseStatus = super.HCGetOperationalStatus();
         if (!m_Running || !m_HCTeleport) { return baseStatus; }
+        // Warming destinations does not block the map. Preserve real teleport
+        // faults, including configuration, missing sites and empty catalogues.
         HCOperationalStatus teleportStatus = m_HCTeleport.HCGetOperationalStatus();
-        // Re-derive from running transport and the actual cached feature fault.
-        string fault = "";
-        if (teleportStatus.HCState() == "degraded" || teleportStatus.HCState() == "refused") { fault = teleportStatus.HCReason(); }
-        HCModuleReadiness.HCDerive(m_Status, m_Running, "", fault, "allowlist_loaded_teleport_catalog_native_pending");
+        string fault;
+        if (teleportStatus && teleportStatus.HCState() == "degraded" && teleportStatus.HCReason() != "teleport-destinations-building") { fault = teleportStatus.HCReason(); }
+        HCModuleReadiness.HCDerive(m_Status, m_Running, "", fault, "allowlist_loaded_transport_bound_native_pending");
         return m_Status;
     }
 
