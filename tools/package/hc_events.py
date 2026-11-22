@@ -30,6 +30,7 @@ MAX_OBSERVERS = 6
 MEASUREMENTS = 'ce/hc-site-measurements.json'
 MAX_SLOPE_DEG = 12.0
 BLOCKER_RADIUS_M = 2.0
+RELOCATE_RADIUS_M = 12.0
 CACHE_RADIUS_M = 15.0
 MIN_CACHE_POSITIONS = 3
 # Native factorial (2026-11-21, ce-site factorial-003): every fixed event with
@@ -87,8 +88,8 @@ def measurement_usable(row):
             and row['blockers'] == 0)
 
 
-def apply_measurements(positions, cache_positions, measured):
-    """Apply complete native observations to generated XML, never authored anchors."""
+def measurement_rows(measured):
+    """Validate common ingested/merged evidence, including screened-out rows."""
     if not isinstance(measured, dict) or not isinstance(measured.get('provenance'), dict):
         raise ValueError('invalid measurement document')
     provenance = measured['provenance']
@@ -106,6 +107,36 @@ def apply_measurements(positions, cache_positions, measured):
     if len(by_id) != len(rows):
         raise ValueError('duplicate measurement id')
 
+    for row in rows:
+        measurement_usable(row)
+        if not all(0 < row[a] < 15360 for a in ('x', 'z')):
+            raise ValueError('invalid measurement coordinates')
+    return by_id
+
+
+def check_anchor_separation(events, positions):
+    """Apply the authored spacing policy also to the final generated anchors."""
+    coords = []
+    for event in positions:
+        policy = events.find("event[@name='%s']" % event.get('name'))
+        separation = max(int(policy.findtext('distanceradius')),
+                         2 * int(policy.findtext('saferadius')))
+        same_type = []
+        for pos in event.findall('pos'):
+            x, z = (float(pos.get(a)) for a in ('x', 'z'))
+            if any(math.hypot(x - a, z - b) < 340 for a, b in coords):
+                raise ValueError('encounter anchors less than 340 m apart')
+            if any(math.hypot(x - a, z - b) <= separation for a, b in same_type):
+                raise ValueError('encounter anchors overlap same-type exclusion radius')
+            coords.append((x, z))
+            same_type.append((x, z))
+
+
+def apply_measurements(positions, cache_positions, measured, *, relocated=None):
+    """Apply complete native observations to generated XML, never authored anchors."""
+    by_id = measurement_rows(measured)
+    rows = list(by_id.values())
+
     def checked(ident, pos):
         row = by_id.get(ident)
         if row is None:
@@ -119,10 +150,27 @@ def apply_measurements(positions, cache_positions, measured):
         for index, pos in enumerate(event.findall('pos'), 1):
             ident = '%s:site%03d' % (event.get('name'), index)
             row, usable = checked(ident, pos)
-            # The screen is conservative and CE retries other anchors, so a screened-out
-            # anchor stays (relocation needs native candidates); it is reported, never hidden.
             if not usable:
-                unusable.append(ident)
+                origin = {a: float(pos.get(a)) for a in ('x', 'z')}
+                origin['y'] = row['y']
+                candidates = []
+                for candidate in rows:
+                    if not candidate['id'].startswith(ident + ':ring'):
+                        continue
+                    distance = math.hypot(candidate['x'] - origin['x'], candidate['z'] - origin['z'])
+                    if measurement_usable(candidate) and 0 < distance <= RELOCATE_RADIUS_M:
+                        candidates.append((distance, candidate['id'], candidate))
+                if candidates:
+                    distance, _, selected = min(candidates)
+                    for axis in ('x', 'z'):
+                        pos.set(axis, format(selected[axis], '.6f'))
+                    if relocated is not None:
+                        relocated[ident] = {
+                            'from': origin, 'to': {a: selected[a] for a in ('x', 'z', 'y')},
+                            'distance': distance}
+                    row = selected
+                else:
+                    unusable.append(ident)
             pos.set('y', format(row['y'], '.6f'))
     for event in cache_positions:
         anchor = event.find('pos')
@@ -284,9 +332,12 @@ def validate(source=SOURCE):
             raise ValueError('invalid cache anchor')
     measured_path = economy.child(source, MEASUREMENTS)
     unusable = None
+    relocated = {}
     if os.path.lexists(measured_path):
         data[MEASUREMENTS] = economy.read_plain(source, MEASUREMENTS)
-        unusable = apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]))
+        unusable = apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]),
+                                      relocated=relocated)
+        check_anchor_separation(events, positions)
     encounter_count = len(events)
     events.extend(caches)
     positions.extend(cache_positions)
@@ -297,6 +348,7 @@ def validate(source=SOURCE):
         'groups': len(groups), 'objects_in_groups': sum(len(g) for g in groups),
         'observer_headroom': MAX_OBSERVERS, 'event_budgets': budgets,
         'measured_unusable_anchors': unusable,
+        'measured_relocated_anchors': relocated,
         'runtime': 'PENDING'}
 
 

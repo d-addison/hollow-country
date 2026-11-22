@@ -16,6 +16,8 @@ PLAN_NAME = 'ce-site-probe-plan.json'
 HARD_CAP = 400
 CHUNK = 16
 MAX_RPT_BYTES = 128 * 1024 * 1024
+RING_RADII = (4, 8, 12)
+RING_BEARINGS = 8
 
 
 def targets(source=hc.SOURCE):
@@ -28,9 +30,9 @@ def targets(source=hc.SOURCE):
                 base = event.get('name')
                 result.append(dict(id='%s:site%03d' % (base, index), x=x, z=z))
                 if cache:
-                    for radius in (4, 8, 12):
-                        for bearing in range(8):
-                            angle = bearing * math.pi / 4
+                    for radius in RING_RADII:
+                        for bearing in range(RING_BEARINGS):
+                            angle = bearing * math.tau / RING_BEARINGS
                             result.append(dict(id='%s:ring%02d_%d' % (base, radius, bearing),
                                                x=round(x + radius * math.cos(angle), 6),
                                                z=round(z + radius * math.sin(angle), 6)))
@@ -41,13 +43,47 @@ def targets(source=hc.SOURCE):
     return result
 
 
+def relocation_targets(measured_bytes, chunk, source=hc.SOURCE):
+    """Deterministic whole-anchor chunks; never re-survey usable groups or caches."""
+    measured = json.loads(measured_bytes)
+    positions = hc.economy.xml(hc.economy.read_plain(source, 'ce/hc-eventspawns.xml'), 'eventposdef')
+    caches = hc.economy.xml(hc.economy.read_plain(source, 'events/cache-eventspawns.xml'), 'eventposdef')
+    unusable = set(hc.apply_measurements(positions, caches, measured))
+    anchors = [row for row in targets(source) if row['id'] in unusable]
+    per_anchor = len(RING_RADII) * RING_BEARINGS
+    per_chunk = HARD_CAP // per_anchor
+    total = math.ceil(len(anchors) / per_chunk)
+    if not total:
+        raise ValueError('no screened-out group anchors to relocate')
+    match = re.fullmatch(r'([1-9][0-9]*)/([1-9][0-9]*)', chunk or '')
+    if not match or int(match[2]) != total or not 1 <= int(match[1]) <= total:
+        raise ValueError('relocation requires --chunk i/%d (1 <= i <= %d)' % (total, total))
+    index = int(match[1])
+    selected = anchors[(index - 1) * per_chunk:index * per_chunk]
+    rows = []
+    for anchor in selected:
+        for radius in RING_RADII:
+            for bearing in range(RING_BEARINGS):
+                angle = bearing * math.tau / RING_BEARINGS
+                rows.append(dict(id='%s:ring%02d_%d' % (anchor['id'], radius, bearing),
+                                 x=round(anchor['x'] + radius * math.cos(angle), 6),
+                                 z=round(anchor['z'] + radius * math.sin(angle), 6)))
+    if not rows or len(rows) > HARD_CAP or any(
+            not all(0 < row[a] < 15360 for a in ('x', 'z')) for row in rows):
+        raise ValueError('invalid relocation target coordinates or cap')
+    return rows, dict(chunk=chunk, source_measurement_sha256=rt.sha256(measured_bytes))
+
+
 def stock_digest(records):
     return rt.sha256(json.dumps({n: r['source_sha256'] for n, r in records.items()},
                                sort_keys=True, separators=(',', ':')).encode())
 
 
-def binding(target_rows, treatment, stock_sha, run_id=""):
-    return rt.sha256(json.dumps([target_rows, treatment, stock_sha, rt.SERVER_EXE_SHA256, run_id],
+def binding(target_rows, treatment, stock_sha, run_id="", relocation=None):
+    payload = [target_rows, treatment, stock_sha, rt.SERVER_EXE_SHA256, run_id]
+    if relocation is not None:
+        payload.append(relocation)
+    return rt.sha256(json.dumps(payload,
                                sort_keys=True, separators=(',', ':')).encode())
 
 
@@ -277,7 +313,8 @@ def apply_event_variants(mission, doc):
 
 
 def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current', measured=None,
-          native_scripts=None, hold_seconds=240, wait_minutes=10, dry_run=False, variants=None):
+          native_scripts=None, hold_seconds=240, wait_minutes=10, dry_run=False, variants=None,
+          relocate_from=None, chunk=None):
     variant_doc = heights = None
     if treatment == 'factorial':
         if variants is None:
@@ -290,7 +327,16 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
         raise ValueError('measured treatment requires --measurements; current refuses it')
     if not 240 <= hold_seconds <= 3600 or not 5 <= wait_minutes <= 120 or wait_minutes * 60 < hold_seconds + 120:
         raise ValueError('hold must be 240..3600 seconds with at least 120 seconds timeout headroom')
-    rows = targets(source)
+    relocation = None
+    if relocate_from is not None:
+        if treatment != 'current':
+            raise ValueError('relocation survey requires current treatment')
+        rows, relocation = relocation_targets(
+            rt._read_bounded(relocate_from, rt.MAX_PLAN_BYTES), chunk, source)
+    elif chunk is not None:
+        raise ValueError('--chunk requires --relocate-from')
+    else:
+        rows = targets(source)
     # Validate/apply via the existing generator and installer. A temporary source
     # snapshot keeps current independent of a later committed measurement file.
     with tempfile.TemporaryDirectory(prefix='hc-site-source-') as scratch:
@@ -310,15 +356,16 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
         native = rt.native_type_names(cache)
         # Dry-run validates data and generated hook without requiring a Windows install.
         if dry_run:
-            hook = render_hook(rows, binding(rows, treatment, '0' * 64), hold_seconds)
+            hook = render_hook(rows, binding(rows, treatment, '0' * 64, relocation=relocation), hold_seconds)
             problems = rt.lint_hook(hook.decode(), native_types=native)
             if problems:
                 raise ValueError('hook lint: ' + '; '.join(problems[:3]))
-            return {'kind': 'ce-site-probe', 'status': 'inputs-validated-not-staged', 'targets': len(rows)}
+            return {'kind': 'ce-site-probe', 'status': 'inputs-validated-not-staged',
+                    'targets': len(rows), 'relocation': relocation}
         context = rt.begin(source_runtime, destination, parent=rt.WSL_PARENT, battleye_sha256=rt.BATTLEYE_SHA256)
         stock_sha = stock_digest(context['source']['records'])
         run_id = secrets.token_hex(16)
-        token = binding(rows, treatment, stock_sha, run_id)
+        token = binding(rows, treatment, stock_sha, run_id, relocation)
         hook = render_hook(rows, token, hold_seconds)
         problems = rt.lint_hook(hook.decode(), native_types=native)
         if problems:
@@ -339,6 +386,8 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             if entry['sha256'] != entry['source_sha256'] and entry['path'] != 'init.c':
                 entry['origin'] = 'hc-ce-install'
         plan = rt.plan_header('ce-site-probe', None, after={'variant': treatment})
+        if relocation is not None:
+            plan['relocation'] = relocation
         if variant_doc is not None:
             plan['factorial_variants'] = variant_doc
         plan.update(rt.plan_runtime_fields(context, built))
@@ -378,7 +427,7 @@ def ingest(rpt, out, plan_path=None):
     if not isinstance(plan, dict) or not isinstance(plan.get('targets'), list):
         raise ValueError('invalid probe plan document')
     rows = plan['targets']
-    token = binding(rows, plan['variant'], plan['stock_mission_sha256'], plan['run_id'])
+    token = binding(rows, plan['variant'], plan['stock_mission_sha256'], plan['run_id'], plan.get('relocation'))
     if (plan.get('kind') != 'ce-site-probe' or plan.get('binding') != token
             or plan.get('server_exe_sha256') != rt.SERVER_EXE_SHA256
             or not 0 < len(rows) <= HARD_CAP or len({r['id'] for r in rows}) != len(rows)):
@@ -438,6 +487,80 @@ def ingest(rpt, out, plan_path=None):
                   targets=[observed[r['id']] for r in rows], ce_failures=failures,
                   ce_failure_counts={phase: sum(r['phase'] == phase for r in failures)
                                      for phase in ('Init', 'Respawning')})
+    if 'relocation' in plan:
+        result['relocation'] = plan['relocation']
+    rt.new_file(out, (json.dumps(result, indent=2) + '\n').encode())
+    return result
+
+
+def merge(base, chunks, out, *, source=hc.SOURCE):
+    """Merge one original survey and all its relocation chunks, without overwrites."""
+    base_bytes = rt._read_bounded(base, rt.MAX_PLAN_BYTES)
+    original = json.loads(base_bytes)
+    hc.measurement_rows(original)
+    if 'relocation' in original or 'runs' in original['provenance']:
+        raise ValueError('merge base must be an original ingested survey')
+    documents = [(base_bytes, original)]
+    for path in chunks:
+        raw = rt._read_bounded(path, rt.MAX_PLAN_BYTES)
+        doc = json.loads(raw)
+        hc.measurement_rows(doc)
+        documents.append((raw, doc))
+    rows, runs, seen, selectors = [], [], set(), set()
+    expected_total = None
+    failures = []
+    for index, (raw, doc) in enumerate(documents):
+        provenance = doc['provenance']
+        if any(provenance[key] != original['provenance'][key]
+               for key in ('server_exe_sha256', 'stock_mission_sha256')):
+            raise ValueError('measurement server/stock sha mismatch')
+        if 'runs' in provenance:
+            raise ValueError('merge requires individual ingested runs')
+        run = dict(measurement_sha256=rt.sha256(raw), provenance=provenance,
+                   target_ids=[row['id'] for row in doc['targets']])
+        if index:
+            relocation = doc.get('relocation')
+            if (not isinstance(relocation, dict)
+                    or relocation.get('source_measurement_sha256') != rt.sha256(base_bytes)
+                    or provenance['treatment'] != 'current'):
+                raise ValueError('chunk source measurement sha or treatment mismatch')
+            selector = relocation.get('chunk')
+            expected, metadata = relocation_targets(base_bytes, selector, source)
+            if relocation != metadata:
+                raise ValueError('invalid relocation metadata')
+            actual = [{a: row[a] for a in ('id', 'x', 'z')} for row in doc['targets']]
+            if actual != expected:
+                raise ValueError('chunk targets differ from relocation plan')
+            if selector in selectors:
+                raise ValueError('duplicate relocation chunk')
+            selectors.add(selector)
+            expected_total = int(selector.split('/')[1])
+            run['relocation'] = relocation
+        for row in doc['targets']:
+            if row['id'] in seen:
+                raise ValueError('duplicate measurement id')
+            seen.add(row['id'])
+            rows.append(row)
+        run_failures = doc.get('ce_failures', [])
+        if not isinstance(run_failures, list) or any(
+                not isinstance(f, dict) or f.get('phase') not in ('Init', 'Respawning')
+                for f in run_failures):
+            raise ValueError('invalid CE failures')
+        failures.extend(run_failures)
+        runs.append(run)
+    if expected_total is None or len(selectors) != expected_total:
+        raise ValueError('incomplete relocation chunks')
+    result = dict(schema=1, blocker_radius_m=hc.BLOCKER_RADIUS_M,
+                  provenance=dict(original['provenance'], runs=runs), targets=rows,
+                  ce_failures=failures,
+                  ce_failure_counts={p: sum(f['phase'] == p for f in failures)
+                                     for p in ('Init', 'Respawning')})
+    # Refuse unsafe output before writing; authored inputs and their evidence stay intact.
+    positions = hc.economy.xml(hc.economy.read_plain(source, 'ce/hc-eventspawns.xml'), 'eventposdef')
+    caches = hc.economy.xml(hc.economy.read_plain(source, 'events/cache-eventspawns.xml'), 'eventposdef')
+    events = hc.economy.xml(hc.economy.read_plain(source, 'ce/hc-events.xml'), 'events')
+    hc.apply_measurements(positions, caches, result)
+    hc.check_anchor_separation(events, positions)
     rt.new_file(out, (json.dumps(result, indent=2) + '\n').encode())
     return result
 
@@ -456,18 +579,29 @@ def main(argv=None):
     st.add_argument('--hold-seconds', type=int, default=240)
     st.add_argument('--wait-minutes', type=int, default=10)
     st.add_argument('--dry-run', action='store_true')
+    st.add_argument('--relocate-from', type=Path)
+    st.add_argument('--chunk', help='relocation chunk i/k, one-based; k must match the computed total')
     ing = sub.add_parser('ingest')
     ing.add_argument('--rpt', type=Path, required=True)
     ing.add_argument('--out', type=Path, required=True)
     ing.add_argument('--plan', type=Path)
+    mg = sub.add_parser('merge')
+    mg.add_argument('--base', type=Path, required=True)
+    mg.add_argument('--chunks', type=Path, nargs='+', required=True)
+    mg.add_argument('--out', type=Path, required=True)
+    mg.add_argument('--source', type=Path, default=hc.SOURCE)
     args = parser.parse_args(argv)
     try:
         if args.command == 'stage':
             result = stage(args.source_runtime, args.destination, source=args.source, treatment=args.treatment,
                            measured=args.measurements, native_scripts=args.native_scripts,
                            hold_seconds=args.hold_seconds, wait_minutes=args.wait_minutes, dry_run=args.dry_run,
-                           variants=args.variants)
-            print(json.dumps({'status': result['status'], 'kind': result['kind']}))
+                           variants=args.variants, relocate_from=args.relocate_from, chunk=args.chunk)
+            print(json.dumps({key: result[key] for key in ('status', 'kind', 'targets', 'relocation')
+                              if key in result}))
+        elif args.command == 'merge':
+            result = merge(args.base, args.chunks, args.out, source=args.source)
+            print(json.dumps({'targets': len(result['targets']), 'runs': len(result['provenance']['runs'])}))
         else:
             result = ingest(args.rpt, args.out, args.plan)
             print(json.dumps(result['ce_failure_counts'], sort_keys=True))

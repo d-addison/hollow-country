@@ -85,7 +85,14 @@ refuses missing group observations or coordinate drift. It emits terrain `y` on 
 group position. Group anchors that fail the screen (water, slope above
 `MAX_SLOPE_DEG=12`, or any geometry blocker inside the clearance box) stay in the
 output, because CE retries other anchors and relocation needs native candidates.
-The install report lists them under `measured_unusable_anchors`. It also emits and at least `MIN_CACHE_POSITIONS=3` usable measured positions per cache,
+The install report lists them under `measured_unusable_anchors`. With merged ring
+evidence, screened-out groups instead move to the nearest usable candidate within
+`RELOCATE_RADIUS_M=12`; usable authored anchors always stay. Generated `x`, `z` and
+`y` change together, while angle and group identity stay unchanged. The report maps
+each moved id to `from`, `to` and `distance` under `measured_relocated_anchors`.
+Both the 340 m all-group-anchor spacing and same-type exclusion radius are checked
+again on the generated output; a violation refuses the install. Authored XML and
+`hc-event-sites.json` evidence never move. It also emits at least `MIN_CACHE_POSITIONS=3` usable measured positions per cache,
 all within `CACHE_RADIUS_M=15` of its authored anchor (observer radius is 25 m).
 Unusable cache candidates are retained in evidence but excluded from output.
 Observations are never silently dropped.
@@ -97,6 +104,78 @@ output and source digest are unchanged. `current` always explicitly omits it,
 so the control remains reproducible after measurements land. No measured data
 or generated artifacts are included with this implementation. Run 003 (2026-11-22 UTC,
 current treatment) is committed this way.
+
+## Relocate screened-out group anchors (lead sequence)
+
+Keep the original ingested run-003 document unchanged. Relocation surveys use
+`--treatment current` and target only its screened-out group anchors, with 4/8/12 m
+rings over eight bearings per anchor. IDs include the anchor:
+`event:siteNNN:ringRR_B`; cache IDs and cache selection are unchanged. Whole rings
+stay together, with at most `floor(HARD_CAP / 24)` anchors per chunk. The selector
+is one-based `i/k`; a missing selector or incorrect total refuses with the required
+`k`. Each plan records `relocation.chunk` and the exact source measurement SHA.
+Those fields participate in the run binding and survive ingest.
+
+1. Compute `k` from the committed original evidence and dry-run **every** chunk:
+
+   ```sh
+   k=$(python3 -B -c 'import math; from tools.package import hc_events as h; from tools.setup import ce_site_probe as p; print(math.ceil(len(h.validate()[3]["measured_unusable_anchors"]) / (p.HARD_CAP // (len(p.RING_RADII) * p.RING_BEARINGS))))')
+   for i in $(seq 1 "$k"); do
+     python3 -B -m tools.setup.ce_site_probe stage --dry-run \
+       --destination "tmp/logs/ce-relocate-$i" \
+       --relocate-from mission/hollow-country/ce/hc-site-measurements.json --chunk "$i/$k"
+   done
+   ```
+
+2. For each `i=1..k`, stage a **fresh** runtime (example for `i=1`, using `k` above):
+
+   ```sh
+   i=1
+   python3 -B -m tools.setup.ce_site_probe stage \
+     --destination "/mnt/d/HollowCountryLocal/ce-site-relocate-$i" \
+     --relocate-from mission/hollow-country/ce/hc-site-measurements.json --chunk "$i/$k"
+   ```
+
+3. Under the shared host lock, run that chunk alone on Windows, then ingest its
+   actual RPT on Linux. Repeat staging, launch and ingest for every chunk serially:
+
+   ```powershell
+   .\tools\setup\Start-CEProbeServer.ps1 -Runtime D:\HollowCountryLocal\ce-site-relocate-1 -Kind ce-site-probe
+   ```
+
+   ```sh
+   python3 -B -m tools.setup.ce_site_probe ingest \
+     --rpt "/mnt/d/HollowCountryLocal/ce-site-relocate-$i/profiles/DayZServer.RPT" \
+     --out "tmp/logs/ce-site-relocate-$i.json"
+   ```
+
+4. Merge the original with **all and only** the chunk documents into a fresh file:
+
+   ```sh
+   python3 -B -m tools.setup.ce_site_probe merge \
+     --base mission/hollow-country/ce/hc-site-measurements.json \
+     --chunks tmp/logs/ce-site-relocate-*.json \
+     --out tmp/logs/ce-site-relocated-measurements.json
+   ```
+
+   Merge refuses server/stock-mission SHA mismatches, duplicate ids/chunks, a
+   different source measurement SHA, missing chunks, altered target lists and
+   generated spacing violations. It never overwrites an existing output. Schema 1
+   remains supported: the merged document retains the base provenance at the top
+   and adds `provenance.runs`, recording every input document SHA, its complete
+   provenance and target ids, plus each chunk's source SHA and selector. CE failure
+   counts aggregate all runs; they do not describe a single boot.
+
+5. Inspect `hc_events.validate` on the proposed source snapshot and stage a fresh
+   measured treatment using `--measurements tmp/logs/ce-site-relocated-measurements.json`.
+   Review native CE/boot evidence and the one-client scene check before the lead
+   replaces the committed measurements and regenerates digests. Workers do not
+   run native chunks, change mission data or update generated digest receipts.
+
+A group with no usable candidate inside the relocation radius stays at its authored
+anchor and remains explicitly reported as unusable. No anchor is retired and no
+headroom is silently reduced. These offline transformations do not establish native
+placement success; engine experiments and release acceptance remain pending.
 
 Event-definition variants are also available: `event` overrides `lifetime`, `restock`,
 `saferadius`, `distanceradius`, `cleanupradius` or the `deletable`/`init_random`/
