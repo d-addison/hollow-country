@@ -2043,6 +2043,7 @@
       "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
     },
     {
+      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
       "line": 195,
       "symbol": "HCInteriorPackIndex.HCReadFile",
