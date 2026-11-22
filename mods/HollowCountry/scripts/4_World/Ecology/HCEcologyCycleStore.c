@@ -1,15 +1,32 @@
 // Native scripts-1.30.164289: EnSystem.c:397/417/425/443/462/525/528;
 // JsonFileLoader.c:69,85. Shared staged writer verifies intent and primary.
-// An unfinished intent refuses admission; never silently reset the cadence.
+// Recovery and writing go through the shared HCStagedStore (primary-wins). The v1 layout is
+// unchanged: cycle-<world>.json plus a transient .tmp, no backup; the codec checks structure only,
+// so a file the cadence rules refuse today is never moved or deleted by recovery. An unrecoverable
+// copy refuses admission with a reason; never silently reset the cadence.
+class HCEcologyCycleCodec : HCStagedStoreCodec
+{
+    override bool HCValid(string text, out int revision)
+    {
+        revision = 0;
+        if (text == "" || text.Length() > 2048) { return false; }
+        string error;
+        HCEcologyCycleState parsed;
+        if (!JsonFileLoader<HCEcologyCycleState>.LoadData(text, parsed, error)) { return false; }
+        return parsed != null;
+    }
+}
+
 class HCEcologyCycleSaveJob : HCSaveJob
 {
-    ref HCStagedSaveImage Image = new HCStagedSaveImage;
+    ref HCStagedStore Store;
     bool Failed;
     bool Committed;
     override string HCName() { return "EcologyCycle"; }
     override int HCStep()
     {
-        int result = Image.HCStepImage();
+        if (!Store) { Failed = true; return STEP_FAILED; }
+        int result = Store.HCStepSave();
         if (result == STEP_FAILED) { Failed = true; }
         if (result == STEP_DONE) { Committed = true; }
         return result;
@@ -61,13 +78,17 @@ class HCEcologyCycleStore
     {
         if (!HCEcologyMigrationRules.UtcValid(utc)) { return null; }
         string path = "$profile:HollowCountry/Ecology/cycle-" + world + ".json";
-        if (FileExist(path + ".tmp")) { return null; }
+        if (HCCoreSelfTest.HCStagedStoreFailed()) { return null; }
+        // Primary-wins: a valid primary is kept, a valid lone .tmp (first-ever save cut short) is
+        // promoted, a stale .tmp is preserved as a torn copy. Both a v1 .tmp leftover and a
+        // damaged primary used to refuse; now only a copy with no valid sibling still refuses.
+        job.Store = new HCStagedStore(path, 2048, HCStagedStore.HC_PRIMARY_WINS, new HCEcologyCycleCodec, false, false);
+        if (job.Store.HCDrainRecover() != HCSaveJob.STEP_DONE || job.Store.HCQuarantined()) { return null; }
         HCEcologyCycleState state;
-        string text;
+        string text = job.Store.HCRecovered();
         string error;
-        if (FileExist(path))
+        if (text != "")
         {
-            text = HCEcologyRuntimeIO.Read(path, 2048);
             if (!JsonFileLoader<HCEcologyCycleState>.LoadData(text, state, error)) { return null; }
             if (!state || state.Version != 1 || state.WorldName != world || !HCEcologyMigrationRules.UtcValid(state.EpochUtc) || state.EpochUtc > utc) { return null; }
             job.Committed = true;
@@ -78,10 +99,21 @@ class HCEcologyCycleStore
         state.WorldName = world;
         state.EpochUtc = utc;
         if (!JsonFileLoader<HCEcologyCycleState>.MakeData(state, text, error)) { return null; }
-        if (!job.Image.Begin(path, text, 2048, false, false)) { return null; }
+        if (!job.Store.HCBeginSave(text)) { return null; }
         job.HCDirty = true;
         job.HCUrgent = true;
         job.HCDue = GetGame().GetTickTime();
         return state;
+    }
+}
+
+// A failed boot fault injection of the shared staged store turns the pilot off (refuses with a
+// reason) even after it opened, so a broken recovery or writer is never trusted with saves.
+modded class HCEcologyCycle
+{
+    override bool Healthy()
+    {
+        if (HCCoreSelfTest.HCStagedStoreFailed()) { return false; }
+        return super.Healthy();
     }
 }
