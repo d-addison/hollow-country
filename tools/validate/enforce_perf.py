@@ -199,6 +199,8 @@ class Model:
         self._concrete = {}
         self._declared = {}
         self._sites = None
+        self._out_names = None
+        self._scheduled = None
         self.envs = [self.environment(s, m) for s, m in self.nodes]
 
     def const_int(self, text):
@@ -259,6 +261,73 @@ class Model:
                         (i, re.sub(r'\s+', '', write.group(1)).rstrip('.'), write.group(3).strip()))
         return self._writes
 
+    def out_written_names(self):
+        """Leaf names of fields or variables that a call may write through an out parameter.
+
+        `Class.CastTo(x, ...)` writes x; so does any call whose same-named authored method has
+        an out/inout parameter at the argument's position. Matched by method name alone (a
+        superset of the real targets), so it needs no type resolution and cannot recurse."""
+        if self._out_names is None:
+            out_positions = {}
+            for _, m in self.nodes:
+                for k, (_, _, is_out) in enumerate(m.parameters()):
+                    if is_out:
+                        out_positions.setdefault(m.name, set()).add(k)
+            names = set()
+            for s, m in self.nodes:
+                for call in _CALL.finditer(s.code, m.body_start, m.body_end):
+                    expression = re.sub(r'\s+', '', call.group(1))
+                    leaf = expression.split('.')[-1]
+                    positions = set(out_positions.get(leaf, ()))
+                    if leaf == 'CastTo':
+                        positions.add(0)
+                    if not positions:
+                        continue
+                    opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
+                    closing = es.matching_paren(s.code, opening)
+                    args = [a for a in es.split_top(s.code[opening + 1:closing], ',') if a.strip()]
+                    for k in positions:
+                        if k < len(args):
+                            argument = re.sub(r'\s+', '', args[k])
+                            if re.fullmatch(_CHAIN, argument):
+                                names.add(argument.split('.')[-1])
+            self._out_names = names
+        return self._out_names
+
+    def scheduled_names(self):
+        """Method names that the engine or a call queue can invoke with arguments the authored
+        call sites never show: CallLater/Call/Insert callbacks and string-named dispatch
+        (CallLaterByName, CallByName, CallFunction, CallFunctionParams with Param arguments)."""
+        if self._scheduled is None:
+            names = set()
+            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams)\s*\(')
+            for s, m in self.nodes:
+                for call in queue.finditer(s.code, m.body_start, m.body_end):
+                    opening = s.code.find('(', call.start(), call.end())
+                    closing = es.matching_paren(s.code, opening)
+                    for argument in es.split_top(s.code[opening + 1:closing], ','):
+                        leaf = re.sub(r'\s+', '', argument).split('.')[-1]
+                        if re.fullmatch(_IDENT, leaf):
+                            names.add(leaf)
+                    for argument in es.split_top(s.text[opening + 1:closing], ','):
+                        quoted = re.fullmatch(r'\s*"(\w+)"\s*', argument)
+                        if quoted:
+                            names.add(quoted.group(1))
+            self._scheduled = names
+        return self._scheduled
+
+    def engine_called(self, i):
+        """True when method i can be invoked by the engine or a vanilla caller: it is an override
+        whose declaration chain has no authored non-override method of that name."""
+        s, m = self.nodes[i]
+        if 'override' not in m.modifiers or not m.owner:
+            return False
+        for ancestor in self.lineage(m.owner.name):
+            for t in self.index.get((ancestor, m.name), []):
+                if t != i and 'override' not in self.nodes[t][1].modifiers:
+                    return False
+        return True
+
     def returned_classes(self, i, value):
         """Classes a call expression `qualifier.Method(args)` written in node i can return, else None.
 
@@ -311,7 +380,7 @@ class Model:
             if holder not in self.classes:
                 return ''
         field = self.field_of(holder, name)
-        if not field:
+        if not field or name in self.out_written_names():
             return ''
         defining = next(c.name for ancestor in self.lineage(holder) for c in self.classes.get(ancestor, [])
                         if any(f is field for f in c.fields))
@@ -362,7 +431,10 @@ class Model:
         expression of declared type T (T and its derived classes). Any argument of unknown
         type, any call site that omits the argument, or no call site at all, gives None and
         leaves the declared type's full dispatch in place. The result is the set of those
-        classes and their ancestors (inherited methods)."""
+        classes and their ancestors (inherited methods). Blind spots keep the declared dispatch:
+        an out/inout parameter, a parameter written through an out argument or Class.CastTo, a
+        method scheduled through CallLater/CallByName/Param-style dispatch, and an override the
+        engine can call (no authored base declaration)."""
         key = (i, name)
         if key in self._declared:
             return self._declared[key]
@@ -372,6 +444,8 @@ class Model:
         position = next((k for k, (typ, pname, _) in enumerate(params) if pname == name), None)
         body = s.body(m)
         if (position is None or params[position][0] not in self.classes
+                or params[position][2] or name in self.out_written_names()
+                or m.name in self.scheduled_names() or self.engine_called(i)
                 or re.search(rf'(?<![\w.]){re.escape(name)}\s*(?:=(?!=)|[-+*/]=)', body)
                 or re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body)):
             return None

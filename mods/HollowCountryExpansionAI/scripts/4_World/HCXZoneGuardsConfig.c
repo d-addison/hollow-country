@@ -84,10 +84,11 @@ class HCXZoneGuardsSave : HCSaveJob
     override bool HCPendingCheckpoint() { return Revision != m_Committed; }
     override int HCStep()
     {
-        // A new image snapshots the journal at its first stage; remember the revision
-        // it started from. Commit only that (never newer) revision when it finishes.
-        if (!m_Writer.SaveInFlight()) { m_Snapshot = Revision; }
+        // The writer snapshots the journal at its first stage and re-snapshots (refreshes the
+        // intent) when the revision moved before the intent is cleared. Commit exactly the
+        // revision the writer holds, never a newer one, so a refreshed image is not rewritten.
         int result = m_Writer.SaveStep("$profile:HollowCountry/zone-guards-state.json", Data, 65536, Revision);
+        m_Snapshot = m_Writer.HCSnapshotRevision();
         if (result == STEP_FAILED) { Fault = true; }
         if (result == STEP_DONE) { m_Committed = m_Snapshot; }
         return result;

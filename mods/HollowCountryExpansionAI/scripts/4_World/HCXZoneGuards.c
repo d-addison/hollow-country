@@ -19,6 +19,8 @@ class HCXZoneGuardsRuntime
     bool Initialised;
     int Spent;
     float NextAttempt;
+    float CreateRetryAt;
+    string RefusalLogged;
 }
 class HCXZoneGuardsDebug : HCDebugContributor
 {
@@ -192,9 +194,13 @@ class HCXZoneGuards : HCModule
         m_Save.HCMark();
         return true;
     }
+    static const int HC_URGENT_STAGES = 8;
     protected int m_StageTotal;
     protected int m_StageMaxTicks;
     protected int m_ProgressLogs;
+    protected int m_Refusals;
+    protected int m_RefusalLogs;
+    protected string m_RefusalReason = "none";
     protected int SitesCreated()
     {
         int created;
@@ -215,6 +221,17 @@ class HCXZoneGuards : HCModule
         if (m_ProgressLogs >= 256) { return; }
         m_ProgressLogs++;
         Print("[HC ZoneGuards] progress stage=" + stage + " zone=" + zoneId + " ticks=" + ticks.ToString() + " zg_sites_created=" + this.SitesCreated().ToString() + " zones_total=" + m_Zones.Count().ToString() + " zg_stages=" + m_StageTotal.ToString() + " runtime=PENDING");
+    }
+    // A site-creation stage was refused without progress. Every refusal is counted
+    // (zg_refusals); the line prints once per zone and reason code, at most 64 lines in total.
+    void StageRefused(HCXZoneGuardsRuntime zone, string reason)
+    {
+        if (m_Refusals < 2147483647) { m_Refusals++; }
+        m_RefusalReason = reason;
+        if (zone.RefusalLogged == reason || m_RefusalLogs >= 64) { return; }
+        zone.RefusalLogged = reason;
+        m_RefusalLogs++;
+        Print("[HC ZoneGuards] zone=" + zone.Zone.id + " refused reason=" + reason + " zg_refusals=" + m_Refusals.ToString() + " runtime=PENDING");
     }
     HCXZoneGuardsRuntime BySite(string id) { return m_BySite.Get(id); }
     // Ownership is explicit: radius is an audit envelope, not a blanket hold.
@@ -277,7 +294,7 @@ class HCXZoneGuards : HCModule
         line += " held=" + heldZones.ToString() + " overrun=" + overrun.ToString() + " abandoned=" + abandoned.ToString();
         line += " sites_owned=" + ownedSites.ToString() + " sites_held=" + held.ToString() + " sites_released=" + released.ToString();
         line += " sites_sampled=" + sampled.ToString() + " zg_sites_created=" + created.ToString() + " actors_spawned=" + m_ActorsSpawned.ToString();
-        line += " zg_stages=" + m_StageTotal.ToString() + " zg_stage_max_ticks=" + m_StageMaxTicks.ToString();
+        line += " zg_stages=" + m_StageTotal.ToString() + " zg_stage_max_ticks=" + m_StageMaxTicks.ToString() + " zg_refusals=" + m_Refusals.ToString() + " zg_last_refusal=" + m_RefusalReason;
         line += " last_day=" + m_Data.LastDay.ToString() + " runtime=PENDING";
         string statusLine = "" + line;
         // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
@@ -330,12 +347,25 @@ class HCXZoneGuards : HCModule
         Print("[HC ZoneGuards] zone=" + zone.Zone.id + " from=" + previous + " to=" + next);
         return true;
     }
+    // Fallback only (the shared scheduler pumps a registered job frame by frame while it is
+    // urgent): a wipe or overrun is in memory until its image is durable, so advance up to
+    // HC_URGENT_STAGES stages within the scheduler's own per-frame budget (HC_FRAME_MS) and stop
+    // at the first stage that exceeds it. A job the scheduler owns, or one that is not urgent,
+    // makes HCPumpFallback a no-op, so this loop ends at once.
+    protected void PumpUrgentSave()
+    {
+        if (!m_Save.HCUrgent || !m_Save.HCDirty || (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_Save))) { return; }
+        m_Work.HCReset(HC_URGENT_STAGES, HCSaveScheduler.HC_FRAME_MS);
+        while (m_Save.HCUrgent && m_Save.HCDirty && !m_Save.HCFaulted && !m_Save.Fault && m_Work.HCContinue())
+        {
+            HCSaveScheduler.HCPumpFallback(m_Save);
+        }
+    }
     override void OnTick(float deltaTime)
     {
         if (!m_Started || m_Refusal != "" || m_Zones.Count() == 0) { return; }
         if (m_Save.Fault || m_Save.HCFaulted) { m_Refusal = "zone_state_write_fault"; return; }
-        // Advances the checkpoint by at most one stage when the shared scheduler does not own it.
-        HCSaveScheduler.HCPumpFallback(m_Save);
+        this.PumpUrgentSave();
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run") { return; }
         m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
@@ -358,8 +388,9 @@ class HCXZoneGuards : HCModule
         bool staged = director.HCZoneService(zone);
         zone.Initialised = true;
         if (zone.Site && zone.Site.Failed) { m_Refusal = "zone_route_refused_" + zone.Zone.id; return; }
-        if (staged) { return; }
-        if (zone.Row.State == "overrun") { StepOverrun(zone, director); }
+        // A stage tick does no overrun spawn, but it never blocks the daily escalation
+        // candidate below: Change() only marks the journal, so it adds no file IO.
+        if (!staged && zone.Row.State == "overrun") { StepOverrun(zone, director); }
         if (m_DailyRemaining < 1 || m_Data.ChangedToday >= m_Config.MaxChangesPerDay) { return; }
         HCXZoneGuardsRuntime candidate = m_Zones[m_Data.Cursor % m_Zones.Count()];
         m_Data.Cursor = (m_Data.Cursor + 1) % m_Zones.Count();

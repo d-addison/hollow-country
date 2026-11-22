@@ -81,7 +81,8 @@ modded class HCXAISiteDirector
     }
     // Called for one zone/tick by its HCWorkBudget admission. Use the existing
     // bind/qualify/create stages, never a second native patrol constructor.
-    // Returns true when this call ran one stage. A call runs at most one stage, and
+    // Returns true when this call ran one stage that made progress; false when it ran none
+    // or a Create stage was refused (counted with a reason code, retried after 60 s). A call runs at most one stage, and
     // HCXZoneGuards.OnTick makes at most one call per tick inside its single
     // HC_WORK_ZONE_GUARDS unit, so a tick can never run two sites' stages.
     bool HCZoneService(HCXZoneGuardsRuntime zone)
@@ -107,7 +108,14 @@ modded class HCXAISiteDirector
                 site.Loadout = "HollowCountry_Raider";
             }
             if (zone.Zone.tier == 1) { site.Loadout = "HollowCountry_Holdout"; }
-            HCXAIDefaults.ProvisionLoadout(site.Loadout);
+            // Guards never spawn without the HC loadout: a missing default file refuses the
+            // admission (no site state, no stage) and is retried on the zone's next visit.
+            if (!HCXAIDefaults.ProvisionLoadout(site.Loadout))
+            {
+                HCXZoneGuards refusing = HCXZoneGuards.Active();
+                if (refusing) { refusing.StageRefused(zone, "zone_loadout_missing"); }
+                return false;
+            }
             int points;
             foreach (vector slot : zone.Zone.guard_slots)
             {
@@ -137,8 +145,19 @@ modded class HCXAISiteDirector
             this.HCZoneStage(zone, "qualify", began);
             return true;
         }
+        // A refused Create (provider issue, native setup refused) sets neither Patrol nor
+        // Failed. Retry it at most once a minute per zone, count the refusal with its reason
+        // code and report no progress, so a persistent refusal never holds the zone's visit.
+        if (GetGame().GetTickTime() < zone.CreateRetryAt) { return false; }
         this.Create(state);
         this.HCZoneStage(zone, "create", began);
+        if (!state.Patrol && !state.Failed)
+        {
+            zone.CreateRetryAt = GetGame().GetTickTime() + 60;
+            HCXZoneGuards creating = HCXZoneGuards.Active();
+            if (creating) { creating.StageRefused(zone, "zone_create_refused"); }
+            return false;
+        }
         return true;
     }
     // Existing site_stage peak line (>= 40000 ticks) plus the zone-guards progress counters.

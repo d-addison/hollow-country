@@ -55,6 +55,8 @@ class HCXAILoadoutSave : HCSaveJob
     // Pre-copy recheck: 0 unchecked, 1 target absent (copy may proceed), 2 target present,
     // 3 our intent present and to be retired, 4 refuse the image, 5 refused (the image drains).
     protected int m_Gate;
+    // The pre-copy recheck found the target: the refusal reason is target_appeared, not a write fault.
+    protected bool m_Appeared;
     bool Finished;
     int Provisioned;
     override string HCName() { return "HCX-loadouts"; }
@@ -67,6 +69,7 @@ class HCXAILoadoutSave : HCSaveJob
         m_Existing = "";
         m_TornSlot = 0;
         m_Gate = 0;
+        m_Appeared = false;
         m_Image = new HCXAILoadoutImage();
     }
     protected void HCRefused(string reason)
@@ -298,7 +301,7 @@ class HCXAILoadoutSave : HCSaveJob
         // visit. No target delete is performed by this job; an existing file is refused.
         if (m_Gate == 0 && m_Image.HCCopyDue())
         {
-            if (FileExist(m_Target)) { m_Gate = 2; }
+            if (FileExist(m_Target)) { m_Gate = 2; m_Appeared = true; }
             else { m_Gate = 1; }
             return STEP_MORE;
         }
@@ -325,7 +328,12 @@ class HCXAILoadoutSave : HCSaveJob
             m_Image.HCRefuseCopy();
         }
         int result = m_Image.HCStepImage();
-        if (result == STEP_FAILED) { this.HCRefused("write_readback"); m_Phase = 8; }
+        if (result == STEP_FAILED)
+        {
+            if (m_Appeared) { this.HCRefused("target_appeared"); }
+            else { this.HCRefused("write_readback"); }
+            m_Phase = 8;
+        }
         if (result == STEP_DONE)
         {
             HCXAIDefaults.HCSetLoadoutPresent(name, true);
@@ -485,7 +493,8 @@ class HCXAIDefaults
                 seen.Set(site.Loadout, true);
                 s_LoadoutSave.Names.Insert(site.Loadout);
             }
-            foreach (string commonName : HCXAIDefaults.HCCommonLoadouts())
+            ref array<string> commonNames = HCXAIDefaults.HCCommonLoadouts();
+            foreach (string commonName : commonNames)
             {
                 if (seen.Contains(commonName)) { continue; }
                 s_LoadoutSave.Names.Insert(commonName);

@@ -768,6 +768,54 @@ class M
             'class M\n', 'class Elsewhere { ref Job m_Job; void Put() { m_Job = new FileJob; } }\nclass M\n')
         self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
 
+    # Blind spots: a write or call the authored call sites do not show keeps the declared dispatch.
+    def flagged(self, text):
+        return [f.key for f in findings(text, 'HC-P009')]
+
+    def quiet_text(self):
+        return self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')
+
+    def test_field_written_through_class_cast_to_still_flags(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Swap() { Job found = new FileJob; Class.CastTo(m_Job, found); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_field_written_through_an_out_parameter_still_flags(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Fill(out Job target) { target = new FileJob; }\n    void Swap() { Fill(m_Job); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_out_parameter_is_not_refined(self):
+        text = self.quiet_text().replace('static void Flush(Job job)', 'static void Flush(out Job job)')
+        self.assertTrue(self.flagged(text))
+
+    def test_parameter_reassigned_by_class_cast_to_still_flags(self):
+        text = self.quiet_text().replace(
+            'static void Flush(Job job) {',
+            'static void Flush(Job job) { Job other = new FileJob; Class.CastTo(job, other);')
+        self.assertTrue(self.flagged(text))
+
+    def test_call_later_argument_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Later() { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Sched.Flush, 100, false, new FileJob); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_param_string_dispatch_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'void Run()', 'void Later() { GetGame().GameScript.CallFunctionParams(this, "Flush", null, new Param1<Job>(new FileJob)); }\n    void Run()')
+        self.assertTrue(self.flagged(text))
+
+    def test_engine_called_override_with_one_authored_site_keeps_full_dispatch(self):
+        text = self.quiet_text().replace(
+            'class Sched\n{\n    static void Flush(Job job)', 'class Sched : NativeSched\n{\n    override void Flush(Job job)')
+        self.assertTrue(self.flagged(text))
+
+    def test_override_of_an_authored_base_is_still_refined(self):
+        text = self.quiet_text().replace(
+            'class Sched\n{\n    static void Flush(Job job)', 'class BaseSched { void Flush(Job job) { } }\nclass Sched : BaseSched\n{\n    override void Flush(Job job)')
+        self.assertEqual(self.flagged(text), [])
+
+
 class PairedReadTests(unittest.TestCase):
     """OpenFile plus the first bounded ReadFile on that local handle is one file visit."""
     TEXT = '''
