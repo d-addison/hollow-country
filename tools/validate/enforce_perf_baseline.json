@@ -179,60 +179,6 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 8,
-      "symbol": "HCEcologyRuntimeIO.Read",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 11,
-      "symbol": "HCEcologyRuntimeIO.Read",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 31,
-      "symbol": "HCEcologyRuntimeIO.WriteRaw",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 33,
-      "symbol": "HCEcologyRuntimeIO.WriteRaw",
-      "key": "FPrint#1",
-      "message": "FPrint reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 134,
-      "symbol": "HCEcologyRuntimeStore.HCStepSave",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCEcologyRuntimeStore.HCStepSave",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 154,
-      "symbol": "HCEcologyRuntimeStore.HCStepSave",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCEcologyRuntimeStore.HCStepSave",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
       "line": 23,
       "symbol": "HCEventJournalIO.Ensure",
@@ -806,46 +752,6 @@
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
       "reason": "W1-11 legacy budget caller: HCEcologyRuntime.ProbeCohort still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 8,
-      "symbol": "HCEcologyRuntimeIO.Read",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeIO.Read remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 31,
-      "symbol": "HCEcologyRuntimeIO.WriteRaw",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeIO.WriteRaw remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 138,
-      "symbol": "HCEcologyRuntimeStore.HCStepSave",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeStore.HCStepSave remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
-      "line": 158,
-      "symbol": "HCEcologyRuntimeStore.HCStepSave",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeStore.HCStepSave remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
     },
     {
       "rule": "HC-P010",

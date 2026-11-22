@@ -276,8 +276,16 @@ class HCSaveScheduler : HCModule
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
         // Custody alone needs room for two maximum-size images (an older snapshot
         // plus a refresh). Explicit lower operator limits remain authoritative.
-        // 8 MiB / 4096 = 2048 chunks; two guards derived from the raw cap, plus 64 owner stages.
+        // Replacement core: prior + tmp write/read + backup read + primary read
+        // <=5*N+64 stages (CopyFile is one stage), N=ceil(bytes/4096).
+        // At 8 MiB: <=10,304/image; two <=20,608 < 33,088 (2*16,512+64).
+        // SearchRefresh.Stop opts into this barrier; its 6 MiB cap needs
+        // <=7,744/image, two <=15,488. Finish's 16,512 covers one max image.
+        // Explicit limits below the default 4096 still intentionally refuse.
         int flushLimit = config.SaveFlushStageLimit;
+        // Journal shutdown drains need room for three capped immutable images,
+        // their prior checks and pruning, even with a low routine operator limit.
+        if (job.HCName() == "EventJournal") { flushLimit = Math.Max(flushLimit, 3 * HCStagedSaveImage.HC_MAX_STAGES + 128); }
         if (custodyBarrier && flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
         while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
@@ -379,7 +387,10 @@ class HCSaveScheduler : HCModule
             // Faulted writer preserves its intent; no every-tick retry.
             job.HCFaulted = true;
             HCUnregister(job);
-            m_Fault = "save_job_write_faulted";
+            // Events owns journal admission/failure readiness; an unrelated
+            // store must not become unready because this one candidate failed.
+            if (job.HCName() != "EventJournal") { m_Fault = "save_job_write_faulted"; }
+            else { Print("[HC Save] job=EventJournal state=failed reason=job_local runtime=PENDING"); }
         }
         m_Stages = 0;
         m_StageMax = 0;
@@ -653,6 +664,17 @@ class HCStagedSaveImage
         else if (m_Phase == 1) { HCSaveJob.HCOperation = "read_tmp"; source = m_Temporary; expected = m_Text; compare = true; }
         else if (m_Phase == 2)
         {
+            if (m_PriorUnchanged)
+            {
+                // Primary already holds the verified candidate. Never touch it:
+                // whenever primary is touched, .bak equals the verified prior.
+                // Still visit phase 5 so owners may refresh a newer snapshot.
+                m_PriorChunks.Clear();
+                m_PriorBytes = 0;
+                m_Phase = 5;
+                Print("[HC SaveImage] state=unchanged reason=verified_primary_retained runtime=PENDING");
+                return HCSaveJob.STEP_MORE;
+            }
             // A verified prior read already established primary presence. Only
             // owners that deliberately skipped that read need a presence probe.
             if (!m_PrimaryKnown)
@@ -901,13 +923,19 @@ class HCStagedSaveImage
     bool HCRefreshIntent(string text)
     {
         if (m_Phase != 5 || m_Failed || text.Length() < 1 || text.Length() > m_Limit) { return false; }
+        // The just-verified primary is the refreshed transaction's predecessor.
+        // Recheck/rotate it before touching primary again; a previously identical
+        // image must not suppress promotion of this newer candidate.
+        m_ExpectedPrior = m_Text;
         m_Text = text;
         m_Phase = 0;
-        m_Backup = false;
+        m_Backup = true;
+        m_PriorUnchanged = false;
+        m_Unchanged = true;
         m_BackupStage = 0;
         m_PriorChunks.Clear();
         m_PriorBytes = 0;
-        m_CheckPrior = false;
+        m_CheckPrior = true;
         return true;
     }
 
