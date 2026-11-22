@@ -49,6 +49,16 @@ P008 finds Save calls on declared types ending in Store on P003's tick graph;
 it cannot resolve returned stores, infer synchronous implementation details or
 distinguish required durability barriers. All rules report review candidates,
 never measured complexity, timing or native acceptance.
+
+P009 follows the same bounded typed call graph from OnStart, carrying lexical
+loop context across calls. Repeated file opens, probes, copies, deletes and JSON
+file loads/saves are synchronous multi-file candidates; reads from an already
+open handle are not. It cannot distinguish repeated access to one path from
+different paths, prove loop trip counts, or follow queued callbacks.
+P010 finds raw HCTake calls on declared HCUnitBudget receivers (including
+derived types) and HCServer.HCTickWork() chains. The shared budget's own
+implementation is excluded. Private budgets remain review candidates; unknown
+receiver/return types are not inferred by method name alone.
 """
 import argparse
 import ast
@@ -75,6 +85,8 @@ RULES = {
     'HC-P006': 'work slot shared by different owner classes',
     'HC-P007': 'incomplete work slot registration',
     'HC-P008': 'synchronous store Save reachable on a tick path',
+    'HC-P009': 'synchronous multi-file loop reachable from OnStart',
+    'HC-P010': 'raw HCTake bypasses consumer fairness and attribution',
 }
 MAX_DEPTH = 24
 _IDENT = r'[A-Za-z_]\w*'
@@ -536,6 +548,63 @@ def slot_registrations(sources, root):
                           'HC_WORK_CONSUMERS must exceed the largest consumer slot value')
 
 
+def raw_budget_calls(model, i):
+    """Typed budget calls plus the known shared accessor's call-result chain."""
+    s, m = model.nodes[i]
+    if (s.rel == 'mods/HollowCountry/scripts/4_World/Core/HCUnitBudget.c'
+            and m.owner and m.owner.name == 'HCUnitBudget'):
+        return
+    count = 0
+    for call in re.compile(r'\bHCTake\s*\(').finditer(s.code, m.body_start, m.body_end):
+        prefix = s.code[m.body_start:call.start()]
+        receiver = re.search(rf'({_CHAIN})\s*\.\s*$', prefix)
+        typ = model.type_of(receiver.group(1), model.envs[i]) if receiver else ''
+        if not receiver and not prefix.rstrip().endswith('.') and m.owner:
+            typ = m.owner.name
+        shared = re.search(r'\bHCServer\s*\.\s*(?:Get\s*\(\s*\)\s*\.\s*)?'
+                           r'HCTickWork\s*\(\s*\)\s*\.\s*$', prefix)
+        if 'HCUnitBudget' not in model.lineage(typ) and not shared:
+            continue
+        count += 1
+        yield Finding('HC-P010', s.rel, s.line_of(call.start()), symbol(m),
+                      f'HCTake#{count}',
+                      'raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot')
+
+
+def startup_file_loops(model, edges, ios, loop_spans):
+    """Visit each (method, repeated) state once, retaining a shortest witness."""
+    roots = [i for i, (_, m) in enumerate(model.nodes) if m.name == 'OnStart']
+    queue = deque((i, False, (i,)) for i in roots)
+    reached = {(i, False) for i in roots}
+    reported = set()
+    while queue:
+        i, repeated, chain = queue.popleft()
+        s, m = model.nodes[i]
+
+        def in_loop(offset):
+            return repeated or any(a <= offset < b for a, b in loop_spans[i])
+
+        counts = {}
+        for offset, operation in ios[i]:
+            if operation not in {'OpenFile', 'FileExist', 'CopyFile', 'DeleteFile'} and not operation.startswith('JsonFileLoader.'):
+                continue
+            counts[operation] = counts.get(operation, 0) + 1
+            if not in_loop(offset) or (i, offset, operation) in reported:
+                continue
+            reported.add((i, offset, operation))
+            witness = ' -> '.join(symbol(model.nodes[n][1]) for n in chain)
+            yield Finding('HC-P009', s.rel, s.line_of(offset), symbol(m),
+                          f'{operation}#{counts[operation]}',
+                          f'{operation} in a synchronous startup loop via {witness}; enqueue bounded startup work')
+        if len(chain) - 1 >= MAX_DEPTH:
+            continue
+        for offset, target in edges[i]:
+            state = (target, in_loop(offset))
+            if state not in reached:
+                reached.add(state)
+                queue.append((*state, chain + (target,)))
+
+
 def check(sources, root=ROOT):
     """Return deterministic Finding objects; does not load/write a baseline."""
     model = Model(sources)
@@ -547,6 +616,7 @@ def check(sources, root=ROOT):
         spans = list(loops(s, m))
         loop_spans.append(spans)
         findings.extend(nested_scans(model, i, spans))
+        findings.extend(raw_budget_calls(model, i))
         slot_counts = {}
         for call in _SLOT_CALL.finditer(s.code, m.body_start, m.body_end):
             opening = s.code.find('(', call.start(), call.end())
@@ -610,6 +680,8 @@ def check(sources, root=ROOT):
         edges.append(sorted(set(outgoing)))
         ios.append(sorted(set(sites)))
         tick_sites.append(candidates)
+
+    findings.extend(startup_file_loops(model, edges, ios, loop_spans))
 
     def boundary(i):
         s, m = model.nodes[i]
