@@ -44,7 +44,7 @@ class HCInteriorPathgraph
 
     static void Summary()
     {
-        Print("" + "[HC Pathgraph] domain=interiors marked=" + s_Marked.ToString() + " regions=" + s_Regions.ToString() + " skipped_no_geom=" + s_Skipped.ToString());
+        Print("" + "[HC Pathgraph] domain=interiors marked=" + s_Marked.ToString() + " affected=" + s_Regions.ToString() + " skipped_no_geom=" + s_Skipped.ToString());
     }
 }
 

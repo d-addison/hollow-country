@@ -1070,7 +1070,7 @@ class HCShelterModule : HCModule
         float statusNow = GetGame().GetTickTime();
         if (statusLine != m_StatusLogLine || statusNow < m_StatusLogAt || statusNow - m_StatusLogAt >= 1800)
         {
-            Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " regions=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
+            Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " affected=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
             Print("" + statusLine);
             if (m_RegionalFailed > 0) { Print("[HC Shelters] degraded reason=regional_scene_placement_failed sites=" + m_RegionalFailedSites); }
             m_StatusLogLine = statusLine;

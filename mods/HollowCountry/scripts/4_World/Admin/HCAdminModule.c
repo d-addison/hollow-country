@@ -31,6 +31,7 @@ class HCAdminPermissionAdapter
     protected bool m_Enabled;
     protected ref HCAdminPermissionPort m_Port;
     protected string m_Reason;
+    protected string m_PortReason;
     protected float m_NextPortRefusalAt;
     protected int m_PortRefusals;
     int HCPortRefusals() { return m_PortRefusals; }
@@ -49,6 +50,7 @@ class HCAdminPermissionAdapter
     {
         if (m_Running) { return; }
         m_Port = null;
+        m_PortReason = "";
         m_Running = GetGame() && GetGame().IsServer();
         m_Enabled = m_Running && !FileExist("$profile:HollowCountry/acceptance/COTAuthorization.disable");
         // Keep an unavailable default provider attached so live readiness can recover.
@@ -102,19 +104,30 @@ class HCAdminPermissionAdapter
         {
             // Count every refused check, even repeated or rate-limited failures.
             if (m_PortRefusals < 2147483647) { m_PortRefusals++; }
-            // Ordinary authorization outcomes do not describe provider health.
-            if (reason == "COT_PERMISSION_DENIED" || reason == "COT_PLAYER_MISSING" || reason == "IDENTITY_REQUIRED") { return; }
-        }
-        if (m_Reason == reason) { return; }
-        // Bound not-ready/provider failures separately from readiness transitions.
-        if (portRefusal)
-        {
+            // Ordinary authorization outcomes do not describe provider health. They
+            // prove the provider answered, so a later repeat of the same provider
+            // failure is a new event and may log again.
+            if (reason == "COT_PERMISSION_DENIED" || reason == "COT_PLAYER_MISSING" || reason == "IDENTITY_REQUIRED")
+            {
+                m_PortReason = "";
+                return;
+            }
+            // Only not-ready and provider failures reach the log, one reason-coded
+            // line per change and at most one per minute. A port that refuses with
+            // no reason still gets a stable code instead of an empty field.
+            if (reason == "") { reason = "provider_refused"; }
+            if (m_PortReason == reason) { return; }
             float now = GetGame().GetTickTime();
             if (now < m_NextPortRefusalAt) { return; }
             m_NextPortRefusalAt = now + 60;
+            m_PortReason = reason;
+            m_Reason = reason;
+            // No peer identity or role contents.
+            Print("[HC Admin] COTAuthorization reason=" + reason + " runtime=PENDING");
+            return;
         }
+        if (m_Reason == reason) { return; }
         m_Reason = reason;
-        // No peer identity or role contents; at most one port refusal per minute.
         Print("[HC Admin] COTAuthorization reason=" + reason + " runtime=PENDING");
     }
 
