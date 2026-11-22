@@ -12,22 +12,48 @@ class HCEventPoliceRewardIO : HCEventRewardIO
     }
 }
 // Unlike the legacy per-boot allowance, these immutable site grants survive restart.
-// Existing HCEventJournalIO provides bounded write/readback; no replay or refund.
+// One orphan repair ever: spent .txt, no .pos/.repair and no ground barrel in the
+// completed capped scan. Write the immutable .repair before one process-local grant.
+// Existing HCEventJournalIO provides bounded write/readback; no other replay or refund.
 class HCEventPoliceStockLedger : HCEventRewardLedger
 {
+    protected ref array<string> m_RepairChecked = new array<string>;
+    protected ref array<string> m_RepairPending = new array<string>;
+
+    // A positive barrel observation may refuse early; absence requires a completed scan.
+    void HCRepairOrphan(string siteId, bool barrelPresent)
+    {
+        if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return; }
+        if (m_RepairChecked.Find(siteId) >= 0 || !m_IO || m_Fault || !m_IO.Ensure()) { return; }
+        m_RepairChecked.Insert(siteId);
+        if (m_Granted.Find(siteId) >= 0 || !m_IO.Exists(siteId + ".txt") || m_IO.Exists(siteId + ".pos") || m_IO.Exists(siteId + ".repair")) { return; }
+        if (barrelPresent)
+        {
+            Print("[HC Events] police grant orphan kept; " + siteId + "; reason=barrel_present");
+            return;
+        }
+        if (!m_IO.WriteNew(siteId + ".repair", "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128)) { Fault(); return; }
+        m_RepairPending.Insert(siteId);
+        Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
+    }
+
     override HCEventRewardPlan Commit(string siteId)
     {
         if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return null; }
         if (!m_IO || !m_IO.Ensure() || m_Fault) { return null; }
         string name = siteId + ".txt";
-        if (m_IO.Exists(name) || m_Granted.Find(siteId) >= 0) { return null; }
+        if (m_Granted.Find(siteId) >= 0 || m_IO.Exists(siteId + ".pos")) { return null; }
+        int repair = m_RepairPending.Find(siteId);
+        if (repair < 0 && (m_IO.Exists(name) || m_IO.Exists(siteId + ".repair"))) { return null; }
+        if (repair >= 0) { m_RepairPending.Remove(repair); }
         m_Granted.Insert(siteId);
         HCEventRewardPlan plan = new HCEventRewardPlan;
         plan.SiteId = siteId;
         plan.Items.Insert("BandageDressing");
         plan.Items.Insert("SodaCan_Cola");
         plan.Items.Insert("MetalWire");
-        if (!m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
+        // A repair consumes its marker-backed allowance without rewriting the spent .txt.
+        if (repair < 0 && !m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
         return plan;
     }
 
@@ -76,6 +102,7 @@ class HCEventPoliceStockSlice
     Barrel_Green OwnedCache;
     vector OwnedPosition;
     bool HasOwnedPosition;
+    bool GroundBarrelPresent;
     ItemBase GroundItem;
     ItemBase DeliveryContainer;
     ItemBase CargoOwner;
@@ -309,6 +336,14 @@ class HCEventCacheSpawner
                 }
                 ItemBase cache = ItemBase.Cast(job.Nearby[job.Next]);
                 job.Next++;
+                // Even a ruined ground barrel blocks repair; it may be the old HC cache.
+                Barrel_Green nearbyBarrel = Barrel_Green.Cast(cache);
+                if (!job.GroundBarrelPresent && nearbyBarrel && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && !nearbyBarrel.GetHierarchyRootPlayer() && vector.DistanceSq(nearbyBarrel.GetPosition(), mission.Source) <= mission.Radius * mission.Radius)
+                {
+                    job.GroundBarrelPresent = true;
+                    HCEventPoliceStockLedger barrelLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+                    if (barrelLedger) { barrelLedger.HCRepairOrphan(mission.SiteId, true); }
+                }
                 if (!HCPhysicalGround(cache)) { continue; }
                 if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
                 Barrel_Green tagged = Barrel_Green.Cast(cache);
@@ -336,9 +371,13 @@ class HCEventCacheSpawner
             }
             if (job.DeliveryContainer && !PoliceDeliveryValid(mission, job.DeliveryContainer))
             {
-                s_StockSlices.Remove(mission.Id);
-                PoliceRefused("police_target_changed");
-                return null;
+                if (mission.Family == HCEventFamily.DELIVERY)
+                {
+                    s_StockSlices.Remove(mission.Id);
+                    PoliceRefused("police_target_changed");
+                    return null;
+                }
+                job.DeliveryContainer = null;
             }
             if (job.GroundItem && (mission.Family != HCEventFamily.DELIVERY || PoliceDeliveryValid(mission, job.DeliveryContainer)))
             {
@@ -356,6 +395,8 @@ class HCEventCacheSpawner
                 s_StockSlices.Remove(mission.Id);
                 return PoliceStockTarget(mission, job.OwnedCache);
             }
+            HCEventPoliceStockLedger repairLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+            if (repairLedger) { repairLedger.HCRepairOrphan(mission.SiteId, job.GroundBarrelPresent); }
             // No native creation handle or partially initialized cache crosses a grant.
             s_StockSlices.Remove(mission.Id);
             Barrel_Green created = CreatePoliceStock(mission);
@@ -518,7 +559,7 @@ class HCEventCacheSpawner
 
     static bool HCPhysicalStock(ItemBase cache)
     {
-        if (!cache || cache.IsPendingDeletion() || cache.IsRuined()) { return false; }
+        if (!cache || cache.IsSetForDeletion() || cache.IsRuined()) { return false; }
         if (cache.GetHierarchyRootPlayer() || cache.GetHierarchyParent() || !cache.GetInventory()) { return false; }
         CargoBase cargo = cache.GetInventory().GetCargo();
         return cargo && cargo.GetItemCount() > 0;
