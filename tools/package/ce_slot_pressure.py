@@ -1,13 +1,11 @@
 """Offline CE slot pressure: map-wide nominal demand against matching proxy slots.
 
-CE logs "Item [N] is hard to place, performance drops" when a class's usage/value
-points are already full. This reads the installed mission (registration-order
-types, mapgroupproto containers, mapgrouppos instances and the areaflags value
-plane) and, for every distinct usage x tier route set of a category, compares
-the nominal of all rows confined to that set with the slots inside it
-(Hall-style). Slots are min(points, container lootmax) per container, capped by
-group lootmax, split evenly over the group's usages and its position's tiers.
-It is a planning estimate, never CE simulation.
+The engine's hard-to-place warning has several possible causes. This estimate
+cannot identify one from nominal/point counts alone. ``feasibility`` checks all
+positive building-routed types together against shared group/container caps,
+category/tag filters and actual placed tier sets, without splitting shared
+capacity evenly between usages. It is an optimistic upper bound: dimensions,
+point range/height, collisions and native selection remain unobserved.
 """
 import argparse
 from collections import Counter
@@ -161,6 +159,127 @@ def modded_coverage(mission):
             'uncovered_containers': uncovered}
 
 
+def feasibility(mission):
+    """Optimistic joint capacity bound, with integral max flow over shared caps.
+
+    A failure proves a static demand/capacity conflict under these constraints;
+    a pass cannot explain or exclude native hard-to-place warnings. Unassigned
+    routes are one allocation witness, not causal row attribution or a cut policy.
+    """
+    from collections import deque
+    mission = Path(mission)
+    limits = ET.parse(mission / 'cfglimitsdefinition.xml').getroot()
+    values = [v.get('name') for v in limits.find('valueflags')]
+    data = (mission / 'areaflags.map').read_bytes()
+    width, height, world_x, world_z, bits = struct.unpack_from('<5I', data)
+    cells = width * height
+    if bits != 32 or len(data) != 24 + cells * 5:
+        raise ValueError('unsupported area map layout')
+    placed = Counter()
+    for group in ET.parse(mission / 'mapgrouppos.xml').getroot():
+        x, _, z = map(float, group.get('pos').split())
+        index = min(height - 1, max(0, int(z * height / world_z))) * width + min(width - 1, max(0, int(x * width / world_x)))
+        flags = data[24 + cells * 4 + index]
+        tiers = frozenset(v for b, v in enumerate(values) if flags >> b & 1) or frozenset(values)
+        placed[group.get('name'), tiers] += 1
+    demands, categories = Counter(), Counter()
+    for _, row in _types(mission).values():
+        nominal = int(row.findtext('nominal', '0'))
+        flags = row.find('flags')
+        usages = frozenset(n.get('name') for n in row.findall('usage'))
+        cats = frozenset(n.get('name') for n in row.findall('category'))
+        if (nominal <= 0 or not usages or usages <= EVENT_USAGES or not cats
+                or (flags is not None and flags.get('count_in_map') == '0')):
+            continue
+        tiers = frozenset(n.get('name') for n in row.findall('value')) or frozenset(values)
+        tags = frozenset(n.get('name') for n in row.findall('tag'))
+        demands[usages, tiers, cats, tags] += nominal
+        for category in cats:
+            categories[category] += nominal
+    # Residual edges [destination, remaining, reverse-index]. Group caps couple
+    # containers; container caps couple every category and route using them.
+    graph = [[], []]
+    def node():
+        graph.append([])
+        return len(graph) - 1
+    def edge(a, b, amount):
+        graph[a].append([b, amount, len(graph[b])])
+        graph[b].append([a, 0, len(graph[a]) - 1])
+    containers = []
+    protos = {g.get('name'): g for g in ET.parse(mission / 'mapgroupproto.xml').getroot().findall('group')}
+    for (name, tiers), count in sorted(placed.items(), key=lambda pair: (pair[0][0], sorted(pair[0][1]))):
+        proto = protos.get(name)
+        if proto is None:
+            continue
+        usages = {u.get('name') for u in proto.findall('usage')}
+        if not usages:
+            continue
+        group_node = node()
+        edge(group_node, 1, max(0, int(proto.get('lootmax', 12))) * count)
+        for container in proto.findall('container'):
+            cap = min(len(container.findall('point')), max(0, int(container.get('lootmax', 8)))) * count
+            if not cap:
+                continue
+            ident = node()
+            edge(ident, group_node, cap)
+            containers.append((ident, usages, tiers,
+                {c.get('name') for c in container.findall('category')},
+                {t.get('name') for t in container.findall('tag')}))
+    unreachable = 0
+    demand_nodes = {}
+    for (usages, tiers, cats, tags), demand in demands.items():
+        ident = node()
+        edge(0, ident, demand)
+        demand_nodes[ident] = dict(usages=sorted(usages), tiers=sorted(tiers),
+                                   categories=sorted(cats), tags=sorted(tags), nominal=demand)
+        matches = [c[0] for c in containers if usages & c[1] and tiers & c[2] and cats & c[3]
+                   and (not tags or tags & c[4])]
+        if not matches:
+            unreachable += demand
+        for target in matches:
+            edge(ident, target, demand)
+    flow = 0
+    while True:
+        levels = [-1] * len(graph)
+        levels[0] = 0
+        queue = deque([0])
+        while queue:
+            a = queue.popleft()
+            for b, cap, _ in graph[a]:
+                if cap > 0 and levels[b] < 0:
+                    levels[b] = levels[a] + 1
+                    queue.append(b)
+        if levels[1] < 0:
+            break
+        cursor = [0] * len(graph)
+        def send(a, amount):
+            if a == 1:
+                return amount
+            while cursor[a] < len(graph[a]):
+                item = graph[a][cursor[a]]
+                b, cap, reverse = item
+                if cap > 0 and levels[b] == levels[a] + 1:
+                    sent = send(b, min(amount, cap))
+                    if sent:
+                        item[1] -= sent
+                        graph[b][reverse][1] += sent
+                        return sent
+                cursor[a] += 1
+            return 0
+        while True:
+            sent = send(0, sum(demands.values()))
+            if not sent:
+                break
+            flow += sent
+    total = sum(demands.values())
+    unassigned = [dict(demand_nodes[target], unassigned=remaining)
+                  for target, remaining, _ in graph[0] if remaining]
+    return dict(status='fail' if flow < total else 'pass', demand=total,
+                placeable_upper_bound=flow, deficit=total-flow, unreachable_nominal=unreachable,
+                categories=dict(sorted(categories.items())), unassigned_routes=unassigned,
+                limitation='Optimistic static bound; point dimensions, collisions and native selection unobserved.')
+
+
 def problems(mission, category='weapons', limit=LIMIT):
     return ['%s demand %d over %d slots (%.2f > %.2f) layers=%s'
             % (','.join(r['route']) if len(r['route']) <= 8 else '%d routes' % len(r['route']),
@@ -175,9 +294,14 @@ def main(argv=None):
     parser.add_argument('mission', type=Path)
     parser.add_argument('--category', default='weapons')
     parser.add_argument('--limit', type=float, default=LIMIT)
+    parser.add_argument('--all-categories', action='store_true', help='joint shared-capacity bound across all building-routed categories')
     parser.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
     parser.add_argument('--top', type=int, default=10)
     args = parser.parse_args(argv)
+    if args.all_categories:
+        result = feasibility(args.mission)
+        print(json.dumps(result, sort_keys=True))
+        return 1 if result['status'] == 'fail' else 0
     if args.coverage:
         print(json.dumps(modded_coverage(args.mission), sort_keys=True))
     for row in pressure(args.mission, args.category)[:args.top]:

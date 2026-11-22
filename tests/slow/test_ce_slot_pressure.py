@@ -36,3 +36,42 @@ class ModdedCoverage(unittest.TestCase):
             self.assertEqual(result['positive_modded_classes'], len(rows))
             self.assertEqual(result['uncovered_containers'], [])
             self.assertEqual(set(result['unreachable_classes']), {'flooronly', 'latetier', 'tool'})
+
+
+class JointCapacity(unittest.TestCase):
+    def fixture(self, root, rows, container):
+        (root/'db').mkdir()
+        (root/'db/types.xml').write_text('<types>'+''.join(rows)+'</types>')
+        (root/'cfgeconomycore.xml').write_text('<economycore/>')
+        (root/'cfglimitsdefinition.xml').write_text('<lists><valueflags><value name="Tier1"/></valueflags></lists>')
+        (root/'areaflags.map').write_bytes(struct.pack('<6I',1,1,10,10,32,0)+b'\0\0\0\0\1')
+        (root/'mapgrouppos.xml').write_text('<map><group name="House" pos="5 0 5"/></map>')
+        (root/'mapgroupproto.xml').write_text('<map><group name="House" lootmax="1"><usage name="Town"/>'+container+'</group></map>')
+
+    def test_categories_compete_for_shared_group_capacity(self):
+        rows = [f'<type name="{name}"><nominal>1</nominal><usage name="Town"/><category name="{name}"/></type>'
+                for name in ('tools','clothes')]
+        containers = ''.join(f'<container lootmax="1"><category name="{name}"/><point/></container>'
+                             for name in ('tools','clothes'))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root, rows, containers)
+            result = pressure.feasibility(root)
+            self.assertEqual(set(result['categories']), {'tools','clothes'})
+            self.assertEqual(result['demand'], len(rows))
+            self.assertEqual(result['deficit'], len(rows)-1)
+            self.assertEqual(result['unreachable_nominal'], 0)
+
+    def test_tag_and_actual_tier_exclude_rows_even_with_spare_category_slots(self):
+        rows = ['<type name="Tool"><nominal>1</nominal><usage name="Town"/><category name="tools"/>'
+                '<tag name="floor"/></type>']
+        container = '<container lootmax="1"><category name="tools"/><tag name="shelves"/><point/></container>'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root, rows, container)
+            result = pressure.feasibility(root)
+            self.assertEqual(result['unreachable_nominal'], result['demand'])
+            (root/'db/types.xml').write_text('<types>'+rows[0].replace('floor','shelves')+'</types>')
+            self.assertEqual(pressure.feasibility(root)['status'], 'pass')
+            (root/'db/types.xml').write_text('<types>'+rows[0].replace('floor','shelves').replace('</type>', '<value name="Tier2"/></type>')+'</types>')
+            self.assertEqual(pressure.feasibility(root)['status'], 'fail')
