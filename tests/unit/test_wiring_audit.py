@@ -25,10 +25,12 @@ class BaselineTests(unittest.TestCase):
         self.baseline = {'schema': 1, 'note': 'retain metadata', 'findings': [self.kept, self.stale]}
         self.path.write_text(json.dumps(self.baseline))
 
-    def run_cli(self, *args, findings=None, missing_roots=()):
+    def run_cli(self, *args, findings=None, missing_roots=(), definitions=None, indexed=None):
         output = io.StringIO()
         def run(audit):
             audit.missing_class_roots = set(missing_roots)
+            audit.definitions = definitions or {}
+            audit.indexed = indexed or {}
             return copy.deepcopy([self.live] if findings is None else findings)
         with patch.object(wiring, 'ROOT', self.root), patch.object(wiring.Audit, 'run', run), redirect_stdout(output):
             result = wiring.main(['--json', *args])
@@ -69,14 +71,48 @@ class BaselineTests(unittest.TestCase):
         self.assertNotIn('reason', reported)
         self.assertEqual(before, self.path.read_bytes())
 
-    def test_ratchet_refuses_incomplete_caches_without_writing_baseline(self):
-        before = self.path.read_bytes()
-        for flags in (('--ratchet',), ('--offline', '--ratchet'), ('--update-baseline',)):
-            with self.subTest(flags=flags):
-                result, report = self.run_cli(*flags, missing_roots={'CfgVehicles'})
-                self.assertEqual(2, result)
-                self.assertIn('cannot ratchet', report['error'])
-                self.assertEqual(before, self.path.read_bytes())
+    def test_ratchet_prunes_independent_entries_with_missing_roots(self):
+        for roots in ({'CfgAmmo'}, {'CfgVehicles'}, set(wiring.DEFAULTS['config_roots'])):
+            with self.subTest(roots=roots):
+                self.path.write_text(json.dumps(self.baseline))
+                result, report = self.run_cli('--ratchet', missing_roots=roots)
+                self.assertEqual(result, 0)
+                self.assertEqual(json.loads(self.path.read_text())['findings'], [self.kept])
+                self.assertEqual(report['missing_class_roots'], sorted(roots))
+                self.assertEqual(report['baseline_kept_missing_roots'], 0)
+
+    def test_ratchet_retains_missing_root_dependent_entries(self):
+        dependent = [dict(self.stale, id=check) for check in ('W001', 'W001b', 'W007', 'W008')]
+        self.baseline['findings'] += dependent
+        self.path.write_text(json.dumps(self.baseline))
+        result, report = self.run_cli('--ratchet', '--strict-baseline', missing_roots={'CfgVehicles'})
+        self.assertEqual(result, 1)
+        self.assertEqual(json.loads(self.path.read_text())['findings'], [self.kept, *dependent])
+        self.assertEqual(report['baseline_kept_missing_roots'], len(dependent))
+        self.assertEqual(report['stale_baseline'], dependent)
+
+    def test_missing_ammo_keeps_unknown_config_provenance_but_prunes_object_findings(self):
+        dependent = dict(self.stale, id='W001')
+        object_entries = [dict(self.stale, id=check) for check in ('W007', 'W008')]
+        self.baseline['findings'] += [dependent, *object_entries]
+        self.path.write_text(json.dumps(self.baseline))
+        result, report = self.run_cli('--ratchet', missing_roots={'CfgAmmo'})
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(self.path.read_text())['findings'], [self.kept, dependent])
+        self.assertEqual(report['baseline_kept_missing_roots'], 1)
+
+    def test_ratchet_uses_config_root_provenance(self):
+        entries = [dict(self.stale, id=check) for check in ('W001', 'W001b')]
+        self.baseline['findings'] += entries
+        for root in ('CfgVehicles', 'CfgAmmo'):
+            with self.subTest(root=root):
+                self.path.write_text(json.dumps(self.baseline))
+                _, report = self.run_cli('--ratchet', missing_roots={'CfgAmmo'},
+                                         definitions={self.stale['subject'].lower(): {'root': root}},
+                                         indexed={root: {self.stale['subject'].lower(): {}}})
+                expected = entries if root == 'CfgAmmo' else []
+                self.assertEqual(json.loads(self.path.read_text())['findings'], [self.kept, *expected])
+                self.assertEqual(report['baseline_kept_missing_roots'], len(expected))
 
 
 class ExternalClassTests(unittest.TestCase):

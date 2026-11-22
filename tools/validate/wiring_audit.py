@@ -107,6 +107,8 @@ class Audit:
         self.profile_sources = {}
         self.stock_route_candidates = set()
         self.missing_class_roots = set()
+        self.definitions = {}
+        self.indexed = {}
 
     def safe(self, path):
         path = Path(path).expanduser().resolve()
@@ -704,6 +706,7 @@ class Audit:
         for key, row in definitions.items():
             row['inherited'] = key in all_parents
             row['scope'] = pbo_config.resolve_scope(merged[row['root']], key)
+        self.definitions = definitions
         self.indexed = merged
         return definitions, {k for rows in merged.values() for k in rows}, coverage
 
@@ -988,13 +991,29 @@ def main(argv=None):
             accepted[identity(f)] = f['reason']
         live = {identity(f) for f in findings}
         stale_entries = [f for f in baseline['findings'] if identity(f) not in live]
-        if args.ratchet and audit.missing_class_roots:
-            raise ValueError('cannot ratchet baseline with incomplete external class caches; populate all configured class-index roots first (including for --offline runs)')
+        # Missing object roots can hide CE/spawn resolution; ammo cannot. Config
+        # route/scope checks depend on their declaration's root. Removed or
+        # ambiguous declarations have unknown provenance: retain conservatively.
+        def unresolved_roots(f):
+            if f['id'] in ('W007', 'W008'):
+                return audit.missing_class_roots & {'CfgVehicles', 'CfgWeapons', 'CfgMagazines'}
+            if f['id'] == 'W001b':
+                roots = {root for root, rows in audit.indexed.items() if f['subject'].lower() in rows}
+                return audit.missing_class_roots & (roots or set(rules['config_roots']))
+            if f['id'] == 'W001':
+                row = audit.definitions.get(f['subject'].lower())
+                return audit.missing_class_roots & ({row['root']} if row else set(rules['config_roots']))
+            return set()
+
+        retained = [f for f in stale_entries if unresolved_roots(f)]
         if args.ratchet:
-            baseline['findings'] = [f for f in baseline['findings'] if identity(f) in live]
+            keep = {identity(f) for f in retained} | live
+            baseline['findings'] = [f for f in baseline['findings'] if identity(f) in keep]
             baseline_path.write_text(json.dumps(baseline, indent=2) + '\n')
-            stale_entries = []
+            stale_entries = retained
             accepted = {identity(f): f['reason'] for f in baseline['findings']}
+            audit.notes.append('Ratchet missing roots: ' + (', '.join(sorted(audit.missing_class_roots)) or 'none')
+                               + '; baseline entries kept for missing roots=' + str(len(retained)))
         for f in findings:
             # A policy declaration is not evidence that the stock transform succeeds.
             # Retain these candidates explicitly without accepting/baselining them.
@@ -1015,7 +1034,8 @@ def main(argv=None):
         stale = len(set(accepted) - {identity(f) for f in findings})
         if args.json:
             print(json.dumps({'schema': 1, 'summary': summary, 'notes': audit.notes, 'exclusions': audit.exclusions,
-                              'stale_baseline_entries': stale, 'stale_baseline': stale_entries, 'findings': findings}, indent=2))
+                              'missing_class_roots': sorted(audit.missing_class_roots),
+                              'baseline_kept_missing_roots': len(retained), 'stale_baseline_entries': stale, 'stale_baseline': stale_entries, 'findings': findings}, indent=2))
         else:
             for name, reason in audit.exclusions.items():
                 print(f'EXCLUDED {name}: {reason}')

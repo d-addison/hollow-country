@@ -189,16 +189,44 @@ python3 -B -m unittest tests.unit.test_wb_calibrate
 `--out` is a directory outside the repository; it receives `agreement.json`
 and `agreement.md`. Without it a unique `hc-wb-calibrate-*` directory is created
 under the job's `TEMP` (or Python's temporary directory). Locations in reports
-are source-relative or basenames; raw compiler output and account paths are
-never copied into reports or printed. Reports checkpoint after every invocation.
+are source-relative or basenames. Each row side references a sibling `<fix>-<side>.log`
+containing at most the last 200 lines (each capped at 2,000 characters) of tool
+stdout/stderr, with home folders, 17-digit ids and identity-bearing diagnostics
+redacted before writing. No raw output is printed. Reports checkpoint after every invocation.
 Use a distinct output directory for each run to retain previous evidence.
 
 `--gate` also runs the native gate at each parent. Its verdict requires the
-gate's explicit compiler-error evidence or a pass that reached Mission; a
-generic failure is inconclusive. The first available error `file:line` is
+gate's terminal `FAIL status=compiler-error` plus an emitted source script error
+or compile-failure diagnostic, or `PASS status=initialized|timeout|mission-loaded-runtime-json`
+with the explicit zero-error Mission message. Missing/ambiguous verdicts,
+preparation-only output, prerequisites, crashes, other failure statuses and
+inconsistent exit codes stay unverified with a reason and an output tail. The first available error `file:line` is
 recorded for Workbench and native failures. A parent accepted by Workbench, a
 fix rejected by Workbench, or a native verdict differing from Workbench is a
-disagreement. An inconclusive or unsafe tool outcome stops further invocations.
+disagreement. Inconclusive outcomes are checkpointed and remaining sides/rows
+continue by default; `--stop-on-inconclusive` restores early stopping. The
+summary counts agree, disagree, inconclusive, incomplete (pending sides) and
+expected-only rows. Any inconclusive/incomplete evidence yields exit 2 even
+when other rows disagree.
+
+An exact prelaunch `blocked` / `Workbench process state: unknown` result retries
+the driver at most twice with a 0.5-second backoff (three state queries total).
+The driver returns this result before staging or launching Workbench. Running
+processes and all post-launch outcomes are never retried. Each WB receipt
+records `state_query_retries`; exhausted unknown queries remain inconclusive.
+
+Static override investigation (source evidence only): installed 1.30
+`3_Game/ObjectSpawner.c` declares `ObjectSpawnerHandler.SpawnObjects()` and
+`SpawnObject(ITEM_SpawnerObject)` static. Historical HC declarations were
+`static void`; current HC declarations use `override static`. The earlier triage
+quotes “Overriding function ... but not marked as 'override'”, but the historical
+calibration's raw diagnostic was not retained. A source location alone cannot
+prove this precise diagnostic or distinguish accompanying real failures. No
+known-divergence classifier is installed: those rows remain compile failures
+or inconclusive under the existing rules. Lead follow-up: retain the new tails
+on the historical parent/fix runs and correlate exact diagnostics with both
+source declarations before defining a narrow divergence rule. Never call such
+a divergence passed or suppress other errors in the same output.
 
 Exit 0 means all selected expectations matched (`expected_only` without
 `--gate`, `agree` with it); 1 means disagreement; 2 means refusal or incomplete

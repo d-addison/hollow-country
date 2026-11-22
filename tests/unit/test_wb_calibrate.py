@@ -63,6 +63,13 @@ class VerdictTests(unittest.TestCase):
         self.assertNotIn('secret', json.dumps(result))
         self.assertNotIn('12345678901234567', json.dumps(result))
 
+    def test_output_tail_redacts_json_escaped_windows_folder_and_identity_fields(self):
+        folder = 'C:' + chr(92) + 'Users' + chr(92) + 'PrivateAccount' + chr(92) + 'source.c'
+        tail = calib.output_tail(json.dumps({'file': folder, 'message': 'playerName=privateidentity'}))
+        self.assertNotIn('PrivateAccount', tail)
+        self.assertNotIn('privateidentity', tail)
+        self.assertNotIn('12345678901234567', calib.output_tail('account id=12345678901234567'))
+
     def test_invalid_or_inconsistent_workbench_report_is_not_a_verdict(self):
         for stdout, code in [('not json', 1), ('[]', 0),
                              ('{"status":"passed"}', 1), ('{"status":"unknown"}', 0)]:
@@ -74,7 +81,8 @@ class VerdictTests(unittest.TestCase):
                  'compile_gate: Can\'t compile World script module!\n'
                  'compile_gate: FAIL status=compiler-error')
         result = self.invoke('compile_gate', error, 1)
-        self.assertEqual(result, receipt('compile_failed', {'file': 'HollowCountry/scripts/4_World/bad.c', 'line': 8}))
+        self.assertEqual(result['status'], 'compile_failed')
+        self.assertEqual(result['first_error'], {'file': 'HollowCountry/scripts/4_World/bad.c', 'line': 8})
         for text in ('compile_gate: FAIL status=timeout', 'compile_gate: FAIL prerequisite missing',
                      'compile_gate: PREPARED ONLY; native compile NOT RUN', 'compile_gate: PASS status=timeout',
                      'compile_gate: script_error: SCRIPT (E): NULL pointer to instance\n'
@@ -83,6 +91,35 @@ class VerdictTests(unittest.TestCase):
         passed = ('compile_gate: Mission loaded with zero compile errors; runtime acceptance pending\n'
                   'compile_gate: PASS status=timeout')
         self.assertEqual(self.invoke('compile_gate', passed, 0)['status'], 'passed')
+
+    def test_native_gate_source_error_without_compile_banner(self):
+        text = ('compile_gate: script_error: SCRIPT (E): @"HollowCountry/scripts/3_Game/bad.c,9": Unknown type\n'
+                'compile_gate: Mission load not observed; compile completion unproven\n'
+                'compile_gate: FAIL status=compiler-error')
+        self.assertEqual(self.invoke('compile_gate', text, 1)['status'], 'compile_failed')
+        for status in ('timeout', 'engine-crash', 'exited-1', 'log-collection-incomplete', 'input-drift'):
+            result = self.invoke('compile_gate', 'compile_gate: FAIL status=' + status, 1)
+            self.assertEqual(result['status'], 'unverified')
+            self.assertEqual(result['reason'], 'gate_fail_' + status)
+
+    def test_unknown_prelaunch_state_retries_but_running_does_not(self):
+        def completed(status, reason=None):
+            return SimpleNamespace(stdout=json.dumps({'status': status, 'reason': reason}), stderr='',
+                                   returncode=0 if status == 'passed' else 2)
+        unknown = completed('blocked', 'Workbench process state: unknown')
+        with patch.object(calib.subprocess, 'run', side_effect=[unknown, unknown, completed('passed')]) as run, \
+                patch.object(calib.time, 'sleep'):
+            result = calib.invoke('wb_compile', 'fixture')
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['state_query_retries'], run.call_count - 1)
+        with patch.object(calib.subprocess, 'run', return_value=unknown) as run, patch.object(calib.time, 'sleep'):
+            result = calib.invoke('wb_compile', 'fixture')
+        self.assertEqual(result['status'], 'blocked')
+        self.assertEqual(result['state_query_retries'], run.call_count - 1)
+        self.assertLessEqual(run.call_count, 3)
+        with patch.object(calib.subprocess, 'run', return_value=completed('blocked', 'Workbench process state: running')) as run:
+            calib.invoke('wb_compile', 'fixture')
+        run.assert_called_once()
 
     def test_agreement_requires_real_native_evidence(self):
         row = {'wb_parent': receipt('compile_failed'), 'wb_fix': receipt('passed')}
@@ -163,12 +200,41 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(invoke.call_count, len(calib.CORPUS) * 2)
         self.assertEqual(self.read_report()['status'], 'disagree')
 
-    def test_inconclusive_stops_without_launching_another_native_tool(self):
+    def test_explicit_stop_on_inconclusive(self):
         for status in calib.WB_STATUSES - {'passed', 'compile_failed'}:
             with self.subTest(status=status), patch.object(calib, 'invoke', return_value=receipt(status)) as invoke:
-                self.assertEqual(calib.main(['--gate', '--out', str(self.out)]), 2)
+                self.assertEqual(calib.main(['--gate', '--stop-on-inconclusive', '--out', str(self.out)]), 2)
                 invoke.assert_called_once()
                 self.assertEqual(self.read_report()['status'], 'incomplete')
+
+    def test_inconclusive_continues_all_sides_and_rows(self):
+        with patch.object(calib, 'invoke', return_value=receipt('unverified')) as invoke:
+            self.assertEqual(calib.main(['--gate', '--out', str(self.out)]), 2)
+        report = self.read_report()
+        self.assertEqual(invoke.call_count, sum(3 for _ in report['entries']))
+        self.assertEqual(report['summary']['inconclusive'], len(report['entries']))
+        self.assertEqual(report['summary']['incomplete'], 0)
+        for row in report['entries']:
+            for side in ('wb_parent', 'wb_fix', 'native_parent'):
+                self.assertTrue((self.out / row[side]['output_log']).is_file())
+
+    def test_persists_redacted_bounded_tail_and_reference(self):
+        secret = '/home/' + 'privateaccount'
+        output = '\n'.join(['old'] * 250 + [secret + ' 12345678901234567'])
+        with patch.object(calib.subprocess, 'run', return_value=SimpleNamespace(
+                stdout=output, stderr='', returncode=1)):
+            result = calib.invoke('compile_gate', 'fixture')
+        self.assertLessEqual(len(result['output_tail'].splitlines()), 200)
+        self.assertNotIn(secret, result['output_tail'])
+        self.assertNotIn('12345678901234567', result['output_tail'])
+        with patch.object(calib, 'invoke', return_value=result):
+            calib.main(['--only', self.rows[0]['fix'], '--out', str(self.out)])
+        row = self.read_report()['entries'][0]
+        self.assertNotIn('output_tail', row['wb_parent'])
+        saved = (self.out / row['wb_parent']['output_log']).read_text()
+        self.assertNotIn(secret, saved)
+        self.assertNotIn('12345678901234567', saved)
+        self.assertTrue(saved.strip())
 
     def test_missing_install_unknown_selection_and_repo_output_refuse(self):
         with patch.object(calib, 'invoke') as invoke:
