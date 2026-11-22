@@ -7,6 +7,149 @@
 // Native scripts-1.30.164289: Global/Game.c:703/705 CreateObjectEx/ObjectDelete;
 // CE/CentralEconomy.c:9/17/28 ECE_SETUP/CREATEPHYSICS/KEEPHEIGHT;
 // Systems/Inventory/Inventory.c:876 CreateInInventory; Entities/Object.c:287 GetPosition.
+// Receipt files are written and read one native call per step, never in a loop or in a placement
+// call: HCEventReceiptOp stages one write (FileExist, OpenFile WRITE, FPrint, read-back) or one
+// DeleteFile; HCEventReceiptFiles holds the single-call read, the directory listing (names only) and
+// the directory-ensure steps. Direct immutable files, the same format and torn-file rules as the
+// reviewed WriteNew/Read primitives (no .tmp promotion): an interrupted write leaves at most one
+// short or empty file, which every reader already treats as torn. Native scripts-1.30.164289
+// 1_Core/proto/EnSystem.c: FileExist, OpenFile, ReadFile, CloseFile, FPrint, DeleteFile, FindFile.
+class HCEventReceiptOp
+{
+    static const int RESULT_PENDING = 0;
+    static const int RESULT_DONE = 1;
+    static const int RESULT_FAILED = -1;
+    // MODE_NEW: the name must not exist (checked first); MODE_FRESH: the caller already knows the
+    // name is absent (the directory image was loaded); MODE_REMOVE: one DeleteFile.
+    static const int MODE_NEW = 0;
+    static const int MODE_FRESH = 1;
+    static const int MODE_REMOVE = 2;
+    // ReadFile length for a receipt: one more than the longest receipt (400), so an oversize file reads
+    // as torn. A literal: the perf checker needs a constant ReadFile length.
+    static const int READ_LIMIT = 401;
+    static const int PHASE_EXISTS = 0;
+    static const int PHASE_OPEN = 1;
+    static const int PHASE_PRINT = 2;
+    static const int PHASE_VERIFY = 3;
+    string Name;
+    string Path;
+    string Text;
+    // Name of the earlier queued write that must have been verified before this op runs ("" = none).
+    string After;
+    int Mode;
+    int Phase;
+    int Result;
+    FileHandle Handle;
+
+    void HCBegin(string name, string path, string text, int mode, string after)
+    {
+        Name = name;
+        Path = path;
+        Text = text;
+        Mode = mode;
+        After = after;
+        Result = RESULT_PENDING;
+        Phase = PHASE_EXISTS;
+        if (mode == MODE_FRESH) { Phase = PHASE_OPEN; }
+    }
+    // Exactly one counted native file call per step.
+    int HCStepOp()
+    {
+        if (Result != RESULT_PENDING) { return Result; }
+        if (Mode == MODE_REMOVE)
+        {
+            Result = RESULT_FAILED;
+            if (DeleteFile(Path)) { Result = RESULT_DONE; }
+            return Result;
+        }
+        if (Phase == PHASE_EXISTS)
+        {
+            if (FileExist(Path)) { Result = RESULT_FAILED; return Result; }
+            Phase = PHASE_OPEN;
+            return RESULT_PENDING;
+        }
+        if (Phase == PHASE_OPEN)
+        {
+            Handle = OpenFile(Path, FileMode.WRITE);
+            if (!Handle) { Result = RESULT_FAILED; return Result; }
+            Phase = PHASE_PRINT;
+            return RESULT_PENDING;
+        }
+        if (Phase == PHASE_PRINT)
+        {
+            FPrint(Handle, Text);
+            CloseFile(Handle);
+            Handle = null;
+            Phase = PHASE_VERIFY;
+            return RESULT_PENDING;
+        }
+        string actual;
+        FileHandle reader = OpenFile(Path, FileMode.READ);
+        Result = RESULT_FAILED;
+        if (!reader) { return Result; }
+        int count = ReadFile(reader, actual, READ_LIMIT);
+        CloseFile(reader);
+        if (count == Text.Length() && actual == Text) { Result = RESULT_DONE; }
+        return Result;
+    }
+}
+class HCEventReceiptFiles
+{
+    // One OpenFile + ReadFile; "" = missing, empty, longer than limit or short-read (torn).
+    static string ReadText(string path, int limit)
+    {
+        string text;
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return ""; }
+        int count = ReadFile(handle, text, HCEventReceiptOp.READ_LIMIT);
+        CloseFile(handle);
+        if (count < 1 || text.Length() != count || count > limit) { return ""; }
+        return text;
+    }
+    // Names only (FindFile is not a read or write of any file): false when the directory holds more
+    // than cap entries. Sub-directories are not receipts and are skipped.
+    static bool List(string root, array<string> names, int cap)
+    {
+        string name;
+        FileAttr attributes;
+        FindFileHandle handle = FindFile(root + "/*", name, attributes, FindFileFlags.ALL);
+        if (!handle) { return true; }
+        bool more = name != "";
+        bool complete = true;
+        while (more)
+        {
+            if (name != "." && name != ".." && attributes != FileAttr.DIRECTORY)
+            {
+                if (names.Count() >= cap)
+                {
+                    complete = false;
+                    break;
+                }
+                names.Insert(name);
+            }
+            more = FindNextFile(handle, name, attributes);
+        }
+        CloseFindFile(handle);
+        return complete;
+    }
+    // One FileExist per call: 0..2 = the profile, Events and receipt directories (MakeDirectory
+    // when one is absent); returns the next stage, 3 = ready, -1 = a directory could not be made.
+    static int EnsureStep(int stage, string root)
+    {
+        if (stage == 0)
+        {
+            if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return -1; }
+            return 1;
+        }
+        if (stage == 1)
+        {
+            if (!FileExist("$profile:HollowCountry/Events") && !MakeDirectory("$profile:HollowCountry/Events")) { return -1; }
+            return 2;
+        }
+        if (!FileExist(root) && !MakeDirectory(root)) { return -1; }
+        return 3;
+    }
+}
 class HCEventPoliceRewardIO : HCEventRewardIO
 {
     void HCEventPoliceRewardIO()
@@ -100,6 +243,193 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     protected bool m_PruneLogged;
     protected bool m_ListLogged;
     static const int RECEIPT_LIMIT = 384;
+    // Directory image: every receipt file name and its text ("" = present but torn), loaded one file
+    // per tick by HCStepLedger (HCEventModule tick), then kept current by this ledger's own queued
+    // writes and removes. All decisions read this image; nothing in a placement call touches a file.
+    static const int LOAD_ENSURE = 0;
+    static const int LOAD_LIST = 1;
+    static const int LOAD_READ = 2;
+    static const int LOAD_READY = 3;
+    static const int LOAD_UNAVAILABLE = 4;
+    static const int LISTING_CAP = 48;
+    static const int QUEUE_KEEP = 32;
+    // A directory that cannot be made or listed is retried after this many seconds.
+    static const int LOAD_RETRY_SECONDS = 60;
+    protected ref map<string, string> m_Files = new map<string, string>;
+    protected ref array<string> m_Listed;
+    protected ref array<ref HCEventReceiptOp> m_Queue = new array<ref HCEventReceiptOp>;
+    // Per-site grant progress (CommitStep): 1 = .repair queued, 2 = .txt queued, 3 = granted.
+    protected ref map<string, int> m_CommitPhase = new map<string, int>;
+    protected int m_Load;
+    protected int m_LoadStage;
+    protected int m_ReadAt;
+    protected float m_RetryAt;
+
+    string HCRoot() { return "$profile:HollowCountry/Events/police-cache-stock"; }
+    bool HCLoaded() { return m_Load == LOAD_READY && !m_Fault; }
+    // Final for this process (a fault), or waiting for a retry of a failed directory step: callers
+    // fall back to stock only instead of waiting for the image.
+    bool HCUnavailable() { return m_Fault || !m_IO || m_Load == LOAD_UNAVAILABLE; }
+    // Memory only: true when HCStepLedger has a step to run (a directory load stage, a retry that is
+    // due, or a queued receipt write or remove).
+    bool HCWantsStep()
+    {
+        if (m_Fault || !m_IO) { return false; }
+        if (m_Load == LOAD_UNAVAILABLE) { return GetGame().GetTickTime() >= m_RetryAt; }
+        if (m_Load != LOAD_READY) { return true; }
+        return HCNextOp() != null;
+    }
+    bool HCHas(string name) { return m_Files.Contains(name); }
+    string HCText(string name)
+    {
+        string text;
+        m_Files.Find(name, text);
+        return text;
+    }
+    protected void HCLoadRefused(string reason)
+    {
+        m_Load = LOAD_UNAVAILABLE;
+        m_RetryAt = GetGame().GetTickTime() + LOAD_RETRY_SECONDS;
+        HCRefuse(reason);
+    }
+    // One staged step per call, driven every module tick: load the directory image (one native file
+    // call per call), then run the queued receipt writes and removes in order (one per call).
+    // Returns true when a counted file call ran.
+    bool HCStepLedger()
+    {
+        if (m_Fault || !m_IO) { return false; }
+        if (m_Load == LOAD_UNAVAILABLE)
+        {
+            if (GetGame().GetTickTime() >= m_RetryAt)
+            {
+                m_Load = LOAD_ENSURE;
+                m_LoadStage = 0;
+            }
+            return false;
+        }
+        if (m_Load == LOAD_ENSURE)
+        {
+            m_LoadStage = HCEventReceiptFiles.EnsureStep(m_LoadStage, HCRoot());
+            if (m_LoadStage < 0) { HCLoadRefused("state_directory_unavailable"); }
+            else if (m_LoadStage >= 3) { m_Load = LOAD_LIST; }
+            return true;
+        }
+        if (m_Load == LOAD_LIST)
+        {
+            m_Listed = new array<string>;
+            m_ReadAt = 0;
+            m_Load = LOAD_READ;
+            if (!HCEventReceiptFiles.List(HCRoot(), m_Listed, LISTING_CAP)) { HCLoadRefused("listing_unavailable"); }
+            return false;
+        }
+        if (m_Load == LOAD_READ)
+        {
+            if (m_ReadAt >= m_Listed.Count())
+            {
+                m_Load = LOAD_READY;
+                m_Listed = null;
+                return false;
+            }
+            string listed = m_Listed[m_ReadAt];
+            m_ReadAt++;
+            m_Files.Set(listed, HCEventReceiptFiles.ReadText(m_IO.HCPath(listed), RECEIPT_LIMIT));
+            return true;
+        }
+        return HCStepQueue();
+    }
+    // The latest queued op for a name (writes and removes), null when none is retained.
+    protected HCEventReceiptOp HCQueued(string name, bool remove)
+    {
+        for (int at = m_Queue.Count() - 1; at >= 0; at--)
+        {
+            HCEventReceiptOp queued = m_Queue[at];
+            if (queued.Name == name && (queued.Mode == HCEventReceiptOp.MODE_REMOVE) == remove) { return queued; }
+        }
+        return null;
+    }
+    // RESULT_PENDING / RESULT_DONE / RESULT_FAILED of the receipt write for a name. A name with no
+    // retained write is DONE when the image holds it (a finished, since trimmed write) else FAILED.
+    int HCWriteState(string name)
+    {
+        HCEventReceiptOp queued = HCQueued(name, false);
+        if (queued) { return queued.Result; }
+        if (m_Files.Contains(name)) { return HCEventReceiptOp.RESULT_DONE; }
+        return HCEventReceiptOp.RESULT_FAILED;
+    }
+    // Queues one immutable receipt; memory only. Asking again for a name this ledger queued returns
+    // that write's state. A name that is already in the image (any earlier file, torn or not) or text
+    // over the limit is refused exactly as the old write-new primitive refused it.
+    protected int HCPut(string name, string text, int limit, string after)
+    {
+        HCEventReceiptOp queued = HCQueued(name, false);
+        if (queued) { return queued.Result; }
+        if (!HCLoaded() || m_Files.Contains(name) || text.Length() < 1 || text.Length() > limit) { return HCEventReceiptOp.RESULT_FAILED; }
+        HCEventReceiptOp op = new HCEventReceiptOp;
+        op.HCBegin(name, m_IO.HCPath(name), text, HCEventReceiptOp.MODE_FRESH, after);
+        m_Queue.Insert(op);
+        return HCEventReceiptOp.RESULT_PENDING;
+    }
+    // Best-effort delete of one receipt, queued behind the write named in after; a persistent
+    // failure is logged once per process.
+    protected void HCPrune(string name, string after)
+    {
+        if (!HCHas(name) || HCQueued(name, true)) { return; }
+        HCEventReceiptOp op = new HCEventReceiptOp;
+        op.HCBegin(name, m_IO.HCPath(name), "", HCEventReceiptOp.MODE_REMOVE, after);
+        m_Queue.Insert(op);
+    }
+    protected void HCFailQueue()
+    {
+        foreach (HCEventReceiptOp queued : m_Queue)
+        {
+            if (queued.Result == HCEventReceiptOp.RESULT_PENDING) { queued.Result = HCEventReceiptOp.RESULT_FAILED; }
+        }
+    }
+    protected HCEventReceiptOp HCNextOp()
+    {
+        foreach (HCEventReceiptOp queued : m_Queue)
+        {
+            if (queued.Result == HCEventReceiptOp.RESULT_PENDING) { return queued; }
+        }
+        return null;
+    }
+    protected bool HCStepQueue()
+    {
+        HCEventReceiptOp op = HCNextOp();
+        if (!op)
+        {
+            while (m_Queue.Count() > QUEUE_KEEP && m_Queue[0].Result != HCEventReceiptOp.RESULT_PENDING) { m_Queue.RemoveOrdered(0); }
+            return false;
+        }
+        if (op.After != "" && HCWriteState(op.After) != HCEventReceiptOp.RESULT_DONE)
+        {
+            // The write this one follows never became durable: it must not run (no delete before its
+            // replacement exists).
+            op.Result = HCEventReceiptOp.RESULT_FAILED;
+            return false;
+        }
+        int result = op.HCStepOp();
+        if (result == HCEventReceiptOp.RESULT_PENDING) { return true; }
+        if (result == HCEventReceiptOp.RESULT_DONE)
+        {
+            if (op.Mode == HCEventReceiptOp.MODE_REMOVE) { m_Files.Remove(op.Name); }
+            else { m_Files.Set(op.Name, op.Text); }
+            return true;
+        }
+        if (op.Mode == HCEventReceiptOp.MODE_REMOVE)
+        {
+            if (!m_PruneLogged)
+            {
+                m_PruneLogged = true;
+                Print("[HC Police] action=receipt_prune_failed reason=delete_refused file=" + op.Name);
+            }
+            return true;
+        }
+        // A receipt that did not verify: nothing that depends on it may run, nothing new is granted.
+        Fault();
+        HCFailQueue();
+        return true;
+    }
 
     // A positive barrel observation may refuse early; absence requires a completed scan.
     void HCRepairOrphan(string siteId, bool barrelPresent)
@@ -108,9 +438,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         // A barrel seen by any later scan revokes eligibility granted by an earlier empty scan.
         int pending = m_RepairPending.Find(siteId);
         if (barrelPresent && pending >= 0) { m_RepairPending.Remove(pending); }
-        if (m_RepairChecked.Find(siteId) >= 0 || !m_IO || m_Fault || !m_IO.Ensure()) { return; }
+        if (m_RepairChecked.Find(siteId) >= 0 || !HCLoaded()) { return; }
         m_RepairChecked.Insert(siteId);
-        if (m_Granted.Find(siteId) >= 0 || !m_IO.Exists(siteId + ".txt") || m_IO.Exists(siteId + ".pos") || m_IO.Exists(siteId + ".repair")) { return; }
+        if (m_Granted.Find(siteId) >= 0 || !HCHas(siteId + ".txt") || HCHas(siteId + ".pos") || HCHas(siteId + ".repair")) { return; }
         if (barrelPresent)
         {
             Print("[HC Events] police grant orphan kept; " + siteId + "; reason=barrel_present runtime=PENDING");
@@ -119,50 +449,94 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         m_RepairPending.Insert(siteId);
     }
 
-    override HCEventRewardPlan Commit(string siteId)
+    // The site's one grant, spent durably BEFORE any native creation (the marker is the spend).
+    // Memory decisions plus queued writes, advanced one call at a time: RESULT_DONE = granted (plan
+    // set; the caller creates now), RESULT_PENDING = a marker is still being written (call again),
+    // RESULT_FAILED = refused (Refusal() says why). A faulted or unverified marker never grants and
+    // the grant stays spent for the process (m_Granted), so a retry cannot create twice.
+    int HCCommitStep(string siteId, out HCEventRewardPlan plan)
     {
+        plan = null;
         m_Refusal = "police_cache_site_invalid";
-        if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return null; }
+        if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return HCEventReceiptOp.RESULT_FAILED; }
         m_Refusal = "police_cache_journal_unavailable";
-        if (!m_IO || m_Fault || !m_IO.Ensure()) { return null; }
+        if (HCUnavailable()) { return HCEventReceiptOp.RESULT_FAILED; }
+        m_Refusal = "police_work_budget";
+        if (!HCLoaded()) { return HCEventReceiptOp.RESULT_PENDING; }
         string name = siteId + ".txt";
+        string repairName = siteId + ".repair";
+        int phase = 0;
+        m_CommitPhase.Find(siteId, phase);
+        if (phase == 1)
+        {
+            int repairState = HCWriteState(repairName);
+            if (repairState == HCEventReceiptOp.RESULT_PENDING) { return repairState; }
+            m_CommitPhase.Set(siteId, 3);
+            m_Refusal = "police_cache_journal_fault";
+            if (repairState != HCEventReceiptOp.RESULT_DONE) { return HCEventReceiptOp.RESULT_FAILED; }
+            Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
+            m_Granted.Insert(siteId);
+            m_Refusal = "";
+            plan = HCFreshPlan(siteId);
+            return HCEventReceiptOp.RESULT_DONE;
+        }
+        if (phase == 2)
+        {
+            int spendState = HCWriteState(name);
+            if (spendState == HCEventReceiptOp.RESULT_PENDING) { return spendState; }
+            m_CommitPhase.Set(siteId, 3);
+            m_Refusal = "police_cache_journal_fault";
+            if (spendState != HCEventReceiptOp.RESULT_DONE) { return HCEventReceiptOp.RESULT_FAILED; }
+            m_Refusal = "";
+            plan = HCFreshPlan(siteId);
+            return HCEventReceiptOp.RESULT_DONE;
+        }
         // These are site spends, not leases owned by a live event. Never release
         // them on event expiry: native cargo may still exist outside this scan.
         m_Refusal = "police_cache_grant_spent";
-        if (m_Granted.Find(siteId) >= 0) { return null; }
+        if (phase == 3 || m_Granted.Find(siteId) >= 0) { return HCEventReceiptOp.RESULT_FAILED; }
         m_Refusal = "police_cache_position_recorded";
-        if (m_IO.Exists(siteId + ".pos")) { return null; }
+        if (HCHas(siteId + ".pos")) { return HCEventReceiptOp.RESULT_FAILED; }
         int repair = m_RepairPending.Find(siteId);
         if (repair < 0)
         {
             m_Refusal = "police_cache_repair_spent";
-            if (m_IO.Exists(siteId + ".repair")) { return null; }
+            if (HCHas(repairName)) { return HCEventReceiptOp.RESULT_FAILED; }
             m_Refusal = "police_cache_grant_spent";
-            if (m_IO.Exists(name)) { return null; }
+            if (HCHas(name)) { return HCEventReceiptOp.RESULT_FAILED; }
         }
         m_Refusal = "police_cache_journal_fault";
         if (repair >= 0)
         {
             m_RepairPending.Remove(repair);
             // The marker is the spend: it is durable before any native creation.
-            if (m_IO.Exists(siteId + ".repair")) { m_Refusal = "police_cache_repair_spent"; return null; }
-            if (!m_IO.WriteNew(siteId + ".repair", "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128)) { Fault(); return null; }
-            Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
+            if (HCHas(repairName)) { m_Refusal = "police_cache_repair_spent"; return HCEventReceiptOp.RESULT_FAILED; }
+            if (HCPut(repairName, "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return HCEventReceiptOp.RESULT_FAILED; }
+            m_CommitPhase.Set(siteId, 1);
+            m_Refusal = "police_work_budget";
+            return HCEventReceiptOp.RESULT_PENDING;
         }
-        m_Granted.Insert(siteId);
-        HCEventRewardPlan plan = HCFreshPlan(siteId);
         // A repair consumes its marker-backed allowance without rewriting the spent .txt.
-        if (repair < 0 && !m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
-        m_Refusal = "";
-        return plan;
+        m_Granted.Insert(siteId);
+        if (HCPut(name, "HC-POLICE-STOCK v1 " + siteId, 128, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return HCEventReceiptOp.RESULT_FAILED; }
+        m_CommitPhase.Set(siteId, 2);
+        m_Refusal = "police_work_budget";
+        return HCEventReceiptOp.RESULT_PENDING;
+    }
+    // The base grant primitive is not used for the police site spend (HCCommitStep).
+    override HCEventRewardPlan Commit(string siteId)
+    {
+        m_Refusal = "police_cache_use_commit_step";
+        return null;
     }
 
     // Ownership lives in this ledger, never in entity storage: extending Barrel_Green
     // OnStoreSave broke every persisted barrel ("Scripted variables corrupted", 103 boot).
+    // Queued behind the other receipt writes; false when it could not be queued.
     bool RecordCache(string siteId, vector position)
     {
-        if (!m_IO || m_Fault) { return false; }
-        return m_IO.WriteNew(siteId + ".pos", position.ToString(false), 96);
+        if (m_Fault) { return false; }
+        return HCPut(siteId + ".pos", position.ToString(false), 96, "") != HCEventReceiptOp.RESULT_FAILED;
     }
 
     // The one stock table: first creation, refill and replacement all use it.
@@ -184,7 +558,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     {
         position = vector.Zero;
         if (!HCSiteValid(siteId)) { return false; }
-        if (!m_IO || m_Fault || !m_IO.Ensure() || !m_IO.Exists(siteId + ".txt")) { return false; }
+        if (!HCLoaded() || !HCHas(siteId + ".txt")) { return false; }
         return CachePosition(siteId, position);
     }
     protected int HCEpochOf(string siteId, string name, string kind)
@@ -215,8 +589,8 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // null = unreadable or torn: exactly 11 base tokens plus whole id / prev / adopt groups.
     protected HCPoliceReceipt HCReadReceipt(string name, string tag, int generation)
     {
-        if (!m_IO.Exists(name)) { return null; }
-        string text = m_IO.Read(name, RECEIPT_LIMIT);
+        if (!HCHas(name)) { return null; }
+        string text = HCText(name);
         if (text == "") { return null; }
         array<string> tokens = new array<string>;
         text.Split(" ", tokens);
@@ -263,14 +637,6 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (receipt.Adopt && receipt.Id == "") { return null; }
         if (receipt.Utc < 1) { return null; }
         return receipt;
-    }
-    // Best-effort delete of one receipt; a persistent failure is logged once per process.
-    protected void HCPrune(string name)
-    {
-        if (!m_IO.Exists(name)) { return; }
-        if (m_IO.Remove(name) || m_PruneLogged) { return; }
-        m_PruneLogged = true;
-        Print("[HC Police] action=receipt_prune_failed reason=delete_refused file=" + name);
     }
     // Identity an open generation works on. refill: its own id group; an id-less refill keeps no id
     // (never the completed state's: that id may belong to an older generation's barrel) and only the
@@ -327,20 +693,21 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // caller re-arms durably.
     HCPoliceGeneration HCGeneration(string siteId)
     {
-        if (!HCSiteValid(siteId) || !m_IO || m_Fault) { return null; }
+        if (!HCSiteValid(siteId) || m_Fault) { return null; }
         HCPoliceGeneration state;
         if (m_Generations.Find(siteId, state)) { return state; }
-        // Bounded directory listing (27 files, no sub-directories); null = unavailable.
-        array<string> names = m_IO.Names();
-        if (!names)
+        // The loaded directory image (bounded at LISTING_CAP files, no sub-directories); null =
+        // unavailable (stock only) or not loaded yet.
+        if (!HCLoaded())
         {
-            if (!m_ListLogged)
+            if (HCUnavailable() && !m_ListLogged)
             {
                 m_ListLogged = true;
                 Print("[HC Police] site=" + siteId + " action=receipt_unreadable reason=listing_unavailable_stock_only");
             }
             return null;
         }
+        array<string> names = m_Files.GetKeyArray();
         state = new HCPoliceGeneration;
         int genMax = 0;
         int okMax = 0;
@@ -441,11 +808,11 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         foreach (string stale : names)
         {
             int staleGen = HCEpochOf(siteId, stale, "gen-");
-            if (staleGen > 0 && state.Ok > 0 && (staleGen < state.Ok || (staleGen == state.Ok && okReadable))) { HCPrune(stale); }
+            if (staleGen > 0 && state.Ok > 0 && (staleGen < state.Ok || (staleGen == state.Ok && okReadable))) { HCPrune(stale, ""); }
             int staleOk = HCEpochOf(siteId, stale, "ok-");
-            if (staleOk > 0 && staleOk < state.Ok) { HCPrune(stale); }
+            if (staleOk > 0 && staleOk < state.Ok) { HCPrune(stale, ""); }
             int staleBar = HCEpochOf(siteId, stale, "bar-");
-            if (staleBar > 0 && (staleBar < state.Ok || (staleBar == state.Ok && okReadable))) { HCPrune(stale); }
+            if (staleBar > 0 && (staleBar < state.Ok || (staleBar == state.Ok && okReadable))) { HCPrune(stale, ""); }
         }
         m_Generations.Insert(siteId, state);
         return state;
@@ -471,10 +838,10 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // ("" = unknown); utc is the anchor to record.
     bool HCEpochMark(string siteId, HCPoliceGeneration state, int utc, string kind, string barrelId, string prevId, bool adopt)
     {
-        if (!m_IO || m_Fault || utc < 1 || state.Num >= 1000000000) { return false; }
+        if (!HCLoaded() || utc < 1 || state.Num >= 1000000000) { return false; }
         int next = state.Num + 1;
         string text = "HC-POLICE-OK v1 " + siteId + " gen " + next.ToString() + " utc " + utc.ToString() + " kind " + kind + " items 0" + HCIdentityText(barrelId, prevId, adopt);
-        if (!m_IO.WriteNew(siteId + ".ok-" + next.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
+        if (HCPut(siteId + ".ok-" + next.ToString(), text, RECEIPT_LIMIT, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return false; }
         state.Num = next;
         state.Ok = next;
         state.Gen = next;
@@ -492,7 +859,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // replace/recreate record it as prev when it is a deletable (not adopted) barrel.
     bool HCEpochBegin(string siteId, HCPoliceGeneration state, int now, string kind, int items, string carryId, string carryPrev, bool carryAdopt)
     {
-        if (!m_IO || m_Fault || now < 1 || items < 1 || state.Num >= 1000000000) { return false; }
+        if (!HCLoaded() || now < 1 || items < 1 || state.Num >= 1000000000) { return false; }
         int next = state.Num + 1;
         string newId = "";
         string newPrev = "";
@@ -509,7 +876,8 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             else if (!carryAdopt) { newPrev = carryId; }
         }
         string text = "HC-POLICE-GEN v1 " + siteId + " gen " + next.ToString() + " utc " + now.ToString() + " kind " + kind + " items " + items.ToString() + HCIdentityText(newId, newPrev, newAdopt);
-        if (!m_IO.WriteNew(siteId + ".gen-" + next.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
+        string genName = siteId + ".gen-" + next.ToString();
+        if (HCPut(genName, text, RECEIPT_LIMIT, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return false; }
         int prior = state.Gen;
         bool priorIncomplete = state.Gen > state.Ok;
         state.Num = next;
@@ -522,8 +890,8 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         state.GenAdopt = newAdopt;
         if (priorIncomplete)
         {
-            HCPrune(siteId + ".gen-" + prior.ToString());
-            HCPrune(siteId + ".bar-" + prior.ToString());
+            HCPrune(siteId + ".gen-" + prior.ToString(), genName);
+            HCPrune(siteId + ".bar-" + prior.ToString(), genName);
         }
         return true;
     }
@@ -531,9 +899,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // so a crash mid-fill leaves a barrel the next boot can recognise as its own. Carries prev.
     bool HCEpochBarrel(string siteId, HCPoliceGeneration state, int now, string barrelId)
     {
-        if (!m_IO || m_Fault || state.Gen <= state.Ok || barrelId == "") { return false; }
+        if (!HCLoaded() || state.Gen <= state.Ok || barrelId == "") { return false; }
         string text = "HC-POLICE-BAR v1 " + siteId + " gen " + state.Gen.ToString() + " utc " + now.ToString() + " kind " + state.GenKind + " items 0" + HCIdentityText(barrelId, state.GenPrev, false);
-        if (!m_IO.WriteNew(siteId + ".bar-" + state.Gen.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
+        if (HCPut(siteId + ".bar-" + state.Gen.ToString(), text, RECEIPT_LIMIT, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return false; }
         state.GenId = barrelId;
         state.GenAdopt = false;
         return true;
@@ -542,29 +910,30 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // exact barrel identity of the generation ("" = unknown), its prev and the adopt flag.
     bool HCEpochComplete(string siteId, HCPoliceGeneration state, string kind, int now, string barrelId, bool adopt)
     {
-        if (!m_IO || m_Fault || state.Gen <= state.Ok) { return false; }
+        if (!HCLoaded() || state.Gen <= state.Ok) { return false; }
         int generation = state.Gen;
         int utc = state.GenUtc;
         if (utc < 1) { utc = now; }
         int items = state.GenItems;
         string prevId = state.GenPrev;
         string text = "HC-POLICE-OK v1 " + siteId + " gen " + generation.ToString() + " utc " + utc.ToString() + " kind " + kind + " items " + items.ToString() + HCIdentityText(barrelId, prevId, adopt);
-        if (!m_IO.WriteNew(siteId + ".ok-" + generation.ToString(), text, RECEIPT_LIMIT)) { Fault(); return false; }
+        string okName = siteId + ".ok-" + generation.ToString();
+        if (HCPut(okName, text, RECEIPT_LIMIT, "") == HCEventReceiptOp.RESULT_FAILED) { Fault(); return false; }
         int priorOk = state.Ok;
         state.Ok = generation;
         state.OkUtc = utc;
         state.Id = barrelId;
         state.Prev = prevId;
         state.Adopt = adopt && barrelId != "";
-        HCPrune(siteId + ".gen-" + generation.ToString());
-        HCPrune(siteId + ".bar-" + generation.ToString());
-        if (priorOk > 0) { HCPrune(siteId + ".ok-" + priorOk.ToString()); }
+        HCPrune(siteId + ".gen-" + generation.ToString(), okName);
+        HCPrune(siteId + ".bar-" + generation.ToString(), okName);
+        if (priorOk > 0) { HCPrune(siteId + ".ok-" + priorOk.ToString(), okName); }
         return true;
     }
     // True when the recorded position file exists but is unreadable or zero (torn).
     bool HCPositionTorn(string siteId)
     {
-        if (!m_IO || m_Fault || !m_IO.Exists(siteId + ".pos")) { return false; }
+        if (!HCLoaded() || !HCHas(siteId + ".pos")) { return false; }
         vector ignored;
         return !CachePosition(siteId, ignored);
     }
@@ -572,9 +941,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     bool CachePosition(string siteId, out vector position)
     {
         position = vector.Zero;
-        if (!m_IO || m_Fault || !m_IO.Exists(siteId + ".pos")) { return false; }
-        string text = m_IO.Read(siteId + ".pos", 96);
-        if (text == "") { return false; }
+        if (!HCLoaded() || !HCHas(siteId + ".pos")) { return false; }
+        string text = HCText(siteId + ".pos");
+        if (text == "" || text.Length() > 96) { return false; }
         text.Trim();
         position = text.ToVector();
         return position != vector.Zero;
@@ -661,6 +1030,35 @@ class HCEventCacheFillSite
     int PassUtc;
     // Newest completed fill (items > 0) of this site: the min-spacing anchor.
     int LastUtc;
+    // The batch being read: names listed past Cursor, how many were read, how many were pruned, the
+    // receipt chosen for pruning (removed on the next step) and whether the listing ended.
+    ref array<string> Batch;
+    int BatchAt;
+    int Removed;
+    string PruneName;
+    bool Listed;
+    bool Ended;
+}
+// One scene cache case being filled. The job advances one native file call per HCEventCacheFill.HCStepFill
+// (driven every module tick); the observer probe (Step) only creates it, re-arms it and harvests the result.
+class HCEventCacheFillJob
+{
+    string SiteId;
+    string Id;
+    string Key;
+    string DoneKey;
+    string OkName;
+    string IntName;
+    ItemBase Item;
+    int Phase;
+    int Held;
+    int Created;
+    int Granted;
+    int AfterWrite;
+    int Utc;
+    bool IntentOpen;
+    bool Resolved;
+    ref HCEventReceiptOp Write;
 }
 class HCEventCacheFill
 {
@@ -676,6 +1074,21 @@ class HCEventCacheFill
     static const float CASE_RADIUS = 2;
     static const int SAY_PAIR_LIMIT = 8;
     static const int TRACK_LIMIT = 16;
+    static const int ENSURE_RETRY_SECONDS = 60;
+    // Job phases. Each HCStepFill call runs the current phase: a phase either makes one file call or
+    // is memory/world work only (then the next phase runs on the next call).
+    static const int PHASE_OK = 0;
+    static const int PHASE_SCAN = 1;
+    static const int PHASE_INTENT = 2;
+    static const int PHASE_DECIDE = 3;
+    static const int PHASE_ADOPT_READ = 4;
+    static const int PHASE_WRITE = 5;
+    static const int PHASE_CREATE = 6;
+    static const int PHASE_PARKED = 7;
+    static const int PHASE_DONE = 8;
+    static const int WRITE_INTENT = 1;
+    static const int WRITE_OK = 2;
+    static const int WRITE_ADOPT = 3;
     protected static ref HCEventCacheFillIO s_IO;
     protected static ref map<string, ref HCEventCacheFillSite> s_Sites = new map<string, ref HCEventCacheFillSite>;
     protected static ref array<string> s_Done = new array<string>;
@@ -686,10 +1099,13 @@ class HCEventCacheFill
     protected static ref array<string> s_Logged = new array<string>;
     protected static ref map<string, int> s_PairShown = new map<string, int>;
     protected static ref array<string> s_BindLogged = new array<string>;
+    protected static ref array<ref HCEventCacheFillJob> s_Jobs = new array<ref HCEventCacheFillJob>;
     protected static int s_Dropped;
     protected static bool s_Fault;
-    protected static bool s_JournalReady;
-    protected static float s_FillStamp = -1;
+    // Receipt directory ensure: 0..2 stages, 3 = ready, -1 = refused (retried after ENSURE_RETRY_SECONDS).
+    protected static int s_EnsureStage;
+    protected static float s_EnsureRetryAt;
+    protected static int s_JobCursor;
 
     // "" = zero id (not yet assigned or unreadable): never fill.
     static string CacheId(ItemBase item)
@@ -802,24 +1218,11 @@ class HCEventCacheFill
         int at = s_Intents.Find(doneKey);
         if (at >= 0) { s_Intents.RemoveOrdered(at); }
     }
-    protected static bool Journal()
-    {
-        if (s_Fault)
-        {
-            s_JournalReady = false;
-            return false;
-        }
-        if (s_JournalReady) { return true; }
-        if (!s_IO) { s_IO = new HCEventCacheFillIO; }
-        s_JournalReady = s_IO.Ensure();
-        return s_JournalReady;
-    }
     // 12 tokens: tag v1 site id a b c d utc U items N. Anything else is torn.
-    protected static bool ReadReceipt(string name, string tag, string siteId, out int utc, out int items)
+    protected static bool ParseReceipt(string text, string tag, string siteId, out int utc, out int items)
     {
         utc = 0;
         items = 0;
-        string text = s_IO.Read(name, RECEIPT_LIMIT);
         if (text == "") { return false; }
         array<string> tokens = new array<string>;
         text.Split(" ", tokens);
@@ -829,10 +1232,15 @@ class HCEventCacheFill
         items = tokens[11].ToInt();
         return utc > 0 && items >= 0;
     }
-    protected static bool WriteReceipt(string name, string tag, string siteId, string id, int utc, int items)
+    protected static string ReceiptText(string tag, string siteId, string id, int utc, int items)
     {
-        string text = tag + " v1 " + siteId + " id " + id + " utc " + utc.ToString() + " items " + items.ToString();
-        return s_IO.WriteNew(name, text, RECEIPT_LIMIT);
+        return tag + " v1 " + siteId + " id " + id + " utc " + utc.ToString() + " items " + items.ToString();
+    }
+    protected static HCEventReceiptOp BeginReceipt(string name, string text)
+    {
+        HCEventReceiptOp op = new HCEventReceiptOp;
+        op.HCBegin(name, s_IO.HCPath(name), text, HCEventReceiptOp.MODE_NEW, "");
+        return op;
     }
     // Names only, no file is opened: the receipt names (.ok / .int) after the first `skip`
     // of them, at most SCAN_STEP. True when the directory ended (or ENUM_LIMIT entries were walked).
@@ -864,50 +1272,53 @@ class HCEventCacheFill
         CloseFindFile(handle);
         return ended;
     }
-    // At most SCAN_STEP receipts are opened per call. The newest completed fill becomes the
-    // min-spacing anchor, and receipts older than RECEIPT_RETENTION_SECONDS (never the current
-    // identity) are pruned, at most PRUNE_LIMIT per call. Returns true once a pass over the whole
-    // directory has finished (a later pass runs in the background of the fill, never blocking it).
-    protected static bool ScanStep(string siteId, string keepKey, int now, HCEventCacheFillSite site)
+    protected static HCEventCacheFillSite SiteOf(string siteId)
     {
-        if (!site.Scanning)
+        HCEventCacheFillSite site;
+        if (!s_Sites.Find(siteId, site))
         {
-            if (site.Loaded && now - site.PassUtc < RECEIPT_RETENTION_SECONDS) { return true; }
-            site.Scanning = true;
-            site.Cursor = 0;
+            site = new HCEventCacheFillSite;
+            s_Sites.Set(siteId, site);
         }
-        array<string> batch = new array<string>;
-        bool ended = ListStep(siteId, site.Cursor, batch);
-        string keepOk = siteId + "." + keepKey + ".ok";
-        string keepInt = siteId + "." + keepKey + ".int";
-        int removed = 0;
-        foreach (string name : batch)
+        return site;
+    }
+    protected static HCEventCacheFillJob JobOf(string doneKey)
+    {
+        foreach (HCEventCacheFillJob job : s_Jobs)
         {
-            bool isOk = HasSuffix(name, ".ok");
-            string tag = "HC-CACHEFILL-INT";
-            if (isOk) { tag = "HC-CACHEFILL-OK"; }
-            int utc;
-            int items;
-            if (!ReadReceipt(name, tag, siteId, utc, items)) { continue; }
-            if (isOk && items > 0 && utc > site.LastUtc) { site.LastUtc = utc; }
-            if (removed < PRUNE_LIMIT && name != keepOk && name != keepInt && utc < now - RECEIPT_RETENTION_SECONDS)
+            if (job.DoneKey == doneKey) { return job; }
+        }
+        return null;
+    }
+    // A finished job nobody harvested (its mission ended first) is forgotten, oldest first.
+    protected static void DropResolved()
+    {
+        foreach (HCEventCacheFillJob finished : s_Jobs)
+        {
+            if (finished.Resolved)
             {
-                if (s_IO.Remove(name)) { removed++; }
+                s_Jobs.RemoveItem(finished);
+                return;
             }
         }
-        // A removed name no longer counts as already read.
-        site.Cursor = site.Cursor + batch.Count() - removed;
-        if (ended)
-        {
-            site.Scanning = false;
-            site.Loaded = true;
-            site.PassUtc = now;
-        }
-        return site.Loaded;
     }
-    // One bounded step for the case bound to a scene cache mission. Returns true when this case is
-    // resolved (filled, adopted, already done, skipped or refused for good) and need not be probed
-    // again; false when a later probe may still fill it. granted = items created by this call.
+    protected static void Resolve(HCEventCacheFillJob job)
+    {
+        job.Resolved = true;
+        job.Phase = PHASE_DONE;
+        job.Write = null;
+    }
+    // Final without a fill (refused for good).
+    protected static void Close(HCEventCacheFillJob job, string reason)
+    {
+        Refuse(job.SiteId, reason);
+        Resolve(job);
+    }
+    // One bounded probe for the case bound to a scene cache mission (called by the observer every 30 s
+    // while the fill is unresolved). Memory only: it creates the fill job, re-arms a waiting one and
+    // returns its result. True when this case is resolved (filled, adopted, already done, skipped or
+    // refused for good) and need not be probed again; false while the job or a later probe may still fill it.
+    // granted = items created by the job, reported once when it is harvested.
     static bool Step(HCEventMission mission, ItemBase item, out int granted)
     {
         granted = 0;
@@ -925,77 +1336,178 @@ class HCEventCacheFill
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         int now = HCInfectedClock.UtcSeconds();
         if (!policy || now < 1) { return Wait(siteId, "clock_or_policy_unavailable"); }
-        if (!Journal()) { return Refuse(siteId, "journal_unavailable"); }
+        if (s_Fault) { return Refuse(siteId, "journal_unavailable"); }
         if (id == "") { return Wait(siteId, "id_unreadable"); }
         string key = KeyOf(id);
         string doneKey = siteId + "|" + key;
-        if (s_Done.Find(doneKey) >= 0) { return true; }
-        string okName = siteId + "." + key + ".ok";
-        string intName = siteId + "." + key + ".int";
-        if (s_IO.Exists(okName))
+        HCEventCacheFillJob job = JobOf(doneKey);
+        if (job)
         {
-            MarkDone(doneKey);
-            return true;
+            if (job.Resolved)
+            {
+                granted = job.Granted;
+                s_Jobs.RemoveItem(job);
+                return true;
+            }
+            // A waiting job decides again (spacing, players, budget) on its next step.
+            job.Item = item;
+            if (job.Phase == PHASE_PARKED) { job.Phase = PHASE_DECIDE; }
+            return false;
         }
+        if (s_Done.Find(doneKey) >= 0) { return true; }
         CargoBase cargo = null;
         if (item.GetInventory()) { cargo = item.GetInventory().GetCargo(); }
         if (!cargo) { return Refuse(siteId, "no_cargo"); }
-        int held = cargo.GetItemCount();
-        HCEventCacheFillSite site;
-        if (!s_Sites.Find(siteId, site))
+        if (s_Jobs.Count() >= TRACK_LIMIT) { DropResolved(); }
+        if (s_Jobs.Count() >= TRACK_LIMIT) { return Wait(siteId, "fill_queue_full"); }
+        job = new HCEventCacheFillJob;
+        job.SiteId = siteId;
+        job.Id = id;
+        job.Key = key;
+        job.DoneKey = doneKey;
+        job.OkName = siteId + "." + key + ".ok";
+        job.IntName = siteId + "." + key + ".int";
+        job.Item = item;
+        job.Phase = PHASE_OK;
+        s_Jobs.Insert(job);
+        return Wait(siteId, "receipt_check_pending");
+    }
+    // One staged step per call (HCEventModule tick): advances ONE fill job by ONE phase. A phase makes
+    // at most one native file call (the receipt checks, one directory read or prune, one write stage)
+    // or does only memory/world work. Returns true when a counted file call ran.
+    static bool HCStepFill()
+    {
+        if (s_Jobs.Count() < 1 || s_Fault) { return false; }
+        if (!s_IO) { s_IO = new HCEventCacheFillIO; }
+        if (s_EnsureStage < 0)
         {
-            site = new HCEventCacheFillSite;
-            s_Sites.Set(siteId, site);
-        }
-        if (!ScanStep(siteId, key, now, site)) { return Wait(siteId, "scan_pending"); }
-        bool intentOpen = s_IO.Exists(intName);
-        bool ownIntent = s_Intents.Find(doneKey) >= 0;
-        if (intentOpen && (held > 0 || !ownIntent))
-        {
-            // Intent without ok: with items present the fill happened and only the ok was lost; from an
-            // earlier process nothing proves the case is still ours to fill, so it counts as done.
-            int intentUtc;
-            int intentItems;
-            if (!ReadReceipt(intName, "HC-CACHEFILL-INT", siteId, intentUtc, intentItems)) { intentUtc = now; }
-            if (!WriteReceipt(okName, "HC-CACHEFILL-OK", siteId, id, intentUtc, held))
-            {
-                s_Fault = true;
-                return Refuse(siteId, "receipt_write_failed");
-            }
-            MarkDone(doneKey);
-            ForgetIntent(doneKey);
-            if (held > 0 && intentUtc > site.LastUtc) { site.LastUtc = intentUtc; }
-            Print("[HC Events] scene cache fill; " + siteId + "; action=adopted; items=" + held.ToString() + "; id=" + key + " runtime=PENDING");
-            return true;
-        }
-        if (!intentOpen && held > 0)
-        {
-            // Never touch a case that already holds anything (a player's items).
-            Say(siteId, "skip_nonempty", "case_not_empty");
+            if (GetGame().GetTickTime() >= s_EnsureRetryAt) { s_EnsureStage = 0; }
             return false;
         }
-        int attempts = 0;
-        s_Attempts.Find(doneKey, attempts);
-        if (attempts >= ATTEMPT_LIMIT) { return Refuse(siteId, "fill_failed"); }
-        if (!intentOpen && site.LastUtc > 0)
+        if (s_EnsureStage < 3)
         {
-            int last = site.LastUtc;
-            if (last > now) { last = now; }
-            if (now - last < MIN_SPACING_SECONDS) { return Wait(siteId, "min_spacing"); }
-        }
-        if (HCEventCacheSpawner.PolicePlayersWithin(item.GetPosition(), policy.RefillClearRadius)) { return Wait(siteId, "players_near"); }
-        // One fill per tick across all sites; the caller took the shared work budget for this step.
-        float tickTime = GetGame().GetTickTime();
-        if (s_FillStamp == tickTime) { return false; }
-        s_FillStamp = tickTime;
-        if (!intentOpen)
-        {
-            if (!WriteReceipt(intName, "HC-CACHEFILL-INT", siteId, id, now, plan.Items.Count()))
+            s_EnsureStage = HCEventReceiptFiles.EnsureStep(s_EnsureStage, "$profile:HollowCountry/Events/cache-fill");
+            if (s_EnsureStage < 0)
             {
-                s_Fault = true;
-                return Refuse(siteId, "receipt_write_failed");
+                s_EnsureRetryAt = GetGame().GetTickTime() + ENSURE_RETRY_SECONDS;
+                s_IO.HCRefuse("state_directory_unavailable");
             }
-            MarkIntent(doneKey);
+            return true;
+        }
+        HCEventCacheFillJob job = NextJob();
+        if (!job) { return false; }
+        return HCStepJob(job);
+    }
+    // Round robin over the jobs that have a step to run; finished jobs nobody harvested are dropped.
+    protected static HCEventCacheFillJob NextJob()
+    {
+        int total = s_Jobs.Count();
+        for (int offset = 0; offset < total; offset++)
+        {
+            int index = (s_JobCursor + offset) % total;
+            HCEventCacheFillJob candidate = s_Jobs[index];
+            if (candidate.Resolved || candidate.Phase == PHASE_PARKED) { continue; }
+            s_JobCursor = index + 1;
+            return candidate;
+        }
+        return null;
+    }
+    protected static bool HCStepJob(HCEventCacheFillJob job)
+    {
+        ItemBase item = job.Item;
+        if (job.Phase != PHASE_WRITE && (!item || !HCEventCacheSpawner.HCPhysicalGround(item)))
+        {
+            // The case left the world mid-fill: nothing more is written for it. An intent already
+            // written stays; a later boot adopts it as done (never a second fill).
+            Close(job, "case_gone");
+            return false;
+        }
+        if (job.Phase == PHASE_OK)
+        {
+            if (s_IO.Exists(job.OkName))
+            {
+                MarkDone(job.DoneKey);
+                Resolve(job);
+            }
+            else { job.Phase = PHASE_SCAN; }
+            return true;
+        }
+        if (job.Phase == PHASE_SCAN) { return HCStepScan(job); }
+        if (job.Phase == PHASE_INTENT)
+        {
+            job.IntentOpen = s_IO.Exists(job.IntName);
+            job.Phase = PHASE_DECIDE;
+            return true;
+        }
+        if (job.Phase == PHASE_ADOPT_READ)
+        {
+            int intentUtc;
+            int intentItems;
+            string intentText = HCEventReceiptFiles.ReadText(s_IO.HCPath(job.IntName), RECEIPT_LIMIT);
+            if (!ParseReceipt(intentText, "HC-CACHEFILL-INT", job.SiteId, intentUtc, intentItems)) { intentUtc = HCInfectedClock.UtcSeconds(); }
+            job.Utc = intentUtc;
+            // Intent without ok: with items present the fill happened and only the ok was lost; from an
+            // earlier process nothing proves the case is still ours to fill, so it counts as done.
+            job.Write = BeginReceipt(job.OkName, ReceiptText("HC-CACHEFILL-OK", job.SiteId, job.Id, intentUtc, job.Held));
+            job.AfterWrite = WRITE_ADOPT;
+            job.Phase = PHASE_WRITE;
+            return true;
+        }
+        if (job.Phase == PHASE_WRITE) { return HCStepWrite(job); }
+        if (job.Phase == PHASE_CREATE) { return HCStepCreate(job); }
+        if (job.Phase == PHASE_DECIDE) { return HCStepDecide(job); }
+        return false;
+    }
+    // One receipt write stage (FileExist / OpenFile / FPrint / read-back).
+    protected static bool HCStepWrite(HCEventCacheFillJob job)
+    {
+        int result = job.Write.HCStepOp();
+        if (result == HCEventReceiptOp.RESULT_PENDING) { return true; }
+        job.Write = null;
+        if (result == HCEventReceiptOp.RESULT_FAILED)
+        {
+            s_Fault = true;
+            if (job.AfterWrite == WRITE_OK) { Close(job, "ok_write_failed"); }
+            else { Close(job, "receipt_write_failed"); }
+            return true;
+        }
+        if (job.AfterWrite == WRITE_INTENT)
+        {
+            MarkIntent(job.DoneKey);
+            job.IntentOpen = true;
+            job.Phase = PHASE_CREATE;
+            return true;
+        }
+        int now = HCInfectedClock.UtcSeconds();
+        HCEventCacheFillSite site = SiteOf(job.SiteId);
+        MarkDone(job.DoneKey);
+        ForgetIntent(job.DoneKey);
+        if (job.AfterWrite == WRITE_ADOPT)
+        {
+            if (job.Held > 0 && job.Utc > site.LastUtc) { site.LastUtc = job.Utc; }
+            Print("[HC Events] scene cache fill; " + job.SiteId + "; action=adopted; items=" + job.Held.ToString() + "; id=" + job.Key + " runtime=PENDING");
+            Resolve(job);
+            return true;
+        }
+        s_Attempts.Remove(job.DoneKey);
+        site.LastUtc = now;
+        job.Granted = job.Created;
+        HCEventRewardPlan plan = HCEventReviewedSites.StockPlan(job.SiteId);
+        if (plan && job.Created < plan.Items.Count()) { Say(job.SiteId, "partial", "created_" + job.Created.ToString() + "_of_" + plan.Items.Count().ToString()); }
+        Print("[HC Events] scene cache fill; " + job.SiteId + "; action=filled; items=" + job.Created.ToString() + "; id=" + job.Key + " runtime=PENDING");
+        HCModuleReadiness.HCUse("Events", "cache_filled");
+        Resolve(job);
+        return true;
+    }
+    // Memory/world only: the item creation after the durable intent. Returns false (no file call).
+    protected static bool HCStepCreate(HCEventCacheFillJob job)
+    {
+        ItemBase item = job.Item;
+        HCEventRewardPlan plan = HCEventReviewedSites.StockPlan(job.SiteId);
+        if (!plan)
+        {
+            Close(job, "no_stock_plan");
+            return false;
         }
         int created = 0;
         foreach (string itemClass : plan.Items)
@@ -1005,33 +1517,189 @@ class HCEventCacheFill
         }
         if (created < 1)
         {
+            int attempts = 0;
+            s_Attempts.Find(job.DoneKey, attempts);
             if (s_Attempts.Count() >= TRACK_LIMIT) { s_Attempts.Clear(); }
-            s_Attempts.Set(doneKey, attempts + 1);
-            return Wait(siteId, "create_failed");
+            s_Attempts.Set(job.DoneKey, attempts + 1);
+            Wait(job.SiteId, "create_failed");
+            job.Phase = PHASE_PARKED;
+            return false;
         }
-        if (!WriteReceipt(okName, "HC-CACHEFILL-OK", siteId, id, now, created))
-        {
-            // The items exist and the intent is durable: the next boot adopts this case.
-            s_Fault = true;
-            return Refuse(siteId, "ok_write_failed");
-        }
-        MarkDone(doneKey);
-        ForgetIntent(doneKey);
-        s_Attempts.Remove(doneKey);
-        site.LastUtc = now;
-        granted = created;
-        if (created < plan.Items.Count()) { Say(siteId, "partial", "created_" + created.ToString() + "_of_" + plan.Items.Count().ToString()); }
-        Print("[HC Events] scene cache fill; " + siteId + "; action=filled; items=" + created.ToString() + "; id=" + key + " runtime=PENDING");
-        HCModuleReadiness.HCUse("Events", "cache_filled");
-        return true;
+        job.Created = created;
+        job.Write = BeginReceipt(job.OkName, ReceiptText("HC-CACHEFILL-OK", job.SiteId, job.Id, HCInfectedClock.UtcSeconds(), created));
+        job.AfterWrite = WRITE_OK;
+        job.Phase = PHASE_WRITE;
+        return false;
     }
+    // Memory/world only: what to do with the case now. Returns false (no file call).
+    protected static bool HCStepDecide(HCEventCacheFillJob job)
+    {
+        ItemBase item = job.Item;
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        int now = HCInfectedClock.UtcSeconds();
+        if (!policy || now < 1)
+        {
+            Wait(job.SiteId, "clock_or_policy_unavailable");
+            job.Phase = PHASE_PARKED;
+            return false;
+        }
+        CargoBase cargo = null;
+        if (item.GetInventory()) { cargo = item.GetInventory().GetCargo(); }
+        if (!cargo)
+        {
+            Close(job, "no_cargo");
+            return false;
+        }
+        int held = cargo.GetItemCount();
+        job.Held = held;
+        bool ownIntent = s_Intents.Find(job.DoneKey) >= 0;
+        if (job.IntentOpen && (held > 0 || !ownIntent))
+        {
+            job.Phase = PHASE_ADOPT_READ;
+            return false;
+        }
+        if (!job.IntentOpen && held > 0)
+        {
+            // Never touch a case that already holds anything (a player's items).
+            Say(job.SiteId, "skip_nonempty", "case_not_empty");
+            job.Phase = PHASE_PARKED;
+            return false;
+        }
+        int attempts = 0;
+        s_Attempts.Find(job.DoneKey, attempts);
+        if (attempts >= ATTEMPT_LIMIT)
+        {
+            Close(job, "fill_failed");
+            return false;
+        }
+        HCEventCacheFillSite site = SiteOf(job.SiteId);
+        if (!job.IntentOpen && site.LastUtc > 0)
+        {
+            int last = site.LastUtc;
+            if (last > now) { last = now; }
+            if (now - last < MIN_SPACING_SECONDS)
+            {
+                Wait(job.SiteId, "min_spacing");
+                job.Phase = PHASE_PARKED;
+                return false;
+            }
+        }
+        if (HCEventCacheSpawner.PolicePlayersWithin(item.GetPosition(), policy.RefillClearRadius))
+        {
+            Wait(job.SiteId, "players_near");
+            job.Phase = PHASE_PARKED;
+            return false;
+        }
+        if (job.IntentOpen)
+        {
+            job.Phase = PHASE_CREATE;
+            return false;
+        }
+        HCEventRewardPlan plan = HCEventReviewedSites.StockPlan(job.SiteId);
+        if (!plan)
+        {
+            Close(job, "no_stock_plan");
+            return false;
+        }
+        job.Write = BeginReceipt(job.IntName, ReceiptText("HC-CACHEFILL-INT", job.SiteId, job.Id, now, plan.Items.Count()));
+        job.AfterWrite = WRITE_INTENT;
+        job.Phase = PHASE_WRITE;
+        return false;
+    }
+    // At most SCAN_STEP receipts are read per pass step, one file call per call. The newest completed fill
+    // becomes the min-spacing anchor, and receipts older than RECEIPT_RETENTION_SECONDS (never the
+    // current identity) are pruned, at most PRUNE_LIMIT per batch. The fill waits until the first pass over
+    // the whole directory has finished; a later pass runs in the background of the fill, never blocking it.
+    protected static bool HCStepScan(HCEventCacheFillJob job)
+    {
+        HCEventCacheFillSite site = SiteOf(job.SiteId);
+        int now = HCInfectedClock.UtcSeconds();
+        if (!site.Scanning)
+        {
+            if (site.Loaded && now - site.PassUtc < RECEIPT_RETENTION_SECONDS)
+            {
+                job.Phase = PHASE_INTENT;
+                return false;
+            }
+            site.Scanning = true;
+            site.Cursor = 0;
+            site.Listed = false;
+            return false;
+        }
+        if (site.PruneName != "")
+        {
+            string pruning = site.PruneName;
+            site.PruneName = "";
+            if (s_IO.Remove(pruning)) { site.Removed++; }
+            return true;
+        }
+        if (!site.Listed)
+        {
+            site.Batch = new array<string>;
+            site.Ended = ListStep(job.SiteId, site.Cursor, site.Batch);
+            site.BatchAt = 0;
+            site.Removed = 0;
+            site.Listed = true;
+            return false;
+        }
+        if (site.BatchAt < site.Batch.Count())
+        {
+            string name = site.Batch[site.BatchAt];
+            site.BatchAt++;
+            bool isOk = HasSuffix(name, ".ok");
+            string tag = "HC-CACHEFILL-INT";
+            if (isOk) { tag = "HC-CACHEFILL-OK"; }
+            int utc;
+            int items;
+            string text = HCEventReceiptFiles.ReadText(s_IO.HCPath(name), RECEIPT_LIMIT);
+            if (!ParseReceipt(text, tag, job.SiteId, utc, items)) { return true; }
+            if (isOk && items > 0 && utc > site.LastUtc) { site.LastUtc = utc; }
+            if (site.Removed < PRUNE_LIMIT && name != job.OkName && name != job.IntName && utc < now - RECEIPT_RETENTION_SECONDS) { site.PruneName = name; }
+            return true;
+        }
+        // A removed name no longer counts as already read.
+        site.Cursor = site.Cursor + site.Batch.Count() - site.Removed;
+        site.Listed = false;
+        if (site.Ended)
+        {
+            site.Scanning = false;
+            site.Loaded = true;
+            site.PassUtc = now;
+            job.Phase = PHASE_INTENT;
+        }
+        return false;
+    }
+}
+// One police generation in flight (refill / replace / recreate): gen-N is queued first and every
+// native mutation waits for it to be durable; a new barrel waits for bar-N before its items.
+class HCPoliceGenJob
+{
+    string SiteId;
+    string Kind;
+    string Reason;
+    string GenName;
+    string BarName;
+    int Stage;
+    int Now;
+    vector Position;
+    Barrel_Green Old;
+    Barrel_Green Barrel;
+    string BarrelId;
+    bool Adopt;
 }
 class HCEventCacheSpawner
 {
+    static const int GEN_WAIT_GEN = 0;
+    static const int GEN_WAIT_BAR = 1;
+    static const int PENDING_KEEP = 8;
     // Upper bound for the native physical-stock sphere around a mission source (metres).
     static const float SCAN_RADIUS_MAX = 25;
     protected static ref map<string, ref HCEventPoliceStockSlice> s_StockSlices = new map<string, ref HCEventPoliceStockSlice>;
-    protected static ref HCEventRewardLedger s_PoliceLedger;
+    protected static ref HCEventPoliceStockLedger s_PoliceLedger;
+    protected static ref map<string, ref HCPoliceGenJob> s_GenJobs = new map<string, ref HCPoliceGenJob>;
+    // Missions whose first police grant is waiting for its durable marker (CreatePoliceStock).
+    protected static ref array<string> s_CreatePending = new array<string>;
+    protected static int s_ReceiptSteps;
     protected static ref array<string> s_PoliceLogged = new array<string>;
     // Per process only: a restart forgets every live event target (and so every bound container).
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
@@ -1087,7 +1755,7 @@ class HCEventCacheSpawner
         s_PoliceDetails = details;
     }
 
-    static HCEventRewardLedger PoliceLedger()
+    static HCEventPoliceStockLedger PoliceLedger()
     {
         if (!s_PoliceLedger)
         {
@@ -1097,7 +1765,8 @@ class HCEventCacheSpawner
             pool.Entries.Insert(HCEventRewardPools.Entry("BandageDressing", 2));
             pool.Entries.Insert(HCEventRewardPools.Entry("SodaCan_Cola", 2));
             pool.Entries.Insert(HCEventRewardPools.Entry("MetalWire", 2));
-            s_PoliceLedger = new HCEventPoliceStockLedger;
+            HCEventPoliceStockLedger created = new HCEventPoliceStockLedger;
+            s_PoliceLedger = created;
             HCEventPoliceRewardIO policeIO = new HCEventPoliceRewardIO;
             s_PoliceLedger.Configure(policeIO, pool);
         }
@@ -1191,6 +1860,16 @@ class HCEventCacheSpawner
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         if (!policy) { PoliceRefused("police_policy_invalid"); return null; }
         if (!PoliceWork()) { return null; }
+        HCEventPoliceStockLedger ledger = PoliceLedger();
+        // A generation or first creation waiting for its durable receipt resumes before any new scan.
+        HCPoliceGenJob genJob;
+        if (s_GenJobs.Find(mission.SiteId, genJob)) { return PoliceGenerateStep(mission, genJob); }
+        if (s_CreatePending.Find(mission.Id) >= 0)
+        {
+            Barrel_Green pendingCache = CreatePoliceStock(mission);
+            if (pendingCache) { return PoliceStockTarget(mission, pendingCache); }
+            return null;
+        }
         HCEventPoliceStockSlice job = s_StockSlices.Get(mission.Id);
         if (!job)
         {
@@ -1206,9 +1885,10 @@ class HCEventCacheSpawner
         }
         if (job.Stage == 0)
         {
-            HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
-            job.HasOwnedPosition = ledger && ledger.CachePosition(mission.SiteId, job.OwnedPosition);
-            if (ledger && !job.HasOwnedPosition && ledger.HCPositionTorn(mission.SiteId)) { PoliceLogOnceAs(mission.SiteId, "record_unreadable", "pos_torn_stock_only"); }
+            // The receipt directory image loads one file per module tick; the record is read from it.
+            if (!ledger.HCLoaded() && !ledger.HCUnavailable()) { return null; }
+            job.HasOwnedPosition = ledger.CachePosition(mission.SiteId, job.OwnedPosition);
+            if (!job.HasOwnedPosition && ledger.HCPositionTorn(mission.SiteId)) { PoliceLogOnceAs(mission.SiteId, "record_unreadable", "pos_torn_stock_only"); }
             job.Stage = 1;
             return null;
         }
@@ -1276,8 +1956,7 @@ class HCEventCacheSpawner
                 if (!job.GroundBarrelPresent && nearbyBarrel && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && !nearbyBarrel.GetHierarchyRootPlayer() && vector.DistanceSq(nearbyBarrel.GetPosition(), mission.Source) <= mission.Radius * mission.Radius)
                 {
                     job.GroundBarrelPresent = true;
-                    HCEventPoliceStockLedger barrelLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
-                    if (barrelLedger) { barrelLedger.HCRepairOrphan(mission.SiteId, true); }
+                    ledger.HCRepairOrphan(mission.SiteId, true);
                 }
                 // Barrels (even ruined) at the recorded position are candidates for the site container.
                 if (nearbyBarrel && job.HasOwnedPosition && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && vector.DistanceSq(nearbyBarrel.GetPosition(), job.OwnedPosition) <= 4)
@@ -1335,8 +2014,7 @@ class HCEventCacheSpawner
                 s_StockSlices.Remove(mission.Id);
                 return PoliceContainer(mission, job);
             }
-            HCEventPoliceStockLedger repairLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
-            if (repairLedger) { repairLedger.HCRepairOrphan(mission.SiteId, job.GroundBarrelPresent); }
+            ledger.HCRepairOrphan(mission.SiteId, job.GroundBarrelPresent);
             // No native creation handle or partially initialized cache crosses a grant.
             s_StockSlices.Remove(mission.Id);
             Barrel_Green created = CreatePoliceStock(mission);
@@ -1656,13 +2334,13 @@ class HCEventCacheSpawner
     }
     static HCEventTarget PoliceContainer(HCEventMission mission, HCEventPoliceStockSlice job)
     {
-        HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        HCEventPoliceStockLedger ledger = PoliceLedger();
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         vector recorded;
         HCPoliceGeneration state;
         HCEventRewardPlan plan;
         int now = HCInfectedClock.UtcSeconds();
-        bool ready = ledger && policy && now > 0 && GetGame() && GetGame().IsServer();
+        bool ready = policy && now > 0 && GetGame() && GetGame().IsServer();
         if (ready) { ready = ledger.HCBarrelRecordPosition(mission.SiteId, recorded); }
         if (ready)
         {
@@ -1802,8 +2480,12 @@ class HCEventCacheSpawner
     }
     // kind: refill (in place), replace (drain + delete + create), recreate (missing: create).
     // Callers verified identity and cargo before any replace; the checks that can change between
-    // grants (hierarchy, distance, a bound delivery container) are repeated here, before any write.
-    // Crash points: see docs/MODULE_STATUS.md (Police stock container lifecycle).
+    // grants (hierarchy, distance, a bound delivery container) are repeated here, before any write
+    // and again once gen-N is durable (PoliceGenerateStep).
+    // gen-N is queued here and nothing native happens until it is verified on disk (the roster retries
+    // every tick while the receipt is written, one file call per module tick); a new barrel waits the
+    // same way for bar-N before its items are created. Crash points: see docs/MODULE_STATUS.md
+    // (Police stock container lifecycle).
     static HCEventTarget PoliceGenerate(HCEventMission mission, HCPoliceGeneration state, vector position, Barrel_Green old, string kind, string reason, int now)
     {
         if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { PoliceRefused("police_position_outside_radius"); return null; }
@@ -1813,7 +2495,7 @@ class HCEventCacheSpawner
             if (PoliceContainerBound(old)) { PoliceLogOnce(mission.SiteId, "container_bound"); PoliceRefused("police_container_bound"); return null; }
             if (old.IsSetForDeletion() || old.GetHierarchyParent() || old.GetHierarchyRootPlayer() || vector.DistanceSq(old.GetPosition(), position) > 4) { PoliceRefused("police_container_changed"); return null; }
         }
-        HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        HCEventPoliceStockLedger ledger = PoliceLedger();
         HCEventRewardPlan plan = ledger.HCFreshPlan(mission.SiteId);
         // Durable receipt first: a crash after it loses one generation, never doubles one. The
         // identity of the barrel being replaced is carried as prev (see the receipt format).
@@ -1827,75 +2509,191 @@ class HCEventCacheSpawner
             adopt = barrelId != "";
         }
         if (!ledger.HCEpochBegin(mission.SiteId, state, now, kind, plan.Items.Count(), barrelId, state.ExpectedPrev(), adopt)) { PoliceRefused("police_receipt_write_failed"); return null; }
-        Barrel_Green barrel = old;
-        if (kind != "refill")
+        HCPoliceGenJob job = new HCPoliceGenJob;
+        job.SiteId = mission.SiteId;
+        job.Kind = kind;
+        job.Reason = reason;
+        job.GenName = mission.SiteId + ".gen-" + state.Gen.ToString();
+        job.Stage = GEN_WAIT_GEN;
+        job.Now = now;
+        job.Position = position;
+        job.Old = old;
+        job.BarrelId = barrelId;
+        job.Adopt = adopt;
+        s_GenJobs.Set(mission.SiteId, job);
+        PoliceRefused("police_work_budget");
+        return null;
+    }
+    static void PoliceGenerateDrop(HCPoliceGenJob job, string reason)
+    {
+        s_GenJobs.Remove(job.SiteId);
+        PoliceRefused(reason);
+    }
+    // Runs on the grants after PoliceGenerate: waits (police_work_budget) while the receipt of the
+    // current stage is being written, then performs the native work of that stage.
+    static HCEventTarget PoliceGenerateStep(HCEventMission mission, HCPoliceGenJob job)
+    {
+        HCEventPoliceStockLedger ledger = PoliceLedger();
+        HCPoliceGeneration state = ledger.HCGeneration(job.SiteId);
+        if (!state || !state.Open())
         {
-            if (old)
+            PoliceGenerateDrop(job, "police_receipt_write_failed");
+            return null;
+        }
+        HCEventRewardPlan plan = ledger.HCFreshPlan(job.SiteId);
+        Barrel_Green barrel = job.Barrel;
+        if (job.Stage == GEN_WAIT_GEN)
+        {
+            int genState = ledger.HCWriteState(job.GenName);
+            if (genState == HCEventReceiptOp.RESULT_PENDING)
             {
-                PoliceDrain(old);
-                GetGame().ObjectDelete(old);
-            }
-            barrel = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
-            if (!barrel) { PoliceRefused("police_cache_create_failed"); return null; }
-            HCGroundSnap.Snap(barrel);
-            PoliceProbe(mission.SiteId, barrel, 1);
-            if (vector.DistanceSq(barrel.GetPosition(), position) > 4)
-            {
-                // The new barrel is still empty: delete it; the open receipt retries after a cooldown.
-                GetGame().ObjectDelete(barrel);
-                PoliceRefused("police_cache_position_drift");
+                PoliceRefused("police_work_budget");
                 return null;
             }
-            // HC created this barrel: its id is a deletable identity.
-            barrelId = PoliceBarrelId(barrel);
-            adopt = false;
-            if (barrelId == "")
+            if (genState != HCEventReceiptOp.RESULT_DONE)
             {
-                PoliceIdWatchSet(mission.SiteId, barrel);
+                PoliceGenerateDrop(job, "police_receipt_write_failed");
+                return null;
             }
-            else if (!ledger.HCEpochBarrel(mission.SiteId, state, now, barrelId))
+            // The receipt is durable; what may have changed while it was written is re-checked before
+            // anything native. A refusal leaves an open generation: the next attempt resumes or redoes it.
+            if (PolicePlayersWithin(job.Position, HCW38SituationPolicy.HCGet().RefillClearRadius))
+            {
+                PoliceGenerateDrop(job, "police_container_players_near");
+                return null;
+            }
+            if (job.Kind != "recreate")
+            {
+                Barrel_Green old = job.Old;
+                if (!old || old.IsSetForDeletion() || old.GetHierarchyParent() || old.GetHierarchyRootPlayer() || vector.DistanceSq(old.GetPosition(), job.Position) > 4)
+                {
+                    PoliceGenerateDrop(job, "police_container_changed");
+                    return null;
+                }
+                if (job.Kind == "replace" && PoliceContainerBound(old))
+                {
+                    PoliceGenerateDrop(job, "police_container_bound");
+                    return null;
+                }
+            }
+            barrel = job.Old;
+            if (job.Kind != "refill")
+            {
+                if (job.Old)
+                {
+                    PoliceDrain(job.Old);
+                    GetGame().ObjectDelete(job.Old);
+                }
+                barrel = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", job.Position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
+                if (!barrel)
+                {
+                    PoliceGenerateDrop(job, "police_cache_create_failed");
+                    return null;
+                }
+                HCGroundSnap.Snap(barrel);
+                PoliceProbe(job.SiteId, barrel, 1);
+                if (vector.DistanceSq(barrel.GetPosition(), job.Position) > 4)
+                {
+                    // The new barrel is still empty: delete it; the open receipt retries after a cooldown.
+                    GetGame().ObjectDelete(barrel);
+                    PoliceGenerateDrop(job, "police_cache_position_drift");
+                    return null;
+                }
+                // HC created this barrel: its id is a deletable identity.
+                job.BarrelId = PoliceBarrelId(barrel);
+                job.Adopt = false;
+                if (job.BarrelId == "")
+                {
+                    PoliceIdWatchSet(job.SiteId, barrel);
+                }
+                else
+                {
+                    if (!ledger.HCEpochBarrel(job.SiteId, state, job.Now, job.BarrelId))
+                    {
+                        GetGame().ObjectDelete(barrel);
+                        PoliceGenerateDrop(job, "police_receipt_write_failed");
+                        return null;
+                    }
+                    // bar-N must be durable before the items exist.
+                    job.Barrel = barrel;
+                    job.BarName = job.SiteId + ".bar-" + state.Gen.ToString();
+                    job.Stage = GEN_WAIT_BAR;
+                    PoliceRefused("police_work_budget");
+                    return null;
+                }
+            }
+        }
+        else
+        {
+            if (!barrel || !HCPhysicalGround(barrel))
+            {
+                PoliceGenerateDrop(job, "police_cache_create_failed");
+                return null;
+            }
+            int barState = ledger.HCWriteState(job.BarName);
+            if (barState == HCEventReceiptOp.RESULT_PENDING)
+            {
+                PoliceRefused("police_work_budget");
+                return null;
+            }
+            if (barState != HCEventReceiptOp.RESULT_DONE)
             {
                 GetGame().ObjectDelete(barrel);
-                PoliceRefused("police_receipt_write_failed");
+                PoliceGenerateDrop(job, "police_receipt_write_failed");
                 return null;
             }
         }
+        s_GenJobs.Remove(job.SiteId);
         if (!PoliceFillCargo(barrel, plan)) { PoliceRefused("police_cache_cargo_failed"); return null; }
-        ledger.HCEpochComplete(mission.SiteId, state, kind, now, barrelId, adopt);
-        if (kind == "refill")
+        ledger.HCEpochComplete(job.SiteId, state, job.Kind, job.Now, job.BarrelId, job.Adopt);
+        if (job.Kind == "refill")
         {
-            Print("[HC Police] site=" + mission.SiteId + " action=refilled reason=" + reason);
+            Print("[HC Police] site=" + job.SiteId + " action=refilled reason=" + job.Reason);
             HCModuleReadiness.HCUse("Events", "container_refilled");
         }
-        else if (kind == "recreate")
+        else if (job.Kind == "recreate")
         {
-            Print("[HC Police] site=" + mission.SiteId + " action=barrel_recreated reason=" + reason);
+            Print("[HC Police] site=" + job.SiteId + " action=barrel_recreated reason=" + job.Reason);
             HCModuleReadiness.HCUse("Events", "police_barrel_recreated");
         }
         else
         {
-            Print("[HC Police] site=" + mission.SiteId + " action=replaced reason=" + reason);
+            Print("[HC Police] site=" + job.SiteId + " action=replaced reason=" + job.Reason);
             HCModuleReadiness.HCUse("Events", "container_replaced");
         }
         return PoliceStockTarget(mission, barrel);
     }
 
-    // Restore the pre-slicing creation order (4b12d4f0) within one PoliceWork grant.
-    // The plan is fixed at three items; only the capped world/cargo scan yields.
+    // Restore the pre-slicing creation order (4b12d4f0) within one PoliceWork grant, except that the
+    // site's spent marker is written first over the module ticks that follow (HCCommitStep: RESULT_PENDING
+    // yields with police_work_budget and the grant resumes here, never through a new scan). The plan is
+    // fixed at three items; only the capped world/cargo scan yields.
     static Barrel_Green CreatePoliceStock(HCEventMission mission)
     {
         vector position = SpawnPosition(mission, mission.Source, true);
         if (position == vector.Zero) { return null; }
-        HCEventRewardLedger stockLedger = PoliceLedger();
-        HCEventRewardPlan plan = stockLedger.Commit(mission.SiteId);
-        if (!plan) { PoliceRefused(stockLedger.Refusal()); return null; }
+        HCEventPoliceStockLedger owner = PoliceLedger();
+        HCEventRewardPlan plan;
+        int commit = owner.HCCommitStep(mission.SiteId, plan);
+        int pendingAt = s_CreatePending.Find(mission.Id);
+        if (commit == HCEventReceiptOp.RESULT_PENDING)
+        {
+            if (pendingAt < 0)
+            {
+                if (s_CreatePending.Count() >= PENDING_KEEP) { s_CreatePending.RemoveOrdered(0); }
+                s_CreatePending.Insert(mission.Id);
+            }
+            PoliceRefused("police_work_budget");
+            return null;
+        }
+        if (pendingAt >= 0) { s_CreatePending.RemoveOrdered(pendingAt); }
+        if (commit != HCEventReceiptOp.RESULT_DONE || !plan) { PoliceRefused(owner.Refusal()); return null; }
         Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
         if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
         HCGroundSnap.Snap(cache);
         PoliceProbe(mission.SiteId, cache, 1);
         if (PoliceBarrelId(cache) == "") { PoliceIdWatchSet(mission.SiteId, cache); }
-        HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
-        if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
+        if (!owner.RecordCache(mission.SiteId, cache.GetPosition()))
         {
             // Reservation already spent; an unrecorded cache is still finite native loot.
             Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
@@ -1907,11 +2705,18 @@ class HCEventCacheSpawner
         }
         // Start the lifecycle clock; a crash before this write migrates at the next boot.
         int createdUtc = HCInfectedClock.UtcSeconds();
-        HCPoliceGeneration createdState;
-        if (owner) { createdState = owner.HCGeneration(mission.SiteId); }
+        HCPoliceGeneration createdState = owner.HCGeneration(mission.SiteId);
         if (createdState && createdState.Num < 1 && createdUtc > 0) { owner.HCEpochMark(mission.SiteId, createdState, createdUtc, "initial", PoliceBarrelId(cache), "", false); }
         Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite_until_depleted; refill=after_cooldown runtime=PENDING");
         return cache;
+    }
+    // One staged step per module tick (HCEventModule): the police ledger's directory load and queued
+    // receipt writes first, then the scene cache fill jobs. At most one native file call per call.
+    static bool HCStepReceipts()
+    {
+        s_ReceiptSteps++;
+        if (s_PoliceLedger && s_PoliceLedger.HCWantsStep()) { return s_PoliceLedger.HCStepLedger(); }
+        return HCEventCacheFill.HCStepFill();
     }
 
     static bool PoliceDeliveryValid(HCEventMission mission, ItemBase container)
