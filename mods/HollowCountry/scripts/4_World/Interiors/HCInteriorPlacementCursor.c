@@ -172,6 +172,7 @@ class HCInteriorResolvedBuilding
 class HCInteriorResolveCursor
 {
     static const int CANDIDATES_PER_STEP = 8;
+    protected static int s_SphereFrame = -1;
     protected ref HCInteriorResolveEntry m_Entry;
     protected ref HCInteriorResolvedBuilding m_Binding;
     protected bool m_TrySphere;
@@ -186,13 +187,17 @@ class HCInteriorResolveCursor
     protected Object m_Found;
     protected string m_Reason = "unresolved";
     protected bool m_Complete;
+    protected bool m_FrameWait;
+    protected bool m_StartupDeferred;
 
+    bool HCWaitingForFrame() { return m_FrameWait; }
     Object HCHouse() { return m_Found; }
     string HCReason() { return m_Reason; }
     int HCQuerySize() { return m_Entry.QuerySize; }
 
     bool HCStep(HCInteriorFurnishRow row)
     {
+        m_FrameWait = false;
         if (m_Complete) { return true; }
         int mark = TickCount(0);
         vector position = HCInteriorTemplates.AsVector(row.Position);
@@ -223,19 +228,40 @@ class HCInteriorResolveCursor
         }
         if (!m_Entry)
         {
-            if (!m_Fresh && !m_TrySphere) { m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position); }
-            if (m_Entry) { m_QueryComplete = true; }
+            // Reuse only the same native query shape at this exact centre;
+            // sphere and circle snapshots have different candidate-cap semantics.
+            if (!m_Fresh) { m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position, m_TrySphere); }
+            if (m_Entry) { m_QueryComplete = true; m_Sphere = m_Entry.Sphere; }
             else
             {
                 if (m_TrySphere)
                 {
+                    // Native queries cannot be preempted. Wait for pack/journal
+                    // recovery, and admit at most one sphere per frame,
+                    // even if another caller advances a resolver in that frame.
+                    if (!HCStartupPump.HCInteriorQueriesReady())
+                    {
+                        m_FrameWait = true;
+                        if (!m_StartupDeferred)
+                        {
+                            m_StartupDeferred = true;
+                            HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
+                        }
+                        HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "startup_wait", TickCount(mark));
+                        return false;
+                    }
+                    int sphereFrame = GetGame().GetTime();
+                    if (s_SphereFrame == sphereFrame) { m_FrameWait = true; return false; }
+                    s_SphereFrame = sphereFrame;
                     m_Entry = new HCInteriorResolveEntry;
                     m_Entry.Position = position;
+                    m_Entry.Sphere = true;
                     // Installed Game.c:930, sphere encloses every admissible
                     // origin (<=0.75 m in the unchanged exact filter).
                     GetGame().GetObjectsAtPosition3D(position, 0.75, m_Entry.Objects, null);
                     m_Entry.QuerySize = m_Entry.Objects.Count();
                     if (m_Entry.QuerySize > 256) { m_Entry.Objects.Clear(); }
+                    HCInteriorTemplatePlacement.HCStoreResolveObjects(m_Entry);
                     m_QueryComplete = true;
                     m_Sphere = true;
                     HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query3d", TickCount(mark));
@@ -390,6 +416,27 @@ class HCInteriorResolveCursor
             return true;
         }
         m_Reason = "";
+        return true;
+    }
+}
+
+// Only pack loading and house recovery delay cold sphere queries. Shelters may
+// itself be a pump owner; waiting for the whole pump would deadlock its resolver.
+modded class HCStartupPump
+{
+    static bool HCInteriorQueriesReady()
+    {
+        // Fixed shared registration cap is 32. Consult actual work even after
+        // an owner's pump deadline: normal-tick fallback may still be loading.
+        foreach (HCStartupOwner queryOwner : s_Owners)
+        {
+            bool relevant = queryOwner.Name == "interiors_pack" || queryOwner.Name == "search_house_recovery" || queryOwner.Name == "search_house_recovery_pilot";
+            if (relevant && queryOwner.HCNeedsWork()) { return false; }
+        }
+        // Template completion publishes after the inner placement tick. Do not
+        // slip a cold query into the gap before recovery registers its owner.
+        HCSearchHouses houses = HCSearchBinding.Houses();
+        if (houses && houses.HCJournalWaiting()) { return false; }
         return true;
     }
 }

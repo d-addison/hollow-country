@@ -95,6 +95,15 @@ class HCSearchHouses
     }
 
     bool Started() { return m_Started; }
+    bool HCJournalReady() { return m_Journal && m_Journal.Healthy(); }
+    bool HCJournalWaiting()
+    {
+        if (m_Journal) { return m_Journal.Recovering(); }
+        // Completion publishes on the following module tick. Refused packs have
+        // no recovery owner and must not keep native resolution waiting forever.
+        return m_Started && !m_Fault && HCInteriorTemplates.Loaded();
+    }
+    bool HCJournalFaulted() { return m_Fault || (m_Journal && m_Journal.Faulted()); }
     int ActiveCount() { return m_Slots.Count(); }
     int SessionCount() { return m_Sessions.Count(); }
 
@@ -103,7 +112,6 @@ class HCSearchHouses
     void ReportReadiness()
     {
         if (m_ReadinessReported) return;
-        m_ReadinessReported = true;
         int templatesLoaded;
         int serviceStarted;
         int journalHealthy;
@@ -115,8 +123,10 @@ class HCSearchHouses
         if (templatesLoaded && m_Started && !m_Fault && m_Settings && m_Settings.EnableInteriors && m_Settings.EnableSearch && HCInteriorRules.SearchAdmitted())
         {
             if (OpenJournal()) journalHealthy = 1;
+            if (m_Journal && m_Journal.Recovering()) { return; }
             if (journalHealthy && markerPresent) armed = 1;
         }
+        m_ReadinessReported = true;
         string report = "[HC Search Houses] armed=" + armed.ToString() + " templates_loaded=" + templatesLoaded.ToString() + " service_started=" + serviceStarted.ToString() + " journal_healthy=" + journalHealthy.ToString();
         report = report + " marker_present=" + markerPresent.ToString() + "; supply=lazy stock CE; runtime acceptance PENDING";
         Print("" + report);
@@ -135,6 +145,7 @@ class HCSearchHouses
         m_DetachedSlots.Clear();
         if (m_Registry) m_Registry.Retire();
         m_Registry = null;
+        if (m_Journal) { m_Journal.HCStopRecovery(); }
         m_Journal = null;
         m_Settings = null;
         m_Started = false;
@@ -161,8 +172,7 @@ class HCSearchHouses
     {
         m_Refusal = HCRefusal.SERVICE;
         if (!m_Started || m_Fault || !m_Settings || !GetGame() || !GetGame().IsServer()) return false;
-        bool ready = true;
-        if (m_Journal && !m_Journal.Healthy()) ready = false;
+        bool ready = OpenJournal();
         bool alive = player && player.IsAlive() && !player.IsUnconscious() && player.GetIdentity();
         if (!HCInteriorRules.MaySearch(true, m_Settings.EnableInteriors, m_Settings.EnableSearch, HCInteriorRules.SearchAdmitted(), ready, alive, true)) return false;
         m_Refusal = HCRefusal.HANDS;
@@ -408,6 +418,7 @@ class HCSearchHouses
 
     bool OpenJournal()
     {
+        if (!HCInteriorTemplates.Loaded()) { return false; }
         if (m_Journal) return m_Journal.Healthy();
         // Retain the initialization result, including failures, for this owner lifetime.
         m_Journal = new HCSearchHouseJournal;
@@ -421,7 +432,7 @@ class HCSearchHouses
             Print("[HC Search Houses] journal refused; house search stays refused");
             return false;
         }
-        return true;
+        return m_Journal.Healthy();
     }
 
     HCSearchSupplyRegistry HCMakeRegistry()
@@ -1001,4 +1012,12 @@ modded class HCActionSearchInterior
         if (action) action.HCActivityStarted = false;
         super.OnEndServer(action_data);
     }
+}
+
+// Shared startup slices, with journal-owned bounded fallback after the pump ends.
+class HCStartupHouseRecovery : HCStartupOwner
+{
+    HCSearchHouseJournal Journal;
+    override bool HCNeedsWork() { return Journal && Journal.Recovering(); }
+    override void HCSlice() { Journal.HCRecoverSlice(); }
 }

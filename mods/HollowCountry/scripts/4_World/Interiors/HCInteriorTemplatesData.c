@@ -151,6 +151,7 @@ class HCInteriorTemplateFurnish
 // Transient native query snapshot, never serialized or published as template data.
 class HCInteriorResolveEntry
 {
+    bool Sphere;
     vector Position;
     int QuerySize;
     ref array<Object> Objects = new array<Object>;

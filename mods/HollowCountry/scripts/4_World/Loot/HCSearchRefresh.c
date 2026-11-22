@@ -1284,6 +1284,7 @@ modded class HCSearchBinding
 // not a template pack: legacy-only installations must not require templates.
 class HCSearchRefreshPilotJournal : HCSearchHouseJournal
 {
+    override string HCRecoveryScope() { return "pilot"; }
     override bool SupplyKnown(string supplyId)
     {
         // The original manifest stays authoritative even if its spent item was
@@ -1332,7 +1333,7 @@ class HCSearchRefreshPilotHouses : HCSearchHouses
             Print("[HC Search Refresh] pilot journal refused; pilot house search stays refused");
             return false;
         }
-        return true;
+        return m_Journal.Healthy();
     }
 
     override bool EnsureJournal()

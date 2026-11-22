@@ -135,8 +135,20 @@ class HCSearchBinding : HCModule
     override HCOperationalStatus HCGetOperationalStatus()
     {
         bool running = false;
-        if (m_Started && !m_Stopped) { running = true; }
-        HCModuleReadiness.HCDerive(m_Operational, running, m_Refusal, m_Fault, "search_service_started_supply_lazy");
+        if (m_Started && !m_Stopped && m_Houses && m_Houses.HCJournalReady()) { running = true; }
+        string refusal = m_Refusal;
+        string fault = m_Fault;
+        if (m_Started && !running && refusal == "")
+        {
+            if (!HCInteriorTemplates.Loaded()) { refusal = "templates_not_loaded"; }
+            else if (m_Houses && m_Houses.HCJournalWaiting()) { refusal = "house_journal_recovering"; }
+        }
+        if (m_Houses && m_Houses.HCJournalFaulted())
+        {
+            running = m_Started && !m_Stopped;
+            fault = "house_journal_fault";
+        }
+        HCModuleReadiness.HCDerive(m_Operational, running, refusal, fault, "search_service_started_supply_lazy");
         return m_Operational;
     }
 
@@ -178,6 +190,12 @@ class HCSearchBinding : HCModule
     {
         if (!s_Instance || s_Instance.m_Stopped) return null;
         return s_Instance.m_Houses;
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        // Opening only schedules recovery; report readiness after its final slice.
+        if (m_Started && !m_Stopped && m_Houses && HCInteriorTemplates.Loaded()) { m_Houses.ReportReadiness(); }
     }
 
     // Template startup is independent of the pilot PlacementComplete/Begin path.
