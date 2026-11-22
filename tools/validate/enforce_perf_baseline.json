@@ -265,15 +265,6 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
-      "line": 238,
-      "symbol": "HCGapcodeStoryIndex.HCStep",
-      "key": "FGets#1",
-      "message": "FGets reachable via HCGapcodeStoryIndex.HCStep",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
       "line": 326,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
@@ -1970,6 +1961,46 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 292,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.IndexOfFrom#1",
+      "message": "m_Buffer.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 300,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.Substring#1",
+      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 304,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCGapcodeStoryIndex.HCStep",
+      "native": false,
+      "reason": "W2-05 replaces per-line FGets with one ReadFile of at most 32768 bytes per visit, separate from JSON decode; MaxFileBytes bounds the total. HCStartupPump supplies the shared frame deadline, with STORY_INDEX tick fallback. Native atomic read latency and catchup/slice targets remain unverified."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 329,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "m_Buffer.Substring#2",
+      "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
     }
   ]
 }
