@@ -349,11 +349,12 @@ def parse_mod_list(bat_text):
 def live_mod_list(text):
     """The -mod= entries of a live launcher (whole tokens, comment lines skipped); [] when there are none or the
     line cannot be read."""
+    delayed = delayed_expansion(text)
     for line in text.splitlines():
         if _launcher_comment(line):
             continue
         try:
-            for name, start, end, _quoted in launcher_args(line):
+            for name, start, end, _quoted in launcher_args(line, delayed):
                 if name == 'mod':
                     return launcher_entries(line[start:end])
         except Unmergeable:
@@ -375,10 +376,20 @@ def _launcher_comment(line):
     return word.startswith('::') or word == 'rem' or word.startswith(('rem ', 'rem\t'))
 
 
-def launcher_args(line):
+DELAYED_EXPANSION = re.compile(r'(?i)\bsetlocal\b[^\r\n]*\benabledelayedexpansion\b')
+
+
+def delayed_expansion(text):
+    """True when the launcher turns batch delayed expansion on (setlocal EnableDelayedExpansion on a line that is not
+    a comment); only then is ! in a value an expansion marker instead of a literal character."""
+    return any(DELAYED_EXPANSION.search(line) for line in text.splitlines() if not _launcher_comment(line))
+
+
+def launcher_args(line, delayed=False):
     """[(name lower, value start, value end, quoted)] for the -mod= and -serverMod= arguments of one launcher line.
     Whole tokens: a value inside quotes ("-mod=@A;@B C" or -mod="@A;@B C") runs to the closing quote and may hold
-    spaces; an unquoted value runs to the next whitespace."""
+    spaces; an unquoted value runs to the next whitespace. delayed says the file enables delayed expansion, which
+    makes ! in a value unreadable (without it ! is a literal character)."""
     found, pos = [], 0
     while True:
         match = LAUNCHER_FLAG.search(line, pos)
@@ -399,7 +410,7 @@ def launcher_args(line):
         value = line[start:end]
         if '%' in value:
             raise Unmergeable('has a -%s= value built from a batch variable (%%...%%)' % match.group(1))
-        if '!' in value:
+        if delayed and '!' in value:
             raise Unmergeable('has a -%s= value with ! in it (batch delayed expansion !...!)' % match.group(1))
         if '^' in value:
             raise Unmergeable('has a -%s= value with the batch escape character ^ in it' % match.group(1))
@@ -417,20 +428,29 @@ def mod_leaf(entry):
     return text.rsplit('/', 1)[-1].rsplit(':', 1)[-1]
 
 
-def merge_values(operator, bundle, retired, managed=(), unowned=()):
+def merge_values(operator, bundle, retired, managed=(), unowned=(), present=None):
     """The merged list: the bundle's folders in bundle order, then every operator entry this installer does not
     manage in the operator's own order. Entries are compared by their last path component, ignoring case and slash
     style: a path-form entry of a bundle folder (C:\\mods\\@CF, .\\@CF) is replaced by the bundle's own form.
     Dropped from the operator's list: retired folders the installer is removing (retired), and folders the bundle
     lists in the other argument (managed: all bundle folders of both lists; they move to their own list). A retired
-    folder the installer did not install (unowned) stays as the operator's own entry and is reported. Returns a
-    dict: merged, added, removed, kept, moved, replaced (old, new) pairs, unowned."""
+    folder the installer did not install (unowned) stays as the operator's own entry and is reported. present, when
+    given, is the set of casefolded folder names that exist in the server root or that this run installs: a path-form
+    entry of a bundle folder outside it keeps the operator's own form in the bundle slot (the bundle's short form
+    would name a folder the server does not have). Returns a dict: merged, added, removed, kept, moved, replaced
+    (old, new) pairs, unowned."""
     retired_keys = {mod_leaf(name).casefold() for name in retired}
     unowned_keys = {mod_leaf(name).casefold() for name in unowned}
     bundle_keys = {mod_leaf(name).casefold() for name in bundle}
     other_keys = {mod_leaf(name).casefold() for name in managed} - bundle_keys
+    slots = {}
+    for entry in operator:
+        key = mod_leaf(entry).casefold()
+        if key in bundle_keys and entry != mod_leaf(entry) and present is not None and key not in present:
+            slots.setdefault(key, entry)
     merged, seen = [], set()
-    for entry in bundle:
+    for name in bundle:
+        entry = slots.get(mod_leaf(name).casefold(), name)
         if entry.casefold() not in seen:
             seen.add(entry.casefold())
             merged.append(entry)
@@ -439,7 +459,7 @@ def merge_values(operator, bundle, retired, managed=(), unowned=()):
         key = mod_leaf(entry).casefold()
         if key in bundle_keys:
             own = next(name for name in bundle if mod_leaf(name).casefold() == key)
-            if entry != mod_leaf(entry) and (entry, own) not in replaced:
+            if entry != mod_leaf(entry) and key not in slots and (entry, own) not in replaced:
                 replaced.append((entry, own))
         elif key in retired_keys:
             removed.append(entry)
@@ -455,15 +475,16 @@ def merge_values(operator, bundle, retired, managed=(), unowned=()):
             'replaced': replaced, 'unowned': warned}
 
 
-def _merge_launcher(current, bundle, retired, unowned=()):
+def _merge_launcher(current, bundle, retired, unowned=(), present=None):
     try:
         text, wanted_text = current.decode('utf-8'), bundle.decode('utf-8')
     except UnicodeDecodeError:
         raise Unmergeable('is not UTF-8 text')
     wanted = {}
+    wanted_delayed, delayed = delayed_expansion(wanted_text), delayed_expansion(text)
     for line in wanted_text.splitlines():
         if not _launcher_comment(line):
-            for name, start, end, _quoted in launcher_args(line):
+            for name, start, end, _quoted in launcher_args(line, wanted_delayed):
                 wanted.setdefault(name, launcher_entries(line[start:end]))
     if 'mod' not in wanted:
         raise Unmergeable('the bundle launcher has no -mod= argument')
@@ -471,10 +492,10 @@ def _merge_launcher(current, bundle, retired, unowned=()):
     seen, changes, out = set(), [], []
     for line in text.splitlines(keepends=True):
         if not _launcher_comment(line):
-            for name, start, end, quoted in reversed(launcher_args(line)):
+            for name, start, end, quoted in reversed(launcher_args(line, delayed)):
                 seen.add(name)
                 old = launcher_entries(line[start:end])
-                result = merge_values(old, wanted.get(name, []), retired, managed, unowned)
+                result = merge_values(old, wanted.get(name, []), retired, managed, unowned, present)
                 merged = result['merged']
                 if merged == old:
                     continue
@@ -494,7 +515,7 @@ def _merge_launcher(current, bundle, retired, unowned=()):
         for index, line in enumerate(out):
             if _launcher_comment(line):
                 continue
-            args = [arg for arg in launcher_args(line) if arg[0] == 'mod']
+            args = [arg for arg in launcher_args(line, delayed) if arg[0] == 'mod']
             if not args:
                 continue
             _name, _start, end, quoted = args[0]
@@ -509,34 +530,36 @@ def _merge_launcher(current, bundle, retired, unowned=()):
     return merged, ([] if merged == current else changes)
 
 
-def merge_launcher(current, bundle, retired=(), unowned=()):
+def merge_launcher(current, bundle, retired=(), unowned=(), present=None):
     """(merged bytes, changes) with the -mod= and -serverMod= lists merged: the bundle's folders in bundle order,
     then every operator entry this installer does not manage in its original order. retired names the retired folders
     to remove; unowned names retired folders the installer never installed, which stay as the operator's own entries.
+    present limits the path-form replacement to folders that exist or are installed (see merge_values).
     Every other byte of the operator's file (port, -profiles, -cpuCount, other arguments, line endings) stays.
     None when the file cannot be merged safely (see launcher_problem)."""
     try:
-        return _merge_launcher(current, bundle, retired, unowned)
+        return _merge_launcher(current, bundle, retired, unowned, present)
     except Unmergeable:
         return None
 
 
-def launcher_problem(current, bundle, retired=(), unowned=()):
+def launcher_problem(current, bundle, retired=(), unowned=(), present=None):
     try:
-        _merge_launcher(current, bundle, retired, unowned)
+        _merge_launcher(current, bundle, retired, unowned, present)
     except Unmergeable as error:
         return str(error)
     return None
 
 
 def live_launcher_problem(text):
-    """Why the -mod= entries of a live launcher cannot be read (an unclosed quote, a %variable%, ! or ^ in a value);
-    None when they can."""
+    """Why the -mod= entries of a live launcher cannot be read (an unclosed quote, a %variable%, ^ in a value, ! in a
+    value when the file enables delayed expansion); None when they can."""
+    delayed = delayed_expansion(text)
     for line in text.splitlines():
         if _launcher_comment(line):
             continue
         try:
-            launcher_args(line)
+            launcher_args(line, delayed)
         except Unmergeable as error:
             return str(error)
     return None
@@ -546,16 +569,39 @@ def retired_folders():
     return [m['folder'] for m in ws.load_manifest()['retired']]
 
 
+def server_folder_names(ctx):
+    """Casefolded names of the folders in the server root (NTFS is case-insensitive)."""
+    try:
+        return {path.name.casefold() for path in Path(ctx.server).iterdir() if path.is_dir()}
+    except OSError:
+        return set()
+
+
+def launcher_present(ctx):
+    """Casefolded folder names the server has or this run puts there: what a path-form launcher entry may be replaced
+    by the bundle's short form for. A skipped step installs nothing."""
+    names = server_folder_names(ctx)
+    if 'mods' not in ctx.skip:
+        names |= {name.casefold() for name in getattr(ctx, 'own_folders', None) or ()}
+    if 'workshop' not in ctx.skip:
+        names |= {item['folder'].casefold() for item in getattr(ctx, 'third_items', None) or ()}
+    return names
+
+
 def launcher_retired(ctx):
     """(retired folders the launcher merge removes, retired folders it keeps). Only a folder the Workshop receipt
     records as created by this installer, and that the Workshop step removes now or removed in an earlier run (the
     install receipt's retired_removed list), is removed from the launcher; a retired folder the operator brought
-    themselves stays in their -mod= list."""
+    themselves stays in their -mod= list. A retired_removed name counts only while its folder is absent from the
+    server root: a folder the operator put back is theirs. ctx.retire_reasons says why a kept folder is kept
+    (casefolded name -> 'skipped' when the Workshop step is skipped, 'returned' when the operator put the folder
+    back, 'unowned' otherwise)."""
     if ctx.retire_cache is None:
         manifest = ws.load_manifest()
         names = [m['folder'] for m in manifest['retired']]
         tops = set()
-        if 'workshop' not in ctx.skip:
+        skipped = 'workshop' in ctx.skip
+        if not skipped:
             try:
                 receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']},
                                           [Path(ctx.bundle) / 'keys'], warn=lambda _text: None)
@@ -565,15 +611,53 @@ def launcher_retired(ctx):
             tops |= {r['path'].split('/')[0].casefold() for r in rows}
             tops |= {d.split('/')[0].casefold() for d in dirs}
         done = ctx.receipt.get('retired_removed') if ctx.receipt else None
+        back = set()
         if isinstance(done, list):
-            tops |= {name.casefold() for name in done if isinstance(name, str)}
+            present = server_folder_names(ctx)
+            for name in done:
+                if isinstance(name, str):
+                    (back if name.casefold() in present else tops).add(name.casefold())
         ctx.retire_cache = ([n for n in names if n.casefold() in tops], [n for n in names if n.casefold() not in tops])
+        ctx.retire_reasons = {n.casefold(): 'returned' if n.casefold() in back else 'skipped' if skipped else 'unowned'
+                              for n in ctx.retire_cache[1]}
     return ctx.retire_cache
 
 
-def launcher_change_lines(changes):
+def prune_retired_removed(ctx, launcher_text):
+    """Forget retired_removed names the launcher step no longer needs: those the live launcher does not list (the
+    removal is done) or whose folder is back in the server root (the operator owns it now). The list is only a
+    note for a launcher step that did not finish; it must not outlive that. True when the list changed."""
+    done = ctx.receipt.get('retired_removed')
+    if not isinstance(done, list):
+        return False
+    listed = {mod_leaf(entry).casefold() for line in launcher_text.splitlines() if not _launcher_comment(line)
+              for _name, start, end, _quoted in launcher_args(line, delayed_expansion(launcher_text))
+              for entry in launcher_entries(line[start:end])}
+    present = server_folder_names(ctx)
+    keep = [name for name in done if isinstance(name, str) and name.casefold() in listed
+            and name.casefold() not in present]
+    if keep:
+        ctx.receipt['retired_removed'] = sorted(keep)
+    else:
+        ctx.receipt.pop('retired_removed', None)
+    return ctx.receipt.get('retired_removed') != done
+
+
+WARN_RETIRED = {
+    'unowned': 'is a retired Hollow Country dependency this installer did not install; it stays in your launcher as '
+               'one of your own mods',
+    'skipped': 'is a retired Hollow Country dependency; the workshop step was skipped, so its folder is kept and it '
+               'stays in your launcher',
+    'returned': 'is a retired Hollow Country dependency this installer removed earlier; its folder is back in the '
+                'server folder, so it stays in your launcher as one of your own mods',
+}
+
+
+def launcher_change_lines(changes, reasons=None):
     """One line per mod: added, removed (retired), moved (to the other argument), replaced (path form), kept (not
-    managed by this installer) or WARN (a retired folder this installer did not install)."""
+    managed by this installer) or WARN (a retired folder that stays; reasons maps the casefolded folder name to why:
+    see launcher_retired)."""
+    reasons = reasons or {}
     lines = []
     for change in changes:
         arg = '-' + change['arg']
@@ -583,8 +667,8 @@ def launcher_change_lines(changes):
                   for name in change.get('moved', [])]
         lines += ['replaced %s %s by %s (the bundle form)' % (arg, old, new) for old, new in change.get('replaced', [])]
         lines += ['kept    %s %s (not managed by this installer)' % (arg, name) for name in change['kept']]
-        lines += ['WARN    %s %s is a retired Hollow Country dependency this installer did not install; it stays '
-                  'in your launcher as one of your own mods' % (arg, name) for name in change.get('unowned', [])]
+        lines += ['WARN    %s %s %s' % (arg, name, WARN_RETIRED[reasons.get(mod_leaf(name).casefold(), 'unowned')])
+                  for name in change.get('unowned', [])]
         if change.get('reordered'):
             lines.append('moved   %s: the bundle folders come first, in bundle order' % arg)
     return lines
@@ -605,20 +689,27 @@ def load_receipt(server):
         raise Refused('receipt_invalid', '%s is damaged (not valid JSON text); run --apply --repair to start a fresh one (the old bytes '
                       'are kept in the backup folder), or move it away (files are then treated as existing ones and '
                       'backed up before they are replaced)' % RECEIPT)
+    validate_receipt(data)
+    return data
+
+
+def validate_receipt(data):
+    """Refuse a receipt of another layout, with invalid profile default hashes (receipt_invalid) or with a
+    globals_optout that is not a list of names (receipt_optout_invalid, checked last: --repair rebuilds that one
+    list, then validates everything else again)."""
     if not isinstance(data, dict) or data.get('schema') != SCHEMA or not isinstance(data.get('files'), dict):
         raise Refused('receipt_invalid', '%s has an unknown layout' % RECEIPT)
-    optout = data.get('globals_optout')
-    if 'globals_optout' in data and (not isinstance(optout, list) or any(not isinstance(n, str) or not n for n in optout)):
-        raise Refused('receipt_optout_invalid', '%s has an invalid globals_optout (it must be a list of variable names); '
-                      'run --apply --repair: the list is rebuilt from the loot-boost state on disk and the rest of the '
-                      'receipt is kept' % RECEIPT)
     profiles = data.get('profile_defaults', {})
     if (not isinstance(profiles, dict) or
             any(not isinstance(hashes, list) or
                 any(not isinstance(h, str) or not re.fullmatch(r'[0-9a-f]{64}', h) for h in hashes)
                 for hashes in profiles.values())):
         raise Refused('receipt_invalid', '%s has invalid profile default hashes' % RECEIPT)
-    return data
+    optout = data.get('globals_optout')
+    if 'globals_optout' in data and (not isinstance(optout, list) or any(not isinstance(n, str) or not n for n in optout)):
+        raise Refused('receipt_optout_invalid', '%s has an invalid globals_optout (it must be a list of variable names); '
+                      'run --apply --repair: the list is rebuilt from the loot-boost state on disk and the rest of the '
+                      'receipt is kept' % RECEIPT)
 
 
 def clean_optout(value):
@@ -673,6 +764,7 @@ def load_run_receipt(ctx):
         if error.code == 'receipt_optout_invalid':
             data = json.loads(text)
             data['globals_optout'] = salvage_optout(ctx, None)
+            validate_receipt(data)  # everything else the receipt holds is checked as on any other run
             ctx.receipt = data
             ctx.repair_extra = [row for row in ctx.repair_extra if row['kind'] != 'receipt']
             ctx.repair_extra.append(repair_row('receipt', RECEIPT, 'globals_optout was not a list of names; rebuilt '
@@ -771,6 +863,7 @@ class Ctx:
         self.repair_blocked = []  # repair rows --repair could fix but was not given (edited managed files)
         self.repair_extra = []   # repair rows that are not file classifications (receipt rebuild, recovered runs)
         self.retire_cache = None  # launcher_retired: (removed, kept) retired folders, fixed for the run
+        self.retire_reasons = {}  # launcher_retired: why each kept retired folder is kept
         self.optout_new = False  # --keep-stock-globals recorded a new opt-out; a step must save the receipt
         self.force_tree = False  # a typed y at the hard-exit prompt: allows the whole-tree restore and nothing else
 
@@ -887,6 +980,7 @@ class Analysis:
         self.fetch = []          # items to download
         self.retire_files = []   # receipt rows of retired dependencies still on the server
         self.retire_dirs = []    # their receipt folders
+        self.receipt_repaired = []  # Workshop receipt key rows an earlier release orphaned (dropped, then persisted)
         self.retire_kept = []    # (key path, reason): retired mods' root keys that stay because something else needs them
         self.overlay = None
         self.repairs = []        # repair rows (see repair_row) found while classifying; --repair applies them
@@ -932,7 +1026,7 @@ def classify_launcher(ctx, rel, source):
     if action == 'upgrade' and not ctx.receipt.get('launcher_merged'):
         return action, sha  # the unedited file an older bundle wrote: replaced as a whole, with a backup
     current = (ctx.server / rel).read_bytes()
-    merged = merge_launcher(current, source.read_bytes(), *launcher_retired(ctx))
+    merged = merge_launcher(current, source.read_bytes(), *launcher_retired(ctx), present=launcher_present(ctx))
     if merged is not None and merged[0] == current:
         return 'same', sha
     return action, sha
@@ -948,15 +1042,16 @@ def heal_launcher(ctx, a, rel, source, action):
         return heal_action(ctx, a, rel, action)
     current = (ctx.server / rel).read_bytes()
     retired = launcher_retired(ctx)
-    problem = launcher_problem(current, source.read_bytes(), *retired)
+    present = launcher_present(ctx)
+    problem = launcher_problem(current, source.read_bytes(), *retired, present=present)
     if problem:
         a.launcher_blocked = ('%s %s; --repair and --yes never replace a launcher wholesale: fix it by hand or move '
                               'it away' % (rel, problem))
         a.repairs.append(repair_row('launcher', rel, 'cannot be merged (%s); never replaced wholesale: fix it by '
                                     'hand or move it away' % problem, status='blocked'))
         return 'drift'
-    merged = merge_launcher(current, source.read_bytes(), *retired)
-    lines = launcher_change_lines(merged[1])
+    merged = merge_launcher(current, source.read_bytes(), *retired, present=present)
+    lines = launcher_change_lines(merged[1], ctx.retire_reasons)
     if action == 'drift':
         if getattr(ctx.args, 'repair', False):
             row = repair_row('edited', rel, 'edited launcher kept; only the -mod=/-serverMod= lists are merged in '
@@ -1050,7 +1145,7 @@ def analyze(ctx):
     try:
         # A receipt an older release wrote still names the folders of items since retired.
         receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']},
-                                  [Path(ctx.bundle) / 'keys'], warn=ctx.say)
+                                  [Path(ctx.bundle) / 'keys'], warn=ctx.say, repaired=a.receipt_repaired)
         owned = set(receipt['dirs']) if receipt else set()
         a.retire_files, a.retire_dirs, a.retire_kept = ws.split_retired_rows(
             receipt, manifest, ctx.server, [Path(ctx.bundle) / 'keys'])
@@ -1572,13 +1667,23 @@ def plan_workshop(ctx, a):
                      'only; the Workshop subscription stays harmless): %s' % ', '.join(folders))
     for path, reason in a.retire_kept:
         lines.append('kept shared key %s: %s' % (path, reason))
-    if a.pending or a.retire_files or a.retire_dirs:
+    if a.receipt_repaired:
+        lines.append('the Workshop receipt records %d key row(s) an earlier release left orphaned; they are dropped '
+                     'from it (the key files stay)' % len(a.receipt_repaired))
+    if a.pending or a.retire_files or a.retire_dirs or a.receipt_repaired:
         return 'planned', lines, lambda: do_workshop(ctx, a)
     lines.append('all %d dependencies are in the server folder' % len(third))
     return 'already-done', lines, None
 
 
 def do_workshop(ctx, a):
+    if a.receipt_repaired:
+        # Written first and journaled like every other receipt write, so the warning does not come back each run.
+        manifest = ws.load_manifest()
+        ws.persist_repaired_receipt(
+            ctx.server, ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']},
+                                        [Path(ctx.bundle) / 'keys'], warn=lambda _text: None),
+            before_write=lambda rel, digest: record_written(ctx, rel, digest))
     if a.fetch:
         do_fetch(ctx, a)
     if a.pending:
@@ -1710,7 +1815,7 @@ def install_dependencies(ctx, a):
         path = Path(temp) / 'workshop_mods.json'
         path.write_text(json.dumps(manifest), encoding='utf-8')
         argv = ['install', '--server-root', str(ctx.server), '--groups', ','.join(ws.GROUPS), '--manifest', str(path),
-                '--assume-stopped']
+                '--assume-stopped', '--bundle-keys', str(Path(ctx.bundle) / 'keys')]
         for directory in ctx.dirs:
             argv += ['--workshop-content', str(directory)]
         out, err = io.StringIO(), io.StringIO()
@@ -2580,9 +2685,15 @@ def plan_launcher(ctx, a):
             keep = {mod_leaf(name).casefold() for name in launcher_retired(ctx)[1]}
             warned = [name for name in live_mod_list(target.read_text(encoding='utf-8', errors='replace'))
                       if mod_leaf(name).casefold() in keep]
-            lines += launcher_change_lines([{'arg': 'mod', 'added': [], 'removed': [], 'kept': [], 'unowned': warned}])
+            lines += launcher_change_lines([{'arg': 'mod', 'added': [], 'removed': [], 'kept': [], 'unowned': warned}],
+                                           ctx.retire_reasons)
+            pruned = prune_retired_removed(ctx, target.read_text(encoding='utf-8', errors='replace'))
         else:
             ctx.receipt['files'].setdefault(rel, sha)
+            pruned = prune_retired_removed(ctx, target.read_text(encoding='utf-8', errors='replace')
+                                           if target.is_file() else '')
+        if pruned and ctx.args.apply:
+            save_receipt(ctx)
         return 'already-done', lines, None
     return 'planned', lines, lambda: do_launcher(ctx, a)
 
@@ -2598,18 +2709,21 @@ def do_launcher(ctx, a):
         pristine = action == 'upgrade' and not ctx.receipt.get('launcher_merged')
         if not pristine:
             retired = launcher_retired(ctx)
-            problem = launcher_problem(current, source.read_bytes(), *retired)
+            present = launcher_present(ctx)
+            problem = launcher_problem(current, source.read_bytes(), *retired, present=present)
             if problem:
                 raise Refused('launcher', '%s %s; it is never replaced wholesale: fix it by hand or move it away'
                               % (rel, problem))
-            data = merge_launcher(current, source.read_bytes(), *retired)[0]
+            data = merge_launcher(current, source.read_bytes(), *retired, present=present)[0]
             record_written(ctx, rel, sha256_bytes(data))
             ws.write_bytes_atomic(target, data)
             ctx.receipt['files'][rel] = sha256_bytes(data)
             ctx.receipt['launcher_merged'] = True
+            prune_retired_removed(ctx, data.decode('utf-8'))
             save_receipt(ctx)
             return 'done'
     ctx.receipt.pop('launcher_merged', None)
+    prune_retired_removed(ctx, source.read_bytes().decode('utf-8', errors='replace'))
     return do_files(ctx, [a.launcher])
 
 
@@ -3014,6 +3128,7 @@ def say_repairs(ctx, rows, done):
 
 
 def run_steps(ctx, apply):
+    ctx.retire_cache, ctx.retire_reasons = None, {}  # a dry run's answer must not outlive it
     a = analyze(ctx)
     ctx.say('Mode: %s' % ('apply (changes are backed up and recorded)' if apply else 'dry-run (nothing is changed)'))
     ctx.say('Server: %s' % shown(ctx.server))
@@ -3044,6 +3159,10 @@ def run_steps(ctx, apply):
             elif answer.startswith('s'):
                 status, action = 'skipped', None
                 lines = lines + ['skipped at your request']
+                if name in ('workshop', 'mods'):
+                    # The later launcher step must know these folders will not be installed this run.
+                    ctx.skip.add(name)
+                    ctx.retire_cache, ctx.retire_reasons = None, {}
         if stopped:
             ctx.say('  status: stopped (you quit; later steps were not run)')
             break

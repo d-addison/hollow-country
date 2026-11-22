@@ -762,6 +762,51 @@ class ReceiptScope(Base):
         self.assertEqual(code, 0, err)
         self.assertFalse((self.root / retired[1]).exists())
 
+    def orphan_row(self):
+        """A root key row an earlier release left behind: no created folder holds the key, the bundle does."""
+        key = self.root / 'keys' / 'orphan.bikey'
+        key.write_bytes(b'orphan key')
+        bundle_keys = self.tmp / 'bundle-keys'
+        bundle_keys.mkdir()
+        (bundle_keys / 'orphan.bikey').write_bytes(b'orphan key')
+        self.tamper('keys/orphan.bikey')
+        return key, bundle_keys
+
+    def test_install_persists_a_repaired_receipt_so_the_warning_does_not_repeat(self):
+        key, bundle_keys = self.orphan_row()
+        code, text, err = self.run_cmd('install', 'snafu', '--bundle-keys', str(bundle_keys))
+        self.assertEqual(code, 0, text + err)
+        self.assertIn('WARN: receipt key keys/orphan.bikey', text)
+        self.assertNotIn('keys/orphan.bikey', [e['path'] for e in json.loads(self.receipt.read_text())['files']])
+        self.assertEqual(key.read_bytes(), b'orphan key')
+        code, text, err = self.run_cmd('install', 'snafu', '--bundle-keys', str(bundle_keys))
+        self.assertEqual(code, 0, text + err)
+        self.assertNotIn('WARN', text)
+
+    def test_install_journals_the_repaired_receipt_write(self):
+        _key, bundle_keys = self.orphan_row()
+        written = []
+        out = io.StringIO()
+        code = ws.main(['install', *self.common('snafu', '--bundle-keys', str(bundle_keys))], out=out,
+                       before_write=lambda rel, digest: written.append(rel))
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertEqual(written, [RECEIPT])
+
+    def test_the_standalone_commands_take_the_bundle_keys_folder(self):
+        key, bundle_keys = self.orphan_row()
+        code, _, err = self.rollback()
+        self.assertEqual(code, 1, err)
+        self.assertIn('no matching copy', err)
+        code, text, err = self.rollback('--bundle-keys', str(bundle_keys))
+        self.assertEqual(code, 0, text + err)
+        self.assertEqual(key.read_bytes(), b'orphan key')
+        self.assertFalse((self.root / '@SnafuWeapons').exists())
+
+    def test_the_default_bundle_keys_folder_sits_next_to_tools(self):
+        self.assertEqual(ws.bundle_key_dirs(argparse.Namespace(bundle_keys=None)),
+                         [Path(ws.__file__).resolve().parents[2] / 'keys'])
+        self.assertEqual(ws.bundle_key_dirs(argparse.Namespace(bundle_keys=str(self.tmp))), [self.tmp])
+
     def test_normal_install_then_rollback_still_works(self):
         self.assertEqual(self.rollback()[0], 0)
         self.assertEqual(tree(self.root), ['@ExistingMod', '@ExistingMod/addons', '@ExistingMod/addons/existing.pbo',
