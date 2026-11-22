@@ -1230,7 +1230,11 @@ class HCShelterModule : HCModule
             m_RegionalProp.ClippingInfo(clip);
             m_RegionalMin = clip[0];
             m_RegionalMax = clip[1];
-            bool boundsOk = HCInteriorTemplates.BoxValid(Coordinates(m_RegionalMin), Coordinates(m_RegionalMax));
+            // Hold the arrays in locals: unowned call results passed straight
+            // into BoxValid were released mid-call (access violation, build 161).
+            array<float> regionalMinCoordinates = Coordinates(m_RegionalMin);
+            array<float> regionalMaxCoordinates = Coordinates(m_RegionalMax);
+            bool boundsOk = HCInteriorTemplates.BoxValid(regionalMinCoordinates, regionalMaxCoordinates);
             // Keep simple checks: a compound bounds predicate crashed build 152.
             if (m_RegionalMin[0] < -1.2 || m_RegionalMax[0] > 1.2) { boundsOk = false; }
             if (m_RegionalMin[2] < -1.2 || m_RegionalMax[2] > 1.2) { boundsOk = false; }
