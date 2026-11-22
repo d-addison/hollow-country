@@ -18,6 +18,9 @@ class HCEventModule : HCModule
     protected int m_TransportStep;
     protected int m_RuntimeStep;
     protected int m_RosterStep;
+    protected int m_CacheStep;
+    // Seconds since the last scene cache re-probe pass (HCEventNativeObserver.HCTickSceneCaches).
+    protected float m_CacheTickElapsed;
 
     protected void HCMeasureStep(int step, string stage, int started)
     {
@@ -84,7 +87,12 @@ class HCEventModule : HCModule
         return "Events";
     }
     override int StartupPhase() { return HC_PHASE_FEATURE; }
-    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound"); }
+    override void RegisterUses()
+    {
+        HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound");
+        // Scene cache fill: counted at 0 from module start, so a never-filled case shows count=0.
+        HCModuleReadiness.HCRegisterUse("Events", "cache_filled");
+    }
     override bool IsEnabled(HCSettings settings)
     {
         HCEventConfiguration loader = new HCEventConfiguration;
@@ -329,6 +337,8 @@ class HCEventModule : HCModule
         m_TransportStep = m_TickSteps.HCDefine("transport");
         m_RuntimeStep = m_TickSteps.HCDefine("maintenance");
         m_RosterStep = m_TickSteps.HCDefine("roster");
+        m_CacheStep = m_TickSteps.HCDefine("scene_cache");
+        m_CacheTickElapsed = 0;
         if (s_CleanupOwner && s_CleanupOwner != this)
         {
             s_CleanupOwner.OnStop();
@@ -460,6 +470,19 @@ class HCEventModule : HCModule
             // Runtime names individual expiry/cleanup/journal chunks. Keep its
             // aggregate out of HCItem so it cannot hide a measured chunk name.
             m_TickSteps.HCAdd(m_RuntimeStep, TickCount(runtimeStarted));
+            // Waiting scene cache fills are re-probed every 10 s with nobody joined: one probe per
+            // pass, inside the shared core work budget and measured as its own step.
+            if (!journalTick && !m_Stopping && m_NativeObserver)
+            {
+                m_CacheTickElapsed = m_CacheTickElapsed + deltaTime;
+                if (m_CacheTickElapsed >= 10)
+                {
+                    m_CacheTickElapsed = 0;
+                    int cacheStarted = TickCount(0);
+                    m_NativeObserver.HCTickSceneCaches();
+                    HCMeasureStep(m_CacheStep, "scene_cache", cacheStarted);
+                }
+            }
             m_RosterElapsed = m_RosterElapsed + deltaTime;
             HCRosterSummaryTick(deltaTime);
             if (m_Announcing && !m_Runtime.HCAnnouncePending())

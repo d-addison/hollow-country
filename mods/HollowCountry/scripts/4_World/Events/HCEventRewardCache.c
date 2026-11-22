@@ -638,8 +638,10 @@ class HCEventPoliceStockSlice
 // The site RefillCooldownSeconds does NOT gate this fill: one fill per id is the duplicate guard and the
 // CE lifetime is the replace cadence. Only a small MIN_SPACING_SECONDS floor from the site's last fill
 // receipt guards against CE recreating a case at once (reason=min_spacing).
-// The receipt directory is listed once per site and process and read SCAN_STEP names per probe; the
-// fill waits (scan_pending) until that scan is complete.
+// The receipt directory is walked in steps: each step lists names only up to SCAN_STEP entries past a
+// cursor and opens just those (memory and file opens per step stay bounded whatever the directory
+// holds), pruning at most PRUNE_LIMIT per step. The fill waits (scan_pending) until the first pass over
+// the whole directory has finished; a new pass starts after RECEIPT_RETENTION_SECONDS of uptime.
 // Native: EntityAI.c:3374 GetPersistentID; Inventory.c CreateInInventory/GetCargo; EnSystem.c FindFile.
 class HCEventCacheFillIO : HCEventJournalIO
 {
@@ -651,18 +653,20 @@ class HCEventCacheFillIO : HCEventJournalIO
 }
 class HCEventCacheFillSite
 {
-    // Receipt listing taken (Names) and read through (Cursor); Loaded = every listed name was read.
-    bool Listed;
+    // Receipt walk: Cursor = surviving receipt names already read in the pass in progress; Loaded = the
+    // first pass over the whole directory finished; PassUtc = when the last pass finished.
+    bool Scanning;
     bool Loaded;
     int Cursor;
-    ref array<string> Names = new array<string>;
+    int PassUtc;
     // Newest completed fill (items > 0) of this site: the min-spacing anchor.
     int LastUtc;
 }
 class HCEventCacheFill
 {
     static const int RECEIPT_LIMIT = 192;
-    static const int SCAN_LIMIT = 48;
+    // Directory entries walked (names only) per step; a pass that reaches it ends there.
+    static const int ENUM_LIMIT = 512;
     static const int SCAN_STEP = 6;
     static const int PRUNE_LIMIT = 4;
     static const int ATTEMPT_LIMIT = 3;
@@ -684,6 +688,7 @@ class HCEventCacheFill
     protected static ref array<string> s_BindLogged = new array<string>;
     protected static int s_Dropped;
     protected static bool s_Fault;
+    protected static bool s_JournalReady;
     protected static float s_FillStamp = -1;
 
     // "" = zero id (not yet assigned or unreadable): never fill.
@@ -749,7 +754,7 @@ class HCEventCacheFill
     }
     // Bind diagnostic, once per site and (ce_created, id_zero) state per boot: lets the lead confirm
     // that EEOnCECreate fires for CE event children and whether the persistent id is assigned.
-    protected static void BindLine(string siteId, bool ceCreated, string id)
+    protected static void BindLine(string siteId, bool ceCreated, string id, float dist)
     {
         int ce = 0;
         if (ceCreated) { ce = 1; }
@@ -763,15 +768,23 @@ class HCEventCacheFill
         string key = siteId + ":" + ce.ToString() + ":" + zero.ToString();
         if (s_BindLogged.Count() >= TRACK_LIMIT || s_BindLogged.Find(key) >= 0) { return; }
         s_BindLogged.Insert(key);
-        Print("[HC Events] cache bind ce_created=" + ce.ToString() + " id_zero=" + zero.ToString() + " site=" + siteId + " id=" + idKey + " runtime=PENDING");
+        Print("[HC Events] cache bind ce_created=" + ce.ToString() + " id_zero=" + zero.ToString() + " site=" + siteId + " id=" + idKey + " dist=" + Meters(dist) + " runtime=PENDING");
     }
     // Horizontal distance only: the eventspawn position has no authored height.
-    protected static bool AtEventSpawn(ItemBase item, HCEventMission mission)
+    protected static float SpawnDistance(ItemBase item, HCEventMission mission)
     {
         vector at = item.GetPosition();
         float dx = at[0] - mission.Source[0];
         float dz = at[2] - mission.Source[2];
-        return dx * dx + dz * dz <= CASE_RADIUS * CASE_RADIUS;
+        return Math.Sqrt(dx * dx + dz * dz);
+    }
+    // Metres with two decimals (the script float has no fixed-decimals formatter).
+    protected static string Meters(float metres)
+    {
+        int hundredths = Math.Round(metres * 100);
+        string fraction = (hundredths % 100).ToString();
+        if (fraction.Length() < 2) { fraction = "0" + fraction; }
+        return (hundredths / 100).ToString() + "." + fraction;
     }
     protected static void MarkDone(string doneKey)
     {
@@ -791,9 +804,15 @@ class HCEventCacheFill
     }
     protected static bool Journal()
     {
-        if (s_Fault) { return false; }
+        if (s_Fault)
+        {
+            s_JournalReady = false;
+            return false;
+        }
+        if (s_JournalReady) { return true; }
         if (!s_IO) { s_IO = new HCEventCacheFillIO; }
-        return s_IO.Ensure();
+        s_JournalReady = s_IO.Ensure();
+        return s_JournalReady;
     }
     // 12 tokens: tag v1 site id a b c d utc U items N. Anything else is torn.
     protected static bool ReadReceipt(string name, string tag, string siteId, out int utc, out int items)
@@ -815,38 +834,55 @@ class HCEventCacheFill
         string text = tag + " v1 " + siteId + " id " + id + " utc " + utc.ToString() + " items " + items.ToString();
         return s_IO.WriteNew(name, text, RECEIPT_LIMIT);
     }
-    // One directory listing per site and process: names only, no file is opened here.
-    protected static void ListSite(string siteId, HCEventCacheFillSite site)
+    // Names only, no file is opened: the receipt names (.ok / .int) after the first `skip`
+    // of them, at most SCAN_STEP. True when the directory ended (or ENUM_LIMIT entries were walked).
+    protected static bool ListStep(string siteId, int skip, array<string> batch)
     {
-        site.Listed = true;
         string fileName;
         FileAttr attributes;
         FindFileHandle handle = FindFile(s_IO.HCPath(siteId + ".*"), fileName, attributes, FindFileFlags.ALL);
-        if (!handle) { return; }
+        if (!handle) { return true; }
         bool more = fileName != "";
-        while (more && site.Names.Count() < SCAN_LIMIT)
+        int walked = 0;
+        int matched = 0;
+        bool ended = true;
+        while (more)
         {
-            if (attributes != FileAttr.DIRECTORY && (HasSuffix(fileName, ".ok") || HasSuffix(fileName, ".int"))) { site.Names.Insert(fileName); }
+            if (batch.Count() >= SCAN_STEP || walked >= ENUM_LIMIT)
+            {
+                ended = walked >= ENUM_LIMIT;
+                break;
+            }
+            walked++;
+            if (attributes != FileAttr.DIRECTORY && (HasSuffix(fileName, ".ok") || HasSuffix(fileName, ".int")))
+            {
+                if (matched >= skip) { batch.Insert(fileName); }
+                matched++;
+            }
             more = FindNextFile(handle, fileName, attributes);
         }
         CloseFindFile(handle);
+        return ended;
     }
     // At most SCAN_STEP receipts are opened per call. The newest completed fill becomes the
     // min-spacing anchor, and receipts older than RECEIPT_RETENTION_SECONDS (never the current
-    // identity) are pruned, at most PRUNE_LIMIT per call. True once every listed name was read.
+    // identity) are pruned, at most PRUNE_LIMIT per call. Returns true once a pass over the whole
+    // directory has finished (a later pass runs in the background of the fill, never blocking it).
     protected static bool ScanStep(string siteId, string keepKey, int now, HCEventCacheFillSite site)
     {
-        if (site.Loaded) { return true; }
-        if (!site.Listed) { ListSite(siteId, site); }
+        if (!site.Scanning)
+        {
+            if (site.Loaded && now - site.PassUtc < RECEIPT_RETENTION_SECONDS) { return true; }
+            site.Scanning = true;
+            site.Cursor = 0;
+        }
+        array<string> batch = new array<string>;
+        bool ended = ListStep(siteId, site.Cursor, batch);
         string keepOk = siteId + "." + keepKey + ".ok";
         string keepInt = siteId + "." + keepKey + ".int";
-        int read = 0;
         int removed = 0;
-        while (site.Cursor < site.Names.Count() && read < SCAN_STEP)
+        foreach (string name : batch)
         {
-            string name = site.Names[site.Cursor];
-            site.Cursor++;
-            read++;
             bool isOk = HasSuffix(name, ".ok");
             string tag = "HC-CACHEFILL-INT";
             if (isOk) { tag = "HC-CACHEFILL-OK"; }
@@ -859,10 +895,13 @@ class HCEventCacheFill
                 if (s_IO.Remove(name)) { removed++; }
             }
         }
-        if (site.Cursor >= site.Names.Count())
+        // A removed name no longer counts as already read.
+        site.Cursor = site.Cursor + batch.Count() - removed;
+        if (ended)
         {
+            site.Scanning = false;
             site.Loaded = true;
-            site.Names.Clear();
+            site.PassUtc = now;
         }
         return site.Loaded;
     }
@@ -879,9 +918,10 @@ class HCEventCacheFill
         if (!plan) { return Refuse(siteId, "no_stock_plan"); }
         string id = CacheId(item);
         bool ceCreated = item.HCEventEconomyCandidate();
-        BindLine(siteId, ceCreated, id);
+        float dist = SpawnDistance(item, mission);
+        BindLine(siteId, ceCreated, id, dist);
         if (!ceCreated) { return Refuse(siteId, "not_ce_created"); }
-        if (!AtEventSpawn(item, mission)) { return Refuse(siteId, "not_at_eventspawn"); }
+        if (dist > CASE_RADIUS) { return Refuse(siteId, "not_at_eventspawn"); }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         int now = HCInfectedClock.UtcSeconds();
         if (!policy || now < 1) { return Wait(siteId, "clock_or_policy_unavailable"); }
@@ -984,11 +1024,6 @@ class HCEventCacheFill
         Print("[HC Events] scene cache fill; " + siteId + "; action=filled; items=" + created.ToString() + "; id=" + key + " runtime=PENDING");
         HCModuleReadiness.HCUse("Events", "cache_filled");
         return true;
-    }
-    // Registers the cache_filled [HC Use] counter at zero at module start (not lazily on first fill).
-    static void Start()
-    {
-        HCModuleReadiness.HCRegisterUse("Events", "cache_filled");
     }
 }
 class HCEventCacheSpawner
