@@ -886,6 +886,10 @@ class HCWorldMaterializer : HCModule
     protected bool HCLoadCustody()
     {
         if (!this.HCCustodyDepthAllowed()) { return false; }
+        // Load reads, rejects, restores and deletes custody files: no earlier verified-primary memo
+        // may survive it (every instance's memo for the active path, and this writer's own).
+        HCStagedSaveImage.HCForget(m_CustodyPath);
+        if (m_CustodyImage) { m_CustodyImage.HCForgetVerified(); }
         bool loaded = this.HCLoadCustodyImage();
         string basePath = "$profile:HollowCountry/ai-custody.json";
         int depth = (m_CustodyPath.Length() - basePath.Length()) / 4;
@@ -908,6 +912,8 @@ class HCWorldMaterializer : HCModule
         m_CustodyText = "";
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return this.HCCustodyFault("custody_directory_create_failed"); }
         m_LeaseCeiling = new HCWorldLeaseCeiling;
+        // A recreated ceiling writer starts with no drained state.
+        m_CustodyCeilingDrained = false;
         m_CustodyKeepTmp = false;
         if (!this.HCSelectRetainedCustody()) { return false; }
         if (FileExist(m_CustodyPath + ".tmp") && !this.HCRecoverCustodyTmp()) { return false; }
@@ -1158,7 +1164,12 @@ class HCWorldMaterializer : HCModule
     // No disk calls are made by Next/Result/Expire.
     protected bool HCSaveCustody()
     {
-        if (!m_CustodyReady || !this.HCValidCustody(m_Custody) || m_Custody.NextLease >= 2147483647) { return this.HCCustodySaveFailed(); }
+        if (!m_CustodyReady || !this.HCValidCustody(m_Custody) || m_Custody.NextLease >= 2147483647)
+        {
+            // Refused before any stage ran: record the state machine's real position, never a stale one.
+            m_CustodyFailedStage = m_CustodyStage;
+            return this.HCCustodySaveFailed();
+        }
         m_Custody.NextLease++;
         if (m_Custody.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_Custody.NextLease; }
         m_CustodyRevision = m_Custody.NextLease;

@@ -26,8 +26,14 @@ class HCXAILocalitySave : HCSaveJob
     // image is a full rewrite of every locality row, so routine checkpoints wait five minutes.
     override float HCInterval() { return Math.Max(HCWorldRuntimeConfig.HCGet().SaveCoalesceSeconds, 300); }
     void HCChanged() { m_Revision++; HCDirty = true; }
+    // A selection waits only for a selection checkpoint (urgent) or a write in flight. Routine-dirty
+    // observations and refusals ride the next image and must not hold selection for a coalesce interval.
+    bool HCSelectionBlocked() { return HCInFlight || (HCUrgent && HCDirty); }
     bool HCLoad(string world)
     {
+        // Load deletes the intent and the primary when it restores from a backup.
+        HCStagedSaveImage.HCForget(PATH);
+        m_Image.HCForgetVerified();
         if (FileExist(INTENT))
         {
             Print("[HC Plan] HC-18 rotation interrupted cursor intent discarded; primary then backup runtime=PENDING");

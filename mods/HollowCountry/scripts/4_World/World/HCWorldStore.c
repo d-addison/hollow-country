@@ -358,6 +358,9 @@ class HCWorldStore
     // the crash came just before the save began. Anything else stays quarantined.
     protected bool RecoverIntent()
     {
+        // Recovery may delete, copy over or promote the primary behind the writer's back.
+        HCStagedSaveImage.HCForget(m_Path);
+        m_SaveImage.HCForgetVerified();
         string intent = Read(m_Temp);
         HCWorldData next = Decode(intent);
         string primaryText = Read(m_Path);
@@ -399,6 +402,8 @@ class HCWorldStore
     {
         m_Data = null;
         m_Fresh = false;
+        HCStagedSaveImage.HCForget(m_Path);
+        m_SaveImage.HCForgetVerified();
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
         m_Fault = false;
         if (!Prepare()) { return Fault(); }
@@ -599,6 +604,8 @@ class HCWorldIntentRecovery
     // Never copy onto an occupied destination, including after interrupted copies.
     static bool Reject(string source, int limit)
     {
+        // Retiring the source changes the primary of any image writer that covers it.
+        HCStagedSaveImage.HCForget(source);
         string rejected = source + ".rejected";
         int free = -1;
         bool existingCopy = false;
@@ -716,6 +723,8 @@ class HCWorldIntentRecovery
 
     static bool Recover(string path, int limit, string intent, string primary, bool forward, bool keepBackup = true)
     {
+        // Promotion, backup rotation and discard all rewrite the primary outside the image writer.
+        HCStagedSaveImage.HCForget(path);
         if (intent == "")
         {
             if (primary == "" || !Reject(path + ".tmp", limit)) { return false; }
@@ -793,6 +802,9 @@ class HCWorldLeaseCeiling
 
     bool Load(bool allowReseed)
     {
+        // Load recovers, rejects and reseeds the ceiling files outside the image writer.
+        HCStagedSaveImage.HCForget(PATH);
+        m_Image.HCForgetVerified();
         m_NeedsReseed = false;
         m_BackupLowerBound = false;
         m_LoadFailure = "custody_lease_ceiling_invalid";
