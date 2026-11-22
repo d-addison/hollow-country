@@ -11,8 +11,8 @@ from tools.validate import enforce_source as es
 
 RULE = 'HC-S005'
 DESCRIPTION = 'JSON-loaded scalar has a nonzero initializer but no explicit zero/default guard'
-LOAD = re.compile(r'\b(?:JsonFileLoader|HCGroupJson|HCInteriorJson|HCSearchJson|HCV2ThreatStore|HCEncounterStore)\s*<([^;{}]+?)>\s*\.\s*'
-                  r'(?:LoadData|LoadFile|JsonLoadData|JsonLoadFile|Load)\s*\(')
+LOAD = re.compile(r'\b(?:JsonFileLoader|HCJsonSchemaLoader|HCGroupJson|HCInteriorJson|HCSearchJson|HCV2ThreatStore|HCEncounterStore)\s*<([^;{}]+?)>\s*\.\s*'
+                  r'(?:LoadData|HCLoadData|LoadFile|JsonLoadData|JsonLoadFile|Load)\s*\(')
 
 
 def loaded_classes(project):
@@ -38,6 +38,16 @@ def types_in(text):
     # Source's compact type spelling is array<refHCRow>, not array<ref HCRow>.
     return [token[3:] if token.startswith('ref') else token
             for token in re.findall(r'\b\w+\b', text)]
+
+
+# Raw-key presence checks. HCJsonSchema.HCApply* returns its fallback unless the
+# authored text names the key, so a literal-key call is an explicit missing-field guard.
+PRESENCE = re.compile(r'(?:HCJsonFields\.(?:Has|Every|Check)|HCJsonSchema\s*\.\s*HCApply(?:Int|Float|Bool))'
+                      r'\(\s*[^,]+,\s*"(\w+)"')
+
+
+def present_keys(body):
+    return PRESENCE.findall(body)
 
 
 def nonzero(field):
@@ -188,7 +198,7 @@ def guards(project):
             helper_args = {}
             sentinel_args = {}
             raw_body = source.text[method.body_start:method.body_end + 1]
-            present = set(re.findall(r'HCJsonFields\.(?:Has|Every|Check)\([^,]+,\s*"(\w+)"', raw_body))
+            present = set(present_keys(raw_body))
             # Presence-only helpers keep the raw-text scan in one bounded IO
             # seam. Resolve the exact class-qualified helper, not a name match
             # across unrelated stores.
@@ -198,7 +208,7 @@ def guards(project):
                     name = method.owner.name + '.' + name
                 for definition in method_groups.get(name, ()):
                     raw = definition.owner.source.text[definition.body_start:definition.body_end + 1]
-                    present.update(re.findall(r'HCJsonFields\.(?:Has|Every|Check)\([^,]+,\s*"(\w+)"', raw))
+                    present.update(present_keys(raw))
             for call in re.finditer(r'\b((?:\w+\s*\.\s*)?\w+)\s*\(', body):
                 call_name = re.sub(r'\s+', '', call[1])
                 if not helpers.get(call_name):

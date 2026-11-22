@@ -24,7 +24,7 @@
 // EnScript.c:897 GetKey (O(n), bounded by MaxHearths), :906 Remove.
 // No Expansion calls or copied code.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnSystem.c:397 FileExist;
-// EnDebug.c:96 Print. HCGroupIO bounds IO; HCJsonSchema loader; HCJsonFields preserves missing defaults.
+// EnDebug.c:96 Print. HCGroupIO bounds IO; HCJsonSchema loader and HCApply* preserve missing defaults.
 // Spec: no house fire presentation without a replicated burning hearth. Plan:
 // observe native fires; bounded provenance registry; unseen funded occupant ignition.
 // Tasks: source/tests here; native compile, persistence and two clients remain pending.
@@ -62,21 +62,32 @@ class HCHearthConfig
         s_Config.HCApply(decoded, text);
         return s_Config;
     }
+    // Registry range gate: a candidate outside the shared row keeps the current value.
+    protected int HCRegistryInt(string key, int candidate, int current)
+    {
+        if (HCOperatorSettingsRegistry.HCValid("HearthFires." + key, candidate)) { return candidate; }
+        return current;
+    }
+    protected float HCRegistryFloat(string key, float candidate, float current)
+    {
+        if (HCOperatorSettingsRegistry.HCValid("HearthFires." + key, candidate)) { return candidate; }
+        return current;
+    }
     void HCApply(HCHearthConfig decoded, string text)
     {
-        if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
-        if (HCJsonFields.Has(text, "MaxHearths") && HCOperatorSettingsRegistry.HCValid("HearthFires.MaxHearths", decoded.MaxHearths)) { MaxHearths = decoded.MaxHearths; }
-        if (HCJsonFields.Has(text, "MaxObjects") && HCOperatorSettingsRegistry.HCValid("HearthFires.MaxObjects", decoded.MaxObjects)) { MaxObjects = decoded.MaxObjects; }
-        if (HCJsonFields.Has(text, "MaxInventory") && HCOperatorSettingsRegistry.HCValid("HearthFires.MaxInventory", decoded.MaxInventory)) { MaxInventory = decoded.MaxInventory; }
-        if (HCJsonFields.Has(text, "HearthsPerTick") && HCOperatorSettingsRegistry.HCValid("HearthFires.HearthsPerTick", decoded.HearthsPerTick)) { HearthsPerTick = decoded.HearthsPerTick; }
-        if (HCJsonFields.Has(text, "HousesPerScan") && HCOperatorSettingsRegistry.HCValid("HearthFires.HousesPerScan", decoded.HousesPerScan)) { HousesPerScan = decoded.HousesPerScan; }
-        if (HCJsonFields.Has(text, "MaxLit") && HCOperatorSettingsRegistry.HCValid("HearthFires.MaxLit", decoded.MaxLit)) { MaxLit = decoded.MaxLit; }
-        if (HCJsonFields.Has(text, "MaxSmoke") && HCOperatorSettingsRegistry.HCValid("HearthFires.MaxSmoke", decoded.MaxSmoke)) { MaxSmoke = decoded.MaxSmoke; }
-        if (HCJsonFields.Has(text, "QueryRadius") && HCOperatorSettingsRegistry.HCValid("HearthFires.QueryRadius", decoded.QueryRadius)) { QueryRadius = decoded.QueryRadius; }
-        if (HCJsonFields.Has(text, "AnchorTolerance") && HCOperatorSettingsRegistry.HCValid("HearthFires.AnchorTolerance", decoded.AnchorTolerance)) { AnchorTolerance = decoded.AnchorTolerance; }
-        if (HCJsonFields.Has(text, "ActorRange") && HCOperatorSettingsRegistry.HCValid("HearthFires.ActorRange", decoded.ActorRange)) { ActorRange = decoded.ActorRange; }
-        if (HCJsonFields.Has(text, "ObserverRadius") && HCOperatorSettingsRegistry.HCValid("HearthFires.ObserverRadius", decoded.ObserverRadius)) { ObserverRadius = decoded.ObserverRadius; }
-        if (HCJsonFields.Has(text, "AttemptSeconds") && HCOperatorSettingsRegistry.HCValid("HearthFires.AttemptSeconds", decoded.AttemptSeconds)) { AttemptSeconds = decoded.AttemptSeconds; }
+        Enabled = HCJsonSchema.HCApplyBool(text, "Enabled", decoded.Enabled, Enabled);
+        MaxHearths = HCRegistryInt("MaxHearths", HCJsonSchema.HCApplyInt(text, "MaxHearths", decoded.MaxHearths, MaxHearths), MaxHearths);
+        MaxObjects = HCRegistryInt("MaxObjects", HCJsonSchema.HCApplyInt(text, "MaxObjects", decoded.MaxObjects, MaxObjects), MaxObjects);
+        MaxInventory = HCRegistryInt("MaxInventory", HCJsonSchema.HCApplyInt(text, "MaxInventory", decoded.MaxInventory, MaxInventory), MaxInventory);
+        HearthsPerTick = HCRegistryInt("HearthsPerTick", HCJsonSchema.HCApplyInt(text, "HearthsPerTick", decoded.HearthsPerTick, HearthsPerTick), HearthsPerTick);
+        HousesPerScan = HCRegistryInt("HousesPerScan", HCJsonSchema.HCApplyInt(text, "HousesPerScan", decoded.HousesPerScan, HousesPerScan), HousesPerScan);
+        MaxLit = HCRegistryInt("MaxLit", HCJsonSchema.HCApplyInt(text, "MaxLit", decoded.MaxLit, MaxLit), MaxLit);
+        MaxSmoke = HCRegistryInt("MaxSmoke", HCJsonSchema.HCApplyInt(text, "MaxSmoke", decoded.MaxSmoke, MaxSmoke), MaxSmoke);
+        QueryRadius = HCRegistryFloat("QueryRadius", HCJsonSchema.HCApplyFloat(text, "QueryRadius", decoded.QueryRadius, QueryRadius), QueryRadius);
+        AnchorTolerance = HCRegistryFloat("AnchorTolerance", HCJsonSchema.HCApplyFloat(text, "AnchorTolerance", decoded.AnchorTolerance, AnchorTolerance), AnchorTolerance);
+        ActorRange = HCRegistryFloat("ActorRange", HCJsonSchema.HCApplyFloat(text, "ActorRange", decoded.ActorRange, ActorRange), ActorRange);
+        ObserverRadius = HCRegistryFloat("ObserverRadius", HCJsonSchema.HCApplyFloat(text, "ObserverRadius", decoded.ObserverRadius, ObserverRadius), ObserverRadius);
+        AttemptSeconds = HCRegistryInt("AttemptSeconds", HCJsonSchema.HCApplyInt(text, "AttemptSeconds", decoded.AttemptSeconds, AttemptSeconds), AttemptSeconds);
     }
 }
 

@@ -334,8 +334,9 @@ class HCInfectedVariety
             types.Set(member.Type, true);
             if (member.Type.IndexOf("ZmbM_") != 0 && member.Type.IndexOf("ZmbF_") != 0) { return false; }
             string path = "CfgVehicles " + member.Type;
-            if (!GetGame().ConfigIsExisting(path) || !GetGame().IsKindOf(member.Type, "ZombieBase") || GetGame().ConfigGetInt(path + " scope") != 2) { return false; }
-            if (!GetGame().ConfigGetText(path + " model", member.Model) || member.Model == "") { return false; }
+            if (!GetGame().ConfigIsExisting(path) || !GetGame().IsKindOf(member.Type, "ZombieBase") || HCConfigHelper.GetInt(path + " scope", 0) != 2) { return false; }
+            member.Model = HCConfigHelper.GetText(path + " model", "");
+            if (member.Model == "") { return false; }
             member.Model.ToLower();
             member.Family = HCCompositionFamily(member.Type);
             member.Sex = member.Type.Substring(0, 4);
@@ -371,7 +372,7 @@ class HCInfectedVariety
         {
             families.Set(HCCompositionFamily(usedType), true);
             string model;
-            GetGame().ConfigGetText("CfgVehicles " + usedType + " model", model);
+            model = HCConfigHelper.GetText("CfgVehicles " + usedType + " model", "");
             model.ToLower();
             models.Set(model, true);
             if (usedType.Length() >= 4) { sexes.Set(usedType.Substring(0, 4), true); }

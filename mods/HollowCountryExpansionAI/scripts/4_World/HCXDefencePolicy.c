@@ -41,6 +41,19 @@ class GCActorsDefenceConfig
         return true;
     }
 
+    // Local ceiling plus shared registry row; an out-of-range candidate keeps the current value.
+    int HCRegistryInt(string key, int candidate, int current, float low, float high)
+    {
+        if (HCValid(key, candidate, low, high)) { return candidate; }
+        return current;
+    }
+
+    float HCRegistryFloat(string key, float candidate, float current, float low, float high)
+    {
+        if (HCValid(key, candidate, low, high)) { return candidate; }
+        return current;
+    }
+
     void HCLoad()
     {
         string path = "$profile:HollowCountry/gc-actors-defence.json";
@@ -50,24 +63,24 @@ class GCActorsDefenceConfig
         GCActorsDefenceConfig decoded;
         if (!HCGroupIO.Read(path, 4096, text)) { HCRefuse("read"); return; }
         if (!HCJsonSchemaLoader<GCActorsDefenceConfig>.HCLoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
-        if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
-        if (HCJsonFields.Has(text, "GRUDGE_CAP") && HCValid("GRUDGE_CAP", decoded.GRUDGE_CAP, 1, 64)) { GRUDGE_CAP = decoded.GRUDGE_CAP; }
-        if (HCJsonFields.Has(text, "SHOT_WINDOW_CAP") && HCValid("SHOT_WINDOW_CAP", decoded.SHOT_WINDOW_CAP, 1, 6)) { SHOT_WINDOW_CAP = decoded.SHOT_WINDOW_CAP; }
-        if (HCJsonFields.Has(text, "SHOT_SPACING_MS") && HCValid("SHOT_SPACING_MS", decoded.SHOT_SPACING_MS, 750, 60000)) { SHOT_SPACING_MS = decoded.SHOT_SPACING_MS; }
-        if (HCJsonFields.Has(text, "LOS_MEMORY_MS") && HCValid("LOS_MEMORY_MS", decoded.LOS_MEMORY_MS, 1, 15000)) { LOS_MEMORY_MS = decoded.LOS_MEMORY_MS; }
-        if (HCJsonFields.Has(text, "SEED_WINDOW_MS") && HCValid("SEED_WINDOW_MS", decoded.SEED_WINDOW_MS, 1, 20000)) { SEED_WINDOW_MS = decoded.SEED_WINDOW_MS; }
-        if (HCJsonFields.Has(text, "RESCUE_WINDOW_MS") && HCValid("RESCUE_WINDOW_MS", decoded.RESCUE_WINDOW_MS, 1, 30000)) { RESCUE_WINDOW_MS = decoded.RESCUE_WINDOW_MS; }
-        if (HCJsonFields.Has(text, "RAYCASTS_PER_SHOT") && HCValid("RAYCASTS_PER_SHOT", decoded.RAYCASTS_PER_SHOT, 1, 4)) { RAYCASTS_PER_SHOT = decoded.RAYCASTS_PER_SHOT; }
-        if (HCJsonFields.Has(text, "INFECTED_RADIUS") && HCValid("INFECTED_RADIUS", decoded.INFECTED_RADIUS, 1, 25)) { INFECTED_RADIUS = decoded.INFECTED_RADIUS; }
-        if (HCJsonFields.Has(text, "PASS_RADIUS") && HCValid("PASS_RADIUS", decoded.PASS_RADIUS, 0.1, 4)) { PASS_RADIUS = decoded.PASS_RADIUS; }
-        if (HCJsonFields.Has(text, "PASS_REACH") && HCValid("PASS_REACH", decoded.PASS_REACH, 1, 200)) { PASS_REACH = decoded.PASS_REACH; }
-        if (HCJsonFields.Has(text, "PASS_MARGIN") && HCValid("PASS_MARGIN", decoded.PASS_MARGIN, 0.1, 2)) { PASS_MARGIN = decoded.PASS_MARGIN; }
-        if (HCJsonFields.Has(text, "CLOSE_RADIUS") && HCValid("CLOSE_RADIUS", decoded.CLOSE_RADIUS, 0.1, 12)) { CLOSE_RADIUS = decoded.CLOSE_RADIUS; }
-        if (HCJsonFields.Has(text, "FIGHT_THREAT") && HCValid("FIGHT_THREAT", decoded.FIGHT_THREAT, 0.1, 0.6)) { FIGHT_THREAT = decoded.FIGHT_THREAT; }
-        if (HCJsonFields.Has(text, "ORIGIN_REACH") && HCValid("ORIGIN_REACH", decoded.ORIGIN_REACH, 1, 150)) { ORIGIN_REACH = decoded.ORIGIN_REACH; }
-        if (HCJsonFields.Has(text, "HitHoldMs") && HCValid("HitHoldMs", decoded.HitHoldMs, 1, 240000)) { HitHoldMs = decoded.HitHoldMs; }
-        if (HCJsonFields.Has(text, "KillHoldMs") && HCValid("KillHoldMs", decoded.KillHoldMs, 1, 300000)) { KillHoldMs = decoded.KillHoldMs; }
-        if (HCJsonFields.Has(text, "MissHoldMs") && HCValid("MissHoldMs", decoded.MissHoldMs, 1, 90000)) { MissHoldMs = decoded.MissHoldMs; }
+        Enabled = HCJsonSchema.HCApplyBool(text, "Enabled", decoded.Enabled, Enabled);
+        GRUDGE_CAP = HCRegistryInt("GRUDGE_CAP", HCJsonSchema.HCApplyInt(text, "GRUDGE_CAP", decoded.GRUDGE_CAP, GRUDGE_CAP), GRUDGE_CAP, 1, 64);
+        SHOT_WINDOW_CAP = HCRegistryInt("SHOT_WINDOW_CAP", HCJsonSchema.HCApplyInt(text, "SHOT_WINDOW_CAP", decoded.SHOT_WINDOW_CAP, SHOT_WINDOW_CAP), SHOT_WINDOW_CAP, 1, 6);
+        SHOT_SPACING_MS = HCRegistryInt("SHOT_SPACING_MS", HCJsonSchema.HCApplyInt(text, "SHOT_SPACING_MS", decoded.SHOT_SPACING_MS, SHOT_SPACING_MS), SHOT_SPACING_MS, 750, 60000);
+        LOS_MEMORY_MS = HCRegistryInt("LOS_MEMORY_MS", HCJsonSchema.HCApplyInt(text, "LOS_MEMORY_MS", decoded.LOS_MEMORY_MS, LOS_MEMORY_MS), LOS_MEMORY_MS, 1, 15000);
+        SEED_WINDOW_MS = HCRegistryInt("SEED_WINDOW_MS", HCJsonSchema.HCApplyInt(text, "SEED_WINDOW_MS", decoded.SEED_WINDOW_MS, SEED_WINDOW_MS), SEED_WINDOW_MS, 1, 20000);
+        RESCUE_WINDOW_MS = HCRegistryInt("RESCUE_WINDOW_MS", HCJsonSchema.HCApplyInt(text, "RESCUE_WINDOW_MS", decoded.RESCUE_WINDOW_MS, RESCUE_WINDOW_MS), RESCUE_WINDOW_MS, 1, 30000);
+        RAYCASTS_PER_SHOT = HCRegistryInt("RAYCASTS_PER_SHOT", HCJsonSchema.HCApplyInt(text, "RAYCASTS_PER_SHOT", decoded.RAYCASTS_PER_SHOT, RAYCASTS_PER_SHOT), RAYCASTS_PER_SHOT, 1, 4);
+        INFECTED_RADIUS = HCRegistryFloat("INFECTED_RADIUS", HCJsonSchema.HCApplyFloat(text, "INFECTED_RADIUS", decoded.INFECTED_RADIUS, INFECTED_RADIUS), INFECTED_RADIUS, 1, 25);
+        PASS_RADIUS = HCRegistryFloat("PASS_RADIUS", HCJsonSchema.HCApplyFloat(text, "PASS_RADIUS", decoded.PASS_RADIUS, PASS_RADIUS), PASS_RADIUS, 0.1, 4);
+        PASS_REACH = HCRegistryFloat("PASS_REACH", HCJsonSchema.HCApplyFloat(text, "PASS_REACH", decoded.PASS_REACH, PASS_REACH), PASS_REACH, 1, 200);
+        PASS_MARGIN = HCRegistryFloat("PASS_MARGIN", HCJsonSchema.HCApplyFloat(text, "PASS_MARGIN", decoded.PASS_MARGIN, PASS_MARGIN), PASS_MARGIN, 0.1, 2);
+        CLOSE_RADIUS = HCRegistryFloat("CLOSE_RADIUS", HCJsonSchema.HCApplyFloat(text, "CLOSE_RADIUS", decoded.CLOSE_RADIUS, CLOSE_RADIUS), CLOSE_RADIUS, 0.1, 12);
+        FIGHT_THREAT = HCRegistryFloat("FIGHT_THREAT", HCJsonSchema.HCApplyFloat(text, "FIGHT_THREAT", decoded.FIGHT_THREAT, FIGHT_THREAT), FIGHT_THREAT, 0.1, 0.6);
+        ORIGIN_REACH = HCRegistryFloat("ORIGIN_REACH", HCJsonSchema.HCApplyFloat(text, "ORIGIN_REACH", decoded.ORIGIN_REACH, ORIGIN_REACH), ORIGIN_REACH, 1, 150);
+        HitHoldMs = HCRegistryInt("HitHoldMs", HCJsonSchema.HCApplyInt(text, "HitHoldMs", decoded.HitHoldMs, HitHoldMs), HitHoldMs, 1, 240000);
+        KillHoldMs = HCRegistryInt("KillHoldMs", HCJsonSchema.HCApplyInt(text, "KillHoldMs", decoded.KillHoldMs, KillHoldMs), KillHoldMs, 1, 300000);
+        MissHoldMs = HCRegistryInt("MissHoldMs", HCJsonSchema.HCApplyInt(text, "MissHoldMs", decoded.MissHoldMs, MissHoldMs), MissHoldMs, 1, 90000);
         if (HitHoldMs > KillHoldMs) { HitHoldMs = KillHoldMs; }
         if (MissHoldMs > HitHoldMs) { MissHoldMs = HitHoldMs; }
         if (PASS_MARGIN > PASS_REACH) { PASS_MARGIN = PASS_REACH; }

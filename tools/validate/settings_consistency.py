@@ -31,6 +31,33 @@ def load_registry(*, include_scoped=False):
     return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
 
 
+def find_apply(source, key, target, decoded, text):
+    """Statement that binds `target` from `decoded` only when `key` is authored.
+
+    Behaviour, not spelling: accepted forms are the presence-guarded assignment
+    (HCJsonFields.Has gate) and the HCJsonSchema.HCApply* call, which returns the
+    fallback unless the key is present in the authored text. Returns the source
+    line (any range gate wrapper included) or None.
+    """
+    k, t, d, x = (re.escape(v) for v in (key, target, decoded, text))
+    guarded = re.compile(rf'HCJsonFields\.Has\({x}, "{k}"\).*\{{ {t} = {d}\.{k}; \}}')
+    schema = re.compile(rf'\b{t} = .*HCJsonSchema\.HCApply(?:Int|Float|Bool)\({x}, "{k}", {d}\.{k}, {t}\)')
+    for line in source.splitlines():
+        if guarded.search(line) or schema.search(line):
+            return line
+    return None
+
+
+def apply_errors(label, source, key, row, target, decoded, text, gate):
+    """Missing/unguarded apply of `key`, or a non-bool apply without its range gate."""
+    line = find_apply(source, key, target, decoded, text)
+    if line is None:
+        return [f'{label} apply binding differs for {key}']
+    if row['type'] != 'bool' and gate and not re.search(gate(key, row), line):
+        return [f'{label} apply range gate differs for {key}']
+    return []
+
+
 def check_zone_guards(rows):
     """Separate optional zone profile; registrations belong to base 3_Game."""
     source = ZONE_GUARDS_NATIVE.read_text()
@@ -51,9 +78,10 @@ def check_zone_guards(rows):
         if row['type'] != 'bool':
             if f'HCOperatorSettingsRegistry.HCValid("HCZoneGuards.{key}", config.{key})' not in source:
                 errors.append(f'HCZoneGuards validation binding differs for {key}')
-            restore = f'if (!HCJsonFields.Has(raw, "{key}")) {{ config.{key} = {row["default"]}; }}'
-            if restore not in source:
-                errors.append(f'HCZoneGuards missing-field default differs for {key}')
+        legacy = row['type'] != 'bool' and (
+            f'if (!HCJsonFields.Has(raw, "{key}")) {{ config.{key} = {row["default"]}; }}' in source)
+        if not legacy and find_apply(source, key, 'config.' + key, 'decoded', 'raw') is None:
+            errors.append(f'HCZoneGuards missing-field default differs for {key}')
     return errors
 
 
@@ -112,14 +140,13 @@ def check_hearth(rows, source, registry):
     compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
     expected = render_native_registry(rows).splitlines()
     if compiled != expected: errors.append('HearthFires compiled registry differs (key/type/default/range/owner)')
+    if 'HCRegistry' in dto and 'HCOperatorSettingsRegistry.HCValid("HearthFires." + key, candidate)' not in dto:
+        errors.append('HearthFires registry gate helper does not validate against the registry')
     for key, row in rules.items():
         if row['owner'] != 'HCHearthConfig' or fields.get(key) != (row['type'], row['default']):
             errors.append(f'HearthFires DTO default/type/owner differs for {key}')
-        guard = f'HCJsonFields.Has(text, "{key}")'
-        if row['type'] != 'bool':
-            guard += f' && HCOperatorSettingsRegistry.HCValid("HearthFires.{key}", decoded.{key})'
-        binding = f'if ({guard}) {{ {key} = decoded.{key}; }}'
-        if binding not in dto: errors.append(f'HearthFires apply binding differs for {key}')
+        errors += apply_errors('HearthFires', dto, key, row, key, 'decoded', 'text', lambda k, r: (
+            rf'HCOperatorSettingsRegistry\.HCValid\("HearthFires\.{k}", decoded\.{k}\)|HCRegistry(?:Int|Float)\("{k}",'))
         if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
             errors.append(f'HearthFires literal range bypasses registry for {key}')
     return errors
@@ -162,14 +189,14 @@ def check_actor_settings(rows):
             r'^    (bool|int|float) (\w+) = ([\w.]+);', source, re.M)}
         owned = {r['key'].removeprefix(prefix + '.'): r for r in rows if r['owner'] == owner}
         if fields.keys() != owned.keys(): errors.append(prefix + ' registry/native key set differs')
+        if 'HCRegistry' in source and 'if (HCValid(key, candidate, low, high)) { return candidate; }' not in source:
+            errors.append(prefix + ' registry gate helper does not validate its candidate')
         for key, row in owned.items():
             if fields.get(key) != (row['type'], row['default']):
                 errors.append(prefix + ' default/type differs for ' + key)
-            guard = f'HCJsonFields.Has(text, "{key}")'
-            if row['type'] != 'bool':
-                guard += f' && HCValid("{key}", decoded.{key}, {row["min"]}, {row["max"]})'
-            if f'if ({guard}) {{ {key} = decoded.{key}; }}' not in source:
-                errors.append(prefix + ' apply/range binding differs for ' + key)
+            errors += apply_errors(prefix, source, key, row, key, 'decoded', 'text', lambda k, r: (
+                rf'HCValid\("{k}", decoded\.{k}, {re.escape(str(r["min"]))}, {re.escape(str(r["max"]))}\)'
+                rf'|HCRegistry(?:Int|Float)\("{k}",.*, {re.escape(str(r["min"]))}, {re.escape(str(r["max"]))}\);'))
         if f'string fullKey = "{prefix}." + key;' not in source or 'HCOperatorSettingsRegistry.HCValid(fullKey, value)' not in source:
             errors.append(prefix + ' registry validation binding differs')
     return errors

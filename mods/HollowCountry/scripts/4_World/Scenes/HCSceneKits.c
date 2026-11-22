@@ -366,7 +366,7 @@ class HCSceneKits
         {
             // Render only the verified model (casings, open shell or cold
             // hearth): no projectile, inventory or fireplace simulation.
-            string model = GetGame().ConfigGetTextOut("CfgVehicles " + prop.Type + " model");
+            string model = HCConfigHelper.GetText("CfgVehicles " + prop.Type + " model", "");
             if (model == "") { lease.Closing = true; return false; }
             object = GetGame().CreateStaticObjectUsingP3D(model, position, orientation, 1, false, false);
         }

@@ -391,7 +391,7 @@ class HCCellarSampler : HCModule
             return;
         }
         string model;
-        GetGame().ConfigGetText("CfgVehicles " + definition.BuildingClass + " model", model);
+        model = HCConfigHelper.GetText("CfgVehicles " + definition.BuildingClass + " model", "");
         if (model == "" || model != definition.Model) { HCRecord(false, "model/config mismatch"); return; }
         vector bounds[2];
         if (!candidate.GetCollisionBox(bounds)) { HCRecord(false, "no collision bounds"); return; }

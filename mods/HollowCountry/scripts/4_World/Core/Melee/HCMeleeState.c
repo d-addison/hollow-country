@@ -84,8 +84,8 @@ class HCMeleeAmmo
         string path = "CfgAmmo " + ammo;
         if (!GetGame().ConfigIsExisting(path)) { return null; }
         cached = new HCMeleeAmmoData;
-        cached.Heavy = GetGame().ConfigGetInt(path + " hitAnimation") == 1;
-        cached.Health = GetGame().ConfigGetFloat(path + " DamageApplied Health damage");
+        cached.Heavy = HCConfigHelper.GetInt(path + " hitAnimation", 0) == 1;
+        cached.Health = HCConfigHelper.GetFloat(path + " DamageApplied Health damage", 0);
         s_Ammo.Set(ammo, cached);
         return cached;
     }
@@ -198,8 +198,7 @@ class HCMeleeTarget
         float coefficient;
         if (s_HeadArmour.Find(type, coefficient)) { return coefficient; }
         string path = "CfgVehicles " + type + " DamageSystem DamageZones Head ArmorType Melee Health damage";
-        coefficient = 1;
-        if (GetGame().ConfigIsExisting(path)) { coefficient = GetGame().ConfigGetFloat(path); }
+        coefficient = HCConfigHelper.GetFloat(path, 1);
         s_HeadArmour.Set(type, coefficient);
         return coefficient;
     }
