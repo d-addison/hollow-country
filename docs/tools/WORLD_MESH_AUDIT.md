@@ -3,18 +3,20 @@
 Run from the checkout:
 
 ```sh
-python3 -B -m tools.audit.world_mesh_audit --addons /external/DayZ/Addons --reader /external/pinned-reader --report /tmp/world-mesh-report.json
+python3 -B -m tools.audit.world_mesh_audit --addons /external/DayZ/Addons --report /tmp/world-mesh-report.json
 ```
 
 `--bounds-out FILE` additionally writes the proposed measured-bounds update for
-`config/map-overlays/classes.json` (see "Measured bounds" below). `--reader` defaults to `HC_GENERATED_READER`; `--addons` defaults to the shared
-release `ship_inputs.ADDONS`. The reader revision and file hashes come directly
-from `interior_points_gen.Reader`, as described in [REGENERATE.md](REGENERATE.md).
-No reader is vendored. Installed PBOs are indexed and read in place, without
+`config/map-overlays/classes.json` (see "Measured bounds" below). `--addons` defaults to the shared
+release `ship_inputs.ADDONS`. Models are decoded by the clean-room ODOL56 reader
+`tools/audit/odol56.py`; there is no external reader and `--reader` is a legacy,
+ignored option. The report's `reader_revision` and `reader_sha256` fields are
+legacy provenance constants from `interior_points_gen` (kept so shipped outputs
+stay byte-identical, see [REGENERATE.md](REGENERATE.md)). Installed PBOs are indexed and read in place, without
 asset extraction, dumps or changes to placement data. Full-client Addons are
 needed for visual cost evidence; dedicated-server stripped meshes produce SKIP.
 
-Missing reader/Addons print SKIP and return zero. Invalid available inputs or
+Missing Addons print SKIP and return zero. Invalid available inputs or
 findings return nonzero. `--require-installed` also returns nonzero for any
 SKIP, including unresolved classes, missing Geometry, incomplete door selections
 or unavailable section counts. A permissive `pass` with skips is incomplete.
@@ -48,7 +50,7 @@ centre-to-origin distance above **0.5 m**, absolute lowest Geometry Y above
 **0.10 m**, lowest numeric visual LOD above **2,000 triangles** or **20 sections**.
 Lowest means the smallest numeric visual resolution below 1000 (LOD0 when
 present), matching the existing generator; a cheaper distant LOD cannot hide cost. Polygon faces
-contribute `vertices - 2` triangles. Section counts use the pinned reader's
+contribute `vertices - 2` triangles. Section counts use the ODOL reader's
 `lod.sections`, not material or texture counts. Door clearance is a **0.6 m
 diameter**, **1.8 m tall** vertical cylinder swept **1.5 m each way** along the
 horizontal normal of a Geometry door-leaf selection. Contact tolerance is
@@ -89,7 +91,7 @@ millimetre rounding, `applied: false`. `reserve_status` compares the authored
 reserve with the measured X/Z footprint ignoring axis order (the catalogue does
 not define it): `RESERVE_COVERS_MEASURED`, `RESERVE_BELOW_MEASURED` or `NO_RESERVE`.
 The proposal is never applied automatically; the lead reviews it and updates the
-catalogue by hand (P3.5). Reading models still needs the pinned reader; without it
+catalogue by hand (P3.5). Reading models needs the installed Addons; without them
 the run skips and no proposal is written.
 
 Box overlaps are conservative candidates, especially for rotated/hollow pieces.

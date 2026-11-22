@@ -155,30 +155,26 @@ need a loader/schema extension owned outside this worker's scope. Weapon/ammo
 surface eligibility is already permitted by the current loader. These additions
 provide CE capacity and do not create items, bypass CE or change type nominals.
 
-The read-only decoder is an external, hash-pinned dependency from
-[DayZObjectBuilder](https://github.com/SXDIST/DayZObjectBuilder/tree/e272780131dc10fe798bad321dca2c96894e993e/DZObjectBuilder/io).
-Only its three pure-Python reader files are needed; no Blender installation or
-asset conversion is used. The generator checks each source SHA-256 before import.
-The third-party decoder is not vendored into this repository. Reproduce from the
+The read-only decoder is `tools/audit/odol56.py`, a clean-room MIT reader for
+ODOL version 56 models written for this repository; nothing external is
+downloaded and no Blender installation or asset conversion is used. It reads
+the LOD table and resolutions, named selections, proxies (path and matrix),
+bounds, memory points, and the vertices, normals, faces and textures of every
+LOD (Geometry, Fire Geometry and Paths included). It fails closed with a typed
+`OdolError` (`UnsupportedVersion`, `UnsupportedCompression`, `MalformedModel`)
+on any other version, on an unsupported compressed block, or on a LOD whose
+layout does not parse exactly to its end. Models are never written out.
+`READER_REVISION` and `READER_HASHES` in `interior_points_gen.py` are legacy
+output provenance: shipped overlays embed them, so they stay fixed to keep
+regenerated files byte-identical. They no longer select any code to download.
+The `--reader` argument of the audit CLIs is a legacy, ignored option (the
+generator and the world mesh audit no longer need it). Reproduce from the
 same installed vanilla build, unmodified stock prototype and stock map positions:
 
 ```sh
-HC_INTERIOR_WORK=$(mktemp -d /tmp/hc-interior2.XXXXXX)
-python3 -B - "$HC_INTERIOR_WORK" <<'PY'
-from pathlib import Path
-import sys
-from urllib.request import urlopen
-from tools.package.interior_points_gen import READER_REVISION, READER_HASHES
-folder = Path(sys.argv[1])
-base = 'https://raw.githubusercontent.com/SXDIST/DayZObjectBuilder/'
-for name in sorted(READER_HASHES):
-    url = base + READER_REVISION + '/DZObjectBuilder/io/' + name
-    with urlopen(url, timeout=30) as response:
-        (folder / name).write_bytes(response.read())
-PY
 python3 -B -m tools.package.interior_points_gen \
   --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
-  --map-pos "$STOCK_MAP_POS" --reader "$HC_INTERIOR_WORK"
+  --map-pos "$STOCK_MAP_POS"
 ```
 
 All inputs are read-only. Use the verified pre-boost prototype from the install
@@ -268,12 +264,13 @@ This section supersedes the round-5 shelf counts and its bounds-only reach
 qualification. `tools/package/loot_reach_audit.py` audits every authored
 `lootHCSurface` container in `additions*.json`. Floor containers are counted but
 are outside this shelf-only check. Settings and family/policy JSON files are
-not coordinate overlays. The tool uses the generator's external, SHA-256-pinned
-ODOL reader, installed vanilla building/furniture PBO members, the unmodified
+not coordinate overlays. The tool uses the in-repo ODOL reader
+(`tools/audit/odol56.py`), installed vanilla building/furniture PBO members, the unmodified
 stock prototype, `interior_catalog.py`, `interior_templates.py`, measured
 `interior_prop_boxes.json`, and the authored interior templates. Assets and
 unpacked model/memory data remain external and are never written by this tool.
-The reader acquisition recipe is in the round-5 section above.
+Its `--reader` option is still required by this CLI but is a legacy argument:
+pass any existing directory; it is ignored.
 
 ```sh
 python3 -B -m tools.package.loot_reach_audit \
@@ -317,7 +314,7 @@ filter, not a native acceptance gate.
 
 The decoded memory LODs are inventoried, but their presence does not establish
 walkability. Door animations, locked doors, stairs, irregular or tilted/nested
-proxies, collision components not decoded by the external reader, complete item
+proxies, collision components not decoded by the ODOL reader, complete item
 volume/placement range, continuous body collision, terrain around each instance,
 CE placement and actual vicinity/search interaction need native observation.
 The finite static samples can conservatively reject good points and cannot prove
@@ -750,7 +747,7 @@ remain pending.” No other-owner source changes are needed for this overlay;
 the lead owns these summary edits and native acceptance. Keep issue #274 open
 for the remaining target and engine evidence.
 
-Reproduce with the round-5 pinned-reader download and generator command above,
+Reproduce with the round-5 generator command above,
 using the verified pre-boost prototype and stock map positions. Then run the
 independent audit without `--fix`:
 
@@ -1169,7 +1166,7 @@ The following table covers every type with a falling surface count relative to f
 
 ### Reproduction and validation
 
-Use the external reader pinned in `interior_points_gen.py`, full-client `DAYZ_CLIENT_ADDONS`, pristine installed `STOCK_PROTO`, and an external scratch directory `HC_WORK`. Do not use a server profile or an old install snapshot as bundle input. The original data is read from the exact committed repo files:
+Use the in-repo reader `tools/audit/odol56.py` (`--reader` is a legacy, ignored argument), full-client `DAYZ_CLIENT_ADDONS`, pristine installed `STOCK_PROTO`, and an external scratch directory `HC_WORK`. Do not use a server profile or an old install snapshot as bundle input. The original data is read from the exact committed repo files:
 
 ```sh
 git show 335915c6:mission/hollow-country/loot-points/additions-interiors.json > "$HC_WORK/prior.json"
