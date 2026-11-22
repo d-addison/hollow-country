@@ -339,7 +339,12 @@ class HCInfectedLODState
 class HCInfectedLODSaveJob : HCSaveJob
 {
     HCInfectedLODStore Owner;
-    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepRoutine();
+    }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCPendingCheckpoint(); }
     override string HCName() { return "InfectedLOD"; }
 }
 
@@ -349,6 +354,10 @@ class HCInfectedLODStore
     static const int LIMIT = 16384;
     protected ref HCInfectedLODState m_State;
     protected ref HCInfectedLODSaveJob m_Job;
+    protected ref HCV2ThreatStore<HCInfectedLODState> m_Writer = new HCV2ThreatStore<HCInfectedLODState>;
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    protected int m_CommittedRevision;
     protected bool m_Healthy;
     protected int m_LastUtc;
 
@@ -450,8 +459,12 @@ class HCInfectedLODStore
 
     void MarkDirty()
     {
+        m_Revision++;
         if (m_Job) { m_Job.HCDirty = true; }
     }
+
+    // A mutation after encoding must survive the scheduler clearing HCDirty.
+    bool HCPendingCheckpoint() { return m_Revision != m_CommittedRevision; }
 
     int NowUtc()
     {
@@ -461,14 +474,23 @@ class HCInfectedLODStore
         return nowUtc;
     }
 
-    bool HCFlushRoutine()
+    // Encode once per bounded journal image; the retained writer then advances
+    // the shared tmp/verify/backup/primary/readback/clear-intent stages.
+    // Start's CanOpen/Load has already recovered or refused the existing files.
+    int HCStepRoutine()
     {
-        if (!m_Healthy || !m_State) { return false; }
-        int nowUtc = NowUtc();
-        if (nowUtc < 1) { Fail("UTC clock went backwards"); return false; }
-        m_State.SavedUtc = nowUtc;
-        if (!HCV2ThreatStore<HCInfectedLODState>.Save(PATH, m_State, LIMIT)) { Fail("journal write"); return false; }
-        return true;
+        if (!m_Healthy || !m_State) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Writer.SaveInFlight())
+        {
+            int nowUtc = NowUtc();
+            if (nowUtc < 1) { Fail("UTC clock went backwards"); return HCSaveJob.STEP_FAILED; }
+            m_State.SavedUtc = nowUtc;
+            m_SnapshotRevision = m_Revision;
+        }
+        int result = m_Writer.SaveStep(PATH, m_State, LIMIT);
+        if (result == HCSaveJob.STEP_FAILED) { Fail("journal write"); }
+        if (result == HCSaveJob.STEP_DONE) { m_CommittedRevision = m_SnapshotRevision; }
+        return result;
     }
 
     // Owner flushes before releasing state, independent of registry order.
