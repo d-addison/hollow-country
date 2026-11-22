@@ -57,6 +57,7 @@ class HCShelterModule : HCModule
     protected int m_RegionalFailed;
     protected int m_RegionalPlaced;
     protected int m_RegionalRemaining;
+    protected int m_RegionalNearbyRetries;
     protected float m_RegionalSummarySeconds;
     protected ref map<string, int> m_RegionalRefusals = new map<string, int>;
     protected ref map<string, int> m_RegionalCandidateRefusals = new map<string, int>;
@@ -166,13 +167,26 @@ class HCShelterModule : HCModule
 
     bool HCStartupPending()
     {
-        return m_Started && (m_RegionalRemaining > 0 || m_PathgraphPending.Count() > 0);
+        if (!m_Started) { return false; }
+        // Legacy/rollback pathgraph receipts still drain when regional scenes
+        // are off; an enabled scene flag alone must not keep the pump spinning.
+        if (m_PathgraphPending.Count() > 0) { return true; }
+        HCShelterRegionalConfig config = HCShelterCatalog.HCRegionalConfig();
+        return config && config.Enabled && m_RegionalRemaining > 0;
     }
 
     // The one-second module cadence made every query result/corner cost a second.
     // Catch up on the shared startup pump; its deadline/opt-out retains tick fallback.
     // A half-ms cooperative guard leaves room for the last indivisible native call;
-    // 16 units also bound a slice before clock calibration. Native <=3ms needs a soak.
+    // 16 units also bound a slice before clock calibration. HCContinue admits
+    // its first unit before checking elapsed time: that unit visits ONE catalog
+    // entry, then ONE retained stage (never a full layout or candidate retry).
+    // Filters visit one object/corner; resolve filters at most eight objects;
+    // publish/handle checks visit at most three props, pathgraph bounds eight
+    // corners. Rollback deletes one prop and scans only the finite catalog.
+    // Worst-case slice = 0.5 ms + one indivisible stage plus guard overhead;
+    // native query/create/snap/pathgraph latency has no API upper bound. The
+    // <=3 ms target therefore remains a native measurement, not a static claim.
     void HCPumpRegional()
     {
         if (!HCStartupPending()) { return; }
@@ -321,6 +335,7 @@ class HCShelterModule : HCModule
         m_RegionalFailed = 0;
         m_RegionalPlaced = 0;
         m_RegionalRemaining = 0;
+        m_RegionalNearbyRetries = 0;
         m_RegionalSummarySeconds = 0;
         m_RegionalRefusals.Clear();
         m_RegionalCandidateRefusals.Clear();
@@ -925,16 +940,22 @@ class HCShelterModule : HCModule
             return;
         }
         if (!config || !config.Enabled || m_RegionalRemaining <= 0) { return; }
-        HCUnitBudget shared = HCServer.HCTickWork();
-        if (!HCStartupPump.HCInSlice() && !shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
         HCShelterEntry entry = m_RegionalJobEntry;
         if (!entry)
         {
             if (m_RegionalCursor >= HCShelterCatalog.Count()) { m_RegionalCursor = 0; }
             entry = HCShelterCatalog.Get(m_RegionalCursor);
-            m_RegionalCursor = m_RegionalCursor + 1;
-            if (!entry || !entry.Scene || !entry.Scene.Enabled || entry.Attempted) { return; }
+            if (!entry || !entry.Scene || !entry.Scene.Enabled || entry.Attempted)
+            {
+                // One skipped entry per visit, with no shared work charge.
+                m_RegionalCursor++;
+                return;
+            }
         }
+        HCUnitBudget shared = HCServer.HCTickWork();
+        if (!HCStartupPump.HCInSlice() && !shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
+        // Advance only after admission, so a denied grant cannot skip a site.
+        if (!m_RegionalJobEntry) { m_RegionalCursor++; }
         m_StepKind = "observer";
         if (m_RegionalRollingBack)
         {
@@ -983,6 +1004,7 @@ class HCShelterModule : HCModule
             candidateReasons += candidateReason + ":" + candidateCount.ToString() + ",";
         }
         string line = "[HC Shelters] regional_summary placed=" + m_RegionalPlaced.ToString() + " refused=" + m_RegionalFailed.ToString() + " pending=" + m_RegionalRemaining.ToString();
+        line += " retry=nearby retry_count=" + m_RegionalNearbyRetries.ToString();
         line += " layouts_per_site=" + HC_REGIONAL_LAYOUTS.ToString() + " refused_by_reason=" + refusedReasons + " candidate_refused_by_reason=" + candidateReasons;
         string statusLine = line + " runtime=PENDING";
         // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
@@ -1001,7 +1023,7 @@ class HCShelterModule : HCModule
         m_RegionalFailed++;
         m_RegionalRemaining--;
         m_RegionalRefusals.Set(reason, m_RegionalRefusals.Get(reason) + 1);
-        Print("[HC Shelters] regional_refused=" + reason + ":" + entry.Scene.Id + HCRefusalDetails() + " runtime=PENDING");
+        Print("[HC Shelters] regional_refused=" + entry.Scene.Id + " reason=" + reason + " variant=" + entry.PlacementVariant.ToString() + " rise=" + m_GroundRise.ToString() + " rise_limit=0.25 runtime=PENDING");
         if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
     }
 
@@ -1044,6 +1066,7 @@ class HCShelterModule : HCModule
         bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water" || m_RefusalReason == "keepout";
         if (retryable && entry.PlacementVariant + 1 < HC_REGIONAL_LAYOUTS)
         {
+            m_RegionalNearbyRetries++;
             entry.PlacementVariant++;
             entry.Attempted = false;
             m_RegionalCursor--;

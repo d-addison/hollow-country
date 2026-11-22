@@ -3744,6 +3744,14 @@
       "line": 84,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its loader."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStartupShelters",
+      "file": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
+      "line": 1472,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its shelter module."
     }
   ]
 }

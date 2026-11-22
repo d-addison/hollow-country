@@ -800,9 +800,9 @@
       "feature": "regional-props-placed",
       "signal": {
         "tag": "[HC Shelters]",
-        "regex": "regional_placed=\\S+ props=(?P<props>\\d+)",
+        "regex": "regional_summary placed=(?P<placed>\\d+)\\b",
         "fields": [
-          "props"
+          "placed"
         ]
       },
       "comparison": "max",
