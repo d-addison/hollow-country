@@ -16,6 +16,7 @@ _FIELDS = {
     'upgrade_from_previous_release_required': bool,
     'boot_check_doc': str,
     'settle_minutes': (int, float),
+    'readiness_max_after_hive_seconds': (int, float),
     'target_players_min': int,
     'target_players_max': int,
     'budgets_provisional': bool,
@@ -51,6 +52,8 @@ def load_targets(path=None):
             raise TargetsError('acceptance targets require documentation: ' + key)
     if data['soak_minutes'] <= 0 or data['perf_r2_max_ms'] <= 0:
         raise TargetsError('acceptance targets soak_minutes and perf_r2_max_ms must be positive')
+    if data['readiness_max_after_hive_seconds'] <= 0:
+        raise TargetsError('acceptance targets readiness_max_after_hive_seconds must be positive')
     if not 0 < data['target_players_min'] <= data['target_players_max']:
         raise TargetsError('acceptance targets invalid player range')
     return data

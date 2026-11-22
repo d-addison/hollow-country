@@ -10,7 +10,7 @@ from tools.release import rpt_summary as rpt
 
 MISSION = 'SCRIPT : Module: Mission; loaded\n'
 ERROR = 'SCRIPT (E): JSON ERROR\n'
-READY = '[HC Ready] module=Events enabled=true ready=true\n'
+READY = '12:00:01 [HC Ready] module=Events enabled=true ready=true\n'
 CONNECT = 'Player connect enabled\n'
 
 
@@ -23,6 +23,20 @@ class RptSummaryTests(unittest.TestCase):
         summary = rpt.Summary(path)
         self.addCleanup(summary.close)
         return summary.scan()
+
+    def test_summary_exposes_r4_evidence_separately_from_boot_verdict(self):
+        from tools.release.acceptance_targets import load_targets
+        limit = load_targets()['readiness_max_after_hive_seconds']
+        # Minutes keep the fixture valid for configured allowances above a minute.
+        seconds = int(limit) + 1
+        hour, remainder = divmod(12 * 3600 + seconds, 3600)
+        minute, second = divmod(remainder, 60)
+        summary = self.scan('12:00:00 ' + rpt.HIVE_FINISHED + '\n' + CONNECT +
+            f'{hour:02}:{minute:02}:{second:02} [HC Ready] module=Events enabled=true ready=true\n')
+        evidence = summary.header()['readiness_timing']
+        self.assertEqual(evidence['status'], 'failed')
+        self.assertEqual(evidence['late'], ['Events'])
+        self.assertEqual(evidence['limit_seconds'], limit)
 
     def test_script_error_phase_uses_mission_marker(self):
         self.assertRegex(MISSION, rpt.MISSION_LOADED)
@@ -66,3 +80,40 @@ class RptSummaryTests(unittest.TestCase):
             path.write_text(ERROR)
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertNotEqual(runtime_code, rpt.main([str(path)]))
+
+
+class ReadinessTimingTests(unittest.TestCase):
+    def timing(self, lines, limit=30):
+        timing = rpt.ReadinessTiming()
+        for line in lines:
+            timing.observe(line)
+        return timing.result(limit)
+
+    def test_boundary_and_overrun_use_same_boot_hive(self):
+        for elapsed, expected in ((30, 'passed'), (30.001, 'failed')):
+            result = self.timing(['12:00:00 ' + rpt.HIVE_FINISHED,
+                f'12:00:{elapsed:06.3f} [HC Ready] module=Events enabled=true ready=true'])
+            self.assertEqual(result['status'], expected)
+            self.assertEqual(bool(result['late']), expected == 'failed')
+
+    def test_midnight_and_readiness_before_hive(self):
+        result = self.timing(['23:59:55 [HC Ready] module=Core enabled=true ready=true',
+            '23:59:59.500 ' + rpt.HIVE_FINISHED,
+            '00:00:29.500 [HC Ready] module=Events enabled=true ready=true'])
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['max_after_hive_seconds'], 30)
+
+    def test_missing_markers_timestamps_and_repeated_boot_fail_closed(self):
+        hive = '12:00:00 ' + rpt.HIVE_FINISHED
+        for lines in ([READY], [hive], [hive, READY[9:]],
+                      [rpt.HIVE_FINISHED, READY], [hive, READY, hive]):
+            with self.subTest(lines=lines):
+                self.assertEqual(self.timing(lines)['status'], 'unavailable')
+
+    def test_pending_and_disabled_modules(self):
+        lines = ['12:00:00 ' + rpt.HIVE_FINISHED,
+            '12:00:01 [HC Ready] module=Pending enabled=true ready=false',
+            '12:00:01 [HC Ready] module=Off enabled=false ready=false']
+        self.assertEqual(self.timing(lines)['pending'], ['Pending'])
+        lines.append('12:00:02 [HC Ready] module=Pending enabled=true ready=true')
+        self.assertEqual(self.timing(lines)['status'], 'passed')

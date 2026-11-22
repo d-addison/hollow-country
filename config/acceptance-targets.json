@@ -8,10 +8,11 @@
   "client_max_missing_textures": 0,
   "activity_requires_active_for_default_on": true,
   "upgrade_from_previous_release_required": true,
-  "boot_check_doc": "Recorded checkstart default; checkstart itself retains its current CLI default. This is separate from release soak and upgrade observation durations.",
+  "boot_check_doc": "Recorded checkstart default; checkstart itself retains its current CLI default. This is separate from release soak and upgrade observation durations. R4 requires every enabled module ready within readiness_max_after_hive_seconds after the same boot Hive init-finished marker.",
   "settle_minutes": 0,
   "benchmark_doc": "Owner target load. Budgets remain provisional until measured at this load; this metadata does not establish multiplayer acceptance.",
   "target_players_min": 3,
   "target_players_max": 6,
-  "budgets_provisional": true
+  "budgets_provisional": true,
+  "readiness_max_after_hive_seconds": 30
 }

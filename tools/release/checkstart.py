@@ -3,7 +3,7 @@
 python3 -B -m tools.release.checkstart --bundle 'D:\\HollowCountryLocal\\friend-bundle-N'
 Without --start, attach to the newest RPT (or --rpt); never launch a process.
 With --start, require no server running, invoke start-server.bat, follow a NEW RPT.
-Exit codes: 0 connect-enabled after settle and readiness convergence; 2 install check failed; 3 compile;
+Exit codes: 0 connect-enabled after settle, readiness convergence and R4 <= configured Hive allowance; 2 install check failed; 3 compile;
 4 crash/dump; 5 process gone; 6 stall; 7 ready=false at readiness deadline; 8 interop unknown;
 9 input/start/timeout error; 10 persistence corruption; 11 runtime script error; 130 interrupted. No exit path stops the server.
 """
@@ -16,7 +16,8 @@ from pathlib import Path
 import time
 
 from tools.setup import winproc
-from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED, READY
+from tools.release.rpt_summary import Summary, failure, filtered, MISSION_LOADED, READY, ReadinessTiming
+from tools.release.acceptance_targets import load_targets
 
 CODES = {'compile_failed': 3, 'crashed': 4, 'process_gone': 5,
          'stalled': 6, 'not_ready': 7, 'interop_unknown': 8,
@@ -42,6 +43,9 @@ def dumps(profiles):
 
 
 def watch(args, before, old_dumps):
+    r4_limit = load_targets()['readiness_max_after_hive_seconds']
+    timing = ReadinessTiming()
+    hive_observed_at = None
     began = last_growth = time.monotonic()
     connected_at = None
     rpt = args.rpt
@@ -103,6 +107,9 @@ def watch(args, before, old_dumps):
                         continue
                     if not discard:
                         line = pending.decode('utf-8', errors='replace')
+                        timing.observe(line)
+                        if timing.hive_at is not None and hive_observed_at is None:
+                            hive_observed_at = now
                         mission_loaded = mission_loaded or bool(MISSION_LOADED.search(line))
                         verdict = failure(line, mission_loaded)
                         if verdict == 'script_error':
@@ -142,8 +149,21 @@ def watch(args, before, old_dumps):
         # Drain all bytes present before passing, including errors after connect.
         caught_up = rpt is not None and rpt.stat().st_size <= position
         modules = pending_modules()
+        r4 = timing.result(r4_limit)
+        if caught_up and r4['late']:
+            print('checkstart R4 failed: ready after Hive allowance: ' + ', '.join(r4['late']), flush=True)
+            return 'not_ready', rpt
+        if (caught_up and hive_observed_at is not None and modules
+                and (now - hive_observed_at > r4_limit
+                     or timing.clock - timing.hive_at > r4_limit)):
+            report_pending(modules)
+            print('checkstart R4 failed: Hive readiness allowance exceeded', flush=True)
+            return 'not_ready', rpt
         if state == 'running' and connected_at is not None and caught_up and now - connected_at >= args.settle_minutes * 60:
             if not modules:
+                if r4['status'] != 'passed':
+                    print('checkstart R4 unavailable: Hive/readiness timing evidence missing or invalid', flush=True)
+                    return 'script_error' if script_error else 'input_error', rpt
                 if pending_at_settle is not None:
                     safe = filtered(f'checkstart readiness converged after {now - began:g}s '
                                     f'(pending at settle: {", ".join(pending_at_settle)})')
@@ -249,6 +269,10 @@ def main(argv=None):
                         or (summary.outcome == 'script_error' and outcome == 'connect_enabled')):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
+                if outcome == 'connect_enabled':
+                    r4 = summary.readiness_timing.result(load_targets()['readiness_max_after_hive_seconds'])
+                    if r4['status'] != 'passed':
+                        outcome = 'not_ready' if r4['status'] == 'failed' else 'input_error'
             finally:
                 summary.close()
         print('boot_verdict=' + outcome)

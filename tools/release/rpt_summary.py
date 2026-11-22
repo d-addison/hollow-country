@@ -30,6 +30,71 @@ PERF = re.compile(r'\b(tick_max|work_max|slowest_module_max_ms)\s*=\s*([0-9]+(?:
 TICKS = re.compile(r'\b([a-z_]*(?:ticks|tick_ms)[a-z_]*)\s*[=:]\s*([0-9]+(?:\.[0-9]+)?)', re.I)
 
 
+HIVE_FINISHED = '[CE][Hive] :: Init sequence finished'
+RPT_CLOCK = re.compile(r'^\s*(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))?\b')
+READY_FIELDS = re.compile(r'\[HC Ready\]\s+module=([A-Za-z0-9_.-]{1,96})\s+enabled=(true|false)\s+ready=(true|false)\b')
+
+
+class ReadinessTiming:
+    """Bounded same-boot R4 evidence; retain no raw RPT text or identities."""
+    def __init__(self):
+        self.clock = None
+        self.previous = None
+        self.hive_at = None
+        self.modules = {}
+        self.first_ready = {}
+        self.invalid = False
+
+    def observe(self, raw):
+        stamp = RPT_CLOCK.match(raw)
+        at = None
+        if stamp:
+            h, m, sec = map(int, stamp.group(1, 2, 3))
+            if h < 24 and m < 60 and sec < 60:
+                clock = h * 3600 + m * 60 + sec + float('0.' + (stamp[4] or '0'))
+                if self.previous is None:
+                    self.clock = clock
+                    self.previous = clock
+                else:
+                    delta = clock - self.previous
+                    if delta < -43200:
+                        delta += 86400
+                    if delta >= 0:
+                        self.clock += delta
+                        self.previous = clock
+                at = self.clock
+        if HIVE_FINISHED in raw:
+            if self.hive_at is not None or at is None:
+                self.invalid = True
+            else:
+                self.hive_at = at
+        safe = filtered(raw)
+        match = READY_FIELDS.search(safe) if safe else None
+        if match:
+            module, enabled, ready = match.groups()
+            if module not in self.modules and len(self.modules) >= 256:
+                self.invalid = True
+                return
+            self.modules[module] = enabled == 'true'
+            if enabled == 'true' and ready == 'true':
+                if at is None:
+                    self.invalid = True
+                elif module not in self.first_ready:
+                    self.first_ready[module] = at
+
+    def result(self, limit):
+        enabled = sorted(m for m, on in self.modules.items() if on)
+        pending = [m for m in enabled if m not in self.first_ready]
+        late = [] if self.hive_at is None else [m for m in enabled if m in self.first_ready
+                    and self.first_ready[m] - self.hive_at > limit]
+        status = 'unavailable' if self.invalid or self.hive_at is None or not self.modules else (
+            'failed' if pending or late else 'passed')
+        elapsed = [self.first_ready[m] - self.hive_at for m in enabled
+                   if m in self.first_ready and self.hive_at is not None]
+        return dict(status=status, max_after_hive_seconds=max(elapsed, default=None),
+                    limit_seconds=limit, pending=pending, late=late)
+
+
 def filtered(line):
     """Strict audit drop policy, then existing report redaction and home masking.
 
@@ -107,6 +172,7 @@ class Summary:
         self.crashes = []
         self.db.execute('CREATE TABLE corruptions(type TEXT PRIMARY KEY, n INTEGER)')
         self.connected = False
+        self.readiness_timing = ReadinessTiming()
         self.failures = set()
         # Last [HC Ready] verdict per enabled module: a boot-time loading state that
         # later prints ready=true (late readiness on the 15 s refresh) is not a failure.
@@ -131,6 +197,7 @@ class Summary:
 
     def scan(self):
         for raw in lines(self.path):
+            self.readiness_timing.observe(raw)
             if self.activity_checker is not None and not self.activity_error:
                 try:
                     self.activity_checker.observe(raw)
@@ -221,7 +288,10 @@ class Summary:
         return self.activity_checker.result()
 
     def header(self):
+        from tools.release.acceptance_targets import load_targets
+        timing = self.readiness_timing.result(load_targets()['readiness_max_after_hive_seconds'])
         return dict(outcome=self.outcome, connected=self.connected, activity=self.activity,
+                    readiness_timing=timing,
                     compile_result='compile_failed' if 'compile_failed' in self.failures else 'no_compile_error_observed',
                     # Root errors precede cascades and the generic module failure.
                     compile_errors=self.errors + self.compile_markers + self.cascades,
@@ -245,6 +315,7 @@ class Summary:
             print(']}')
             return
         print('outcome=' + self.outcome)
+        print('R4 ' + json.dumps(self.header()['readiness_timing'], sort_keys=True))
         for entity_type, count in self.db.execute('SELECT type,n FROM corruptions ORDER BY type'):
             print(f'persistence_corrupted type={entity_type} count={count}')
         for line in self.errors + self.compile_markers + self.cascades + self.script_errors:
@@ -285,7 +356,7 @@ def main(argv=None):
         summary.scan().print(args.json)
         return dict(connect_enabled=0, compile_failed=2, crashed=3, not_ready=4,
                     incomplete=5, persistence_corrupted=7, script_error=8)[summary.outcome]
-    except (OSError, sqlite3.Error):
+    except (OSError, sqlite3.Error, ValueError):
         print('RPT summary input/storage unavailable')
         return 6
     finally:

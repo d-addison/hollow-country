@@ -17,7 +17,7 @@ class CheckstartTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         path = root / 'server.RPT'
-        path.write_text(text)
+        path.write_text('12:00:00 [CE][Hive] :: Init sequence finished\n' + text)
         return SimpleNamespace(rpt=path, profiles=root, start=False, image='fake',
                                interop={}, timeout_seconds=30, stall_seconds=20,
                                settle_minutes=3 / 60, ready_deadline_minutes=10 / 60, poll_seconds=1)
@@ -121,7 +121,7 @@ class CheckstartTests(unittest.TestCase):
         """Stream authored readiness fixtures at selected fake poll times."""
         modules = ('AIRoles', 'optional-expansion-human-ai')
         def line(module, ready, reason):
-            return f'[HC Ready] module={module} enabled=true ready={str(ready).lower()} reason={reason} runtime=PENDING\n'
+            return f'12:00:01 [HC Ready] module={module} enabled=true ready={str(ready).lower()} reason={reason} runtime=PENDING\n'
         args = self.setup_watch(MISSION + CONNECT + ''.join(
             line(module, False, 'source_pages') for module in modules))
         ticks = [0]
@@ -203,7 +203,8 @@ class CheckstartTests(unittest.TestCase):
         # release_gate passes a settle longer than 15 minutes and no deadline.
         args = self.setup_watch('')
         settle = 30
-        with patch.object(boot.winproc, 'run', side_effect=RuntimeError('reached install check')), \
+        with patch.object(boot, 'host_lock', return_value=contextlib.nullcontext()), \
+                patch.object(boot.winproc, 'run', side_effect=RuntimeError('reached install check')), \
                 contextlib.redirect_stderr(io.StringIO()), \
                 self.assertRaises(RuntimeError):
             boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--start',
@@ -224,3 +225,59 @@ class CheckstartTests(unittest.TestCase):
             outcome, elapsed, _ = self.watch(args)
         self.assertEqual(outcome, 'stalled')
         self.assertEqual(elapsed, args.stall_seconds)
+
+
+    def test_r4_cannot_pass_late_readiness_when_attaching(self):
+        args = self.setup_watch(MISSION + CONNECT +
+            '12:00:31 [HC Ready] module=Events enabled=true ready=true\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(self.watch(args)[0], 'not_ready')
+
+    def test_r4_missing_hive_or_timestamp_cannot_pass(self):
+        for text in (MISSION + CONNECT + READY,
+                     '12:00:00 [CE][Hive] :: Init sequence finished\n' + MISSION + CONNECT + READY[9:]):
+            args = self.setup_watch('')
+            args.rpt.write_text(text)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(self.watch(args)[0], 'input_error')
+
+    def test_r4_policy_applies_to_boundary(self):
+        from tools.release.acceptance_targets import load_targets
+        for elapsed, expected in ((2, 'connect_enabled'), (3, 'not_ready')):
+            args = self.setup_watch(MISSION + CONNECT +
+                f'12:00:0{elapsed} [HC Ready] module=Events enabled=true ready=true\n')
+            with patch.object(boot, 'load_targets', return_value=dict(
+                    load_targets(), readiness_max_after_hive_seconds=2)), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(self.watch(args)[0], expected)
+
+    def test_r4_pending_is_bounded_by_hive_allowance(self):
+        args, _, append = self.readiness_boot({})
+        from tools.release.acceptance_targets import load_targets
+        with patch.object(boot, 'load_targets', return_value=dict(
+                load_targets(), readiness_max_after_hive_seconds=2)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            outcome, elapsed, _ = self.watch(args, append)
+        self.assertEqual(outcome, 'not_ready')
+        self.assertLess(elapsed, args.ready_deadline_minutes * 60)
+
+
+    def test_r4_pending_historical_log_does_not_reset_deadline(self):
+        args = self.setup_watch(MISSION + CONNECT +
+            '12:00:01 [HC Ready] module=Events enabled=true ready=false\n' +
+            '12:01:00 [HC Progress] still loading\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            outcome, elapsed, _ = self.watch(args)
+        self.assertEqual(outcome, 'not_ready')
+        self.assertEqual(elapsed, 0)
+
+
+    def test_main_full_summary_cannot_override_r4_with_success(self):
+        args = self.setup_watch(MISSION + CONNECT +
+            '12:01:00 [HC Ready] module=Events enabled=true ready=true\n')
+        result = SimpleNamespace(returncode=0, attempts=1, stdout='', stderr='')
+        with patch.object(boot.winproc, 'run', return_value=result), \
+                patch.object(boot, 'watch', return_value=('connect_enabled', args.rpt)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)])
+        self.assertEqual(code, boot.CODES['not_ready'])
