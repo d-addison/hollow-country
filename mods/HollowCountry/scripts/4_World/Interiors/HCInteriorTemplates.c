@@ -43,6 +43,19 @@ class HCInteriorTemplates
     protected static int s_LoadChunk;
     protected static string s_Reason;
     protected static int s_MaxProps = 5;
+    // A bad leaf excludes only its class; publication still waits for every leaf.
+    protected static ref map<string, string> s_RefusedTemplates = new map<string, string>;
+
+    protected static int HCRefuseTemplate(string cls, string reason)
+    {
+        s_RefusedTemplates.Set(cls, reason);
+        Print("[HC Interiors] template refused class=" + cls + " reason=" + reason + " count=" + s_RefusedTemplates.Count().ToString());
+        s_Job.LeafContent = "";
+        s_Job.PendingTemplate = null;
+        s_Job.LeafStage = 0;
+        s_LoadChunk++;
+        return 0;
+    }
 
     static bool Loaded()
 
@@ -69,6 +82,7 @@ class HCInteriorTemplates
         {
             return null;
         }
+        if (s_RefusedTemplates.Contains(cls)) { return null; }
         return FindClass(cls);
     }
 
@@ -163,6 +177,7 @@ class HCInteriorTemplates
         s_TemplateIndex.Clear();
         s_GroupIndex.Clear();
         s_TemplatePins.Clear();
+        s_RefusedTemplates.Clear();
         s_FurnishSlots.Clear();
         s_FurnishInstances.Clear();
         s_FurnishProps = 0;
@@ -176,9 +191,9 @@ class HCInteriorTemplates
     }
 
     // Screened text for LoadData; the caller runs the matching census after LoadData.
-    static string ReadStrict(string fileName, string schema, string pin)
+    static string ReadStrict(string fileName, string schema, string pin, bool classOnly = false)
     {
-        string content = HCInteriorPackIndex.HCReadChunk(s_Job, fileName, schema, pin);
+        string content = HCInteriorPackIndex.HCReadChunk(s_Job, fileName, schema, pin, classOnly);
         if (s_Job.Reason != "") { Refuse(s_Job.Reason); }
         return content;
     }
@@ -198,6 +213,7 @@ class HCInteriorTemplates
         s_TemplateIndex.Clear();
         s_GroupIndex.Clear();
         s_TemplatePins.Clear();
+        s_RefusedTemplates.Clear();
         s_FurnishSlots.Clear();
         s_FurnishInstances.Clear();
         s_FurnishProps = 0;
@@ -311,7 +327,7 @@ class HCInteriorTemplates
         {
             return false;
         }
-        // Every hex pin in the index goes through one batch of native scans.
+        // Check identity pins here; per-file/source pins use retained grants below.
         HCInteriorHexBatch pins = new HCInteriorHexBatch;
         pins.HCAdd(index.PackId, 32);
         pins.HCAdd(index.SourcePin, 64);
@@ -332,48 +348,67 @@ class HCInteriorTemplates
                 return false;
             }
         }
-        int sourceIndex = 0;
-        while (sourceIndex < index.Sources.Count())
+        if (!index.ClassFiles || index.ClassFiles.Count() < 1 || index.ClassFiles.Count() > 16 || !index.TemplateFiles || index.TemplateFiles.Count() > 512 || !index.FurnishFiles || index.FurnishFiles.Count() > 16 || !index.GroupFiles || index.GroupFiles.Count() > 64) { return false; }
+        return pins.HCValid() && index.ClassFiles.Count() + index.TemplateFiles.Count() + index.FurnishFiles.Count() + index.GroupFiles.Count() <= 610;
+    }
 
+    // Full pin/name/binding validation, one entry per pump grant. Avoid the
+    // previous all-index hex scan in a single startup step (hundreds of pins).
+    static bool HCIndexStep(HCInteriorPackJob job)
+    {
+        HCInteriorTemplateIndex index = job.Index;
+        if (job.IndexNext == 0 && !IndexValid(index)) { return HCInteriorPackIndex.HCFail(job, "index_or_pin"); }
+        int next = job.IndexNext;
+        HCInteriorHexBatch pins = new HCInteriorHexBatch;
+        if (next < index.Sources.Count())
         {
-            if (!HCInteriorTemplatesStrict.SourceName(index.Sources.GetKey(sourceIndex), pins))
-
+            if (!HCInteriorTemplatesStrict.SourceName(index.Sources.GetKey(next), pins)) { return HCInteriorPackIndex.HCFail(job, "index_source_pin"); }
+            pins.HCAdd(index.Sources.GetElement(next), 64);
+        }
+        else
+        {
+            next = next - index.Sources.Count();
+            HCInteriorTemplateFile file;
+            string expected;
+            if (next < index.ClassFiles.Count())
             {
-                return false;
+                file = index.ClassFiles[next];
+                expected = Numbered("classes-", next, 3);
             }
-            pins.HCAdd(index.Sources.GetElement(sourceIndex), 64);
-            sourceIndex = sourceIndex + 1;
-        }
-        if (!FilesValid(index.ClassFiles, "classes-", 16, pins) || index.ClassFiles.Count() < 1 || !FilesValid(index.FurnishFiles, "furnish-", 16, pins) || !FilesValid(index.GroupFiles, "search-groups-", 64, pins))
-
-        {
-            return false;
-        }
-        if (!index.TemplateFiles || index.TemplateFiles.Count() > 512)
-
-        {
-            return false;
-        }
-        int number = 0;
-        map<string, bool> seen = new map<string, bool>();
-        foreach (HCInteriorTemplateFileBinding binding : index.TemplateFiles)
-
-        {
-            if (!binding || binding.FileName != Numbered("t-", number, 4) || !HCInteriorTemplatesStrict.Text(binding.BuildingClass, 128) || seen.Contains(binding.BuildingClass))
-
+            else if (next < index.ClassFiles.Count() + index.TemplateFiles.Count())
             {
-                return false;
+                next = next - index.ClassFiles.Count();
+                HCInteriorTemplateFileBinding binding = index.TemplateFiles[next];
+                if (!binding || !HCInteriorTemplatesStrict.Text(binding.BuildingClass, 128) || job.SeenTemplates.Contains(binding.BuildingClass)) { return HCInteriorPackIndex.HCFail(job, "index_template_binding"); }
+                job.SeenTemplates.Set(binding.BuildingClass, true);
+                pins.HCAdd(binding.Sha256, 64);
+                if (binding.FileName != Numbered("t-", next, 4)) { return HCInteriorPackIndex.HCFail(job, "index_template_binding"); }
             }
-            pins.HCAdd(binding.Sha256, 64);
-            seen.Set(binding.BuildingClass, true);
-            number = number + 1;
+            else
+            {
+                next = next - index.ClassFiles.Count() - index.TemplateFiles.Count();
+                if (next < index.FurnishFiles.Count())
+                {
+                    file = index.FurnishFiles[next];
+                    expected = Numbered("furnish-", next, 3);
+                }
+                else
+                {
+                    next = next - index.FurnishFiles.Count();
+                    if (next >= index.GroupFiles.Count()) { job.IndexChecked = true; return true; }
+                    file = index.GroupFiles[next];
+                    expected = Numbered("search-groups-", next, 3);
+                }
+            }
+            if (expected != "")
+            {
+                if (!file || file.FileName != expected) { return HCInteriorPackIndex.HCFail(job, "index_file_binding"); }
+                pins.HCAdd(file.Sha256, 64);
+            }
         }
-        if (!pins.HCValid())
-
-        {
-            return false;
-        }
-        return index.ClassFiles.Count() + index.TemplateFiles.Count() + index.FurnishFiles.Count() + index.GroupFiles.Count() <= 610;
+        if (!pins.HCValid()) { return HCInteriorPackIndex.HCFail(job, "index_hex_pin"); }
+        job.IndexNext++;
+        return true;
     }
 
     // Each pack class must be a House class the engine knows. The engine has thousands of House
@@ -550,7 +585,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateEvidence evidence : templateRow.Evidence)
 
         {
-            // Sources keys and pins passed the hex batch in IndexValid, so a matching
+            // Source keys and pins passed the staged index hex checks, so a matching
             // census-<RunId> entry proves RunId and Sha256 are lowercase hex.
             if (!evidence || evidence.Kind != "native-room-survey-v1" || evidence.RunId.Length() != 32 || evidence.Sha256.Length() != 64 || s_Index.Sources.Get("census-" + evidence.RunId) != evidence.Sha256 || runs.Contains(evidence.RunId))
 
@@ -688,9 +723,11 @@ class HCInteriorTemplates
 
     static bool HCFurnishRowValid(HCInteriorFurnishRow row)
     {
+        if (!row) { return false; }
         HCInteriorTemplate templateRow = FindTemplate(row.BuildingClass);
+        bool templateBound = templateRow != null;
         HCInteriorTemplateClassRow classRow = FindClass(row.BuildingClass);
-        if (!templateRow || !classRow || classRow.Furniture != "covered" || row.SlotId < 0 || row.SlotId >= 1500 || s_FurnishSlots.Get(row.SlotId) || !VectorValid(row.Position, 20000) || !(row.Yaw >= -360 && row.Yaw <= 360) || !row.Props || row.Props.Count() < 1 || row.Props.Count() > 5 || (row.History != "family" && row.History != "ransacked" && row.History != "abandoned"))
+        if (!templateBound || !classRow || classRow.Furniture != "covered" || row.SlotId < 0 || row.SlotId >= 1500 || s_FurnishSlots.Get(row.SlotId) || !VectorValid(row.Position, 20000) || !(row.Yaw >= -360 && row.Yaw <= 360) || !row.Props || row.Props.Count() < 1 || row.Props.Count() > 5 || (row.History != "family" && row.History != "ransacked" && row.History != "abandoned"))
         {
             return false;
         }
@@ -701,8 +738,9 @@ class HCInteriorTemplates
         map<int, bool> ids = new map<int, bool>;
         foreach (int id : row.Props)
         {
+            if (id < 1 || ids.Contains(id)) { return false; }
             HCInteriorTemplatePropSlot propRow = Prop(templateRow, id);
-            if (!propRow || !HistoryAllows(propRow, row.History) || ids.Contains(id)) { return false; }
+            if (!propRow || !HistoryAllows(propRow, row.History)) { return false; }
             ids.Set(id, true);
             s_FurnishProps = s_FurnishProps + 1;
             if (s_FurnishProps > 1500) { return false; }
@@ -768,8 +806,8 @@ class HCInteriorTemplates
         bool started = HCInteriorPackIndex.HCStart(s_Job, s_Root);
         if (s_Job.Reason != "") { Refuse(s_Job.Reason); return; }
         if (!started) { Refuse("pack_start"); return; }
-        HCInteriorPackIndex.HCPrimeAtStart(s_Job);
-        if (s_Job.Reason != "") { Refuse(s_Job.Reason); }
+        // The shared startup pump (or bounded module fallback) reads the header.
+        // No metadata or template file is opened synchronously here.
     }
 
     static bool HCLoadFinished()
@@ -986,8 +1024,8 @@ class HCInteriorTemplates
             HCInteriorTemplateFileBinding templateFile = index.TemplateFiles.Get(s_LoadChunk);
             if (s_Job.LeafStage == 0)
             {
-                s_Job.LeafContent = ReadStrict(templateFile.FileName, "template", templateFile.Sha256);
-                if (s_Job.LeafContent == "") { Refuse("template_or_evidence_pin"); return 2; }
+                s_Job.LeafContent = ReadStrict(templateFile.FileName, "template", templateFile.Sha256, true);
+                if (s_Job.LeafContent == "") { return HCRefuseTemplate(templateFile.BuildingClass, "read_or_screen"); }
                 s_Job.LeafStage = 1;
                 return 0;
             }
@@ -996,8 +1034,7 @@ class HCInteriorTemplates
                 HCInteriorTemplate decodedTemplate = new HCInteriorTemplate;
                 if (!JsonFileLoader<HCInteriorTemplate>.LoadData(s_Job.LeafContent, decodedTemplate, error) || decodedTemplate.BuildingClass != templateFile.BuildingClass || FindTemplate(decodedTemplate.BuildingClass))
                 {
-                    Refuse("template_or_evidence_pin");
-                    return 2;
+                    return HCRefuseTemplate(templateFile.BuildingClass, "decode_or_binding");
                 }
                 s_Job.PendingTemplate = decodedTemplate;
                 s_Job.LeafStage = 2;
@@ -1005,13 +1042,13 @@ class HCInteriorTemplates
             }
             if (s_Job.LeafStage == 2)
             {
-                if (!HCInteriorTemplatesStrict.TemplateCensus(s_Job.LeafContent, s_Job.PendingTemplate)) { Refuse("template_or_evidence_pin"); return 2; }
+                if (!HCInteriorTemplatesStrict.TemplateCensus(s_Job.LeafContent, s_Job.PendingTemplate)) { return HCRefuseTemplate(templateFile.BuildingClass, "census"); }
                 s_Job.LeafContent = "";
                 s_Job.LeafStage = 3;
                 return 0;
             }
             HCInteriorTemplate loadedTemplate = s_Job.PendingTemplate;
-            if (!TemplateValid(loadedTemplate)) { Refuse("template_or_evidence_pin"); return 2; }
+            if (!TemplateValid(loadedTemplate)) { return HCRefuseTemplate(templateFile.BuildingClass, "template_or_evidence_pin"); }
             s_Templates.Insert(loadedTemplate);
             s_TemplateIndex.Set(loadedTemplate.BuildingClass, loadedTemplate);
             s_TemplatePins.Set(loadedTemplate.BuildingClass, templateFile.Sha256);
@@ -1069,7 +1106,7 @@ class HCInteriorTemplates
                         Refuse("furnish_rows");
                         return 2;
                     }
-                    s_Furnish.Insert(furnishRow);
+                    if (!s_RefusedTemplates.Contains(furnishRow.BuildingClass)) { s_Furnish.Insert(furnishRow); }
                     s_Job.ValidateNext = s_Job.ValidateNext + 1;
                 }
                 return 0;
@@ -1088,7 +1125,8 @@ class HCInteriorTemplates
                 {
                     if (coverageBatch > 0 && !budget.HCContinue()) { return 1; }
                     checkRow = s_Classes.Get(s_LoadCheck);
-                    if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
+                    bool boundTemplate = FindTemplate(checkRow.BuildingClass) != null;
+                    if (!s_RefusedTemplates.Contains(checkRow.BuildingClass) && Covered(checkRow) != boundTemplate)
                     {
                         Refuse("template_coverage");
                         return 2;
@@ -1119,7 +1157,7 @@ class HCInteriorTemplates
             s_Loaded = true;
             HCInteriorPackIndex.HCReceipt(s_Job, s_Classes.Count(), true);
             Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Job.Files.ToString());
-            string coverageReceipt = "[HC Interiors] coverage admitted unverified classes=" + s_Classes.Count().ToString() + " templates=" + s_Templates.Count().ToString();
+            string coverageReceipt = "[HC Interiors] coverage admitted unverified classes=" + s_Classes.Count().ToString() + " templates_loaded=" + s_Templates.Count().ToString() + " templates_refused=" + s_RefusedTemplates.Count().ToString();
             coverageReceipt = coverageReceipt + " furnishing_rows=" + s_Furnish.Count().ToString() + " props=" + s_FurnishProps.ToString() + " runtime=PENDING";
             Print("" + coverageReceipt);
             Print("[HC Interiors] coverage native_queue rooms=" + s_PendingRooms.ToString() + " furniture=" + s_PendingFurniture.ToString() + " search=" + s_PendingSearch.ToString() + " runtime=PENDING");
@@ -1240,4 +1278,25 @@ class HCStartupInteriors : HCStartupOwner
     HCInteriorsModule Module;
     override bool HCNeedsWork() { return Module && Module.HCStartupPackPending(); }
     override void HCSlice() { Module.HCPackPump(); }
+}
+
+// Reuse the sphere-first/lifetime-binding resolver and its measured-heavy
+// four-cell fallback selection. Do not multiply every class into sixteen queries.
+class HCInteriorBoundedResolveCursor : HCInteriorResolveCursor
+{
+}
+
+// Preserve the first startup window and every >=5 ms window. Cheap placement
+// work is summarized over five windows, retaining the worst tick/item split.
+// No extra clock: thresholds use the shared calibrated HCWorkBudget rate.
+class HCInteriorPlacementSteps : HCStepTimer
+{
+    void HCInteriorPlacementSteps(string owner) { m_Owner = owner; }
+
+    override void HCCloseWindow()
+    {
+        float reportTicks = HCWorkBudget.HCTicksPerMs() * 5;
+        if (m_Window > 0 && m_Ticks < WINDOW_TICKS * 5 && m_WorstTotal < reportTicks && m_DeferredMax < reportTicks) { return; }
+        super.HCCloseWindow();
+    }
 }

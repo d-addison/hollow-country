@@ -1174,16 +1174,6 @@
     },
     {
       "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
-      "line": 194,
-      "symbol": "HCInteriorPackIndex.HCReadAtStart",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorTemplates.EnsureLoaded -> HCInteriorPackIndex.HCPrimeAtStart -> HCInteriorPackIndex.HCReadAtStart; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorPackIndex.HCReadAtStart remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
       "line": 166,
       "symbol": "HCInteriorStore.ReconcileAll",
@@ -2051,6 +2041,25 @@
       "message": "m_Buffer.Substring scans a string with no recognized small bound inside a loop",
       "native": false,
       "reason": "W2-05 streaming buffer is bounded to one 32768-byte chunk plus a MaxLineBytes tail (at most 8192 bytes). IndexOfFrom advances a retained offset; compaction occurs only at chunk boundaries and decoded row copies obey MaxLineBytes. ReadLinesPerTick and the shared 2 ms cooperative slice guard bound visits; native timing remains unverified."
+    },
+    {
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 195,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 198,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
     }
   ]
 }
