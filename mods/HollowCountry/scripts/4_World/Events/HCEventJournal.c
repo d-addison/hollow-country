@@ -380,6 +380,8 @@ class HCEventJournal : HCEventPersistence
     protected int m_SaveStage = -1;
     protected string m_NextImage;
     protected string m_NextReceipt;
+    protected int m_EncodeCursor;
+    protected int m_EncodePhase;
     protected bool m_CheckOpen;
     protected int m_CheckOffset;
     protected FileHandle m_CheckHandle;
@@ -426,6 +428,9 @@ class HCEventJournal : HCEventPersistence
         m_Pending = state;
         m_SaveStage = 0;
         m_InventoryStage = 0;
+        m_EncodeCursor = 0;
+        m_EncodePhase = 0;
+        m_NextImage = "";
         m_DirectoryStage = 0;
         m_PruneChecked = false;
         m_InventoryCount = 0;
@@ -563,6 +568,84 @@ class HCEventJournal : HCEventPersistence
         return HCSaveJob.STEP_MORE;
     }
 
+    // Encoding pages preserve the old object/array schema. StateValid bounds
+    // records/runs to 32, participants to 6, sessions to 33 and tokens/run to 1.
+    // Header <=33 strings of <=96 bytes (+ world/session); <=32768 encoded bytes.
+    // Record <=6 participants + definition/session strings; <=8192 encoded bytes.
+    // Run raw string sum <=2048, <=16384 encoded bytes (6x JSON escape + fields).
+    // Check raw inputs BEFORE MakeData; oversized candidates never write files.
+    // Assembly/hash operate on <=819456 bytes, further limited by MaxStoreBytes.
+    // Hash() has no incremental API: schema-1 receipts require the exact native
+    // full-image hash. It stays a separate measured step; no <=5 ms claim until
+    // the lead measures this cap. Native disk latency is likewise indivisible.
+    protected int HCEncodePage()
+    {
+        string piece;
+        string error;
+        if (m_EncodePhase == 0)
+        {
+            HCEventState director = m_Pending.Director;
+            HCEventJournalDirectorHeader header = new HCEventJournalDirectorHeader;
+            header.Version = director.Version;
+            header.WorldName = director.WorldName;
+            header.Session = director.Session;
+            header.LastNow = director.LastNow;
+            header.NextId = director.NextId;
+            header.PrunedThrough = director.PrunedThrough;
+            header.SessionGeneration = director.SessionGeneration;
+            header.Sessions = director.Sessions;
+            if (!JsonFileLoader<HCEventJournalDirectorHeader>.MakeData(header, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+            if (piece.Length() < 2 || piece.Length() > 32768) { return HCSaveJob.STEP_FAILED; }
+            if (piece.Substring(piece.Length() - 1, 1) != "}") { return HCSaveJob.STEP_FAILED; }
+            m_NextImage = "{\"Version\":1,\"Revision\":" + m_Pending.Revision.ToString() + ",\"Director\":";
+            m_NextImage += piece.Substring(0, piece.Length() - 1) + ",\"Records\":[";
+            m_EncodePhase = 1;
+        }
+        else if (m_EncodePhase == 1)
+        {
+            if (m_EncodeCursor < m_Pending.Director.Records.Count())
+            {
+                if (!JsonFileLoader<HCEventRecord>.MakeData(m_Pending.Director.Records[m_EncodeCursor], piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+                if (piece.Length() < 1 || piece.Length() > 8192) { return HCSaveJob.STEP_FAILED; }
+                if (m_EncodeCursor > 0) { m_NextImage += ","; }
+                m_NextImage += piece;
+                m_EncodeCursor++;
+            }
+            else
+            {
+                m_NextImage += "]},\"Runs\":[";
+                m_EncodeCursor = 0;
+                m_EncodePhase = 2;
+            }
+        }
+        else if (m_EncodePhase == 2)
+        {
+            if (m_EncodeCursor < m_Pending.Runs.Count())
+            {
+                HCEventRun run = m_Pending.Runs[m_EncodeCursor];
+                HCEventMission mission = run.Objective;
+                // ItemClass can be irrelevant to some families, whose policy
+                // does not bound it. Refuse a huge candidate without encoding it.
+                int rawBytes = run.Lease.Length() + mission.Id.Length() + mission.SiteId.Length() + mission.WorldName.Length();
+                rawBytes += mission.ItemClass.Length() + mission.ContainerClass.Length() + mission.AnchorClass.Length();
+                if (run.Tokens.Count() > 0) { rawBytes += run.Tokens[0].Length(); }
+                if (rawBytes > 2048) { return HCSaveJob.STEP_FAILED; }
+                if (!JsonFileLoader<HCEventRun>.MakeData(run, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
+                if (piece.Length() < 1 || piece.Length() > 16384) { return HCSaveJob.STEP_FAILED; }
+                if (m_EncodeCursor > 0) { m_NextImage += ","; }
+                m_NextImage += piece;
+                m_EncodeCursor++;
+            }
+            else
+            {
+                m_NextImage += "]}";
+                return HCSaveJob.STEP_DONE;
+            }
+        }
+        if (m_NextImage.Length() > m_Settings.MaxStoreBytes) { return HCSaveJob.STEP_FAILED; }
+        return HCSaveJob.STEP_MORE;
+    }
+
     int HCStepSave()
     {
         m_NativeOperation = "none";
@@ -586,14 +669,15 @@ class HCEventJournal : HCEventPersistence
         }
         else if (m_SaveStage == 5)
         {
-            m_NextImage = m_Codec.Encode(m_Pending);
-            if (m_NextImage.Length() < 1 || m_NextImage.Length() > m_Settings.MaxStoreBytes)
+            result = HCEncodePage();
+            if (result == HCSaveJob.STEP_FAILED || m_NextImage.Length() > m_Settings.MaxStoreBytes)
             {
                 // No files written yet: refuse this candidate, retain the committed journal.
                 m_NextImage = "";
                 m_NextReceipt = "";
                 m_Pending = null;
                 m_SaveStage = -1;
+                Print("[HC Events] journal candidate refused reason=encode_page_bound; committed revision retained");
                 return HCSaveJob.STEP_FAILED;
             }
         }
@@ -682,7 +766,7 @@ class HCEventJournal : HCEventPersistence
     override bool Save(HCEventRuntimeState state)
     {
         // Startup and ingress barriers drain the very same continuation; routine
-        // maintenance calls HCStepSave through its existing scheduled owner.
+        // maintenance calls HCStepSave through HCEventJournalSaveJob.
         if (!HCBeginSave(state)) { return false; }
         int result = HCSaveJob.STEP_MORE;
         int steps = 0;
@@ -694,5 +778,23 @@ class HCEventJournal : HCEventPersistence
         }
         if (result == HCSaveJob.STEP_MORE) { HCStageFault(); }
         return result == HCSaveJob.STEP_DONE;
+    }
+}
+
+// One scheduler stage per journal continuation step. The weak journal reference
+// avoids a cycle; the runtime retains the journal until it consumes Result.
+class HCEventJournalSaveJob : HCSaveJob
+{
+    HCEventJournal Journal;
+    int Result = HCSaveJob.STEP_MORE;
+    override string HCName() { return "EventJournal"; }
+    override int HCStep()
+    {
+        if (Result != STEP_MORE) { return Result; }
+        if (!Journal) { Result = STEP_FAILED; return Result; }
+        string stage = Journal.HCStageName();
+        Result = Journal.HCStepSave();
+        HCSaveJob.HCOperation = stage + ":" + Journal.HCNativeOperation();
+        return Result;
     }
 }

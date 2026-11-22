@@ -4,9 +4,24 @@ modded class HCEventJournal
     bool HCRuntimeFaulted() { return m_Fault; }
 }
 
+// Scalar/session header only; Records are encoded one row per scheduler step.
+// Native MakeData escapes all variable strings; assembled punctuation is fixed.
+// This remains the original schema-1 object, not a new on-disk page format.
+class HCEventJournalDirectorHeader
+{
+    int Version;
+    string WorldName;
+    string Session;
+    int LastNow;
+    int NextId;
+    int PrunedThrough;
+    int SessionGeneration;
+    ref array<string> Sessions;
+}
+
 // W5-PERF-4: <=1 run cleanup/expiry + <=64 subscribed observations + <=1
 // terminal-subscription purge/tick; cursors survive yields. Expiry/CLOSED
-// journal continuations share one 4 ms slice; native calls cannot be preempted.
+// journal continuations use HCSaveScheduler; native calls cannot be preempted.
 // Ingress refuses during announcements; shutdown drains durable continuations.
 // Timing native evidence: World/HCWorkBudget.c (Game.c:914).
 // Durable orchestrator. The caller owns a fresh trusted session and invokes
@@ -71,7 +86,7 @@ class HCEventRuntime
     }
     protected ref HCEventRuntimeState m_PendingPublish;
     protected ref HCEventJournal m_PendingJournal;
-    protected bool m_JournalYielded;
+    protected ref HCEventJournalSaveJob m_JournalJob;
     protected ref HCStepTimer m_TickSteps;
     protected int m_PendingExpiryId;
     protected int m_PendingExpiryAt;
@@ -186,62 +201,59 @@ class HCEventRuntime
         }
         m_PendingPublish = candidate;
         m_PendingJournal = journal;
+        m_JournalJob = new HCEventJournalSaveJob;
+        m_JournalJob.Journal = journal;
+        HCSaveScheduler.HCRegister(m_JournalJob);
+        // These are durable continuations, not debounced routine snapshots.
+        m_JournalJob.HCDirty = true;
+        m_JournalJob.HCUrgent = true;
+        m_JournalJob.HCDue = 0;
         return true;
     }
 
     protected bool HCAdvancePublish(bool drain = false)
     {
-        int result = HCSaveJob.STEP_MORE;
-        while (m_PendingPublish && result == HCSaveJob.STEP_MORE)
+        if (!m_PendingPublish) { return true; }
+        int started = TickCount(0);
+        if (drain)
         {
-            if (!drain && (m_JournalYielded || !m_WorkBudget.HCContinue())) { break; }
-            int started = TickCount(0);
-            string stage;
-            if (!drain) { stage = m_PendingJournal.HCStageName(); }
-            result = m_PendingJournal.HCStepSave();
-            int spent = TickCount(started);
-            bool nativeYield = false;
-            if (!drain)
+            // Ingress/shutdown retain their existing durability barrier. Flush
+            // advances the same job and cancels scheduler ownership on return.
+            if (!HCSaveScheduler.HCFlush(m_JournalJob)) { m_JournalJob.Result = HCSaveJob.STEP_FAILED; }
+            if (m_TickSteps) { m_TickSteps.HCDeferred(TickCount(started)); }
+        }
+        else { HCSaveScheduler.HCPumpFallback(m_JournalJob); }
+        int result = m_JournalJob.Result;
+        if (result == HCSaveJob.STEP_MORE) { return true; }
+        HCSaveScheduler.HCUnregister(m_JournalJob);
+        m_JournalJob = null;
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_State = m_PendingPublish;
+            if (m_PendingLeave) { HCFinishLeave(m_PendingLeave); }
+            if (m_PendingExpiryId > 0)
             {
-                nativeYield = m_PendingJournal.HCYieldRequested() && spent >= HCWorkBudget.HCTicksPerMs();
-                stage += " op=" + m_PendingJournal.HCNativeOperation();
-            }
-            if (drain)
-            {
-                if (m_TickSteps) { m_TickSteps.HCDeferred(TickCount(started)); }
-            }
-            else { HCMeasured(stage, started); }
-            if (result == HCSaveJob.STEP_DONE)
-            {
-                m_State = m_PendingPublish;
-                if (m_PendingLeave) { HCFinishLeave(m_PendingLeave); }
-                if (m_PendingExpiryId > 0)
-                {
-                    HCEventRecord expiryRecord = HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId);
-                    if (expiryRecord) { RememberCooldown(expiryRecord, m_PendingExpiryAt); }
-                }
-            }
-            if (result != HCSaveJob.STEP_MORE)
-            {
-                m_PendingPublish = null;
-                m_PendingJournal = null;
-                m_PendingExpiryId = 0;
-                m_PendingLeave = null;
-            }
-            if (result == HCSaveJob.STEP_FAILED)
-            {
-                m_Ready = false;
-                FaultCleanup();
-                HCPublishRefused();
-                return false;
-            }
-            if (!drain && nativeYield)
-            {
-                m_JournalYielded = true;
-                break;
+                HCEventRecord expiryRecord = HCEventDirector.FindRecord(m_State.Director, m_PendingExpiryId);
+                if (expiryRecord) { RememberCooldown(expiryRecord, m_PendingExpiryAt); }
             }
         }
+        m_PendingPublish = null;
+        m_PendingJournal = null;
+        m_PendingExpiryId = 0;
+        m_PendingLeave = null;
+        if (result == HCSaveJob.STEP_FAILED)
+        {
+            m_Ready = false;
+            FaultCleanup();
+            HCPublishRefused();
+            return false;
+        }
         return true;
+    }
+
+    void ~HCEventRuntime()
+    {
+        HCSaveScheduler.HCUnregister(m_JournalJob);
     }
 
     // Reason of the last refused Start (cleared at each Start). Start runs once
@@ -658,8 +670,8 @@ class HCEventRuntime
         m_AnnounceMission = null;
         m_AnnounceContext = null;
     }
-    // One clone/operation/provider step per tick. Journal chunks alone share
-    // the four-ms work slice. No candidate becomes visible before readback.
+    // One clone/operation/provider step per tick. Journal work is scheduler-owned.
+    // No candidate becomes visible before commit readback.
     protected void HCAdvanceAnnounce(bool drain = false)
     {
         int started = TickCount(0);
@@ -1110,7 +1122,6 @@ class HCEventRuntime
         // One shared four-millisecond slice, retained across all maintenance
         // stages in this tick. No second slice after completing a journal.
         m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
-        m_JournalYielded = false;
         if (m_AnnounceReceipt != "")
         {
             m_AnnounceReceiptTicks++;
