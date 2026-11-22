@@ -351,7 +351,22 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             path.write_bytes(hc.economy.read_plain(source, 'events/' + name))
         if measured:
             (snapshot / hc.MEASUREMENTS).write_bytes(rt._read_bounded(measured, rt.MAX_PLAN_BYTES))
-        hc.validate(snapshot)
+        _, roots, _, report = hc.validate(snapshot)
+        retired = report['measured_retired_anchors']
+        if treatment == 'measured':
+            # Generated groups were named before retirement, from authored order.
+            generated = {e.get('name'): {p.get('group'): p for p in e.findall('pos')}
+                         for e in roots[1] if e.get('name').startswith('StaticHC')}
+            selected = []
+            for row in rows:
+                if row['id'] in retired:
+                    continue
+                name, site = row['id'].split(':', 1)
+                if name in generated:
+                    pos = generated[name][name + '_Site' + site.removeprefix('site')]
+                    row = dict(row, **{a: float(pos.get(a)) for a in ('x', 'z')})
+                selected.append(row)
+            rows = selected
         cache = native_scripts or Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
         native = rt.native_type_names(cache)
         # Dry-run validates data and generated hook without requiring a Windows install.
@@ -361,7 +376,8 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             if problems:
                 raise ValueError('hook lint: ' + '; '.join(problems[:3]))
             return {'kind': 'ce-site-probe', 'status': 'inputs-validated-not-staged',
-                    'targets': len(rows), 'relocation': relocation}
+                    'targets': len(rows), 'relocation': relocation,
+                    'measured_retired_anchors': retired}
         context = rt.begin(source_runtime, destination, parent=rt.WSL_PARENT, battleye_sha256=rt.BATTLEYE_SHA256)
         stock_sha = stock_digest(context['source']['records'])
         run_id = secrets.token_hex(16)
@@ -386,6 +402,8 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             if entry['sha256'] != entry['source_sha256'] and entry['path'] != 'init.c':
                 entry['origin'] = 'hc-ce-install'
         plan = rt.plan_header('ce-site-probe', None, after={'variant': treatment})
+        if treatment == 'measured':
+            plan['measured_retired_anchors'] = retired
         if relocation is not None:
             plan['relocation'] = relocation
         if variant_doc is not None:
@@ -559,7 +577,7 @@ def merge(base, chunks, out, *, source=hc.SOURCE):
     positions = hc.economy.xml(hc.economy.read_plain(source, 'ce/hc-eventspawns.xml'), 'eventposdef')
     caches = hc.economy.xml(hc.economy.read_plain(source, 'events/cache-eventspawns.xml'), 'eventposdef')
     events = hc.economy.xml(hc.economy.read_plain(source, 'ce/hc-events.xml'), 'events')
-    hc.apply_measurements(positions, caches, result)
+    hc.apply_measurements(positions, caches, result, events=events, retired={})
     hc.check_anchor_separation(events, positions)
     rt.new_file(out, (json.dumps(result, indent=2) + '\n').encode())
     return result
@@ -597,7 +615,8 @@ def main(argv=None):
                            measured=args.measurements, native_scripts=args.native_scripts,
                            hold_seconds=args.hold_seconds, wait_minutes=args.wait_minutes, dry_run=args.dry_run,
                            variants=args.variants, relocate_from=args.relocate_from, chunk=args.chunk)
-            print(json.dumps({key: result[key] for key in ('status', 'kind', 'targets', 'relocation')
+            print(json.dumps({key: result[key] for key in ('status', 'kind', 'targets', 'relocation',
+                                                                     'measured_retired_anchors')
                               if key in result}))
         elif args.command == 'merge':
             result = merge(args.base, args.chunks, args.out, source=args.source)
