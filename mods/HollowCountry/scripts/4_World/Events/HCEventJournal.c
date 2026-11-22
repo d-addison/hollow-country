@@ -163,9 +163,23 @@ modded class HCStagedSaveImage
     // after backup readback. The pending name remains until outer verification.
     protected ref HCStagedSaveImage m_BoundedWriter;
 
+    override int HCAbort()
+    {
+        m_Failed = true;
+        return HCStepBoundedImage();
+    }
+
     int HCStepBoundedImage()
     {
+        if (m_BoundedWriter && (m_Failed || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)))
+        {
+            int aborted = m_BoundedWriter.HCAbort();
+            if (aborted == HCSaveJob.STEP_MORE) { return aborted; }
+            m_BoundedWriter = null;
+            return HCFail();
+        }
         if (m_Failed || m_CheckPrior || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCStepImage(); }
+        if (m_Phase == 2 && m_PriorUnchanged) { return HCStepImage(); }
         bool backupCopy = m_Phase == 2 && m_Backup && m_PrimaryKnown && m_PrimaryExists;
         if (backupCopy && m_PriorUnchanged && m_BackupExists) { backupCopy = false; }
         if (backupCopy && m_BackupStage == 1 && !m_BackupExists)
@@ -185,16 +199,17 @@ modded class HCStagedSaveImage
             // Never rotate a backup from an unknown predecessor.
             if (text == "") { return HCFail(); }
             m_BoundedWriter = new HCStagedSaveImage;
-            if (!m_BoundedWriter.HCPrepareJournal(target, text, m_Limit)) { return HCFail(); }
+            if (!m_BoundedWriter.HCPrepareJournal(target, text, m_Limit)) { m_BoundedWriter = null; return HCFail(); }
             return HCSaveJob.STEP_MORE;
         }
         int result = m_BoundedWriter.HCStepImage();
-        if (result == HCSaveJob.STEP_FAILED) { return HCFail(); }
+        if (result == HCSaveJob.STEP_FAILED) { m_BoundedWriter = null; return HCFail(); }
         if (result == HCSaveJob.STEP_MORE) { return result; }
         m_BoundedWriter = null;
         HCClose();
         if (backupCopy) { m_BackupStage = 3; }
-        else { m_PrimaryExists = true; m_Phase = 4; }
+        // CREATE already read back the primary: no duplicate outer readback.
+        else { m_PrimaryExists = true; m_Phase = 5; }
         return HCSaveJob.STEP_MORE;
     }
 
@@ -380,6 +395,15 @@ class HCEventJournal : HCEventPersistence
     protected int m_SaveStage = -1;
     protected string m_NextImage;
     protected string m_NextReceipt;
+    protected ref array<string> m_EncodePages = new array<string>;
+    protected int m_EncodeBytes;
+    protected int m_JoinCursor;
+    protected ref HCStepTimer m_SaveTimer;
+    void HCSetSaveTimer(HCStepTimer timer) { m_SaveTimer = timer; }
+    protected void HCMeasured(string stage, int started)
+    {
+        if (m_SaveTimer) { m_SaveTimer.HCItem(stage, TickCount(started)); }
+    }
     protected int m_EncodeCursor;
     protected int m_EncodePhase;
     protected bool m_CheckOpen;
@@ -430,6 +454,9 @@ class HCEventJournal : HCEventPersistence
         m_InventoryStage = 0;
         m_EncodeCursor = 0;
         m_EncodePhase = 0;
+        m_EncodePages.Clear();
+        m_EncodeBytes = 0;
+        m_JoinCursor = 0;
         m_NextImage = "";
         m_DirectoryStage = 0;
         m_PruneChecked = false;
@@ -574,11 +601,22 @@ class HCEventJournal : HCEventPersistence
     // Record <=6 participants + definition/session strings; <=8192 encoded bytes.
     // Run raw string sum <=2048, <=16384 encoded bytes (6x JSON escape + fields).
     // Check raw inputs BEFORE MakeData; oversized candidates never write files.
-    // Assembly/hash operate on <=819456 bytes, further limited by MaxStoreBytes.
+    // Balanced assembly/hash operate on <=819456 bytes, further limited by MaxStoreBytes.
     // Hash() has no incremental API: schema-1 receipts require the exact native
     // full-image hash. It stays a separate measured step; no <=5 ms claim until
     // the lead measures this cap. Native disk latency is likewise indivisible.
     protected int HCEncodePage()
+    {
+        int started = TickCount(0);
+        int result = HCEncodePageInner();
+        HCMeasured("journal_encode_page", started);
+        return result;
+    }
+
+    // Native string.Join itself uses +=. Pairwise merge copies each byte at
+    // most ceil(log2(67)) times instead of recopying the growing whole image
+    // on every row. One pair (<=MaxStoreBytes) per assembly step; schema intact.
+    protected int HCEncodePageInner()
     {
         string piece;
         string error;
@@ -597,8 +635,8 @@ class HCEventJournal : HCEventPersistence
             if (!JsonFileLoader<HCEventJournalDirectorHeader>.MakeData(header, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
             if (piece.Length() < 2 || piece.Length() > 32768) { return HCSaveJob.STEP_FAILED; }
             if (piece.Substring(piece.Length() - 1, 1) != "}") { return HCSaveJob.STEP_FAILED; }
-            m_NextImage = "{\"Version\":1,\"Revision\":" + m_Pending.Revision.ToString() + ",\"Director\":";
-            m_NextImage += piece.Substring(0, piece.Length() - 1) + ",\"Records\":[";
+            string prefix = "{\"Version\":" + m_Pending.Version.ToString() + ",\"Revision\":" + m_Pending.Revision.ToString() + ",\"Director\":";
+            piece = prefix + piece.Substring(0, piece.Length() - 1) + ",\"Records\":[";
             m_EncodePhase = 1;
         }
         else if (m_EncodePhase == 1)
@@ -607,13 +645,12 @@ class HCEventJournal : HCEventPersistence
             {
                 if (!JsonFileLoader<HCEventRecord>.MakeData(m_Pending.Director.Records[m_EncodeCursor], piece, error, false)) { return HCSaveJob.STEP_FAILED; }
                 if (piece.Length() < 1 || piece.Length() > 8192) { return HCSaveJob.STEP_FAILED; }
-                if (m_EncodeCursor > 0) { m_NextImage += ","; }
-                m_NextImage += piece;
+                if (m_EncodeCursor > 0) { piece = "," + piece; }
                 m_EncodeCursor++;
             }
             else
             {
-                m_NextImage += "]},\"Runs\":[";
+                piece = "]},\"Runs\":[";
                 m_EncodeCursor = 0;
                 m_EncodePhase = 2;
             }
@@ -632,17 +669,39 @@ class HCEventJournal : HCEventPersistence
                 if (rawBytes > 2048) { return HCSaveJob.STEP_FAILED; }
                 if (!JsonFileLoader<HCEventRun>.MakeData(run, piece, error, false)) { return HCSaveJob.STEP_FAILED; }
                 if (piece.Length() < 1 || piece.Length() > 16384) { return HCSaveJob.STEP_FAILED; }
-                if (m_EncodeCursor > 0) { m_NextImage += ","; }
-                m_NextImage += piece;
+                if (m_EncodeCursor > 0) { piece = "," + piece; }
                 m_EncodeCursor++;
             }
             else
             {
-                m_NextImage += "]}";
-                return HCSaveJob.STEP_DONE;
+                piece = "]}";
+                m_EncodePhase = 3;
             }
         }
-        if (m_NextImage.Length() > m_Settings.MaxStoreBytes) { return HCSaveJob.STEP_FAILED; }
+        else
+        {
+            int pageCount = m_EncodePages.Count();
+            if (pageCount == 1)
+            {
+                m_NextImage = m_EncodePages[0];
+                m_EncodePages.Clear();
+                return HCSaveJob.STEP_DONE;
+            }
+            int right = m_JoinCursor + 1;
+            string joined = m_EncodePages[m_JoinCursor];
+            if (right < pageCount) { joined = joined + m_EncodePages[right]; }
+            m_EncodePages[m_JoinCursor / 2] = joined;
+            m_JoinCursor += 2;
+            if (m_JoinCursor >= pageCount)
+            {
+                m_EncodePages.Resize((pageCount + 1) / 2);
+                m_JoinCursor = 0;
+            }
+            return HCSaveJob.STEP_MORE;
+        }
+        m_EncodeBytes += piece.Length();
+        if (m_EncodeBytes > m_Settings.MaxStoreBytes) { return HCSaveJob.STEP_FAILED; }
+        m_EncodePages.Insert(piece);
         return HCSaveJob.STEP_MORE;
     }
 
@@ -687,7 +746,9 @@ class HCEventJournal : HCEventPersistence
             receipt.Revision = m_Pending.Revision;
             receipt.WorldName = m_World;
             receipt.Length = m_NextImage.Length();
+            int digestStarted = TickCount(0);
             receipt.Hash = m_Codec.Digest(m_NextImage);
+            HCMeasured("journal_digest", digestStarted);
             m_NextReceipt = m_Codec.EncodeReceipt(receipt);
         }
         else if (m_SaveStage >= 7 && m_SaveStage <= 9)

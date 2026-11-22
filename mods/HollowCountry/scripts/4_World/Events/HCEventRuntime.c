@@ -202,7 +202,9 @@ class HCEventRuntime
         m_PendingPublish = candidate;
         m_PendingJournal = journal;
         m_JournalJob = new HCEventJournalSaveJob;
+        m_JournalJob.Result = HCSaveJob.STEP_MORE;
         m_JournalJob.Journal = journal;
+        journal.HCSetSaveTimer(m_TickSteps);
         HCSaveScheduler.HCRegister(m_JournalJob);
         // These are durable continuations, not debounced routine snapshots.
         m_JournalJob.HCDirty = true;
@@ -390,9 +392,9 @@ class HCEventRuntime
     bool Allowed(HCEventContext context)
     {
         if (HCAnnouncePending()) { return false; }
-        // Trusted ingress keeps its original immediate durability contract. Never
-        // let a synchronous mutation overtake a partially written revision.
-        if (m_PendingPublish && !m_Busy && !HCAdvancePublish(true)) { return false; }
+        // Refuse before any mutation. Callers return BLOCKED/false and may retry;
+        // player ingress must never drain hundreds of journal stages in one tick.
+        if (m_PendingPublish) { return false; }
         return HCReadAllowed(context);
     }
     bool Publish(HCEventRuntimeState candidate)
@@ -530,6 +532,7 @@ class HCEventRuntime
         if (HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
         if (!Allowed(context))
         {
+            if (m_PendingPublish) { return HCEventCode.BLOCKED; }
             return HCEventCode.DENIED;
         }
         if (!HCEventRuntimePolicy.MissionValid(mission, context.WorldName))
@@ -889,6 +892,7 @@ class HCEventRuntime
     {
         if (!Allowed(context))
         {
+            if (m_PendingPublish) { return HCEventCode.BLOCKED; }
             return HCEventCode.DENIED;
         }
         string identity = HCEventNativeObserver.Identity(player);
@@ -979,6 +983,7 @@ class HCEventRuntime
     {
         if (!Allowed(context))
         {
+            if (m_PendingPublish) { return HCEventCode.BLOCKED; }
             return HCEventCode.DENIED;
         }
         HCEventRuntimeState candidate = m_Store.Clone(m_State);

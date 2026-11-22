@@ -33,13 +33,18 @@ class HCEncounterStore<Class T>
     protected string m_SaveText;
     protected string m_CommittedText;
     protected bool m_Prepared;
+    protected ref HCStepTimer m_SaveTimer;
     protected string m_Path;
     protected bool m_Fault;
     // Raw image of the last successful file load; owners may check key presence
     // (native load zero-fills absent ints). Taken once, then cleared.
     protected string m_LoadedText;
 
-    void HCEncounterStore(string name) { m_Path = "$profile:HollowCountry/" + name + ".json"; }
+    void HCEncounterStore(string name)
+    {
+        m_Path = "$profile:HollowCountry/" + name + ".json";
+        if (name == "holdouts") { m_SaveTimer = new HCStepTimer("Holdouts"); }
+    }
     bool Healthy() { return !m_Fault; }
     string HCTakeLoadedText()
     {
@@ -107,7 +112,16 @@ class HCEncounterStore<Class T>
         {
             HCSaveJob.HCOperation = "encode";
             string error;
-            if (!JsonFileLoader<T>.MakeData(data, m_SaveText, error)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            int encodeStarted = TickCount(0);
+            bool encoded = JsonFileLoader<T>.MakeData(data, m_SaveText, error);
+            int encodeTicks = TickCount(encodeStarted);
+            if (m_SaveTimer)
+            {
+                m_SaveTimer.HCItem("holdouts_encode", encodeTicks);
+                m_SaveTimer.HCEndTick(encodeTicks);
+                m_SaveTimer.HCCloseWindow();
+            }
+            if (!encoded) { Fault(); return HCSaveJob.STEP_FAILED; }
             if (m_SaveText.Length() < 1 || m_SaveText.Length() > 262144) { Fault(); return HCSaveJob.STEP_FAILED; }
             m_Prepared = true;
             return HCSaveJob.STEP_MORE;

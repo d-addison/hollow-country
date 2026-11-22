@@ -119,6 +119,7 @@ class HCEcologyRuntimeStore
             {
                 m_Fault = true;
                 m_SavePhase = -1;
+                m_SaveImage = null;
                 return HCSaveJob.STEP_FAILED;
             }
             return HCSaveJob.STEP_MORE;
@@ -128,6 +129,7 @@ class HCEcologyRuntimeStore
         {
             m_Fault = true;
             m_SavePhase = -1;
+            m_SaveImage = null;
             Print("[HC Ecology] checkpoint IO refused; preserve pending/state/backup runtime=PENDING");
         }
         if (result == HCSaveJob.STEP_DONE)
@@ -146,12 +148,24 @@ class HCEcologyRuntimeStore
     // A torn pending image cannot have reached promotion, so primary stays good.
     protected bool HCRecoverPrior(string imagePath, string pendingPath, string world)
     {
-        HCEcologyCheckpoint intent = HCEcologyRuntimeIO.Decode(HCEcologyRuntimeIO.Read(pendingPath, 2048));
+        string pendingText = HCEcologyRuntimeIO.Read(pendingPath, 2048);
+        HCEcologyCheckpoint intent = HCEcologyRuntimeIO.Decode(pendingText);
         string primaryText = HCEcologyRuntimeIO.Read(imagePath, 2048);
         HCEcologyCheckpoint primary = HCEcologyRuntimeIO.Decode(primaryText);
         bool primaryValid = HCEcologyRuntimeRules.CheckpointValid(primary, world);
         if (!HCEcologyRuntimeRules.CheckpointValid(intent, world)) { return primaryValid; }
-        if (primaryValid && primary.Revision == intent.Revision - 1) { return true; }
+        // Legacy writer had no backup: a fully promoted pending revision is
+        // already authoritative even if it crashed before deleting the intent.
+        if (primaryValid && (primaryText == pendingText || primary.Revision == intent.Revision))
+        {
+            Print("[HC Ecology] recovery=retained_primary reason=pending_revision_committed runtime=PENDING");
+            return true;
+        }
+        if (primaryValid && primary.Revision == intent.Revision - 1)
+        {
+            Print("[HC Ecology] recovery=retained_primary reason=verified_predecessor runtime=PENDING");
+            return true;
+        }
         string backupText = HCEcologyRuntimeIO.Read(imagePath + ".bak", 2048);
         HCEcologyCheckpoint backup = HCEcologyRuntimeIO.Decode(backupText);
         if (!HCEcologyRuntimeRules.CheckpointValid(backup, world) || backup.Revision != intent.Revision - 1) { return false; }
@@ -161,7 +175,9 @@ class HCEcologyRuntimeStore
             if (!DeleteFile(imagePath)) { return false; }
         }
         if (!CopyFile(imagePath + ".bak", imagePath)) { return false; }
-        return HCEcologyRuntimeIO.Read(imagePath, 2048) == backupText;
+        bool restored = HCEcologyRuntimeIO.Read(imagePath, 2048) == backupText;
+        if (restored) { Print("[HC Ecology] recovery=restored_backup reason=verified_predecessor runtime=PENDING"); }
+        return restored;
     }
 
 	HCEcologyCheckpoint Open(string worldName, string session)
