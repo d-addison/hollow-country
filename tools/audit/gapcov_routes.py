@@ -18,8 +18,15 @@ from pathlib import Path
 MISSION = Path('mission/hollow-country')
 # HCXAISiteRules.c:10; fail before authoring a catalog the runtime cannot load.
 MAX_CATALOG_ROWS = 1024
-CATALOG_PAGE_ROWS = 32
-CATALOG_PAGE_BYTES = 32768
+CATALOG_PAGE_BYTES = 4096
+# Reserve the exact envelope (including identity and newline), then pack whole
+# rows against the audited row bound. Refuse growth rather than oversize a read.
+CATALOG_ROW_BYTES = 675
+CATALOG_PAGE_OVERHEAD = len((json.dumps(
+    {'schema': 1, 'kind': 'gapcov-road-page', 'routes': [],
+     'identity_sha256': '0' * 64}, separators=(',', ':')) + '\n').encode())
+CATALOG_PAGE_ROWS = (CATALOG_PAGE_BYTES - CATALOG_PAGE_OVERHEAD) // (CATALOG_ROW_BYTES + 1)
+CATALOG_INDEX_BYTES = 32768
 CATALOG_INDEX = 'travel/gapcov-roads/index.json'
 
 
@@ -316,6 +323,9 @@ def catalog_outputs(root, catalog):
     header = {key: value for key, value in catalog.items() if key != 'routes'}
     header['row_count'] = len(catalog['routes'])
     header['pages'] = []
+    if any(len(json.dumps(row, separators=(',', ':'), allow_nan=False).encode()) > CATALOG_ROW_BYTES
+           for row in catalog['routes']):
+        raise ValueError('catalog row exceeds packing bound; revise row paging')
     for index, relative in enumerate(page_paths(root)):
         rows = catalog['routes'][index * CATALOG_PAGE_ROWS:(index + 1) * CATALOG_PAGE_ROWS]
         page = {'schema': 1, 'kind': 'gapcov-road-page', 'routes': rows}
@@ -330,7 +340,7 @@ def catalog_outputs(root, catalog):
                                 'Rows': len(rows)})
     header['identity_sha256'] = digest(header)
     header_data = (json.dumps(header, separators=(',', ':'), allow_nan=False) + '\n').encode()
-    if len(header_data) > CATALOG_PAGE_BYTES:
+    if len(header_data) > CATALOG_INDEX_BYTES:
         raise ValueError('catalog header outside byte bounds')
     outputs[str(MISSION / CATALOG_INDEX)] = header_data
     travel['gapcov_routes'] = {'catalog': CATALOG_INDEX, 'locality_candidates': header['row_count']}

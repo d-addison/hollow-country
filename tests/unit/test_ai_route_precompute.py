@@ -74,7 +74,7 @@ class RoutePrecomputeTests(unittest.TestCase):
             page = json.loads(data)
             self.assertEqual(len(hash_pages), page['PageStart'])
             hash_pages.extend(page['Hashes'])
-        self.assertLessEqual(len(outputs[routes.OUTPUTS[0]]), routes.MANIFEST_PAGE_BYTES)
+        self.assertLessEqual(len(outputs[routes.OUTPUTS[0]]), routes.MANIFEST_ROOT_BYTES)
         cursor = 0
         for row, data in zip(manifest['Files'], (self.roads.read_bytes(), self.local.read_bytes())):
             self.assertEqual(cursor, row['PageStart'])
@@ -88,6 +88,70 @@ class RoutePrecomputeTests(unittest.TestCase):
         self.assertEqual(cursor, manifest['PageCount'])
         self.assertEqual(routes.sha(outputs[routes.OUTPUTS[1]]), manifest['RoadGraphSha256'])
         self.assertEqual(routes.sha((self.root / routes.PINS).read_bytes()), manifest['SourcePagesSha256'])
+
+    def test_catalog_row_packing_preserves_rows_identities_and_byte_bound(self):
+        catalog = routes.gapcov_routes
+        count = catalog.CATALOG_PAGE_ROWS * 3 + 1
+        self.save('mission/hollow-country/ai/localities.json',
+                  {'Localities': [{'Id': str(i)} for i in range(count)]})
+        self.save('mission/hollow-country/travel/route-surveys.json', {})
+        self.save('mission/hollow-country/ai/picker-routes.json', {})
+        self.save('mission/hollow-country/infected/route-surveys.json', {})
+        # Exercise the full serialized row budget, including punctuation.
+        rows = [{'id': str(i), 'padding': ''} for i in range(count)]
+        for row in rows:
+            row['padding'] = 'x' * (catalog.CATALOG_ROW_BYTES - len(routes.encode(row)) + 1)
+        outputs = catalog.catalog_outputs(self.root, {'routes': rows})
+        header = json.loads(outputs[str(catalog.MISSION / catalog.CATALOG_INDEX)])
+        emitted = []
+        for pin in header['pages']:
+            data = outputs[pin['Path'].replace('$mission:', 'mission/', 1)]
+            page = json.loads(data)
+            self.assertLessEqual(len(data), catalog.CATALOG_PAGE_BYTES)
+            self.assertEqual(len(data), pin['Bytes'])
+            self.assertEqual(routes.sha(data), pin['Sha256'])
+            self.assertEqual(len(page['routes']), pin['Rows'])
+            identity = page.pop('identity_sha256')
+            self.assertEqual(catalog.digest(page), identity)
+            self.assertEqual(identity, pin['IdentitySha256'])
+            emitted.extend(page['routes'])
+        self.assertEqual(rows, emitted)
+        self.assertEqual(len(rows), header['row_count'])
+        self.assertEqual(set(catalog.page_paths(self.root)),
+                         {p['Path'].removeprefix('$mission:hollow-country/') for p in header['pages']})
+        rows[0]['padding'] += 'x'
+        with self.assertRaises(ValueError):
+            catalog.catalog_outputs(self.root, {'routes': rows})
+
+    def test_manifest_catalog_pins_span_bounded_ordered_pages(self):
+        count = routes.MANIFEST_CATALOG_PINS_PER_PAGE * 3 + 1
+        pins = [{'Path': '$mission:hollow-country/travel/gapcov-roads/page-%03d.json' % i,
+                 'Bytes': routes.gapcov_routes.CATALOG_PAGE_BYTES,
+                 'Sha256': routes.sha(str(i).encode()),
+                 'IdentitySha256': routes.sha(('identity-%d' % i).encode()),
+                 'Rows': routes.gapcov_routes.CATALOG_PAGE_ROWS} for i in range(count)]
+        header = {'pages': pins, 'identity_sha256': routes.sha(b'catalog')}
+        derived = {str(routes.gapcov_routes.MISSION / routes.gapcov_routes.CATALOG_INDEX):
+                   routes.encode(header)}
+        # Enable the full-catalog branch without needing a dependency-sized graph.
+        self.save(routes.gapcov_routes.OUTPUTS[0], {})
+        with patch.object(routes.gapcov_routes, 'build', return_value={}), \
+                patch.object(routes.gapcov_routes, 'catalog_outputs', return_value=derived):
+            outputs = self.plan()
+        manifest = json.loads(outputs[routes.OUTPUTS[0]])
+        self.assertLessEqual(len(outputs[routes.OUTPUTS[0]]), routes.MANIFEST_ROOT_BYTES)
+        collected, hashes = [], []
+        for identity in manifest['HashPages']:
+            data = outputs[identity['Path'].replace('$mission:', 'mission/', 1)]
+            self.assertLessEqual(len(data), routes.MANIFEST_PAGE_BYTES)
+            self.assertEqual(routes.sha(data), identity['Sha256'])
+            page = json.loads(data)
+            self.assertEqual(len(collected), page['CatalogPageStart'])
+            self.assertEqual(len(hashes), page['PageStart'])
+            collected.extend(page['CatalogPages'])
+            hashes.extend(page['Hashes'])
+        self.assertEqual(pins, collected)
+        self.assertEqual(manifest['PageCount'], len(hashes))
 
     def test_deterministic_sha_write_and_read_only_drift_check(self):
         first = routes.write(self.root, roads=self.roads)
