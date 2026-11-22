@@ -572,12 +572,13 @@ class HCEventModule : HCModule
                 bool policeRetry = HCEventSites.PoliceSupplies(mission);
                 if (mission.Family == HCEventFamily.INFECTED_CLEAR && mission.AnchorClass == "Land_Village_PoliceStation") { policeRetry = true; }
                 HCW38SituationPolicy policePolicy;
+                if (policeRetry && !m_PoliceRetryAfter) { return; }
+                if (policeRetry && context.Now < m_PoliceRetryAfter[retrySlot]) { return; }
                 if (policeRetry && !remembered)
                 {
                     // Cached module readiness, no speculative loading API. Do not
                     // spend the finite allowance during startup/provider refusal.
                     if (m_SituationStatus.HCState() != "ready" || !m_PoliceRetryAttempts) { return; }
-                    if (context.Now < m_PoliceRetryAfter[retrySlot]) { return; }
                     policePolicy = HCW38SituationPolicy.HCGet();
                     if (!policePolicy) { return; }
                     // Each retained stock/infected stage takes its own grant.
@@ -596,6 +597,16 @@ class HCEventModule : HCModule
                 {
                     m_BindContinuing = true;
                     m_RosterCursor = retrySlot;
+                    return;
+                }
+                if (!bound && HCEventSites.PoliceSupplies(mission) && HCEventWorldBinding.PoliceStockWaiting())
+                {
+                    // A spent finite fallback is steady state. Continue bounded
+                    // physical-stock probes without treating it as six failures.
+                    HCW38SituationPolicy stockPolicy = HCW38SituationPolicy.HCGet();
+                    if (!stockPolicy) { return; }
+                    m_PoliceRetryAfter[retrySlot] = context.Now + stockPolicy.PoliceSlowRetrySeconds;
+                    HCEventWorldBinding.PoliceStockDeferred(mission, m_PoliceRetryAfter[retrySlot]);
                     return;
                 }
                 if (policeRetry && !remembered && !bound)

@@ -42,17 +42,31 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
 
     override HCEventRewardPlan Commit(string siteId)
     {
+        m_Refusal = "police_cache_site_invalid";
         if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return null; }
-        if (!m_IO || !m_IO.Ensure() || m_Fault) { return null; }
+        m_Refusal = "police_cache_journal_unavailable";
+        if (!m_IO || m_Fault || !m_IO.Ensure()) { return null; }
         string name = siteId + ".txt";
-        if (m_Granted.Find(siteId) >= 0 || m_IO.Exists(siteId + ".pos")) { return null; }
+        // These are site spends, not leases owned by a live event. Never release
+        // them on event expiry: native cargo may still exist outside this scan.
+        m_Refusal = "police_cache_grant_spent";
+        if (m_Granted.Find(siteId) >= 0) { return null; }
+        m_Refusal = "police_cache_position_recorded";
+        if (m_IO.Exists(siteId + ".pos")) { return null; }
         int repair = m_RepairPending.Find(siteId);
-        if (repair < 0 && (m_IO.Exists(name) || m_IO.Exists(siteId + ".repair"))) { return null; }
+        if (repair < 0)
+        {
+            m_Refusal = "police_cache_repair_spent";
+            if (m_IO.Exists(siteId + ".repair")) { return null; }
+            m_Refusal = "police_cache_grant_spent";
+            if (m_IO.Exists(name)) { return null; }
+        }
+        m_Refusal = "police_cache_journal_fault";
         if (repair >= 0)
         {
             m_RepairPending.Remove(repair);
             // The marker is the spend: it is durable before any native creation.
-            if (m_IO.Exists(siteId + ".repair")) { return null; }
+            if (m_IO.Exists(siteId + ".repair")) { m_Refusal = "police_cache_repair_spent"; return null; }
             if (!m_IO.WriteNew(siteId + ".repair", "HC-POLICE-STOCK-REPAIR v1 " + siteId, 128)) { Fault(); return null; }
             Print("[HC Events] police grant orphan repaired; " + siteId + "; runtime=PENDING");
         }
@@ -64,6 +78,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         plan.Items.Insert("MetalWire");
         // A repair consumes its marker-backed allowance without rewriting the spent .txt.
         if (repair < 0 && !m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
+        m_Refusal = "";
         return plan;
     }
 
@@ -422,8 +437,9 @@ class HCEventCacheSpawner
     {
         vector position = SpawnPosition(mission, mission.Source, true);
         if (position == vector.Zero) { return null; }
-        HCEventRewardPlan plan = PoliceLedger().Commit(mission.SiteId);
-        if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
+        HCEventRewardLedger stockLedger = PoliceLedger();
+        HCEventRewardPlan plan = stockLedger.Commit(mission.SiteId);
+        if (!plan) { PoliceRefused(stockLedger.Refusal()); return null; }
         Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
         if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
         HCGroundSnap.Snap(cache);
