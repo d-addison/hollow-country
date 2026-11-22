@@ -456,6 +456,12 @@ class HCLeadStore
             steps++;
         }
         if (m_SaveJob && result == HCSaveJob.STEP_DONE) { m_SaveJob.HCDirty = false; m_SaveJob.HCUrgent = false; }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            // Never fail silently: name the exhausted guard once, then refuse.
+            m_FaultAt = "save_stage_guard steps=" + steps.ToString();
+            Fault();
+        }
         return result == HCSaveJob.STEP_DONE;
     }
 

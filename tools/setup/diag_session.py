@@ -248,7 +248,11 @@ def stage(plan):
         plain(path)
         if path.is_file() and path.suffix.lower() in {'.c', '.xml', '.json', '.map'}:
             write_new(plan.runtime / 'mpmissions' / MISSION / rel, path.read_bytes())
-    config = ('hostname="HC isolated diag";\nmaxPlayers=1;\nBattlEye=0;\n'
+    # DayZDiag's cfg validator requires instanceId (missing = silent 10 s
+    # termination before Steam init); shardId is format-checked. maxPlayers=6
+    # matches every cfg that reached Mission.
+    config = ('hostname="HC isolated diag";\nmaxPlayers=6;\nBattlEye=0;\n'
+              'instanceId=1;\nshardId="hcdia1";\nguaranteedUpdates=1;\ndisableVoN=1;\n'
               'verifySignatures=0;\nallowFilePatching=1;\nforceSameBuild=1;\n'
               'steamQueryPort=' + str(plan.port + 3) + ';\n'
               'class Missions { class HC { template="' + MISSION + '"; }; };\n')

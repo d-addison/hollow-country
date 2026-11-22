@@ -470,8 +470,11 @@ class HCStagedSaveImage
     static const int HC_IMAGE_CREATE = 1;
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
-    // Conservative synchronous finish guard, including optional prior reads.
-    static const int HC_MAX_STAGES = 8 * (HCGroupIO.HC_RAW_READ_CAP / HC_CHUNK_BYTES) + 128;
+    // Conservative synchronous finish guard, including optional prior reads:
+    // 8 * (HCGroupIO.HC_RAW_READ_CAP 8388608 / HC_CHUNK_BYTES 4096) + 128.
+    // Keep a literal: a cross-class static const expression read as 0 natively
+    // (build 169 boot: Leads Save exhausted a 6-step guard, lead_store_unavailable).
+    static const int HC_MAX_STAGES = 16512;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;

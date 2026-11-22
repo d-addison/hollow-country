@@ -48,8 +48,14 @@ Game (491 files) and World (2613 files) modules with HollowCountry included, wit
 script errors. Then it logged `Player dpid=2 added`, counted down
 `[Server] :: termination in: 10..1` and exited cleanly before loading the mission, so
 5_Mission was not Diag-compiled and no `[HC Ready]` line was printed. The countdown
-is not in vanilla or HollowCountry scripts. The cause and the Diag server boot remain
-UNVERIFIED.
+is not in vanilla or HollowCountry scripts. Cause (static analysis of DayZDiag_x64.exe,
+2026-11-22): the staged serverDZ.cfg had no `instanceId`; the Diag cfg validator prints
+its "instanceId parameter is mandatory" error through a printer that does not reach the
+Diag RPT, then starts the termination countdown before Steam init. stage() now writes
+instanceId, shardId, guaranteedUpdates, disableVoN and maxPlayers=6. The fixed Diag
+server boot remains unverified until one launch shows `SteamGameServer_Init` and
+`Module: Mission`. If it then fails Steam init, the client-layout runtime lacks the
+server Steam DLLs and appid 223350.
 The session receipt records them under `without`. Retail boots (checkstart) still
 load every dependency.
 
