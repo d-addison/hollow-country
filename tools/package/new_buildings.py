@@ -26,7 +26,7 @@ Optional native censuses supply standing evidence through the shared admission p
 ExportProxyData agreement, reachability and loot density stay pending a native treatment run.
 
 Generate (offline, heavy): ``python3 -B -m tools.package.new_buildings generate --addons <full-client>/addons
---mission <stock chernarus mission> --reader <pinned ODOL reader> --scratch <fresh directory> [--native-census <file>] --out <file>``.
+--mission <stock chernarus mission> --scratch <fresh directory> [--native-census <file>] --out <file>``.
 """
 import argparse
 import hashlib
@@ -726,7 +726,7 @@ def exclusions(instances, stock_pos):
     return kept, dropped
 
 
-def generate(addons, mission, reader_folder, scratch, native_censuses=()):
+def generate(addons, mission, scratch, native_censuses=()):
     """The new-buildings layer as bytes; heavy (reads the world and ODOL models)."""
     from tools.audit import pbo_config as pbo
     from tools.package import interior_points_gen as ipg
@@ -789,7 +789,7 @@ def generate(addons, mission, reader_folder, scratch, native_censuses=()):
     scratch.mkdir(parents=True, exist_ok=False)
     seed_path = scratch / 'seed-proto.xml'
     seed_path.write_bytes(ET.tostring(synthetic))
-    auditor = reach.Audit(addons, reader_folder, seed_path, REPO_ROOT)
+    auditor = reach.Audit(addons, None, seed_path, REPO_ROOT)
     floors = {}
     for name, (g, model, model_sha) in pins.items():
         print('floor ' + name, file=sys.stderr, flush=True)
@@ -829,7 +829,7 @@ def generate(addons, mission, reader_folder, scratch, native_censuses=()):
                                        'height': POINT_SHAPE['floor'][1]})
     floor_path = scratch / 'floor-proto.xml'
     floor_path.write_bytes(ET.tostring(seeded))
-    surfaces = json.loads(ipg.generate(addons, floor_path, reader_folder)) if floors else {'groups': {}, 'sources': {}}
+    surfaces = json.loads(ipg.generate(addons, floor_path, None)) if floors else {'groups': {}, 'sources': {}}
     for name, points in floors.items():
         g, model, model_sha = pins[name]
         analog, usages, containers = _analog(stock, SELECTION[name]['analog'])
@@ -881,7 +881,7 @@ def main(argv=None):
     g = sub.add_parser('generate', help='rebuild the layer offline from installed assets (heavy)')
     g.add_argument('--addons', required=True, type=Path)
     g.add_argument('--mission', required=True, type=Path, help='stock dayzOffline.chernarusplus folder (read-only)')
-    g.add_argument('--reader', required=True, type=Path, help='pinned DayZObjectBuilder ODOL reader folder')
+    g.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     g.add_argument('--scratch', required=True, type=Path, help='fresh scratch folder for synthetic protos')
     g.add_argument('--native-census', type=Path, action='append', default=[], help='native interior census (repeatable, read-only)')
     g.add_argument('--out', required=True, type=Path)
@@ -889,7 +889,7 @@ def main(argv=None):
     c.add_argument('--mission', required=True, type=Path)
     args = parser.parse_args(argv)
     if args.command == 'generate':
-        data = generate(args.addons, args.mission, args.reader, args.scratch, args.native_census)
+        data = generate(args.addons, args.mission, args.scratch, args.native_census)
         args.out.write_bytes(data)
         print('wrote %s (%s)' % (args.out, sha(data)))
         return 0

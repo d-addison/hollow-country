@@ -209,19 +209,26 @@ def installed_snapshot(contract, values):
                 raise ValueError('historical ' + label + ' input unavailable')
             identities['history/' + label] = sha(result.stdout)
     if name in {'new_buildings', 'loot_point_preserve'}:
-        directory = values.get('reader')
-        if directory is None or not directory.is_dir():
-            raise MissingInput('pinned geometry reader unavailable')
-        identities['geometry_reader'] = sha(json.dumps(
-            {p.relative_to(directory).as_posix(): file_sha(p) for p in sorted(directory.rglob('*')) if p.is_file()},
-            sort_keys=True).encode())
+        # The geometry reader is in-repo (tools/audit/odol56.py); its bytes are the reader identity.
+        identities['geometry_reader'] = file_sha(ROOT / 'tools/audit/odol56.py')
         directory = values['addons']
         files = sorted(directory.glob('*.pbo'))
         if not files:
-            raise MissingInput('geometry Addons unavailable')
+            raise MissingInput('geometry Addons (installed vanilla *.pbo) unavailable')
+        # Same rule as interior_points_gen.Assets(require_visual=True): the visual audit
+        # needs the full client, not the dedicated-server PBOs that strip visual meshes.
+        if (directory.parent / 'DayZServer_x64.exe').is_file() and not (directory.parent / 'DayZ_x64.exe').is_file():
+            raise MissingInput('full DayZ client Addons unavailable (dedicated-server PBOs strip visual meshes)')
         identities['geometry_addons'] = sha(json.dumps({p.name: file_sha(p) for p in files}, sort_keys=True).encode())
         for i, census in enumerate(values.get('native_census', [])):
             identities['native_census/' + str(i)] = file_sha(require_file(census, 'native census'))
+        if name == 'new_buildings' and contract.outputs:
+            # Standing evidence from original native censuses is an input of the committed
+            # bytes: without those exact files the output cannot be reproduced.
+            committed = json.loads((ROOT / contract.outputs[0]).read_bytes())
+            recorded = {row['sha256'] for row in committed.get('sources', {}).get('native_censuses', [])}
+            if recorded - {file_sha(Path(c)) for c in values.get('native_census', [])}:
+                raise MissingInput('original native census inputs unavailable (pass each recorded census with --native-census)')
     if name == 'anims_config':
         path = require_file(values['addons'] / 'characters_zombies.pbo', 'stock zombie addon')
         identities['characters_zombies.pbo'] = file_sha(path)
@@ -311,7 +318,7 @@ def regenerate(contract, values, scratch):
             raise MissingInput('ImageToPAA Windows interop unavailable') from exc
         return {p: (scratch / p).read_bytes() for p in contract.outputs}
     if name == 'new_buildings':
-        data = module.generate(values['addons'], source, values['reader'], scratch / 'geometry', values.get('native_census', []))
+        data = module.generate(values['addons'], source, scratch / 'geometry', values.get('native_census', []))
         return {contract.outputs[0]: data}
     if name == 'loot_point_preserve':
         from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
@@ -324,7 +331,20 @@ def regenerate(contract, values, scratch):
             path = scratch / (label + '.json')
             path.write_bytes(result.stdout)
             history.append(path)
-        doc = module.preserve(*history, values['addons'], values['reader'], source / 'mapgroupproto.xml', (0, 1))
+        # Shipped bytes are the merge of four --refresh-models partitions (docs/LOOT_POINTS.md,
+        # Reproduction and validation); the hash-bound loss audit is read from the committed output.
+        parts = []
+        for index in range(4):
+            doc = module.preserve(*history, values['addons'], source / 'mapgroupproto.xml', (index, 4),
+                                  refresh_models=True)
+            parts.append(scratch / ('preserve-' + str(index) + '.json'))
+            parts[-1].write_bytes(module.encode(doc))
+        doc = module.merge(parts)
+        committed = json.loads((ROOT / contract.outputs[0]).read_bytes())
+        audit = committed['sources']['point_preservation'].get('historical_candidate_loss_audit')
+        if audit is not None:
+            doc['sources']['point_preservation']['historical_candidate_loss_audit'] = audit
+        module.check(*history, doc)  # the merge path of the CLI annotates the receipt in place
         return {contract.outputs[0]: module.encode(doc)}
     raise ValueError('no regeneration adapter: ' + name)
 
@@ -446,7 +466,7 @@ def main(argv=None):
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--workshop', type=Path, default=Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100'))
     parser.add_argument('--source', type=Path, default=os.environ.get('HC_GENERATED_SOURCE'))
-    parser.add_argument('--reader', type=Path, default=os.environ.get('HC_GENERATED_READER'))
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--native-census', type=Path, action='append', default=[])
     for flag in ('image-to-paa', 'snafu-report', 'tactical-flava-report'):
         parser.add_argument('--' + flag, type=Path,
@@ -463,8 +483,8 @@ def main(argv=None):
             args.native_census = [Path(p).expanduser().resolve() for p in paths]
         except ValueError:
             parser.error('HC_GENERATED_NATIVE_CENSUS must be a JSON array of local paths')
-    values = {k: v for k, v in vars(args).items() if v is not None}
-    for key in ('source', 'reader', 'image_to_paa', 'snafu_report', 'tactical_flava_report'):
+    values = {k: v for k, v in vars(args).items() if v is not None and k != 'reader'}
+    for key in ('source', 'image_to_paa', 'snafu_report', 'tactical_flava_report'):
         if values.get(key) is not None:
             values[key] = Path(values[key]).expanduser().resolve()
     values['source'] = values.get('source') or args.addons.parent / 'mpmissions/dayzOffline.chernarusplus'

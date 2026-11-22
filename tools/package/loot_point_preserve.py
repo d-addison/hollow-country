@@ -63,11 +63,11 @@ def rebind(point, reach, context, proxies, templates):
     return None
 
 
-def preserve(prior_path, candidate_path, addons, reader, stock, partition,
+def preserve(prior_path, candidate_path, addons, stock, partition,
              refresh_models=False):
     prior_raw, candidate_raw = Path(prior_path).read_bytes(), Path(candidate_path).read_bytes()
     prior, candidate = loot.parse_overlay(prior_raw), loot.parse_overlay(candidate_raw)
-    reach, collision = Reach(addons, reader, stock, gen.ROOT), Support(addons, reader, stock)
+    reach, collision = Reach(addons, None, stock, gen.ROOT), Support(addons, None, stock)
     stock_sha = gen.sha(Path(stock).read_bytes())
     if any(d['sources']['stock_proto_sha256'] != stock_sha for d in (prior, candidate)):
         raise ValueError('stock prototype pin mismatch')
@@ -290,7 +290,7 @@ def main():
     parser.add_argument('--prior', type=Path)
     parser.add_argument('--candidate', type=Path)
     parser.add_argument('--addons', type=Path)
-    parser.add_argument('--reader', type=Path)
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--stock-proto', type=Path)
     parser.add_argument('--partition', nargs=2, type=int, default=(0, 1))
     parser.add_argument('--refresh-models', action='store_true')
@@ -312,9 +312,9 @@ def main():
             doc['sources']['point_preservation']['historical_candidate_loss_audit'] = json.loads(args.loss_audit.read_bytes())
         print(json.dumps(check(args.prior, args.candidate, doc), sort_keys=True))
     else:
-        if not all((args.prior, args.candidate, args.addons, args.reader, args.stock_proto)):
-            parser.error('preservation requires prior, candidate, addons, reader and stock-proto')
-        doc = preserve(args.prior, args.candidate, args.addons, args.reader, args.stock_proto,
+        if not all((args.prior, args.candidate, args.addons, args.stock_proto)):
+            parser.error('preservation requires prior, candidate, addons and stock-proto')
+        doc = preserve(args.prior, args.candidate, args.addons, args.stock_proto,
                        args.partition, args.refresh_models)
     args.out.write_bytes(encode(doc))
 

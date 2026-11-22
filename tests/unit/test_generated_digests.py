@@ -157,12 +157,12 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(self.root, run.call_args.kwargs['cwd'])
 
     def test_local_test_waivers_list_skips_but_still_refuse_failures(self):
-        skipped = subprocess.CompletedProcess([], 0, 'PASS a ok\nSKIP b reader unavailable\n', '')
+        skipped = subprocess.CompletedProcess([], 0, 'PASS a ok\nSKIP b stock mission unavailable\n', '')
         with patch.object(digests.subprocess, 'run', return_value=skipped) as run, contextlib.redirect_stdout(io.StringIO()):
             result = digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop', waive_unavailable=True)
         self.assertNotIn('--require-installed', run.call_args.args[0])
-        self.assertEqual({'strict': False, 'waived_unavailable': [{'artefact': 'b', 'reason': 'reader unavailable'}]}, result)
-        failed = subprocess.CompletedProcess([], 1, 'FAIL a stale\nSKIP b reader unavailable\n', '')
+        self.assertEqual({'strict': False, 'waived_unavailable': [{'artefact': 'b', 'reason': 'stock mission unavailable'}]}, result)
+        failed = subprocess.CompletedProcess([], 1, 'FAIL a stale\nSKIP b stock mission unavailable\n', '')
         with patch.object(digests.subprocess, 'run', return_value=failed), contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(ValueError):
                 digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop', waive_unavailable=True)
@@ -170,6 +170,50 @@ class DigestTests(unittest.TestCase):
         with patch.object(digests.subprocess, 'run', return_value=strict), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual({'strict': True, 'waived_unavailable': []},
                              digests.verify_release(self.root, self.root / 'addons', self.root / 'workshop'))
+
+    def test_geometry_identity_is_the_in_repo_reader_and_needs_no_reader_input(self):
+        reader = self.root / 'tools/audit/odol56.py'
+        reader.parent.mkdir(parents=True)
+        reader.write_bytes(b'# reader\n')
+        source, addons = self.root / 'stock', self.root / 'addons'
+        source.mkdir()
+        addons.mkdir()
+        for name in ('mapgrouppos.xml', 'mapgroupproto.xml'):
+            (source / name).write_bytes(b'<x/>')
+        contract = digests.Contract('new_buildings', 'tools.package.new_buildings', ())
+        values = {'source': source, 'addons': addons}
+        with self.assertRaisesRegex(digests.MissingInput, 'geometry Addons'):
+            self.real_installed_snapshot(contract, values)
+        (addons / 'a.pbo').write_bytes(b'pbo')
+        (self.root / 'DayZServer_x64.exe').write_bytes(b'')
+        with self.assertRaisesRegex(digests.MissingInput, 'full DayZ client Addons'):
+            self.real_installed_snapshot(contract, values)
+        (self.root / 'DayZ_x64.exe').write_bytes(b'')
+        identities = self.real_installed_snapshot(contract, values)
+        self.assertEqual(digests.file_sha(reader), identities['geometry_reader'])
+        reader.write_bytes(b'# changed reader\n')
+        self.assertNotEqual(identities['geometry_reader'],
+                            self.real_installed_snapshot(contract, values)['geometry_reader'])
+
+    def test_recorded_native_census_is_a_required_geometry_input(self):
+        census = self.root / 'census.json'
+        census.write_bytes(b'{}')
+        (self.root / 'tools/audit').mkdir(parents=True)
+        (self.root / 'tools/audit/odol56.py').write_bytes(b'#\n')
+        (self.root / 'new.json').write_text(json.dumps(
+            {'sources': {'native_censuses': [{'native_run_id': 'x', 'sha256': digests.file_sha(census)}]}}))
+        source, addons = self.root / 'stock', self.root / 'addons'
+        source.mkdir()
+        addons.mkdir()
+        for name in ('mapgrouppos.xml', 'mapgroupproto.xml'):
+            (source / name).write_bytes(b'<x/>')
+        (addons / 'a.pbo').write_bytes(b'pbo')
+        contract = digests.Contract('new_buildings', 'tools.package.new_buildings', ('new.json',))
+        values = {'source': source, 'addons': addons}
+        with self.assertRaisesRegex(digests.MissingInput, 'native census'):
+            self.real_installed_snapshot(contract, values)
+        identities = self.real_installed_snapshot(contract, dict(values, native_census=[census]))
+        self.assertEqual(digests.file_sha(census), identities['native_census/0'])
 
 
 if __name__ == '__main__':

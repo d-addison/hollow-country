@@ -45,7 +45,7 @@ CI_EXCLUSIONS = {
     'cfgconvert_check': 'requires the installed Windows DayZ Tools cfgconvert executable',
     'wb_compile': 'requires installed Windows Workbench; engine compilation is a separate lead gate',
     'ce_slot_pressure': 'requires a staged mission (stock files plus installed overlays); pass --ce-mission locally',
-    'world_mesh_audit': 'requires installed vanilla Addons and the pinned geometry reader',
+    'world_mesh_audit': 'requires installed vanilla Addons (the in-repo ODOL reader is used)',
     'enforce_lint.native': 'installed native and Workshop APIs are absent; use pinned names with --no-native',
     'layout_lint.textures': 'installed vanilla/Workshop texture index is absent; owned UI checks still run',
     'layout_lint.native_review': 'only existing reasoned texture-baseline references may defer native review',
@@ -155,10 +155,7 @@ def asset_lint_runs(sources=None, config=None):
 
 def world_mesh_gap(args):
     """Why the offline mesh audit cannot read installed data, or '' when it can."""
-    reader = os.environ.get('HC_GENERATED_READER')
     addons = Path(args.addons).expanduser()
-    if not reader or not Path(reader).expanduser().is_dir():
-        return 'pinned geometry reader unavailable (set HC_GENERATED_READER)'
     if not addons.is_dir() or not any(addons.glob('*.pbo')):
         return 'installed vanilla Addons unavailable'
     return ''

@@ -157,10 +157,10 @@ class PrelandTests(unittest.TestCase):
     def test_strict_rejects_zero_exit_coverage_gaps_without_changing_default(self):
         cases = {
             'regenerate_all': 'SKIP inventory_sizes required addons directory unavailable',
-            'generated_digests': ('SKIP loot_point_preserve pinned geometry reader unavailable\n'
+            'generated_digests': ('SKIP loot_point_preserve stock mission mapgrouppos.xml unavailable\n'
                                   'SKIP snafu_optional weapon pack verification report unavailable\n'
                                   'SKIP tactical_flava_optional weapon pack verification report unavailable\n'
-                                  'SKIP new_buildings pinned geometry reader unavailable'),
+                                  'SKIP new_buildings stock mission mapgrouppos.xml unavailable'),
             'layout_lint': 'layout_lint: NOTICE installed texture index unavailable; skipping unresolved vanilla file checks (build)',
             'enforce_lint': 'enforce_lint: pass findings=0 native=no',
             'wiring_audit': 'NOTE External class-index roots missing: CfgVehicles',
@@ -219,7 +219,7 @@ class PrelandTests(unittest.TestCase):
                         outputs={'regenerate_all': invalid})[0])
         for notice in (
             'SKIP gui_icons existing validation passed; byte regeneration: receipt unavailable',
-            'SKIP loot_point_preserve existing validation passed; byte regeneration: pinned geometry reader unavailable',
+            'SKIP loot_point_preserve existing validation passed; byte regeneration: geometry Addons (installed vanilla *.pbo) unavailable',
         ):
             with self.subTest(notice=notice):
                 self.assertEqual(1, self.invoke(['--profile', 'ci'],
@@ -375,9 +375,9 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(1, self.invoke(codes={'ce_slot_pressure': 1})[0])
 
     def test_world_mesh_audit_skips_cleanly_and_fails_on_findings(self):
-        code, calls, output = self.invoke(mesh_gap='pinned geometry reader unavailable (set HC_GENERATED_READER)')
+        code, calls, output = self.invoke(mesh_gap='installed vanilla Addons unavailable')
         self.assertEqual(preland.SKIPPED, code)
-        self.assertIn('world_mesh_audit | skipped: pinned geometry reader unavailable', output)
+        self.assertIn('world_mesh_audit | skipped: installed vanilla Addons unavailable', output)
         self.assertNotIn('world_mesh_audit', [key(m, a) for m, a in calls])
         self.assertEqual(1, self.invoke(['--strict'], mesh_gap='installed vanilla Addons unavailable')[0])
         partial = 'SKIP INSTALLED_ADDONS_UNAVAILABLE\nworld_mesh_audit: pass checked=0 findings=0 skipped=1'

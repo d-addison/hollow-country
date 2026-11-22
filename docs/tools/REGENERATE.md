@@ -31,9 +31,13 @@ its default is `mpmissions/dayzOffline.chernarusplus` beside Addons.
 Inventory checks also need declared Workshop provider Addons directories
 (`--workshop` overrides the usual root). Optional weapon packs need existing
 external reports: `--snafu-report` and `--tactical-flava-report`.
-Geometry regeneration needs the pinned `--reader` directory, full-client
-Addons matching the recorded model evidence, and any original `--native-census`
-inputs (repeatable). GUI conversion needs working Windows interop and
+Geometry regeneration uses the in-repo ODOL reader (`tools/audit/odol56.py`); it
+needs no reader download, pin or argument (`--reader` is a legacy, ignored
+option, so old operator commands keep working). It does need installed
+vanilla full-client Addons (dedicated-server PBOs strip visual meshes), the stock mission,
+and every original native census recorded in the committed output
+(`--native-census`, repeatable). A missing one of these is the SKIP reason.
+GUI conversion needs working Windows interop and
 ImageToPAA (`--image-to-paa`). Missing installations or reports produce SKIP;
 available but invalid inputs produce FAIL.
 
@@ -56,8 +60,8 @@ also bind the complete current file as an input.
 
 Installed content is never copied into this file. Stable identities record
 stock input hashes, the pinned official CE URL, the inventory providers'
-PBO/config-member file-list digest (including opaque EBO presence), geometry
-reader/file-list hashes, addon hashes, converter hash, and verification report
+PBO/config-member file-list digest (including opaque EBO presence), in-repo geometry
+reader hash (`tools/audit/odol56.py`), addon file-list hashes, converter hash, and verification report
 hashes. Optional pack generators validate the build/file-list evidence inside
 those reports when a receipt is updated. Installed locations are not recorded.
 
@@ -113,15 +117,15 @@ changed inputs/sources/outputs and unavailable installed inputs all refuse relea
 No boot or native tools run as part of this check.
 
 Local test builds may pass `friendcycle --local-test-waivers`. Then an artefact
-whose installed inputs are absent on this host (a checker SKIP, e.g. no pinned
-geometry reader) is printed as `WAIVER generated_digests <name>` and recorded under
+whose installed inputs are absent on this host (a checker SKIP, e.g. no stock
+mission) is printed as `WAIVER generated_digests <name>` and recorded under
 `generated_digests.waived_unavailable` in BUILD_MANIFEST.json instead of refusing.
 Missing or pending receipts, changed inputs and stale outputs still refuse. A
 waiver is a listed gap, never a pass: `release_gate` refuses any bundle whose
 manifest is not `generated_digests.strict: true` with no waivers.
 
 For release inputs whose locations are not release-builder options, set
-`HC_GENERATED_SOURCE`, `HC_GENERATED_READER`, `HC_GENERATED_SNAFU_REPORT`,
+`HC_GENERATED_SOURCE`, `HC_GENERATED_SNAFU_REPORT`,
 `HC_GENERATED_TACTICAL_FLAVA_REPORT`, and `HC_GENERATED_IMAGE_TO_PAA` as needed.
 `HC_GENERATED_NATIVE_CENSUS` accepts a JSON array of census paths.
 The digest CLI accepts the same environment defaults; explicit flags override
@@ -134,14 +138,13 @@ release. Offline freshness does not establish DayZ runtime behaviour.
 The original `loot_point_preserve --check` compares historical point-loss
 receipts, and `new_buildings check` dry-runs the shipped layer against stock
 mission XML. Neither loads an ODOL reader. These existing checks still run
-first. A subsequent SKIP saying `existing validation passed; byte regeneration:
-pinned geometry reader unavailable` means that validation passed but fresh
-geometry generation could not run: the new stage needs `--reader` or
-`HC_GENERATED_READER` in addition to the old checks' inputs. Installed Addons
-alone do not configure a reader. This is not evidence that an installed reader
-failed, nor a byte-freshness pass. Strict installed-input verification still
-refuses it. Configure the pinned reader explicitly on the lead host to run the
-additional stage; original native censuses must also be supplied if used.
+first. A subsequent SKIP saying `existing validation passed; byte regeneration:`
+followed by a missing input (the stock mission files or the installed vanilla
+Addons) means that validation passed but fresh geometry generation could not
+run: the new stage needs those installed inputs in addition to the old checks'
+inputs. The ODOL reader is in the repo and is never the missing input. A SKIP is
+not a byte-freshness pass, and strict installed-input verification still refuses
+it. Original native censuses must also be supplied if used.
 
 Byte mismatches report entry additions/removals/changes and example names;
 JSON also reports changed metadata paths. Zero changed entries can still fail
