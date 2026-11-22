@@ -1970,6 +1970,36 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 446,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish yields after each native call; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 446,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior; enqueue bounded startup work",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish yields after each native call; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 464,
+      "symbol": "HCEventJournal.HCCheckPrior",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior",
+      "native": false,
+      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish yields after each native call; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
     }
   ]
 }

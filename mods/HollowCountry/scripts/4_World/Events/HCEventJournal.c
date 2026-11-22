@@ -336,6 +336,20 @@ class HCEventJournal : HCEventPersistence
     protected string m_NextReceipt;
     protected bool m_CheckOpen;
     protected int m_CheckOffset;
+    protected FileHandle m_CheckHandle;
+    protected bool m_CheckFailed;
+    protected bool m_CheckFinished;
+    protected FindFileHandle m_InventoryHandle;
+    protected int m_InventoryStage;
+    protected int m_InventoryCount;
+    protected int m_InventoryHighest;
+    protected bool m_InventoryFailed;
+    protected string m_InventoryName;
+    protected FileAttr m_InventoryAttributes;
+    protected string m_NativeOperation = "none";
+    // The runtime consumes this after each step. Drains deliberately ignore it.
+    bool HCYieldRequested() { return m_NativeOperation != "none"; }
+    string HCNativeOperation() { return m_NativeOperation; }
     string HCStageName()
     {
         if (m_SaveStage == 0) { return "journal_validate"; }
@@ -359,6 +373,10 @@ class HCEventJournal : HCEventPersistence
         if (m_Fault || m_SaveStage >= 0 || !state) { return false; }
         m_Pending = state;
         m_SaveStage = 0;
+        m_InventoryStage = 0;
+        m_InventoryCount = 0;
+        m_InventoryHighest = 0;
+        m_InventoryFailed = false;
         return true;
     }
 
@@ -373,26 +391,95 @@ class HCEventJournal : HCEventPersistence
         return HCSaveJob.STEP_FAILED;
     }
 
-    // One <=4096-byte read/compare per call, including open/close at ends.
+    // Load already ensures the owned directory. Recheck its bounded inventory
+    // without chaining FindFile/FindNextFile/CloseFindFile in one routine tick.
+    // As in Names, an unavailable search is empty; prior checks/writes still fail
+    // closed if the committed directory or its files disappeared.
+    protected int HCCheckInventory()
+    {
+        if (m_InventoryStage == 0)
+        {
+            m_NativeOperation = "find_open";
+            m_InventoryHandle = FindFile(m_IO.HCPath("*"), m_InventoryName, m_InventoryAttributes, FindFileFlags.ALL);
+            m_InventoryStage = 1;
+            if (!m_InventoryHandle) { m_InventoryStage = 3; }
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_InventoryStage == 1)
+        {
+            if (m_InventoryName != "" && m_InventoryName != "." && m_InventoryName != "..")
+            {
+                int revision = RevisionInName(m_InventoryName, "intent-");
+                if (revision == 0) { revision = RevisionInName(m_InventoryName, "image-"); }
+                if (revision == 0) { revision = RevisionInName(m_InventoryName, "commit-"); }
+                m_InventoryCount++;
+                if (m_InventoryAttributes == FileAttr.DIRECTORY || m_InventoryCount > 27 || revision == 0) { m_InventoryFailed = true; }
+                m_InventoryHighest = Math.Max(m_InventoryHighest, revision);
+            }
+            if (m_InventoryFailed || m_InventoryName == "") { m_InventoryStage = 2; }
+            else
+            {
+                m_NativeOperation = "find_next";
+                if (!FindNextFile(m_InventoryHandle, m_InventoryName, m_InventoryAttributes)) { m_InventoryStage = 2; }
+                return HCSaveJob.STEP_MORE;
+            }
+        }
+        if (m_InventoryStage == 2)
+        {
+            m_NativeOperation = "find_close";
+            CloseFindFile(m_InventoryHandle);
+            m_InventoryHandle = 0;
+            m_InventoryStage = 3;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_InventoryFailed || m_InventoryHighest != m_Latest) { return HCSaveJob.STEP_FAILED; }
+        return HCSaveJob.STEP_DONE;
+    }
+
+    // Open, each <=4096-byte read (including EOF), and close are separate
+    // steps. Failed comparisons close on the next step before reporting failure.
     protected int HCCheckPrior(string name, string expected)
     {
-        if (!m_CheckOpen) { m_CheckOpen = true; m_CheckOffset = 0; }
-        string piece = m_IO.Read(name, HCStagedSaveImage.HC_CHUNK_BYTES - 1, true);
-        int count = m_IO.HCReadCount();
-        if (count < 0 || count != piece.Length() || m_CheckOffset + count > expected.Length()) { return HCSaveJob.STEP_FAILED; }
-        if (count == 0)
+        if (!m_CheckOpen)
         {
-            if (m_CheckOffset != expected.Length() || m_CheckOffset < 1) { return HCSaveJob.STEP_FAILED; }
+            m_NativeOperation = "open_read";
+            m_CheckHandle = OpenFile(m_IO.HCPath(name), FileMode.READ);
+            if (!m_CheckHandle) { return HCSaveJob.STEP_FAILED; }
+            m_CheckOpen = true;
+            m_CheckOffset = 0;
+            m_CheckFailed = false;
+            m_CheckFinished = false;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CheckFinished)
+        {
+            m_NativeOperation = "close_read";
+            CloseFile(m_CheckHandle);
             m_CheckOpen = false;
+            if (m_CheckFailed) { return HCSaveJob.STEP_FAILED; }
             return HCSaveJob.STEP_DONE;
         }
-        if (piece != expected.Substring(m_CheckOffset, count)) { return HCSaveJob.STEP_FAILED; }
-        m_CheckOffset += count;
+        m_NativeOperation = "read";
+        string piece;
+        int count = ReadFile(m_CheckHandle, piece, HCStagedSaveImage.HC_CHUNK_BYTES);
+        if (count < 0 || count != piece.Length() || m_CheckOffset + count > expected.Length()) { m_CheckFailed = true; }
+        else if (count == 0)
+        {
+            if (m_CheckOffset != expected.Length() || m_CheckOffset < 1) { m_CheckFailed = true; }
+            m_CheckFinished = true;
+        }
+        else
+        {
+            if (piece != expected.Substring(m_CheckOffset, count)) { m_CheckFailed = true; }
+            m_CheckOffset += count;
+        }
+        if (m_CheckFailed) { m_CheckFinished = true; }
         return HCSaveJob.STEP_MORE;
     }
 
     int HCStepSave()
     {
+        m_NativeOperation = "none";
         if (m_Fault || m_SaveStage < 0 || !m_Pending) { return HCStageFault(); }
         int result = HCSaveJob.STEP_DONE;
         if (m_SaveStage == 0)
@@ -401,7 +488,7 @@ class HCEventJournal : HCEventPersistence
         }
         else if (m_SaveStage == 1)
         {
-            if (Highest() != m_Latest) { return HCStageFault(); }
+            result = HCCheckInventory();
         }
         else if (m_SaveStage >= 2 && m_SaveStage <= 4 && m_Latest > 0)
         {
@@ -443,10 +530,13 @@ class HCEventJournal : HCEventPersistence
                 if (m_SaveStage == 8) { writePrefix = "image-"; text = m_NextImage; limit = m_Settings.MaxStoreBytes; }
                 if (m_SaveStage == 9) { writePrefix = "commit-"; }
                 m_Writer = new HCStagedSaveImage;
+                m_NativeOperation = "exist"; // BeginNew only probes; no write yet.
                 if (!m_Writer.BeginNew(m_IO.HCPath(Name(writePrefix, m_Pending.Revision)), text, limit)) { return HCStageFault(); }
                 return HCSaveJob.STEP_MORE;
             }
+            HCSaveJob.HCOperation = "none";
             result = m_Writer.HCStepImage();
+            m_NativeOperation = HCSaveJob.HCOperation;
             if (result == HCSaveJob.STEP_DONE) { m_Writer = null; }
         }
         else if (m_SaveStage >= 10 && m_SaveStage <= 12)
@@ -458,7 +548,12 @@ class HCEventJournal : HCEventPersistence
                 if (m_SaveStage == 11) { oldPrefix = "image-"; }
                 if (m_SaveStage == 12) { oldPrefix = "commit-"; }
                 string obsolete = Name(oldPrefix, old);
-                if (m_IO.Exists(obsolete) && !m_IO.Remove(obsolete)) { return HCStageFault(); }
+                m_NativeOperation = "exist";
+                if (m_IO.Exists(obsolete))
+                {
+                    m_NativeOperation = "delete";
+                    if (!m_IO.Remove(obsolete)) { return HCStageFault(); }
+                }
             }
         }
         else if (m_SaveStage == 13)
