@@ -757,6 +757,19 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     else:
         floor = {'enabled': False}
     counts['floor_policy'] = floor
+    # Owner's CE spread policy supersedes shelf-only placement for matching
+    # military weapons and the four reviewed acquisition kits. Run after the
+    # strict floor allocator so it cannot remove these explicit exceptions.
+    from tools.package import military_loot
+    proto_after, counts['weapon_receivers'] = military_loot.spread_proto(proto_after)
+    spread_outputs = []
+    counts['spread_types'] = {}
+    for name, before, after in outputs:
+        if name in counts['types']:
+            after, changed = military_loot.spread_types(after)
+            counts['spread_types'][name] = changed
+        spread_outputs.append((name, before, after))
+    outputs = spread_outputs
     outputs.append((PROTO, proto_before, proto_after))
     if pos_after is not None:
         outputs.append(('mapgrouppos.xml', pos_before, pos_after))

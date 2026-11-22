@@ -134,6 +134,11 @@ def load_rules():
     for kind, ratio in rules['support_per_firearm'].items():
         if kind not in {'attachment', 'magazine', 'ammo'} or type(ratio) is not int or ratio < 0:
             raise ValueError('invalid support ratio')
+    receivers = rules['weapon_receivers']
+    if (set(receivers) != {'usages', 'comparable_categories'}
+            or set(receivers['usages']) != {'Military', 'Police', 'Prison'}
+            or set(receivers['comparable_categories']) != {'clothes', 'containers'}):
+        raise ValueError('invalid military weapon receivers')
     quantity = rules['magazine_quantity_percent']
     if not 0 <= quantity['min'] < quantity['max'] <= 100:
         raise ValueError('invalid magazine quantity')
@@ -371,6 +376,64 @@ def role_routes(entries):
         if 'value' in entry and 'set_value' in entry:
             entry['value'] = entry['set_value']
     return result
+
+
+
+def spread_proto(data):
+    """Admit weapons on existing contextual floor proxies; never raise caps.
+
+    These points already carry bulky clothing/containers. Keep their tags and
+    geometry: the matching type-side exception is applied after floor retagging.
+    """
+    from tools.package import xml_text
+    root = ET.fromstring(data)
+    rules = load_rules()['weapon_receivers']
+    defaults = {d.get('name'): int(d.get('lootmax')) for d in root.findall('./defaults/default') if d.get('lootmax') is not None}
+    changed = []
+    for group in root.findall('group'):
+        if (not {u.get('name') for u in group.findall('usage')} & set(rules['usages'])
+                or int(group.get('lootmax', defaults.get('group', 12))) <= 0):
+            continue
+        for container in group.findall('container'):
+            cats = {c.get('name') for c in container.findall('category')}
+            tags = {t.get('name') for t in container.findall('tag')}
+            if (container.get('name', '').startswith('lootHC')
+                    or 'weapons' in cats or not cats & set(rules['comparable_categories'])
+                    or not tags or not tags <= {'floor', 'shelves'}
+                    or not container.findall('point')
+                    or int(container.get('lootmax', defaults.get('container', 8))) <= 0):
+                continue
+            ET.SubElement(container, 'category', {'name': 'weapons'})
+            changed.append(group.get('name') + '/' + container.get('name'))
+    return (xml_text.document(root) if changed else data), {'containers': sorted(changed),
+            'caps_changed': 0, 'points_added': 0, 'runtime_acceptance': 'pending'}
+
+
+def spread_types(data):
+    """Apply narrow post-floor-policy exceptions, including reviewed kit routes.
+
+    Native weapon tags and matching modded tags receive the same floor access.
+    All budgets, tiers, usages, flags and non-selected rows are preserved.
+    """
+    from tools.package import economy, xml_text
+    root = ET.fromstring(data)
+    usages = set(load_rules()['weapon_receivers']['usages'])
+    kits = {name.lower() for name in economy.CONSTRUCTION_KITS}
+    changed = []
+    for row in root:
+        if int(row.findtext('nominal', '0')) <= 0:
+            continue
+        cats = {c.get('name') for c in row.findall('category')}
+        military_weapon = ('weapons' in cats and
+            bool({u.get('name') for u in row.findall('usage')} & usages))
+        if row.get('name').lower() not in kits and not military_weapon:
+            continue
+        tags = {t.get('name') for t in row.findall('tag')}
+        # No tags already means unrestricted. Leave unrelated authored tags alone.
+        if tags and tags <= {'floor', 'shelves'} and 'floor' not in tags:
+            ET.SubElement(row, 'tag', {'name': 'floor'})
+            changed.append(row.get('name'))
+    return (xml_text.document(root) if changed else data), changed
 
 
 def magazine_quantity():
