@@ -162,8 +162,11 @@ class HCXAIIncidentPolicy
 class HCXAIIncidentLease
 {
     bool Fixture;
-    // Weak by design: the native group owns its lifetime; a lost group ends the lease.
+    // eAIGroup is not Managed, so this raw handle is not auto-nulled when the native group is
+    // freed. The lease keeps the group alive through Hold (retired in HCFinish) and a group
+    // with no live members ends the lease.
     eAIGroup Group;
+    ref HCXAIGroupHold Hold;
     int IncidentId;
     string Response;
     string Phase;
@@ -178,11 +181,21 @@ class HCXAIIncidentLease
     eAIWaypointBehavior Installed;
     // Time the group started holding outside a gas zone with no safe waypoint left (0 = not holding).
     int HoldSince;
+    void ~HCXAIIncidentLease() { HCXAIGroupHolds.Retire(Hold); }
 }
 
+// Fixture offer: transient (60 s deadline), so it keeps the group id and never a raw handle.
+class HCXAIIncidentOffer
+{
+    int GroupId;
+    int IncidentId;
+    int Deadline;
+}
+
+// Cooldowns outlive their groups: keep the id (never reused), not a raw eAIGroup handle.
 class HCXAIIncidentCooldown
 {
-    eAIGroup Group;
+    int GroupId;
     int Until;
 }
 
@@ -193,7 +206,7 @@ class HCXAIIncidentResponse : HCModule
     protected ref array<ref HCXAIIncidentLease> m_Leases = new array<ref HCXAIIncidentLease>;
     protected ref array<ref HCXAIIncidentCooldown> m_Cooldowns = new array<ref HCXAIIncidentCooldown>;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
-    protected ref HCXAIIncidentLease m_FixtureOffer;
+    protected ref HCXAIIncidentOffer m_FixtureOffer;
     protected int m_Cursor;
     protected bool m_Running;
     protected string m_Refusal;
@@ -300,11 +313,11 @@ class HCXAIIncidentResponse : HCModule
         if (!selected) { return false; }
         eAIGroup chosen;
         nearest = float.MAX;
-        map<eAIGroup, bool> coolingGroups = new map<eAIGroup, bool>;
+        map<int, bool> coolingGroups = new map<int, bool>;
         array<ref HCXAIIncidentCooldown> cooldowns = owner.m_Cooldowns;
         foreach (HCXAIIncidentCooldown cooldown : cooldowns)
         {
-            if (cooldown.Group && cooldown.Until > now) { coolingGroups.Set(cooldown.Group, true); }
+            if (cooldown.GroupId > 0 && cooldown.Until > now) { coolingGroups.Set(cooldown.GroupId, true); }
         }
         array<ref HCXAISiteState> states = director.States();
         foreach (HCXAISiteState state : states)
@@ -316,7 +329,7 @@ class HCXAIIncidentResponse : HCModule
             if (HCBaseRaid.HCOwns(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId) || HCW38SituationRuntime.HCUsed(state.ProposalId)) { continue; }
             HCXAIAdapter adapter = HCXAIService.Adapter();
             if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { continue; }
-            if (coolingGroups.Contains(group)) { continue; }
+            if (coolingGroups.Contains(HCXExpansionBridge.HCGroupGetID(group))) { continue; }
             vector home = state.Site.HousePosition;
             if (state.PatrolPoints.Count() > 0) { home = state.PatrolPoints[0]; }
             if (!owner.HCEligible(selected, group, home, now)) { continue; }
@@ -327,11 +340,10 @@ class HCXAIIncidentResponse : HCModule
         if (!chosen) { return false; }
         if (apply)
         {
-            HCXAIIncidentLease offer = new HCXAIIncidentLease;
-            offer.Group = chosen;
+            HCXAIIncidentOffer offer = new HCXAIIncidentOffer;
+            offer.GroupId = HCXExpansionBridge.HCGroupGetID(chosen);
             offer.IncidentId = selected.Id;
             offer.Deadline = now + 60;
-            offer.Fixture = true;
             owner.m_FixtureOffer = offer;
         }
         reason = "pair-queued-awaiting-normal-role-owner-busy-checks";
@@ -347,7 +359,7 @@ class HCXAIIncidentResponse : HCModule
         if (HCXExpansionBridge.HCGroupIsInCombat(group) || HCAlive(group) < 1) { return false; }
         HCWorldIncidents registry = HCWorldIncidents.HCGet();
         if (m_FixtureOffer && m_FixtureOffer.Deadline < now) { m_FixtureOffer = null; }
-        if (m_FixtureOffer && m_FixtureOffer.Group == group)
+        if (m_FixtureOffer && m_FixtureOffer.GroupId == HCXExpansionBridge.HCGroupGetID(group))
         {
             HCWorldIncident fixtureRow = registry.HCById(m_FixtureOffer.IncidentId);
             m_FixtureOffer = null;
@@ -377,17 +389,18 @@ class HCXAIIncidentResponse : HCModule
 
     bool HCCooling(eAIGroup group, int now)
     {
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         int index = 0;
         bool cooling = false;
         while (index < m_Cooldowns.Count())
         {
             HCXAIIncidentCooldown entry = m_Cooldowns[index];
-            if (entry.Until <= now || !entry.Group)
+            if (entry.Until <= now)
             {
                 m_Cooldowns.RemoveOrdered(index);
                 continue;
             }
-            if (entry.Group == group) { cooling = true; }
+            if (entry.GroupId == groupId) { cooling = true; }
             index++;
         }
         return cooling;
@@ -401,7 +414,7 @@ class HCXAIIncidentResponse : HCModule
             m_Cooldowns.RemoveOrdered(0);
         }
         HCXAIIncidentCooldown entry = new HCXAIIncidentCooldown;
-        entry.Group = group;
+        entry.GroupId = HCXExpansionBridge.HCGroupGetID(group);
         entry.Until = now + m_Policy.CooldownSeconds;
         m_Cooldowns.Insert(entry);
     }
@@ -594,6 +607,7 @@ class HCXAIIncidentResponse : HCModule
             if (claimed) { registry.HCRelease(row.Id); }
             return false;
         }
+        lease.Hold = HCXAIGroupHolds.Follow(null, group);
         m_Leases.Insert(lease);
         if (lease.Fixture) { HCModuleReadiness.HCUseFixture("AIIncidents", "response_started"); }
         else { HCModuleReadiness.HCUse("AIIncidents", "response_started"); }
@@ -853,6 +867,8 @@ class HCXAIIncidentResponse : HCModule
         HCNote("lease_end", lease);
         int slot = m_Leases.Find(lease);
         if (slot >= 0) { m_Leases.RemoveOrdered(slot); }
+        HCXAIGroupHolds.Retire(lease.Hold);
+        lease.Hold = null;
     }
 
     // Gas leases restore the route minus any waypoint still inside a live zone (nothing safe left means an empty

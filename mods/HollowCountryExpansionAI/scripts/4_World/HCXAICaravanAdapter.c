@@ -973,6 +973,7 @@ class HCXJourneyReplans
         turn.State = state;
         turn.Recovery = state.HCJourneyRecovery;
         turn.Group = group;
+        turn.Hold = HCXAIGroupHolds.Follow(null, group);
         turn.Destination = destination;
         turn.Recovery.Reason = "JOURNEY_REPLAN_QUEUED";
         s_Queue.Insert(turn);

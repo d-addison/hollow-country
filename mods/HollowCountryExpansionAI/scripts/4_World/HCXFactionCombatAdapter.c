@@ -17,9 +17,10 @@
 class HCXFactionCombatAdapter : HCFactionCombatPort
 {
     static const int MAX_RECORDED_GROUPS = 2;
-    // Weak group handles recorded by HCOwns for the current offer; HCDisengaged
-    // reads them. Cleared by every new HCSurveyed. Never persisted.
-    protected ref array<eAIGroup> m_Groups = new array<eAIGroup>();
+    // Group ids recorded by HCOwns for the current offer; HCDisengaged resolves each id to
+    // the live group (eAIGroup is not Managed, so no raw handle is kept). Cleared by every
+    // new HCSurveyed. Never persisted.
+    protected ref array<int> m_Groups = new array<int>();
     // DeceasedCount is cumulative for the group's lifetime, not this encounter.
     protected ref array<int> m_InitialDeceased = new array<int>();
 
@@ -99,9 +100,10 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(body);
         if (!group || group != owner.Patrol.m_Group) { return false; }
         if (HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group))) != faction || faction == "") { return false; }
-        if (m_Groups.Find(group) >= 0) { return true; }
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
+        if (m_Groups.Find(groupId) >= 0) { return true; }
         if (m_Groups.Count() >= HCXFactionCombatAdapter.MAX_RECORDED_GROUPS) { return false; }
-        m_Groups.Insert(group);
+        m_Groups.Insert(groupId);
         m_InitialDeceased.Insert(HCXExpansionBridge.HCGroupDeceasedCount(group));
         return true;
     }
@@ -113,7 +115,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         if (m_Groups.Count() < 1) { return false; }
         for (int index = 0; index < m_Groups.Count(); index++)
         {
-            eAIGroup group = m_Groups[index];
+            eAIGroup group = HCXExpansionBridge.HCGroupById(m_Groups[index]);
             if (group && HCXExpansionBridge.HCGroupIsInCombat(group)) { m_SeenCombat = true; return false; }
             if (group && HCXExpansionBridge.HCGroupDeceasedCount(group) > m_InitialDeceased[index]) { m_SeenCombat = true; }
         }

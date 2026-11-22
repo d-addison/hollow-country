@@ -676,6 +676,16 @@ class HCXExpansionBridge
         if (!value) { HCRefuse("HCTargetInformationIsZombie", "RECEIVER_NULL"); return false; }
         return value.IsZombie();
     }
+
+    // #334: resolve a stored group id to the live group, or null when it is gone.
+    // Group ids are never reused (eAIGroup.s_IDCounter only increments), so a stale id
+    // cannot match another group. Use this instead of keeping a raw eAIGroup handle in
+    // long-lived records. Never creates a group.
+    static eAIGroup HCGroupById(int id)
+    {
+        if (id <= 0) { return null; }
+        return eAIGroup.GetGroupByID(id, false);
+    }
 }
 
 // #334: eAIGroup is not Managed, so eAIDynamicPatrol.m_Group and each member's

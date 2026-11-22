@@ -27,7 +27,9 @@ class HCW38SituationBinding
     string Id;
     string Lease;
     string Profile;
+    // Raw handle (eAIGroup is not Managed): valid while Hold exists, from HCBegin until HCEnd.
     eAIGroup Group;
+    ref HCXAIGroupHold Hold;
     eAIWaypointBehavior Behaviour;
     ItemBase SmokeStock;
     eAIBase SmokeOwner;
@@ -40,6 +42,7 @@ class HCW38SituationBinding
     ref array<vector> Original = new array<vector>;
     ref array<eAIBase> Members = new array<eAIBase>;
     ref array<ZombieBase> Threats = new array<ZombieBase>;
+    void ~HCW38SituationBinding() { HCXAIGroupHolds.Retire(Hold); }
 }
 
 class HCW38SituationRuntime
@@ -469,6 +472,7 @@ class HCW38SituationRuntime
         else { started = HCThreaten(party, binding); }
         if (!started) { return false; }
         HCHold(binding);
+        binding.Hold = HCXAIGroupHolds.Follow(null, binding.Group);
         s_Active = binding;
         HCXConvoyRuntime.HCOffer(binding);
         HCSignals(binding);
@@ -496,6 +500,8 @@ class HCW38SituationRuntime
         if (!opportunity || !s_Active || s_Active.Id != opportunity.Id) { return; }
         HCXConvoyRuntime.HCRelease(s_Active.Id);
         HCRestore(s_Active);
+        HCXAIGroupHolds.Retire(s_Active.Hold);
+        s_Active.Hold = null;
         // Real infected/loot remain under native lifetime and combat ownership;
         // never delete a visible actor or recreate a spent threat on restart.
         s_Active = null;

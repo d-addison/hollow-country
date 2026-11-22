@@ -63,8 +63,8 @@
 // is runtime-PENDING.
 class HCXGrudge
 {
+    // eAIGroup is not Managed, so only the id is kept; HCXExpansionBridge.HCGroupById resolves it per use.
     int GroupId;
-    eAIGroup Group;
     PlayerBase Attacker;
     int Until;
     int Kind;
@@ -171,8 +171,8 @@ class HCXDefence
         return attacker;
     }
 
-    // Keyed by group ID and the live group object, so a reused ID never inherits a
-    // grudge (the weak group pointer nulls when its group is deleted).
+    // Keyed by group id (never reused by the provider's counter). The grudge keeps no
+    // group handle: the prune pass resolves the id and drops the grudge once the group is gone.
     protected static HCXGrudge Find(eAIGroup group, PlayerBase attacker)
     {
         if (!group || !attacker) { return null; }
@@ -180,7 +180,7 @@ class HCXDefence
         for (int index = 0; index < s_Grudges.Count(); index++)
         {
             HCXGrudge grudge = s_Grudges.Get(index);
-            if (grudge && grudge.GroupId == groupId && grudge.Group == group && grudge.Attacker == attacker) { return grudge; }
+            if (grudge && grudge.GroupId == groupId && grudge.Attacker == attacker) { return grudge; }
         }
         return null;
     }
@@ -205,7 +205,6 @@ class HCXDefence
         }
         grudge = new HCXGrudge();
         grudge.GroupId = HCXExpansionBridge.HCGroupGetID(group);
-        grudge.Group = group;
         grudge.Attacker = attacker;
         grudge.Until = until;
         grudge.Kind = kind;
@@ -585,7 +584,7 @@ class HCXDefence
             }
             HCXGrudge grudge = s_Grudges.Get(s_Cursor);
             HCReached.Mark("ai_defence.grudge");
-            if (!grudge || nowMs >= grudge.Until || !grudge.Group || !grudge.Attacker || !grudge.Attacker.IsAlive())
+            if (!grudge || nowMs >= grudge.Until || !HCXExpansionBridge.HCGroupById(grudge.GroupId) || !grudge.Attacker || !grudge.Attacker.IsAlive())
             {
                 s_Grudges.RemoveOrdered(s_Cursor);
                 s_Expired++;

@@ -277,8 +277,8 @@ class HCXAITacticsConfig
 class HCXTacticsGroup
 {
     bool Fixture;
+    // Id only: eAIGroup is not Managed and this ledger outlives groups; the sweep resolves the id.
     int GroupId;
-    eAIGroup Group;
     int WindowStart;
     int SmokeLast;
     int SmokeUses;
@@ -507,7 +507,6 @@ class HCXAITactics
         if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups)) { s_Groups.RemoveOrdered(0); }
         HCXTacticsGroup created = new HCXTacticsGroup();
         created.GroupId = id;
-        created.Group = group;
         for (int slot = 0; slot < HCXAITacticsPolicy.FIRE_RING; slot++) { created.Fire.Insert(0); }
         s_Groups.Insert(created);
         return created;
@@ -850,7 +849,7 @@ class HCXAITactics
         {
             if (s_Sweep >= s_Groups.Count()) { s_Sweep = 0; }
             HCXTacticsGroup sweep = s_Groups.Get(s_Sweep);
-            if (!sweep || !sweep.Group) { s_Groups.RemoveOrdered(s_Sweep); }
+            if (!sweep || !HCXExpansionBridge.HCGroupById(sweep.GroupId)) { s_Groups.RemoveOrdered(s_Sweep); }
             else { s_Sweep++; }
         }
     }
