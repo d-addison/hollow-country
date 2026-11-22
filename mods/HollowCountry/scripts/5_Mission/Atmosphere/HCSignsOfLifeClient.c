@@ -27,16 +27,12 @@
 class HCSignsOfLifeEffect
 {
     Object Source;
-    ScriptedLightBase Lamp;
-    Particle Smoke;
     ref EffSwarmingFlies Flies;
     ref EffectSound Buzz;
 
     int HCHandleCount()
     {
         int count = 0;
-        if (Lamp) { count = count + 1; }
-        if (Smoke) { count = count + 1; }
         if (Flies) { count = count + 1; }
         if (Buzz) { count = count + 1; }
         return count;
@@ -44,12 +40,8 @@ class HCSignsOfLifeEffect
 
     void Stop()
     {
-        if (Lamp) Lamp.Destroy();
-        if (Smoke) Smoke.Stop();
         if (Flies) SEffectManager.DestroyEffect(Flies);
         if (Buzz) SEffectManager.DestroyEffect(Buzz);
-        Lamp = null;
-        Smoke = null;
         Flies = null;
         Buzz = null;
         Source = null;
@@ -63,10 +55,14 @@ class HCSignsOfLifeEffect
 class HCSignsOfLifeSnapshotClient
 {
     protected bool m_HoldoutSnapshot;
+    protected ref array<vector> m_HoldoutPositions = new array<vector>;
+    protected ref map<int, vector> m_HoldoutSeen = new map<int, vector>;
 
     void HCSignsOfLifeSnapshotClient()
     {
         HCSignsOfLife.ForceLit = new array<vector>;
+        HCSignsOfLife.ForceLit.Reserve(24);
+        m_HoldoutPositions.Reserve(24);
         DayZGame.Event_OnRPC.Insert(HCReceiveHoldouts);
     }
 
@@ -76,12 +72,25 @@ class HCSignsOfLifeSnapshotClient
         if (rpcType != HCSignsHoldoutRPC.RPC_HOLDOUTS) { return; }
         int count;
         if (!ctx.Read(count) || count < 0 || count > 24) { return; }
-        array<vector> positions = new array<vector>;
+        array<vector> positions = m_HoldoutPositions;
+        positions.Clear();
+        m_HoldoutSeen.Clear();
         vector position;
         for (int readIndex = 0; readIndex < count; readIndex++)
         {
             if (!ctx.Read(position) || !HCWorldLimits.Position(position)) { return; }
-            if (positions.Find(position) >= 0) { return; }
+            // Enforce cannot use vector as a set element/map key. Hash into an
+            // integer index, then probe with exact vector equality so collisions
+            // never reject distinct positions. At most 24 probes per position;
+            // HouseHash is 0..65520, so advancing cannot overflow an int.
+            int positionKey = HCSignsOfLife.HouseHash(position, 0);
+            vector seenPosition;
+            while (m_HoldoutSeen.Find(positionKey, seenPosition))
+            {
+                if (seenPosition == position) { return; }
+                positionKey = positionKey + 1;
+            }
+            m_HoldoutSeen.Set(positionKey, position);
             positions.Insert(position);
         }
         bool changed = !m_HoldoutSnapshot;
@@ -95,7 +104,11 @@ class HCSignsOfLifeSnapshotClient
         }
         if (!changed) { return; }
         m_HoldoutSnapshot = true;
+        // Swap only a completely validated snapshot; rejected RPCs leave ForceLit
+        // untouched. Reuse the previous ordered buffer for the next RPC.
+        m_HoldoutPositions = HCSignsOfLife.ForceLit;
         HCSignsOfLife.ForceLit = positions;
+        m_HoldoutPositions.Clear();
         Print("[HollowCountry] V2 client signs of life holdouts=" + count.ToString());
     }
 
@@ -103,6 +116,8 @@ class HCSignsOfLifeSnapshotClient
     {
         DayZGame.Event_OnRPC.Remove(HCReceiveHoldouts);
         HCSignsOfLife.ForceLit = null;
+        m_HoldoutPositions.Clear();
+        m_HoldoutSeen.Clear();
     }
 }
 
@@ -111,6 +126,15 @@ class HCSignsOfLifeClient
     protected ref array<ref HCSignsOfLifeEffect> m_Lit = new array<ref HCSignsOfLifeEffect>;
     protected ref array<ref HCSignsOfLifeEffect> m_Smoke = new array<ref HCSignsOfLifeEffect>;
     protected ref array<ref HCSignsOfLifeEffect> m_Flies = new array<ref HCSignsOfLifeEffect>;
+    // Reused by sequential scans/reconciliation, cleared before and after use so
+    // query results do not retain streamed objects between scans. Native arrays:
+    // 1_Core/proto/EnScript.c:385 Clear; :482 Reserve; :741 set; :846 map.
+    protected ref array<Object> m_WantedLit = new array<Object>;
+    protected ref array<Object> m_WantedSmoke = new array<Object>;
+    protected ref array<Object> m_WantedFlies = new array<Object>;
+    protected ref array<Object> m_Objects = new array<Object>;
+    protected ref array<CargoBase> m_Proxies = new array<CargoBase>;
+    protected ref map<Object, int> m_WantedSet = new map<Object, int>;
     protected float m_ScanClock = 10.0;
     protected float m_CleanClock;
     protected float m_LogClock = 10.0;
@@ -163,12 +187,17 @@ class HCSignsOfLifeClient
     {
         int day = HCSignsOfLife.RealDay();
         if (day < 0) { Clear(); return; }
-        ref array<Object> lit = new array<Object>;
-        ref array<Object> smoke = new array<Object>;
-        ref array<Object> flies = new array<Object>;
+        array<Object> lit = m_WantedLit;
+        array<Object> smoke = m_WantedSmoke;
+        array<Object> flies = m_WantedFlies;
+        lit.Clear();
+        smoke.Clear();
+        flies.Clear();
         HCSignsOfLife.SelectHouses(viewer, day, lit, smoke);
-        ref array<Object> objects = new array<Object>;
-        ref array<CargoBase> proxies = new array<CargoBase>;
+        array<Object> objects = m_Objects;
+        array<CargoBase> proxies = m_Proxies;
+        objects.Clear();
+        proxies.Clear();
         vector center = viewer.GetPosition();
         GetGame().GetObjectsAtPosition3D(center, HCSignsOfLife.FLY_RADIUS, objects, proxies);
         int count = Math.Min(objects.Count(), HCSignsOfLife.MAX_OBJECTS);
@@ -182,6 +211,11 @@ class HCSignsOfLifeClient
         Reconcile(m_Lit, lit, 0, HCHearthConfig.HCGet().MaxLit);
         Reconcile(m_Smoke, smoke, 1, HCHearthConfig.HCGet().MaxSmoke);
         Reconcile(m_Flies, flies, 2, HCSignsOfLife.MAX_FLIES);
+        lit.Clear();
+        smoke.Clear();
+        flies.Clear();
+        objects.Clear();
+        proxies.Clear();
     }
 
     protected void Prune(array<ref HCSignsOfLifeEffect> handles, vector center, float radius, bool checkFood)
@@ -218,7 +252,8 @@ class HCSignsOfLifeClient
     {
         // Remove first so day/time/temperature transitions cannot exceed caps.
         // Index the wanted sources once so each handle is a lookup, not a scan.
-        ref map<Object, int> wantedSet = new map<Object, int>;
+        map<Object, int> wantedSet = m_WantedSet;
+        wantedSet.Clear();
         foreach (Object wantedSource : wanted)
         {
             if (wantedSource) { wantedSet.Set(wantedSource, 1); }
@@ -238,15 +273,15 @@ class HCSignsOfLifeClient
         {
             if (!HCSignsOfLife.CanAdd(handles.Count(), cap)) break;
             if (!source || HasSource(handles, source)) continue;
-            HCSignsOfLifeEffect created = new HCSignsOfLifeEffect;
-            created.Source = source;
             if (kind == 0 || kind == 1)
             {
                 // Native FireplaceIndoor owns chimney smoke and firelight. These
                 // are observation rows only: never add duplicate particles/glow.
                 if (!HCHearthFires.HCHasBurning(source)) continue;
             }
-            else
+            HCSignsOfLifeEffect created = new HCSignsOfLifeEffect;
+            created.Source = source;
+            if (kind != 0 && kind != 1)
             {
                 created.Flies = new EffSwarmingFlies;
                 SEffectManager.PlayOnObject(created.Flies, source, "0 0.25 0");
@@ -259,6 +294,7 @@ class HCSignsOfLifeClient
             if (kind == 1) { HCModuleReadiness.HCUse("SignsOfLife", "smoke_observed"); }
             if (kind == 2) { HCModuleReadiness.HCUse("SignsOfLife", "flies_created"); }
         }
+        wantedSet.Clear();
     }
 
     protected void ClearHandles(array<ref HCSignsOfLifeEffect> handles)
