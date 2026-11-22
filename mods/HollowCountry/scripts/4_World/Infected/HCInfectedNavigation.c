@@ -6,16 +6,270 @@
 // 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
 // 1_Core/proto/EnScript.c:380 Count; EnMath.c:553 Min;
 // 3_Game/Entities/DayZInfectedInputController.c:9-10 mind/retained target.
-// No manual steering, script command or generated noise target is used.
+// No manual steering, script command or generated noise target is used. Stuck recovery (WD-2A-3)
+// only re-plans, queues a native door open, or stops counting the member; it never moves an entity.
+// Per-member stuck bookkeeping (WD-2A-3). Runtime only.
+class HCNavMemberTrack
+{
+    vector Pos;
+    float At;
+    float BestSq = -1;
+    int Strikes;
+    bool Dropped;
+}
+
+// Ring of the last 32 places where a pack member got stuck (WD-2A-3). A spot hit three times is a
+// known trap: the next member stuck there skips the ladder and is dropped at once. Runtime only,
+// never persisted, so there is no stored format to migrate. Only coordinates are ever printed.
+class HCNavSpots
+{
+    static const int CAPACITY = 32;
+    static const int TRAP_HITS = 3;
+    static const float RADIUS_SQ = 36;
+    static const float KEEP_SECONDS = 1800;
+
+    protected static ref array<vector> s_Pos = new array<vector>;
+    protected static ref array<float> s_At = new array<float>;
+    protected static ref array<int> s_Hits = new array<int>;
+    protected static int s_Next;
+    protected static int s_Printed;
+
+    protected static int HCFind(vector position, float now)
+    {
+        for (int slot = 0; slot < s_Pos.Count(); slot++)
+        {
+            if (now - s_At[slot] > KEEP_SECONDS) { continue; }
+            if (vector.DistanceSq(s_Pos[slot], position) <= RADIUS_SQ) { return slot; }
+        }
+        return -1;
+    }
+
+    static void HCNote(vector position, float now)
+    {
+        int slot = HCFind(position, now);
+        if (slot < 0)
+        {
+            if (s_Pos.Count() < CAPACITY)
+            {
+                slot = s_Pos.Count();
+                s_Pos.Insert(position);
+                s_At.Insert(now);
+                s_Hits.Insert(0);
+            }
+            else
+            {
+                slot = s_Next;
+                s_Next = (s_Next + 1) % CAPACITY;
+                s_Pos.Set(slot, position);
+                s_Hits.Set(slot, 0);
+            }
+        }
+        s_At.Set(slot, now);
+        int hits = s_Hits[slot] + 1;
+        s_Hits.Set(slot, hits);
+        s_Printed++;
+        if (s_Printed <= 8 || s_Printed % 32 == 0 || hits == TRAP_HITS)
+        {
+            Print("[HC Infected] nav problem spot x=" + Math.Round(position[0]).ToString() + " z=" + Math.Round(position[2]).ToString() + " hits=" + hits.ToString() + " runtime=PENDING");
+        }
+    }
+
+    static bool HCIsTrap(vector position, float now)
+    {
+        int slot = HCFind(position, now);
+        return slot >= 0 && s_Hits[slot] >= TRAP_HITS;
+    }
+}
+
+// Per-group quarantine (WD-2A-4), replacing the former global release ledger that blocked every new
+// pack route. A group that was given up on (stalled, or every tracked member dropped) is refused as a
+// Start candidate for a cooldown; every other group keeps routing. Entries expire; nothing blocks
+// permanently. Runtime only.
+class HCPackQuarantine
+{
+    static const int CAPACITY = 16;
+    static const float COOLDOWN_SECONDS = 90;
+
+    protected static ref array<AIGroup> s_Groups = new array<AIGroup>;
+    protected static ref array<float> s_Until = new array<float>;
+
+    static void HCAdd(AIGroup group, float now)
+    {
+        if (!group) { return; }
+        int index = s_Groups.Find(group);
+        if (index >= 0)
+        {
+            s_Until.Set(index, now + COOLDOWN_SECONDS);
+            return;
+        }
+        HCAge(now);
+        if (s_Groups.Count() >= CAPACITY)
+        {
+            s_Groups.RemoveOrdered(0);
+            s_Until.RemoveOrdered(0);
+        }
+        s_Groups.Insert(group);
+        s_Until.Insert(now + COOLDOWN_SECONDS);
+        HCModuleReadiness.HCUse("Infected", "group_quarantine");
+    }
+
+    static bool HCHas(AIGroup group, float now)
+    {
+        if (!group) { return false; }
+        int index = s_Groups.Find(group);
+        return index >= 0 && now < s_Until[index];
+    }
+
+    // Drops expired entries and groups the engine already deleted (null).
+    static void HCAge(float now)
+    {
+        for (int index = s_Groups.Count() - 1; index >= 0; index--)
+        {
+            if (!s_Groups[index] || now >= s_Until[index])
+            {
+                s_Groups.RemoveOrdered(index);
+                s_Until.RemoveOrdered(index);
+            }
+        }
+    }
+
+    static int HCCount() { return s_Groups.Count(); }
+}
+
+// Pack-aware door queue (WD-2A-5). A member stuck beside a closed door queues that door (at most 4
+// per pack, one door per Tick is opened). Only closed, UNLOCKED doors are opened, through the
+// building's own CanDoorBeOpened(m_CheckIfLocked=true) so a lock is never defeated; a standing
+// Fortify barricade, bunker doors and locked containers are skipped. An entry that is not served
+// within 20 s is dropped, so a pack never waits on a door forever.
+class HCNavDoorQueue
+{
+    static const int CAPACITY = 4;
+    static const int MAX_OBJECTS = 64;
+    static const int MAX_DOORS_PER_BUILDING = 16;
+    static const float SEEK_RADIUS = 6;
+    static const float DOOR_RADIUS_SQ = 9;
+    static const float WAIT_SECONDS = 20;
+
+    protected ref array<Building> m_Buildings = new array<Building>;
+    protected ref array<int> m_Doors = new array<int>;
+    protected ref array<float> m_At = new array<float>;
+    protected ref array<Object> m_Objects = new array<Object>;
+    protected ref array<CargoBase> m_Proxies = new array<CargoBase>;
+
+    int HCCount() { return m_Doors.Count(); }
+
+    protected bool HCQueued(Building building, int door)
+    {
+        for (int index = 0; index < m_Doors.Count(); index++)
+        {
+            if (m_Buildings[index] == building && m_Doors[index] == door) { return true; }
+        }
+        return false;
+    }
+
+    protected bool HCBarricaded(vector doorPos, int inspected)
+    {
+        for (int index = 0; index < inspected; index++)
+        {
+            Object candidate = m_Objects[index];
+            if (!candidate || vector.DistanceSq(candidate.GetPosition(), doorPos) > DOOR_RADIUS_SQ) { continue; }
+            if (HCFortifyBridge.HCBlocksDoor(candidate)) { return true; }
+        }
+        return false;
+    }
+
+    // Queue the closed unlocked doors within reach of a stuck member. Returns how many were added.
+    int HCDiscover(vector position, float now)
+    {
+        if (m_Doors.Count() >= CAPACITY) { return 0; }
+        m_Objects.Clear();
+        m_Proxies.Clear();
+        GetGame().GetObjectsAtPosition3D(position, SEEK_RADIUS, m_Objects, m_Proxies);
+        int inspected = Math.Min(m_Objects.Count(), MAX_OBJECTS);
+        bool fortified = HCFortifyBridge.HCActive();
+        int added = 0;
+        for (int objectIndex = 0; objectIndex < inspected; objectIndex++)
+        {
+            Building building = Building.Cast(m_Objects[objectIndex]);
+            if (!building || Bunker.Cast(building) || ContainerLockedBase.Cast(building)) { continue; }
+            int doors = Math.Min(building.GetDoorCount(), MAX_DOORS_PER_BUILDING);
+            for (int door = 0; door < doors; door++)
+            {
+                if (m_Doors.Count() >= CAPACITY) { return added; }
+                if (!building.IsDoorClosed(door)) { continue; }
+                vector doorPos = building.GetDoorSoundPos(door);
+                if (vector.DistanceSq(doorPos, position) > DOOR_RADIUS_SQ || HCQueued(building, door)) { continue; }
+                if (building.IsDoorLocked(door))
+                {
+                    HCModuleReadiness.HCUse("Infected", "door_locked_skip");
+                    continue;
+                }
+                if (fortified && HCBarricaded(doorPos, inspected)) { continue; }
+                m_Buildings.Insert(building);
+                m_Doors.Insert(door);
+                m_At.Insert(now);
+                added++;
+            }
+        }
+        return added;
+    }
+
+    // Serves at most ONE queued door per call; stale, open, locked or timed-out entries are dropped.
+    // Returns true when a door was opened.
+    bool HCProcess(Object caller, float now)
+    {
+        if (m_Doors.Count() < 1) { return false; }
+        Building building = m_Buildings[0];
+        int door = m_Doors[0];
+        float queuedAt = m_At[0];
+        m_Buildings.RemoveOrdered(0);
+        m_Doors.RemoveOrdered(0);
+        m_At.RemoveOrdered(0);
+        if (!building || building.IsPendingDeletion() || now - queuedAt > WAIT_SECONDS) { return false; }
+        if (!building.IsDoorClosed(door) || building.IsDoorLocked(door)) { return false; }
+        DoorManipulationParams request = new DoorManipulationParams;
+        request.m_DoorIndex = door;
+        request.m_CheckIfLocked = true;
+        request.m_Caller = caller;
+        if (!building.CanDoorBeOpened(request)) { return false; }
+        building.OpenDoor(door);
+        HCModuleReadiness.HCUse("Infected", "pack_door_open");
+        return true;
+    }
+}
+
 class HCNativeInfectedPack
 {
-    protected static ref array<ref HCNativeInfectedPack> s_PendingRelease = new array<ref HCNativeInfectedPack>;
-    // Last logged release summary, so the status line is emitted on change only.
-    protected static int s_ReportedPending;
+    // Last logged release summary, so the status line is emitted on change only. The quarantine is per
+    // group (HCPackQuarantine); the former global ledger that blocked every new route is gone.
     protected static int s_ReportedQuarantined;
+    // Stuck recovery tuning (WD-2A-3): a member that moved less than STUCK_MIN_MOVE metres over a
+    // STUCK_WINDOW second window, while still more than a waypoint radius + STUCK_NEAR away from the
+    // waypoint and not in combat, takes a strike. Strike 1 queues a door, strike 2 re-plans the route,
+    // strike 3 drops the member from the pack count. Recovery never moves the entity.
+    static const float STUCK_WINDOW = 8;
+    static const float STUCK_MIN_MOVE = 1.5;
+    static const float STUCK_NEAR = 3;
+    static const float PENDING_HOLD_SECONDS = 20;
+    static const int MAX_REPATHS = 4;
+    static const int NAV_FOUND = 1;
+    static const int NAV_NONE = 2;
+    static const int NAV_DEFERRED = 3;
     AIGroup Group;
     protected ref array<ZombieBase> m_Members = new array<ZombieBase>;
-    protected ref PGFilter m_Filter;
+    protected PGFilter m_Filter;
+    // Filter profile for the next Reachable call (HCNavFilters.PROFILE_*), the scheduler class of the
+    // call (a deferrable caller is refused instead of forced) and the deferral verdict it leaves.
+    protected int m_NavProfile;
+    protected bool m_NavDeferrable;
+    protected bool m_NavDeferred;
+    // Route found by the latest Reachable call (reused, never reallocated per call).
+    protected ref TVectorArray m_NavPath = new TVectorArray;
+    protected ref map<ZombieBase, ref HCNavMemberTrack> m_Tracks = new map<ZombieBase, ref HCNavMemberTrack>;
+    protected ref HCNavDoorQueue m_PackDoors;
+    protected float m_HoldSince = -1;
+    protected int m_Repaths;
+    protected int m_Drops;
     protected float m_Expires;
     protected float m_LastProgress;
     protected float m_NextRetarget;
@@ -71,7 +325,21 @@ class HCNativeInfectedPack
         behaviour.SetWaypoints(currentRoute, 0, true, false);
         m_BestRouteDistanceSq = -1;
         m_LastProgress = now;
+        m_HoldSince = -1;
+        HCResetTracks(now);
         return true;
+    }
+
+    // A new waypoint restarts every member's progress window; drops stay dropped.
+    protected void HCResetTracks(float now)
+    {
+        for (int index = 0; index < m_Tracks.Count(); index++)
+        {
+            HCNavMemberTrack track = m_Tracks.GetElement(index);
+            track.BestSq = -1;
+            track.Strikes = 0;
+            track.At = now;
+        }
     }
 
     protected AIWorld GetAIWorld()
@@ -82,38 +350,23 @@ class HCNativeInfectedPack
 
     static int QuarantinedReleaseCount()
     {
-        int quarantined = 0;
-        for (int i = 0; i < s_PendingRelease.Count(); i++)
-        {
-            if (s_PendingRelease[i].IsReleaseQuarantined())
-                quarantined++;
-        }
-        return quarantined;
+        return HCPackQuarantine.HCCount();
     }
 
-    // Bounded status: a pending or quarantined release blocks every new native
-    // route (Start refuses while the ledger is non-empty), so it must be visible.
+    // Bounded status: only the listed groups are refused as Start candidates, and only for the
+    // cooldown; new routes for every other group are never blocked.
     static string ReleaseStatus()
     {
-        string blocked = "no";
-        if (s_PendingRelease.Count() > 0)
-            blocked = "yes";
-        int pending = s_PendingRelease.Count();
         int quarantined = QuarantinedReleaseCount();
-        return "pending=" + pending.ToString() + " quarantined=" + quarantined.ToString() + " new_routes_blocked=" + blocked;
+        return "pending=0 quarantined=" + quarantined.ToString() + " new_routes_blocked=no";
     }
 
     static void RetryPendingReleases()
     {
-        // New packs are blocked while any release is pending. At most twelve
-        // horde packs, two investigators and one partial transfer can be owned.
-        for (int i = s_PendingRelease.Count() - 1; i >= 0; i--)
-            s_PendingRelease[i].Release();
-        int pending = s_PendingRelease.Count();
+        HCPackQuarantine.HCAge(GetGame().GetTickTime());
         int quarantined = QuarantinedReleaseCount();
-        if (pending != s_ReportedPending || quarantined != s_ReportedQuarantined)
+        if (quarantined != s_ReportedQuarantined)
         {
-            s_ReportedPending = pending;
             s_ReportedQuarantined = quarantined;
             Print("[HC Infected] native release status: " + ReleaseStatus());
         }
@@ -121,30 +374,65 @@ class HCNativeInfectedPack
 
     protected void InitFilter()
     {
-        m_Filter = new PGFilter;
-        // Conservative walk/interior filter. Native collision/door state still
-        // decide actual passage. No ladder, swimming, vault or crawl shortcuts.
-        m_Filter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
-        m_Filter.SetCost(PGAreaType.DOOR_CLOSED, 1000);
+        // Shared INF_OUTDOOR / INF_INTERIOR profiles; SetFlags always runs when they are built.
+        m_Filter = HCNavFilters.HCFor(HCNavFilters.PROFILE_OUTDOOR);
+    }
+
+    // Route lookup order: shared route cache, 32 m flow cache, then one FindPath. A deferrable caller
+    // is refused (NAV_DEFERRED) when this tick's FindPath token is spent; a mandatory caller always runs
+    // and is counted as forced when it exceeds the token. Failed searches are cached as "no route".
+    protected int HCFindRoute(vector from, vector goal, int profile, bool mandatory, TVectorArray path)
+    {
+        int hit = HCNavRouteCache.HCLookup(profile, from, goal, path);
+        if (hit == HCNavRouteCache.HIT_ROUTE) { return NAV_FOUND; }
+        if (hit == HCNavRouteCache.HIT_NO_ROUTE) { return NAV_NONE; }
+        if (HCHordeFlowCache.HCShare(profile, from, goal, path)) { return NAV_FOUND; }
+        if (mandatory)
+        {
+            HCNavScheduler.HCTakeMandatory();
+        }
+        else if (!HCNavScheduler.HCTake())
+        {
+            return NAV_DEFERRED;
+        }
+        path.Clear();
+        PGFilter filter = HCNavFilters.HCFor(profile);
+        bool found = GetAIWorld().FindPath(from, goal, filter, path);
+        if (!found || path.Count() < 2 || path.Count() > HCNavRouteCache.MAX_POINTS)
+        {
+            HCNavRouteCache.HCStore(profile, from, goal, null, true);
+            return NAV_NONE;
+        }
+        HCNavRouteCache.HCStore(profile, from, goal, path, false);
+        HCHordeFlowCache.HCStore(profile, from, goal, path);
+        return NAV_FOUND;
     }
 
     protected bool Reachable(vector from, vector desired, float maxSegment, out vector sampled)
     {
+        m_NavDeferred = false;
         if (!GetAIWorld() || !HCInfectedStore.ValidPosition(from) || !HCInfectedStore.ValidPosition(desired))
             return false;
         if (vector.DistanceSq(from, desired) > maxSegment * maxSegment)
             return false;
-        if (!GetAIWorld().SampleNavmeshPosition(desired, HCInfectedTuning.Get().Navigation.SampleRadius, m_Filter, sampled))
+        PGFilter filter = HCNavFilters.HCFor(m_NavProfile);
+        if (!GetAIWorld().SampleNavmeshPosition(desired, HCInfectedTuning.Get().Navigation.SampleRadius, filter, sampled))
             return false;
         if (Math.AbsFloat(sampled[1] - desired[1]) > HCInfectedTuning.Get().Navigation.VerticalTolerance)
             return false;
-        TVectorArray path = new TVectorArray;
-        if (!GetAIWorld().FindPath(from, sampled, m_Filter, path) || !path || path.Count() < 2 || path.Count() > 32)
+        int route = HCFindRoute(from, sampled, m_NavProfile, !m_NavDeferrable, m_NavPath);
+        if (route == NAV_DEFERRED)
+        {
+            m_NavDeferred = true;
             return false;
-        float length = 0;
-        for (int i = 1; i < path.Count(); i++)
-            length += vector.Distance(path[i - 1], path[i]);
-        return length <= maxSegment * 2 && vector.DistanceSq(path[path.Count() - 1], sampled) <= 4;
+        }
+        if (route != NAV_FOUND || m_NavPath.Count() < 2 || m_NavPath.Count() > HCNavRouteCache.MAX_POINTS)
+            return false;
+        // A cached or shared route may start a few metres from this start: count that leg too.
+        float length = vector.Distance(from, m_NavPath[0]);
+        for (int i = 1; i < m_NavPath.Count(); i++)
+            length += vector.Distance(m_NavPath[i - 1], m_NavPath[i]);
+        return length <= maxSegment * 2 && vector.DistanceSq(m_NavPath[m_NavPath.Count() - 1], sampled) <= 4;
     }
 
     protected bool HCRefuse(string reason)
@@ -168,11 +456,17 @@ class HCNativeInfectedPack
     {
         m_RefusalReason = "";
         m_HCStartRan = true;
-        if (s_PendingRelease.Count() > 0) return HCRefuse("release_pending");
         if (!GetGame().IsServer()) return HCRefuse("not_server");
         if (!actors || actors.Count() < 1 || actors.Count() > HCHordeLimits.MAX_PACK) return HCRefuse("roster_bounds");
         if (!GetAIWorld()) return HCRefuse("no_ai_world");
         if (expires <= now) return HCRefuse("clue_expired");
+        // Per-group quarantine: refuse only candidates whose current native group was recently given
+        // up on. Checked before any path work is spent.
+        foreach (HCInfectedActor held : actors)
+        {
+            if (!held.InfectedEntity || !held.InfectedEntity.GetAIAgent()) { continue; }
+            if (HCPackQuarantine.HCHas(held.InfectedEntity.GetAIAgent().GetGroup(), now)) return HCRefuse("group_quarantined");
+        }
         // The exact template and its type=InfectedPack exist in installed
         // DZ/aiconfigs/config.bin. Check again in the running config database.
         if (!GetGame().ConfigIsExisting("GroupBehaviourTemplates DZInfectedPackBeh"))
@@ -272,11 +566,23 @@ class HCNativeInfectedPack
         while (m_PendingRooms.Count() > 0)
         {
             vector desiredRoom = m_PendingRooms[0];
-            m_PendingRooms.RemoveOrdered(0);
             if (vector.DistanceSq(m_PendingFrom, desiredRoom) < 1)
+            {
+                m_PendingRooms.RemoveOrdered(0);
                 continue;
+            }
+            // Room segments are short interior hops: INF_INTERIOR, and deferrable. A refused token
+            // keeps the room queued for a later tick (the pending-room hold in Tick is bounded).
             vector sampledRoom;
-            if (Reachable(m_PendingFrom, desiredRoom, 8, sampledRoom))
+            m_NavProfile = HCNavFilters.PROFILE_INTERIOR;
+            m_NavDeferrable = true;
+            bool roomReachable = Reachable(m_PendingFrom, desiredRoom, 8, sampledRoom);
+            m_NavProfile = HCNavFilters.PROFILE_OUTDOOR;
+            m_NavDeferrable = false;
+            if (m_NavDeferred)
+                return false;
+            m_PendingRooms.RemoveOrdered(0);
+            if (roomReachable)
             {
                 m_RoutePlan.Insert(new BehaviourGroupInfectedPackWaypointParams(sampledRoom, 1));
                 RoutePlanned = m_RoutePlan.Count();
@@ -326,8 +632,15 @@ class HCNativeInfectedPack
         }
         if (!HCInfectedPolicy.RetargetAllowed(now, m_NextRetarget, clue.Observed, m_LastRetargetObserved, clue.Expires, m_RetargetAttempts, leader != null, false))
             return 0;
+        // This tick's FindPath token is already spent: report a pre-path rejection (0) so no attempt or
+        // cooldown is consumed and the module offers the clue again on a later tick.
+        if (!HCNavScheduler.HCAvailable())
+            return 0;
         // Failed geometry still spends an attempt/cooldown. A repeated blocked
         // clue cannot repeatedly consume native pathfinding work.
+        int priorAttempts = m_RetargetAttempts;
+        float priorNext = m_NextRetarget;
+        float priorObserved = m_LastRetargetObserved;
         m_RetargetAttempts++;
         m_NextRetarget = now + 10;
         if (m_RetargetAttempts >= 2)
@@ -336,7 +649,18 @@ class HCNativeInfectedPack
         }
         m_LastRetargetObserved = clue.Observed;
         vector end;
-        if (!Reachable(leader.GetPosition(), clue.Origin, 120, end))
+        m_NavDeferrable = true;
+        bool clueReachable = Reachable(leader.GetPosition(), clue.Origin, 120, end);
+        m_NavDeferrable = false;
+        if (m_NavDeferred)
+        {
+            // The shared work budget refused the path after the preflight peek: nothing was spent.
+            m_RetargetAttempts = priorAttempts;
+            m_NextRetarget = priorNext;
+            m_LastRetargetObserved = priorObserved;
+            return 0;
+        }
+        if (!clueReachable)
             return 1;
         BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
         if (!behaviour) return 1;
@@ -362,6 +686,102 @@ class HCNativeInfectedPack
         return 2;
     }
 
+    protected HCNavMemberTrack HCTrackFor(ZombieBase member, vector position, float now)
+    {
+        HCNavMemberTrack track;
+        if (m_Tracks.Find(member, track)) { return track; }
+        track = new HCNavMemberTrack;
+        track.Pos = position;
+        track.At = now;
+        m_Tracks.Insert(member, track);
+        return track;
+    }
+
+    // One recovery step for the member that just took a strike. Never moves the entity: it queues a door
+    // for the native door API, re-plans the pack route, or stops counting the member.
+    protected void HCRecover(ZombieBase member, HCNavMemberTrack track, float now)
+    {
+        vector position = member.GetPosition();
+        if (track.Strikes == 1)
+        {
+            HCNavSpots.HCNote(position, now);
+            HCModuleReadiness.HCUse("Infected", "stuck_strike");
+            if (HCNavSpots.HCIsTrap(position, now) && track.Strikes < 3)
+            {
+                // A known trap: the ladder already failed here, so the member is dropped at once.
+                track.Strikes = 3;
+            }
+        }
+        if (track.Strikes == 1)
+        {
+            if (!m_PackDoors) { m_PackDoors = new HCNavDoorQueue; }
+            m_PackDoors.HCDiscover(position, now);
+            return;
+        }
+        if (track.Strikes == 2)
+        {
+            if (m_Repaths >= MAX_REPATHS || IsV2Drifting())
+            {
+                track.Strikes = 3;
+            }
+            else
+            {
+                // One deferrable path from the stuck member to the route end. A refused token reverts
+                // the strike so the same step is tried again on a later tick.
+                vector repathEnd;
+                m_NavDeferrable = true;
+                bool repathable = Reachable(position, RouteEnd, 200, repathEnd);
+                m_NavDeferrable = false;
+                if (m_NavDeferred)
+                {
+                    track.Strikes = 1;
+                    track.At = now - STUCK_WINDOW;
+                    return;
+                }
+                if (repathable && HCApplyRepath(now))
+                {
+                    m_Repaths++;
+                    HCModuleReadiness.HCUse("Infected", "repath_ok");
+                    return;
+                }
+                track.Strikes = 3;
+            }
+        }
+        if (track.Strikes >= 3)
+        {
+            track.Dropped = true;
+            m_Drops++;
+            HCModuleReadiness.HCUse("Infected", "straggler_drop");
+            HCNavSpots.HCNote(position, now);
+            Print("[HC Infected] nav straggler dropped from pack count drops=" + m_Drops.ToString() + " runtime=PENDING");
+        }
+    }
+
+    // Replace the plan with up to two intermediate points of the freshly found route plus the old end.
+    protected bool HCApplyRepath(float now)
+    {
+        int count = m_NavPath.Count();
+        if (count < 2 || !Group) return false;
+        ref array<ref BehaviourGroupInfectedPackWaypointParams> plan = new array<ref BehaviourGroupInfectedPackWaypointParams>;
+        float radius = HCInfectedTuning.Get().Navigation.WaypointRadius;
+        vector last = m_NavPath[0];
+        for (int third = 1; third <= 2; third++)
+        {
+            int pick = (count * third) / 3;
+            if (pick < 1 || pick >= count - 1) continue;
+            vector point = m_NavPath[pick];
+            if (vector.DistanceSq(point, last) < 36 || vector.DistanceSq(point, RouteEnd) < 36) continue;
+            plan.Insert(new BehaviourGroupInfectedPackWaypointParams(point, radius));
+            last = point;
+        }
+        plan.Insert(new BehaviourGroupInfectedPackWaypointParams(RouteEnd, radius));
+        m_RoutePlan = plan;
+        RoutePlanned = plan.Count();
+        RouteCompleted = 0;
+        RouteResult = 1;
+        return ActivateWaypoint(now);
+    }
+
     bool Tick(float now)
     {
         if (m_Releasing)
@@ -375,10 +795,15 @@ class HCNativeInfectedPack
         int arrivedMembers = 0;
         bool ambiguous = false;
         bool interrupted = false;
+        bool anyProgress = false;
+        bool laddering = false;
         float worstDistanceSq = 0;
         vector destination = m_RoutePlan[RouteCompleted].m_CenterPosition;
         float radius = m_RoutePlan[RouteCompleted].m_Radius;
+        float nearSq = (radius + STUCK_NEAR) * (radius + STUCK_NEAR);
         ZombieBase leader;
+        ZombieBase stuckMember;
+        HCNavMemberTrack stuckTrack;
         foreach (ZombieBase member : m_Members)
         {
             if (!member)
@@ -400,32 +825,94 @@ class HCNativeInfectedPack
                 ambiguous = true;
                 continue;
             }
+            HCNavMemberTrack track = HCTrackFor(member, position, now);
+            // A dropped straggler no longer counts toward arrival or the pack's worst distance, so
+            // one wedged member cannot stall or deadlock the rest of the pack.
+            if (track.Dropped) continue;
             if (!leader) leader = member;
             ownedMembers++;
             float distanceSq = vector.DistanceSq(position, destination);
             worstDistanceSq = Math.Max(worstDistanceSq, distanceSq);
             if (distanceSq <= radius * radius) arrivedMembers++;
+            if (track.BestSq < 0)
+            {
+                track.BestSq = distanceSq;
+            }
+            else if (distanceSq <= track.BestSq - 1)
+            {
+                track.BestSq = distanceSq;
+                anyProgress = true;
+            }
             int mind = member.GetMindStateSynced();
-            if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
+            bool engaged = mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT;
+            if (engaged)
                 interrupted = true;
             if (member.GetHealth("LeftLeg", "Health") <= 0 || member.GetHealth("RightLeg", "Health") <= 0)
                 interrupted = true;
+            if (engaged || member.IsCrawling() || distanceSq <= nearSq)
+            {
+                // Fighting, crawling or about to arrive is never "stuck".
+                track.Strikes = 0;
+                track.Pos = position;
+                track.At = now;
+                continue;
+            }
+            if (now - track.At >= STUCK_WINDOW)
+            {
+                if (vector.DistanceSq(position, track.Pos) >= STUCK_MIN_MOVE * STUCK_MIN_MOVE)
+                {
+                    track.Strikes = 0;
+                    track.Pos = position;
+                    track.At = now;
+                }
+                else if (!stuckMember)
+                {
+                    // One strike per Tick across the pack keeps recovery bounded.
+                    track.Strikes++;
+                    track.Pos = position;
+                    track.At = now;
+                    stuckMember = member;
+                    stuckTrack = track;
+                }
+            }
+            if (track.Strikes > 0) laddering = true;
         }
         if (leader) m_LastPosition = leader.GetPosition();
+        if (stuckMember) HCRecover(stuckMember, stuckTrack, now);
+        // At most one queued door is served per Tick.
+        if (m_PackDoors && m_PackDoors.HCCount() > 0 && leader) m_PackDoors.HCProcess(leader, now);
+        if (ownedMembers == 0 && m_Drops > 0 && !ambiguous)
+        {
+            // Every tracked member was dropped: a clean give-up, quarantined so the same wedged group
+            // is not immediately re-routed.
+            RouteResult = 3;
+            return !Release();
+        }
         if (m_BestRouteDistanceSq < 0)
             m_BestRouteDistanceSq = worstDistanceSq;
-        if (HCInfectedPolicy.RouteMadeProgress(worstDistanceSq, m_BestRouteDistanceSq))
+        if (anyProgress || HCInfectedPolicy.RouteMadeProgress(worstDistanceSq, m_BestRouteDistanceSq))
         {
-            m_BestRouteDistanceSq = worstDistanceSq;
+            m_BestRouteDistanceSq = Math.Min(worstDistanceSq, m_BestRouteDistanceSq);
             m_LastProgress = now;
         }
-        RouteResult = HCInfectedPolicy.RouteObservationResult(now, m_Expires, now - m_LastProgress, ownedMembers, arrivedMembers, ambiguous, interrupted);
+        // While the ladder is still working on a member the pack is not declared stalled (the ladder
+        // ends in a drop within three windows, which is the backstop).
+        float stalled = now - m_LastProgress;
+        if (laddering && stalled > 14)
+            stalled = 14;
+        RouteResult = HCInfectedPolicy.RouteObservationResult(now, m_Expires, stalled, ownedMembers, arrivedMembers, ambiguous, interrupted);
         if (RouteResult == 2 && RouteCompleted + 1 >= RoutePlanned && m_PendingRooms && m_PendingRooms.Count() > 0)
         {
-            // Hold the reached point until a queued room gets its path test
-            // on a later tick; expiry/interruption still end the route.
-            RouteResult = 1;
-            return true;
+            // Hold the reached point until a queued room gets its path test on a later tick;
+            // expiry/interruption still end the route, and the hold itself is bounded so a deferred
+            // room can never keep the pack parked forever.
+            if (m_HoldSince < 0) m_HoldSince = now;
+            if (now - m_HoldSince < PENDING_HOLD_SECONDS)
+            {
+                RouteResult = 1;
+                return true;
+            }
+            m_PendingRooms.Clear();
         }
         if (RouteResult == 2)
         {
@@ -489,11 +976,19 @@ class HCNativeInfectedPack
             }
             Print("[HC Infected] pack released in place members=" + m_Members.Count().ToString() + " (no native group transfer)");
         }
+        // A route that stalled (or lost every member to the straggler drop) quarantines only this
+        // group: new routes for it are refused for the cooldown, other packs are never held back.
+        if (!m_Releasing && Group && RouteResult == 3)
+        {
+            HCPackQuarantine.HCAdd(Group, GetGame().GetTickTime());
+            m_ReleaseQuarantined = true;
+        }
         m_Releasing = true;
         m_Members.Clear();
         m_ReleaseFallbacks.Clear();
+        m_Tracks.Clear();
+        m_PackDoors = null;
         Group = null;
-        s_PendingRelease.RemoveItem(this);
         return true;
     }
 }

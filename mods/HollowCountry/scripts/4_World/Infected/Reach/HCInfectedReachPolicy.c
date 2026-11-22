@@ -10,10 +10,19 @@ class HCInfectedReachPolicy
     // HC-47 / #121. Legacy scalar experiments below are retained for traceability,
     // but callers must consume these effective flags. A sampled floor/navmesh
     // point or room anchor is not a traversal/landing/damage receipt.
-    static const bool HC_LEG_STRIKES_ENABLED = false;
-    static const string HC_LEG_STRIKES_REFUSAL = "native_geometry_unqualified";
-    static bool HCExtendedReachSupported() { return HCInfectedReachPolicy.HC_LEG_STRIKES_ENABLED; }
-    static bool HCForcedMovementSupported() { return false; }
+    // Q3: the two fixes are settings (InfectedClimb.LegStrikes / InfectedClimb.BackOff, default on),
+    // read once by HCInfectedClimbConfig.HCLoad. Leg strikes keep the ray-line guard in MayStrike;
+    // the back-off steers only through the native controller overrides and releases on its own.
+    static const string HC_LEG_STRIKES_REFUSAL = "disabled_by_setting";
+    protected static bool s_HCLegStrikes = true;
+    protected static bool s_HCBackOff = true;
+    static void HCSetFixes(bool legStrikes, bool backOff)
+    {
+        s_HCLegStrikes = legStrikes;
+        s_HCBackOff = backOff;
+    }
+    static bool HCExtendedReachSupported() { return s_HCLegStrikes; }
+    static bool HCForcedMovementSupported() { return s_HCBackOff; }
 
     // Existing LineCheck endpoint defaults, not a new sensing/reach range.
     // Origin follows vanilla ZombieBase.c:774 GetAttackPitch (+1.8 m);
@@ -55,9 +64,12 @@ class HCInfectedReachPolicy
         {
             return "[HC Plan] HC-47 reach=off vision=" + vision + " refusals=0 runtime=PENDING";
         }
-        string line = "[HC Plan] HC-47 reach=refused vision=" + vision + " refusals=3";
-        line = line + " extra_reach=" + HCInfectedReachPolicy.HC_LEG_STRIKES_REFUSAL;
-        line = line + " forced_movement=traversal_unqualified climb=native_vault";
+        string line = "[HC Plan] HC-47 reach=on vision=" + vision;
+        if (HCExtendedReachSupported()) { line = line + " extra_reach=on"; }
+        else { line = line + " extra_reach=" + HCInfectedReachPolicy.HC_LEG_STRIKES_REFUSAL; }
+        if (HCForcedMovementSupported()) { line = line + " forced_movement=native_overrides"; }
+        else { line = line + " forced_movement=" + HCInfectedReachPolicy.HC_LEG_STRIKES_REFUSAL; }
+        line = line + " climb=native_vault";
         return line + " rooms=" + HCInfectedRoomCatalog.HCThreatRoomReason() + " runtime=PENDING";
     }
 
