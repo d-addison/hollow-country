@@ -170,6 +170,45 @@ class TextureReferences(unittest.TestCase):
         self.assertTrue(any('symbolic' in w for w in warnings))
         self.assertFalse(any('ghost' in f for f in findings))
 
+    def test_symbolic_references_resolve_against_imageset_members(self):
+        sets = {'dayz_gui': {'circle', 'Expand'}}
+        for value, bad in (('set:dayz_gui image:circle', False), ('set:dayz_gui image:Expand', False),
+                           ('set:dayz_gui image:cirle', True), ('set:dayz_guii image:circle', True),
+                           ('set:dayz_gui image:Circle', True)):
+            root = self.tree(layout=f'ImageWidgetClass Root {{ image0 "{value}" }}')
+            findings, warnings = layout_lint.lint_textures(root, set(), imagesets=sets)
+            self.assertEqual(bad, bool(findings), (value, findings))
+            self.assertEqual([], warnings)
+            if bad:
+                self.assertTrue(all('missing indexed texture:' in f for f in findings), findings)
+        # Offline (no index) stays an explicit skip; it never counts as resolved.
+        root = self.tree(layout='ImageWidgetClass Root { image0 "set:dayz_gui image:circle" }')
+        findings, warnings = layout_lint.lint_textures(root)
+        self.assertEqual([], findings)
+        self.assertTrue(any('symbolic' in w for w in warnings))
+
+    def test_symbolic_reference_grammar_and_script_literals(self):
+        sets = {'dayz_gui': {'circle'}}
+        root = self.tree(layout='ImageWidgetClass Root { image0 "image:circle" }')
+        findings, _ = layout_lint.lint_textures(root, set(), imagesets=sets)
+        self.assertTrue(any('malformed imageset reference' in f for f in findings), findings)
+        root = self.tree(script='image.SetImage("set:dayz_gui image:circle"); image.SetImage("set:dayz_gui image:nothing");')
+        findings, warnings = layout_lint.lint_textures(root, set(), imagesets=sets)
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('nothing', findings[0])
+        self.assertEqual([], warnings)
+
+    def test_local_imageset_members_resolve(self):
+        root = self.tree(layout='ImageWidgetClass Root { image0 "set:hc_local image:dot" }')
+        atlas = root / 'mods/HollowCountry/gui/hc_local.imageset'
+        atlas.write_text('ImageSetClass {\n Name "hc_local"\n Images {\n  ImageSetDefClass dot {\n   Name "dot"\n  }\n }\n}')
+        findings, _ = layout_lint.lint_textures(root, {'hollowcountry/gui/hc_local.imageset'}, imagesets={})
+        self.assertEqual([], findings)
+        root2 = self.tree(layout='ImageWidgetClass Root { image0 "set:hc_local image:dash" }')
+        (root2 / 'mods/HollowCountry/gui/hc_local.imageset').write_text(atlas.read_text())
+        findings, _ = layout_lint.lint_textures(root2, {'hollowcountry/gui/hc_local.imageset'}, imagesets={})
+        self.assertTrue(any('unknown imageset member' in f for f in findings), findings)
+
     def test_authored_missing_and_unshipped(self):
         root = self.tree(layout='ImageWidgetClass Root { image0 "HollowCountry/icon.paa" }')
         self.assertTrue(any('missing authored' in f for f in layout_lint.lint_textures(root)[0]))
@@ -256,7 +295,9 @@ class TextureRatchet(unittest.TestCase):
         baseline_path.write_text(json.dumps(baseline))
         def run(names):
             output = io.StringIO()
-            with patch.object(layout_lint.texture_index, 'load_index', return_value=names), contextlib.redirect_stdout(output):
+            with (patch.object(layout_lint.texture_index, 'load_index', return_value=names),
+                  patch.object(layout_lint.texture_index, 'load_imagesets', return_value={'set': {'member'}}),
+                  contextlib.redirect_stdout(output)):
                 code = layout_lint.main(['--root', str(root), '--baseline', str(baseline_path)])
             return code, output.getvalue()
         code, output = run(set())

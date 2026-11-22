@@ -172,6 +172,37 @@ class HCGroupWorldIcons
         HideUnused(used);
     }
 
+    // Fixed vanilla texture per marker type (native 5_Mission/GUI/MapMarkersInfo.c
+    // registers the same twenty paths). Literal paths keep the texture check able to
+    // resolve every one against the installed archives instead of a runtime map lookup.
+    static string MarkerTexture(int icon)
+    {
+        switch (icon)
+        {
+            case eMapMarkerTypes.MARKERTYPE_MAP_BORDER_CROSS: return "\\DZ\\gear\\navigation\\data\\map_border_cross_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_BROADLEAF: return "\\DZ\\gear\\navigation\\data\\map_broadleaf_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_CAMP: return "\\DZ\\gear\\navigation\\data\\map_camp_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_FACTORY: return "\\DZ\\gear\\navigation\\data\\map_factory_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_FIR: return "\\DZ\\gear\\navigation\\data\\map_fir_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_FIREDEP: return "\\DZ\\gear\\navigation\\data\\map_firedep_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_GOVOFFICE: return "\\DZ\\gear\\navigation\\data\\map_govoffice_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_HILL: return "\\DZ\\gear\\navigation\\data\\map_hill_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_MONUMENT: return "\\DZ\\gear\\navigation\\data\\map_monument_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_PALM: return "\\DZ\\gear\\navigation\\data\\map_palm_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_POLICE: return "\\DZ\\gear\\navigation\\data\\map_police_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_STATION: return "\\DZ\\gear\\navigation\\data\\map_station_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_STORE: return "\\DZ\\gear\\navigation\\data\\map_store_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_TOURISM: return "\\DZ\\gear\\navigation\\data\\map_tourism_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_TRANSMITTER: return "\\DZ\\gear\\navigation\\data\\map_transmitter_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_TSHELTER: return "\\DZ\\gear\\navigation\\data\\map_tshelter_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_TSIGN: return "\\DZ\\gear\\navigation\\data\\map_tsign_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_VIEWPOINT: return "\\DZ\\gear\\navigation\\data\\map_viewpoint_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_VINEYARD: return "\\DZ\\gear\\navigation\\data\\map_vineyard_ca.paa";
+            case eMapMarkerTypes.MARKERTYPE_MAP_WATERPUMP: return "\\DZ\\gear\\navigation\\data\\map_waterpump_ca.paa";
+        }
+        return "";
+    }
+
     static void DrawMap(MapWidget widget, HCGroupSnapshot frame)
     {
         if (!widget) return;
@@ -187,7 +218,7 @@ class HCGroupWorldIcons
             {
                 if (utc < 1 || marker.ExpiresUtc <= utc) continue;
             }
-            string markerTexture = MapMarkerTypes.GetMarkerTypeFromID(marker.Icon);
+            string markerTexture = MarkerTexture(marker.Icon);
             if (markerTexture == "")
                 continue;
             widget.AddUserMark(marker.Position, marker.Name, marker.Color, markerTexture);

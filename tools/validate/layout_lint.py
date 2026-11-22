@@ -94,7 +94,8 @@ def lint_layout(text):
     return names, findings
 
 
-def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None, procedural_allowlist=()):
+def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None, procedural_allowlist=(),
+              imagesets=None):
     """Check every authored layout, load and literal lookup under root/mods."""
     root = Path(root)
     if borrowed_roots is None:
@@ -154,7 +155,7 @@ def lint_tree(root, borrowed_roots=None, texture_names=None, warnings=None, proc
             exists = _lookup_exists(kind, name, loaded_names, loaded_paths)
             if not exists:
                 findings.append(f'{label}: lookup {name!r} has no match in layouts loaded by this script (borrowed roots need review)')
-    texture_findings, texture_warnings = lint_textures(root, texture_names, procedural_allowlist)
+    texture_findings, texture_warnings = lint_textures(root, texture_names, procedural_allowlist, imagesets)
     findings.extend(texture_findings)
     if warnings is not None:
         warnings.extend(texture_warnings)
@@ -174,6 +175,7 @@ _COLOR = re.compile(r"#\((rgb|argb|ai|a|i),([1-9]\d*),([1-9]\d*),([1-9]\d*)\)col
                     + ','.join([f'({_NUMBER})'] * 4) + r"(?:,([a-z]+))?\)", re.I)
 _STRING = re.compile(r'"((?:\\.|[^"\\])*)"')
 _CALL = re.compile(r'\b(LoadImageFile|SetImage|LoadMaskTexture|SetTexture|ImageWidget)\s*\(')
+_SYMBOLIC = re.compile(r'set:(\S+)\s+image:(\S+)')
 _ASSET = re.compile(r"\.(paa|edds|imageset|tga|png|jpg|jpeg|bmp)$", re.I)
 BASELINE = Path(__file__).with_name("texture_baseline.json")
 SKIPPED = 2
@@ -256,8 +258,16 @@ def diagnostic_value(value):
                   '<home>', value, flags=re.I)
 
 
-def lint_textures(root, texture_names=None, procedural_allowlist=()):
+def lint_textures(root, texture_names=None, procedural_allowlist=(), imagesets=None):
+    """imagesets: {set name: member names} from the index; None means an offline run."""
     root = Path(root)
+    known_sets = None
+    if imagesets is not None:
+        known_sets = {name: set(members) for name, members in imagesets.items()}
+        for path in sorted((root / 'mods').rglob('*.imageset')):
+            parsed = texture_index.parse_imageset(path.read_text(encoding='utf-8-sig', errors='replace'))
+            if parsed:
+                known_sets.setdefault(parsed[0], set()).update(parsed[1])
     local = texture_index.local_files(root)
     installed = None if texture_names is None else {texture_index.canonical(n) for n in texture_names}
     findings, warnings = [], []
@@ -302,7 +312,15 @@ def lint_textures(root, texture_names=None, procedural_allowlist=()):
                     warnings.append(f'{label}: unverified procedural texture grammar: {display}')
                 continue
             if value.startswith(('image:', 'set:')):
-                warnings.append(f'{label}: imageset symbolic reference needs native review: {display}')
+                symbolic = _SYMBOLIC.fullmatch(value)
+                if not symbolic:
+                    findings.append(f'{label}: malformed imageset reference (expected set:<set> image:<member>): {display}')
+                elif known_sets is None:
+                    warnings.append(f'{label}: imageset symbolic reference needs native review: {display}')
+                elif symbolic[1] not in known_sets:
+                    findings.append(f'{label}: missing indexed texture: unknown imageset: {display}')
+                elif symbolic[2] not in known_sets[symbolic[1]]:
+                    findings.append(f'{label}: missing indexed texture: unknown imageset member: {display}')
                 continue
             canonical = texture_index.canonical(value)
             if Path(canonical).suffix not in ('.paa', '.edds', '.imageset'):
@@ -361,16 +379,19 @@ def main(argv=None):
     except (OSError, ValueError):
         print('layout_lint: FAIL texture baseline unavailable or invalid')
         return 1
-    names = None
+    names = imagesets = None
     reason = 'explicit offline run'
     if not args.no_texture_index:
         try:
             names = texture_index.load_index(args.texture_index, require_complete=True)
+            imagesets = texture_index.load_imagesets(args.texture_index)
         except (OSError, ValueError, TypeError, AttributeError, KeyError):
+            names = None
             reason = 'installed index missing, invalid, or incomplete for declared dependencies; rebuild texture_index'
     warnings = []
     findings = lint_tree(args.root, texture_names=names, warnings=warnings,
-                         procedural_allowlist=baseline.get('procedural_layout_allowlist', []))
+                         procedural_allowlist=baseline.get('procedural_layout_allowlist', []),
+                         imagesets=imagesets)
     unresolved = [f for f in findings if 'missing indexed texture:' in f or 'missing authored texture:' in f]
     findings = [f for f in findings if f not in unresolved]
     for reference in unresolved:

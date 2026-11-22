@@ -1,8 +1,15 @@
-"""Index PBO header names only; never extract or cache installed asset contents."""
+"""Index PBO header names, plus imageset member names; never cache installed asset contents.
+
+Texture paths come from the PBO name tables only. Imagesets are plain text and the
+engine resolves `set:<set> image:<member>` against them, so the index also records,
+per imageset, the member name list read in memory from stored (method 0) imageset
+entries. Nothing else in a payload is read, and only the names are cached.
+"""
 import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 
@@ -24,11 +31,11 @@ def canonical(name):
     return '/'.join(part for part in name.replace('\\', '/').split('/') if part).casefold()
 
 
-def pbo_names(path):
-    """Read the name/property table only, including compressed-entry names.
+def _read_table(path):
+    """Return ([(name, method, size)], prefix, payload_start) of one PBO header.
 
     File data and trailer are never read. Bound strings/count/total header bytes;
-    reject truncated tables and unsafe names rather than publishing a partial index.
+    reject truncated tables rather than publishing a partial index.
     """
     with Path(path).open('rb') as stream:
         def cstring():
@@ -42,7 +49,7 @@ def pbo_names(path):
                 data.extend(char)
             raise ValueError('oversize PBO header string')
 
-        names, prefix, payload_size = [], None, 0
+        entries, prefix, payload_size = [], None, 0
         for index in range(MAX_ENTRIES):
             name = cstring()
             raw = stream.read(WORDS.size)
@@ -62,22 +69,67 @@ def pbo_names(path):
                 if any(WORDS.unpack(raw)):
                     raise ValueError('invalid PBO header terminator')
                 break
-            names.append(name)
+            entries.append((name, method, size))
             payload_size += size
         else:
             raise ValueError('too many PBO entries')
-        if stream.tell() + payload_size > Path(path).stat().st_size:
+        start = stream.tell()
+        if start + payload_size > Path(path).stat().st_size:
             raise ValueError('PBO payload shorter than declared sizes')
+    return entries, prefix, start
+
+
+def pbo_names(path):
+    """Read the name/property table only, including compressed-entry names."""
+    entries, prefix, _ = _read_table(path)
     # Old archives without a prefix conventionally mount under the archive stem.
     # Keep that fallback explicit in the cache metadata; it needs native resolution.
     mount = prefix if prefix is not None else Path(path).stem
     result = set()
-    for name in names:
+    for name, _, _ in entries:
         joined = canonical(mount + '/' + name)
         if any(part in ('.', '..', '') for part in joined.split('/')) or ':' in joined:
             raise ValueError('unsafe PBO virtual name')
         result.add(joined)
     return result, prefix is None
+
+
+# `set:<name>` resolves against an imageset's own top-level Name; members are the
+# Name of each image definition. Anchored to the definition blocks so the texture
+# list and any other Name-like text are never mistaken for members.
+_SET_NAME = re.compile(r'\A\s*ImageSetClass\s*\{\s*Name\s+"([^"\r\n]+)"')
+_MEMBER_NAME = re.compile(r'ImageSetDefClass\s+\S+\s*\{\s*Name\s+"([^"\r\n]+)"')
+MAX_IMAGESET = 4 * 1024 * 1024
+
+
+def parse_imageset(text):
+    """Return (set name, member names) of one imageset text, or None when it is not one."""
+    head = _SET_NAME.match(text.lstrip('\ufeff'))
+    if not head:
+        return None
+    return head[1], set(_MEMBER_NAME.findall(text))
+
+
+def pbo_imagesets(path):
+    """Return {set name: {member names}} from the stored imageset entries of one PBO.
+
+    Only entries named *.imageset with a stored (method 0) payload are read, bounded in
+    size; compressed or oversize imagesets are skipped, so their sets stay unresolved
+    (an error for any reference) rather than being guessed.
+    """
+    entries, _, start = _read_table(path)
+    result, position = {}, start
+    with Path(path).open('rb') as stream:
+        for name, method, size in entries:
+            if name.casefold().endswith('.imageset') and method == 0 and 0 < size <= MAX_IMAGESET:
+                stream.seek(position)
+                data = stream.read(size)
+                if len(data) == size:
+                    parsed = parse_imageset(data.decode('utf-8', errors='replace'))
+                    if parsed:
+                        result.setdefault(parsed[0], set()).update(parsed[1])
+            position += size
+    return result
 
 
 def local_files(root):
@@ -118,21 +170,25 @@ def build_index(directories, cache=DEFAULT_CACHE, coverage=None, manifest=DEFAUL
         archives.extend(p for p in directory.iterdir() if p.is_file() and p.suffix.casefold() == '.pbo')
     if not archives:
         raise ValueError('no PBO archives found')
-    names, sources = set(), []
+    names, sources, imagesets = set(), [], {}
     for path in sorted(set(archives)):
         before = path.stat()
         try:
             entries, fallback = pbo_names(path)
+            sets = pbo_imagesets(path)
         except ValueError as error:
             raise ValueError(f'{path.name}: {error}') from error
         after = path.stat()
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
             raise ValueError(f'{path.name}: archive changed during indexing; retry')
         names.update(entries)
+        for set_name, members in sets.items():
+            imagesets.setdefault(set_name, set()).update(members)
         # Basenames and fingerprints only: no user/profile or install paths in cache.
         sources.append({'archive': path.name, 'size': after.st_size,
                         'mtime_ns': after.st_mtime_ns, 'stem_prefix_assumed': fallback})
-    data = {'schema': SCHEMA, 'sources': sources, 'names': sorted(names)}
+    data = {'schema': SCHEMA, 'sources': sources, 'names': sorted(names),
+            'imagesets': {key: sorted(value) for key, value in sorted(imagesets.items())}}
     if coverage is not None:
         mods = json.loads(Path(manifest).read_text(encoding='utf-8'))['mods']
         for item in mods:
@@ -165,6 +221,10 @@ def declared_directories(addons=DEFAULT_ADDONS, workshop=DEFAULT_WORKSHOP,
     """
     mods = json.loads(Path(manifest).read_text(encoding='utf-8'))['mods']
     directories, coverage = [Path(addons)], ['vanilla']
+    # Vanilla GUI imagesets live in the sibling dta folder (gui.pbo), not in Addons.
+    core = Path(addons).parent / 'dta'
+    if core.is_dir() and any(p.suffix.casefold() == '.pbo' for p in core.iterdir()):
+        directories.append(core)
     for item in mods:
         if item.get('publish') and our_pbos:
             continue
@@ -200,6 +260,18 @@ def load_index(cache=DEFAULT_CACHE, require_complete=False, manifest=DEFAULT_MAN
         if data.get('coverage') != expected or data.get('manifest_sha256') != manifest_digest(manifest):
             raise ValueError('index does not cover the current dependency manifest; rebuild it')
     return set(data['names'])
+
+
+def load_imagesets(cache=DEFAULT_CACHE):
+    """Return {set name: set of member names}; an index without imagesets must be rebuilt."""
+    data = json.loads(Path(cache).expanduser().read_text(encoding='utf-8'))
+    sets = data.get('imagesets') if isinstance(data, dict) else None
+    if (not isinstance(sets, dict) or not sets
+            or not all(isinstance(key, str) and isinstance(value, list)
+                       and all(isinstance(item, str) for item in value)
+                       for key, value in sets.items())):
+        raise ValueError('texture index has no imageset members; rebuild it')
+    return {key: set(value) for key, value in sets.items()}
 
 
 def main(argv=None):
