@@ -12,16 +12,6 @@ Feature: Research tooling preserves honest evidence
     When the fixed CE disabled bundle and bounded receipt checks execute
     Then missing callbacks changed damage inputs or unconfirmed cleanup cannot establish rendered physics
 
-  Scenario: Preserve group state and clock watermark across bounded journal recovery
-    Given synthetic native storage with current legacy and torn group journals
-    When authored group store and startup methods recover state
-    Then corrupt images clock rollback and unsafe migrations cannot replace committed membership
-
-  Scenario: Keep group RPC changes authenticated ordered and durably committed
-    Given synthetic authenticated peers sessions clocks and native group storage
-    When authored RPC and commit methods receive retries changed payloads and failures
-    Then replay stale sessions and failed commits cannot create an unauthorized group mutation
-
   @ISSUE-36 @ISSUE-46
   Scenario: Respect human AI recovery policy without declaring runtime qualification
     Given synthetic provider source artifact dependency and human AI recovery declarations
@@ -52,35 +42,11 @@ Feature: Research tooling preserves honest evidence
     When the bounded flashlight candidate matrix executes
     Then every class remains counted and geometry power and eligibility remain unqualified
 
-  @ISSUE-52 @ISSUE-56
-  Scenario: Bound effective item metadata acquisition without claiming compatibility
-    Given synthetic configuration types and explicit export budgets
-    When the authored acquisition policies and fixed mission hook checks execute
-    Then variants and partial scans remain explicit without geometry or gameplay claims
-
-  @ISSUE-37
-  Scenario: Authorize group changes and bound durable server state
-    Given synthetic authenticated peers group state and store failures
-    When the authored group rules and server orchestration execute
-    Then unauthorized changes unsafe persistence and outsider position disclosure fail
-
   @ISSUE-52 @ISSUE-54
   Scenario: Retain ambiguous recipes in a whole-source census
     Given synthetic source trees with conditional recipes and unregistered descendants
     When the bounded crafting census executes
     Then ambiguous candidates remain unresolved rather than disappearing from coverage
-
-  @ISSUE-53
-  Scenario: Reject fuel credits that can create quantity through rounding
-    Given synthetic binary32 vehicle and vessel measurements
-    When the authored fuel quantum and receipt policies execute
-    Then unrepresentable gains fail without claiming a native fluid transaction
-
-  @ISSUE-31
-  Scenario: Calculate bounded stamina and carried-load changes
-    Given synthetic load exertion recovery and cooldown inputs
-    When the authored stamina policy executes
-    Then invalid inputs fail and native permission vetoes remain authoritative
 
   @ISSUE-27
   Scenario: Plan portable criteria without manufacturing acceptance
@@ -94,18 +60,6 @@ Feature: Research tooling preserves honest evidence
     When only those two files are exported for planning
     Then original criteria and fuel and flashlight constraints survive without source documents
 
-  @AC-007
-  Scenario: Admit measured room catalogs without enabling production search
-    Given synthetic measured room documents and native house collaborators
-    When bounded diagnostic catalog admission and binding execute
-    Then invalid or ambiguous catalogs publish nothing and production search stays gated
-
-  @AC-008
-  Scenario: Veto observer transitions until complete trustworthy evidence exists
-    Given synthetic observer samples explicit limits and retained visibility history
-    When the authored observer veto and hysteresis policies execute
-    Then missing stale visible or unresolved inputs cannot authorize transitions
-
   @AC-011 @AC-012
   Scenario: Reject unsafe private repository content without echoing secrets
     Given synthetic Git trees private source notices and unsafe content variants
@@ -118,36 +72,6 @@ Feature: Research tooling preserves honest evidence
     When interior candidate preparation and validation execute
     Then unsafe or unproven candidates fail without runtime installation or eligibility claims
 
-  @AC-008
-  Scenario: Persist cohort intent before native ownership transfer
-    Given synthetic cohort reservations journal generations and crash boundaries
-    When the authored durable adoption policies and orchestration execute
-    Then uncommitted or ambiguous transfers retain reservations and cannot replay
-
-  @AC-008
-  Scenario: Observe route progress and fairly schedule cohort clues
-    Given synthetic observed members waypoints and competing cohort clues
-    When the authored route progress and retarget scheduler execute
-    Then completion requires observed arrival and stale cohorts cannot starve valid clues
-
-  @AC-007 @AC-008
-  Scenario: Keep infected profiles and pack retargets bound to observed evidence
-    Given synthetic profile assignments member observations and frozen stimuli
-    When the authored infected profile and pack routing policies execute
-    Then unsupported capabilities stale clues and ambiguous membership remain blocked
-
-  @AC-011
-  Scenario: Unwind interrupted module lifecycle without repeating callbacks
-    Given synthetic module callbacks with interrupted startup and shutdown
-    When the authored core lifecycle methods execute
-    Then cleanup retries preserve reverse order and do not repeat removed callbacks
-
-  @AC-006
-  Scenario: Reject salvage admission after failed core startup
-    Given synthetic core state and registered native recipe objects
-    When the authored crafting admission and registry audits execute
-    Then stopped cores and mismatched recipes cannot authorize salvage
-
   @AC-004
   Scenario: Prepare pinned CE geometry candidates without inventing eligibility
     Given synthetic stock geometry diagnostic exports and hashed observations
@@ -159,12 +83,6 @@ Feature: Research tooling preserves honest evidence
     Given verified synthetic packages and isolated installation directories
     When install upgrade interrupted recovery and rollback tests execute
     Then unrelated files and drift are preserved without live deployment claims
-
-  @AC-007 @AC-008
-  Scenario: Bound supplementary infected propagation and restart recovery
-    Given finite synthetic audible chain and persistent membership states
-    When the infected completion policy and wiring tests execute
-    Then propagation and recovery stay bounded without claiming native hearing or spawning
 
   @AC-003 @CE-011
   Scenario: Reject invalid CE data and report raw coverage
@@ -190,24 +108,6 @@ Feature: Research tooling preserves honest evidence
     When the runtime settings admission tests execute
     Then malformed flags limits and feature dependencies fail admission without engine claims
 
-  @AC-005
-  Scenario: Preserve finite interior allocations and depleted search sites
-    Given synthetic building identities allocation quotas and reservation states
-    When the authored interior policy and source contract tests execute
-    Then ambiguous claims cannot refill and server search admission retains every authority gate
-
-  @AC-006
-  Scenario: Conserve salvage materials through native recipe definitions
-    Given three authored salvage definitions and synthetic material ledgers
-    When the crafting policy and native source contract tests execute
-    Then invalid ingredients and resource gain cycles fail without claiming native transactions
-
-  @AC-007 @AC-008
-  Scenario: Bound infected memory alerts and persistent population accounting
-    Given synthetic observed clues finite horde reservations and restart states
-    When the authored infected scalar policy tests execute
-    Then expired clues overload and unsafe replenishment are rejected without AI claims
-
   @AC-004
   Scenario: Preserve stock economy budgets and exact rollback
     Given synthetic stock mission files and conservative economy profiles
@@ -215,52 +115,10 @@ Feature: Research tooling preserves honest evidence
     Then drift and unsupported edits are rejected without claiming effective engine merges
 
   @AC-011
-  Scenario: Package only authored content with explicit unsigned status
-    Given synthetic addon sources and private handoff inputs
-    When the deterministic package and signing command tests execute
-    Then unsafe paths tampering and unsupported release promotion fail admission
-
-  @phase2 @offline
-  Scenario: Recover group command ordering without replaying uncertain mutations
-    Given synthetic sessions delayed snapshots and caller-owned requests
-    When the authored group client recovery and retry methods execute
-    Then request floors cannot rewind and uncertain payloads cannot change or replay across sessions
-
-  @phase2 @offline
-  Scenario: Preserve group map edits and native menu dispatch
-    Given synthetic map widgets group snapshots and native menu collaborators
-    When the authored map editing and menu dispatch methods execute
-    Then edits retain server constraints and unrelated native menus remain available
-
-  @phase2 @offline
-  Scenario: Scale continuous stamina changes through the native handler
-    Given synthetic native handler state and trusted bounded stamina settings
-    When the authored stamina integration methods execute
-    Then native event subtraction capacity clamps and permission handling remain authoritative
-
-  @phase2 @offline
-  Scenario: Read consistent bounded UTC snapshots for group expiry
-    Given synthetic native date and time reads across midnight and clock rollback
-    When the authored group UTC sampling methods execute
-    Then invalid or inconsistent samples fail within the fixed retry bound
-
-  @phase2 @offline
-  Scenario: Exercise opt-in group policy fixtures without world side effects
-    Given synthetic group DTO fixtures and a fixed step budget
-    When the authored opt-in group check runner executes through offline adapters
-    Then every operation and rejection must pass before a completion marker is emitted
-
-  @phase2 @offline
-  Scenario: Display bounded native stamina and carried-weight samples
-    Given synthetic cached native load and stamina samples with widget collaborators
-    When the authored stamina HUD sampling and display methods execute
-    Then weight and stamina remain separate and hidden or invalid samples cannot display stale data
-
-  @phase2 @offline
-  Scenario: Track optional event progress only from admitted observations
-    Given synthetic event definitions opted participants and ordered server observations
-    When the authored bounded event director policies execute
-    Then invalid transitions and replay cannot complete objectives or grant unimplemented rewards
+  Scenario: Admit package folders only with complete artefacts and explicit unsigned status
+    Given synthetic mod folders with archive signature key and metadata files
+    When the package manifest check runs in unsigned and signed modes
+    Then missing empty or mismatched artefacts and identity fail admission while unsigned status stays explicit
 
   @phase2 @offline
   Scenario: Admit complete item export manifests without upgrading metadata to compatibility
@@ -281,28 +139,16 @@ Feature: Research tooling preserves honest evidence
     Then every input remains counted and truncated links never become gameplay approval
 
   @phase2 @offline
-  Scenario: Authorize a single diagnostic fuel transfer without replay
-    Given synthetic native vehicle vessel actor and action collaborators
-    When the authored diagnostic fuel action guards and transfer methods execute
-    Then unauthorized cancelled or replayed attempts cannot credit fuel
-
-  @phase2 @offline
   Scenario: Prepare fuel observations without accepting an unobserved transfer
     Given synthetic installed interfaces fresh missions and correlated fuel receipts
     When the fixed fuel probe preparation and result validator execute
     Then missing conservation callbacks cleanup or timely completion reject the observation
 
   @phase2 @offline
-  Scenario: Compare native stamina transport with bounded numeric tolerance
-    Given synthetic native contexts and the observed finite quantization sample
-    When the stamina transport control generator and numeric comparisons execute
-    Then harmless rounding is accepted while mismatches and nonfinite fields fail
-
-  @phase2 @offline
-  Scenario: Schedule resource attraction only from bounded fresh native observations
-    Given synthetic resource zones actor observations and explicit navigation capabilities
-    When the authored ecology scheduling and receipt commit policies execute
-    Then stale null oversized overflowing or replayed proposals cannot mutate assignments
+  Scenario: Keep the stamina transport probe diagnostic and local-only
+    Given synthetic native script roots and stamina transport probe log text
+    When the stamina transport probe stager and log observer execute
+    Then generated sources stay hashed and unexecuted and unverified markers never grant runtime acceptance
 
   @phase2 @offline
   Scenario: Admit fuel receipts only inside an owned bounded native run
@@ -317,40 +163,16 @@ Feature: Research tooling preserves honest evidence
     Then initialization stale nonces late completion and missing cleanup cannot qualify the run
 
   @phase2 @offline
-  Scenario: Activate stamina only from an opted-in trusted session configuration
-    Given synthetic native configuration receipts server profiles and session callbacks
-    When the authored stamina configuration loader and activation gates execute
-    Then missing opt-in invalid profiles unauthenticated receipts and session resets cannot retain custom stamina
-
-  @phase2 @offline
   Scenario: Retain whole-source action and item-use evidence without evaluating dispatch
     Given synthetic complete source trees with action registration calls and item callbacks
     When the bounded action census retains declarations controls and unresolved ancestry
     Then no omitted input ambiguous receiver or disabled reference becomes effective gameplay approval
 
   @phase2 @offline
-  Scenario: Preserve taped-light identity while consuming tape on each mount
-    Given synthetic qualified bindings inventory custody snapshots and journal receipts
-    When the authored taped-light mount and hand-removal policies execute
-    Then replay failed writes and changed identities cannot retry a move or refund consumed tape
-
-  @phase2 @offline
   Scenario: Admit actor-free startup controls only from unchanged bounded evidence
     Given synthetic isolated native processes and nonce-bound startup receipts
     When the fixed startup runner checks staging publication deadlines and cleanup
     Then changed evidence uncertain reports and incomplete callbacks cannot pass admission
-
-  @offline
-  Scenario: Bind measured interior records without inventing layout qualification
-    Given synthetic measured records pinned source documents and live house collaborators
-    When the bounded interior import and contextual binding methods execute
-    Then ambiguous houses invalid transforms and mismatched provenance cannot enable placement
-
-  @offline
-  Scenario: Preserve audited cutting tools through salvage registration and completion
-    Given the complete audited cutting class set and synthetic native recipe collaborators
-    When salvage registration eligibility and completion guards execute
-    Then every supported tool retains its identity wear and material checks without native transaction claims
 
   @offline
   Scenario: Observe bounded owned-process counters without inferring engine liveness
@@ -363,3 +185,38 @@ Feature: Research tooling preserves honest evidence
     Given synthetic complete stock inventories reviewed poses and native acquisition receipts
     When bounded survey planning and receipt merging preserve each placement denominator
     Then unmeasured ambiguous replayed or failed batches cannot become fitted or eligible interiors
+
+# Retired scenarios (2026-11-22, spec 002 T029 follow-up). Each was bound to a Python suite that
+# translated Enforce source and was deleted with tests/legacy (2aef985c); translator harnesses are no
+# longer allowed, so these behaviours are evidenced by the native boot, [HC SelfTest] and [HC Use] lines,
+# not by this offline lane. Scenario names, kept for traceability:
+#   - Activate stamina only from an opted-in trusted session configuration
+#   - Admit measured room catalogs without enabling production search
+#   - Authorize a single diagnostic fuel transfer without replay
+#   - Authorize group changes and bound durable server state
+#   - Bind measured interior records without inventing layout qualification
+#   - Bound effective item metadata acquisition without claiming compatibility
+#   - Bound infected memory alerts and persistent population accounting
+#   - Bound supplementary infected propagation and restart recovery
+#   - Calculate bounded stamina and carried-load changes
+#   - Conserve salvage materials through native recipe definitions
+#   - Display bounded native stamina and carried-weight samples
+#   - Exercise opt-in group policy fixtures without world side effects
+#   - Keep group RPC changes authenticated ordered and durably committed
+#   - Keep infected profiles and pack retargets bound to observed evidence
+#   - Observe route progress and fairly schedule cohort clues
+#   - Persist cohort intent before native ownership transfer
+#   - Preserve audited cutting tools through salvage registration and completion
+#   - Preserve finite interior allocations and depleted search sites
+#   - Preserve group map edits and native menu dispatch
+#   - Preserve group state and clock watermark across bounded journal recovery
+#   - Preserve taped-light identity while consuming tape on each mount
+#   - Read consistent bounded UTC snapshots for group expiry
+#   - Recover group command ordering without replaying uncertain mutations
+#   - Reject fuel credits that can create quantity through rounding
+#   - Reject salvage admission after failed core startup
+#   - Scale continuous stamina changes through the native handler
+#   - Schedule resource attraction only from bounded fresh native observations
+#   - Track optional event progress only from admitted observations
+#   - Unwind interrupted module lifecycle without repeating callbacks
+#   - Veto observer transitions until complete trustworthy evidence exists

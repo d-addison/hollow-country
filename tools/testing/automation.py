@@ -562,22 +562,29 @@ def run_automation(manifest, output_dir, *, trusted_drivers=(), capabilities=Non
         "tests": rows, "status": overall,
     }
     report["coverage_report"] = _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins)
+    if "coverage_error" in report["coverage_report"]:
+        report["coverage_error"] = report["coverage_report"]["coverage_error"]
     (out / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
 
 
 def _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins, reviews=None):
-    """Post-run hook (AV-T027): coverage.json and coverage.md next to the sealed store, never in the repo."""
-    from tools.testing import coverage
-    built = coverage.build_report(
-        catalog, store.root, run_id=manifest["run_id"], covers=covers, capabilities=capabilities,
-        selected=selected, pins=pins, manifest_sha256=store.manifest_sha256(), reviews=reviews,
-        expected_tasks=[entry["task"] for entry in store.entries])
+    """Post-run hook (AV-T027): coverage.json and coverage.md next to the sealed store, never in the repo.
+
+    Never raises: the run's report.json must be written whatever happens here, so any failure is
+    returned as written=False with a coverage_error reason for the caller to record.
+    """
     try:
+        from tools.testing import coverage
+        built = coverage.build_report(
+            catalog, store.root, run_id=manifest["run_id"], covers=covers, capabilities=capabilities,
+            selected=selected, pins=pins, manifest_sha256=store.manifest_sha256(), reviews=reviews,
+            expected_tasks=[entry["task"] for entry in store.entries])
         written = coverage.write_outputs(out, built)
-    except ValueError as error:
-        return {"written": False, "reason": discovery.redact(error)}
-    return dict(written, written=True, status=built["status"], complete=built["complete"])
+        return dict(written, written=True, status=built["status"], complete=built["complete"])
+    except Exception as error:  # noqa: BLE001 - the hook must never block report.json
+        reason = discovery.redact(f"{type(error).__name__}: {error}")
+        return {"written": False, "reason": reason, "coverage_error": reason}
 
 
 def coverage_main(arguments):
@@ -594,12 +601,11 @@ def coverage_main(arguments):
         manifest = _load_json_file(args.manifest)
         catalog = load_catalog(ROOT / _manifest_catalog(manifest))
         covers = coverage.covers_from_manifest(manifest, {row["id"] for row in catalog["tests"]})
-        previous = _load_json_file(args.run_dir / "report.json") if (args.run_dir / "report.json").exists() else {}
-        capabilities = previous.get("capabilities", {}) if isinstance(previous, dict) else {}
         reviews = _load_json_file(args.reviews) if args.reviews else None
         store_manifest = coverage._load_store(args.run_dir / "evidence")
         if store_manifest is None or store_manifest.get("run_id") != manifest["run_id"]:
             raise ValueError("manifest run_id does not match the sealed store")
+        capabilities = coverage.sealed_capabilities(args.run_dir, manifest["run_id"])
         built = coverage.build_report(
             catalog, args.run_dir / "evidence", run_id=manifest["run_id"], covers=covers,
             capabilities=capabilities, selected=manifest.get("selected"),
@@ -620,6 +626,11 @@ def run_main(arguments):
                         help="allow a native driver; repeat as needed")
     parser.add_argument("--machine", action="store_true", help="include file-presence machine discovery")
     args = parser.parse_args(arguments)
+    if args.trust and hosted_ci():
+        # Same rule as `lane`: trusting a native driver in hosted CI is refused before anything is read or run.
+        print(json.dumps({"refused": True, "reason": "hosted_ci_refused", "hosted_ci": True,
+                          "rule": LANE_RULES[0], "trusted_drivers": sorted(set(args.trust))}, sort_keys=True))
+        return 1
     try:
         machine = discovery.discover_machine() if args.machine else None
         capabilities = discovery.planner_capabilities(discovery.inventory(ROOT, machine))

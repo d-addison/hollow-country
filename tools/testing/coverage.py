@@ -442,6 +442,40 @@ def write_outputs(out_dir, report):
             "sha256": hashlib.sha256(names["coverage.json"].encode("utf-8")).hexdigest()}
 
 
+def sealed_capabilities(run_dir, run_id):
+    """Capabilities recorded in a run's report.json, but only when that report is sealed to its store.
+
+    A report counts only when it names this run, says its store validated, and its recorded store
+    hash equals the hash of the manifest now on disk; anything else is refused with a reason, since
+    an edited or foreign report must never decide which capabilities were available. A run directory
+    with no report.json yields no capabilities (nothing is claimed available).
+    """
+    run_dir = Path(run_dir)
+    path = run_dir / "report.json"
+    if not path.exists() and not path.is_symlink():
+        return {}
+    try:
+        report = evidence._load_json(path)
+    except (OSError, ValueError, RuntimeError, RecursionError):
+        raise ValueError("report.json is not readable strict JSON; refusing to read capabilities from it") from None
+    store = report.get("store") if isinstance(report, dict) else None
+    if not isinstance(store, dict) or store.get("valid") is not True or not isinstance(store.get("sha256"), str):
+        raise ValueError("report.json is not sealed (its store did not validate); refusing to read capabilities")
+    if report.get("run_id") != run_id:
+        raise ValueError("report.json belongs to another run; refusing to read capabilities")
+    try:
+        on_disk = hashlib.sha256((run_dir / "evidence" / evidence.STORE_MANIFEST).read_bytes()).hexdigest()
+    except OSError:
+        raise ValueError("sealed store manifest is unreadable; refusing to read capabilities") from None
+    if on_disk != store["sha256"]:
+        raise ValueError("report.json does not match the sealed store manifest; refusing to read capabilities")
+    capabilities = report.get("capabilities")
+    if not isinstance(capabilities, dict) or not all(isinstance(key, str) and isinstance(value, str)
+                                                     for key, value in capabilities.items()):
+        raise ValueError("sealed report.json holds no capability map; refusing to read capabilities")
+    return dict(capabilities)
+
+
 def covers_from_manifest(manifest, identifiers):
     """task id -> covered ids from a run manifest; unknown ids are refused."""
     covers = {}

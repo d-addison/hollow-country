@@ -17,65 +17,18 @@ def synthetic_feature(names=None):
 
 
 class BDDBindingsTests(unittest.TestCase):
-    def test_completion_scenarios_cannot_be_omitted(self):
-        expected = {
-            'Retain every stock placement through reviewed measurement batches': 'test_interior_survey.py',
-            'Default feature preferences on while preserving explicit disables': 'test_runtime_settings.py',
-            'Admit death selections only from bounded real callback observations': 'test_death_selection_probe.py',
-            'Preserve group state and clock watermark across bounded journal recovery': 'test_group_persistence.py',
-            'Keep group RPC changes authenticated ordered and durably committed': 'test_group_rpc.py',
-            'Respect human AI recovery policy without declaring runtime qualification': 'test_optional_provider.py',
-            'Retain complete utility cohorts without inferring repair compatibility': 'test_item_utility.py',
-            'Prepare house measurements without inferring room fit or loot eligibility': 'test_interior_measurement_probe.py',
-            'Observe bounded owned-process counters without inferring engine liveness': 'test_process_observation.py',
-            'Admit actor-free startup controls only from unchanged bounded evidence': 'test_native_startup_runner.py',
-            'Bind measured interior records without inventing layout qualification': 'test_interior_measured_catalog.py',
-            'Preserve audited cutting tools through salvage registration and completion': 'test_salvage_tools.py',
-            'Preserve taped-light identity while consuming tape on each mount': 'test_taped_light_service.py',
-            'Retain whole-source action and item-use evidence without evaluating dispatch': 'test_action_audit.py',
-            'Activate stamina only from an opted-in trusted session configuration': 'test_stamina_configuration.py',
-            'Schedule resource attraction only from bounded fresh native observations': 'test_ecology_rules.py',
-            'Admit fuel receipts only inside an owned bounded native run': 'test_fuel_probe_runner.py',
-            'Require all death cases before the native probe deadline': 'test_wine_compile_probe.py',
-            'Retain whole-content item and recipe evidence within bounded review work': 'test_item_review.py',
-            'Authorize a single diagnostic fuel transfer without replay': 'test_siphon_fuel_action.py',
-            'Prepare fuel observations without accepting an unobserved transfer': 'test_fuel_siphon_probe.py',
-            'Compare native stamina transport with bounded numeric tolerance': 'test_stamina_transport_probe.py',
-            'Display bounded native stamina and carried-weight samples': 'test_stamina_hud.py',
-            'Track optional event progress only from admitted observations': 'test_event_director.py',
-            'Admit complete item export manifests without upgrading metadata to compatibility': 'test_item_compatibility_manifest.py',
-            'Prepare bounded infected death observations without claiming rendered physics': 'test_infected_death_probe.py',
-            'Build weather candidates without silently changing native defaults': 'test_atmosphere.py',
-            'Retain every audited class in the flashlight candidate denominator': 'test_flashlight_matrix.py',
-            'Read consistent bounded UTC snapshots for group expiry': 'test_group_clock.py',
-            'Exercise opt-in group policy fixtures without world side effects': 'test_group_native_checks.py',
-            'Recover group command ordering without replaying uncertain mutations': 'test_group_client.py',
-            'Preserve group map edits and native menu dispatch': 'test_group_ui.py',
-            'Scale continuous stamina changes through the native handler': 'test_stamina_integration.py',
-            'Bound effective item metadata acquisition without claiming compatibility': 'test_item_compatibility_audit.py',
-            'Authorize group changes and bound durable server state': 'test_group_server.py',
-            'Retain ambiguous recipes in a whole-source census': 'test_crafting_audit.py',
-            'Reject fuel credits that can create quantity through rounding': 'test_fuel_transfer.py',
-            'Calculate bounded stamina and carried-load changes': 'test_stamina_policy.py',
-            'Plan portable criteria without manufacturing acceptance': 'test_automation.py',
-            'Preserve the original and extended ledger without local specs': 'test_portable_catalog.py',
-            'Admit measured room catalogs without enabling production search': 'test_room_catalog_completion.py',
-            'Veto observer transitions until complete trustworthy evidence exists': 'test_observer_transition.py',
-            'Reject unsafe private repository content without echoing secrets': 'test_hygiene.py',
-            'Prepare interior candidates only from explicit measured evidence': 'test_interior_catalog.py',
-            'Persist cohort intent before native ownership transfer': 'test_infected_persistence.py',
-            'Observe route progress and fairly schedule cohort clues': 'test_infected_routes.py',
-            'Keep infected profiles and pack retargets bound to observed evidence': 'test_infected_wave.py',
-            'Unwind interrupted module lifecycle without repeating callbacks': 'test_core_lifecycle.py',
-            'Reject salvage admission after failed core startup': 'test_crafting_completion.py',
-            'Prepare pinned CE geometry candidates without inventing eligibility': 'test_coverage_patch.py',
-            'Recover private installation transactions without overwriting drift': 'test_deploy.py',
-            'Bound supplementary infected propagation and restart recovery': 'test_infected_completion.py',
-        }
-        for name, pattern in expected.items():
+    def test_every_binding_names_a_test_file_in_a_bound_tier(self):
+        for name, (_, pattern) in bdd.BINDINGS.items():
             with self.subTest(name=name):
-                self.assertTrue(name in bdd.BINDINGS, name)
-                self.assertEqual(pattern, bdd.BINDINGS[name][1])
+                self.assertTrue(any((bdd.ROOT / "tests" / tier / pattern).is_file() for tier in bdd.BINDING_TIERS),
+                                pattern)
+
+    def test_the_offline_feature_and_bindings_agree_exactly(self):
+        text = (bdd.ROOT / "tests/features/offline.feature").read_text()
+        scenarios = bdd.parse_scenarios(text)
+        self.assertEqual(sorted(bdd.BINDINGS), sorted(name for name, _ in scenarios))
+        for name, steps in scenarios:
+            self.assertEqual(bdd.BINDINGS[name][0], steps)
 
     def admit(self, text):
         with patch.object(bdd.sys, "argv", ["bdd", "synthetic.feature"]), \

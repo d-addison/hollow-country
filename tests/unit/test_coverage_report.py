@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.testing import artifacts, automation, coverage, discovery, drivers
 from tools.validate import evidence
@@ -319,6 +320,81 @@ class RunnerIntegrationTests(CoverageCase):
         other.write_text(json.dumps(dict(self.manifest, run_id="different")))
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             automation.main(["coverage", str(run_dir), str(other), "--out", str(self.dir / "x")])
+
+    def test_capabilities_are_read_only_from_a_sealed_report(self):
+        run_dir = self.dir / "run"
+        automation.run_automation(self.manifest, run_dir, capabilities=ALL_AVAILABLE)
+        self.assertEqual(coverage.sealed_capabilities(run_dir, "synthetic"), ALL_AVAILABLE)
+        self.assertEqual(coverage.sealed_capabilities(self.dir / "no-report", "synthetic"), {})
+
+    def edit_report(self, run_dir, change):
+        path = run_dir / "report.json"
+        data = json.loads(path.read_text())
+        change(data)
+        path.write_text(json.dumps(data))
+
+    def test_an_unsealed_report_is_refused_with_a_reason(self):
+        def unseal(data):
+            data["store"]["valid"] = False
+
+        def rehash(data):
+            data["store"]["sha256"] = "0" * 64
+
+        def foreign(data):
+            data["run_id"] = "different"
+
+        def lie(data):
+            data["capabilities"] = {name: "available" for name in data["capabilities"]}
+            data["store"] = "sealed"
+
+        def tamper_store(data):
+            manifest = run_dir / "evidence" / evidence.STORE_MANIFEST
+            manifest.write_text(manifest.read_text() + " ")
+
+        for name, change in (("invalid store", unseal), ("wrong hash", rehash), ("other run", foreign),
+                             ("store not an object", lie), ("tampered manifest", tamper_store)):
+            with self.subTest(name):
+                run_dir = self.dir / ("run-" + name.replace(" ", "-"))
+                automation.run_automation(self.manifest, run_dir, capabilities=ALL_AVAILABLE)
+                self.edit_report(run_dir, change)
+                with self.assertRaises(ValueError) as caught:
+                    coverage.sealed_capabilities(run_dir, "synthetic")
+                self.assertIn("refusing to read capabilities", str(caught.exception))
+                manifest_path = self.dir / "manifest.json"
+                manifest_path.write_text(json.dumps(self.manifest))
+                stderr = io.StringIO()
+                with self.assertRaises(SystemExit), contextlib.redirect_stderr(stderr):
+                    automation.main(["coverage", str(run_dir), str(manifest_path), "--out", str(self.dir / "x" / name)])
+                self.assertIn("refusing to read capabilities", stderr.getvalue())
+                self.assertFalse((self.dir / "x" / name).exists())
+
+    def test_a_report_that_is_not_json_is_refused(self):
+        run_dir = self.dir / "run"
+        automation.run_automation(self.manifest, run_dir, capabilities=ALL_AVAILABLE)
+        (run_dir / "report.json").write_text("{not json")
+        with self.assertRaises(ValueError):
+            coverage.sealed_capabilities(run_dir, "synthetic")
+
+    def test_a_failing_coverage_hook_never_blocks_report_json(self):
+        for target, error in (("build_report", RuntimeError("synthetic failure")),
+                              ("write_outputs", OSError("synthetic disk failure")),
+                              ("write_outputs", KeyError("synthetic"))):
+            with self.subTest(target=target, error=type(error).__name__):
+                run_dir = self.dir / f"run-{target}-{type(error).__name__}"
+                with mock.patch.object(coverage, target, side_effect=error):
+                    report = automation.run_automation(self.manifest, run_dir, capabilities=ALL_AVAILABLE)
+                self.assertFalse(report["coverage_report"]["written"])
+                self.assertIn(type(error).__name__, report["coverage_error"])
+                written = json.loads((run_dir / "report.json").read_text())
+                self.assertEqual(written["coverage_error"], report["coverage_error"])
+                self.assertEqual(written["run_id"], "synthetic")
+                self.assertFalse((run_dir / "coverage.json").exists())
+
+    def test_a_successful_hook_records_no_coverage_error(self):
+        run_dir = self.dir / "run"
+        report = automation.run_automation(self.manifest, run_dir, capabilities=ALL_AVAILABLE)
+        self.assertNotIn("coverage_error", report)
+        self.assertNotIn("coverage_error", json.loads((run_dir / "report.json").read_text()))
 
     def test_coverage_files_do_not_break_the_sealed_store(self):
         run_dir = self.dir / "run"

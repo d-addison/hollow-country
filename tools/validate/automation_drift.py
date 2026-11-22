@@ -7,7 +7,7 @@ tags, the BDD bindings and the driver registry to agree: an unknown or missing I
 needing an unlisted capability or a binding naming an unknown task is an error. The 001-only
 validators (tools.validate.bdd) never claim this graph; they print "002 graph not checked" and
 point here. Bindings whose bound unit-test file is gone are listed under "unexecutable_bindings"
-(information, not an error: the offline BDD lane cannot run them). When the local-only spec
+and are an error: the offline BDD lane cannot run them, so rebind or retire the scenario. When the local-only spec
 documents exist they are cross-checked too
 (original IDs in plan.md, runtime scenario names, acyclic task graph, deferred tasks); when
 absent that part is reported as skipped and never blocks. Reads files only.
@@ -33,7 +33,7 @@ GRAPH = "002"
 # feature-level markers of the two feature files.
 REFERENCE_TAG = re.compile(r"@(?:AC-\d{3}|ISSUE-\d+|phase\d+)\Z")
 MARKER_TAGS = frozenset(bdd.RUNTIME_FEATURE_TAGS) | {"@offline", "@synthetic"}
-BINDING_TIERS = ("unit", "slow", "legacy")
+BINDING_TIERS = bdd.BINDING_TIERS
 
 
 def _graph(tasks_text):
@@ -272,8 +272,10 @@ def validate(root=ROOT, registry=None):
             for task in scenario["tasks"]:
                 if task not in graph:
                     fail(f"runtime scenario task {task} missing from tasks.md")
+    unexecutable = unexecutable_bindings(root)
+    errors += [f"binding names no unit-test file in any tier: {name}" for name in unexecutable]
     return {"report_version": 1, "graph": GRAPH, "valid": not errors, "errors": errors, "skipped": skipped,
-            "unexecutable_bindings": unexecutable_bindings(root)}
+            "unexecutable_bindings": unexecutable}
 
 
 def main(argv=None):
