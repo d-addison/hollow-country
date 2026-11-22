@@ -220,6 +220,20 @@ A deliberate difference is recorded in the registry with a reason.
 
 ## 9. Limits
 
+- **HC-E030 — boolean/string formula budget:** flags `if`, `while` and
+  `return` expressions with at least 14 boolean terms (`&&`/`||` count + 1,
+  including nested groups) and an inline literal string `+` concat. Hoist the
+  concatenated string into a local before the condition. Build 167's failing
+  `a6433570` `gapcode_routes_catalog.c:317` actually has 14 terms (13 `||`),
+  despite the original report describing 15. Scanning every authored script
+  in passing `40b7fa49` gives zero HC-E030 findings: the largest concat
+  expressions have 8 terms (`HCInteriorTemplates.c:661`, `HCEventSites.c:24`);
+  expressions without concat reach 16 (`HCXZoneGuards.c:140`). The failing
+  revision produces one finding at the reported line. This separates the
+  observed corpora; it does not establish the engine's exact complexity limit.
+  Comments/string contents are masked; expressions may span lines. Like
+  HC-E020, this literal-based heuristic does not infer string types for
+  concatenations made solely from variables or call results.
 - The lint is a structural model, not the Enforce compiler. A rule that misses
   a shape is fixed by adding a fixture first.
 - Call resolution for S003 reachability is name-based (depth 6, names declared

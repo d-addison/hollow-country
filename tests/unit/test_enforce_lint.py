@@ -7,6 +7,62 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class BooleanStringFormulaRule(unittest.TestCase):
+    def findings(self, body, rules=None):
+        return lint.lint_texts({W + 'Formula.c':
+                               f'class HCProbe {{ bool Run() {{ {body} }} }}'},
+                               rules=rules or (lint.rule_boolean_string_formula,))
+
+    def expression(self, count, concat='path != "prefix" + suffix'):
+        return ' || '.join([concat] + [f'flag{i}' for i in range(count - 1)])
+
+    def test_threshold_for_if_while_and_return(self):
+        threshold = lint.MIN_STRING_BOOLEAN_TERMS
+        for count in (threshold - 1, threshold, threshold + 1):
+            for wrapper in ('if ({}) {{}}', 'while ({}) {{}}', 'return {};'):
+                with self.subTest(count=count, wrapper=wrapper):
+                    findings = self.findings(wrapper.format(self.expression(count)))
+                    self.assertEqual(['HC-E030'] if count >= threshold else [],
+                                     [f.rule for f in findings])
+                    if findings:
+                        self.assertIn(f'{count} boolean terms', findings[0].message)
+
+    def test_nested_mixed_operators_multiline_and_concat_direction(self):
+        for concat in ('path != suffix + ".json"', 'path != ("prefix") + suffix',
+                       'path != suffix + (".json")'):
+            expression = self.expression(lint.MIN_STRING_BOOLEAN_TERMS, concat)
+            expression = '(' + expression.replace(' || ', ') &&\n(') + ')'
+            findings = self.findings('if (\n' + expression + '\n) {}')
+            self.assertEqual(['HC-E030'], [f.rule for f in findings])
+            self.assertEqual([1], [f.line for f in findings])
+
+    def test_long_conditions_without_inline_concat_pass(self):
+        for term in ('path != expectedPath', 'value + 1 > limit',
+                     'Contains("literal + || &&", value + 1)', 'value++ > limit'):
+            self.assertEqual([], self.findings(
+                'if (' + self.expression(lint.MIN_STRING_BOOLEAN_TERMS + 1, term) + ') {}'))
+
+    def test_comments_literals_and_separate_expressions_do_not_combine(self):
+        long = self.expression(lint.MIN_STRING_BOOLEAN_TERMS)
+        short = self.expression(lint.MIN_STRING_BOOLEAN_TERMS - 1)
+        self.assertEqual([], self.findings(
+            '// if (' + long + ') {}\n/* return ' + long + '; */\n'
+            'string example = "if (a || b + c) return";\n'
+            'if (' + short + ') {} while (' + short + ') {} return ' + short + ';'))
+        self.assertEqual([], self.findings('if (' + self.expression(
+            lint.MIN_STRING_BOOLEAN_TERMS, 'flag /* "literal" + value */') + ') {}'))
+
+    def test_build_167_shape_and_default_rule_registration(self):
+        expression = '''!page || !pinned || page.Path != "prefix" + suffix + ".json"
+            || page.Bytes < 1 || page.Bytes > 32768 || page.Rows < 1 || page.Rows > 64
+            || page.Sha256.Length() != 64 || page.IdentitySha256.Length() != 64
+            || pinned.IdentitySha256 != page.IdentitySha256 || pinned.Path != page.Path
+            || pinned.Bytes != page.Bytes || pinned.Rows != page.Rows
+            || pinned.Sha256 != page.Sha256'''
+        findings = self.findings('if (' + expression + ') {}', rules=lint.ALL_RULES)
+        self.assertIn('HC-E030', [f.rule for f in findings])
+
+
 class DuplicateLocalRule(unittest.TestCase):
     def findings(self, body, parameters=''):
         return lint.lint_texts({W + 'Locals.c':

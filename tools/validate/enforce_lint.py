@@ -70,6 +70,7 @@ RULES = {
     'HC-E024': 'typename cannot return null; declare an empty typename and return it',
     'HC-E028': 'initializer must be a literal; a non-literal static const read as 0 natively (build 169)',
     'HC-E029': 'duplicate local declaration or local shadows a parameter (Enforce function scope is flat)',
+    'HC-E030': 'boolean expression combines too many terms with inline string concatenation (native compile: Formula too complex); hold the string in a local first',
     'HC-E027': 'COT/CF/ExpansionStatic call outside its owned dependency bridge',
     'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
     'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
@@ -400,6 +401,45 @@ def rule_string_formula(project, source):
         if operands > MAX_STRING_PLUS:
             yield _finding('HC-E020', source, match.start(2), '<file>',
                            f'{operands} + operands (limit {MAX_STRING_PLUS}): {RULES["HC-E020"]}')
+
+
+# Build 167 (a6433570): a 14-term condition with literal string concatenation
+# failed natively. Calibrated against the passing 40b7fa49 tree; this is a
+# structural warning threshold, not a model of the compiler's expression budget.
+MIN_STRING_BOOLEAN_TERMS = 14
+_INLINE_STRING_PLUS = re.compile(r'"[^"]*"\s*\)*\s*\+(?![+=])|(?<!\+)\+(?![+=])\s*\(*\s*"')
+
+
+def _boolean_expressions(source):
+    """Yield (keyword offset, expression) for if/while guards and returns.
+
+    The shared lexer has already blanked comments and literal contents, keeping
+    quotes and offsets. Parentheses may nest and expressions may span lines.
+    """
+    for match in re.finditer(r'\b(if|while|return)\b', source.code):
+        start = match.end()
+        if match[1] == 'return':
+            end = source.code.find(';', start)
+            if end < 0:
+                continue
+        else:
+            while start < len(source.code) and source.code[start].isspace():
+                start += 1
+            if start == len(source.code) or source.code[start] != '(':
+                continue
+            end = es.matching_paren(source.code, start)
+            start += 1
+        yield match.start(), source.code[start:end]
+
+
+def rule_boolean_string_formula(project, source):
+    for offset, expression in _boolean_expressions(source):
+        # Count both && and ||, including nested groups: parentheses do not
+        # split the native formula into separate statements.
+        terms = len(re.findall(r'&&|\|\|', expression)) + 1
+        if terms >= MIN_STRING_BOOLEAN_TERMS and _INLINE_STRING_PLUS.search(expression):
+            yield _finding('HC-E030', source, offset, '<file>',
+                           f'{terms} boolean terms (threshold {MIN_STRING_BOOLEAN_TERMS}): {RULES["HC-E030"]}')
 
 
 # Native compile gate, build 132 (#313): a return expression continued on the next line with a
@@ -2173,7 +2213,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
