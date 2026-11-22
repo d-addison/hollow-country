@@ -175,9 +175,16 @@ try {
 } finally {
     $server.Refresh()
     if (-not $server.HasExited) {
-        Stop-Process -Id $server.Id -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        $server.Refresh()
+        # Graceful stop only: a hard kill loses the buffered RPT tail (the done sentinel and
+        # late CE lines) and can tear storage mid-save. If the window does not close in time,
+        # leave the server running and record it; the operator stops it gracefully.
+        [void]$server.CloseMainWindow()
+        $stopDeadline = [DateTime]::UtcNow.AddSeconds(90)
+        while (-not $server.HasExited -and [DateTime]::UtcNow -lt $stopDeadline) {
+            Start-Sleep -Seconds 2
+            $server.Refresh()
+        }
+        if (-not $server.HasExited) { $outcome = $outcome + '-stop-pending' }
     }
     if ($server.HasExited) { $exitCode = $server.ExitCode }
 }

@@ -133,7 +133,7 @@ $report = [ordered]@{
     battleye_source_sha256 = $battleyeExpected.sha256
     battleye_staged_sha256 = (Get-ReadOnlySha256 (Join-Path $battleye 'BEServer_x64.dll'))
     requested_gameplay_loopback = $true; signature_verified = $false; client_count = 0
-    forced_stop = $false; runtime_acceptance = 'pending'; logs = @(); socket_samples = @()
+    forced_stop = $false; stop_pending = $false; runtime_acceptance = 'pending'; logs = @(); socket_samples = @()
 }
 try {
     $server = Start-Process -FilePath $exe -WorkingDirectory $ServerRoot -ArgumentList $quoted -PassThru
@@ -158,9 +158,11 @@ try {
     if ($null -ne $server) {
         $server.Refresh()
         if (-not $server.HasExited -and -not $LeaveRunning) {
-            # Prefer WM_CLOSE, bound waiting, then kill only the process we own.
+            # WM_CLOSE with a bounded wait.
             $null = $server.CloseMainWindow()
-            if (-not $server.WaitForExit(5000)) { $server.Kill(); $null = $server.WaitForExit(5000); $report.forced_stop = $true }
+            # Graceful only: never hard-kill a DayZ server (lost RPT tail, torn storage). If it
+            # does not close in time it stays running and the report says so.
+            if (-not $server.WaitForExit(90000)) { $report.stop_pending = $true }
         }
         $server.Refresh()
         $report.exited = $server.HasExited
