@@ -57,6 +57,9 @@ jobs:
           tests.unit.test_artifact_store
           tests.unit.test_coverage_report
           tests.unit.test_s002_integrity
+          tests.unit.test_runtime_settings
+          tests.unit.test_atmosphere
+          tests.unit.test_stamina_transport_probe
 # Native package PowerShell tests need an installed DayZ/Workshop stack, which
 # GitHub-hosted runners do not have. Native package/compile/boot/release checks
 # remain local lead gates. Legacy source pins and the broad nightly/BDD suite
