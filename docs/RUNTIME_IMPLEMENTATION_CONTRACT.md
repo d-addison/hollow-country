@@ -125,6 +125,29 @@ Native compilation, readiness/late-update ordering, time values, overflow shutdo
 summary and actual marker paths still require an engine run; offline lint does not
 establish those behaviours.
 
+### Events public mission beacon (implemented-unverified)
+
+The Events module owns the public mission table. The server reads committed
+mission records (announced or active, current session, not yet expiring), keeps at
+most `Events.MissionMapMaxRows` rows (hard cap 16) and pushes one full versioned
+snapshot over the server-to-client RPC id 4853803 whenever the set changes, and
+once per connecting or respawning player. The wire carries version, sequence, row
+count, then per row id, kind, title, place, zone centre, radius and remaining
+seconds. There is no client request, so the existing refusal-only event RPC is
+unchanged. The client validates every field, refuses an unknown version, a short
+read, an out-of-bounds count or a bad row with one logged reason, and counts the
+remaining time locally so a lost end push cannot leave a stale zone. Both map
+renderers (the group map and the Expansion map addon layer) read the same client
+store; neither writes to server state or Expansion marker storage, and neither
+queries the engine per frame beyond projecting the cached rows. Server work runs
+through the shared situations work-budget unit, one poll every two seconds.
+Notifications use the vanilla notification system, at most two per mission per
+player and twelve per minute server-wide; a late joiner receives one summary
+toast. Counters: `[HC Use] module=Events feature=mission_marker` and
+`feature=mission_notice`. Native compile, client display and the one-client check
+(toast, Expansion marker and circle, group map zone, removal at end, 0 missing
+textures, 0 client script errors) remain pending.
+
 ### Shared startup catch-up (implemented, retail verification pending)
 
 `HCStartupPump` registers bounded startup owners through `HCStartupOwner` and uses

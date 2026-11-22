@@ -109,6 +109,7 @@ Both story schedulers now use free window capacity; all 74 shelter scenes remain
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **Situation director** | Durable incidents let players observe, exploit or ignore nearby trouble. Leased parties walk to hostile funded camps; capped infected use eligible hidden points. Original routes and actual actor outcomes are retained. Pinned survivors hold at their shelter while threats are live; road caravan attacks use nearby road threat points. Wreck-pinned survivors and leased-party smoke retries are included. Raid and column parties can borrow a qualified existing car, drive a bounded road route, dismount and continue on foot; player drivers take priority. | `EnableEncounters=true`; `events.disable`, `events_sites.disable`, `w38_situations.disable`, `w38_raids.disable`, `w38_transit.disable`, `convoys.disable`; `W38Situations.*` controls below. | *In-game test pending* |
+| **Public mission map** | Every public mission shows to all connected players as one toast ("Mission: <title>", rough grid, time left) and a labelled marker with a translucent zone circle on the Expansion map and the Hollow Country group map. The zone is a rough area, not the exact site: its centre is shifted by a fixed per-mission offset, and the circle always contains the site. A second toast reports the end and the marker disappears. Late joiners get the current list once on connect or respawn and a single summary toast. The server pushes a full bounded snapshot on change; clients only display it and refuse an unknown version with a logged reason. | `Events.MissionMapMarkers=true`, `Events.MissionNotifications=true`, zone radius, offset and table size in `mission-beacon.json` (below); group map toggle: Missions layer button. | *In-game test pending* |
 | **Scenes and police incidents** | Last stands, quarantine, evacuation and police scenes leave contextual props and clues. Stages expire without requiring a quest; summaries count observed completions, and situation heartbeats explain missing source/store prerequisites. | `EnableEncounters=true`; `events_sites.disable`. | *In-game test pending* |
 | **Roadside encounters** | 16 encounter types (convoy ambushes, crashed helicopters, field hospitals, police evidence, smuggler exchanges and others) keep a target of 48 active across 202 distinct CE groups at spread-out anchors, each with weapons, medical or supply crates. | Central economy event files `hc-events.xml` and `hc-eventspawns.xml`; installed last and rolled back first. | *In-game test pending* |
 | **Radio reports and Morse** | A powered PersonalRadio receives faction reports and Morse clues on the correct channel; received leads can be shared with the group. Bounded summaries report radio use and success. | `EnableLeads=true`. | *In-game test pending* |
@@ -669,6 +670,22 @@ Client-local profile, with a packaged mission template. `Enabled=false`, `season
 | `SeasonLeaves.MinTreeHeight` | `3` | 1–10 |
 | `SeasonLeaves.MaxTreeHeight` | `40` | 10–60 |
 | `SeasonLeaves.CanopyFraction` | `0.75` | 0.25–1 |
+
+#### Events: `mission-beacon.json`
+
+Optional file under the profile's `HollowCountry/` directory; a missing file or missing key keeps the default and an out-of-range value falls back to the default with a log line. Restart after editing. Zone radius is per mission type when a `MissionRadius<Type>` key is above 0, otherwise the server default applies.
+
+| Registry key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `Events.MissionMapMarkers` | `true` | on/off |
+| `Events.MissionNotifications` | `true` | on/off |
+| `Events.MissionZoneRadiusMeters` | `250` | 50-1500 |
+| `Events.MissionZoneOffsetFraction` | `0.35` | 0-0.6 |
+| `Events.MissionNotificationSeconds` | `10` | 3-30 |
+| `Events.MissionMapMaxRows` | `8` | 1-16 |
+| `Events.MissionRadiusRecovery`, `Delivery`, `Investigation`, `Salvage`, `Encounter`, `Presence`, `InfectedClear` | `0` (server default) | 0 or 50-1500 |
+
+Check on one client: the toast appears, the Expansion map shows the marker and circle, the group map shows the same zone, both disappear when the mission ends, with 0 missing textures and 0 client script errors. Server evidence: `[HC Events] mission public id=... radius=... offset=... players=...`, `[HC Events] mission ended id=... reason=...` and the `[HC Use] module=Events feature=mission_marker` and `feature=mission_notice` counters.
 
 ### Mission policy additions
 
@@ -1693,6 +1710,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | 50 | `HC_WORK_PICKERS` | Scavenger party trip admission. |
 | 51 | `HC_WORK_PICK_CARRY` | Scavenger carried-goods unload receipts. |
 | 52 | `HC_WORK_PICK_HOUSES` | Scavenger run house scan. |
+| 53 | `HC_WORK_MISSION_BEACON` | Public mission map table poll (one unit every two seconds). |
 
 Package hash caching serializes read/merge/replace with persistent OS-held locks; process exit releases ownership. Stop older lock-file builds before switching protocols. Windows contention remains unverified.
 

@@ -62,6 +62,7 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Performance.TickWeight_PICKERS", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_PICK_CARRY", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_PICK_HOUSES", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_MISSION_BEACON", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.EnableSharedSaves", "bool", 1, 0, 1, "HCPerfConfig");
         HCAdd("Performance.SliceMs", "int", 4, 1, 10, "HCPerfConfig");
         HCAdd("Performance.StartupFrameMs", "int", 4, 1, 4, "HCPerfConfig");
