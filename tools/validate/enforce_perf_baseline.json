@@ -2491,6 +2491,46 @@
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
       "reason": "W2-08 round 6: synchronous boot/retry recovery only; eight-slot archive, 64 slot comparisons and 128 raw/string comparisons across retries; 1 MiB per side. Unverified sources stay untouched; a valid backup owns checkpoints. Native boot latency/crash/upgrade evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 673,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#10",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 751,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#6",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 791,
+      "symbol": "HCWorldMaterializer.HCCleanupCustodyWitness",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCCleanupCustodyWitness; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 791,
+      "symbol": "HCWorldMaterializer.HCCleanupCustodyWitness",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCCleanupCustodyWitness; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
     }
   ]
 }

@@ -76,8 +76,10 @@ class HCWorldStore
     protected static int s_CompareCalls;
     static const int HC_COMPARE_LIMIT = 128;
 
-    // Process-wide boot/retry allowance: at most 128 MiB of raw input per
-    // side (plus the small self-test). Exhaustion uses checked string equality.
+    static void HCResetCompareBudget() { s_CompareCalls = 0; }
+
+    // Per-start allowance shared by boot/retries: 128 comparisons, each reading
+    // at most 1 MiB plus one 4 KiB EOF probe per side. Exhaustion retains sources.
     static bool RawEqual(string left, string right)
     {
         if (!s_RawTested) { HCTestRawRead(); }
@@ -177,7 +179,14 @@ class HCWorldStore
         FileHandle check = OpenFile(a, FileMode.READ);
         int length = -1;
         if (check) { length = ReadFile(check, fixture, 6000); CloseFile(check); }
-        if (fa && fb && fe && length == 5000 && HCRawCounts(a) && HCRawCounts(b) && HCRawEqual(a, a) && !HCRawEqual(a, b) && !HCRawEqual(empty, empty)) { s_RawEnabled = true; }
+        bool qualified = fa && fb && fe;
+        if (length != 5000) { qualified = false; }
+        if (qualified) { qualified = HCRawCounts(a); }
+        if (qualified) { qualified = HCRawCounts(b); }
+        if (qualified) { qualified = HCRawEqual(a, a); }
+        if (qualified) { qualified = !HCRawEqual(a, b); }
+        if (qualified) { qualified = !HCRawEqual(empty, empty); }
+        s_RawEnabled = qualified;
         DeleteFile(a);
         DeleteFile(b);
         DeleteFile(empty);

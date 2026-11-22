@@ -263,8 +263,8 @@ class HCSaveScheduler : HCModule
     }
 
     // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
-    // that never reports completion is abandoned at the configured limit (the default expands to cover two maximum-size images).
-    static bool HCFlush(HCSaveJob job)
+    // that never reports completion is abandoned at the configured limit. Only custody opts into a larger default.
+    static bool HCFlush(HCSaveJob job, bool custodyBarrier = false)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
         // Parameters are weak: a failing step may quarantine its owner, which unregisters and drops
@@ -274,11 +274,11 @@ class HCSaveScheduler : HCModule
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
-        // The default must cover two maximum-size images (an older snapshot
+        // Custody alone needs room for two maximum-size images (an older snapshot
         // plus a refresh). Explicit lower operator limits remain authoritative.
         // 8 MiB / 4096 = 2048 chunks; two guards derived from the raw cap, plus 64 owner stages.
         int flushLimit = config.SaveFlushStageLimit;
-        if (flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
+        if (custodyBarrier && flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
         while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
             result = job.HCStep();

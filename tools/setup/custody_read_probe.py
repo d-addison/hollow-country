@@ -103,8 +103,8 @@ def stage(destination):
 def ingest(receipt):
     """Accept bounded numeric observations without asserting expected engine results."""
     with safe(receipt).open("rb") as stream:
-        blob = stream.read(4097)
-    if len(blob) > 4096:
+        blob = stream.read(16385)
+    if len(blob) > 16384:
         raise ValueError("receipt exceeds cap")
     data = json.loads(blob)
     if not isinstance(data, dict) or data.get("kind") != "custody-native-read-observations":
