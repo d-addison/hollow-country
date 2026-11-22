@@ -23,6 +23,16 @@ consistency also validates this policy. Boot settle and benchmark fields record
 the current checkstart default and provisional owner load; they do not change
 checkstart or establish measured benchmark acceptance.
 
+Failed release build children expose only authored refusal lines beginning with
+`refused:`, `Refused`, `FAIL` or `error:` from stdout and stderr. The shared
+Workbench privacy filter masks home folders and 17-digit identifiers and drops
+identity-bearing messages before output is limited to 20 lines of 300 characters.
+The command still fails with its short executable-name diagnostic. Preland also
+checks HC-E026: two fresh collection factory results in one call are errors;
+other fresh argument results are reviewed warnings, with unresolved ownership
+reported separately as HC-O026. Native collection Insert/InsertAt adoption is
+exempt only where the declared element type is `ref`.
+
 Order:
 
 1. Compile that commit using `compile_gate`; require PASS with

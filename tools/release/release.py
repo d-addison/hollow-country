@@ -19,7 +19,7 @@ import tempfile
 
 from tools.package.sign_wine import CACHE, sign
 from tools.package.weapon_pack_guards import WORKSHOP
-from tools.release import compile_gate, ship_inputs
+from tools.release import compile_gate, ship_inputs, wb_compile
 
 ROOT = Path(__file__).resolve().parents[2]
 # Default PBO template pack: the committed mission pack at the pinned commit, so the
@@ -34,7 +34,14 @@ def run(command, cwd=ROOT):
                             text=True, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'),
                             timeout=1800)
     if result.returncode:
-        # Child diagnostics can contain private identifiers or local absolute paths.
+        # Filter before truncating so a cut cannot expose part of an identifier.
+        emitted = 0
+        for line in (result.stdout + '\n' + result.stderr).splitlines():
+            if re.match(r'^\s*(?:refused:|Refused\b|FAIL\b|error:)', line):
+                print(wb_compile.private(line)[:300], flush=True)
+                emitted += 1
+                if emitted == 20:
+                    break
         raise ValueError('Build command failed: ' + Path(str(command[0])).name)
     return result.stdout
 
