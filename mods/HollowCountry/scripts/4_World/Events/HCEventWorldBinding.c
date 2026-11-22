@@ -46,7 +46,8 @@ class HCEventWorldBinding
     static bool BindNativeIncident(HCNativeIncidentLease incidents, HCEventNativeObserver observer, bool enabled)
     {
         if (!incidents || !observer) { return false; }
-        return incidents.HCOpen(observer.HCIncidentSource(), enabled);
+        HCNativeIncidentSource incidentSource = observer.HCIncidentSource();
+        return incidents.HCOpen(incidentSource, enabled);
     }
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
     {
@@ -440,7 +441,8 @@ class HCEventWorldBinding
         HCEventTarget destination;
         if (mission.Family == HCEventFamily.DELIVERY)
         {
-            destination = Select(Query(mission.Destination, 15), mission.ContainerClass, true);
+            array<Object> destinationObjects = Query(mission.Destination, 15);
+            destination = Select(destinationObjects, mission.ContainerClass, true);
             if (!destination || destination.Item == target.Item)
             {
                 // Name the container that failed; a refused query leaves no Select reason.

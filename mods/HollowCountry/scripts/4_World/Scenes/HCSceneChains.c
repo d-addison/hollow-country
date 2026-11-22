@@ -164,7 +164,8 @@ class HCSceneChains
             HCSceneStageDefinition stage = new HCSceneStageDefinition;
             stage.Kit = kinds[index];
             if (index == 0) { stage.DelaySeconds = 0; }
-            stage.Objective = HCEventReviewedSites.SceneMission(Site(siteId), id + "-" + kinds[index], 43200);
+            HCEventSite objectiveSite = Site(siteId);
+            stage.Objective = HCEventReviewedSites.SceneMission(objectiveSite, id + "-" + kinds[index], 43200);
             plan.Stages.Insert(stage);
         }
         return plan;
@@ -317,7 +318,8 @@ class HCSceneChains
         request.EventId = record.Id;
         request.ExpectedRevision = record.Revision;
         request.Op = op;
-        return HCEventDirector.Command(chain.Director, Context(chain, now), request);
+        HCEventContext context = Context(chain, now);
+        return HCEventDirector.Command(chain.Director, context, request);
     }
 
     static void Cancel(HCSceneChain chain, int now)
@@ -376,7 +378,8 @@ class HCSceneChainStore
         }
         // A missing current image with a surviving backup is not a new world.
         if (FileExist(m_Path + ".bak")) { Fault("backup_only"); return null; }
-        state = HCSceneChains.Fresh(HCSceneChains.LoadCatalog(), now);
+        HCSceneCatalog catalog = HCSceneChains.LoadCatalog();
+        state = HCSceneChains.Fresh(catalog, now);
         if (!state) { Fault("fresh"); return null; }
         if (!Save(state)) { return null; }
         return state;

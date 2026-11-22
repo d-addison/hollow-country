@@ -153,7 +153,8 @@ class HCSearchEconomy
     {
         if (phase != 2 && phase != 4) phase = 3;
         m_Phases[index] = phase;
-        if (!m_Store.Write(index, "result", Record(index, actorId, phase)))
+        HCSearchRecord resultRecord = Record(index, actorId, phase);
+        if (!m_Store.Write(index, "result", resultRecord))
         {
             m_Phases[index] = 3;
             Fail("result write/readback failed; never repeat transfer");
@@ -174,7 +175,8 @@ class HCSearchEconomy
         string actorId = actor.GetIdentity().GetId();
         m_Busy = true;
         m_Phases[index] = 1;
-        if (!m_Store.Write(index, "claim", Record(index, actorId, 1)))
+        HCSearchRecord claimRecord = Record(index, actorId, 1);
+        if (!m_Store.Write(index, "claim", claimRecord))
         {
             m_Phases[index] = 3;
             Fail("claim write/readback failed; source retained");
@@ -182,7 +184,8 @@ class HCSearchEconomy
             return 3;
         }
         if (!StillAuthorized(actor, actorId)) return Finish(index, actorId, 4);
-        if (!m_Store.Write(index, "attempt", Record(index, actorId, 1)))
+        HCSearchRecord attemptRecord = Record(index, actorId, 1);
+        if (!m_Store.Write(index, "attempt", attemptRecord))
         {
             m_Phases[index] = 3;
             Fail("attempt write/readback failed; never issue output");

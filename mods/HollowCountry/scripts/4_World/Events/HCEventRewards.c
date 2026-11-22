@@ -208,7 +208,9 @@ class HCEventRewards
         if (!s_Ledger)
         {
             s_Ledger = new HCEventRewardLedger;
-            s_Ledger.Configure(new HCEventRewardIO, HCEventRewardPools.V1());
+            HCEventRewardIO rewardIO = new HCEventRewardIO;
+            HCEventRewardPool pools = HCEventRewardPools.V1();
+            s_Ledger.Configure(rewardIO, pools);
             s_Ledger.Start();
         }
         return s_Ledger;

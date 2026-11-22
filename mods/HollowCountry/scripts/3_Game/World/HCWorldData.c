@@ -473,11 +473,16 @@ class HCWorldFactionCatalog
 
     static void Populate(HCWorldData data)
     {
-        data.InsertFaction(Make("locals", "Zimovniki", "Hold-out families; protect home and real caches"));
-        data.InsertFaction(Make("volunteers", "Dobrovoltsy", "Police and self-defence volunteers"));
-        data.InsertFaction(Make("scavengers", "Sborshchiki", "Pickers; salvage finite existing supplies"));
-        data.InsertFaction(Make("raiders", "Volki", "Raiders; hostile to other factions"));
-        data.InsertFaction(Make("travellers", "Travellers", "Refugees and lone walkers"));
+        HCWorldFaction localsFaction = Make("locals", "Zimovniki", "Hold-out families; protect home and real caches");
+        data.InsertFaction(localsFaction);
+        HCWorldFaction volunteersFaction = Make("volunteers", "Dobrovoltsy", "Police and self-defence volunteers");
+        data.InsertFaction(volunteersFaction);
+        HCWorldFaction scavengersFaction = Make("scavengers", "Sborshchiki", "Pickers; salvage finite existing supplies");
+        data.InsertFaction(scavengersFaction);
+        HCWorldFaction raidersFaction = Make("raiders", "Volki", "Raiders; hostile to other factions");
+        data.InsertFaction(raidersFaction);
+        HCWorldFaction travellersFaction = Make("travellers", "Travellers", "Refugees and lone walkers");
+        data.InsertFaction(travellersFaction);
     }
 }
 

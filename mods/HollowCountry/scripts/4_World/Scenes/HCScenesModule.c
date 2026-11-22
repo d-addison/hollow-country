@@ -138,7 +138,8 @@ class HCScenesModule : HCModule
             return;
         }
         m_Stories = new HCStorySchedule;
-        bool storiesStarted = m_Stories.HCStart(m_State, m_Store, HCStoryPolicy.HCLoadConfig(), now, true);
+        HCStorySettings storySettings = HCStoryPolicy.HCLoadConfig();
+        bool storiesStarted = m_Stories.HCStart(m_State, m_Store, storySettings, now, true);
         if (!storiesStarted && m_Stories.HCReason() != "operator-off")
         {
             Print("[HollowCountry] V2 scenes refused; HC-19 " + m_Stories.HCReason());
@@ -646,7 +647,8 @@ class HCScenesModule : HCModule
             m_Activity.HCHit("placed");
             HCModuleReadiness.HCUse("Scenes", "scene_placed");
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
-            PublishSceneStory(chain, HCSceneChains.HCPlanSite(plan));
+            HCEventSite storySite = HCSceneChains.HCPlanSite(plan);
+            PublishSceneStory(chain, storySite);
             if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))
             {
                 HCWildlifeScenes.HCStoryOff(chain.Id);
@@ -655,7 +657,8 @@ class HCScenesModule : HCModule
         }
         if (now - chain.BeganAt >= stage.HoldSeconds)
         {
-            int result = HCEventDirector.SceneElapsed(chain.Director, HCSceneChains.Context(chain, now), chain.EventId, chain.BeganAt, stage.HoldSeconds);
+            HCEventContext context = HCSceneChains.Context(chain, now);
+            int result = HCEventDirector.SceneElapsed(chain.Director, context, chain.EventId, chain.BeganAt, stage.HoldSeconds);
             if (result != HCEventCode.OK) { Fail(chain, now, "director-stage-failed"); return; }
             if (!Commit(now)) { return; }
         }

@@ -572,7 +572,8 @@ class HCHoldouts : HCModule
         // gates. An unresolved cache cannot stop the world's logical recovery.
         if (HCAICampLifecycle.HCReserveDue(m_State.Resources, now, policy))
         {
-            if (HCAICampLifecycle.HCReplenish(m_State.Resources, HCCampHomes(), now, policy))
+            array<ref HCAICampLife> reserveHomes = HCCampHomes();
+            if (HCAICampLifecycle.HCReplenish(m_State.Resources, reserveHomes, now, policy))
             {
                 m_Dirty = true;
                 // Save the replenished reserve before attempting a founding debit.
@@ -591,7 +592,8 @@ class HCHoldouts : HCModule
             if (Occupied() >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
             int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, row.Ledger.Id, "holdout");
             if (row.Camp.Population > 0) { population = row.Camp.Population; }
-            if (!HCAICampLifecycle.HCFound(row.Camp, m_State.Resources, HCCampHomes(), "holdout:" + row.Ledger.Id, population, now, policy))
+            array<ref HCAICampLife> foundingHomes = HCCampHomes();
+            if (!HCAICampLifecycle.HCFound(row.Camp, m_State.Resources, foundingHomes, "holdout:" + row.Ledger.Id, population, now, policy))
             {
                 if (m_CampRefusals.Get(row.Ledger.Id) != "FOUNDING_RESERVE_EXHAUSTED")
                 {

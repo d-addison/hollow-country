@@ -335,6 +335,147 @@ class FreshArgumentOwnershipTests(unittest.TestCase):
         self.assertEqual(['HC-E026'], [f.rule for f in result])
         self.assertEqual('HCUse.<initializer:held>', result[0].symbol)
 
+    def test_parameter_receivers_keep_each_generic_type_and_ref_slot(self):
+        result = self.findings('''class HCUse {
+            void Run(array<float> source, array<ref HCThing> sorted,
+                     map<string, ref HCThing> adopted) {
+                Check(source.Get(0)); Check(source.Count());
+                sorted.Insert(HCFactory.Object()); adopted.Insert("key", HCFactory.Object());
+                Check(unknown.Make());
+            }
+        }''')
+        self.assertEqual(['HC-O026'], [f.rule for f in result])
+        self.assertIn('unknown.Make', result[0].key)
+
+    def test_member_index_and_cast_aliases_are_borrowed(self):
+        self.assertEqual([], self.findings('''class HCUse {
+            ref array<ref HCThing> Saved;
+            HCThing Indexed() { return Saved[0]; }
+            HCThing Local() { HCThing held = Saved[0]; return held; }
+            HCThing CastLocal() { HCThing held = HCThing.Cast(Saved[0]); return held; }
+            HCThing GetLocal() { HCThing held = Saved.Get(0); return held; }
+            void Run() { Check(Indexed()); Check(Local()); Check(CastLocal()); Check(GetLocal()); }
+        }'''))
+
+    def test_foreach_alias_requires_retained_iterable_and_no_fresh_write(self):
+        result = self.findings('''class HCUse {
+            ref array<ref HCThing> Saved;
+            HCThing Borrow() {
+                foreach (HCThing held : Saved) { return held; }
+                return null;
+            }
+            HCThing Temporary() {
+                array<ref HCThing> values = new array<ref HCThing>;
+                foreach (HCThing held : values) { return held; }
+                return null;
+            }
+            HCThing Reassigned() {
+                foreach (HCThing held : Saved) { held = new HCThing; return held; }
+                return null;
+            }
+            void Run() {
+                Check(Borrow());
+                Check(Temporary());
+                Check(Reassigned());
+            }
+        }''')
+        self.assertEqual(['HC-O026', 'HC-E026'], [f.rule for f in result])
+
+    def test_qualified_static_field_and_foreach_member_chain_are_retained(self):
+        self.assertEqual([], self.findings('''class HCHolder {
+            ref HCThing Item;
+            static ref HCHolder Saved;
+            static HCThing StaticItem() { return HCHolder.Saved.Item; }
+        }
+        class HCUse {
+            ref array<ref HCHolder> Saved;
+            HCThing Member() {
+                foreach (HCHolder held : Saved) { return held.Item; }
+                return null;
+            }
+            void Run() { Check(Member()); Check(HCHolder.StaticItem()); }
+        }'''))
+
+    def test_fresh_parent_unknown_out_and_alias_cycles_stay_unresolved(self):
+        result = self.findings('''class HCHolder { ref HCThing Item; }
+        class HCUse {
+            HCThing FreshParent() { HCHolder held = new HCHolder; return held.Item; }
+            HCThing UnknownOut() { HCThing held; Load(held); return held; }
+            HCThing ReassignedParameter(HCHolder held) { held = new HCHolder; return held.Item; }
+            HCThing AliasCycle() { HCThing first = second; HCThing second = first; return first; }
+            void Run() {
+                Check(FreshParent()); Check(UnknownOut()); Check(AliasCycle());
+                Check(ReassignedParameter(null));
+            }
+        }''')
+        self.assertEqual(['HC-O026', 'HC-O026', 'HC-O026', 'HC-O026'], [f.rule for f in result])
+
+    def test_local_alias_mixed_allocation_is_never_resolved_as_borrowed(self):
+        result = self.findings('''class HCUse {
+            ref array<ref HCThing> Saved;
+            HCThing Mixed(bool fresh) {
+                HCThing held = Saved[0];
+                if (fresh) { held = new HCThing; }
+                return held;
+            }
+            void Run() { Check(Mixed(true)); }
+        }''')
+        self.assertEqual(['HC-O026'], [f.rule for f in result])
+
+    def test_native_inventory_getters_are_borrowed_only_on_declared_receiver(self):
+        self.assertEqual([], self.findings('''class HCUse {
+            HCThing Held(PlayerBase player) { return HCThing.Cast(player.GetItemInHands()); }
+            HCThing Worn(PlayerBase player) {
+                HCThing held = HCThing.Cast(player.FindAttachmentBySlotName("Back"));
+                return held;
+            }
+            void Run(PlayerBase player) { Check(Held(player)); Check(Worn(player)); }
+        }'''))
+        result = self.findings('''class PlayerBase {
+            HCThing GetItemInHands() { return new HCThing; }
+        }
+        class HCUse {
+            HCThing Held(PlayerBase player) { return player.GetItemInHands(); }
+            void Run(PlayerBase player) { Check(Held(player)); }
+        }''')
+        self.assertEqual(['HC-E026'], [f.rule for f in result])
+        result = self.findings('''class HCOther {
+            HCThing GetItemInHands() { HCThing value; Load(value); return value; }
+        }
+        class HCUse {
+            HCThing Held(HCOther player) { return player.GetItemInHands(); }
+            void Run(HCOther player) { Check(Held(player)); }
+        }''')
+        self.assertEqual(['HC-O026'], [f.rule for f in result])
+
+    def test_pinned_native_recipe_field_is_scoped_and_local_shadowing_wins(self):
+        self.assertEqual([], self.findings('''modded class PluginRecipesManager {
+            HCThing Registered() { HCThing recipe = m_RecipeList[0]; return recipe; }
+            void Run() { Check(Registered()); }
+        }'''))
+        result = self.findings('''class HCOther {
+            HCThing Registered() { HCThing recipe = m_RecipeList[0]; return recipe; }
+            void Run() { Check(Registered()); }
+        }
+        modded class PluginRecipesManager {
+            HCThing Temporary() {
+                array<ref HCThing> m_RecipeList = new array<ref HCThing>;
+                return m_RecipeList[0];
+            }
+            void Run() { Check(Temporary()); }
+        }''')
+        self.assertEqual(['HC-O026', 'HC-O026'], [f.rule for f in result])
+
+    def test_out_and_unknown_calls_can_replace_borrowed_local(self):
+        result = self.findings('''class HCUse {
+            ref array<ref HCThing> Saved;
+            void Replace(out HCThing value) { value = new HCThing; }
+            HCThing Output() { HCThing held = Saved[0]; Replace(held); return held; }
+            HCThing Unknown() { HCThing held = Saved[0]; Load(held); return held; }
+            void Run() { Check(Output()); Check(Unknown()); }
+        }''')
+        self.assertEqual(['HC-O026', 'HC-O026'], [f.rule for f in result])
+
 
 if __name__ == '__main__':
     unittest.main()
