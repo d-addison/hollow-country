@@ -1,4 +1,9 @@
-"""Portable planning only. No subprocesses or gameplay acceptance.
+"""Portable planning plus a bounded runner. No gameplay acceptance is ever inferred.
+
+plan() executes nothing. run_automation() runs only drivers resolved from the trusted
+registry (tools/testing/drivers.py), records PASS/FAIL/BLOCKED/NOTRUN for every catalog
+row and writes evidence-v1 records. An offline PASS supports a row, it never accepts an
+original test, and the evidence label is never "multiplayer".
 
 Capabilities are explicit name -> available|blocked|unknown declarations.
 Related IDs are traceability references, not execution dependencies.
@@ -10,7 +15,14 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+import signal
 import stat
+import subprocess
+import sys
+import time
+
+from tools.testing import discovery, drivers
 
 MAX_INPUT_BYTES = 1_048_576
 MAX_TESTS = 1024
@@ -21,12 +33,29 @@ ORIGINAL_IDS = frozenset(
         ("HOR", 11), ("INT", 11), ("NET", 8))
     for number in range(1, count + 1)
 )
+ROOT = Path(__file__).resolve().parents[2]
 ADAPTERS = {
-    "unittest": "Offline unit tests; execution pending",
-    "bdd": "Offline behavior bindings; execution pending",
-    "runtime": "Offline configuration checks; execution pending",
-    "hygiene": "Offline repository checks; execution pending",
+    "unittest": "Offline unit tests; run through tools.testing.drivers",
+    "bdd": "Offline behavior bindings; run through tools.testing.drivers",
+    "runtime": "Offline configuration checks; run through tools.testing.drivers",
+    "hygiene": "Offline repository checks; run through tools.testing.drivers",
 }
+# Owner decision 2026-11-22: two licensed clients, audio judgement and load qualification
+# are deferred. They stay traceable here as NOTRUN and are never claimed.
+DEFERRED_REASON = "deferred_owner_2026-11-22"
+DEFERRED_TASKS = {
+    "AV-T017": "Distinct two-client barriers, observation and races",
+    "AV-T018": "Owned network delay/retry/adversarial request adapter",
+    "AV-T019": "Calibrated real-client audio capture/review seam",
+    "AV-T022": "Independent co-op-6 and public-90 workload qualification",
+}
+# Evidence-v1 needs a CAP-NN id; CAP-99 is reserved for framework records, never a product capability.
+FRAMEWORK_CAPABILITY = "CAP-99"
+MAX_LOG_BYTES = 8 * 1024 * 1024
+MANIFEST_FIELDS = {"schema_version", "run_id", "catalog", "selected", "tasks"}
+TASK_FIELDS = {"id", "driver", "covers", "inputs"}
+ENV_PASSTHROUGH = ("PATH", "HOME", "LANG", "LC_ALL", "DISPLAY", "WAYLAND_DISPLAY",
+                   "XDG_RUNTIME_DIR", "HC_SERVER_ROOT", "HC_WINE_PREFIX", "WINEPREFIX")
 ROOT_FIELDS = {"schema_version", "catalog_id", "sources", "tests", "coverage"}
 ROW_FIELDS = {
     "id", "origin", "scenario", "criterion", "modes", "requires",
@@ -239,13 +268,16 @@ def plan(catalog, *, capabilities=None, selected=None):
 
 
 def main(argv=None):
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments[:1] == ['run']:
+        return run_main(arguments[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('catalog', type=Path, help='Portable test catalog JSON')
     parser.add_argument('--capability', action='append', default=[], metavar='NAME=STATUS',
                         help='Explicit available, blocked or unknown capability; repeat as needed')
     parser.add_argument('--select', action='append', metavar='TEST_ID',
                         help='Plan only these IDs; repeat as needed')
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     capabilities = {}
     try:
         for assignment in args.capability:
@@ -260,6 +292,279 @@ def main(argv=None):
     print(json.dumps(report, sort_keys=True, indent=2, allow_nan=False))
     # Success means a plan was generated, never that gameplay passed.
     return 0
+
+
+def _load_json_file(path):
+    """Bounded regular-file JSON read with duplicate-key and constant rejection."""
+    try:
+        path = Path(path)
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_INPUT_BYTES:
+            raise ValueError("Expected bounded regular JSON file")
+        return json.loads(path.read_bytes().decode("utf-8"), object_pairs_hook=_pairs,
+                          parse_constant=_constant)
+    except (OSError, UnicodeError) as error:
+        raise ValueError("Cannot read JSON file") from error
+
+
+def _manifest_catalog(manifest):
+    """Validate the manifest header and return its repository-relative catalog path."""
+    _encoded(manifest)
+    if type(manifest) is not dict or not set(manifest) <= MANIFEST_FIELDS or \
+            not {"schema_version", "run_id", "tasks"} <= set(manifest):
+        raise ValueError("Manifest fields do not match schema")
+    if type(manifest["schema_version"]) is not int or manifest["schema_version"] != 1:
+        raise ValueError("Unsupported manifest schema_version")
+    _name(manifest["run_id"], "run_id")
+    catalog = manifest.get("catalog", "tests/catalog.json")
+    if (not isinstance(catalog, str) or not catalog or Path(catalog).is_absolute()
+            or ".." in Path(catalog).parts):
+        raise ValueError("catalog: expected a repository-relative path")
+    return catalog
+
+
+def _manifest_tasks(manifest, registry, root, identifiers):
+    """Resolve every task to a trusted driver and a built argv before anything launches."""
+    tasks = manifest["tasks"]
+    if type(tasks) is not list or len(tasks) > 256:
+        raise ValueError("tasks: expected bounded list")
+    seen, plans = set(), []
+    for task in tasks:
+        if type(task) is not dict or not {"id", "driver"} <= set(task) or not set(task) <= TASK_FIELDS:
+            raise ValueError("Task fields do not match schema")
+        _name(task["id"], "task id")
+        if task["id"] in seen or task["id"] in DEFERRED_TASKS:
+            raise ValueError("Duplicate or reserved task id")
+        seen.add(task["id"])
+        driver = drivers.get(registry, task["driver"])
+        covers = task.get("covers", [])
+        _strings(covers, "covers", names=True, limit=MAX_TESTS)
+        if not set(covers) <= identifiers:
+            raise ValueError("covers contains unknown test IDs")
+        inputs = task.get("inputs", {})
+        if type(inputs) is not dict or not set(inputs) <= set(driver.inputs):
+            raise ValueError("inputs: unsupported input for driver")
+        plans.append((task["id"], driver, list(covers), driver.argv(root, inputs)))
+    return plans
+
+
+def _fresh_output(output_dir):
+    out = Path(output_dir)
+    if out.is_symlink() or (out.exists() and (not out.is_dir() or any(out.iterdir()))):
+        raise ValueError("output_dir must be a new or empty directory")
+    (out / "evidence/logs").mkdir(parents=True)
+    return out
+
+
+def _environment():
+    env = {key: os.environ[key] for key in ENV_PASSTHROUGH if key in os.environ}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
+def _launch(argv, cwd, timeout, log_path):
+    """Run argv without a shell in its own session; bound time and output; reap the group."""
+    status = "ok"
+    code = None
+    with open(log_path, "wb") as log:
+        try:
+            process = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=log,
+                                       stderr=subprocess.STDOUT, env=_environment(),
+                                       start_new_session=True)
+        except OSError:
+            return None, "launch_error"
+        deadline = time.monotonic() + timeout
+        while True:
+            code = process.poll()
+            if code is not None:
+                break
+            if time.monotonic() > deadline:
+                status = "timeout"
+            elif log_path.stat().st_size > MAX_LOG_BYTES:
+                status = "output_limit"
+            else:
+                time.sleep(0.05)
+                continue
+            break
+        try:  # the driver's whole process group is owned by this runner
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        if code is None:
+            code = process.wait()
+    return code, status
+
+
+def _text_artifact(path, text):
+    data = discovery.redact(text).encode("utf-8", errors="replace")[:MAX_LOG_BYTES]
+    path.write_bytes(data)
+    return hashlib.sha256(data).hexdigest()
+
+
+def _record(out, task_id, outcome, reason, method, log_name, digest, steps):
+    """Write one evidence-v1 record. Only an offline PASS is documented, all else is blocked."""
+    base = {"version": 1, "capability_id": FRAMEWORK_CAPABILITY,
+            "artifacts": [{"path": "logs/" + log_name, "sha256": digest}],
+            "method": method}
+    if outcome == "PASS":
+        base.update(status="documented",
+                    observation=f"{task_id} {outcome} reason={reason}; supports, never accepts, a test")
+    else:
+        base.update(status="blocked", obstacle={
+            "description": f"{task_id} {outcome} reason={reason}", "steps": steps})
+    path = out / "evidence" / (task_id + ".json")
+    path.write_text(json.dumps(base, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    from tools.validate import evidence
+    result = evidence.validate(str(path))
+    errors = [error["code"] + ":" + error["field"] for error in result["errors"]]
+    return {"path": "evidence/" + task_id + ".json", "valid": result["valid"], "errors": errors}
+
+
+def _run_task(out, root, task_id, driver, argv, trusted, capabilities):
+    log_name = task_id + ".log"
+    log_path = out / "evidence/logs" / log_name
+    outcome = reason = None
+    if driver.kind == "native" and driver.id not in trusted:
+        outcome, reason = "NOTRUN", "untrusted_native"
+    else:
+        missing = sorted(need for need in driver.needs if capabilities.get(need) != "available")
+        if missing:
+            outcome, reason = "BLOCKED", "missing_capability:" + ",".join(missing)
+        elif driver.memory and not shutil.which("agent-run"):
+            outcome, reason = "BLOCKED", "agent_run_missing"
+    if outcome is not None:
+        digest = _text_artifact(log_path, f"{task_id}: not launched; {outcome} reason={reason}\n")
+        output = ""
+    else:
+        launch = ["agent-run", "--memory", driver.memory, "--", *argv] if driver.memory else argv
+        code, status = _launch(launch, root, driver.timeout, log_path)
+        raw = log_path.read_bytes().decode("utf-8", errors="replace") if log_path.exists() else ""
+        # The footer keeps a silent child's artifact nonempty and records how it ended.
+        digest = _text_artifact(log_path, raw + f"\n[runner] driver={driver.id} exit={code} status={status}\n")
+        output = discovery.redact(raw)
+        if status != "ok":
+            outcome, reason = "FAIL", status
+        else:
+            outcome, reason = driver.judge(code, output)
+    steps = ["Read the redacted raw output in the artifact", "Resolve the reason, then rerun in a new output directory"]
+    method = f"{driver.id} layer={driver.layer} clients=0 (never multiplayer)"
+    evidence = _record(out, task_id, outcome, reason, method, log_name, digest, steps)
+    if not evidence["valid"]:
+        outcome, reason = "FAIL", "evidence_invalid:" + ",".join(evidence["errors"])
+    return {"task": task_id, "driver": driver.id, "layer": driver.layer, "outcome": outcome,
+            "reason": reason, "evidence": evidence}
+
+
+def _row_outcomes(base, capabilities, selection, task_results, covers):
+    """Per-row outcome. Original IDs can be supported by a PASS but never promoted by one."""
+    deferred = set(discovery.DEFERRED_CAPABILITIES)
+    results = {task["task"]: task["outcome"] for task in task_results}
+    rows = []
+    for row in base["tests"]:
+        supporting = sorted(t for t, ids in covers.items() if row["id"] in ids and results.get(t) == "PASS")
+        blocked_by = sorted(set(row["requires"]) & deferred)
+        if row["id"] not in selection:
+            outcome, reason = "NOTRUN", "not_selected"
+        elif blocked_by:
+            outcome, reason = "NOTRUN", DEFERRED_REASON
+        elif row["id"] in ORIGINAL_IDS:
+            outcome, reason = "BLOCKED", "original_gameplay_requires_native_execution"
+        elif row["missing_capabilities"]:
+            outcome, reason = "BLOCKED", "missing_capability:" + ",".join(row["missing_capabilities"])
+        elif row["unsupported_modes"]:
+            outcome, reason = "BLOCKED", "no_adapter_for_modes:" + ",".join(row["unsupported_modes"])
+        else:
+            mine = [results[t] for t, ids in covers.items() if row["id"] in ids]
+            if "FAIL" in mine:
+                outcome, reason = "FAIL", "covering_task_failed"
+            elif mine and all(value == "PASS" for value in mine):
+                outcome, reason = "PASS", "covering_tasks_passed"
+            elif "BLOCKED" in mine:
+                outcome, reason = "BLOCKED", "covering_task_blocked"
+            else:
+                outcome, reason = "NOTRUN", "no_driver_run" if not mine else "covering_task_not_run"
+        rows.append({"id": row["id"], "origin": row["origin"], "outcome": outcome, "reason": reason,
+                     "supporting_tasks": supporting, "deferred_capabilities": blocked_by})
+    return rows
+
+
+def run_automation(manifest, output_dir, *, trusted_drivers=(), capabilities=None,
+                   registry=None, repo_root=None):
+    """Run the manifest's drivers and report every catalog row. Native drivers need trust."""
+    root = Path(repo_root) if repo_root is not None else ROOT
+    registry = drivers.DRIVERS if registry is None else registry
+    if isinstance(trusted_drivers, str) or not all(isinstance(item, str) for item in trusted_drivers):
+        raise ValueError("trusted_drivers: expected driver IDs")
+    trusted = set(trusted_drivers)
+    for identifier in trusted:
+        drivers.get(registry, identifier)
+    catalog = load_catalog(root / _manifest_catalog(manifest))
+    identifiers = {row["id"] for row in catalog["tests"]}
+    planned = _manifest_tasks(manifest, registry, root, identifiers)
+    if capabilities is None:
+        capabilities = discovery.planner_capabilities(discovery.inventory(root))
+    selected = manifest.get("selected")
+    base = plan(catalog, capabilities=capabilities, selected=selected)  # validates both inputs
+    selection = identifiers if selected is None else set(selected)
+    out = _fresh_output(output_dir)
+
+    task_results, covers = [], {}
+    for task_id, driver, covered, argv in planned:
+        covers[task_id] = set(covered)
+        task_results.append(_run_task(out, root, task_id, driver, argv, trusted, capabilities))
+    for task_id, title in DEFERRED_TASKS.items():
+        log = out / "evidence/logs" / (task_id + ".log")
+        digest = _text_artifact(log, f"{task_id} {title}: NOTRUN {DEFERRED_REASON}\n")
+        evidence = _record(out, task_id, "NOTRUN", DEFERRED_REASON,
+                           "deferred task layer=none clients=0 (never multiplayer)", task_id + ".log", digest,
+                           ["Wait for the owner to lift the 2026-11-22 deferral", "Build the adapter and qualify it natively"])
+        task_results.append({"task": task_id, "driver": None, "layer": "none", "title": title,
+                             "outcome": "NOTRUN", "reason": DEFERRED_REASON, "evidence": evidence})
+
+    rows = _row_outcomes(base, capabilities, selection, task_results, covers)
+    original = {row["id"]: row for row in rows if row["id"] in ORIGINAL_IDS}
+    for missing in sorted(ORIGINAL_IDS - set(original)):
+        original[missing] = {"id": missing, "origin": "original", "outcome": "BLOCKED",
+                             "reason": "missing_from_catalog", "supporting_tasks": [],
+                             "deferred_capabilities": []}
+    counts = {name: 0 for name in drivers.OUTCOMES}
+    for row in list(original.values()) + [r for r in rows if r["id"] not in ORIGINAL_IDS]:
+        counts[row["outcome"]] += 1
+    task_counts = {name: sum(1 for t in task_results if t["outcome"] == name) for name in drivers.OUTCOMES}
+    overall = next((name for name in ("FAIL", "BLOCKED", "NOTRUN") if counts[name] or task_counts[name]), "PASS")
+    report = {
+        "report_version": 1, "mode": "execution", "acceptance": "not_evaluated",
+        "evidence_label": "offline-framework", "clients": 0, "run_id": manifest["run_id"],
+        "catalog_id": base["catalog_id"], "catalog_sha256": base["catalog_sha256"],
+        "capabilities": dict(sorted(capabilities.items())),
+        "trusted_drivers": sorted(trusted),
+        "tasks": task_results, "task_counts": task_counts,
+        "counts": counts,
+        "coverage": {"original": {"expected": len(ORIGINAL_IDS), "listed": len(original),
+                                  "rows": [original[key] for key in sorted(original)]}},
+        "tests": rows, "status": overall,
+    }
+    (out / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return report
+
+
+def run_main(arguments):
+    parser = argparse.ArgumentParser(prog="automation run", description="Run a manifest through the trusted registry")
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("output_dir", type=Path, help="new or empty directory")
+    parser.add_argument("--trust", action="append", default=[], metavar="DRIVER_ID",
+                        help="allow a native driver; repeat as needed")
+    parser.add_argument("--machine", action="store_true", help="include file-presence machine discovery")
+    args = parser.parse_args(arguments)
+    try:
+        machine = discovery.discover_machine() if args.machine else None
+        capabilities = discovery.planner_capabilities(discovery.inventory(ROOT, machine))
+        report = run_automation(_load_json_file(args.manifest), args.output_dir,
+                                trusted_drivers=args.trust, capabilities=capabilities)
+    except ValueError as error:
+        parser.error(discovery.redact(error))
+    print(json.dumps({key: report[key] for key in ("run_id", "status", "counts", "task_counts")}, sort_keys=True))
+    return 1 if report["status"] == "FAIL" else 0
 
 
 if __name__ == '__main__':
