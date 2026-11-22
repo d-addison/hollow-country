@@ -301,8 +301,10 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         m_RetryAt = GetGame().GetTickTime() + LOAD_RETRY_SECONDS;
         HCRefuse(reason);
     }
-    // One staged step per call, driven every module tick: load the directory image (one native file
-    // call per call), then run the queued receipt writes and removes in order (one per call).
+    // One staged step per call, driven every module tick: load the directory image (one file open
+    // per call; the LOAD_LIST step is one name-only FindFile walk capped at SCAN_CAP entries plus its
+    // in-memory prune plan, load-time only and only above LISTING_CAP), then run the queued receipt
+    // writes and removes in order (one per call).
     // Returns true when a counted file call ran.
     bool HCStepLedger()
     {
