@@ -126,6 +126,10 @@ class HCPersistenceDisposition
             HCPruneArchives("$profile:HollowCountry/recovery-native.json", ".consumed-");
         }
         HCRecoveryGate.HCAdmit(generation);
+        // W4-08: versioned self-repairing migrations run after admission and before any store
+        // opens its file. A refused or deferred step refuses only its own store for this boot.
+        HCMigrationRunner.HCBoot(enableWorld);
+        HCMigrationRunner.HCGate();
         s_LoadOK = true;
         HCReport();
         return true;
@@ -303,6 +307,20 @@ class HCPersistenceDisposition
         return HCReadArchive(path + suffix, limit, archived, allowEmpty) && archived == original;
     }
 
+    // Ungated create-only write for migration scratch files: the target must be absent, the
+    // text bounded and nonempty, and the readback identical. Never truncates an existing file.
+    static bool HCWriteRawNew(string path, string text, int limit)
+    {
+        if (limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
+        if (FileExist(path) || text.Length() < 1 || text.Length() > limit) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.WRITE);
+        if (!handle) { return false; }
+        FPrint(handle, text);
+        CloseFile(handle);
+        string actual;
+        return HCGroupIO.HCReadRaw(path, limit, actual) && actual == text;
+    }
+
     static bool HCMatchImage(string path, int limit, int length, int checksum)
     {
         if (length == 0 && checksum == 0) { return !FileExist(path); }
@@ -329,6 +347,7 @@ class HCPersistenceDisposition
         s_WorldStarted = false;
         s_EscalationStarted = false;
         s_GroupsStarted = false;
+        HCMigrationRunner.HCHalt();
         HCRecoveryGate.HCClose("world");
         HCRecoveryGate.HCClose("escalation");
         HCRecoveryGate.HCClose("groups");
