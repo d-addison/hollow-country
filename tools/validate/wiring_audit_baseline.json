@@ -3576,6 +3576,30 @@
       "line": 27,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support row type for caution observation; same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceGeneration",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 24,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 59,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceIdWatch",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 69,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
     }
   ]
 }
