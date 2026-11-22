@@ -12,6 +12,11 @@ python3 -B tools/anim/build_infected_clips.py --addons <installed-DayZServer>/Ad
 python3 -B tools/anim/build_anims_addon.py --addons <installed-DayZServer>/Addons --out <external-build-dir>
 ```
 
+This is the only authoritative clip build route: the standard-library SET6 writer
+(`tools/anim/anm.py`). The old Workbench TXA-to-ANM plugin (`tools/anim/workbench/HC_TxaBuild.c`) is
+retired for clip builds (2026-11-22): it never ran, is in no build or package route, and stays in the
+tree only as a deprecated prior-art file for a future non-SET6 Workbench probe.
+
 No Blender, Workbench or PowerShell is needed for this route. Neither build was run for #225;
 the lead performs asset generation and native inspection. Generated clips, preview data, graph
 interfaces and PBOs stay outside Git. Never commit installed game assets or vanilla graph copies.
@@ -34,6 +39,17 @@ The optional Blender preview (`tools/anim/blender/hc_preview.py`) is pinned to *
 `blender.exe -b --factory-startup` rendered `hc_sit_wall_idle` to a 121-frame 640x480 MP4 after
 selecting `media_type = 'VIDEO'` (Blender 5.x lists FFMPEG only for video media). Earlier 5.1 runs
 are not evidence for 5.2.
+
+Add `--strip [N]` (default 8) after the three positional arguments to skip the video and render N
+evenly spaced keyframes (first and last included) as `<name>-34-fNNN.png` stills plus one 4-column
+contact sheet `<name>-34-sheet.png` (fixed EEVEE sample count, Standard view transform) for
+deterministic visual diffing. Frame selection and layout are unit tested
+(`tests/unit/test_anim_preview.py`); the render itself is **PENDING** a lead run on Blender 5.2 LTS.
+
+Female posed infected: config-level parity is enforced by `ce_variants.py` (ZombieMaleBase and
+ZombieFemaleBase `enfanimsys` must equal ZombieBase for the installed build, else it fails). Female
+outfits still render on `z_hermit_m.xob`; whether that skinning looks right is native-only and stays
+**PENDING** with the single-client acceptance (no rest-bone `.xob` metadata comparison is done offline).
 
 | Command int | Mode | Clips | Seconds idle / get-up | Authored route |
 |---|---|---|---|---|

@@ -1,3 +1,9 @@
+// DEPRECATED, RETIRED FOR CLIP BUILDS (2026-11-22). The authoritative route for infected clips
+// is the standard-library SET6 writer (tools/anim/anm.py via tools/anim/build_infected_clips.py,
+// see docs/ANIMATION_PIPELINE.md). That writer needs no Windows, Workbench or GUI and is unit tested.
+// This plugin was never observed running (WorkbenchPlugin.RunCommandline has not been seen
+// executing under WorkbenchApp.exe), is not part of any build or package route, and is kept only as
+// prior art for a future Workbench probe (for example a non-SET6 format). Do not use it for clips.
 // Hollow Country headless TXA -> ANM builder for DayZ Workbench (DayZ Tools).
 // Our own source. Registers (first run) or rebuilds (later runs) every .txa listed in the
 // args file, one absolute Windows path per line, then exits.
