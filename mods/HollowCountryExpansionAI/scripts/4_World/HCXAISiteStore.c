@@ -191,7 +191,7 @@ class HCXAICacheSave : HCSaveJob
             string text;
             if (!Owner.HCCachesText(text)) { return STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
-            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, false, false)) { return STEP_FAILED; }
+            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();
@@ -217,6 +217,25 @@ class HCXAIOwnedSave : HCSaveJob
 // Derived storage layer; the final director remains the sole modded extension point.
 class HCXAISiteStorage : HCXAISiteBase
 {
+    protected float m_OwnedRetryAt;
+    protected bool HCRetryOwned()
+    {
+        if (!m_OwnedSave || !m_OwnedSave.HCFaulted) { return m_OwnedSave != null; }
+        float now = GetGame().GetTickTime();
+        if (now < m_OwnedRetryAt) { return false; }
+        m_OwnedRetryAt = now + 30;
+        HCSaveScheduler.HCUnregister(m_OwnedSave);
+        // Release the failed writer first: its image destructor also closes
+        // handles if HCFlush hit its guard before terminal failure drained them.
+        m_OwnedSave = null;
+        // Recover before replacing the latched writer; never discard a verified intent.
+        // Failure-only retry, <=one bounded store recovery per 30 seconds.
+        HCV2ThreatStore<HCXAIOwnership>.HCRecoverInterrupted(OWNED);
+        m_OwnedSave = new HCXAIOwnedSave();
+        m_OwnedSave.Owner = HCXAISiteDirector.Cast(this);
+        HCSaveScheduler.HCRegister(m_OwnedSave);
+        return true;
+    }
     override protected bool HCStartLocalities()
     {
         if (!FileExist(LOCALITIES))
@@ -532,6 +551,9 @@ class HCXAISiteStorage : HCXAISiteBase
     {
         if (!m_Caches || m_Caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
         if (m_CacheSave) { m_CacheSave.HCSupersede(); }
+        // Supersede the crash-recovery intent too, before the synchronous
+        // inventory barrier can write a newer (possibly failed) primary.
+        if (FileExist(CACHES + ".tmp") && !DeleteFile(CACHES + ".tmp")) { return false; }
         foreach (HCXAICacheRow barrierRow : m_Caches.Rows)
         {
             if (!m_CacheRows.Contains(barrierRow.SiteId)) { m_CacheRows.Set(barrierRow.SiteId, barrierRow); }
@@ -594,7 +616,9 @@ class HCXAISiteStorage : HCXAISiteBase
     }
     override void HCQueueOwned()
     {
-        if (!m_OwnedSave || !this.HCUpdateMembers()) { return; }
+        // Spawn/despawn/member refreshes are staged: Members is informational;
+        // Reconcile removes HC: groups after restart. Death barriers stay sync.
+        if (!this.HCRetryOwned() || !this.HCUpdateMembers()) { return; }
         m_OwnedSave.HCChanged();
     }
     override protected bool HCUpdateMembers()
@@ -617,11 +641,15 @@ class HCXAISiteStorage : HCXAISiteBase
         return JsonFileLoader<HCXAICacheJournal>.MakeData(m_Caches, text, error);
     }
     override HCXAIOwnership HCOwnershipData() { return m_Owned; }
-    override void HCOwnershipSaved(bool saved) { m_OwnedSaved = saved && !m_OwnershipClockFault; }
+    override void HCOwnershipSaved(bool saved)
+    {
+        m_OwnedSaved = saved && !m_OwnershipClockFault;
+        if (!saved) { m_OwnedRetryAt = GetGame().GetTickTime() + 30; }
+    }
     override bool SaveOwned()
     {
         if (!this.HCUpdateMembers()) { return false; }
-        if (!m_OwnedSave) { return false; }
+        if (!this.HCRetryOwned()) { return false; }
         m_OwnedSave.HCChanged();
         m_OwnedSaved = HCSaveScheduler.HCFlush(m_OwnedSave) && !m_OwnershipClockFault;
         if (!m_OwnedSaved) { Print("[HC Expansion AI] ownership save refused: reason=ownership_checkpoint_failed; new spawns and cache seeds held"); }
@@ -787,9 +815,11 @@ class HCXAISiteStore
     static HCXAICacheJournal LoadCaches()
     {
         string path = HCXAISiteDirector.CACHES;
+        // Shared first-open recovery promotes a whole tmp, else restores bak,
+        // preserving a torn primary as .torn. Existing schema/files stay intact.
+        if (!HCV2ThreatStore<HCXAICacheJournal>.CanOpen(path)) { HCCachesRefused("recovery"); return null; }
         if (!FileExist(path))
         {
-            if (FileExist(path + ".tmp") || FileExist(path + ".bak")) { HCCachesRefused("primary_missing"); return null; }
             return new HCXAICacheJournal();
         }
         string data = HCWholeCacheText(path);

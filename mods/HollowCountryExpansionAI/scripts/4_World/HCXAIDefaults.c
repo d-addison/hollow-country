@@ -1,28 +1,37 @@
-// Loadout-only adapter: base BeginNew probes both temporary and primary in
-// one call. HCXAILoadoutSave separates those probes before arming a fresh image;
-// all writing/readback/handle cleanup still uses the shared image state machine.
+// Syntax-only DTO: unknown loadout members remain owned by Expansion.
+class HCXAILoadoutProbe
+{
+    string ClassName;
+}
+
+// Loadout adapter: caller probes separately, then streams to an HC-private
+// intent. The shared image verifies it BEFORE copying to the absent target.
+// A retained .hcdefault.tmp is provenance for an interrupted HC publication.
 class HCXAILoadoutImage : HCStagedSaveImage
 {
+    bool HCPublished() { return m_PrimaryExists; }
     bool HCArmNew(string path, string text)
     {
         if (Active() || m_Failed || text.Length() < 1 || text.Length() > 65536) { return false; }
         if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
-        // Fresh instance per loadout: remaining base cursors/handles retain
-        // constructor defaults. Immutable mode writes and verifies the primary.
         m_Path = path;
-        m_Temporary = path + ".tmp";
+        m_Temporary = path + ".hcdefault.tmp";
         m_Text = text;
         m_Limit = 65536;
-        m_Mode = HC_IMAGE_CREATE;
+        m_Mode = HC_IMAGE_REPLACE;
         m_CheckPrior = false;
         m_Backup = false;
+        // The final preflight just proved target absence. No delete before copy.
+        m_PrimaryKnown = true;
+        m_PrimaryExists = false;
         m_Phase = 0;
         return true;
     }
 }
-// Provider-ready startup work: one native file operation or image stage/visit.
-// Native EnSystem OpenFile/ReadFile/CloseFile, EnScript map.Contains/Set were
-// inspected in scripts-1.30.164289. No operator file is overwritten.
+// Each visit performs at most ONE native file operation or shared image stage.
+// Source/target reads are <=4096 bytes/visit and <=65536 bytes per file. A
+// per-name failure continues the catalog; failures never fault the whole job.
+// Native EnSystem OpenFile/ReadFile/CloseFile/DeleteFile inspected in 1.30.164289.
 class HCXAILoadoutSave : HCSaveJob
 {
     ref array<string> Names = new array<string>();
@@ -32,6 +41,7 @@ class HCXAILoadoutSave : HCSaveJob
     protected FileHandle m_Source;
     protected bool m_Open;
     protected string m_Text;
+    protected string m_Existing;
     protected string m_Target;
     bool Finished;
     int Provisioned;
@@ -42,10 +52,13 @@ class HCXAILoadoutSave : HCSaveJob
         m_Cursor++;
         m_Phase = 1;
         m_Text = "";
+        m_Existing = "";
         m_Image = new HCXAILoadoutImage();
     }
-    // Each visit probes once, opens once, reads <=4096 bytes, closes once,
-    // or delegates one staged-image operation. Phases always yield separately.
+    protected void HCRefused(string reason)
+    {
+        Print("[HC Expansion AI] loadout default refused name=" + Names[m_Cursor] + " reason=" + reason);
+    }
     override int HCStep()
     {
         if (Finished) { return STEP_DONE; }
@@ -65,11 +78,71 @@ class HCXAILoadoutSave : HCSaveJob
         if (m_Phase == 1)
         {
             m_Target = EXPANSION_LOADOUT_FOLDER + name + ".json";
-            if (FileExist(m_Target))
+            if (FileExist(m_Target)) { m_Phase = 10; }
+            else { m_Phase = 2; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 10)
+        {
+            // Without our private intent the existing file belongs to the
+            // operator, even if invalid. Never repair it by guessing ownership.
+            if (!FileExist(m_Target + ".hcdefault.tmp"))
             {
                 HCXAIDefaults.HCSetLoadoutPresent(name, true);
                 this.HCNext();
             }
+            else { m_Phase = 11; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 11)
+        {
+            m_Source = OpenFile(m_Target, FileMode.READ);
+            m_Open = m_Source != 0;
+            m_Existing = "";
+            if (m_Open) { m_Phase = 12; }
+            else { this.HCRefused("target_open"); this.HCNext(); }
+            return STEP_MORE;
+        }
+        if (m_Phase == 12)
+        {
+            string existingPiece;
+            int existingCount = ReadFile(m_Source, existingPiece, 4096);
+            if (existingCount < 0 || existingCount != existingPiece.Length() || m_Existing.Length() + existingCount > 65536)
+            {
+                // An unreadable/oversized operator file is not proof of a torn
+                // HC target. Preserve it rather than infer ownership.
+                this.HCRefused("target_read_or_size");
+                m_Phase = 16;
+            }
+            else
+            {
+                m_Existing += existingPiece;
+                if (existingCount < 4096) { m_Phase = 13; }
+            }
+            return STEP_MORE;
+        }
+        if (m_Phase == 13 || m_Phase == 16)
+        {
+            CloseFile(m_Source);
+            m_Open = false;
+            if (m_Phase == 16) { this.HCNext(); }
+            else { m_Phase = 14; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 14)
+        {
+            if (HCXAIDefaults.HCWholeLoadout(m_Existing))
+            {
+                // Valid operator edits always win, even with a stale HC intent.
+                HCXAIDefaults.HCSetLoadoutPresent(name, true);
+                this.HCNext();
+            }
+            else { m_Phase = 15; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 15)
+        {
+            if (!DeleteFile(m_Target)) { this.HCRefused("torn_delete"); this.HCNext(); }
             else { m_Phase = 2; }
             return STEP_MORE;
         }
@@ -77,7 +150,12 @@ class HCXAILoadoutSave : HCSaveJob
         {
             m_Source = OpenFile(HCXAIDefaults.Shipped() + "loadouts/" + name + ".json", FileMode.READ);
             m_Open = m_Source != 0;
-            if (!m_Open) { this.HCNext(); return STEP_MORE; }
+            if (!m_Open)
+            {
+                Print("[HC Expansion AI] loadout default missing name=" + name + " source=pbo");
+                this.HCNext();
+                return STEP_MORE;
+            }
             m_Text = "";
             m_Phase = 3;
             return STEP_MORE;
@@ -88,6 +166,7 @@ class HCXAILoadoutSave : HCSaveJob
             int count = ReadFile(m_Source, piece, 4096);
             if (count < 0 || count != piece.Length() || m_Text.Length() + count > 65536)
             {
+                this.HCRefused("source_read_or_size");
                 m_Text = "";
                 m_Phase = 4;
             }
@@ -107,31 +186,46 @@ class HCXAILoadoutSave : HCSaveJob
         }
         if (m_Phase == 5)
         {
-            if (m_Text == "") { this.HCNext(); return STEP_MORE; }
-            if (FileExist(m_Target + ".tmp")) { return STEP_FAILED; }
-            m_Phase = 6;
+            if (!HCXAIDefaults.HCWholeLoadout(m_Text)) { this.HCRefused("source_shape"); this.HCNext(); return STEP_MORE; }
+            if (FileExist(m_Target + ".hcdefault.tmp")) { m_Phase = 50; }
+            else { m_Phase = 6; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 50)
+        {
+            if (!DeleteFile(m_Target + ".hcdefault.tmp")) { this.HCRefused("intent_delete"); this.HCNext(); }
+            else { m_Phase = 6; }
             return STEP_MORE;
         }
         if (m_Phase == 6)
         {
-            // Recheck immediately before arming: preserve operator files that
-            // appeared while the shipped source was being read.
+            // Preserve a target that appeared while the source was being read.
             if (FileExist(m_Target))
             {
                 HCXAIDefaults.HCSetLoadoutPresent(name, true);
                 this.HCNext();
                 return STEP_MORE;
             }
-            if (!m_Image.HCArmNew(m_Target, m_Text)) { return STEP_FAILED; }
+            if (!m_Image.HCArmNew(m_Target, m_Text)) { this.HCRefused("arm"); this.HCNext(); return STEP_MORE; }
             m_Phase = 7;
             return STEP_MORE;
         }
+        if (m_Phase == 8)
+        {
+            // Only remove a target this writer successfully published. A failed
+            // CopyFile may mean an operator file appeared: preserve it, retain
+            // provenance, and let next boot distinguish whole objects/HC tears.
+            if (m_Image.HCPublished()) { DeleteFile(m_Target); }
+            this.HCNext();
+            return STEP_MORE;
+        }
         int result = m_Image.HCStepImage();
-        if (result == STEP_FAILED) { return STEP_FAILED; }
+        if (result == STEP_FAILED) { this.HCRefused("write_readback"); m_Phase = 8; }
         if (result == STEP_DONE)
         {
             HCXAIDefaults.HCSetLoadoutPresent(name, true);
             Provisioned++;
+            Print("[HC Expansion AI] loadout default provisioned name=" + name + " source=pbo; runtime=PENDING");
             this.HCNext();
         }
         return STEP_MORE;
@@ -196,12 +290,62 @@ class HCXAIDefaults
         return true;
     }
 
+    // Structural whole-object guard before recovering an HC-owned torn target.
+    // Preserve any complete object, including operator-specific loadout fields.
+    static bool HCWholeLoadout(string text)
+    {
+        if (text.Length() < 2 || text.Length() > 65536) { return false; }
+        HCTextWindow window = new HCTextWindow(text);
+        array<string> stack = new array<string>();
+        bool quoted;
+        bool escaped;
+        bool ended;
+        bool started;
+        for (int cursor = 0; cursor < window.Length(); cursor++)
+        {
+            string token = window.At(cursor);
+            if (quoted)
+            {
+                if (escaped) { escaped = false; }
+                else if (token == "\\") { escaped = true; }
+                else if (token == "\"") { quoted = false; }
+                continue;
+            }
+            if (window.HCWhitespace(cursor)) { continue; }
+            if (ended) { return false; }
+            if (!started && token != "{") { return false; }
+            started = true;
+            if (token == "\"") { quoted = true; }
+            else if (token == "{" || token == "[")
+            {
+                if (stack.Count() >= 128) { return false; }
+                stack.Insert(token);
+            }
+            else if (token == "}" || token == "]")
+            {
+                int depth = stack.Count();
+                if (depth < 1) { return false; }
+                string open = stack[depth - 1];
+                if ((token == "}" && open != "{") || (token == "]" && open != "[")) { return false; }
+                stack.Remove(depth - 1);
+                ended = stack.Count() == 0;
+            }
+        }
+        if (!ended || quoted || stack.Count() != 0) { return false; }
+        HCXAILoadoutProbe probe;
+        string error;
+        return JsonFileLoader<HCXAILoadoutProbe>.LoadData(text, probe, error) && probe != null;
+    }
+
     // Copies one shipped loadout into Expansion's loadout folder when that file
     // is absent; temp, copy and readback, never overwriting an operator file.
     static bool ProvisionLoadout(string name)
     {
         if (!HCXAIDefaults.LoadoutNameSafe(name)) { return false; }
         string target = EXPANSION_LOADOUT_FOLDER + name + ".json";
+        string temporary = target + ".hcdefault.tmp";
+        // Existing-file semantics stay synchronous and unchanged for zone
+        // guards. The provider-ready boot job handles interrupted HC intents.
         if (FileExist(target)) { return false; }
         string source = HCXAIDefaults.Shipped() + "loadouts/" + name + ".json";
         string text = HCProfileDefaults.ReadText(source);
@@ -210,7 +354,6 @@ class HCXAIDefaults
             Print("[HC Expansion AI] loadout default missing name=" + name + " source=" + source + "; loadout admission keeps its own diagnostic");
             return false;
         }
-        string temporary = target + ".hcdefault.tmp";
         // The target was absent before this copy, so a copy that fails readback is removed and retried next boot.
         bool provCopied = false;
         bool provOk = HCProfileDefaults.WriteText(temporary, text);
@@ -218,8 +361,9 @@ class HCXAIDefaults
         if (provOk) { provOk = HCProfileDefaults.ReadText(target) == text; }
         if (!provOk)
         {
-            DeleteFile(temporary);
-            if (provCopied) { DeleteFile(target); }
+            // Remove our copied target on mismatch. On a failed copy retain
+            // intent: a newly appeared whole operator file must be preserved.
+            if (provCopied && DeleteFile(target)) { DeleteFile(temporary); }
             Print("[HC Expansion AI] loadout default refused name=" + name + " reason=write_readback");
             return false;
         }

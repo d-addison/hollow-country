@@ -342,6 +342,9 @@ class HCXAISitePatrols : HCXAISiteSurvey
             }
             if (selected.Count() > 0) { row.Refusal = "route_provider_pending"; }
         }
+        // This checkpoint is not an unchanged periodic rewrite: NextId and
+        // SelectionSerial advanced, plus the selected row cursor/retry state.
+        // Persist before geometry/admission to retain fair rotation on restart.
         m_LocalitySave.HCChanged();
         m_LocalitySave.HCUrgent = true;
         m_SelectionPending = selected;

@@ -496,11 +496,12 @@ class HCXAISiteBase : Managed
             m_RouteSave = null;
         }
         this.SaveOwned();
-        if (m_OwnedSave) { HCSaveScheduler.HCUnregister(m_OwnedSave); }
+        if (m_OwnedSave) { HCSaveScheduler.HCUnregister(m_OwnedSave); m_OwnedSave = null; }
         if (m_CacheSave)
         {
             HCSaveScheduler.HCFlush(m_CacheSave);
             HCSaveScheduler.HCUnregister(m_CacheSave);
+            m_CacheSave = null;
         }
         HCXAIDefaults.HCStopLoadouts();
         m_Phase = "stopped";
@@ -521,11 +522,8 @@ class HCXAISiteBase : Managed
         job.HCUrgent = false;
     }
     protected bool HCTakeSiteUnits(int units) { return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, units); }
-    protected bool HCTakeLocalityUnit()
-    {
-        if (!m_LocalityUnits.HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1)) { return false; }
-        return this.HCTakeSiteUnits(1);
-    }
+    // The global slot paid entry; this local hard cap must progress independently.
+    protected bool HCTakeLocalityUnit() { return m_LocalityUnits.HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1); }
     void Step()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
