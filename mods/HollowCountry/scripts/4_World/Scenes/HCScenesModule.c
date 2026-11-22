@@ -71,9 +71,9 @@ class HCScenesModule : HCModule
 
     override string GetName() { return "Scenes"; }
 
-    // The curated catalog/store and scheduler admit Scenes at startup. HC-42
-    // bulk loading is background progress; a refused index still degrades status.
-    // Selection/clearance and native placement acceptance remain independent.
+    // HC-62 readiness requires the loaded index and a source-qualified pair.
+    // Bulk loading stays on the startup pump; selection/clearance remains
+    // independent of source admission and native placement acceptance.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         if (m_Fault != "")
@@ -81,16 +81,17 @@ class HCScenesModule : HCModule
             m_Operational.HCPublish("degraded", m_Fault);
             return m_Operational;
         }
-        if (m_Running && m_StoryIndex && !m_StoryIndex.HCOff() && !m_StoryIndex.HCLoading() && !m_StoryIndex.HCReady())
+        if (m_Running && m_StoryIndex && m_StoryIndex.HCLoading())
+        {
+            m_Operational.HCPublish("degraded", "index_loading");
+            return m_Operational;
+        }
+        if (m_Running && m_StoryIndex && !m_StoryIndex.HCOff() && !m_StoryIndex.HCReady())
         {
             m_Operational.HCPublish("degraded", m_StoryIndex.HCReason());
             return m_Operational;
         }
         string readyReason = "scene_store_open_schedule_running";
-        if (m_Running && m_StoryIndex && m_StoryIndex.HCLoading())
-        {
-            readyReason = "curated_catalog_loaded_index_loading";
-        }
         if (m_Running && m_StoryIndex && m_StoryIndex.HCReady() && m_StoryIndex.HCReason() != "")
         {
             readyReason = m_StoryIndex.HCReason();

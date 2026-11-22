@@ -175,6 +175,12 @@ class HCGapcodeStoryIndex : Managed
     bool HCRefuse(string reason)
     {
         if (m_Reason != reason) { Print("[HC Scenes] HC-42 reason=" + reason + " runtime=PENDING"); }
+        // Shared readiness reports boot and first admission. A later streaming
+        // refusal must also leave a false receipt rather than only a pending boot.
+        if (m_StartupIndex)
+        {
+            Print("[HC Ready] module=Scenes enabled=true ready=false reason=" + HCReached.Token(reason) + " runtime=PENDING");
+        }
         m_Reason = reason;
         m_Selected = null;
         HCStop();
