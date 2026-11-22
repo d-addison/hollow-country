@@ -1,19 +1,3 @@
-// Original calls against pinned Expansion 1.9.84. Qualification remains pending.
-// Timing API inspected in scripts-1.30.164289: EnSystem.c:106 TickCount;
-// 3_Game/Global/Game.c:914 GetTickTime; EnScript.c:902/917 map Set/Find.
-// Trusted server ports. No RPC/JSON capability flag installs these hooks.
-// Begin/MemberCreated/MemberGone/End must be durable, idempotent ledger operations.
-// False is uncertain, never permission to free reservations or repeat creation.
-class HCXAIHooks
-{
-    HCXAIAdmission Admission(string worldSession) { return null; }
-    bool RouteQualified(string surveySha256, string loadoutSha256) { return false; }
-    bool BeginLease(string lease, string session, string missionId, int actors, int items) { return false; }
-    bool MemberCreated(string lease, int index, Object actor) { return false; }
-    bool MemberGone(string lease, int index) { return false; }
-    bool EndLease(string lease) { return false; }
-    HCObserverTransitionInput Observers(string worldSession, string lease, int index, Object actor, vector position) { return null; }
-}
 class HCXAIService
 {
     protected static ref HCXAIAdapter s_Adapter;

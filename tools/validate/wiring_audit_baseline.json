@@ -1531,14 +1531,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCObserverTransitionSample",
-      "file": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
-      "line": 29,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCObserverTransitionSite",
       "file": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
       "line": 87,
