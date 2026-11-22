@@ -999,6 +999,7 @@ class HCShelterModule : HCModule
             m_StepKind = "resolve_prepare";
             m_RegionalJobEntry = entry;
             m_RegionalBinding = new HCInteriorFurnishRow;
+            m_RegionalBinding.SlotId = -1;
             m_RegionalBinding.BuildingClass = entry.Scene.BuildingClass;
             m_RegionalBinding.Position = entry.Scene.Position;
             m_RegionalResolve = new HCInteriorResolveCursor;

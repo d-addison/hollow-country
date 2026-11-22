@@ -151,6 +151,7 @@ class HCInteriorPlacementCursor
 // Weak Object handles become null when the native object is deleted.
 class HCInteriorResolvedBuilding
 {
+    string Key;
     Object BoundObject;
     string Reason;
     bool Complete;

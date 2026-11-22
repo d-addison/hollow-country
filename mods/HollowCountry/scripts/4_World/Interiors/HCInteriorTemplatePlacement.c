@@ -47,16 +47,26 @@ class HCInteriorTemplatePlacement
     // Lifetime results use validated unique catalog SlotId values (0..1499),
     // not rounded coordinates. No eviction: one Object/refusal per catalog row.
     // ResetPlacement deliberately leaves these static-map bindings intact.
+    // Synthetic rows (Shelters, SlotId -1) never enter the map, and a slot whose
+    // first binding was for another class/position is never reused (build 166:
+    // every regional shelter shared slot 0's building and failed bounds).
     protected static ref map<int, ref HCInteriorResolvedBuilding> s_Bindings = new map<int, ref HCInteriorResolvedBuilding>;
 
     static HCInteriorResolvedBuilding HCBinding(HCInteriorFurnishRow row)
     {
-        HCInteriorResolvedBuilding binding = s_Bindings.Get(row.SlotId);
-        if (!binding)
+        string key = row.BuildingClass + "@" + HCInteriorTemplates.AsVector(row.Position).ToString();
+        HCInteriorResolvedBuilding binding;
+        if (row.SlotId >= 0 && row.SlotId < 1500) { binding = s_Bindings.Get(row.SlotId); }
+        if (binding && binding.Key == key) { return binding; }
+        bool mismatch = binding != null;
+        binding = new HCInteriorResolvedBuilding;
+        binding.Key = key;
+        if (mismatch)
         {
-            binding = new HCInteriorResolvedBuilding;
-            s_Bindings.Set(row.SlotId, binding);
+            HCModuleReadiness.HCUse("Interiors", "resolve_binding_mismatch");
+            return binding;
         }
+        if (row.SlotId >= 0 && row.SlotId < 1500) { s_Bindings.Set(row.SlotId, binding); }
         return binding;
     }
 
