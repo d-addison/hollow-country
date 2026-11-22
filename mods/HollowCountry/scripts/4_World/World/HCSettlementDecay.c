@@ -70,7 +70,8 @@ class HCWorldActivityCounters
 // 3_Game/CE/CentralEconomy.c:9,28,30,31 setup/height/lifetime/no-persistence.
 // 1_Core/proto/EnScript.c:380,385,394,407 arrays; EnMath.c:225,553,566
 // AbsFloat/Min/Max; EnConvert.c:30,210 int.ToString/vector.DistanceSq;
-// EnString.c:171,240 ToLower/IndexOf; EnDebug.c:96 Print.
+// EnString.c:171,223,240 ToLower/Hash/IndexOf; EnDebug.c:96 Print.
+// EnMath.c:17,331,343 DEG2RAD/Sin/Cos for bounded candidate rings.
 // Persistence reuses HCV2ThreatStore: EnSystem.c:397,417,425,443,462,525,
 // 528,531 and JsonFileLoader.c:69,85. No native rename exists: retained temp
 // intent + verified backup/copy, NOT OS-atomic rename. Interrupted load closes.
@@ -126,7 +127,7 @@ class HCSettlementDecayStore
 // Camera qualification stays pending.
 modded class HCObserverTransitionGate
 {
-    static bool V2Quiet(vector from, vector toward, float now, float quiet, out float clearSince, float farDistance = 1200)
+    static bool V2Quiet(vector from, vector toward, float now, float quiet, out float clearSince, float farDistance = 1200, bool horizontal = false)
     {
         if (!Finite(now) || now < 0 || !HCInfectedStore.ValidPosition(from) || !HCInfectedStore.ValidPosition(toward))
         {
@@ -138,6 +139,9 @@ modded class HCObserverTransitionGate
             clearSince = -1;
             return false;
         }
+        // A horizontal envelope is conservative across terrain elevation and
+        // encloses all settlement candidates; other callers retain 3D distance.
+        if (horizontal) { from[1] = 0; toward[1] = 0; }
         float distanceSquared = farDistance * farDistance;
         array<Man> players = HCPerfPlayers.HCGet();
         if (players.Count() > 16) { clearSince = -1; return false; }
@@ -145,7 +149,9 @@ modded class HCObserverTransitionGate
         {
             if (!observer) { clearSince = -1; return false; }
             vector position = observer.GetPosition();
-            if (!HCInfectedStore.ValidPosition(position) || vector.DistanceSq(position, from) <= distanceSquared || vector.DistanceSq(position, toward) <= distanceSquared)
+            if (!HCInfectedStore.ValidPosition(position)) { clearSince = -1; return false; }
+            if (horizontal) { position[1] = 0; }
+            if (vector.DistanceSq(position, from) <= distanceSquared || vector.DistanceSq(position, toward) <= distanceSquared)
             {
                 clearSince = -1;
                 return false;
@@ -158,12 +164,14 @@ modded class HCObserverTransitionGate
 
 class HCSettlementDecay : HCModule
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rows changed props refused fault world_unavailable budget history_pending visual_cap no_visual quiet_300m_60s position_or_water surface slope occupied_15m class_missing create_failed bounds");
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rows changed props refused fault world_unavailable budget history_pending visual_cap no_visual quiet_300m_60s quiet_wait candidates exhausted position_or_water surface slope occupied_15m class_missing create_failed bounds");
     protected ref HCSettlementState m_State;
     protected ref HCSettlementDecayStore m_Store;
     protected ref HCWorldData m_Catalog;
     protected ref array<Object> m_Props = new array<Object>;
     protected ref array<int> m_PropSlots = new array<int>;
+    static const int VISUAL_CANDIDATES = 12;
+    protected ref array<int> m_VisualAttempts = new array<int>;
     protected ref array<float> m_Clear = new array<float>;
     protected int m_FactNext;
     protected int m_FactSeverity;
@@ -218,7 +226,7 @@ class HCSettlementDecay : HCModule
 
     protected void Fail()
     {
-        m_Activity.HCRefuse("fault");
+        m_Activity.HCHit("fault");
         m_Fault = true;
         Print("[HollowCountry] V2 settlement decay disabled: persistence/clock/schema fault; preserve settlement-decay.json, .tmp and .bak");
     }
@@ -305,6 +313,7 @@ class HCSettlementDecay : HCModule
         {
             m_Clear.Insert(-1);
             m_PropSlots.Insert(0);
+            m_VisualAttempts.Insert(0);
         }
         m_Initialized = true;
         return true;
@@ -335,48 +344,78 @@ class HCSettlementDecay : HCModule
         return result;
     }
 
-    // At most one line per reason, at most sixteen reasons per boot.
+    // A candidate veto consumes one attempt, never the slot until its cap.
+    // Reason diagnostics retain boot de-duplication; summaries are <=4/town.
     protected void HCVisualRefused(int index, string reason)
     {
-        m_Activity.HCRefuse(reason);
-        if (m_RefusalReasons.Count() >= 16 || m_RefusalReasons.Find(reason) >= 0) { return; }
-        m_RefusalReasons.Insert(reason);
-        Print("[HollowCountry] V2 settlement visual refused town=" + m_State.Towns[index].Id + " reason=" + reason);
+        m_Activity.HCHit(reason);
+        if (m_RefusalReasons.Count() < 16 && m_RefusalReasons.Find(reason) < 0)
+        {
+            m_RefusalReasons.Insert(reason);
+            Print("[HollowCountry] V2 settlement visual refused town=" + m_State.Towns[index].Id + " reason=" + reason);
+        }
+        if (m_VisualAttempts[index] < VISUAL_CANDIDATES) { return; }
+        m_Activity.HCRefuse("exhausted", reason);
+        string summary = "[HollowCountry] V2 settlement visual exhausted town=" + m_State.Towns[index].Id;
+        summary += " slot=" + m_PropSlots[index].ToString() + " candidates=" + m_VisualAttempts[index].ToString();
+        Print(summary + " reason=" + reason);
+        m_PropSlots[index] = m_PropSlots[index] + 1;
+        m_VisualAttempts[index] = 0;
+    }
+
+    protected vector HCVisualCandidate(int index, int slot)
+    {
+        // Hash only the stable town identity; normalize the small remainder to
+        // avoid AbsInt overflowing on the minimum signed hash value.
+        int heading = m_State.Towns[index].Id.Hash() % 360;
+        if (heading < 0) { heading += 360; }
+        int attempt = m_VisualAttempts[index];
+        float angle = (heading + slot * 97 + attempt * 137) * Math.DEG2RAD;
+        int ring = attempt / 4;
+        float radius = 30 + ring * 75;
+        vector point = m_Catalog.Places[index].Position;
+        point[0] = point[0] + Math.Cos(angle) * radius;
+        point[2] = point[2] + Math.Sin(angle) * radius;
+        return point;
     }
 
     protected void Visual(int index, int now)
     {
-        if (m_Props.Count() >= 24 || m_PropSlots[index] >= 4) { m_Activity.HCRefuse("visual_cap"); return; }
+        if (m_Props.Count() >= 24 || m_PropSlots[index] >= 4) { m_Activity.HCHit("visual_cap"); return; }
         HCSettlementTown town = m_State.Towns[index];
         if (town.Ransack < 1) { m_Activity.HCHit("no_visual"); return; }
         int slot = m_PropSlots[index];
         if (slot == 1 && town.Remains == 0) { m_Activity.HCHit("no_visual"); return; }
         if (slot == 2 && town.Notices == 0) { m_Activity.HCHit("no_visual"); return; }
         if (slot == 3 && town.Barricades == 0) { m_Activity.HCHit("no_visual"); return; }
-        vector point = m_Catalog.Places[index].Position;
-        // Candidate offsets are design inputs, never surveyed-safe coordinates.
-        // Runtime vetoes reject water, roads, slope and occupied geometry.
-        if (slot == 0) { point = point + "420 0 120"; }
-        if (slot == 1) { point = point + "-420 0 120"; }
-        if (slot == 2) { point = point + "120 0 420"; }
-        if (slot == 3) { point = point + "120 0 -420"; }
-        point[1] = GetGame().SurfaceY(point[0], point[2]);
+        vector centre = m_Catalog.Places[index].Position;
         float clearSince = m_Clear[index];
-        // Seconds within the UTC day keep float precision (a raw UTC stamp has 128 s steps);
-        // a midnight wrap only restarts the quiet wait.
+        // All candidates are <=180 m from centre: a 480 m quiet envelope
+        // covers their 300 m exclusion for the full 60 s. It can be retained
+        // across candidate/slot changes without borrowing another point's wait.
+        // UTC day seconds preserve float precision; midnight restarts the wait.
         int dayNow = now - (now / 86400) * 86400;
-        bool quiet = HCObserverTransitionGate.V2Quiet(point, point, dayNow, 60, clearSince, 300);
+        bool quiet = HCObserverTransitionGate.V2Quiet(centre, centre, dayNow, 60, clearSince, 480, true);
         m_Clear[index] = clearSince;
-        if (!quiet) { HCVisualRefused(index, "quiet_300m_60s"); return; }
-        // Each slot is attempted only once per boot. Failed geometry is never
-        // retried every tick; neither an orphan nor a foreign prop is adopted.
-        m_PropSlots[index] = m_PropSlots[index] + 1;
-        m_Clear[index] = -1;
+        if (!quiet)
+        {
+            m_Activity.HCHit("quiet_wait");
+            m_Activity.HCHit("quiet_300m_60s");
+            return;
+        }
+        // One candidate geometry probe per selected town/tick, <=12 per slot
+        // per boot; no orphan or foreign prop is ever adopted.
+        vector point = HCVisualCandidate(index, slot);
+        m_VisualAttempts[index] = m_VisualAttempts[index] + 1;
+        m_Activity.HCHit("candidates");
+        point[1] = GetGame().SurfaceY(point[0], point[2]);
         if (!HCWorldLimits.Position(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { HCVisualRefused(index, "position_or_water"); return; }
         string surface;
         GetGame().SurfaceGetType(point[0], point[2], surface);
         surface.ToLower();
-        if (surface.IndexOf("grass") < 0) { HCVisualRefused(index, "surface"); return; }
+        // Keep the conservative grass-only rule. SurfaceRoadY provides height,
+        // not a road predicate; asphalt/concrete are not admitted by guessing.
+        if (surface.IndexOf("road") >= 0 || surface.IndexOf("asphalt") >= 0 || surface.IndexOf("concrete") >= 0 || surface.IndexOf("grass") < 0) { HCVisualRefused(index, "surface"); return; }
         float sx = GetGame().SurfaceY(point[0] + 3, point[2]);
         float sz = GetGame().SurfaceY(point[0], point[2] + 3);
         if (Math.AbsFloat(sx - point[1]) > 0.2 || Math.AbsFloat(sz - point[1]) > 0.2) { HCVisualRefused(index, "slope"); return; }
@@ -405,6 +444,8 @@ class HCSettlementDecay : HCModule
         }
         HCGroundSnap.Snap(prop);
         m_Props.Insert(prop);
+        m_PropSlots[index] = m_PropSlots[index] + 1;
+        m_VisualAttempts[index] = 0;
         m_Activity.HCHit("props");
         HCModuleReadiness.HCUse("SettlementDecay", "prop_placed");
     }
@@ -416,13 +457,13 @@ class HCSettlementDecay : HCModule
         m_Elapsed += Math.Min(deltaTime, 60);
         if (!m_HistoryPending && m_Elapsed < 10) { return; }
         HCWorldModule world = HCWorldModule.Get();
-        if (!world) { m_Activity.HCRefuse("world_unavailable"); return; }
+        if (!world) { m_Activity.HCHit("world_unavailable"); return; }
         int now = HCWorldClock.UTC();
         if (now < world.Epoch()) { Fail(); return; }
         if (!m_Initialized && !Initialize(world, now)) { Fail(); return; }
         if (m_State.Epoch != world.Epoch() || now < m_State.SavedUtc) { Fail(); return; }
         m_WorkBudget.HCReset(1);
-        if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        if (!m_WorkBudget.HCContinue()) { m_Activity.HCHit("budget"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
         int index = m_Cursor;
         HCReached.Mark("settlement_decay.row");
         HCSettlementTown town = m_State.Towns[index];
