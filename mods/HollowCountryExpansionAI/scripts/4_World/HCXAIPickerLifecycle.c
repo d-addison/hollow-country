@@ -6,8 +6,7 @@
 // ai/4_World/DayZExpansion_AI/Classes/eAIGroup.c:1123 bool IsInCombat(),
 // :1139 DayZPlayerImplement GetMember(int), :1185 int Count();
 // ai/4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 eAIGroup GetGroup();
-// core/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
-// static int GetTimestamp(bool useUTC = false). No new provider API.
+// UTC epoch uses HCXExpansionBridge.HCGetTimestamp; negative means refusal.
 // #144: HCPartyRefusal/Deferred are HC-owned policy calls (no new Expansion API).
 // Runtime acceptance PENDING. Never creates an actor, lease, group or item.
 modded class HCXAISiteState
@@ -35,11 +34,14 @@ modded class HCXAISiteDirector
     {
         super.StepTransients();
         if (!GetGame() || !GetGame().IsServer() || !HCPickers.Get()) { return; }
-        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_PARTY, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
+        if (m_States.Count() == 0) { return; }
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { return; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_PARTY, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         if (m_HCPickerCursor >= m_States.Count()) { m_HCPickerCursor = 0; }
         HCXAISiteState pickerState = m_States[m_HCPickerCursor];
         m_HCPickerCursor++;
-        this.HCParty(pickerState, ExpansionStatic.GetTimestamp(true));
+        this.HCParty(pickerState, now);
     }
 
     // This is the HCParty(lease) seam: only HC-10-claimed transient states
@@ -98,7 +100,12 @@ modded class HCXAISiteDirector
     {
         // Base StepTransients may retire an absent group before the admission
         // cursor reaches it. Name that refusal while its claimed lease exists.
-        if (materialized && (!state.Patrol || !state.Patrol.m_Group)) { this.HCParty(state, ExpansionStatic.GetTimestamp(true)); }
+        if (materialized && (!state.Patrol || !state.Patrol.m_Group))
+        {
+            int now = HCXExpansionBridge.HCGetTimestamp();
+            if (now >= 0) { this.HCParty(state, now); }
+        }
+        // Clock refusal must not skip durable loss or native retirement below.
         HCPickers pickers = HCPickers.Get();
         HCScavengeTrip trip;
         if (pickers) { trip = pickers.HCTrip(); }

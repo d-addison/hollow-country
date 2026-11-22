@@ -8,10 +8,8 @@
 // 3_Game/Systems/Inventory/Inventory.c:138 GetCargo, :143 CreateEntityInCargo;
 // Cargo.c:28 GetItemCount; 1_Core/proto/EnConvert.c:210 DistanceSq;
 // EnScript.c:380 Count, :407 Insert; EnDebug.c:96 Print.
-// Expansion (read-only .banso-writer/xref):
-// core/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
-// static int GetTimestamp(bool useUTC = false). No other Expansion call added.
-// Runtime acceptance PENDING, including CE persistence/visibility on two clients.
+// UTC epoch via HCXExpansionBridge.HCGetTimestamp (negative on refusal).
+// Runtime acceptance PENDING: one server and at most one client.
 modded class HCPickerSurvey
 {
     string CacheClass;
@@ -91,13 +89,15 @@ modded class HCXAISiteDirector
             return;
         }
         if (!survey.Routes || survey.Routes.Count() == 0) { return; }
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { return; }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_CACHE, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         int endpoints = survey.Routes.Count() * 2;
         if (m_HCPickerCacheCursor >= endpoints) { m_HCPickerCacheCursor = 0; }
         HCPickerRoute route = survey.Routes[m_HCPickerCacheCursor / 2];
         bool source = (m_HCPickerCacheCursor % 2) == 1;
         m_HCPickerCacheCursor++;
-        this.HCPickerCacheStep(survey, route, source, ExpansionStatic.GetTimestamp(true));
+        this.HCPickerCacheStep(survey, route, source, now);
     }
 
     EntityAI HCPickerFindCache(HCPickerSurvey survey, vector at, HCXAICacheRow row)
@@ -208,8 +208,10 @@ modded class HCXAISiteDirector
         if (!this.SaveCaches()) { return; }
         if (!crate)
         {
-            crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
+            crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME));
             HCGroundSnap.Snap(crate);
+            // Movable crates keep native item pathgraph behaviour; forcing a
+            // static obstacle here would leave it behind after a player moves it.
         }
         if (!crate || !crate.GetInventory()) { return; }
         row.HCPickerCrateId = HCSearchSupplyRegistry.PersistentId(crate);
@@ -235,4 +237,5 @@ modded class HCXAISiteDirector
         string receipt = "[HC Pickers] cache key=" + key + " outcome=seeded lifecycle=" + row.Lifecycle.ToString();
         Print(receipt + " attempts=" + created.ToString() + " runtime=PENDING");
     }
+
 }

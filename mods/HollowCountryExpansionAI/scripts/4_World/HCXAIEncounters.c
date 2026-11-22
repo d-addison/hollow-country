@@ -10,8 +10,8 @@
 // "xai-<ownership session>-<UTC seconds>" for the lease journal.
 //
 // Expansion APIs (read-only reference, ai_scripts/core_scripts of the pinned
-// build): ExpansionStatic.GetTimestamp(bool useUTC)
-// core_scripts/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748;
+// build): UTC epoch via HCXExpansionBridge.HCGetTimestamp;
+// a refused clock leaves admission pending for a later step.
 // eAIDynamicPatrol.m_Group (public field)
 // ai_scripts/4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:45.
 // Native: Game.GetWorldName 3_Game/Global/Game.c:934.
@@ -67,7 +67,9 @@ class HCXAIEncounters : Managed
             return;
         }
         if (phase != "run") { return; }
-        string token = HCXAISiteRules.EncounterToken(director.OwnedSession(), ExpansionStatic.GetTimestamp(true));
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { m_State = "waiting for UTC clock"; return; }
+        string token = HCXAISiteRules.EncounterToken(director.OwnedSession(), now);
         if (token == "")
         {
             this.Settle("ownership session not reconciled");

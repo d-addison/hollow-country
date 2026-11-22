@@ -12,7 +12,7 @@
 // for m_HCPendingMembers == 0 before borrowing that same group.
 // 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup;
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:6 eAIWaypointBehavior.ONCE.
-// Expansion Core ExpansionStatic.c:1748 GetTimestamp (UTC seconds).
+// UTC seconds via HCXExpansionBridge.HCGetTimestamp (negative on refusal).
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :385 Clear,
 // :407 Insert. Other calls are existing HC ports. Runtime acceptance PENDING.
 // Preserve the existing party's patrol, never create a second group. Each leg
@@ -32,7 +32,8 @@ class HCXAIPickerWalk : HCScavengeInventory
         HCScavengeState homeCheck = new HCScavengeState;
         homeCheck.Phase = "returning";
         if (HCCampTheft.HCGuard(this, homeCheck)) { return true; }
-        int now = ExpansionStatic.GetTimestamp(true);
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { return false; }
         if (m_DepositWaitUntil == 0) { m_DepositWaitUntil = now + Defaults.PartyCooldownSeconds; }
         // At expiry enter the normal durable intent/refusal path. HCMove still
         // vetoes observation, retaining the exact physical item on the carrier.
@@ -162,6 +163,21 @@ class HCXAIPickerWalk : HCScavengeInventory
 modded class HCScavengeTrip
 {
     protected string m_HCPickerLoggedPhase;
+    protected bool m_HCPickerClockPending;
+    protected int m_HCPickerClockRefusals;
+
+    bool HCPickerClockPending() { return m_HCPickerClockPending; }
+
+    override void HCStep()
+    {
+        if (m_HCPickerClockPending)
+        {
+            // One checkpoint retry per existing trip tick, never a native move.
+            if (m_Ready && !m_Busy) { HCCheckpoint(); }
+            return;
+        }
+        super.HCStep();
+    }
 
     void HCLogTripBoundary(bool saved)
     {
@@ -181,16 +197,35 @@ modded class HCScavengeTrip
     {
         // UTC seconds, same existing clock as the site's raid journal. Stamp
         // before the durable terminal barrier; old V1 receipts zero-fill safely.
+        bool clockValid = true;
         if (m_State && m_IO)
         {
             string terminal = m_State.Phase;
             if (terminal == "returned" || terminal == "lost" || terminal == "quarantined")
             {
-                m_State.NextTripAt = ExpansionStatic.GetTimestamp(true) + m_IO.Defaults.PartyCooldownSeconds;
+                int now = HCXExpansionBridge.HCGetTimestamp();
+                if (now < 0)
+                {
+                    // Keep the terminal phase, exact cargo owner and original
+                    // refusal. Three consecutive attempts allow a transient
+                    // clock failure to recover over two further ticks, while
+                    // bounding retries when the clock remains unavailable.
+                    clockValid = false;
+                    m_HCPickerClockPending = true;
+                    m_HCPickerClockRefusals++;
+                    if (m_HCPickerClockRefusals >= 3) { m_Ready = false; }
+                }
+                else
+                {
+                    m_HCPickerClockPending = false;
+                    m_HCPickerClockRefusals = 0;
+                    m_State.NextTripAt = now + m_IO.Defaults.PartyCooldownSeconds;
+                }
             }
         }
-        bool saved = super.HCCheckpoint();
-        HCLogTripBoundary(saved);
+        bool saved = false;
+        if (clockValid) { saved = super.HCCheckpoint(); }
+        if (clockValid) { HCLogTripBoundary(saved); }
         HCXAIPickerWalk walkPort = HCXAIPickerWalk.Cast(m_IO);
         if (walkPort && m_State)
         {
@@ -198,5 +233,33 @@ modded class HCScavengeTrip
             if (!saved || phase == "returned" || phase == "lost" || phase == "quarantined") { walkPort.HCFinishWalk(); }
         }
         return saved;
+    }
+}
+
+// A terminal receipt awaiting its clock stamp must survive admission attempts.
+modded class HCPickers
+{
+    override void OnTick(float deltaTime)
+    {
+        // Base OnTick skips terminal phases. Service the pending terminal
+        // barrier with the same one-unit budget before allowing admission.
+        if (m_Trip && m_Trip.HCPickerClockPending())
+        {
+            HCPublishReadiness();
+            if (!m_Trip.m_Ready) { return; }
+            m_WorkBudget.HCReset(1);
+            if (!m_WorkBudget.HCContinue()) { return; }
+            if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_PARTY, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
+            m_Trip.HCStep();
+            HCPublishReadiness();
+            return;
+        }
+        super.OnTick(deltaTime);
+    }
+
+    override string HCTryParty(HCAIPartyIdentity identity, string lease, PlayerBase actor, int now, int eligibleAt)
+    {
+        if (m_Trip && m_Trip.HCPickerClockPending()) { return "PICKER_CLOCK_UNAVAILABLE"; }
+        return super.HCTryParty(identity, lease, actor, now, eligibleAt);
     }
 }

@@ -35,8 +35,15 @@ class HCXExpansionBridge
         GetYearMonthDayUTC(endYear, endMonth, endDay);
         if (year != endYear || month != endMonth || day != endDay)
         {
-            HCRefuse("GetTimestamp", "UTC_DATE_CHANGED");
-            return -1;
+            // One bounded re-sample handles an ordinary UTC midnight crossing.
+            GetYearMonthDayUTC(year, month, day);
+            GetHourMinuteSecondUTC(hour, minute, second);
+            GetYearMonthDayUTC(endYear, endMonth, endDay);
+            if (year != endYear || month != endMonth || day != endDay)
+            {
+                HCRefuse("GetTimestamp", "UTC_DATE_CHANGED");
+                return -1;
+            }
         }
         return HCXCFBridge.HCTimestamp(year, month, day, hour, minute, second);
     }
