@@ -486,7 +486,8 @@ class HCStagedSaveImage
     protected int m_OpenStage;
     protected bool m_SourceAbsent;
     protected bool m_TargetExists;
-    protected string m_PriorText;
+    protected ref array<string> m_PriorChunks = new array<string>;
+    protected int m_PriorBytes;
     protected int m_BackupStage;
     protected bool m_BackupExists;
     protected bool m_Unchanged = true;
@@ -551,7 +552,8 @@ class HCStagedSaveImage
             Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
             return false;
         }
-        m_PriorText = "";
+        m_PriorChunks.Clear();
+        m_PriorBytes = 0;
         m_BackupStage = 0;
         m_BackupExists = false;
         m_Unchanged = true;
@@ -684,12 +686,14 @@ class HCStagedSaveImage
                 // Reuse the bounded open/read/close stages below.
                 HCSaveJob.HCOperation = "read_backup";
                 source = m_Path + ".bak";
-                expected = m_PriorText;
+                // Compare backup chunks to the observed prior, without a growing
+                // concatenated string (linear storage even for large images).
                 compare = true;
             }
             else
             {
-                m_PriorText = "";
+                m_PriorChunks.Clear();
+                m_PriorBytes = 0;
                 m_Phase = 3;
                 return HCSaveJob.STEP_MORE;
             }
@@ -804,22 +808,31 @@ class HCStagedSaveImage
             if (count < 0 || count != piece.Length() || m_Offset + count > m_Limit) { return HCFail(); }
             if (m_CheckPrior && count > 0)
             {
-                if (m_Backup) { m_PriorText += piece; }
+                if (m_Backup) { m_PriorChunks.Insert(piece); m_PriorBytes += count; }
                 if (m_Offset + count > m_Text.Length()) { m_Unchanged = false; }
                 else if (piece != m_Text.Substring(m_Offset, count)) { m_Unchanged = false; }
             }
             if (compare)
             {
-                if (m_Offset + count > expected.Length()) { return HCFail(); }
-                if (count > 0)
+                if (m_Phase == 2 && !m_CheckPrior)
                 {
-                    string want = expected.Substring(m_Offset, count);
-                    if (want.Length() != count || piece != want) { return HCFail(); }
+                    int chunk = m_Offset / HC_CHUNK_BYTES;
+                    if (m_Offset + count > m_PriorBytes || (count == 0 && m_Offset != m_PriorBytes)) { return HCFail(); }
+                    if (count > 0 && (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk])) { return HCFail(); }
+                }
+                else
+                {
+                    if (m_Offset + count > expected.Length()) { return HCFail(); }
+                    if (count > 0)
+                    {
+                        string want = expected.Substring(m_Offset, count);
+                        if (want.Length() != count || piece != want) { return HCFail(); }
+                    }
                 }
             }
             if (count == 0)
             {
-                if (m_Offset < 1 || (compare && m_Offset != expected.Length())) { return HCFail(); }
+                if (m_Offset < 1 || (compare && m_Phase != 2 && m_Offset != expected.Length())) { return HCFail(); }
                 m_StreamDone = true;
             }
             if (m_WriteOpen) { m_Piece = piece; }
@@ -859,7 +872,7 @@ class HCStagedSaveImage
         {
             m_PriorUnchanged = m_PrimaryExists && m_Unchanged && m_Offset == m_Text.Length();
         }
-        if (m_Phase == 2 && !m_CheckPrior) { m_PriorText = ""; }
+        if (m_Phase == 2 && !m_CheckPrior) { m_PriorChunks.Clear(); m_PriorBytes = 0; }
         HCClose();
         if (m_CheckPrior) { m_CheckPrior = false; }
         else { m_Phase++; }
@@ -875,7 +888,8 @@ class HCStagedSaveImage
         m_Phase = 0;
         m_Backup = false;
         m_BackupStage = 0;
-        m_PriorText = "";
+        m_PriorChunks.Clear();
+        m_PriorBytes = 0;
         m_CheckPrior = false;
         return true;
     }
