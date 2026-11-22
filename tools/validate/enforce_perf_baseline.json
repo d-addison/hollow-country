@@ -1183,16 +1183,6 @@
     },
     {
       "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
-      "line": 194,
-      "symbol": "HCInteriorPackIndex.HCReadAtStart",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorTemplates.EnsureLoaded -> HCInteriorPackIndex.HCPrimeAtStart -> HCInteriorPackIndex.HCReadAtStart; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorPackIndex.HCReadAtStart remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
       "line": 166,
       "symbol": "HCInteriorStore.ReconcileAll",
@@ -1970,6 +1960,36 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 195,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded reader: one <=32767-byte file per retained startup step, or one lazy template per module tick; no pack-wide prime. Native I/O latency remains unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 195,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorsModule.PlaceCandidate -> HCInteriorTemplatePlacement.PlaceRow -> HCInteriorTemplatePlacement.HCPlaceRowSlice -> HCInteriorTemplatePlacement.HCPlaceRowSliceWork -> HCInteriorTemplates.Template -> HCInteriorTemplates.HCLoadTemplate -> HCInteriorTemplates.ReadStrict -> HCInteriorPackIndex.HCReadChunk -> HCInteriorPackIndex.HCRead -> HCInteriorPackIndex.HCReadFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-03 path-insensitive startup witness: Template returns before I/O until s_Loaded, which is published only by the staged reader on ticks/pump. Lazy claims share a one-file-per-module-tick grant; no synchronous pack prime remains."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 198,
+      "symbol": "HCInteriorPackIndex.HCReadFile",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
+      "native": false,
+      "reason": "W2-03 bounded reader: one <=32767-byte file per retained startup step, or one lazy template per module tick; no pack-wide prime. Native I/O latency remains unverified."
     }
   ]
 }

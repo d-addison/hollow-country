@@ -62,8 +62,11 @@ class HCInteriorTemplatePlacement
 
     static HCInteriorResolveCursor HCResolver(HCInteriorFurnishRow row)
     {
+        // Returning null keeps the production cursor on its prepare grant;
+        // a busy lazy reader must never turn into a permanent building refusal.
+        if (!HCInteriorTemplates.Template(row.BuildingClass)) { return null; }
         HCInteriorResolvedBuilding binding = HCBinding(row);
-        if (!binding.Pending) { binding.Pending = new HCInteriorResolveCursor; }
+        if (!binding.Pending) { binding.Pending = new HCInteriorBoundedResolveCursor; }
         return binding.Pending;
     }
 
@@ -91,7 +94,7 @@ class HCInteriorTemplatePlacement
     static HCStepTimer HCSteps()
     {
         if (s_Steps) { return s_Steps; }
-        s_Steps = new HCStepTimer("Interiors");
+        s_Steps = new HCInteriorPlacementSteps("Interiors");
         s_Steps.HCDefine("resolve");
         s_Steps.HCDefine("lookup");
         s_Steps.HCDefine("inspect");

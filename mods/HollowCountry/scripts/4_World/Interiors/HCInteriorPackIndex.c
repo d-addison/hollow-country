@@ -8,10 +8,10 @@
 // EnScript.c:902 map.Set, :917 Contains; EnConvert.c:30 int.ToString;
 // EnString.c:240 IndexOf (cheap SchemaVersion dispatch only).
 // Strict text checks: HCInteriorTemplatesStrict NativeText (screen before LoadData)
-// and its census helpers (exact key/object/array/comma counts after LoadData).
+// and its census helpers for operator packs. Shipped packs use the offline receipt.
 // Hash trust remains docs/INTERIOR_TEMPLATES_CONTRACT.md section 2: offline
 // installer SHA-256 + receipt. No inspected native SHA-256 API; NEVER claim runtime
-// digest verification. Runtime checks pins/bindings/schema/read sizes only.
+// digest verification. Runtime checks bindings/schema/read sizes only.
 class HCInteriorPackRoot
 {
     int SchemaVersion;
@@ -61,8 +61,10 @@ class HCInteriorPackJob
     int LeafFiles;
     bool LeafLogged;
     int Bytes;
-    int CachedBytes;
-    ref map<string, string> RawFiles = new map<string, string>;
+    // Trust only the offline-verified shipped index (or an identical mission index).
+    bool Trusted;
+    int HeaderStage;
+    string HeaderContent;
     // Separate screened reads, native decoding and script census/validation.
     string LeafContent;
     int LeafStage;
@@ -119,8 +121,7 @@ class HCInteriorPackIndex
         job.LeafContent = "";
         job.LeafStage = 0;
         job.PendingTemplate = null;
-        job.RawFiles.Clear();
-        job.CachedBytes = 0;
+        job.HeaderContent = "";
         job.Pins.Clear();
         job.Schemas.Clear();
         int chunks = HCChunks(job);
@@ -147,6 +148,8 @@ class HCInteriorPackIndex
         job.LeafFiles = 0;
         job.LeafLogged = false;
         job.Bytes = 0;
+        job.Trusted = false;
+        job.HeaderStage = 0;
         job.Started = false;
         job.Ready = false;
         job.Header = null;
@@ -154,8 +157,7 @@ class HCInteriorPackIndex
         job.LeafContent = "";
         job.LeafStage = 0;
         job.PendingTemplate = null;
-        job.RawFiles.Clear();
-        job.CachedBytes = 0;
+        job.HeaderContent = "";
         job.Pins.Clear();
         job.Schemas.Clear();
     }
@@ -168,7 +170,7 @@ class HCInteriorPackIndex
             HCFail(job, "file_cap");
             return "";
         }
-        string content = job.RawFiles.Get(fileName);
+        string content = HCReadFile(job.Root + fileName);
         int count = content.Length();
         if (count < 1) { HCFail(job, "file_size_or_read:" + fileName); return ""; }
         job.Files = job.Files + 1;
@@ -186,48 +188,34 @@ class HCInteriorPackIndex
         return content;
     }
 
-    // OnStart only: cache immutable pack inputs. Decoding/validation of leaves stays sliced.
-    // Native EnSystem.c:417/425/443 OpenFile/ReadFile/CloseFile; EnScript.c:866/902 maps.
-    static void HCReadAtStart(HCInteriorPackJob job, string fileName)
+    // One bounded file per retained reader step; never prime the pack at OnStart.
+    // Native EnSystem.c:417/425/443; the extra byte detects an oversized file.
+    static string HCReadFile(string path)
     {
-        if (job.Reason != "" || job.RawFiles.Contains(fileName)) { return; }
-        FileHandle handle = OpenFile(job.Root + fileName, FileMode.READ);
-        if (!handle)
-        {
-            HCFail(job, "file_size_or_read:" + fileName);
-            return;
-        }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return ""; }
         string content;
         int count = ReadFile(handle, content, 32768);
         CloseFile(handle);
-        if (count < 1 || count > 32767 || count != content.Length())
-        {
-            HCFail(job, "file_size_or_read:" + fileName);
-            return;
-        }
-        job.CachedBytes = job.CachedBytes + count;
-        if (job.RawFiles.Count() >= 627 || job.CachedBytes > 20971520)
-        {
-            HCFail(job, "pack_size");
-            return;
-        }
-        job.RawFiles.Set(fileName, content);
+        if (count < 1 || count > 32767 || count != content.Length()) { return ""; }
+        return content;
     }
 
-    static void HCPrimeAtStart(HCInteriorPackJob job)
+    // Key adaptation is still required on trusted JSON: File/Slot collide
+    // with native types, so the DTO fields are FileName/SlotId. Reuse the
+    // existing bounded renamer while skipping only screen/census/hex work.
+    static string HCDecodeText(HCInteriorPackJob job, string raw, string schema)
     {
-        // Header admits at most 16 pages. Merge each once to discover exact leaf names.
-        for (int page = 0; page < 16 && !job.Ready && job.Reason == ""; page++)
+        if (!job.Trusted) { return HCInteriorTemplatesStrict.NativeText(raw, schema); }
+        if (schema == "pack-index" || schema == "pack-page" || schema == "index")
         {
-            HCReadAtStart(job, job.Header.IndexFiles[job.NextPage].FileName);
-            HCMetadataPage(job);
+            return HCInteriorTemplatesStrict.Rename(raw, "\"File\":", "\"FileName\":");
         }
-        if (!job.Ready || job.Reason != "") { return; }
-        foreach (string fileName, string pin : job.Pins)
+        if (schema == "furnish")
         {
-            HCReadAtStart(job, fileName);
-            if (job.Reason != "") { return; }
+            return HCInteriorTemplatesStrict.Rename(raw, "\"Slot\":", "\"SlotId\":");
         }
+        return raw;
     }
 
     static bool HCStart(HCInteriorPackJob job, string root)
@@ -248,8 +236,40 @@ class HCInteriorPackIndex
             return HCFail(job, "pack_missing");
         }
         Print("[HC Plan] HC-24 pack_chunks=0 classes=0 refused=none state=pending hash_refused=runtime_sha256_unavailable runtime=PENDING");
-        HCReadAtStart(job, "index.json");
-        string raw = HCRead(job, "index.json");
+        return true;
+    }
+
+    // Header I/O, optional mission identity comparison, and decoding each get
+    // separate pump grants. No runtime SHA claim: bundle/generated-digest gates
+    // authenticate the PBO; equality only selects that same offline receipt.
+    protected static int HCRootStep(HCInteriorPackJob job)
+    {
+        if (job.HeaderStage == 0)
+        {
+            job.HeaderContent = HCRead(job, "index.json");
+            if (job.Reason != "") { return 2; }
+            job.Trusted = job.Root == HCProfileDefaults.PBO_ROOT + "templates/";
+            job.HeaderStage = 1;
+            return 3;
+        }
+        if (job.HeaderStage == 1)
+        {
+            if (job.Root == "$mission:hollow-country/interiors/templates/")
+            {
+                string shipped = HCReadFile(HCProfileDefaults.PBO_ROOT + "templates/index.json");
+                job.Trusted = shipped != "" && shipped == job.HeaderContent;
+            }
+            job.HeaderStage = 2;
+            return 3;
+        }
+        bool admitted = HCDecodeRoot(job, job.HeaderContent);
+        job.HeaderContent = "";
+        if (!admitted) { return 2; }
+        return 3;
+    }
+
+    protected static bool HCDecodeRoot(HCInteriorPackJob job, string raw)
+    {
         if (raw == "")
         {
             return false;
@@ -260,11 +280,11 @@ class HCInteriorPackIndex
         // refuse a mismatched value.
         string schema = "index";
         if (raw.IndexOf("\"SchemaVersion\":3") >= 0) { schema = "pack-index"; }
-        string content = HCInteriorTemplatesStrict.NativeText(raw, schema);
+        string content = HCDecodeText(job, raw, schema);
         HCInteriorTemplateIndex index = new HCInteriorTemplateIndex;
         if (schema == "index")
         {
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateIndex>.LoadData(content, index, error) || !HCInteriorTemplatesStrict.IndexCensus(content, index) || !HCInteriorTemplates.IndexValid(index))
+            if (content == "" || !JsonFileLoader<HCInteriorTemplateIndex>.LoadData(content, index, error) || (!job.Trusted && !HCInteriorTemplatesStrict.IndexCensus(content, index)) || !HCInteriorTemplates.IndexValid(index))
             {
                 return HCFail(job, "legacy_index_or_pin");
             }
@@ -274,7 +294,7 @@ class HCInteriorPackIndex
             return true;
         }
         HCInteriorPackRoot header = new HCInteriorPackRoot;
-        if (content == "" || !JsonFileLoader<HCInteriorPackRoot>.LoadData(content, header, error) || !HCInteriorTemplatesStrict.RootCensus(content, header))
+        if (content == "" || !JsonFileLoader<HCInteriorPackRoot>.LoadData(content, header, error) || (!job.Trusted && !HCInteriorTemplatesStrict.RootCensus(content, header)))
         {
             return HCFail(job, "index_schema_or_strict");
         }
@@ -290,7 +310,7 @@ class HCInteriorPackIndex
             {
                 return HCFail(job, "index_page_binding");
             }
-            pins.HCAdd(binding.Sha256, 64);
+            if (!job.Trusted) { pins.HCAdd(binding.Sha256, 64); }
             number = number + 1;
         }
         if (!pins.HCValid())
@@ -328,11 +348,11 @@ class HCInteriorPackIndex
         HCInteriorHexBatch pins = new HCInteriorHexBatch;
         foreach (HCInteriorPackSource source : page.SourcePins)
         {
-            if (!source || !HCInteriorTemplatesStrict.SourceName(source.Name, pins) || index.Sources.Contains(source.Name))
+            if (!source || (!job.Trusted && !HCInteriorTemplatesStrict.SourceName(source.Name, pins)) || index.Sources.Contains(source.Name))
             {
                 return HCFail(job, "index_source_duplicate_or_pin");
             }
-            pins.HCAdd(source.Sha256, 64);
+            if (!job.Trusted) { pins.HCAdd(source.Sha256, 64); }
             index.Sources.Set(source.Name, source.Sha256);
         }
         if (!pins.HCValid())
@@ -360,7 +380,7 @@ class HCInteriorPackIndex
 
     // 0 metadata complete, 1 budget exhausted, 2 refused, 3 page merged/more. Retain this job and the existing
     // reader's placement/load cursors. Caller resets HCWorkBudget for each slice.
-    // Never publish any class/template until the reserved reader validates ALL leaves.
+    // Publish metadata only after the reader validates its startup summaries.
     static int HCStep(HCInteriorPackJob job, HCWorkBudget budget)
     {
         HCSampleDuration(job);
@@ -376,6 +396,7 @@ class HCInteriorPackIndex
         {
             return 1;
         }
+        if (!job.Index) { return HCRootStep(job); }
         return HCMetadataPage(job);
     }
 
@@ -384,7 +405,7 @@ class HCInteriorPackIndex
         HCInteriorTemplateFile binding = job.Header.IndexFiles.Get(job.NextPage);
         string raw = HCRead(job, binding.FileName);
         if (raw == "") { return 2; }
-        string content = HCInteriorTemplatesStrict.NativeText(raw, "pack-page");
+        string content = HCDecodeText(job, raw, "pack-page");
         string error;
         HCInteriorPackPage page = new HCInteriorPackPage;
         // Stage-specific reasons: build 099 refused index-000 with one reason for three checks.
@@ -398,7 +419,7 @@ class HCInteriorPackIndex
             HCFail(job, "index_page_strict_load");
             return 2;
         }
-        if (!HCInteriorTemplatesStrict.PageCensus(content, page))
+        if (!job.Trusted && !HCInteriorTemplatesStrict.PageCensus(content, page))
         {
             HCFail(job, "index_page_strict_census");
             return 2;
@@ -447,7 +468,7 @@ class HCInteriorPackIndex
     // the existing schema-2 per-chunk validation and placement interfaces unchanged.
     static string HCReadChunk(HCInteriorPackJob job, string fileName, string schema, string expectedPin)
     {
-        // Every pin in job.Pins passed the hex check in IndexValid; equality pins the binding.
+        // Strict packs checked hex; shipped packs use offline pins. Equality pins the binding.
         if (!job.Ready || expectedPin.Length() != 64 || job.Pins.Get(fileName) != expectedPin || job.Schemas.Get(fileName) != schema)
         {
             HCFail(job, "chunk_before_index_or_pin");
@@ -464,7 +485,7 @@ class HCInteriorPackIndex
             return "";
         }
         job.LeafFiles = job.LeafFiles + 1;
-        string content = HCInteriorTemplatesStrict.NativeText(raw, schema);
+        string content = HCDecodeText(job, raw, schema);
         if (content == "")
         {
             HCFail(job, "chunk_strict:" + fileName);
@@ -480,8 +501,7 @@ class HCInteriorPackIndex
         job.LeafContent = "";
         job.LeafStage = 0;
         job.PendingTemplate = null;
-        job.RawFiles.Clear(); // All leaf consumers are finished before the admission receipt.
-        job.CachedBytes = 0;
+        // Lazy templates continue to use the admitted index after this receipt.
         string state = "off";
         string refused = "none";
         if (enabled)
