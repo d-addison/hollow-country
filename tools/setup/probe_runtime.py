@@ -13,9 +13,9 @@ stagers must agree on lives here so a hardening fix cannot land in only one of t
 
 Nothing here proves how DayZ behaves. It only prepares files and refuses unsafe input.
 
-New launch-free path, quoting, JSON-source and host-lease primitives live in
-probe_core. Consumer migration is deferred: importing that library here also
-requires updating the release bundle's explicit transitive-file inventory.
+Launch-free path, quoting, JSON-source and host-lease primitives live in probe_core; this module
+imports it (it ships in the release bundle's explicit transitive-file inventory, friend_bundle
+BUNDLE_EXTRA_FILES) and uses its link/reparse preflight for fresh destinations.
 """
 import datetime
 import hashlib
@@ -27,8 +27,10 @@ import stat
 
 try:
     from . import diagnostic_mission as dm
+    from . import probe_core
 except ImportError:  # executed as a script from tools/setup
     import diagnostic_mission as dm
+    import probe_core
 
 SERVER_EXE = r"D:\SteamLibrary\steamapps\common\DayZServer\DayZServer_x64.exe"
 SERVER_INSTALL = r"D:\SteamLibrary\steamapps\common\DayZServer"
@@ -734,6 +736,14 @@ def check_unchanged(source):
 # ---------------------------------------------------------------------------
 # Staging skeleton
 # ---------------------------------------------------------------------------
+
+
+def fresh_destination(destination):
+    """Return the absolute destination after refusing linked/reparse components and any existing entry."""
+    path = probe_core.safe(destination)
+    if path.exists() or path.is_symlink():
+        raise ValueError("fresh destination required")
+    return path
 
 
 def begin(source_runtime, destination, *, parent, battleye_sha256, hold=()):

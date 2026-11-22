@@ -239,6 +239,18 @@ on the historical parent/fix runs and correlate exact diagnostics with both
 source declarations before defining a narrow divergence rule. Never call such
 a divergence passed or suppress other errors in the same output.
 
+Calibration review notes (each checked against the code and its test):
+
+| Note | State | Where |
+| --- | --- | --- |
+| Tail per row side | implemented: bounded, redacted `<fix>-<side>.log` referenced from each side | `test_persists_redacted_bounded_tail_and_reference`, `test_output_tail_redacts_json_escaped_windows_folder_and_identity_fields` |
+| Continue after an inconclusive row | implemented: default continues, `--stop-on-inconclusive` stops | `test_inconclusive_continues_all_sides_and_rows`, `test_explicit_stop_on_inconclusive` |
+| Retry the Workbench state query | implemented: prelaunch `unknown` only, two retries, never after launch | `test_unknown_prelaunch_state_retries_but_running_does_not` |
+| `wiring_audit --ratchet` and CfgAmmo | fixed: CfgAmmo is a configured root and a missing root only retains the baseline entries that depend on it, so `--ratchet` no longer refuses; with the installed index it reports `Ratchet missing roots: none` | `tests.unit.test_wiring_audit` (`test_ratchet_prunes_independent_entries_with_missing_roots`) |
+
+The table below is filled only from lead runs of the full corpus with `--gate`;
+a row without a native result stays blank rather than being inferred.
+
 Exit 0 means all selected expectations matched (`expected_only` without
 `--gate`, `agree` with it); 1 means disagreement; 2 means refusal or incomplete
 evidence. A subset or `expected_only` result does not qualify replacement of the

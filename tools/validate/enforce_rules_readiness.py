@@ -29,12 +29,14 @@ class SourceFinding:
 
 
 def module_readiness(files):
-    """Return missing-name findings for {path: source text}, without IO.
+    """Return missing-name findings for {path: source text or parsed Source}, without IO.
 
+    A parsed Source (keyed by its own rel path) is reused as is; text goes through the shared parse cache.
     Follow authored inheritance and modded links, excluding HCModule's default
     unnamed implementation. Only registrations in HCServer/HCModuleRegistry count.
     """
-    sources = [es.Source(Path(path), text) for path, text in sorted(files.items())]
+    sources = [text if isinstance(text, es.Source) else es.parse(Path(path), text)
+               for path, text in sorted(files.items())]
     links, registrations = {}, set()
     for source in sources:
         for definition in source.classes:
@@ -73,8 +75,9 @@ def engine_type_names(text, path='<source>'):
 
     Parameters and foreach bindings count too: they have the same native trap.
     Type references and comments/strings do not count. Exact case is significant.
+    ``text`` may also be an already parsed Source (path is then ignored).
     """
-    source = es.Source(Path(path), text)
+    source = text if isinstance(text, es.Source) else es.parse(Path(path), text)
     findings, seen = [], set()
     for match in _DECLARATION.finditer(source.code):
         if match['typ'] in _NOT_TYPES:
@@ -115,11 +118,11 @@ def rule_module_names(project, source):
     # Registration is project-wide. Run the pure scan once, not once per file.
     if not project.sources or source is not project.sources[0]:
         return
-    files = {item.rel: item.text for item in project.sources}
+    files = {item.rel: item for item in project.sources}
     by_path = {item.rel: item for item in project.sources}
     for row in module_readiness(files):
         yield from _adapt((row,), by_path[row.path])
 
 
 def rule_engine_type_names(project, source):
-    yield from _adapt(engine_type_names(source.text, source.rel), source)
+    yield from _adapt(engine_type_names(source, source.rel), source)

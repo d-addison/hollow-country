@@ -378,6 +378,7 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
             return {'kind': 'ce-site-probe', 'status': 'inputs-validated-not-staged',
                     'targets': len(rows), 'relocation': relocation,
                     'measured_retired_anchors': retired}
+        rt.fresh_destination(destination)
         context = rt.begin(source_runtime, destination, parent=rt.WSL_PARENT, battleye_sha256=rt.BATTLEYE_SHA256)
         stock_sha = stock_digest(context['source']['records'])
         run_id = secrets.token_hex(16)

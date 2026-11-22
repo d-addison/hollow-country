@@ -84,6 +84,16 @@ class Paths(unittest.TestCase):
                 with self.assertRaises(PermissionError):
                     core.safe(root)
 
+    def test_runtime_fresh_destination_uses_the_shared_link_preflight(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / 'real').mkdir()
+            (root / 'link').symlink_to(root / 'real', target_is_directory=True)
+            self.assertEqual(runtime.fresh_destination(root / 'new'), root / 'new')
+            for path in (root / 'real', root / 'link', root / 'link' / 'child'):
+                with self.subTest(path=path), self.assertRaises(ValueError):
+                    runtime.fresh_destination(path)
+
 
 class Emitters(unittest.TestCase):
     def test_generated_helpers_pass_compile_shape_lint(self):

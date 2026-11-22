@@ -127,7 +127,10 @@ def explicit_check(body, access, kind, sentinel=False):
 def guards(project):
     """(declaring type, field) -> (source, offset) of a typed explicit check."""
     result = {}
-    loaded = loaded_classes(project)
+    # rule_json_defaults computes the loaded set first; reuse it instead of walking every source again.
+    loaded = getattr(project, 'json_loaded', None)
+    if loaded is None:
+        loaded = loaded_classes(project)
     fields = {}
     for name in project.links:
         visible = {}
