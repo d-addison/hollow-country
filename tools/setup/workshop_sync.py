@@ -408,11 +408,21 @@ def item_files(item, source):
 
 
 # ---------------------------------------------------------------- receipt
-def load_receipt(root, managed, extra_key_dirs=(), warn=None):
+def bundle_key_dirs(args=None):
+    """The bundle's keys folder as the standalone commands see it: --bundle-keys, else the keys folder next to
+    tools/ in the unzipped bundle (this file is <bundle>/tools/setup/workshop_sync.py there). A folder that does not
+    exist provides nothing."""
+    given = getattr(args, 'bundle_keys', None)
+    return [Path(given) if given else Path(__file__).resolve().parents[2] / 'keys']
+
+
+def load_receipt(root, managed, extra_key_dirs=(), warn=None, repaired=None):
     """The validated receipt, or None. A root keys/*.bikey row ownership is checked against the receipt's own mod
     folders (exact name and bytes). A row an earlier release orphaned (retire_items kept the key because another mod
     or the bundle provides it, but left the row) is repaired here, never refused: the row is dropped, the file stays,
-    and warn(text) says so. The repaired receipt is what callers see; the next write persists it."""
+    and warn(text) says so. The repaired receipt is what callers see; repaired (a list), when given, receives the
+    dropped paths so the caller can persist it (persist_repaired_receipt): a receipt nothing else rewrites would
+    otherwise warn on every run."""
     path = root / RECEIPT_NAME
     if not path.exists():
         return None
@@ -459,6 +469,8 @@ def load_receipt(root, managed, extra_key_dirs=(), warn=None):
                 raise SyncError('receipt key %s has no matching copy in a folder install created; '
                                 'refusing to roll back' % entry['path'])
             dropped.append(entry)
+            if repaired is not None:
+                repaired.append(entry['path'])
             text = ('WARN: receipt key %s has no copy in a folder this install created (an earlier release kept it '
                     'when a retired mod was removed); %s provides it, so the key stays on the server and is no longer '
                     'recorded as installed by this tool' % (entry['path'], provider))
@@ -595,6 +607,15 @@ def retire_items(root, receipt, manifest, before_write=None, extra_key_dirs=()):
 
 def receipt_data(files, dirs):
     return {'schema': SCHEMA, 'files': sorted(files.values(), key=lambda e: e['path']), 'dirs': sorted(dirs)}
+
+
+def persist_repaired_receipt(root, receipt, before_write=None):
+    """Write a receipt load_receipt repaired. before_write(RECEIPT_NAME, sha256) runs first, like every other
+    receipt write, so a caller that journals its writes records this one."""
+    data = receipt_data({e['path']: e for e in receipt['files']}, set(receipt['dirs']))
+    if before_write is not None:
+        before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
+    write_json_atomic(root / RECEIPT_NAME, data)
 
 
 # ---------------------------------------------------------------- commands
@@ -770,7 +791,8 @@ def cmd_install(args, say, before_write=None):
     require_stopped(args)
     root = check_root(args.server_root)
     groups, items, dirs = resolve(args)
-    receipt = load_receipt(root, managed_folders(args), warn=say)
+    repaired = []
+    receipt = load_receipt(root, managed_folders(args), bundle_key_dirs(args), warn=say, repaired=repaired)
     targets, skipped, manual = plan_install(items, dirs, root, set(receipt['dirs']) if receipt else set())
     files = {e['path']: e for e in receipt['files']} if receipt else {}
     made_dirs = set(receipt['dirs']) if receipt else set()
@@ -795,7 +817,7 @@ def cmd_install(args, say, before_write=None):
             created.add(rel)
             changed = True
     finally:
-        if changed or receipt is None:
+        if changed or receipt is None or repaired:
             data = receipt_data(files, made_dirs)
             if before_write is not None:
                 before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
@@ -826,7 +848,7 @@ def cmd_install(args, say, before_write=None):
 def cmd_rollback(args, say):
     require_stopped(args)
     root = check_root(args.server_root)
-    receipt = load_receipt(root, managed_folders(args), warn=say)
+    receipt = load_receipt(root, managed_folders(args), bundle_key_dirs(args), warn=say)
     if receipt is None:
         raise SyncError('no receipt (%s) in %s; nothing this tool installed can be rolled back' % (RECEIPT_NAME, root))
     for entry in receipt['files']:
@@ -909,10 +931,12 @@ def build_parser():
     install = sub.add_parser('install', help='copy items and keys into the server root', allow_abbrev=False)
     common(install)
     install.add_argument('--assume-stopped', action='store_true', help='skip the running-server check')
+    install.add_argument('--bundle-keys', help='the bundle keys folder (default: keys/ next to tools/ in the bundle)')
     install.set_defaults(install_dir=None)
     rollback = sub.add_parser('rollback', help='remove exactly what install added', allow_abbrev=False)
     common(rollback, groups=False)
     rollback.add_argument('--manifest', help='alternative workshop_mods.json')
+    rollback.add_argument('--bundle-keys', help='the bundle keys folder (default: keys/ next to tools/ in the bundle)')
     rollback.add_argument('--assume-stopped', action='store_true', help='skip the running-server check')
     return parser
 

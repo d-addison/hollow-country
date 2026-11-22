@@ -3019,18 +3019,62 @@ class RoundFourTests(InstallerCase):
         bundle_mods = fi.parse_mod_list(self.live_launcher().decode())
         names = [item['folder'] for item in self.retired]
         (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), *names, '@Mine'))
-        code, out, err = self.apply('--repair')
+        # The launcher step does not run in the first attempt: the Workshop receipt no longer lists the folders, the
+        # install receipt remembers, so the next run still removes them from the launcher.
+        code, out, err = self.apply('--repair', '--skip', 'launcher')
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + ['@Mine'])
         self.assertEqual(self.receipt()['retired_removed'], sorted(names))
         for name in names:
             self.assertFalse((self.server / name).exists())
-        # The Workshop receipt no longer lists them; the install receipt remembers, so a launcher still naming them
-        # (a refused launcher step, an older copy) is repaired by the next run.
-        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), *names))
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + names + ['@Mine'])
         code, out, err = self.apply('--repair')
         self.assertEqual(code, 0, out + err)
         self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + ['@Mine'])
+
+    def test_retired_removed_is_forgotten_once_the_launcher_is_written_without_the_names(self):
+        self.seed_old_install()
+        names = [item['folder'] for item in self.retired]
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), *names))
+        self.assertEqual(self.apply('--repair')[0], 0)
+        self.assertNotIn('retired_removed', self.receipt())
+
+    def test_retired_removed_is_forgotten_when_the_launcher_is_already_done(self):
+        self.seed_old_install()
+        self.assertEqual(self.apply('--repair', '--skip', 'launcher')[0], 0)
+        receipt = self.receipt()
+        self.assertTrue(receipt['retired_removed'])
+        self.assertEqual(self.apply('--repair')[0], 0)
+        self.assertNotIn('retired_removed', self.receipt())
+
+    def test_a_retired_folder_put_back_after_the_installer_removed_it_stays_with_a_warning(self):
+        self.seed_old_install()
+        bundle_mods = fi.parse_mod_list(self.live_launcher().decode())
+        folder = self.retired[-1]['folder']
+        self.assertEqual(self.apply('--repair', '--skip', 'launcher')[0], 0)
+        self.assertIn(folder, self.receipt()['retired_removed'])
+        put(self.server, folder + '/addons/own.pbo', b'the operator put this back')
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), folder))
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + [folder])
+        self.assertRegex(out, r'WARN\s+-mod %s is a retired .*folder is back' % re.escape(folder))
+        self.assertTrue((self.server / folder / 'addons/own.pbo').is_file())
+        self.assertNotIn(folder, self.receipt().get('retired_removed', []))
+        before = snapshot(self.server)
+        self.assertEqual(self.apply('--repair')[0], 0)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_a_skipped_workshop_step_keeps_a_retired_folder_and_says_why(self):
+        self.seed_old_install()
+        folder = self.retired[-1]['folder']
+        bundle_mods = fi.parse_mod_list(self.live_launcher().decode())
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), folder))
+        code, out, err = self.apply('--repair', '--skip', 'workshop')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + [folder])
+        self.assertRegex(out, r'WARN\s+-mod %s is a retired .*workshop step was skipped' % re.escape(folder))
+        self.assertNotIn('did not install', out)
+        self.assertTrue((self.server / folder).is_dir())
 
     def test_merge_keeps_an_unowned_retired_folder_and_removes_an_owned_one(self):
         owned, unowned = [item['folder'] for item in self.retired]
@@ -3053,6 +3097,29 @@ class RoundFourTests(InstallerCase):
                 self.assertEqual(self.lists(merged)['mod'], ['@CF', '@COT', '@HollowCountry', '@Mine'])
                 self.assertTrue([line for line in fi.launcher_change_lines(changes) if line.startswith('replaced')])
                 self.assertEqual(fi.merge_launcher(merged, self.BUNDLE), (merged, []))
+
+    def test_a_path_form_entry_keeps_its_form_when_the_folder_is_not_there_and_not_installed(self):
+        operator = r'C:\mods\@CF;@COT;@HollowCountry;@Mine'
+        current = ('start x "-mod=%s" -dologs\r\n' % operator).encode()
+        merged, changes = fi.merge_launcher(current, self.BUNDLE, present={'@cot', '@hollowcountry'})
+        self.assertEqual(self.lists(merged)['mod'], ['C:\\mods\\@CF', '@COT', '@HollowCountry', '@Mine'])
+        self.assertFalse([line for line in fi.launcher_change_lines(changes) if line.startswith('replaced')])
+        self.assertEqual(fi.merge_launcher(merged, self.BUNDLE, present={'@cot', '@hollowcountry'}), (merged, []))
+        merged, changes = fi.merge_launcher(current, self.BUNDLE, present={'@cf', '@cot', '@hollowcountry'})
+        self.assertEqual(self.lists(merged)['mod'], ['@CF', '@COT', '@HollowCountry', '@Mine'])
+        self.assertTrue([line for line in fi.launcher_change_lines(changes) if line.startswith('replaced')])
+
+    def test_a_skipped_workshop_step_keeps_the_operators_path_form_of_a_dependency(self):
+        self.assertEqual(self.apply('--skip', 'workshop')[0], 0)
+        folder = fi.mod_leaf(fi.parse_mod_list(self.live_launcher().decode())[0])
+        self.assertFalse((self.server / folder).exists())
+        path_form = 'C:\\mods\\' + folder
+        current = self.live_launcher().replace(('-mod=' + folder).encode(), ('-mod=' + path_form).encode(), 1)
+        (self.server / 'start-server.bat').write_bytes(current)
+        code, out, err = self.apply('--repair', '--skip', 'workshop')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'][0], path_form)
+        self.assertNotIn('replaced', out)
 
     def test_a_path_form_retired_entry_is_removed_and_an_unowned_one_kept(self):
         owned, unowned = [item['folder'] for item in self.retired]
@@ -3094,8 +3161,26 @@ class RoundFourTests(InstallerCase):
         self.assertTrue(merged.startswith(b'@rem start x -mod=@Old\r\n@REM "-mod=@Older"\r\n'))
         self.assertEqual(self.lists(merged.split(b'\r\n', 2)[2])['mod'], ['@CF', '@COT', '@HollowCountry', '@Mine'])
 
+    def test_a_bang_is_literal_unless_the_launcher_enables_delayed_expansion(self):
+        plain = b'start x "-mod=@A;@Mine!" -dologs\r\n'
+        merged = fi.merge_launcher(plain, self.BUNDLE)
+        self.assertIsNotNone(merged)
+        self.assertEqual(self.lists(merged[0])['mod'], ['@CF', '@COT', '@HollowCountry', '@A', '@Mine!'])
+        self.assertIsNone(fi.launcher_problem(plain, self.BUNDLE))
+        self.assertIsNone(fi.live_launcher_problem(plain.decode()))
+        self.assertEqual(fi.live_mod_list(plain.decode()), ['@A', '@Mine!'])
+        for setlocal in (b'setlocal EnableDelayedExpansion', b'@SETLOCAL ENABLEDELAYEDEXPANSION',
+                         b'setlocal enableextensions enabledelayedexpansion'):
+            with self.subTest(setlocal):
+                data = setlocal + b'\r\n' + plain
+                self.assertIsNone(fi.merge_launcher(data, self.BUNDLE))
+                self.assertIn('delayed expansion', fi.live_launcher_problem(data.decode()))
+        commented = b'rem setlocal EnableDelayedExpansion\r\n' + plain
+        self.assertIsNotNone(fi.merge_launcher(commented, self.BUNDLE))
+
     def test_delayed_expansion_and_escape_characters_in_a_value_are_refused_with_a_reason(self):
-        for data, reason in ((b'start x "-mod=@A;!MODS!" -dologs\r\n', 'delayed expansion'),
+        for data, reason in ((b'setlocal EnableDelayedExpansion\r\nstart x "-mod=@A;!MODS!" -dologs\r\n',
+                              'delayed expansion'),
                              (b'start x -mod=@A^;@B -dologs\r\n', 'escape character ^'),
                              (b'start x -mod=@A;%MODS% -dologs\r\n', 'batch variable')):
             with self.subTest(reason):
@@ -3158,6 +3243,52 @@ class RoundFourTests(InstallerCase):
                 self.assertEqual(code, 0, out + err)
                 self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
                 self.assertEqual(var_values(path)['RespawnTypes'], stock)
+
+    def test_an_orphaned_workshop_receipt_key_row_is_repaired_once_and_persisted_with_the_journal(self):
+        self.assertEqual(self.apply()[0], 0)
+        path = self.server / ws.RECEIPT_NAME
+        key = sorted((self.bundle / 'keys').glob('*.bikey'))[0]
+        data = json.loads(path.read_text())
+        row = 'keys/' + key.name
+        data['files'] = [e for e in data['files'] if e['path'] != row] + [
+            {'path': row, 'sha256': hashlib.sha256(key.read_bytes()).hexdigest(), 'size': 1, 'item': 'old'}]
+        self.assertFalse([e for e in data['files'] if e['path'].endswith('/keys/' + key.name)
+                          and e['path'].startswith('@') and e['sha256'] == data['files'][-1]['sha256']])
+        path.write_bytes(ws.json_bytes(data))
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('WARN: receipt key ' + row, out)
+        self.assertNotIn(row, [e['path'] for e in json.loads(path.read_text())['files']])
+        journal = json.loads((self.server / fi.BACKUP_DIR / self.latest_run() / fi.JOURNAL).read_text())
+        self.assertIn(ws.RECEIPT_NAME, [entry['path'] for entry in journal['entries']])
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn('WARN: receipt key', out)
+
+    def test_the_retire_cache_does_not_outlive_a_run(self):
+        ctx = mock.Mock(retire_cache=(['@Old'], []), retire_reasons={'@old': 'unowned'})
+        with mock.patch.object(fi, 'analyze', side_effect=RuntimeError('stop')):
+            with self.assertRaises(RuntimeError):
+                fi.run_steps(ctx, True)
+        self.assertIsNone(ctx.retire_cache)
+        self.assertEqual(ctx.retire_reasons, {})
+
+    def test_the_rest_of_a_receipt_is_validated_when_globals_optout_is_repaired(self):
+        self.assertEqual(self.apply()[0], 0)
+        receipt_path = self.server / fi.RECEIPT
+        for bad in ('0' * 64, ['not a hash'], {'default': 'a' * 64}):
+            with self.subTest(bad=bad):
+                data = self.receipt()
+                data['globals_optout'] = 'RespawnTypes'
+                data['profile_defaults'] = bad
+                receipt_path.write_text(json.dumps(data))
+                before = receipt_path.read_bytes()
+                for extra in ((), ('--repair',)):
+                    code, out, err = self.apply(*extra)
+                    self.assertEqual(code, 2, out + err)
+                    self.assertIn('receipt_invalid', err)
+                    self.assertNotIn('receipt_optout_invalid', err)
+                    self.assertEqual(receipt_path.read_bytes(), before)
 
     def test_a_rebuilt_receipt_keeps_the_globals_optout_from_the_old_text_or_the_overlay_state(self):
         edits, stock = self.reset_edits()
