@@ -404,9 +404,10 @@ def rule_string_formula(project, source):
 
 
 # Build 167 (a6433570): a 14-term condition with literal string concatenation
-# failed natively. Calibrated against the passing 40b7fa49 tree; this is a
+# failed natively; passing concat conditions on 40b7fa49 reach 8 terms, so the
+# threshold sits between them (lead, 11-22). Calibrated offline; this is a
 # structural warning threshold, not a model of the compiler's expression budget.
-MIN_STRING_BOOLEAN_TERMS = 14
+MIN_STRING_BOOLEAN_TERMS = 10
 _INLINE_STRING_PLUS = re.compile(r'"[^"]*"\s*\)*\s*\+(?![+=])|(?<!\+)\+(?![+=])\s*\(*\s*"')
 
 

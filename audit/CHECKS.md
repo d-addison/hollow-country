@@ -230,7 +230,8 @@ A deliberate difference is recorded in the registry with a reason.
   expressions have 8 terms (`HCInteriorTemplates.c:661`, `HCEventSites.c:24`);
   expressions without concat reach 16 (`HCXZoneGuards.c:140`). The failing
   revision produces one finding at the reported line. This separates the
-  observed corpora; it does not establish the engine's exact complexity limit.
+  observed corpora; it does not establish the engine's exact complexity limit; the threshold
+  (10) sits between the largest passing concat condition (8) and the failure (14).
   Comments/string contents are masked; expressions may span lines. Like
   HC-E020, this literal-based heuristic does not infer string types for
   concatenations made solely from variables or call results.
