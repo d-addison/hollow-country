@@ -59,17 +59,6 @@ class HCWorldStore
         return text;
     }
 
-    static bool Write(string path, string text)
-    {
-        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
-        if (text.Length() < 1 || text.Length() > MAX_BYTES) { return false; }
-        FileHandle handle = OpenFile(path, FileMode.WRITE);
-        if (!handle) { return false; }
-        FPrint(handle, text);
-        CloseFile(handle);
-        return Read(path) == text;
-    }
-
     // JSON serializer compatibility can ignore unknown fields. Since the DTOs
     // use no maps, allow only authored field names at ANY nesting depth. In
     // particular PlayerId/PlayerPosition/standing cannot be silently discarded.
