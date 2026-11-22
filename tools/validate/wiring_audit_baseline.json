@@ -2379,14 +2379,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCXAILocalitySave",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 328,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCXAIRespawnSchema",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRespawnDefaults.c",
       "line": 9,
@@ -2459,14 +2451,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCXAIRouteSave",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 410,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCXAIScavengeAdapter",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIScavengeAdapter.c",
       "line": 9,
@@ -2476,8 +2460,8 @@
     {
       "id": "W004",
       "subject": "HCXAISiteSpawnConfig",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 39,
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c",
+      "line": 2,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -2524,8 +2508,8 @@
     {
       "id": "W004",
       "subject": "HCXCheckpointProp",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2921,
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c",
+      "line": 769,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -3744,6 +3728,30 @@
       "line": 1472,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its shelter module."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILoadoutImage",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILoadoutSave",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 35,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILoadoutProbe",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 2,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     }
   ]
 }
