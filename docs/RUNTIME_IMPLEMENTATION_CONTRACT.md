@@ -138,7 +138,9 @@ receives at most the remaining frame time and its existing slice cap; at most
 32 slices and 32 retained registrations are allowed. Finished registrations stay
 bounded until core stop; the callback detaches when all finish. Deadline, failure,
 stop and opt-out end catch-up; normal tick drivers remain. One receipt per owner:
-`[HC Startup] owner=... catchup_s=... frames=... slices=... ms_max=...`.
+`[HC Startup] owner=... wait_s=... catchup_s=... frames=... slices=... ms_max=...`.
+`wait_s` is registration to first pumped frame (the SYSTEM queue does not tick
+during server load); the deadline and `catchup_s` start at that first frame.
 `frames` counts frames served; `ms_max` is the largest measured owner slice.
 
 Startup registrations use small adapters with non-owning back pointers; the story,

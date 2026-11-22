@@ -5,7 +5,11 @@
 class HCStartupOwner
 {
     string Name;
+    // Registered: mission-init registration time. Started: first pumped frame;
+    // the SYSTEM queue does not tick during server load, so the deadline starts here.
+    float Registered;
     float Started;
+    bool Visited;
     int Frames;
     int Slices;
     int LastFrame = -1;
@@ -35,7 +39,8 @@ class HCStartupPump
     {
         if (!owner || !GetGame() || !GetGame().IsServer()) { return; }
         owner.Name = name;
-        owner.Started = GetGame().GetTickTime();
+        owner.Registered = GetGame().GetTickTime();
+        owner.Started = owner.Registered;
         // Fixed registration ceiling, including completed owners, bounds every visit.
         if (s_Owners.Count() >= 32 || s_Disabled)
         {
@@ -56,7 +61,8 @@ class HCStartupPump
         if (s_InSlice) { owner.FinishRequested = true; return; }
         owner.Finished = true;
         float elapsed = Math.Max(0, GetGame().GetTickTime() - owner.Started);
-        Print("[HC Startup] owner=" + owner.Name + " catchup_s=" + elapsed.ToString() + " frames=" + owner.Frames.ToString() + " slices=" + owner.Slices.ToString() + " ms_max=" + owner.MsMax.ToString());
+        float waited = Math.Max(0, owner.Started - owner.Registered);
+        Print("[HC Startup] owner=" + owner.Name + " wait_s=" + waited.ToString() + " catchup_s=" + elapsed.ToString() + " frames=" + owner.Frames.ToString() + " slices=" + owner.Slices.ToString() + " ms_max=" + owner.MsMax.ToString());
     }
 
     // The shared frame deadline replaces tick-pool admission only during a pump slice.
@@ -84,6 +90,11 @@ class HCStartupPump
             HCStartupOwner owner = s_Owners[s_Cursor];
             s_Cursor++;
             if (owner.Finished) { idle++; continue; }
+            if (!owner.Visited)
+            {
+                owner.Visited = true;
+                owner.Started = GetGame().GetTickTime();
+            }
             if (owner.FinishRequested || !owner.HCNeedsWork() || GetGame().GetTickTime() - owner.Started >= config.StartupDeadlineSeconds)
             {
                 HCFinish(owner);
