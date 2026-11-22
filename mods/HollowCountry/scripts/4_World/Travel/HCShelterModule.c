@@ -2,6 +2,7 @@
 // Regional scenes: one retained transaction, one prop/update per budget tick; bounded
 // nearby layouts keep collision/terrain refusals from discarding an entire site.
 // Native API citations below also cover this path.
+// Sub-step timing: installed 1_Core/proto/EnSystem.c:106 TickCount (raw ticks).
 // Verified installed native-scripts/scripts-1.30.164289 interfaces:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete,
 // :930 GetObjectsAtPosition3D, :934 GetWorldName(), :1120 IsServer, :1176 SurfaceY,
@@ -29,6 +30,23 @@
 // Reused read-only HCInteriorTemplatePlacement.Resolve/Spawn and
 // HCInteriorTemplates.SlotClear/BoxValid/AsVector. No acceptance gate bypass in
 // Interiors: these V2 scenes follow EnableTravel and only LOG native verdicts.
+enum HCShelterPropStage
+{
+    PREPARE,
+    OCCUPIED_QUERY,
+    OCCUPIED_FILTER,
+    CREATE,
+    ORIENT,
+    SPAWN_SNAP,
+    BOUNDS,
+    GROUND_SUPPORT,
+    FOOTPRINT,
+    KEEPOUT,
+    COLLISION_QUERY,
+    COLLISION_FILTER,
+    COMPLETE
+}
+
 class HCShelterModule : HCModule
 {
     protected string m_StatusLogLine;
@@ -54,6 +72,28 @@ class HCShelterModule : HCModule
     protected ref array<Object> m_RegionalBatch = new array<Object>;
     protected int m_RegionalPublish;
     protected ref HCPathgraphRefresh m_RegionalRegion;
+    // A private cursor never publishes partial props. Native calls cannot be
+    // preempted; each costly query/create/snap/rebuild has its own admission.
+    protected ref HCInteriorResolveCursor m_RegionalResolve;
+    protected ref HCInteriorFurnishRow m_RegionalBinding;
+    protected Object m_RegionalProp;
+    protected HCShelterPropStage m_RegionalPropStep;
+    protected vector m_RegionalPoint;
+    protected vector m_RegionalMin;
+    protected vector m_RegionalMax;
+    protected int m_RegionalProbe;
+    protected float m_RegionalLow;
+    protected float m_RegionalHigh;
+    protected ref array<Object> m_RegionalNearby = new array<Object>;
+    protected ref array<CargoBase> m_RegionalCargos = new array<CargoBase>;
+    protected int m_RegionalInspect;
+    protected ref array<ref HCPathgraphRefresh> m_PathgraphPending = new array<ref HCPathgraphRefresh>;
+    protected string m_StepKind;
+    protected string m_HeaviestStep = "idle";
+    protected int m_HeaviestTicks;
+    protected int m_StepWindow;
+    protected int m_StepTicks;
+    protected int m_StepItems;
     protected int m_PathgraphMarked;
     protected int m_PathgraphRegions;
     protected int m_PathgraphSkipped;
@@ -63,19 +103,15 @@ class HCShelterModule : HCModule
         m_PathgraphMarked += region.Marked;
         m_PathgraphSkipped += region.SkippedNoGeom;
         if (!region.HasBounds) { return; }
-        if (!HCPathgraphRefresh.Hold(region))
-        {
-            HCApplyPathgraph(region);
-            return;
-        }
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyPathgraph, 100, false, region);
+        // Retained locally: no uncharged CallLater rebuild or synchronous
+        // pending-cap fallback. Runtime drains one region before more placement.
+        m_PathgraphPending.Insert(region);
     }
 
     protected void HCApplyPathgraph(HCPathgraphRefresh region)
     {
         if (!GetGame() || !region) { return; }
         region.Update();
-        HCPathgraphRefresh.Release(region);
         m_PathgraphRegions++;
         HCModuleReadiness.HCUse("Shelters", "pathgraph_refresh");
     }
@@ -161,12 +197,39 @@ class HCShelterModule : HCModule
         string regionalWorld = GetGame().GetWorldName();
         regionalWorld.ToLower();
         if (regionalWorld != "chernarusplus") { return; }
+        m_StepKind = "idle";
+        int shelterStart = TickCount(0);
         HCRegionalTick();
+        int shelterTicks = TickCount(shelterStart);
+        m_StepTicks++;
+        if (m_StepKind != "idle")
+        {
+            m_StepItems++;
+            if (shelterTicks > m_HeaviestTicks)
+            {
+                m_HeaviestTicks = shelterTicks;
+                m_HeaviestStep = m_StepKind;
+            }
+        }
         m_RegionalSummarySeconds += deltaTime;
         if (m_RegionalSummarySeconds >= 300)
         {
             m_RegionalSummarySeconds = 0;
             HCRegionalSummary();
+            m_StepWindow++;
+            // Same raw TickCount/heaviest fields as the shared HCStepTimer.
+            // Only the five-minute heartbeat emits this bounded diagnostic.
+            int worstItems = 0;
+            if (m_StepItems > 0) { worstItems = 1; }
+            string stepLine = "[HC Step] owner=Shelters window=" + m_StepWindow.ToString() + " ticks=" + m_StepTicks.ToString();
+            stepLine += " worst_tick_ticks=" + m_HeaviestTicks.ToString() + " worst_tick_items=" + worstItems.ToString();
+            stepLine += " other=" + m_HeaviestTicks.ToString() + " heaviest_item_ticks=" + m_HeaviestTicks.ToString() + " heaviest=" + m_HeaviestStep;
+            stepLine += " deferred_n=0 deferred_max_ticks=0; raw TickCount units; runtime acceptance pending";
+            Print("" + stepLine);
+            m_HeaviestTicks = 0;
+            m_HeaviestStep = "idle";
+            m_StepItems = 0;
+            m_StepTicks = 0;
         }
         HCReached.Mark("shelters.regional_tick");
     }
@@ -183,6 +246,14 @@ class HCShelterModule : HCModule
             DeleteProp(ownedProp);
         }
         m_Objects.Clear();
+        // Shutdown already drains owned objects synchronously; no callbacks
+        // survive stop or carry stale regions into a later service lifetime.
+        foreach (HCPathgraphRefresh stoppedRegion : m_PathgraphPending) { HCApplyPathgraph(stoppedRegion); }
+        m_PathgraphPending.Clear();
+        m_HeaviestTicks = 0;
+        m_HeaviestStep = "idle";
+        m_StepItems = 0;
+        m_StepTicks = 0;
         m_Placed = 0;
         m_Refused = 0;
         m_Started = false;
@@ -777,6 +848,18 @@ class HCShelterModule : HCModule
     protected void HCRegionalTick()
     {
         HCShelterRegionalConfig config = HCShelterCatalog.HCRegionalConfig();
+        // Includes legacy startup and rollback regions, even after the last
+        // regional scene terminates. Exactly one region consumes this grant.
+        if (m_PathgraphPending.Count() > 0)
+        {
+            int pathCost = 1;
+            if (config) { pathCost = config.WorkUnits; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, pathCost)) { return; }
+            m_StepKind = "pathgraph_refresh";
+            HCApplyPathgraph(m_PathgraphPending[0]);
+            m_PathgraphPending.RemoveOrdered(0);
+            return;
+        }
         if (!config || !config.Enabled || m_RegionalRemaining <= 0) { return; }
         HCShelterEntry entry = m_RegionalJobEntry;
         if (!entry)
@@ -788,8 +871,16 @@ class HCShelterModule : HCModule
         }
         HCUnitBudget shared = HCServer.HCTickWork();
         if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
+        m_StepKind = "observer";
         if (m_RegionalRollingBack)
         {
+            m_StepKind = "rollback";
+            if (m_RegionalProp)
+            {
+                DeleteProp(m_RegionalProp);
+                m_RegionalProp = null;
+                return;
+            }
             if (m_RegionalBatch.Count() > 0)
             {
                 int last = m_RegionalBatch.Count() - 1;
@@ -854,9 +945,16 @@ class HCShelterModule : HCModule
     {
         if (rollback)
         {
+            if (m_RegionalProp) { DeleteProp(m_RegionalProp); }
             foreach (Object partial : m_RegionalBatch) { DeleteProp(partial); }
         }
         m_RegionalBatch.Clear();
+        m_RegionalProp = null;
+        m_RegionalPropStep = HCShelterPropStage.PREPARE;
+        m_RegionalNearby.Clear();
+        m_RegionalCargos.Clear();
+        m_RegionalResolve = null;
+        m_RegionalBinding = null;
         m_RegionalPublish = 0;
         m_RegionalRegion = null;
         m_RegionalRollingBack = false;
@@ -870,7 +968,7 @@ class HCShelterModule : HCModule
     {
         // Delete at most one partial prop on each later admission. OnStop
         // alone drains the remaining bounded batch synchronously.
-        if (m_RegionalBatch.Count() > 0) { m_RegionalRollingBack = true; return; }
+        if (m_RegionalProp || m_RegionalBatch.Count() > 0) { m_RegionalRollingBack = true; return; }
         HCClearRegionalJob(false);
         // Keep the existing candidate order, rollback and refusal policy.
         if (m_RefusalReason == "observed_regional_prop")
@@ -898,11 +996,12 @@ class HCShelterModule : HCModule
     {
         if (!m_RegionalJobEntry)
         {
-            HCShelterRegionalScene scene = entry.Scene;
-            HCInteriorFurnishRow binding = new HCInteriorFurnishRow;
-            binding.BuildingClass = scene.BuildingClass;
-            binding.Position = scene.Position;
-            Object house = HCInteriorTemplatePlacement.Resolve(binding);
+            m_StepKind = "resolve_prepare";
+            m_RegionalJobEntry = entry;
+            m_RegionalBinding = new HCInteriorFurnishRow;
+            m_RegionalBinding.BuildingClass = entry.Scene.BuildingClass;
+            m_RegionalBinding.Position = entry.Scene.Position;
+            m_RegionalResolve = new HCInteriorResolveCursor;
             m_RefusalReason = "";
             m_BlockingClass = "none";
             m_PropType = "none";
@@ -914,12 +1013,40 @@ class HCShelterModule : HCModule
             m_SoftVegetation = 0;
             m_RingCandidate = -1;
             m_LayoutVariant = entry.PlacementVariant;
-            if (!house) { HCRegionalRefuse(entry, "building_unresolved_or_tilted"); return; }
+            return;
+        }
+        if (m_RegionalResolve)
+        {
+            m_StepKind = "resolve";
+            if (!m_RegionalResolve.HCStep(m_RegionalBinding)) { return; }
+            m_RegionalHouse = m_RegionalResolve.HCHouse();
+            m_RegionalResolve = null;
+            if (!m_RegionalHouse)
+            {
+                // Initial resolve failures were terminal site refusals,
+                // never candidate-refusal counters or layout retries.
+                HCClearRegionalJob(false);
+                HCRegionalRefuse(entry, "building_unresolved_or_tilted");
+            }
+            return;
+        }
+        if (!m_RegionalHouse || m_RegionalHouse.IsPendingDeletion())
+        {
+            m_RefusalReason = "building_unresolved_or_tilted";
+            HCRegionalBatchRefused(entry);
+            return;
+        }
+        if (!m_RegionalLayout)
+        {
+            m_StepKind = "layout";
+            HCShelterRegionalScene scene = entry.Scene;
+            Object house = m_RegionalHouse;
             vector regionalClip[2];
             house.ClippingInfo(regionalClip);
             float tolerance = HCShelterCatalog.HCRegionalConfig().BoundsToleranceSquared;
             if (vector.DistanceSq(regionalClip[0], HCInteriorTemplates.AsVector(scene.ClipMin)) > tolerance || vector.DistanceSq(regionalClip[1], HCInteriorTemplates.AsVector(scene.ClipMax)) > tolerance)
             {
+                HCClearRegionalJob(false);
                 HCRegionalRefuse(entry, "building_bounds");
                 return;
             }
@@ -938,12 +1065,7 @@ class HCShelterModule : HCModule
             m_RegionalLayout = layout;
             return;
         }
-        if (!m_RegionalHouse || m_RegionalHouse.IsPendingDeletion())
-        {
-            m_RefusalReason = "building_unresolved_or_tilted";
-            HCRegionalBatchRefused(entry);
-            return;
-        }
+        m_StepKind = "validate_handles";
         // A retained handle can disappear between visits (for example during
         // administrative cleanup); never publish a partially missing scene.
         foreach (Object pendingProp : m_RegionalBatch)
@@ -957,25 +1079,17 @@ class HCShelterModule : HCModule
         }
         if (m_RegionalBatch.Count() < 3)
         {
-            int slot = m_RegionalBatch.Count();
-            string propType = "StaticObj_Furniture_fireplace_grill";
-            float localZ = 0;
-            if (slot == 1) { propType = "StaticObj_Misc_Chair_Camp1"; localZ = -3; }
-            if (slot == 2) { propType = "StaticObj_Furniture_PaperBox_01_small_closed"; localZ = 3; }
-            m_RegionalScene = entry.Scene;
-            m_LayoutVariant = entry.PlacementVariant;
-            Object prop = PlaceProp(m_RegionalHouse, m_RegionalLayout, propType, localZ);
-            m_RegionalScene = null;
-            if (!prop) { HCRegionalBatchRefused(entry); return; }
-            m_RegionalBatch.Insert(prop);
+            HCRegionalPropStep(entry);
             return;
         }
         if (m_RegionalPublish < m_RegionalBatch.Count())
         {
+            m_StepKind = "pathgraph_bounds";
             m_RegionalRegion.Include(m_RegionalBatch[m_RegionalPublish]);
             m_RegionalPublish++;
             return;
         }
+        m_StepKind = "publish";
         HCQueuePathgraph(m_RegionalRegion);
         // All props passed the original exact terrain/bounds/keepout/collision
         // checks. Until this point no incomplete scene is discoverable.
@@ -989,6 +1103,241 @@ class HCShelterModule : HCModule
         Print("[HC Shelters] regional_placed=" + entry.Scene.Id + " props=3 variant=" + entry.PlacementVariant.ToString() + " runtime=PENDING");
         HCClearRegionalJob(false);
         if (m_RegionalRemaining == 0) { HCRegionalSummary(); }
+    }
+
+    // Regional equivalent of PlaceProp, in the same predicate/transform order.
+    // The two Snap calls are intentional: Spawn previously snapped once before
+    // the clipping-bottom correction, then PlaceProp snapped again afterwards.
+    // Query results are retained, but only ONE result/corner is visited per unit.
+    protected void HCRegionalPropStep(HCShelterEntry entry)
+    {
+        if (m_RegionalPropStep >= HCShelterPropStage.ORIENT && (!m_RegionalProp || m_RegionalProp.IsPendingDeletion()))
+        {
+            m_RefusalReason = "create_failed";
+            HCRegionalBatchRefused(entry);
+            return;
+        }
+        if (m_RegionalPropStep != HCShelterPropStage.PREPARE && !HCObserverTransitionGate.CanTransition(m_RegionalPoint, HCShelterCatalog.HCRegionalConfig().ObserverDistance))
+        {
+            m_RefusalReason = "observed_regional_prop";
+            HCRegionalBatchRefused(entry);
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.PREPARE)
+        {
+            m_StepKind = "prop_prepare";
+            int propSlot = m_RegionalBatch.Count();
+            m_PropType = "StaticObj_Furniture_fireplace_grill";
+            if (propSlot == 1) { m_PropType = "StaticObj_Misc_Chair_Camp1"; }
+            if (propSlot == 2) { m_PropType = "StaticObj_Furniture_PaperBox_01_small_closed"; }
+            m_KeepoutCheck = "";
+            m_BlockingClass = "none";
+            m_QueryObjects = 0;
+            m_QueryCargos = 0;
+            m_CollisionCount = 0;
+            m_GroundRise = 0;
+            m_RefusalReason = "";
+            vector offset = HCInteriorTemplates.AsVector(entry.Scene.Slots[propSlot]) + HCRegionalShift(entry.PlacementVariant);
+            m_RegionalPoint = m_RegionalHouse.ModelToWorld(offset);
+            m_RegionalPoint[1] = GetGame().SurfaceY(m_RegionalPoint[0], m_RegionalPoint[2]);
+            m_RefusalPoint = m_RegionalPoint;
+            if (!HCObserverTransitionGate.CanTransition(m_RegionalPoint, HCShelterCatalog.HCRegionalConfig().ObserverDistance)) { m_RefusalReason = "observed_regional_prop"; }
+            else if (!GetGame().ConfigIsExisting("CfgVehicles " + m_PropType) || !GetGame().IsKindOf(m_PropType, "HouseNoDestruct")) { m_RefusalReason = "static_class_missing"; }
+            else if (GetGame().SurfaceIsSea(m_RegionalPoint[0], m_RegionalPoint[2]) || GetGame().SurfaceIsPond(m_RegionalPoint[0], m_RegionalPoint[2])) { m_RefusalReason = "water"; }
+            if (m_RefusalReason != "") { HCRegionalBatchRefused(entry); return; }
+            m_RegionalNearby.Clear();
+            m_RegionalCargos.Clear();
+            m_RegionalPropStep = HCShelterPropStage.OCCUPIED_QUERY;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.OCCUPIED_QUERY)
+        {
+            m_StepKind = "occupied_query";
+            // Preserve sphere and proxy-cargo semantics. Native exposes no
+            // resumable enumeration or cost ceiling for this single call.
+            GetGame().GetObjectsAtPosition3D(m_RegionalPoint, 3, m_RegionalNearby, m_RegionalCargos);
+            m_QueryObjects = m_RegionalNearby.Count();
+            m_QueryCargos = m_RegionalCargos.Count();
+            if (m_QueryObjects > 256)
+            {
+                m_BlockingClass = "query_cap_no_single_blocker";
+                m_RefusalReason = "query_cap";
+            }
+            else if (m_QueryCargos > 0)
+            {
+                m_BlockingClass = "cargo_owner_unavailable";
+                CargoBase cargo = m_RegionalCargos.Get(0);
+                if (cargo)
+                {
+                    EntityAI owner = cargo.GetCargoOwner();
+                    if (owner) { m_BlockingClass = owner.GetType(); }
+                }
+                m_RefusalReason = "cargo_query";
+            }
+            if (m_RefusalReason != "") { HCRegionalBatchRefused(entry); return; }
+            m_RegionalInspect = 0;
+            m_RegionalPropStep = HCShelterPropStage.OCCUPIED_FILTER;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.OCCUPIED_FILTER)
+        {
+            m_StepKind = "occupied_filter";
+            if (m_RegionalInspect >= m_RegionalNearby.Count()) { m_RegionalPropStep = HCShelterPropStage.CREATE; return; }
+            Object nearby = m_RegionalNearby[m_RegionalInspect];
+            m_RegionalInspect++;
+            if (!nearby) { return; }
+            if (HCSoftVegetation(nearby)) { m_SoftVegetation++; return; }
+            vector orphan = nearby.GetPosition();
+            float gapX = orphan[0] - m_RegionalPoint[0];
+            float gapZ = orphan[2] - m_RegionalPoint[2];
+            if (gapX * gapX + gapZ * gapZ < 0.5625)
+            {
+                m_BlockingClass = nearby.GetType();
+                m_RefusalReason = "occupied";
+                HCRegionalBatchRefused(entry);
+            }
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.CREATE)
+        {
+            m_StepKind = "create";
+            // Same flags as HCInteriorTemplatePlacement.Spawn. Separate its
+            // native create, orientation and initial snap into three grants.
+            int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+            m_RegionalProp = GetGame().CreateObjectEx(m_PropType, m_RegionalPoint, flags, RF_IGNORE);
+            if (!m_RegionalProp) { m_RefusalReason = "create_failed"; HCRegionalBatchRefused(entry); return; }
+            m_RegionalPropStep = HCShelterPropStage.ORIENT;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.ORIENT)
+        {
+            m_StepKind = "orient";
+            m_RegionalProp.SetOrientation(m_RegionalHouse.GetOrientation());
+            m_RegionalPropStep = HCShelterPropStage.SPAWN_SNAP;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.SPAWN_SNAP)
+        {
+            m_StepKind = "spawn_snap";
+            HCGroundSnap.Snap(m_RegionalProp);
+            m_RegionalPropStep = HCShelterPropStage.BOUNDS;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.BOUNDS)
+        {
+            m_StepKind = "prop_bounds";
+            vector clip[2];
+            m_RegionalProp.ClippingInfo(clip);
+            m_RegionalMin = clip[0];
+            m_RegionalMax = clip[1];
+            bool boundsOk = HCInteriorTemplates.BoxValid(Coordinates(m_RegionalMin), Coordinates(m_RegionalMax));
+            // Keep simple checks: a compound bounds predicate crashed build 152.
+            if (m_RegionalMin[0] < -1.2 || m_RegionalMax[0] > 1.2) { boundsOk = false; }
+            if (m_RegionalMin[2] < -1.2 || m_RegionalMax[2] > 1.2) { boundsOk = false; }
+            if (m_RegionalMin[1] < -2 || m_RegionalMax[1] > 2) { boundsOk = false; }
+            if (m_RegionalMax[1] - m_RegionalMin[1] > 2) { boundsOk = false; }
+            if (!boundsOk) { m_RefusalReason = "prop_bounds"; HCRegionalBatchRefused(entry); return; }
+            m_RegionalPoint[1] = m_RegionalPoint[1] - m_RegionalMin[1];
+            m_RegionalProp.SetPosition(m_RegionalPoint);
+            m_RegionalPropStep = HCShelterPropStage.GROUND_SUPPORT;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.GROUND_SUPPORT)
+        {
+            m_StepKind = "ground_support";
+            if (!HCGroundSnap.Snap(m_RegionalProp)) { m_RefusalReason = "ground_support"; HCRegionalBatchRefused(entry); return; }
+            m_RegionalPoint = m_RegionalProp.GetPosition();
+            m_RefusalPoint = m_RegionalPoint;
+            m_RegionalProbe = 0;
+            m_RegionalLow = 1000000;
+            m_RegionalHigh = -1000000;
+            m_RegionalPropStep = HCShelterPropStage.FOOTPRINT;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.FOOTPRINT)
+        {
+            m_StepKind = "footprint_probe";
+            vector sample = m_RegionalMin;
+            if (m_RegionalProbe & 1) { sample[0] = m_RegionalMax[0]; }
+            if (m_RegionalProbe & 2) { sample[2] = m_RegionalMax[2]; }
+            vector world = m_RegionalProp.ModelToWorld(sample);
+            if (GetGame().SurfaceIsSea(world[0], world[2]) || GetGame().SurfaceIsPond(world[0], world[2]))
+            {
+                m_BlockingClass = "water";
+                m_RefusalReason = "terrain";
+                HCRegionalBatchRefused(entry);
+                return;
+            }
+            float height = GetGame().SurfaceRoadY(world[0], world[2]);
+            if (height < m_RegionalLow) { m_RegionalLow = height; }
+            if (height > m_RegionalHigh) { m_RegionalHigh = height; }
+            m_RegionalProbe++;
+            if (m_RegionalProbe < 4) { return; }
+            m_GroundRise = m_RegionalHigh - m_RegionalLow;
+            if (m_GroundRise > 0.25) { m_RefusalReason = "terrain"; HCRegionalBatchRefused(entry); return; }
+            m_RegionalPropStep = HCShelterPropStage.KEEPOUT;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.KEEPOUT)
+        {
+            m_StepKind = "keepout";
+            HCInteriorTemplatePropSlot slot = new HCInteriorTemplatePropSlot;
+            slot.Room = 1;
+            slot.Position = Coordinates(m_RegionalHouse.WorldToModel(m_RegionalPoint));
+            slot.Orientation = Coordinates("0 0 0");
+            slot.Bounds = new HCInteriorTemplateBox;
+            vector localPoint = HCInteriorTemplates.AsVector(slot.Position);
+            slot.Bounds.Min = Coordinates(localPoint + m_RegionalMin);
+            slot.Bounds.Max = Coordinates(localPoint + m_RegionalMax);
+            if (!HCInteriorTemplates.SlotClear(m_RegionalLayout, slot))
+            {
+                m_KeepoutCheck = HCRegionalKeepoutCheck(m_RegionalLayout, slot);
+                m_SlotMinimum = HCInteriorTemplates.AsVector(slot.Bounds.Min);
+                m_SlotMaximum = HCInteriorTemplates.AsVector(slot.Bounds.Max);
+                m_RefusalReason = "keepout";
+                HCRegionalBatchRefused(entry);
+                return;
+            }
+            m_RegionalPropStep = HCShelterPropStage.COLLISION_QUERY;
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.COLLISION_QUERY)
+        {
+            m_StepKind = "collision_query";
+            vector center = m_RegionalProp.ModelToWorld((m_RegionalMin + m_RegionalMax) * 0.5);
+            vector size = m_RegionalMax - m_RegionalMin + Vector(0.6, 0.1, 0.6);
+            array<Object> excluded = new array<Object>;
+            excluded.Insert(m_RegionalProp);
+            m_RegionalNearby.Clear();
+            bool collision = GetGame().IsBoxColliding(center, m_RegionalProp.GetOrientation(), size, excluded, m_RegionalNearby);
+            m_RegionalInspect = 0;
+            m_RegionalPropStep = HCShelterPropStage.COLLISION_FILTER;
+            if (!collision) { m_RegionalPropStep = HCShelterPropStage.COMPLETE; }
+            return;
+        }
+        if (m_RegionalPropStep == HCShelterPropStage.COLLISION_FILTER)
+        {
+            m_StepKind = "collision_filter";
+            if (m_RegionalInspect < m_RegionalNearby.Count())
+            {
+                Object blocker = m_RegionalNearby[m_RegionalInspect];
+                m_RegionalInspect++;
+                if (!blocker) { return; }
+                if (HCSoftVegetation(blocker)) { m_SoftVegetation++; return; }
+                m_CollisionCount++;
+                if (m_BlockingClass == "none") { m_BlockingClass = blocker.GetType(); }
+                return;
+            }
+            if (m_CollisionCount > 0) { m_RefusalReason = "collision"; HCRegionalBatchRefused(entry); return; }
+            m_RegionalPropStep = HCShelterPropStage.COMPLETE;
+            return;
+        }
+        m_StepKind = "prop_complete";
+        m_RegionalBatch.Insert(m_RegionalProp);
+        m_RegionalProp = null;
+        m_RegionalPropStep = HCShelterPropStage.PREPARE;
+        m_RegionalNearby.Clear();
+        m_RegionalCargos.Clear();
     }
 
     // Places the three yard props of the current variant or ring candidate,
