@@ -29,6 +29,7 @@
   "EnableProgression": true,
   "EnableGroupScaling": true,
   "EnableTapedPackMounts": true,
+  "EnableFortify": true,
   "TickIntervalMs": 1000,
   "MaxTickWorkItems": 32,
   "MaxActiveHordes": 4,
@@ -39,6 +40,8 @@
   "MaxBoundSearchSites": 256,
   "InfectedBindRadius": 30,
   "MaxBindQueriesPerTick": 2,
+  "FortifyUnclaimedBuild": true,
+  "FortifyBreachSeconds": 90,
   "AILimits": {
     "MaxLiveGroups": 15,
     "MaxLiveAI": 72,

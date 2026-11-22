@@ -240,6 +240,14 @@
     "owner": "HCSettings"
   },
   {
+    "key": "EnableFortify",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
     "key": "TickIntervalMs",
     "type": "int",
     "default": 1000,
@@ -317,6 +325,22 @@
     "default": 2,
     "min": 1,
     "max": 8,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "FortifyUnclaimedBuild",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "FortifyBreachSeconds",
+    "type": "int",
+    "default": 90,
+    "min": 10,
+    "max": 900,
     "owner": "HCSettings"
   },
   {
