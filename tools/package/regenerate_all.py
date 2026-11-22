@@ -28,6 +28,7 @@ class Generator:
 # All check-capable generators live here, including positional check subcommands.
 GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
+    Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
               ('addons', 'inventory_stack')),
@@ -65,7 +66,13 @@ def diagnostic(result):
 
 def missing_inputs(generator, values):
     for name in generator.inputs:
-        if name == 'inventory_stack':
+        if name == 'ai_roads':
+            from tools.package.ai_route_precompute import road_bytes
+            try:
+                road_bytes(ROOT, values['workshop'])
+            except FileNotFoundError:
+                return 'installed Expansion AI road source unavailable'
+        elif name == 'inventory_stack':
             # Match the generator's declared provider selection and folder aliases.
             from tools.package import inventory_sizes, inventory_sources
             rules = json.loads((ROOT / 'config/inventory-sizes.json').read_bytes())

@@ -40,11 +40,14 @@ def contracts():
     """Use generators' declared inventories, including install-time-only deltas."""
     from tools.package import admin_world_catalog as admin, economy, gui_icons as icons
     from tools.package import snafu_optional as snafu, tactical_flava_optional as tf
-    from tools.package import inventory_sizes, new_buildings
+    from tools.package import inventory_sizes, new_buildings, ai_route_precompute
     delta = tuple(sorted(economy.DELTA_FILES))
     package_data = ('tools/package/*.json', 'config/military-loot.json')
     common = (*package_data, 'config/loot-dispositions.json', 'mission/hollow-country/economy-profiles/*.json')
     return (
+        Contract('ai_route_precompute', 'tools.package.ai_route_precompute', ai_route_precompute.OUTPUTS,
+                 (ai_route_precompute.PINS, 'mission/hollow-country/ai/caravans.json',
+                  'tools/setup/workshop_mods.json')),
         Contract('admin_world_catalog', 'tools.package.admin_world_catalog', (str(admin.CATALOG),),
                  (*admin.JSON_INPUTS, *admin.CE_INPUTS, 'config/map-overlays/layers/*.json')),
         Contract('military_loot', 'tools.package.military_loot', ('mission/hollow-country/ce/types.xml',), package_data),
@@ -129,6 +132,12 @@ def installed_snapshot(contract, values):
     """Stable file-list/content identities only; never persist installed paths/content."""
     name = contract.name
     identities = {}
+    if name == 'ai_route_precompute':
+        from tools.package.ai_route_precompute import road_bytes
+        try:
+            identities['road_source'] = sha(road_bytes(ROOT, values['workshop']))
+        except FileNotFoundError as exc:
+            raise MissingInput('installed Expansion AI road source unavailable') from exc
     source = values.get('source')
     if name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional'}:
         from tools.package.economy import INPUTS
@@ -233,6 +242,8 @@ def regenerate(contract, values, scratch):
     module = importlib.import_module(contract.module)
     name, source = contract.name, values.get('source')
     load = lambda p: json.loads((ROOT / p).read_bytes())
+    if name == 'ai_route_precompute':
+        return module.plan(ROOT, workshop=values['workshop'])
     if name == 'admin_world_catalog':
         out = scratch / 'catalog.c'
         module.generate(out)
