@@ -42,5 +42,16 @@
     13200,
     15000
   ],
-  "planning_note": "Every military-only class retains nominal/min >= 1. Stable hash ordering, constrained-first tier round-robin and one eligible tier per firearm keep Tier4 small; Tier3 carries the remaining class floors. Three native Tier4 primary classes are reserved inside the ceiling. Multi-tier support debits every eligible tier and retains all class floors. Shared civilian and contaminated-area rows retain their pools. Optional shares stay empty when a pack is absent. Magazine range 10-100 percent permits mostly partial fills and rare full fills if CE samples uniformly; distribution and attached magazine inheritance require observation. Equal-point Tisy occupancy is a planning estimate only."
+  "planning_note": "Every military-only class retains nominal/min >= 1. Stable hash ordering, constrained-first tier round-robin and one eligible tier per firearm keep Tier4 small; Tier3 carries the remaining class floors. Three native Tier4 primary classes are reserved inside the ceiling. Multi-tier support debits every eligible tier and retains all class floors. Shared civilian and contaminated-area rows retain their pools. Optional shares stay empty when a pack is absent. Magazine range 10-100 percent permits mostly partial fills and rare full fills if CE samples uniformly; distribution and attached magazine inheritance require observation. Equal-point Tisy occupancy is a planning estimate only.",
+  "weapon_receivers": {
+    "usages": [
+      "Military",
+      "Police",
+      "Prison"
+    ],
+    "comparable_categories": [
+      "clothes",
+      "containers"
+    ]
+  }
 }

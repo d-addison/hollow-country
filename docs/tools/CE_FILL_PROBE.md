@@ -284,3 +284,35 @@ per-frame performance remains unmeasured. Nominal/min comparisons do not model
 CE count flags, dynamic events or other supply outside loose roots. Native compile,
 retail run, query coverage and census accuracy remain pending with the lead;
 o runtime acceptance or multiplayer proof is claimed.
+
+
+## CE spread follow-up (#83, 2026-11-22; offline, unverified)
+
+The supplied five-minute census recorded 74 / 18,122 / 10,880 retries for
+t0 / t3 / t4 with fill ratios about 0.98–1.06. The selected install-time
+policy admits weapons on existing stock Military/Police/Prison clothes/container
+points, within unchanged group/container caps and geometry; HC generated floor
+containers are excluded. Matching native and modded weapon rows receive floor
+access after strict shelf retagging. Pack budgets stay 2x; tiers/usages stay
+unchanged. The earlier tier-widening experiment increased retries. On disposable
+copies of the census2 staged inputs, `ce_slot_pressure --military-weapons`
+reserves `ceil(route nominal / LIMIT)` jointly through shared caps, with
+LIMIT=0.8: t3 demand **4,650**, reservation **5,824**, matching union capacity
+**20,883 → 21,061**, reservation deficit **4 → 0**; t4 demand **12,184**,
+reservation **15,240**, capacity **23,225 → 23,403**, deficit **908 → 0**.
+Both weapon reports pass with no unrouted types. The general `--all-categories`
+report names unrouted positive building types with reasons: it still fails
+(t3 demand/bound **32,847/32,005**; t4 **42,507/41,529**), with two wheel
+supply rows totalling 16 nominal unrouted in t4, deferred to their owning scope.
+No rows are dropped or zeroed. Stock FenceKit, WatchtowerKit, TerritoryFlagKit
+and ShelterKit have nominal/min **0/0**, so their absence from t0's
+positive-nominal zero list does not prove vanilla spawned them. HC introduces
+**20/12, 8/4, 4/2, 16/8** budgets and previously restricted these kits to shelves;
+generation now removes that restriction and the boost preserves floor access.
+Their old shelf routes were statically reachable: shelf fit remains a hypothesis,
+not an established native root cause. Changed kit delta bytes invalidate the
+existing bundle-overlay fingerprint, invoking receipted rollback/reapply on
+upgrade without a storage wipe. This is a frozen-input policy comparison;
+other categories share capacity, and dimensions/collisions/native selection
+remain unobserved. Lead t3/t4 retry and kit-placement reruns plus an observed
+existing-server upgrade remain pending. Implemented-unverified.

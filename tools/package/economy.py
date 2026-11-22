@@ -68,7 +68,8 @@ def construction_kit(stock, name):
         for node in list(row.findall(field)):
             row.remove(node)
     ET.SubElement(row, 'category', {'name': 'tools'})
-    ET.SubElement(row, 'tag', {'name': 'shelves'})
+    # Kits are large native crafted objects: do not confine acquisition to
+    # small shelf proxies. The boost preserves floor access after retagging.
     for usage in usages:
         ET.SubElement(row, 'usage', {'name': usage})
     _validate_budget(row)

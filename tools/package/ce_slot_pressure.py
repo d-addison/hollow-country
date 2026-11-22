@@ -10,6 +10,7 @@ point range/height, collisions and native selection remain unobserved.
 import argparse
 from collections import Counter
 import json
+import math
 from pathlib import Path
 import struct
 import sys
@@ -159,7 +160,7 @@ def modded_coverage(mission):
             'uncovered_containers': uncovered}
 
 
-def feasibility(mission):
+def feasibility(mission, military_weapons=False, limit=LIMIT):
     """Optimistic joint capacity bound, with integral max flow over shared caps.
 
     A failure proves a static demand/capacity conflict under these constraints;
@@ -183,17 +184,26 @@ def feasibility(mission):
         tiers = frozenset(v for b, v in enumerate(values) if flags >> b & 1) or frozenset(values)
         placed[group.get('name'), tiers] += 1
     demands, categories = Counter(), Counter()
+    route_names, excluded = {}, []
+    if not 0 < limit <= 1:
+        raise ValueError("limit must be greater than zero and at most one")
     for _, row in _types(mission).values():
         nominal = int(row.findtext('nominal', '0'))
         flags = row.find('flags')
         usages = frozenset(n.get('name') for n in row.findall('usage'))
         cats = frozenset(n.get('name') for n in row.findall('category'))
+        if military_weapons and ('weapons' not in cats or not usages & {'Military', 'Police', 'Prison'}):
+            continue
+        if nominal > 0 and (not usages or usages <= EVENT_USAGES or not cats):
+            excluded.append({'name': row.get('name'), 'nominal': nominal,
+                             'reason': 'no building usage/category or event-only routing; other supply requires native verification'})
         if (nominal <= 0 or not usages or usages <= EVENT_USAGES or not cats
                 or (flags is not None and flags.get('count_in_map') == '0')):
             continue
         tiers = frozenset(n.get('name') for n in row.findall('value')) or frozenset(values)
         tags = frozenset(n.get('name') for n in row.findall('tag'))
         demands[usages, tiers, cats, tags] += nominal
+        route_names.setdefault((usages, tiers, cats, tags), []).append((row.get('name'), nominal))
         for category in cats:
             categories[category] += nominal
     # Residual edges [destination, remaining, reverse-index]. Group caps couple
@@ -206,7 +216,10 @@ def feasibility(mission):
         graph[a].append([b, amount, len(graph[b])])
         graph[b].append([a, 0, len(graph[a]) - 1])
     containers = []
-    protos = {g.get('name'): g for g in ET.parse(mission / 'mapgroupproto.xml').getroot().findall('group')}
+    container_caps, group_limits = {}, {}
+    root = ET.parse(mission / 'mapgroupproto.xml').getroot()
+    defaults = {d.get('name'): int(d.get('lootmax')) for d in root.findall('./defaults/default') if d.get('lootmax') is not None}
+    protos = {g.get('name'): g for g in root.findall('group')}
     for (name, tiers), count in sorted(placed.items(), key=lambda pair: (pair[0][0], sorted(pair[0][1]))):
         proto = protos.get(name)
         if proto is None:
@@ -214,30 +227,43 @@ def feasibility(mission):
         usages = {u.get('name') for u in proto.findall('usage')}
         if not usages:
             continue
+        if int(proto.get('lootmax', defaults.get('group', 12))) <= 0:
+            continue
         group_node = node()
-        edge(group_node, 1, max(0, int(proto.get('lootmax', 12))) * count)
+        group_limits[group_node] = max(0, int(proto.get('lootmax', defaults.get('group', 12)))) * count
+        edge(group_node, 1, group_limits[group_node])
         for container in proto.findall('container'):
-            cap = min(len(container.findall('point')), max(0, int(container.get('lootmax', 8)))) * count
+            cap = min(len(container.findall('point')), max(0, int(container.get('lootmax', defaults.get('container', 8))))) * count
             if not cap:
                 continue
             ident = node()
             edge(ident, group_node, cap)
+            container_caps[ident] = (group_node, cap)
             containers.append((ident, usages, tiers,
                 {c.get('name') for c in container.findall('category')},
                 {t.get('name') for t in container.findall('tag')}))
     unreachable = 0
+    unreachable_types = []
+    matched_containers = set()
+    required = 0
     demand_nodes = {}
     for (usages, tiers, cats, tags), demand in demands.items():
         ident = node()
-        edge(0, ident, demand)
+        reserved = math.ceil(demand / limit) if military_weapons else demand
+        required += reserved
+        edge(0, ident, reserved)
         demand_nodes[ident] = dict(usages=sorted(usages), tiers=sorted(tiers),
                                    categories=sorted(cats), tags=sorted(tags), nominal=demand)
         matches = [c[0] for c in containers if usages & c[1] and tiers & c[2] and cats & c[3]
                    and (not tags or tags & c[4])]
         if not matches:
             unreachable += demand
+            unreachable_types.extend({'name': name, 'nominal': nominal,
+                'reason': 'no placed positive-capacity container matches usage, tier, category and tag'}
+                for name, nominal in route_names[usages, tiers, cats, tags])
+        matched_containers.update(matches)
         for target in matches:
-            edge(ident, target, demand)
+            edge(ident, target, reserved)
     flow = 0
     while True:
         levels = [-1] * len(graph)
@@ -267,17 +293,30 @@ def feasibility(mission):
                 cursor[a] += 1
             return 0
         while True:
-            sent = send(0, sum(demands.values()))
+            sent = send(0, required)
             if not sent:
                 break
             flow += sent
     total = sum(demands.values())
     unassigned = [dict(demand_nodes[target], unassigned=remaining)
                   for target, remaining, _ in graph[0] if remaining]
-    return dict(status='fail' if flow < total else 'pass', demand=total,
-                placeable_upper_bound=flow, deficit=total-flow, unreachable_nominal=unreachable,
+    # Union capacity counts each matching container and shared group only once.
+    group_caps = Counter()
+    for ident in matched_containers:
+        group, cap = container_caps[ident]
+        group_caps[group] += cap
+    matching_capacity = sum(min(cap, group_limits[group]) for group, cap in group_caps.items())
+    result = dict(status='fail' if flow < required else 'pass', demand=total,
+                limit=limit if military_weapons else 1, required_with_headroom=required,
+                matching_capacity=matching_capacity, headroom_deficit=required-flow,
+                unreachable_types=sorted(unreachable_types, key=lambda row: row['name'].lower()),
+                excluded_types=excluded,
+                reserved_placeable=flow, unreachable_nominal=unreachable,
                 categories=dict(sorted(categories.items())), unassigned_routes=unassigned,
                 limitation='Optimistic static bound; point dimensions, collisions and native selection unobserved.')
+    if not military_weapons:
+        result.update(placeable_upper_bound=flow, deficit=total-flow)
+    return result
 
 
 def problems(mission, category='weapons', limit=LIMIT):
@@ -294,12 +333,13 @@ def main(argv=None):
     parser.add_argument('mission', type=Path)
     parser.add_argument('--category', default='weapons')
     parser.add_argument('--limit', type=float, default=LIMIT)
+    parser.add_argument('--military-weapons', action='store_true', help='joint Military/Police/Prison weapon bound with LIMIT headroom and named unrouted types')
     parser.add_argument('--all-categories', action='store_true', help='joint shared-capacity bound across all building-routed categories')
     parser.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
     parser.add_argument('--top', type=int, default=10)
     args = parser.parse_args(argv)
-    if args.all_categories:
-        result = feasibility(args.mission)
+    if args.all_categories or args.military_weapons:
+        result = feasibility(args.mission, args.military_weapons, args.limit)
         print(json.dumps(result, sort_keys=True))
         return 1 if result['status'] == 'fail' else 0
     if args.coverage:
