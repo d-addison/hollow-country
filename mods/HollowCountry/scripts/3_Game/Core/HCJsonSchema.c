@@ -3,6 +3,69 @@
 // No reflection or file IO: owners validate the merged DTO before accepting it.
 class HCJsonSchema
 {
+    // Bounded allow-list scan over a text window; the DTO parser remains the
+    // syntax authority. targetDepth=0 checks keys at every nesting depth;
+    // targetDepth=1 restricts only root members. Escaped authored keys use the
+    // same Unicode-aware matcher as presence checks; values are never keys.
+    static bool HCKeysAllowed(string text, string keys, int maxBytes, int targetDepth = 1)
+    {
+        if (text.Length() < 1 || text.Length() > maxBytes || maxBytes < 1 || targetDepth < 0) { return false; }
+        array<string> allowed = new array<string>;
+        keys.Split("|", allowed);
+        if (allowed.Count() < 1 || allowed.Count() > 256) { return false; }
+        map<string, bool> authored = new map<string, bool>;
+        foreach (string authoredKey : allowed)
+        {
+            if (authoredKey != "") { authored.Set(authoredKey, true); }
+        }
+        HCTextWindow window = new HCTextWindow(text);
+        int depth;
+        int cursor;
+        while (cursor < window.Length())
+        {
+            string token = window.At(cursor);
+            if (token == "\"")
+            {
+                int start = cursor + 1;
+                bool keyEscaped = false;
+                cursor = start;
+                while (cursor < window.Length() && window.At(cursor) != "\"")
+                {
+                    if (window.At(cursor) == "\\") { keyEscaped = true; cursor++; }
+                    cursor++;
+                }
+                if (cursor >= window.Length()) { return false; }
+                int after = cursor + 1;
+                while (after < window.Length() && window.HCWhitespace(after)) { after++; }
+                if (window.At(after) == ":" && (targetDepth == 0 || depth == targetDepth))
+                {
+                    // Authored keys are <=64 decoded characters (six raw bytes
+                    // per Unicode escape); refuse before any candidate copy.
+                    if (cursor - start > 384) { return false; }
+                    // Common serializer output uses plain keys: one bounded
+                    // window copy + O(1) lookup, no matcher object per candidate.
+                    if (!keyEscaped)
+                    {
+                        if (!authored.Contains(window.Range(start, cursor - start))) { return false; }
+                    }
+                    else
+                    {
+                        bool matched = false;
+                        foreach (string key : allowed)
+                        {
+                            if (key != "" && HCJsonFields.KeyMatchesAt(window, start, cursor, key)) { matched = true; break; }
+                        }
+                        if (!matched) { return false; }
+                    }
+                }
+            }
+            else if (token == "{" || token == "[") { depth++; }
+            else if (token == "}" || token == "]") { depth--; if (depth < 0) { return false; } }
+            cursor++;
+        }
+        return depth == 0;
+    }
+
     static int HCApplyInt(string text, string key, int value, int fallback)
     {
         if (HCJsonFields.Has(text, key)) { return value; }

@@ -275,83 +275,22 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 326,
+      "line": 396,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
+      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false,
+      "reason": "W2-08 staged fresh-store absence check: one FileExist in its own tick stage before shared Begin. Preserves external-edit refusal; no synchronous save chain or native timing acceptance."
     },
     {
-      "rule": "HC-P003",
+      "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 328,
+      "line": 396,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 334,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 334,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#3",
-      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 335,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "CopyFile#1",
-      "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 337,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#2",
-      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 337,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#4",
-      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 338,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "CopyFile#2",
-      "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 339,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#3",
-      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08: path-insensitive startup candidate through virtual HCSaveJob.HCStep dispatch in another owner shutdown flush. Custody performs one fresh-primary presence probe in its own stage, never a multi-file startup loop; its own shutdown drain is deliberate. Native validation pending."
     },
     {
       "rule": "HC-P003",
@@ -369,24 +308,6 @@
       "symbol": "HCWorldStore.Read",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCWorldStore.Read",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 66,
-      "symbol": "HCWorldStore.Write",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCXAILocalitySave.HCStep -> HCWorldStore.Write",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 68,
-      "symbol": "HCWorldStore.Write",
-      "key": "FPrint#1",
-      "message": "FPrint reachable via HCXAILocalitySave.HCStep -> HCWorldStore.Write",
       "native": false
     },
     {
