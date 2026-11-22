@@ -3704,6 +3704,30 @@
       "line": 2,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCConfigHelper",
+      "file": "mods/HollowCountry/scripts/3_Game/Core/HCConfigHelper.c",
+      "line": 8,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "W4-07 guarded config reader; callers land with the ConfigGet adoption follow-up (wb-jsonschema R2). Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMigrationProbeStep",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 44,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMigrationStep",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 17,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     }
   ]
 }
