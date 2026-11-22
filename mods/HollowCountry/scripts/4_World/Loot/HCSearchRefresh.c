@@ -466,7 +466,11 @@ class HCSearchRefreshState
 class HCSearchRefreshStore
 {
     static const string PATH = "$profile:HollowCountry/search-refresh.json";
-    static const int MAX_BYTES = 8388608;
+    // 4096 rows: <=1024 ASCII identity bytes + <=256 JSON/scalar bytes
+    // per row, plus <=256 header bytes: <=5,243,136 bytes. Reserve 6 MiB.
+    // Two worst-case images require <18,688 shared stages, so shutdown uses
+    // the shared large-image barrier (default 33,088), not the 4096 guard.
+    static const int MAX_BYTES = 6291456;
     protected bool m_Fault;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
     protected int m_ImageRevision;
@@ -479,6 +483,7 @@ class HCSearchRefreshStore
     int CheckpointStep(HCSearchRefreshState state, int revision)
     {
         if (m_Fault || !state) { return HCSaveJob.STEP_FAILED; }
+        if (state.LastUtc > HCGroupClock.Utc()) { Fault(); return HCSaveJob.STEP_FAILED; }
         if (!m_Image.Active() || (m_Image.HCReadyToClearIntent() && m_ImageRevision != revision))
         {
             HCSaveJob.HCOperation = "encode";
@@ -508,6 +513,57 @@ class HCSearchRefreshStore
         return false;
     }
 
+    // Validate a whole canonical image before it can authorize recovery. Legacy
+    // IntervalSeconds=0 is admitted unchanged; module enrollment fills it later.
+    // Recovery compares durable image clocks with each other, never wall time.
+    protected HCSearchRefreshState Decode(string text)
+    {
+        if (text == "" || text.Length() > MAX_BYTES) { return null; }
+        HCSearchRefreshState state;
+        string error;
+        string canonical;
+        if (!JsonFileLoader<HCSearchRefreshState>.LoadData(text, state, error) || !state) { return null; }
+        if (!JsonFileLoader<HCSearchRefreshState>.MakeData(state, canonical, error) || canonical != text) { return null; }
+        if (state.Version != 1 || !state.Rows || state.Rows.Count() > HCSearchRefreshModule.MAX_RECORDS || state.LastUtc < 1) { return null; }
+        map<string, bool> keys = new map<string, bool>;
+        foreach (HCSearchRefreshRow row : state.Rows)
+        {
+            if (!row || !HCSearchRules.TextValid(row.Scope, 256) || !HCSearchRules.TextValid(row.SiteId, 768)) { return null; }
+            if (row.SearchedUtc < 1 || row.SearchedUtc > state.LastUtc || (row.Ready && !row.Revisited)) { return null; }
+            int interval = row.IntervalSeconds;
+            if (interval == 0) { interval = HCSearchRefreshPolicy.HCLegacyInterval(row.SiteId); }
+            if (interval < 60 || interval > 5184000) { return null; }
+            if (row.Ready && !HCSearchRefreshPolicy.Due(row.SearchedUtc, state.LastUtc, interval)) { return null; }
+            string key = HCSearchRefreshModule.Key(row.Scope, row.SiteId);
+            if (keys.Contains(key)) { return null; }
+            keys.Set(key, true);
+        }
+        return state;
+    }
+
+    protected bool RecoverIntent()
+    {
+        string primaryText;
+        string intentText;
+        HCGroupIO.HCReadRaw(PATH, MAX_BYTES, primaryText);
+        HCGroupIO.HCReadRaw(PATH + ".tmp", MAX_BYTES, intentText);
+        HCSearchRefreshState primary = Decode(primaryText);
+        HCSearchRefreshState intent = Decode(intentText);
+        if (!primary) { primaryText = ""; }
+        if (!intent) { intentText = ""; }
+        // A verified primary wins over an older intent. Equal-UTC intents may
+        // contain a later search or Ready change within the same second.
+        if (primary && intent && intent.LastUtc < primary.LastUtc) { intentText = ""; }
+        if (!primary && intent && FileExist(PATH + ".bak"))
+        {
+            string backupText;
+            HCGroupIO.HCReadRaw(PATH + ".bak", MAX_BYTES, backupText);
+            HCSearchRefreshState backup = Decode(backupText);
+            if (!backup || backup.LastUtc > intent.LastUtc) { return false; }
+        }
+        return HCWorldIntentRecovery.Recover(PATH, MAX_BYTES, intentText, primaryText, true);
+    }
+
     HCSearchRefreshState Open()
     {
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))
@@ -515,7 +571,9 @@ class HCSearchRefreshStore
             Fault();
             return null;
         }
-        if (FileExist(PATH + ".tmp") || (!FileExist(PATH) && FileExist(PATH + ".bak")))
+        bool recovered = true;
+        if (FileExist(PATH + ".tmp")) { recovered = RecoverIntent(); }
+        if (!recovered || (!FileExist(PATH) && FileExist(PATH + ".bak")))
         {
             Fault();
             return null;
@@ -536,6 +594,7 @@ class HCSearchRefreshStore
     bool Save(HCSearchRefreshState state)
     {
         if (m_Fault || !state) return false;
+        if (state.LastUtc > HCGroupClock.Utc()) return Fault();
         // Poison before the first write: even partial temp writes remain evidence.
         m_Fault = true;
         if (!HCSearchJson<HCSearchRefreshState>.WriteNew(PATH + ".tmp", state, MAX_BYTES)) return Fault();
@@ -908,7 +967,9 @@ class HCSearchRefreshModule : HCModule
         HCReportActivity(true);
         if (m_SaveJob)
         {
-            HCSaveScheduler.HCFlush(m_SaveJob);
+            // Same shared large-image barrier used by custody; explicit lower
+            // operator limits still fail loudly and leave intent for recovery.
+            if (!HCSaveScheduler.HCFlush(m_SaveJob, true)) { m_Store.Fault(); }
             HCSaveScheduler.HCUnregister(m_SaveJob);
             m_SaveJob.Owner = null;
             m_SaveJob = null;

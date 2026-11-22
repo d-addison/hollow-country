@@ -462,3 +462,267 @@ class HCWorldCustodySaveJob : HCSaveJob
         return Owner.HCStepCustody();
     }
 }
+
+// Startup-only promotion shared by bounded stores. Callers validate complete
+// images and revision order before passing nonempty text. No empty-state fallback.
+class HCWorldIntentRecovery
+{
+    // Rejected bytes are non-authoritative. Callers establish safe retirement
+    // (verified surviving image, or a provably uncommitted first-seed tear).
+    // Never copy onto an occupied destination, including after interrupted copies.
+    static bool Reject(string source, int limit)
+    {
+        string rejected = source + ".rejected";
+        int free = -1;
+        for (int slot = 0; slot < 8; slot++)
+        {
+            string candidate = source + ".rejected";
+            if (slot > 0) { candidate += "." + slot.ToString(); }
+            if (!FileExist(candidate))
+            {
+                if (free < 0) { free = slot; rejected = candidate; }
+            }
+            else if (HCWorldStore.RawEqual(source, candidate))
+            {
+                Print("[HC World] staged_rejection reason=existing_raw_copy action=retire_source");
+                return DeleteFile(source);
+            }
+        }
+        if (free < 0)
+        {
+            // Bounded oldest-first rotation. A crash can lose an old archive,
+            // but leaves the current source available to retry on the next boot.
+            if (!DeleteFile(source + ".rejected")) { return false; }
+            for (int rotate = 1; rotate < 8; rotate++)
+            {
+                string oldPath = source + ".rejected." + rotate.ToString();
+                string newPath = source + ".rejected";
+                int previous = rotate - 1;
+                if (rotate > 1) { newPath += "." + previous.ToString(); }
+                if (!CopyFile(oldPath, newPath)) { return false; }
+                if (!DeleteFile(oldPath)) { return false; }
+            }
+            rejected = source + ".rejected.7";
+        }
+        if (!CopyFile(source, rejected)) { return false; }
+        bool equal = EqualText(source, rejected, limit);
+        if (!equal) { equal = HCWorldStore.RawEqual(source, rejected); }
+        string reason = "verified_copy";
+        if (!equal) { reason = "copy_unverified_non_authoritative"; }
+        Print("[HC World] staged_rejection reason=" + reason + " action=retire_source");
+        return DeleteFile(source);
+    }
+
+    protected static bool EqualText(string source, string rejected, int limit)
+    {
+        FileHandle left = OpenFile(source, FileMode.READ);
+        if (!left) { return false; }
+        FileHandle right = OpenFile(rejected, FileMode.READ);
+        if (!right) { CloseFile(left); return false; }
+        int total;
+        bool equal;
+        while (total <= limit)
+        {
+            string a = "";
+            string b = "";
+            int count = ReadFile(left, a, 4096);
+            int copied = ReadFile(right, b, 4096);
+            if (count < 0 || count > 4096 || count != copied || total + count > limit) { break; }
+            if (count != a.Length() || copied != b.Length() || a != b) { break; }
+            if (count == 0) { equal = true; break; }
+            total += count;
+        }
+        CloseFile(left);
+        CloseFile(right);
+        return equal;
+    }
+
+    static bool Recover(string path, int limit, string intent, string primary, bool forward, bool keepBackup = true)
+    {
+        if (intent == "")
+        {
+            if (primary == "" || !Reject(path + ".tmp", limit)) { return false; }
+            Print("[HC World] staged_recovery action=discard_unverifiable_or_stale path=" + path);
+            return true;
+        }
+        if (!forward) { return false; }
+        if (primary != intent)
+        {
+            if (primary != "" && keepBackup)
+            {
+                if (FileExist(path + ".bak") && !DeleteFile(path + ".bak")) { return false; }
+                if (!CopyFile(path, path + ".bak")) { return false; }
+                string backup;
+                bool readBackup = HCGroupIO.HCReadRaw(path + ".bak", limit, backup);
+                if (!readBackup || backup != primary) { return false; }
+            }
+            if (FileExist(path))
+            {
+                if (primary == "")
+                {
+                    if (!Reject(path, limit)) { return false; }
+                }
+                else if (!DeleteFile(path)) { return false; }
+            }
+            if (!CopyFile(path + ".tmp", path)) { return false; }
+        }
+        string check;
+        bool readPrimary = HCGroupIO.HCReadRaw(path, limit, check);
+        if (!readPrimary || check != intent) { return false; }
+        if (!keepBackup && FileExist(path + ".bak") && !DeleteFile(path + ".bak")) { return false; }
+        if (!DeleteFile(path + ".tmp")) { return false; }
+        Print("[HC World] staged_recovery action=promote_verified path=" + path);
+        return true;
+    }
+}
+
+// Independent exclusive lease ceiling. Never roll this file back to .bak.
+// Partial intent + valid primary is safe: IDs are exposed only after Finish.
+// First-seed tears reseed; invalid ceilings block only when custody is older.
+class HCWorldLeaseCeiling
+{
+    static const string PATH = "$profile:HollowCountry/ai-custody.lease-ceiling";
+    protected int m_Ceiling;
+    protected int m_Pending;
+    protected bool m_NeedsReseed;
+    protected bool m_BackupLowerBound;
+    protected bool m_CleanupReady;
+    protected string m_Text;
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+
+    protected int Decode(string text)
+    {
+        if (text.Length() < 3 || text.Length() > 12) { return 0; }
+        string number = text.Substring(1, text.Length() - 2);
+        int value = number.ToInt();
+        if (value < 1 || text != "|" + value.ToString() + "|") { return 0; }
+        return value;
+    }
+
+    bool Load(bool allowReseed)
+    {
+        m_NeedsReseed = false;
+        m_BackupLowerBound = false;
+        string primary;
+        bool primaryRead = HCGroupIO.HCReadRaw(PATH, 12, primary);
+        if (!primaryRead) { primary = ""; }
+        int floor = Decode(primary);
+        if (FileExist(PATH + ".tmp"))
+        {
+            string intent;
+            bool intentRead = HCGroupIO.HCReadRaw(PATH + ".tmp", 12, intent);
+            if (!intentRead) { intent = ""; }
+            int next = Decode(intent);
+            if (next == 0 || next < floor) { intent = ""; }
+            if (floor == 0) { primary = ""; }
+            bool firstSeed = intent == "" && floor == 0;
+            if (FileExist(PATH)) { firstSeed = false; }
+            if (FileExist(PATH + ".bak")) { firstSeed = false; }
+            if (firstSeed)
+            {
+                // read_tmp must verify before the writer can remove a primary.
+                // No primary/backup + torn intent is therefore a first-seed tear.
+                if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
+                Print("[HC World] custody_lease_ceiling_first_seed_torn action=reseed");
+                HCModuleReadiness.HCUse("Materializer", "custody_lease_ceiling_first_seed_torn");
+            }
+            else
+            {
+                if (intent == "" && floor == 0)
+                {
+                    if (!allowReseed)
+                    {
+                        Print("[HC World] custody_lease_ceiling_invalid reason=older_custody_unverified_ceiling");
+                        return false;
+                    }
+                    if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
+                }
+                else
+                {
+                    if (!HCWorldIntentRecovery.Recover(PATH, 12, intent, primary, true, false)) { return false; }
+                    primary = "";
+                    primaryRead = HCGroupIO.HCReadRaw(PATH, 12, primary);
+                    if (!primaryRead) { return false; }
+                    floor = Decode(primary);
+                }
+            }
+        }
+        if (floor == 0 && (FileExist(PATH) || FileExist(PATH + ".bak")))
+        {
+            if (!allowReseed)
+            {
+                Print("[HC World] custody_lease_ceiling_invalid reason=older_custody_unverified_ceiling");
+                return false;
+            }
+            m_NeedsReseed = true;
+            string backup;
+            bool backupRead = HCGroupIO.HCReadRaw(PATH + ".bak", 12, backup);
+            if (backupRead) { floor = Decode(backup); }
+            if (floor > 0)
+            {
+                m_BackupLowerBound = true;
+                Print("[HC World] custody_lease_ceiling_backup_lower_bound next_lease=" + floor.ToString());
+            }
+            if (FileExist(PATH) && !HCWorldIntentRecovery.Reject(PATH, 12)) { return false; }
+            // Keep a verified backup lower bound until a new ceiling commits.
+            // Otherwise a crash between rejection and reseed could lose it.
+            if (floor == 0 && FileExist(PATH + ".bak"))
+            {
+                if (!HCWorldIntentRecovery.Reject(PATH + ".bak", 12)) { return false; }
+            }
+            primary = "";
+            Print("[HC World] custody_lease_ceiling_torn action=reseed_from_verified_custody");
+            HCModuleReadiness.HCUse("Materializer", "custody_lease_ceiling_torn");
+        }
+        if (floor > 0 && !m_NeedsReseed)
+        {
+            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return false; }
+        }
+        m_Ceiling = floor;
+        m_Text = primary;
+        return true;
+    }
+
+    int HCAbort() { return m_Image.HCAbort(); }
+
+    int Ceiling() { return m_Ceiling; }
+    bool NeedsReseed() { return m_NeedsReseed || m_Ceiling == 0; }
+
+    // Called only by the custody save job, before its image can commit or a
+    // provider can claim. One shared writer stage per call; no tick-time drain.
+    int AdvanceStep(int nextLease)
+    {
+        if (m_CleanupReady)
+        {
+            // The new primary has verified. One final bounded scheduler stage
+            // retires the lower-bound backup, never before the ceiling commits.
+            if (!DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+            m_CleanupReady = false;
+            m_BackupLowerBound = false;
+            return HCSaveJob.STEP_DONE;
+        }
+        if (!m_Image.Active())
+        {
+            if (nextLease <= m_Ceiling && !m_NeedsReseed) { return HCSaveJob.STEP_DONE; }
+            m_Pending = nextLease;
+            if (m_Pending <= 2147482623) { m_Pending += 1024; }
+            else { m_Pending = 2147483647; }
+            if (!m_Image.Begin(PATH, "|" + m_Pending.ToString() + "|", 12, false, true, m_Text)) { return HCSaveJob.STEP_FAILED; }
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_Ceiling = m_Pending;
+            m_Text = "|" + m_Pending.ToString() + "|";
+            m_Image = new HCStagedSaveImage;
+            m_NeedsReseed = false;
+            if (m_BackupLowerBound)
+            {
+                m_CleanupReady = true;
+                return HCSaveJob.STEP_MORE;
+            }
+        }
+        return result;
+    }
+}
