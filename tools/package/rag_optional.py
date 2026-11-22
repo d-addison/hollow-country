@@ -9,38 +9,55 @@ installation. optional_overlays owns source hashes, duplicate checks and rollbac
 """
 import xml.etree.ElementTree as ET
 
+from tools.package import overlay_stack
+
 NAVIGATION_ID = '2792984722'
 RAG_CORE_ID = '3556131153'
 RAG_VEHICLES_ID = '3105330157'
 OVERLAY_PACKS = (('Navigation', NAVIGATION_ID), ('RaGVehicles', RAG_VEHICLES_ID))
+# One validated order for the type-adding packs: RaG's vendor types first, then own GPS policy.
+STACK = overlay_stack.Stack((
+    overlay_stack.Layer('RaGVehicles'),
+    overlay_stack.Layer('Navigation', after=('RaGVehicles',)),
+))
 
 
 def append_types(packs, workshop, loaded, types, source, overlays):
-    if 'RaGVehicles' in packs:
-        core = overlays.safe(workshop / RAG_CORE_ID)
-        if not core.is_dir() or core not in loaded:
-            raise ValueError('RaG Immersive Vehicles requires loaded RaG_Core')
-        path = overlays.find_file(packs['RaGVehicles'], 'types/rag_immersive_vehicles.xml')
-        shipped = overlays.xml(source(path), 'types')
-        if not 0 < len(shipped) <= 1024:
-            raise ValueError('RaG shipped types missing or over budget')
-        for entry in shipped:
-            if entry.tag != 'type':
-                raise ValueError('invalid RaG shipped type')
-            overlays.unique_append(types, entry)
-        # HC-32: the inspected dependency supplies four tools/consumables, no
-        # new transport family. Generic CE ownership checks in optional_overlays
-        # also reject vehicle classes smuggled through a positive types budget.
-        overlays.travel.validate_vehicle_budgets(types, set())
-    if 'Navigation' in packs:
-        # Own policy: four map-wide, counting stored/carried GPS against CE refill.
-        gps = ET.Element('type', {'name': 'ExpansionGPS'})
-        for key, value in (('nominal', '4'), ('lifetime', '7200'), ('restock', '1800'),
-                           ('min', '1'), ('quantmin', '-1'), ('quantmax', '-1'), ('cost', '100')):
-            ET.SubElement(gps, key).text = value
-        ET.SubElement(gps, 'flags', dict(count_in_cargo='1', count_in_hoarder='1',
-                                       count_in_map='1', count_in_player='1', crafted='0', deloot='0'))
-        ET.SubElement(gps, 'category', {'name': 'tools'})
-        for usage in ('Military', 'Police'):
-            ET.SubElement(gps, 'usage', {'name': usage})
-        overlays.unique_append(types, gps)
+    for layer in STACK.ordered():
+        if layer.name in packs:
+            _APPLY[layer.name](packs, workshop, loaded, types, source, overlays)
+
+
+def _append_rag(packs, workshop, loaded, types, source, overlays):
+    core = overlays.safe(workshop / RAG_CORE_ID)
+    if not core.is_dir() or core not in loaded:
+        raise ValueError('RaG Immersive Vehicles requires loaded RaG_Core')
+    path = overlays.find_file(packs['RaGVehicles'], 'types/rag_immersive_vehicles.xml')
+    shipped = overlays.xml(source(path), 'types')
+    if not 0 < len(shipped) <= 1024:
+        raise ValueError('RaG shipped types missing or over budget')
+    for entry in shipped:
+        if entry.tag != 'type':
+            raise ValueError('invalid RaG shipped type')
+        overlays.unique_append(types, entry)
+    # HC-32: the inspected dependency supplies four tools/consumables, no
+    # new transport family. Generic CE ownership checks in optional_overlays
+    # also reject vehicle classes smuggled through a positive types budget.
+    overlays.travel.validate_vehicle_budgets(types, set())
+
+
+def _append_navigation(packs, workshop, loaded, types, source, overlays):
+    # Own policy: four map-wide, counting stored/carried GPS against CE refill.
+    gps = ET.Element('type', {'name': 'ExpansionGPS'})
+    for key, value in (('nominal', '4'), ('lifetime', '7200'), ('restock', '1800'),
+                       ('min', '1'), ('quantmin', '-1'), ('quantmax', '-1'), ('cost', '100')):
+        ET.SubElement(gps, key).text = value
+    ET.SubElement(gps, 'flags', dict(count_in_cargo='1', count_in_hoarder='1',
+                                   count_in_map='1', count_in_player='1', crafted='0', deloot='0'))
+    ET.SubElement(gps, 'category', {'name': 'tools'})
+    for usage in ('Military', 'Police'):
+        ET.SubElement(gps, 'usage', {'name': usage})
+    overlays.unique_append(types, gps)
+
+
+_APPLY = {'RaGVehicles': _append_rag, 'Navigation': _append_navigation}
