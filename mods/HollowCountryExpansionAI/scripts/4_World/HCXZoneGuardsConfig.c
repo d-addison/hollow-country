@@ -1,4 +1,4 @@
-// Parsed through the shared HCJsonSchema loader; HCJsonFields keeps missing-field defaults.
+// Parsed through the shared HCJsonSchema loader; HCApply* keeps missing-field defaults.
 // ZoneGuards settings keys register in HollowCountry 3_Game
 // (AI/HCZoneGuardsSettingsRegistry.c): a modded class must share its base's script module.
 class HCXZoneGuardsConfig
@@ -18,11 +18,13 @@ class HCXZoneGuardsConfig
         {
             string raw = HCWorldStore.Read(path);
             string error;
-            if (raw == "" || !HCJsonSchemaLoader<HCXZoneGuardsConfig>.HCLoadData(raw, config, error) || !config) { return null; }
-            if (!HCJsonFields.Has(raw, "CooldownDays")) { config.CooldownDays = 2; }
-            if (!HCJsonFields.Has(raw, "MaxChangesPerDay")) { config.MaxChangesPerDay = 2; }
-            if (!HCJsonFields.Has(raw, "MaxZones")) { config.MaxZones = 128; }
-            if (!HCJsonFields.Has(raw, "MaxOverrunMembers")) { config.MaxOverrunMembers = 6; }
+            HCXZoneGuardsConfig decoded;
+            if (raw == "" || !HCJsonSchemaLoader<HCXZoneGuardsConfig>.HCLoadData(raw, decoded, error) || !decoded) { return null; }
+            config.Disabled = HCJsonSchema.HCApplyBool(raw, "Disabled", decoded.Disabled, config.Disabled);
+            config.CooldownDays = HCJsonSchema.HCApplyInt(raw, "CooldownDays", decoded.CooldownDays, config.CooldownDays);
+            config.MaxChangesPerDay = HCJsonSchema.HCApplyInt(raw, "MaxChangesPerDay", decoded.MaxChangesPerDay, config.MaxChangesPerDay);
+            config.MaxZones = HCJsonSchema.HCApplyInt(raw, "MaxZones", decoded.MaxZones, config.MaxZones);
+            config.MaxOverrunMembers = HCJsonSchema.HCApplyInt(raw, "MaxOverrunMembers", decoded.MaxOverrunMembers, config.MaxOverrunMembers);
         }
         if (!HCOperatorSettingsRegistry.HCValid("HCZoneGuards.CooldownDays", config.CooldownDays) || !HCOperatorSettingsRegistry.HCValid("HCZoneGuards.MaxChangesPerDay", config.MaxChangesPerDay) || !HCOperatorSettingsRegistry.HCValid("HCZoneGuards.MaxZones", config.MaxZones) || !HCOperatorSettingsRegistry.HCValid("HCZoneGuards.MaxOverrunMembers", config.MaxOverrunMembers)) { return null; }
         return config;

@@ -78,7 +78,7 @@ modded class ZombieBase
             return result;
         }
         int nativeType = pAnimType;
-        int ammoHitAnimation = GetGame().ConfigGetInt("cfgAmmo " + data.m_AmmoType + " hitAnimation");
+        int ammoHitAnimation = HCConfigHelper.GetInt("cfgAmmo " + data.m_AmmoType + " hitAnimation", 0);
         pAnimType = HCInfectedDeathPolicy.SelectDeathType(nativeType, IsBeingBackstabbed(), ammoHitAnimation, m_HeavyHitOverride, data.m_DamageZone, pAnimHitDir);
         HCInfectedDeathLog.Decision(data.m_AmmoType, data.m_DamageZone, nativeType, pAnimType, pAnimHitDir);
         // #240: vanilla only plays IMPULSE together with dBodyApplyImpulse (doPhxImpulse ammo,

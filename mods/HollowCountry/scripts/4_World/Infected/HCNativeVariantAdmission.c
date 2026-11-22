@@ -110,7 +110,7 @@ class HCNativeVariantAdmission
         string dlcTag;
         string failure = "none";
         if (!GetGame().ConfigIsExisting(path)) { failure = "NATIVE_CLASS_MISSING"; }
-        else if (GetGame().ConfigGetInt(path + " scope") != 2) { failure = "NATIVE_SCOPE_NOT_PUBLIC"; }
+        else if (HCConfigHelper.GetInt(path + " scope", 0) != 2) { failure = "NATIVE_SCOPE_NOT_PUBLIC"; }
         else if (!GetGame().IsKindOf(typeName, nativeBase)) { failure = "NATIVE_PROFILE_ANCESTRY_MISMATCH"; }
         else if (!GetGame().ConfigGetText(path + " model", model) || HCNormalizeModel(model) != HCNormalizeModel(expectedModel)) { failure = "NATIVE_MODEL_MISMATCH"; }
         else if (!GetGame().ConfigGetText(path + " aiAgentTemplate", agentProfile) || agentProfile != expectedProfile) { failure = "NATIVE_AGENT_PROFILE_MISMATCH"; }

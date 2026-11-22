@@ -16,7 +16,7 @@ class HCWeaponJam
         {
             s_HCLoaded = true;
             string path = "CfgHollowCountry Firearms noJamMaxHealthLevel";
-            if (GetGame().ConfigIsExisting(path)) { s_HCMaxLevel = GetGame().ConfigGetInt(path); }
+            s_HCMaxLevel = HCConfigHelper.GetInt(path, s_HCMaxLevel);
         }
         return s_HCMaxLevel;
     }

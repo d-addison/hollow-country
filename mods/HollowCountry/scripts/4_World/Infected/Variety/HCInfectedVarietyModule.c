@@ -220,16 +220,16 @@ class HCInfectedVarietyModule : HCModule
 
     // #279: which CE variant classes the loaded addons define as public (scope 2).
     // One bounded generated units list at startup; mission CE owns populations.
-    // Native 3_Game/Global/Game.c:558 ConfigGetTextArray, :539 ConfigGetInt.
+    // Reads go through HCConfigHelper (Game.c:558 ConfigGetTextArray, :539 ConfigGetInt behind presence/type guards).
     protected void HCPrintCEVariantClasses()
     {
         array<string> names = new array<string>;
-        GetGame().ConfigGetTextArray("CfgPatches HollowCountryAnims units", names);
+        HCConfigHelper.GetTextArray("CfgPatches HollowCountryAnims units", names);
         int present = 0;
         string missing = "";
         foreach (string name : names)
         {
-            if (GetGame().ConfigGetInt("CfgVehicles " + name + " scope") == 2) { present++; }
+            if (HCConfigHelper.GetInt("CfgVehicles " + name + " scope", 0) == 2) { present++; }
             else { missing = missing + " " + name; }
         }
         if (missing == "") { missing = " none"; }

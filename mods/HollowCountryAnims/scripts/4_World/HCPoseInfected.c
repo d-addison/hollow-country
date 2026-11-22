@@ -163,7 +163,7 @@ modded class ZombieBase
 		{
 			m_HCSpawnKind = 0;
 			string path = "CfgVehicles " + GetType() + " hcSpawnPose";
-			if (g_Game.ConfigIsExisting(path)) { m_HCSpawnKind = g_Game.ConfigGetInt(path); }
+			m_HCSpawnKind = HCConfigHelper.GetInt(path, 0);
 		}
 		return m_HCSpawnKind;
 	}

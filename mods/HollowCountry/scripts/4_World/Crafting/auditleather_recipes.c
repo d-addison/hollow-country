@@ -131,10 +131,10 @@ class HCAuditLeatherPolicy
         if (recipe.m_AnimationLength != HCAuditLeatherConfig.HCGet().AnimationUnits) return false;
         if (recipe.m_IngredientAddHealth[1] != 0 || recipe.m_ResultSetQuantity[0] != 1) return false;
         if (recipe.m_ResultReplacesIngredient[0] != -1 || recipe.m_ResultInheritsColor[0] != -1) return false;
-        if (!GetGame().ConfigIsExisting("CfgVehicles " + output) || GetGame().ConfigGetInt("CfgVehicles " + output + " scope") != 2) return false;
-        if (GetGame().ConfigGetFloat("CfgVehicles TannedLeather varQuantityMax") < panels) return false;
-        if (GetGame().ConfigGetFloat("CfgVehicles SewingKit varQuantityMax") < HCAuditLeatherConfig.HCGet().KitUnits) return false;
-        return GetGame().ConfigGetFloat("CfgVehicles LeatherSewingKit varQuantityMax") >= HCAuditLeatherConfig.HCGet().KitUnits;
+        if (!GetGame().ConfigIsExisting("CfgVehicles " + output) || HCConfigHelper.GetInt("CfgVehicles " + output + " scope", 0) != 2) return false;
+        if (HCConfigHelper.GetFloat("CfgVehicles TannedLeather varQuantityMax", 0) < panels) return false;
+        if (HCConfigHelper.GetFloat("CfgVehicles SewingKit varQuantityMax", 0) < HCAuditLeatherConfig.HCGet().KitUnits) return false;
+        return HCConfigHelper.GetFloat("CfgVehicles LeatherSewingKit varQuantityMax", 0) >= HCAuditLeatherConfig.HCGet().KitUnits;
     }
 }
 

@@ -36,13 +36,13 @@ class HCCraftingNativeChecks
         string outputPath = "CfgVehicles " + outputType;
         if (!GetGame().ConfigIsExisting("CfgVehicles " + inputType) || !GetGame().ConfigIsExisting("CfgVehicles " + toolType))
             return false;
-        if (!GetGame().ConfigIsExisting(outputPath) || GetGame().ConfigGetInt(outputPath + " scope") != 2)
+        if (!GetGame().ConfigIsExisting(outputPath) || HCConfigHelper.GetInt(outputPath + " scope", 0) != 2)
             return false;
         // Native singleton items may have no quantity at all (SetQuantity is a no-op).
         // Split stacks prefer varStackMax over varQuantityMax in ItemBase.
-        float maxQuantity = GetGame().ConfigGetFloat(outputPath + " varStackMax");
+        float maxQuantity = HCConfigHelper.GetFloat(outputPath + " varStackMax", 0);
         if (maxQuantity <= 0)
-            maxQuantity = GetGame().ConfigGetFloat(outputPath + " varQuantityMax");
+            maxQuantity = HCConfigHelper.GetFloat(outputPath + " varQuantityMax", 0);
         if (quantity > 1 && maxQuantity < quantity)
             return false;
         return true;
@@ -91,11 +91,11 @@ class HCCraftingNativeChecks
         for (int resultIndex = 0; resultIndex < resultCount; resultIndex++)
         {
             string resultPath = "CfgVehicles " + recipe.m_ItemsToCreate[resultIndex];
-            if (!GetGame().ConfigIsExisting(resultPath) || GetGame().ConfigGetInt(resultPath + " scope") != 2)
+            if (!GetGame().ConfigIsExisting(resultPath) || HCConfigHelper.GetInt(resultPath + " scope", 0) != 2)
                 return false;
-            float maxQuantity = GetGame().ConfigGetFloat(resultPath + " varStackMax");
+            float maxQuantity = HCConfigHelper.GetFloat(resultPath + " varStackMax", 0);
             if (maxQuantity <= 0)
-                maxQuantity = GetGame().ConfigGetFloat(resultPath + " varQuantityMax");
+                maxQuantity = HCConfigHelper.GetFloat(resultPath + " varQuantityMax", 0);
             if (recipe.m_ResultSetQuantity[resultIndex] > 1 && maxQuantity < recipe.m_ResultSetQuantity[resultIndex])
                 return false;
             if (recipe.m_ResultSetFullQuantity[resultIndex] || recipe.m_ResultReplacesIngredient[resultIndex] != -1 || recipe.m_ResultInheritsColor[resultIndex] != -1)
