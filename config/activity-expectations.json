@@ -1116,6 +1116,114 @@
       "needs_player": true,
       "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c",
       "scope": "runtime"
+    },
+    {
+      "module": "HordeMigration",
+      "feature": "nav-route-advance",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavInf feature=route_advance count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_inf row: horde route advances."
+    },
+    {
+      "module": "Interiors",
+      "feature": "nav-pathgraph-refresh",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavInf feature=pathgraph_refresh count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_inf row: pathgraph regions refreshed after interior, shelter or spawner placement."
+    },
+    {
+      "module": "InfectedDoors",
+      "feature": "nav-door-action",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavInf feature=door_action count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_inf row: infected door actions."
+    },
+    {
+      "module": "InfectedReach",
+      "feature": "nav-vault-started",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavInf feature=vault_started count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_inf row: infected vault climbs started."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "nav-routes",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavXai feature=routes count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_xai row: cached route reuse plus convoy A* routes."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "nav-stuck-recovery",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NavXai feature=stuck_recovery count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "scope": "runtime",
+      "note": "Aggregate nav_xai row: stuck-recovery ladder steps taken."
     }
   ]
 }
