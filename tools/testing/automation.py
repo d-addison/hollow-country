@@ -22,7 +22,7 @@ import subprocess
 import sys
 import time
 
-from tools.testing import artifacts, discovery, drivers
+from tools.testing import artifacts, discovery, drivers, native_probe, native_server
 from tools.validate import evidence
 
 MAX_INPUT_BYTES = 1_048_576
@@ -650,8 +650,12 @@ LANE_RULES = (
     "and the caller names it with automation run --trust",
     "this report never launches DayZ, DayZDiag or Workbench and never reports PASS",
 )
-LANE_UNIMPLEMENTED = ("native adapters of AV-T007 and later (orchestration, faults, geometry/data, client access, "
+LANE_UNIMPLEMENTED = ("native adapters of AV-T009 and later (orchestration, faults, geometry/data, client access, "
                       "audio/perf) are not implemented; none is registered")
+
+# AV-T007 and AV-T008: the server and probe adapters register here, once, beside the base registry.
+for _adapter in (native_server.driver(), *native_probe.drivers_for()):
+    drivers.DRIVERS.setdefault(_adapter.id, _adapter)
 
 
 def hosted_ci(environ=None):

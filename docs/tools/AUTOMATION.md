@@ -28,12 +28,48 @@ needs a capability the discovery report must list as available. The registry in
 `tools/testing/drivers.py` is the source of truth; `deferred.task` is a recorded placeholder
 that is never runnable.
 
+## Native server and probe adapters (AV-T007, AV-T008)
+
+`tools/testing/native_server.py` and `tools/testing/native_probe.py` add verdicts on top of
+the existing launch tools; they do not launch anything themselves. Both register as native
+drivers (`native.server_adapter`, `native.probe_adapter`, `native.probe_settings`), so
+`automation lane` lists them as NOTRUN or BLOCKED and `automation run --trust <id>` can run
+them on the owner's host. Shared bounded observation helpers (log freshness, process
+ownership, socket parsing, confinement and file guards) live in `tools/testing/native_common.py`.
+
+| Adapter | Wraps | Positive checker (all required) | Never claims |
+| --- | --- | --- | --- |
+| Server, `wine` provider | `tools.release.compile_gate` as one owned child, plus `tools.package.sign_wine` | The PBO hash computed before launch equals the hash the gate and the compiler report name; the signing report is bound to that PBO and re-hashed; logs are newer than the launch; Mission loaded; zero script and engine errors; an exact loopback socket owned by the child tree; no owned process and a free port after exit; the stock server files unchanged. | A client, a signature-enforced join (AV-T015, AV-T017), acceptance. |
+| Server, `windows` provider (contract and judge; evidence is assembled by `windows_evidence` from an existing `checkstart` output, no launcher) | attach-only boot verdict | Pin, boot verdict `connect_enabled`, RPT proven newer than a stated start time, stock files unchanged. | Process or socket ownership, cleanup: these are unobservable here and listed as unobserved. |
+| Probe, `core-selftests` | `wine_compile_probe --diagnostic --diagnostic-selftests` | Every requested subcase prints its own `[HC SelfTest] name=<subcase> pass=true` marker; default request is every name the source can print; a missing, failed or conflicting marker is a rejection; any SCRIPT (E) or engine error fails the run and stays listed; test hook identifiers are absent from the normal PBO bytes. | That the Diag build equals the normal server: every verdict lists the differences. |
+| Probe, `settings-negatives` | `wine_compile_probe --settings-case <case>` | One boot per case; PASS only for the specified rejection plus original-file preservation. | Anything beyond rejection and preservation. |
+
+Evidence is `zero-client-native` (server) or `diagnostic-native` (probe), client count 0, and
+`not_accepted`. A verdict ends with one JSON line; the driver judge reads that line and
+refuses a record that claims a client. Native runs take the shared host lock, refuse hosted
+CI and an owner client that is running, and write only inside a fresh output directory.
+
+```sh
+python3 -B -m tools.testing.native_server plan          # providers, checks, controls; launches nothing
+python3 -B -m tools.testing.native_server judge evidence.json
+agent-run --memory 12G -- python3 -B -m tools.testing.native_server run --provider wine --tree .
+agent-run --memory 12G -- python3 -B -m tools.testing.native_server control wrong_pin --tree .
+python3 -B -m tools.testing.native_probe plan
+agent-run --memory 12G -- python3 -B -m tools.testing.native_probe run --probe core-selftests --tree .
+agent-run --memory 12G -- python3 -B -m tools.testing.native_probe control missing_subcase --tree .
+```
+
+The unit tests for both adapters are offline and synthetic (fake launcher, fake process and
+socket tables); they prove the checks reject the specified bad cases and never establish DayZ
+behaviour. A control exits 0 only when the specified rejection is observed.
+
 ## What does not exist yet
 
-- No native adapter from AV-T007 onward (orchestration and fault control, geometry and data
+- No native adapter from AV-T009 onward (orchestration and fault control, geometry and data
   observation, client access, audio and performance capture) is implemented or registered.
   The documents above do not describe them as working, and the lane below reports them as
-  blocked or not run.
+  blocked or not run. The server and probe adapters (AV-T007, AV-T008) are written and
+  registered, but their native behaviour has not been run yet (see the next section).
 - AV-T017, AV-T018, AV-T019 and AV-T022 (two licensed clients, network faults, audio
   judgement, six- and ninety-player load qualification) are in scope (owner, 2026-11-22) but
   not built yet; they stay NOTRUN with reason `in_scope_not_built`.
