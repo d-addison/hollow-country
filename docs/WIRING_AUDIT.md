@@ -140,11 +140,14 @@ plain config, rap, JSON class tables, and the primitive-only local census pickle
 Inputs are bounded to 64 MiB and must resolve within the checkout or approved cache;
 symlink escapes are refused. No config dumps, game assets or Workshop code ship.
 
-The current optional vanilla index covers CfgVehicles/CfgWeapons/CfgMagazines,
-not CfgAmmo. Fifteen declared dependencies lack class indexes. The existing W007
-baseline retains 118 unresolved candidates, including Expansion classes; it is not
-proof of class validity or native acceptance. Additional native cache gaps must be
-reviewed individually before adding an exact baseline entry with a nonempty reason.
+The class index is built by `tools.validate.class_index` (see `docs/tools/CLASS_INDEX.md`)
+and consumed through the `class-index` source format: class names, parents and declared
+scope of CfgVehicles, CfgWeapons, CfgMagazines and CfgAmmo from the vanilla base and DLC
+folders and every declared Workshop dependency. When the index covers vanilla and every
+declared dependency of the current manifest, a W007/W008 finding means the declared stack
+does not define the class; with any gap the finding keeps the "absence is not proof" wording
+and the coverage note names the gap. W001b skips a class whose nominal-0 state is explained by
+a statically resolved production creation route or by `crafted="1"` on every authored row.
 
 ```sh
 python3 -B -m tools.validate.wiring_audit --update-baseline

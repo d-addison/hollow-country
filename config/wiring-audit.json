@@ -127,10 +127,10 @@
   ],
   "class_sources": [
     {
-      "path": "~/.cache/hollow-country/datamine-2026-11-17/cfg.pkl",
-      "format": "primitive-pickle",
+      "path": "~/.cache/hollow-country/class-index.json",
+      "format": "class-index",
       "required": false,
-      "label": "vanilla cached config census (2026-11-17; no CfgAmmo)"
+      "label": "vanilla and declared-dependency class index (tools.validate.class_index)"
     }
   ],
   "workshop_manifest": "tools/setup/workshop_mods.json",

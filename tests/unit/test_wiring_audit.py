@@ -172,5 +172,75 @@ class ExternalClassTests(unittest.TestCase):
                 self.assertNotIn('excluded', findings[key])
 
 
+class ClassIndexSourceTests(unittest.TestCase):
+    """W007/W001b against the vanilla plus declared-dependency name index (synthetic)."""
+
+    def audit(self, root, coverage, routes=(), digest=True):
+        from tools.validate import class_index
+        manifest = root / 'manifest.json'
+        manifest.write_text(json.dumps({'mods': [{'id': '1', 'rank': 1, 'folder': '@A'},
+                                                 {'id': '2', 'rank': 2, 'folder': '@B'}]}))
+        row = {'parent': None, 'scope': 2, 'source': 'vanilla'}
+        stored = {'schema': class_index.SCHEMA, 'coverage': coverage,
+                  'manifest_sha256': class_index.manifest_digest(manifest) if digest else '0',
+                  'classes': {name: ({'Declared': row, 'Crafted': row, 'Routed': row, 'Plain': row}
+                                     if name == 'CfgVehicles' else {})
+                              for name in wiring.DEFAULTS['config_roots']}}
+        (root / 'classes.json').write_text(json.dumps(stored))
+        (root / 'config.cpp').write_text('class CfgVehicles { class LocalOnly { scope=0; }; };')
+        (root / 'script.c').write_text('class LocalScript {};')
+        flags = lambda crafted: f'<flags crafted="{crafted}" />'
+        (root / 'types.xml').write_text(
+            '<types>' + ''.join(f'<type name="{n}"><nominal>{nom}</nominal>{flags(c)}</type>' for n, nom, c in (
+                ('Declared', 1, 0), ('Undeclared', 1, 0), ('Crafted', 0, 1), ('Routed', 0, 0), ('Plain', 0, 0))) +
+            '</types>')
+        (root / 'refs.xml').write_text('<refs>Crafted Routed Plain</refs>')
+        rules = copy.deepcopy(wiring.DEFAULTS)
+        rules.update(bundle_profile_catalogue=False, workshop_manifest='manifest.json',
+                     ce_type_patterns=['types.xml'],
+                     class_sources=[{'path': 'classes.json', 'format': 'class-index'}])
+        rules['roots'] = {'scripts': ['script.c'], 'configs': ['config.cpp'],
+                          'data': ['types.xml', 'refs.xml'], 'tools': [], 'audit_data': []}
+        audit = wiring.Audit(rules, offline=True)
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(wiring, 'ROOT', root))
+            stack.enter_context(patch.object(audit, 'spawn_routes',
+                                             return_value=({k.lower() for k in routes}, set())))
+            for method in ('zeroed_check', 'bundle_check', 'data_check', 'settings_check',
+                           'module_check', 'rpc_check'):
+                stack.enter_context(patch.object(audit, method))
+            findings = audit.run()
+        return audit, {(f['id'], f['subject']): f for f in findings}
+
+    def test_complete_index_resolves_declared_types_and_flags_only_undefined_ones(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            audit, findings = self.audit(Path(temporary), ['vanilla', '1', '2'], routes=['Routed'])
+        self.assertNotIn(('W007', 'Declared'), findings)
+        self.assertIn('does not declare it', findings['W007', 'Undeclared']['why'])
+        self.assertNotIn('not proof', findings['W007', 'Undeclared']['why'])
+        self.assertEqual(set(), audit.missing_class_roots)
+        self.assertFalse([n for n in audit.notes if 'coverage incomplete' in n])
+        self.assertNotIn('excluded', findings['W007', 'Undeclared'])
+
+    def test_w001b_skips_routed_and_crafted_rows_but_keeps_real_candidates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            _, findings = self.audit(Path(temporary), ['vanilla', '1', '2'], routes=['Routed'])
+        self.assertIn(('W001b', 'Plain'), findings)
+        self.assertNotIn(('W001b', 'Routed'), findings)
+        self.assertNotIn(('W001b', 'Crafted'), findings)
+
+    def test_missing_dependency_coverage_keeps_the_absence_is_not_proof_wording(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            audit, findings = self.audit(Path(temporary), ['vanilla', '1'])
+        self.assertIn('not proof', findings['W007', 'Undeclared']['why'])
+        self.assertTrue([n for n in audit.notes if '1 declared dependencies lack a cache' in n])
+
+    def test_index_for_another_manifest_is_not_treated_as_complete(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            audit, findings = self.audit(Path(temporary), ['vanilla', '1', '2'], digest=False)
+        self.assertIn('not proof', findings['W007', 'Undeclared']['why'])
+        self.assertTrue([n for n in audit.notes if 'different Workshop manifest' in n])
+
+
 if __name__ == '__main__':
     unittest.main()
