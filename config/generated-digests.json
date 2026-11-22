@@ -4,7 +4,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -579,7 +579,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -1168,7 +1168,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -1884,7 +1884,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -2467,7 +2467,7 @@
       },
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -3109,7 +3109,7 @@
       },
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -3756,7 +3756,7 @@
         "art/gui-icons/vehicle.png": "8443af9ca9871d7c1cd8bfa3316c6741cc8cc85dda68f19e456636ac27e5d6c4",
         "art/gui-icons/wreck.png": "f401861c874d63bf2d7491c3ddebda3ae465905b5bddd66e5d0120315a30a21e",
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -4329,7 +4329,7 @@
         "tools/package/tactical_flava_allowlist.json": "5850d8e72859933eec806ef101701bf740f5ddcddc64dac77a9ba44025bcfc9f",
         "tools/package/weapon_pack_sizes.json": "75b563203eb7203a60320e7e059192a0958078bbb82ae1f44edca17119d019d6",
         "tools/release/acceptance_targets.py": "f825ef2064dd32a39be89d74223b20dbfb7a590972623f640df0c52264a0b7a0",
-        "tools/release/activity_check.py": "e021e0cce5dada15a0bf9fd6c46b9f4043e8239c8847f2db51be2022e1e28504",
+        "tools/release/activity_check.py": "67ec06f2f54b79e376bb444af306f5229c277ce97615c1bf861f04fb71e0c02a",
         "tools/release/rpt_summary.py": "dc393f688caa4607ff53da236c74935f385a2e506dcbdc38082ff45d747ec3f0",
         "tools/setup/server_report.py": "225025599bc906042af345db33d17e463fd95693de8f81585bc91a84090e90cc",
         "tools/setup/winproc.py": "640bec880000e1dac443f3815d946e874703a3881f39a37d726ad95c548b6392",
@@ -4367,7 +4367,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
@@ -5417,7 +5417,7 @@
       "external_outputs": {},
       "inputs": {
         "config/acceptance-targets.json": "78d35a3a34fe69e20c2f4aebd1a7c247383b06ec1f691cc86428a2954a2a7287",
-        "config/activity-expectations.json": "97f891d26170edc6f2ac3d801b66aaba421e195b718423154d886fcd6a1e7245",
+        "config/activity-expectations.json": "65b2d554d0f72536435e3d88ebde119d195430ad4a6b35a41a861cd0375a2fc9",
         "config/asset-licence-policy.json": "b09819afcbc285a56636d4d763f69936106c013883bc68fce06c7f60c6b43904",
         "config/hollow-country-light-mounts.json": "0c1ccd13b4ef9079dd0506f75f24731c9552de3ae2c35747889abeb2962049e3",
         "config/hollow-country-seasons.json": "6c78332de656e24bdc14ad29aedcbdec8451267dfb46e1fb5bdac41920790006",
