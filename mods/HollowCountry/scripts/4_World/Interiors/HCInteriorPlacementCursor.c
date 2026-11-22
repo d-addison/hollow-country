@@ -187,13 +187,17 @@ class HCInteriorResolveCursor
     protected Object m_Found;
     protected string m_Reason = "unresolved";
     protected bool m_Complete;
+    protected bool m_FrameWait;
+    protected bool m_StartupDeferred;
 
+    bool HCWaitingForFrame() { return m_FrameWait; }
     Object HCHouse() { return m_Found; }
     string HCReason() { return m_Reason; }
     int HCQuerySize() { return m_Entry.QuerySize; }
 
     bool HCStep(HCInteriorFurnishRow row)
     {
+        m_FrameWait = false;
         if (m_Complete) { return true; }
         int mark = TickCount(0);
         vector position = HCInteriorTemplates.AsVector(row.Position);
@@ -232,17 +236,22 @@ class HCInteriorResolveCursor
             {
                 if (m_TrySphere)
                 {
-                    // Native queries cannot be preempted. Wait until ALL startup
-                    // pump owners finish, and admit at most one sphere per frame,
+                    // Native queries cannot be preempted. Wait for pack/journal
+                    // recovery, and admit at most one sphere per frame,
                     // even if another caller advances a resolver in that frame.
                     if (!HCStartupPump.HCInteriorQueriesReady())
                     {
-                        HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
+                        m_FrameWait = true;
+                        if (!m_StartupDeferred)
+                        {
+                            m_StartupDeferred = true;
+                            HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
+                        }
                         HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "startup_wait", TickCount(mark));
                         return false;
                     }
                     int sphereFrame = GetGame().GetTime();
-                    if (s_SphereFrame == sphereFrame) { return false; }
+                    if (s_SphereFrame == sphereFrame) { m_FrameWait = true; return false; }
                     s_SphereFrame = sphereFrame;
                     m_Entry = new HCInteriorResolveEntry;
                     m_Entry.Position = position;
@@ -411,17 +420,23 @@ class HCInteriorResolveCursor
     }
 }
 
-// Scope-local accessor for the shared pump's completion state. s_Installed is
-// cleared only after every registered owner has finished or reached its deadline.
+// Only pack loading and house recovery delay cold sphere queries. Shelters may
+// itself be a pump owner; waiting for the whole pump would deadlock its resolver.
 modded class HCStartupPump
 {
     static bool HCInteriorQueriesReady()
     {
-        if (s_Installed || s_InSlice) { return false; }
+        // Fixed shared registration cap is 32. Consult actual work even after
+        // an owner's pump deadline: normal-tick fallback may still be loading.
+        foreach (HCStartupOwner queryOwner : s_Owners)
+        {
+            bool relevant = queryOwner.Name == "interiors_pack" || queryOwner.Name == "search_house_recovery" || queryOwner.Name == "search_house_recovery_pilot";
+            if (relevant && queryOwner.HCNeedsWork()) { return false; }
+        }
         // Template completion publishes after the inner placement tick. Do not
         // slip a cold query into the gap before recovery registers its owner.
         HCSearchHouses houses = HCSearchBinding.Houses();
-        if (houses && !houses.HCJournalReady() && !houses.HCJournalFaulted()) { return false; }
+        if (houses && houses.HCJournalWaiting()) { return false; }
         return true;
     }
 }

@@ -101,6 +101,7 @@ class HCShelterModule : HCModule
     protected int m_WorstSliceTicks;
     protected int m_WorstSliceItems;
     protected ref HCStartupShelters m_Startup;
+    protected int m_ResolveWaitFrame = -1;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected int m_StartupPeakTicks;
     protected int m_PathgraphMarked;
@@ -193,6 +194,9 @@ class HCShelterModule : HCModule
     void HCPumpRegional()
     {
         if (!HCStartupPending()) { return; }
+        // The shared pump may revisit this owner in the same frame. A deferred
+        // resolver is idle for that entire frame, not another 16 failed units.
+        if (m_ResolveWaitFrame == GetGame().GetTime()) { return; }
         int sliceStart = TickCount(0);
         int itemsBefore = m_StepItems;
         float sliceMs = 0.5;
@@ -1163,7 +1167,15 @@ class HCShelterModule : HCModule
         if (m_RegionalResolve)
         {
             m_StepKind = "resolve";
-            if (!m_RegionalResolve.HCStep(m_RegionalBinding)) { return; }
+            if (!m_RegionalResolve.HCStep(m_RegionalBinding))
+            {
+                if (m_RegionalResolve.HCWaitingForFrame())
+                {
+                    m_ResolveWaitFrame = GetGame().GetTime();
+                    m_StepKind = "idle";
+                }
+                return;
+            }
             m_RegionalHouse = m_RegionalResolve.HCHouse();
             m_RegionalResolve = null;
             if (!m_RegionalHouse)

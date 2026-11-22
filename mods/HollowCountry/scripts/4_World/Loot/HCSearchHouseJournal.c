@@ -60,7 +60,8 @@ class HCSearchHouseJournal
     }
 
     // Recovery owns the journal until every slot and settled-site index is rebuilt.
-    static const int RESTORE_UNITS = 8;
+    // The clock normally ends a slice; the ceiling bounds cheap units too.
+    static const int RESTORE_UNITS = 4096;
     protected bool m_Recovered;
     protected bool m_RetirementChecked;
     protected int m_RestorePhase;
@@ -69,6 +70,10 @@ class HCSearchHouseJournal
     protected int m_RestoreMaxTicks;
     protected int m_RestoreTotalTicks;
     protected int m_RestoreScanned;
+    protected int m_RestoreHighest = -1;
+    protected int m_RestoreDiscovered;
+    protected int m_RestoreRows;
+    protected float m_RestoreOpened;
     protected int m_DiscoveryKind;
     protected bool m_FindOpen;
     protected FindFileHandle m_Find;
@@ -80,6 +85,8 @@ class HCSearchHouseJournal
     protected ref map<string, int> m_SettledAt = new map<string, int>;
     protected ref HCWorkBudget m_RestoreBudget = new HCWorkBudget;
     protected ref HCStartupHouseRecovery m_StartupRecovery;
+
+    string HCRecoveryScope() { return "main"; }
 
     bool Healthy() { return m_Open && !m_Fault && m_Recovered; }
     bool Recovering() { return m_Open && !m_Fault && !m_Recovered; }
@@ -121,8 +128,10 @@ class HCSearchHouseJournal
         {
             HCStopRecovery();
             float rate = HCWorkBudget.HCTicksPerMs();
-            string summary = "[HC Search Houses] recovery pass=" + Healthy().ToString() + " slots_scanned=" + m_RestoreScanned.ToString() + " steps=" + m_RestoreSteps.ToString();
+            string summary = "[HC Search Houses] recovery scope=" + HCRecoveryScope() + " pass=" + Healthy().ToString() + " slots_scanned=" + m_RestoreScanned.ToString();
+            summary += " files=" + m_RestoreDiscovered.ToString() + " rows=" + m_RestoreRows.ToString() + " sites=" + m_ReleasedSites.Count().ToString() + " steps=" + m_RestoreSteps.ToString();
             summary += " ms_max=" + ((float)m_RestoreMaxTicks / rate).ToString() + " journal_recovery_ms=" + ((float)m_RestoreTotalTicks / rate).ToString();
+            summary += " wall_s=" + Math.Max(0, GetGame().GetTickTime() - m_RestoreOpened).ToString();
             Print("" + summary);
         }
     }
@@ -210,9 +219,12 @@ class HCSearchHouseJournal
         m_Root = parent + "/pin_" + sourcePin.Substring(0, 16);
         if (!FileExist(m_Root) && !MakeDirectory(m_Root)) return Fail("journal directory unavailable");
         m_Open = true;
+        m_RestoreOpened = GetGame().GetTickTime();
         m_StartupRecovery = new HCStartupHouseRecovery;
         m_StartupRecovery.Journal = this;
-        HCStartupPump.HCRegister(m_StartupRecovery, "search_house_recovery");
+        string recoveryOwner = "search_house_recovery";
+        if (HCRecoveryScope() == "pilot") { recoveryOwner = "search_house_recovery_pilot"; }
+        HCStartupPump.HCRegister(m_StartupRecovery, recoveryOwner);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCRecoveryTick, 50, true);
         return true;
     }
@@ -369,8 +381,8 @@ class HCSearchHouseJournal
     }
 
     // Discover only the five legacy record kinds, incrementally. No format
-    // change/high-water assumption: sparse old journals and orphan intents are
-    // still inspected all the way to MAX_ENTRIES. Empty slots need no FileExist.
+    // change: all sparse old records and orphan intents contribute to the discovered
+    // high-water slot. Scan through that slot, checking entry existence even for gaps.
     protected string HCDiscoveryKind()
     {
         if (m_DiscoveryKind == 0) { return "compact"; }
@@ -405,6 +417,8 @@ class HCSearchHouseJournal
         if (slot < 0 || slot >= MAX_ENTRIES) { return; }
         if (m_FindName != kind + "_" + slot.ToString() + ".json") { return; }
         m_RestoreFiles.Set(m_FindName, true);
+        m_RestoreDiscovered++;
+        m_RestoreHighest = Math.Max(m_RestoreHighest, slot);
     }
 
     protected bool HCRestorePresent(int index, string kind)
@@ -414,6 +428,10 @@ class HCSearchHouseJournal
 
     protected bool HCRestoreSlot(int index)
     {
+        // Search is refused and no compaction/binding writes run during recovery.
+        // A directory miss must never silently turn a recorded entry into free stock.
+        bool entryExists = FileExist(PathFor(index, "entry"));
+        if (entryExists != HCRestorePresent(index, "entry")) { return Fail("entry discovery mismatch; preserve journal"); }
         if (HCRestorePresent(index, "compact"))
         {
             HCSearchRecord compactedRecord = LoadRecord(index, "compact");
@@ -441,6 +459,7 @@ class HCSearchHouseJournal
         if (SupplyKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
         row.Phase = Recover(index, row);
         m_Rows.Insert(row);
+        m_RestoreRows++;
         m_Supplies.Set(row.SupplyId, index);
         return true;
     }
@@ -463,20 +482,13 @@ class HCSearchHouseJournal
         if (m_RestorePhase == 0) { HCDiscoverRecord(); return true; }
         if (m_RestorePhase == 1)
         {
-            if (m_RestoreNext < MAX_ENTRIES)
+            if (m_RestoreNext <= m_RestoreHighest)
             {
                 int slotIndex = m_RestoreNext;
                 m_RestoreNext++;
                 m_RestoreScanned++;
                 return HCRestoreSlot(slotIndex);
             }
-            m_RestorePhase = 2;
-            return true;
-        }
-        if (m_RestorePhase == 2)
-        {
-            int last = m_Rows.Count() - 1;
-            if (last >= 0 && !m_Rows[last]) { m_Rows.Remove(last); return true; }
             m_RestoreNext = 0;
             m_RestorePhase = 3;
             return true;

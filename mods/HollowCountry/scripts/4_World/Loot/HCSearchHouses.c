@@ -96,6 +96,13 @@ class HCSearchHouses
 
     bool Started() { return m_Started; }
     bool HCJournalReady() { return m_Journal && m_Journal.Healthy(); }
+    bool HCJournalWaiting()
+    {
+        if (m_Journal) { return m_Journal.Recovering(); }
+        // Completion publishes on the following module tick. Refused packs have
+        // no recovery owner and must not keep native resolution waiting forever.
+        return m_Started && !m_Fault && HCInteriorTemplates.Loaded();
+    }
     bool HCJournalFaulted() { return m_Fault || (m_Journal && m_Journal.Faulted()); }
     int ActiveCount() { return m_Slots.Count(); }
     int SessionCount() { return m_Sessions.Count(); }

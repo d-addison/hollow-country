@@ -1284,6 +1284,7 @@ modded class HCSearchBinding
 // not a template pack: legacy-only installations must not require templates.
 class HCSearchRefreshPilotJournal : HCSearchHouseJournal
 {
+    override string HCRecoveryScope() { return "pilot"; }
     override bool SupplyKnown(string supplyId)
     {
         // The original manifest stays authoritative even if its spent item was

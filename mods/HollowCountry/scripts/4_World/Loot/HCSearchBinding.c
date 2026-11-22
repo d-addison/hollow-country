@@ -138,7 +138,11 @@ class HCSearchBinding : HCModule
         if (m_Started && !m_Stopped && m_Houses && m_Houses.HCJournalReady()) { running = true; }
         string refusal = m_Refusal;
         string fault = m_Fault;
-        if (m_Started && !running) { refusal = "house_journal_recovering"; }
+        if (m_Started && !running && refusal == "")
+        {
+            if (!HCInteriorTemplates.Loaded()) { refusal = "templates_not_loaded"; }
+            else if (m_Houses && m_Houses.HCJournalWaiting()) { refusal = "house_journal_recovering"; }
+        }
         if (m_Houses && m_Houses.HCJournalFaulted())
         {
             running = m_Started && !m_Stopped;

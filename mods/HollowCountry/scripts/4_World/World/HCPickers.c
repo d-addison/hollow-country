@@ -95,8 +95,10 @@ class HCCacheMoveJournal : HCSearchHouseJournal
         m_Build = build;
         m_Root = "$profile:HollowCountry/CacheMoves";
         if (!FileExist(m_Root) && !MakeDirectory(m_Root)) return Fail("cache journal unavailable");
-        m_Open = true;
-        return Restore();
+        // Restore is now one cooperative unit, not synchronous recovery. This
+        // legacy withdrawal seam has no recovery driver: refuse explicitly,
+        // preserving every journal record until a driver is implemented.
+        return Fail("cache journal recovery unavailable; withdrawals refused");
     }
 }
 
