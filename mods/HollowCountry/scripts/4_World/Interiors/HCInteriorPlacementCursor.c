@@ -81,8 +81,8 @@ class HCInteriorPlacementCursor
         if (HCInteriorTemplatePlacement.PlayersNearRow(m_Current, HCPerfPlayers.HCGet()))
         {
             // A player can hold a partially filtered row for many ticks.
-            // Restart live candidate checks after that hold; keep the same
-            // cached native snapshot, as before the staged resolver.
+            // Retain the pending resolver on the row binding across this hold;
+            // map buildings are static, so no native tile is paid twice.
             m_Resolve = null;
             m_Resolved = false;
             if (m_Slot == 0)
@@ -110,7 +110,7 @@ class HCInteriorPlacementCursor
             // the candidate index across uninterrupted module ticks.
             if (!m_Resolve)
             {
-                m_Resolve = new HCInteriorResolveCursor;
+                m_Resolve = HCInteriorTemplatePlacement.HCResolver(m_Current);
                 // Separate row/cursor preparation from native query cost.
                 // Build 131's CementWorks query-labelled 33 ms item had only
                 // 0.5 ms inside HCStep: its remaining cost was not a query.
@@ -148,6 +148,17 @@ class HCInteriorPlacementCursor
     }
 }
 
+// Weak Object handles become null when the native object is deleted.
+class HCInteriorResolvedBuilding
+{
+    Object BoundObject;
+    string Reason;
+    bool Complete;
+    bool HadHouse;
+    bool Retried;
+    ref HCInteriorResolveCursor Pending;
+}
+
 // One resolve chunk per admitted HCWorkBudget visit. Measured-heavy cache misses cover the
 // original 0.75 m circle with four overlapping 0.531 m circles, one per tick.
 // Each circle covers a quadrant's 0.75 x 0.75 m bounding square (half diagonal
@@ -161,6 +172,10 @@ class HCInteriorResolveCursor
 {
     static const int CANDIDATES_PER_STEP = 8;
     protected ref HCInteriorResolveEntry m_Entry;
+    protected ref HCInteriorResolvedBuilding m_Binding;
+    protected bool m_TrySphere;
+    protected bool m_Sphere;
+    protected bool m_Fresh;
     protected int m_Next;
     protected int m_QueryTile;
     protected int m_QueryNext;
@@ -180,15 +195,54 @@ class HCInteriorResolveCursor
         if (m_Complete) { return true; }
         int mark = TickCount(0);
         vector position = HCInteriorTemplates.AsVector(row.Position);
+        if (!m_Binding)
+        {
+            m_Binding = HCInteriorTemplatePlacement.HCBinding(row);
+            if (m_Binding.Complete && m_Binding.HadHouse && !m_Binding.BoundObject && !m_Binding.Retried)
+            {
+                // One fresh native retry for a deleted static object; never reuse
+                // its stale query snapshot. Further deletion is a stable refusal.
+                m_Binding.Complete = false;
+                m_Binding.Retried = true;
+                m_Fresh = true;
+                HCModuleReadiness.HCUse("Interiors", "resolve_deleted_retry");
+            }
+            if (m_Binding.Complete)
+            {
+                m_Entry = new HCInteriorResolveEntry;
+                m_Found = m_Binding.BoundObject;
+                m_Reason = m_Binding.Reason;
+                if (m_Binding.HadHouse && !m_Found) { m_Reason = "deleted_cached_object"; }
+                m_Complete = true;
+                m_Binding.Pending = null;
+                HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "cache", TickCount(mark));
+                return true;
+            }
+            m_TrySphere = HCInteriorQueryConfig.HCGet().UseSphereLookup;
+        }
         if (!m_Entry)
         {
-            m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position);
+            if (!m_Fresh && !m_TrySphere) { m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position); }
             if (m_Entry) { m_QueryComplete = true; }
             else
             {
+                if (m_TrySphere)
+                {
+                    m_Entry = new HCInteriorResolveEntry;
+                    m_Entry.Position = position;
+                    // Installed Game.c:930, sphere encloses every admissible
+                    // origin (<=0.75 m in the unchanged exact filter).
+                    GetGame().GetObjectsAtPosition3D(position, 0.75, m_Entry.Objects, null);
+                    m_Entry.QuerySize = m_Entry.Objects.Count();
+                    if (m_Entry.QuerySize > 256) { m_Entry.Objects.Clear(); }
+                    m_QueryComplete = true;
+                    m_Sphere = true;
+                    HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query3d", TickCount(mark));
+                    return false;
+                }
                 if (!HCQuerySliced(row.BuildingClass))
                 {
-                    m_Entry = HCInteriorTemplatePlacement.HCResolveObjects(position);
+                    m_Entry = HCInteriorTemplatePlacement.HCResolveObjects(position, m_Fresh);
                     m_QueryComplete = true;
                     HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query", TickCount(mark));
                     return false;
@@ -209,6 +263,29 @@ class HCInteriorResolveCursor
         }
         bool done = HCFilter(position, row.BuildingClass);
         HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "filter", TickCount(mark));
+        if (done && m_Sphere && (m_Reason == "unresolved" || m_Reason == "query_cap"))
+        {
+            // Fallback starts on a separate grant; never hide a second native
+            // query in this filter's timing/count. Keep exact class/tilt rules.
+            m_TrySphere = false;
+            m_Sphere = false;
+            m_Fresh = true;
+            m_Entry = null;
+            m_Next = 0;
+            m_QueryComplete = false;
+            m_Complete = false;
+            m_Reason = "unresolved";
+            HCModuleReadiness.HCUse("Interiors", "resolve_query_fallback");
+            return false;
+        }
+        if (done)
+        {
+            m_Binding.BoundObject = m_Found;
+            m_Binding.HadHouse = m_Found != null;
+            m_Binding.Reason = m_Reason;
+            m_Binding.Complete = true;
+            m_Binding.Pending = null;
+        }
         return done;
     }
 
