@@ -1,264 +1,14 @@
-// HC sites on Expansion AI: patrols, scavenger parties and holdouts with a
-// cache. Expansion's own eAIDynamicPatrol and sphere trigger do the spawning.
-// LC-T402 transient admission / EXP-L1, EXP-P2 (unverified): installed native
-// scripts-1.30.164289/3_Game/AI/AIWorld.c:65 SetFlags, :98 FindPath, :122
-// SampleNavmeshPosition; 3_Game/Global/Game.c:1176 SurfaceY, :1535 GetTime,
-// :945 GetPlayers; Global/DayZPhysics.c:199 RaycastRV; Entities/Object.c:287
-// GetPosition; 1_Core/proto/EnScript.c:380 Count, :385 Clear, :407 Insert,
-// :470 RemoveOrdered;
-// W5 #125/#122: Object.c:517 IsAlive; Entities/Man.c:21 GetIdentity;
-// 1_Core/proto/EnConvert.c:210 vector.DistanceSq, :115 float.ToString;
-// 1_Core/proto/EnMath.c:413 Math.Round. Expansion eAIDynamicPatrol.c:13
-// m_Config, :592-597 reads NumberOfAI/NumberOfAIMax on each native Spawn.
-// New work: one cached player list/second, one O(players) identity count;
-// constant scaling per spawn check. Qualification retains one native query,
-// one sample or at most 8 script path segments per admitted visit. Debug: <=66 states, <=64 member slots,
-// <=2 qualified routes (<=128 points each), only when snapshot requested.
-// EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
-// EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
-// Raid persistence: 3_Game/tools/JsonFileLoader.c:42 SaveFile, :69 LoadData;
-// installed core_scripts.pbo/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
-// GetTimestamp(bool useUTC). Raid times are UTC seconds in our own JSON only.
-// Read-only installed Expansion
-// ai_scripts.pbo: 4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:
-// 68 CreateEx, 427 WasGroupDestroyed, 673 SpawnAI_Deferred, 691-725 Despawn;
-// eAIPatrol.c:96 Delete, :146 Stop; Classes/eAIGroup.c:1139 GetMember,
-// :1185 Count (living members), :1194 DeceasedCount, :1220 ClearAI;
-// 3_Game/DayZExpansion_AI/Factions/eAIFaction.c:129 Create. No provider copied.
-// HC adds the budget, the 200 m and line-of-sight rules, a refusal to despawn
-// in combat, finite fair actors, navmesh-qualified routes and journals.
-// Nothing here moves an actor: Expansion places each one once when it spawns.
-// Qualified endpoints already came from the navmesh. The provider's default
-// GetWaypoints applies placement rays, which could move them onto another
-// surface. Preserve exactly the qualified list, including snapped holdouts.
+// Coordinator and shared state. Explicit inheritance keeps all split behavior
+// below HCXAISiteDirector: existing picker/caravan/routes modded overrides still
+// dispatch last, independently of file order. Base virtual seams are declared
+// here so lower implementation layers can call later layer behavior safely.
+// SiteBase -> SiteStorage -> SiteSurvey -> SitePatrols -> SiteDirector.
+// Runtime/API provenance: scripts-1.30.164289 AIWorld PGFilter/FindPath,
+// Game GetTime/GetPlayers/SurfaceY, Object GetPosition/IsAlive, DayZPhysics RaycastRV.
 modded class HCXAIOwnedRow
 {
     int ClearedAt = 0;
     bool PartialRaid = false;
-}
-class HCXAISiteSpawnConfig : ExpansionAIDynamicSpawnBase
-{
-    override TVectorArray GetWaypoints(vector position = vector.Zero, int beh = eAIWaypointBehavior.HALT)
-    {
-        TVectorArray qualified = new TVectorArray();
-        foreach (vector waypoint : this.Waypoints)
-        {
-            qualified.Insert(waypoint);
-        }
-        return qualified;
-    }
-}
-class HCXAISitePatrol : HCXExpansionPatrol
-{
-    string m_HCSiteId;
-    string m_HCKind;
-    int m_HCGroupMax;
-    int m_HCAuthoredMin;
-    int m_HCAuthoredMax;
-    bool m_HCLive;
-    bool m_HCTransient;
-    bool m_HCFinished;
-    int m_HCSurvivors;
-    int m_HCPendingMembers;
-    string m_HCRefusal;
-    bool m_HCRingLogged;
-    int m_HCRingRetryMs;
-    protected int m_HCNextBudgetLogMs;
-    protected int m_HCNextSkipLogMs;
-    // Interval of each per-site limiter: refusals and benign skips are limited separately (#194).
-    static const int HC_SITE_LOG_INTERVAL_MS = 60000;
-
-    // A benign re-entry (the spawner calls Spawn again while the group is live) is not a refusal:
-    // its own line and limiter, so it can never use up the window of a real refusal line.
-    protected void HCLogSkipped(string why)
-    {
-        int nowMs = GetGame().GetTime();
-        if (nowMs < m_HCNextSkipLogMs) { return; }
-        m_HCNextSkipLogMs = nowMs + HC_SITE_LOG_INTERVAL_MS;
-        Print("[HC Expansion AI] site " + m_HCSiteId + " spawn skipped: " + why);
-    }
-
-    protected void HCRefuseBudget(string problem = "")
-    {
-        int nowMs = GetGame().GetTime();
-        HCXAISiteDirector refusedDirector = HCXAISiteDirector.Active();
-        string countedProblem = problem;
-        if (countedProblem == "") { countedProblem = "shared_population_reservation"; }
-        if (refusedDirector) { refusedDirector.HCSpawnRefused(countedProblem); }
-        if (nowMs < m_HCNextBudgetLogMs) { return; }
-        m_HCNextBudgetLogMs = nowMs + HC_SITE_LOG_INTERVAL_MS;
-        if (problem != "") { Print("[HC Expansion AI] site " + m_HCSiteId + " spawn refused: " + problem); }
-        else { Print("[HC AI] site shared population reservation refused id=" + m_HCSiteId); }
-    }
-
-    override bool CanSpawn()
-    {
-        if (m_HCFinished) { return false; }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (!director) { return false; }
-        string problem = director.HCPrepareRingSpawn(this);
-        if (problem == "" && !this.HCBridgeCanSpawn()) { problem = "provider_spawn_gate"; }
-        if (problem == "") { problem = director.SpawnProblemFor(this); }
-        director.HCSpawnRefused(problem);
-        if (problem != m_HCRefusal)
-        {
-            m_HCRefusal = problem;
-            if (problem != "" && problem != "sites not running") { Print("[HC Expansion AI] site " + m_HCSiteId + " spawn held: " + problem); }
-        }
-        return problem == "";
-    }
-    override void Spawn()
-    {
-        if (m_HCFinished) { return; }
-        if (m_Group)
-        {
-            this.HCLogSkipped("group already live");
-            return;
-        }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (!director)
-        {
-            this.HCRefuseBudget("sites not running");
-            return;
-        }
-        string ringProblem = director.HCPrepareRingSpawn(this);
-        if (ringProblem != "") { this.HCRefuseBudget(ringProblem); return; }
-        string problem = director.SpawnProblemFor(this);
-        if (problem != "")
-        {
-            this.HCRefuseBudget(problem);
-            return;
-        }
-        // Transients reuse the already reserved durable materializer lease.
-        string budgetId = "site:" + m_HCSiteId;
-        if (m_HCTransient) { budgetId = m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10); }
-        if (!HCAIBudget.TryReserve(budgetId, m_HCGroupMax)) { this.HCRefuseBudget(); return; }
-        m_HCPendingMembers = 0;
-        this.HCBridgeSpawn();
-        if (!m_Group)
-        {
-            if (!m_HCTransient) { HCAIBudget.Release(budgetId); }
-            this.HCRefuseBudget("provider_spawn_failed");
-            return;
-        }
-        m_HCPendingMembers = m_NumberOfAI - HCXExpansionBridge.HCGroupCount(m_Group);
-        if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
-        m_HCLive = true;
-        director.Spawned(this);
-    }
-    // Expansion creates members 2..N one per frame at formation offsets. Check
-    // the same point it is about to use, before the member exists; a refused
-    // member ends the group at the members that already passed.
-    override void SpawnAI_Deferred(int i)
-    {
-        m_HCPendingMembers = 0;
-        if (m_HCFinished) { return; }
-        if (m_HCTransient && m_Group && HCXExpansionBridge.HCGroupCount(m_Group) == 0)
-        {
-            this.HCRefuseBudget("transient group emptied before member spawn");
-            return;
-        }
-        if (!m_Group || !m_Formation)
-        {
-            this.HCRefuseBudget("member spawn without a live group");
-            return;
-        }
-        vector raw = HCXExpansionBridge.HCFormationToWorld(m_Formation, HCXExpansionBridge.HCFormationGetPosition(m_Formation, i));
-        vector placed = HCXExpansionBridge.HCPlacementPosition(raw, true);
-        string problem = "sites not running";
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (director)
-        {
-            problem = director.MemberProblemFor(raw);
-            if (problem == "") { problem = director.MemberProblemFor(placed); }
-        }
-        if (problem != "")
-        {
-            m_HCPendingMembers = 0;
-            m_NumberOfAI = HCXExpansionBridge.HCGroupCount(m_Group);
-            HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_WaypointBehaviour);
-            Print("[HC Expansion AI] site " + m_HCSiteId + " member " + i.ToString() + " refused: " + problem + "; group stays at " + m_NumberOfAI.ToString());
-            if (director) { director.SaveOwned(); }
-            return;
-        }
-        m_HCPendingMembers = m_NumberOfAI - i - 1;
-        if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
-        this.HCBridgeSpawnAI_Deferred(i);
-    }
-    // Expansion Classes/eAIGroup.c:1041 RemoveDeceased(int), :1123 IsInCombat;
-    // Classes/Patrols/eAIDynamicPatrol.c:29,46 public respawn clock fields.
-    // RemoveDeceased only removes the record;
-    // ClearAI at :1240 otherwise deletes bodies and their physical inventory.
-    void HCPreserveBodies()
-    {
-        if (!m_Group) { return; }
-        int bodyCount = HCXExpansionBridge.HCGroupDeceasedCount(m_Group);
-        while (bodyCount > 0)
-        {
-            bodyCount--;
-            HCXExpansionBridge.HCGroupRemoveDeceased(m_Group, bodyCount);
-        }
-    }
-    override void Despawn(bool deferDespawnUntilLoosingAggro = false)
-    {
-        if (m_Group && HCXExpansionBridge.HCGroupCount(m_Group) > 0 && !HCXAISiteRules.DespawnAllowed(HCXExpansionBridge.HCGroupIsInCombat(m_Group), m_Group.m_ForcePatrolDespawn)) { return; }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
-        // Check every live member, not just the place/leader. Forced provider
-        // retirement cannot make a transient disappear in front of an observer.
-        if (m_HCTransient && m_Group)
-        {
-            if (!director) { return; }
-            int memberIndex = 0;
-            while (memberIndex < HCXExpansionBridge.HCGroupCount(m_Group))
-            {
-                DayZPlayerImplement retiringMember = HCXExpansionBridge.HCGroupGetMember(m_Group, memberIndex);
-                if (retiringMember && (director.NearestPlayer(retiringMember.GetPosition()) < 200 || director.SeenByPlayer(retiringMember.GetPosition()))) { return; }
-                memberIndex++;
-            }
-        }
-        bool intact = false;
-        if (m_Group) { intact = HCXExpansionBridge.HCGroupCount(m_Group) >= m_NumberOfAI && HCXExpansionBridge.HCGroupDeceasedCount(m_Group) == 0; }
-        m_HCSurvivors = 0;
-        if (m_Group) { m_HCSurvivors = HCXExpansionBridge.HCGroupCount(m_Group); }
-        bool wasLive = m_HCLive;
-        // Only a group that lost members locks its site (RecordDeath already
-        // recorded each kill); an intact group that only lost its audience may
-        // return when a player comes back, so its gear is never duplicated.
-        bool raided = wasLive && !intact;
-        if (raided && director) { director.RecordCleared(this); }
-        this.HCPreserveBodies();
-        this.HCBridgeDespawn(false);
-        m_HCPendingMembers = 0;
-        m_HCLive = false;
-        if (!m_HCTransient && !m_Group) { HCAIBudget.Release("site:" + m_HCSiteId); }
-        // The persisted death epoch is the respawn clock; native audience
-        // retirement must not add another full cooldown after it.
-        if (intact || raided) { m_TimeSinceLastSpawn = m_RespawnTime; }
-        if (wasLive && director) { director.Despawned(this, intact); }
-    }
-    override void OnUpdate()
-    {
-        if (m_HCFinished) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
-        this.HCBridgeOnUpdate();
-    }
-    override void SetupAI(eAIBase ai)
-    {
-        if (!this.HCBridgeSetupAI(ai)) { return; }
-        HCXAffiliationCues.Actor(ai, m_Faction);
-        HCXExpansionBridge.HCBaseSetUnlimitedReload(ai, 0);
-        HCXExpansionBridge.HCBaseSetLootingBehavior(ai, 0);
-        ai.m_eAI_EnableFlankingOutsideCombat = false;
-        HCXExpansionBridge.HCBaseSetDamageMultiplier(ai, 1);
-        HCXExpansionBridge.HCBaseSetDamageReceivedMultiplier(ai, 1);
-        ai.m_eAI_HeadshotResistance = 0;
-        // Blocks Expansion's inventory-cloning recreate (no duplicate loot).
-        ai.HCXAI_LeaseOwned = true;
-        if (!ai.HCXAI_Fair() || ai.m_eAI_LootingBehavior != 0)
-        {
-            Print("[HC Expansion AI] site " + m_HCSiteId + " actor failed the fairness check; removed");
-            HCXExpansionBridge.HCBaseDespawn(ai);
-        }
-    }
 }
 class HCXAISiteState : Managed
 {
@@ -291,7 +41,6 @@ class HCXAISiteState : Managed
     bool HCPathReady;
     int HCPathCursor;
     float HCPathLength;
-    // Tentative chain geometry is committed only after its target qualifies.
     ref array<vector> AttemptPoints = new array<vector>();
     int StartIndex;
     int Kept = 1;
@@ -300,8 +49,6 @@ class HCXAISiteState : Managed
     string SkippedPoints;
     bool Closed;
     bool OpenRoute;
-    // chain-v5: one bounded retry of a refused outdoor route on outdoor-ground
-    // samples (INSIDE excluded); Outdoor counts the points that found ground.
     bool OutdoorPass;
     bool HCOutdoorSampling;
     int HCOutdoorCursor;
@@ -324,166 +71,7 @@ class HCXAISiteState : Managed
     string LocalityId;
     int OpportunityAt;
 }
-// HC-18 verified intent/backup/copy/readback, same protocol as HCWorldStore.
-// Native scripts-1.30.164289: JsonFileLoader.c:69,85; EnSystem.c:397,528,531.
-// Interrupted cursor intent is discarded on restart; primary then backup
-// restore fairness. Selection waits for a staged scheduler receipt before
-// controller admission. No filesystem stage is drained on the runtime path.
-class HCXAILocalitySave : HCSaveJob
-{
-    static const string PATH = "$profile:HollowCountry/expansion-ai-locality-rotation.json";
-    static const string INTENT = "$profile:HollowCountry/expansion-ai-locality-rotation.pending.json";
-    static const string BACKUP = "$profile:HollowCountry/expansion-ai-locality-rotation.json.bak";
-    static const string LEGACY_BACKUP = "$profile:HollowCountry/expansion-ai-locality-rotation.bak.json";
-    ref HCXAILocalityRotation Data;
-    bool Fault;
-    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
-    protected int m_Revision;
-    protected int m_SnapshotRevision;
-    protected string m_Text;
-
-    override string HCName() { return "HC-18-localities"; }
-    void HCChanged() { m_Revision++; HCDirty = true; }
-    bool HCLoad(string world)
-    {
-        if (FileExist(INTENT))
-        {
-            Print("[HC Plan] HC-18 rotation interrupted cursor intent discarded; primary then backup runtime=PENDING");
-            DeleteFile(INTENT);
-        }
-        if (this.HCRestore(PATH, world)) { return true; }
-        if (this.HCRestore(BACKUP, world) || this.HCRestore(LEGACY_BACKUP, world))
-        {
-            Print("[HC Plan] HC-18 rotation cursor recovered from backup runtime=PENDING");
-            // Remove an invalid primary so the next checkpoint cannot back it
-            // up over the valid recovery copy. This is cursor data only.
-            if (FileExist(PATH)) { DeleteFile(PATH); }
-            return true;
-        }
-        if (!FileExist(PATH) && !FileExist(BACKUP) && !FileExist(LEGACY_BACKUP))
-        {
-            Data = new HCXAILocalityRotation();
-            Data.WorldName = world;
-            return true;
-        }
-        Fault = true;
-        return false;
-    }
-    protected bool HCRestore(string path, string world)
-    {
-        if (!FileExist(path)) { return false; }
-        // A torn write (empty or cut-off file after a crash) goes straight to
-        // the backup: the native parser would log it as SCRIPT (E) JSON ERROR.
-        if (!HCGroupIO.HCLooksWholeObject(path, HCWorldStore.MAX_BYTES)) { return false; }
-        string text = HCWorldStore.Read(path);
-        string error;
-        if (!JsonFileLoader<HCXAILocalityRotation>.LoadData(text, Data, error) ||!Data || Data.SchemaVersion != 1 || Data.WorldName != world || !Data.Rows || Data.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || Data.SelectionSerial < 0 || Data.NextId.Length() > 48) { return false; }
-        map<string, bool> ids = new map<string, bool>();
-        foreach (HCXAILocalityCoverage row : Data.Rows)
-        {
-            if (!row || !HCXAIRules.Token(row.LocalityId) || row.LocalityId.Length() > 48 || ids.Contains(row.LocalityId) || row.NextSite < 0 || row.LastSelected < 0 || row.LastSelected > Data.SelectionSerial || row.LastObserved < 0 || row.LastObserved > row.LastSelected || row.PendingSinceSerial < 0 || row.PendingSinceSerial > Data.SelectionSerial || row.RetryAt < 0 || row.Refusal.Length() > 192) { return false; }
-            // Native zero-fill reads a missing Refusal as "": a pending row keeps its declared reason.
-            if (row.Pending && row.Refusal == "") { row.Refusal = "route_not_reviewed"; }
-            ids.Set(row.LocalityId, true);
-        }
-        return true;
-    }
-    override int HCStep()
-    {
-        if (Fault || !Data) { return HCSaveJob.STEP_FAILED; }
-        if (!m_Image.Active())
-        {
-            string error;
-            if (!JsonFileLoader<HCXAILocalityRotation>.MakeData(Data, m_Text, error)) { Fault = true; return HCSaveJob.STEP_FAILED; }
-            m_SnapshotRevision = m_Revision;
-            MakeDirectory("$profile:HollowCountry");
-            // Preserve the existing intent name. The shared image streams
-            // write/readback/backup/promotion in <=4096-character transfers.
-            if (!m_Image.Begin(PATH, m_Text, HCWorldStore.MAX_BYTES, true, false, "", 0, INTENT)) { Fault = true; return HCSaveJob.STEP_FAILED; }
-            m_Text = "";
-            return HCSaveJob.STEP_MORE;
-        }
-        int result = m_Image.HCStepImage();
-        if (result == HCSaveJob.STEP_FAILED) { Fault = true; }
-        if (result == HCSaveJob.STEP_DONE && m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
-        return result;
-    }
-}
-// Routes cache writes coalesce on the shared scheduler, one image stage per tick.
-// The cache is disposable: a lost write only requalifies routes.
-class HCXAIRouteSave : HCSaveJob
-{
-    HCXAISiteDirector Owner;
-    bool HCShutdown;
-    override string HCName() { return "HCX-routes"; }
-    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
-    protected int m_Revision;
-    protected int m_SnapshotRevision;
-    protected ref HCXAIRouteCache m_Snapshot;
-    protected int m_RowCursor;
-    protected int m_EstimatedBytes;
-    protected bool m_PreflightComplete;
-    protected int m_DroppedRows;
-    void HCChanged() { m_Revision++; HCDirty = true; }
-    override int HCStep()
-    {
-        if (!Owner) { return STEP_FAILED; }
-        if (!m_Image.Active())
-        {
-            // Rows are never changed in place. Finish this snapshot despite new
-            // revisions; the completion check schedules their next save.
-            if (!m_Snapshot)
-            {
-                m_Snapshot = new HCXAIRouteCache();
-                m_SnapshotRevision = m_Revision;
-                m_RowCursor = 0;
-                m_EstimatedBytes = 256;
-                m_PreflightComplete = false;
-                m_DroppedRows = 0;
-            }
-            HCWorkBudget slice = new HCWorkBudget;
-            slice.HCReset(16, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-            while (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount() && slice.HCContinue())
-            {
-                if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
-                HCXAIRouteRow row = Owner.HCRouteRowAt(m_RowCursor);
-                m_RowCursor++;
-                int estimated = HCXAISiteRules.HCRouteRowBytes(row);
-                if (estimated > HCWorldStore.MAX_BYTES - m_EstimatedBytes)
-                {
-                    m_DroppedRows++;
-                    continue;
-                }
-                m_EstimatedBytes += estimated;
-                m_Snapshot.Rows.Insert(row);
-            }
-            if (!m_PreflightComplete && m_RowCursor < Owner.HCRouteRowCount()) { return STEP_MORE; }
-            m_PreflightComplete = true;
-            if (!HCShutdown && !Owner.HCTakeRouteCacheUnit()) { return STEP_MORE; }
-            string text;
-            if (!Owner.HCRoutesText(m_Snapshot, text)) { return STEP_FAILED; }
-            // Guard the actual MakeData output as well as the estimate. Retry
-            // once per save step, dropping only the tail; never wipe all rows.
-            if (text.Length() > HCWorldStore.MAX_BYTES)
-            {
-                if (m_Snapshot.Rows.Count() == 0) { return STEP_FAILED; }
-                m_Snapshot.Rows.Remove(m_Snapshot.Rows.Count() - 1);
-                m_DroppedRows++;
-                return STEP_MORE;
-            }
-            if (m_DroppedRows > 0) { Print("[HC Expansion AI] route cache save rows dropped=" + m_DroppedRows.ToString() + " reason=byte_budget"); }
-            m_Snapshot = null;
-            // Disposable qualification cache, no inventory/creation barrier.
-            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, true, false)) { return STEP_FAILED; }
-            return STEP_MORE;
-        }
-        int result = m_Image.HCStepImage();
-        // Retain dirty work arriving while the scheduler owned the snapshot.
-        if (result == STEP_DONE && m_SnapshotRevision != m_Revision) { return STEP_MORE; }
-        return result;
-    }
-}
-class HCXAISiteDirector : Managed
+class HCXAISiteBase : Managed
 {
     protected string m_SpawnLogLine;
     protected float m_SpawnLogAt;
@@ -497,7 +85,6 @@ class HCXAISiteDirector : Managed
     static const string OBSERVER = "native-eai";
     static const int WORK_PER_TICK = 1;
     protected static HCXAISiteDirector s_Active;
-
     protected ref HCXAISitePolicy m_Policy;
     protected ref HCXAIRouteCache m_Routes;
     protected ref HCXAICacheJournal m_Caches;
@@ -505,7 +92,6 @@ class HCXAISiteDirector : Managed
     protected ref HCXAIOwnership m_BootOwned;
     protected ref array<ref HCXAISiteState> m_States = new array<ref HCXAISiteState>();
     protected ref PGFilter m_Filter;
-    // Sampling only: never passed to FindPath, never used for holdouts.
     protected ref PGFilter m_OutdoorFilter;
     protected string m_Build;
     protected string m_RouteValidity;
@@ -528,8 +114,6 @@ class HCXAISiteDirector : Managed
     protected int m_CacheCursor;
     protected int m_RespawnCursor;
     protected int m_RingCandidates;
-    // Ring search start angle; advanced past each rejected candidate so a
-    // stationary observer does not get the same refused point forever.
     protected float m_RingDegrees;
     protected int m_Ticks;
     protected int m_RunStage;
@@ -541,11 +125,9 @@ class HCXAISiteDirector : Managed
     protected int m_RelocatedTotal;
     protected ref map<string, int> m_SpawnRefusals = new map<string, int>();
     protected ref map<string, int> m_SiteStagePeaks = new map<string, int>();
-
     void HCSpawnRefused(string reason)
     {
         if (reason == "") { return; }
-        // Fixed vocabulary at call sites; cap unknown provider reasons too.
         if (!m_SpawnRefusals.Contains(reason) && m_SpawnRefusals.Count() >= 23) { reason = "other"; }
         int count;
         m_SpawnRefusals.Find(reason, count);
@@ -559,14 +141,20 @@ class HCXAISiteDirector : Managed
         m_SiteStagePeaks.Set(stage, elapsed);
         if (elapsed >= 40000) { Print("[HC Expansion AI] site_stage=" + stage + " ticks_max=" + elapsed.ToString() + " runtime=PENDING"); }
     }
-
     protected bool m_Diagnostic;
     protected bool m_RespawnOff; // ai-respawn.disable, probed once at Start (the marker contract is probe-once)
     protected ref HCXAIRouteSave m_RouteSave;
+    protected ref HCXAICacheSave m_CacheSave;
+    protected ref HCXAIOwnedSave m_OwnedSave;
+    protected ref map<string, HCXAIRouteRow> m_RouteRows = new map<string, HCXAIRouteRow>();
+    protected ref map<string, int> m_RouteIndices = new map<string, int>();
+    protected ref map<string, HCXAIOwnedRow> m_OwnedRows = new map<string, HCXAIOwnedRow>();
+    protected ref map<string, HCXAICacheRow> m_CacheRows = new map<string, HCXAICacheRow>();
     protected bool m_LegacyRoutesDirty;
     protected bool m_WaitLogged;
     protected bool m_RadiusClampLogged;
     protected bool m_OwnedSaved = true;
+    protected bool m_OwnershipClockFault;
     protected bool m_GroupScaling;
     protected float m_GroupFactor = 1.0;
     protected int m_OnlinePlayers;
@@ -580,16 +168,11 @@ class HCXAISiteDirector : Managed
     protected ref HCUnitBudget m_LocalityUnits = new HCUnitBudget();
     protected ref HCWorkBudget m_LocalityWork = new HCWorkBudget();
     protected int m_LocalityCursor;
-    // Native scripts-1.30.164289: Object.c:287 GetPosition; Man.c:21
-    // GetIdentity; Object.c:517 IsAlive; EnConvert.c:210 DistanceSq.
-    // Scan 16 policy anchors per admitted AI_SITES unit; no nav/LOS probes.
     static const int HC_PROXIMITY_ROWS = 16;
     protected ref map<string, int> m_SiteLocalities = new map<string, int>();
     protected ref map<string, HCXAILocalityCoverage> m_CoverageRows = new map<string, HCXAILocalityCoverage>();
     protected ref map<string, bool> m_PolicySiteIds = new map<string, bool>();
     protected ref map<string, int> m_RouteResults = new map<string, int>();
-    // Geometry is retained independently of the small live-controller page.
-    // No actors, leases or inventory are created by this boot survey.
     protected ref map<string, ref HCXAISiteState> m_Survey = new map<string, ref HCXAISiteState>();
     protected ref HCWorkBudget m_SurveyWork = new HCWorkBudget();
     protected int m_SurveyCursor;
@@ -600,8 +183,6 @@ class HCXAISiteDirector : Managed
     protected int m_LastSummaryQualified;
     protected ref array<ref HCXAISite> m_SelectionPending;
     protected string m_SelectionLocality;
-    // Latest terminal verdict per policy ID only: 1=qualified, 2=failed.
-    // Dynamic sites are excluded; unrecorded policy IDs remain pending.
     protected int m_QualifiedCount;
     protected int m_RefusedCount;
     protected int m_ProximityCursor;
@@ -616,8 +197,6 @@ class HCXAISiteDirector : Managed
     protected string m_CoverageFault;
     protected int m_LocalitiesWithoutSites;
     protected ref HCOperationalStatus m_OperationalStatus = new HCOperationalStatus;
-
-    // Cached owner state only: status reads never inspect players or patrols.
     HCOperationalStatus HCGetOperationalStatus()
     {
         if (m_Phase == "wait" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
@@ -634,20 +213,14 @@ class HCXAISiteDirector : Managed
         }
         return m_OperationalStatus;
     }
-
     static HCXAISiteDirector Active() { return s_Active; }
     string Phase() { return m_Phase; }
-    // Read by HCXAIEncounters only; encounters never add, remove or move states.
     array<ref HCXAISiteState> States() { return m_States; }
-    // This process's ownership session (previous + 1), 0 before reconciliation.
     int OwnedSession()
     {
         if (!m_Owned) { return 0; }
         return m_Owned.Session;
     }
-
-    // Read-only boot/status seam for the lead's adapter integration. Counts
-    // describe catalog/candidate state, never observed coverage acceptance.
     string HCLocalitySummary()
     {
         int count = 0;
@@ -661,632 +234,29 @@ class HCXAISiteDirector : Managed
         }
         string next = "";
         if (m_LocalitySave && m_LocalitySave.Data) { next = m_LocalitySave.Data.NextId; }
-        // A running owner reports its live status; the cached string was a
-        // boot-time snapshot that kept "degraded" after the routes catalog loaded.
         if (m_Phase == "run" && m_Localities) { m_LocalityStatus = this.HCGetOperationalStatus().HCState(); }
         string line = "[HC Plan] HC-18 localities=" + count.ToString() + " page=" + page.ToString() + " oldest_pending=" + oldest;
         return line + " cursor=" + next + " state=" + m_LocalityStatus + " runtime=PENDING";
     }
-    protected bool HCStartLocalities()
-    {
-        if (!FileExist(LOCALITIES))
-        {
-            // Reuse the complete site policy as a bounded fallback queue. No
-            // locality positions or routes are invented when the pack is absent.
-            m_CoverageFault = "LOCALITY_CATALOG_MISSING_POLICY_QUEUE_RETAINED";
-            Print("[HC Coverage] " + m_CoverageFault + " runtime=PENDING");
-            m_Localities = new HCXAILocalityCatalog();
-            m_Localities.WorldName = m_Policy.WorldName;
-        }
-        string error;
-        if (FileExist(LOCALITIES))
-        {
-            string catalogText = HCWorldStore.Read(LOCALITIES);
-            if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(catalogText, m_Localities, error) || !m_Localities) { m_LocalityStatus = "refused:catalog_unreadable"; return false; }
-            if (!HCJsonFields.Has(catalogText, "Enabled")) { m_Localities.Enabled = true; }
-        }
-        // Bind source content to the same retained queue before reconciliation.
-        if (!m_Policy.HCBindContent(m_Localities)) { m_LocalityStatus = "refused:hc43_content"; return false; }
-        // Empty fallback catalog is populated from actual authored site IDs.
-        if (!FileExist(LOCALITIES) && !this.HCReconcileLocalitySites()) { return false; }
-        string problem = HCXAISiteRules.HCLocalityProblem(m_Localities, m_Policy);
-        if (problem != "") { m_LocalityStatus = "refused:" + problem; return false; }
-        if (FileExist("$profile:HollowCountry/acceptance/locality-route-observer.disable")) { m_Localities.Enabled = false; }
-        Print(HCV2Admission.Line("HC-18", m_Localities.Enabled, "locality-route-observer", false) + " runtime=PENDING");
-        if (!HCV2Admission.Admitted(m_Localities.Enabled))
-        {
-            m_Localities = null;
-            Print(this.HCLocalitySummary() + " refusal=operator_off legacy_sites_retained");
-            return true;
-        }
-        if (!this.HCReconcileLocalitySites()) { m_LocalityStatus = "refused:catalog_drift_capacity"; return false; }
-        if (m_LocalitiesWithoutSites > 0)
-        {
-            m_CoverageFault = "LOCALITY_AUTHORED_SITE_DATA_MISSING";
-            Print("[HC Coverage] " + m_CoverageFault + " localities=" + m_LocalitiesWithoutSites.ToString() + " existing_routes_retained=1 runtime=PENDING");
-        }
-        m_LocalitySave = new HCXAILocalitySave();
-        if (!m_LocalitySave.HCLoad(m_Localities.WorldName)) { m_LocalityStatus = "refused:rotation_quarantined"; return false; }
-        foreach (HCXAILocality locality : m_Localities.Localities)
-        {
-            if (HCXAISiteRules.HCCoverage(m_LocalitySave.Data, locality.Id)) { continue; }
-            if (m_LocalitySave.Data.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { m_LocalityStatus = "refused:coverage_history_full"; return false; }
-            HCXAILocalityCoverage added = new HCXAILocalityCoverage();
-            added.LocalityId = locality.Id;
-            added.PendingSinceSerial = m_LocalitySave.Data.SelectionSerial;
-            m_LocalitySave.Data.Rows.Insert(added);
-        }
-        if (m_LocalitySave.Data.NextId == "") { m_LocalitySave.Data.NextId = m_Localities.Localities[0].Id; }
-        m_LocalitySave.HCChanged();
-        if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { m_LocalityStatus = "refused:rotation_save"; return false; }
-        m_SiteLocalities.Clear();
-        m_CoverageRows.Clear();
-        for (int localityIndex = 0; localityIndex < m_Localities.Localities.Count(); localityIndex++)
-        {
-            HCXAILocality indexedLocality = m_Localities.Localities[localityIndex];
-            foreach (string indexedSite : indexedLocality.SiteIds) { m_SiteLocalities.Set(indexedSite, localityIndex); }
-        }
-        foreach (HCXAILocalityCoverage indexedCoverage : m_LocalitySave.Data.Rows) { m_CoverageRows.Set(indexedCoverage.LocalityId, indexedCoverage); }
-        m_LocalityStatus = "pending_provider";
-        Print(this.HCLocalitySummary());
-        return true;
-    }
-    protected int HCLocalityPageCount()
-    {
-        int count = 0;
-        foreach (HCXAISiteState state : m_States)
-        {
-            if (state.LocalityId != "") { count++; }
-        }
-        return count;
-    }
-    protected bool HCHasSite(string id)
-    {
-        foreach (HCXAISiteState state : m_States)
-        {
-            if (!state.Transient && state.Site.Id == id) { return true; }
-        }
-        return false;
-    }
-    // Keep valid operator additions in single-site localities. Catalog IDs
-    // absent from the current operator policy are skipped once at startup.
-    protected bool HCReconcileLocalitySites()
-    {
-        int unknown = 0;
-        m_LocalitiesWithoutSites = 0;
-        // One pass builds the policy id set; the 523-row catalog would otherwise
-        // rescan all 528 sites for every catalog id in a single startup tick.
-        map<string, bool> policyIds = new map<string, bool>();
-        foreach (HCXAISite candidate : m_Policy.Sites) { policyIds.Set(candidate.Id, true); }
-        foreach (HCXAILocality locality : m_Localities.Localities)
-        {
-            int siteIndex = locality.SiteIds.Count() - 1;
-            while (siteIndex >= 0)
-            {
-                if (!policyIds.Contains(locality.SiteIds[siteIndex])) { locality.SiteIds.RemoveOrdered(siteIndex); unknown++; }
-                siteIndex--;
-            }
-            if (locality.SiteIds.Count() == 0) { m_LocalitiesWithoutSites++; }
-        }
-        if (unknown > 0) { Print("[HC Plan] HC-18 catalog_unknown_site skipped=" + unknown.ToString() + " operator policy retained runtime=PENDING"); }
-        int syntheticIndex = 0;
-        map<string, bool> mappedIds = new map<string, bool>();
-        // Locality ids are indexed once; each added locality joins the set, so a collision probe is O(1).
-        map<string, bool> localityIds = new map<string, bool>();
-        foreach (HCXAILocality mappedLocality : m_Localities.Localities)
-        {
-            localityIds.Set(mappedLocality.Id, true);
-            foreach (string mappedId : mappedLocality.SiteIds) { mappedIds.Set(mappedId, true); }
-        }
-        foreach (HCXAISite site : m_Policy.Sites)
-        {
-            if (mappedIds.Contains(site.Id)) { continue; }
-            if (m_Localities.Localities.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return false; }
-            string id = site.Id;
-            bool collision = localityIds.Contains(id);
-            while (collision)
-            {
-                id = "hc-unmapped-" + syntheticIndex.ToString();
-                syntheticIndex++;
-                collision = localityIds.Contains(id);
-            }
-            localityIds.Set(id, true);
-            HCXAILocality added = new HCXAILocality();
-            added.Id = id;
-            added.Source = "operator site policy";
-            added.SiteIds.Insert(site.Id);
-            m_Localities.Localities.Insert(added);
-        }
-        return true;
-    }
-    protected void HCAddLegacySites()
-    {
-        foreach (HCXAISite site : m_Policy.Sites)
-        {
-            if (site.Checkpoint && !HCXAIQualification.EncountersEnabled()) { continue; }
-            if (this.HCHasSite(site.Id)) { continue; }
-            HCXAISiteState added = new HCXAISiteState();
-            added.Site = site;
-            m_States.Insert(added);
-            m_AdmittedTotal++;
-        }
-    }
-    protected void HCLocalityFault()
-    {
-        if (m_LocalityRefused) { return; }
-        m_LocalityRefused = true;
-        if (m_LocalitySave) { HCSaveScheduler.HCUnregister(m_LocalitySave); }
-        m_LocalitySave = null;
-        m_Localities = null;
-        m_LocalityStatus = "off:rotation_fault_legacy_sites_retained";
-        m_CoverageFault = "LOCALITY_ROTATION_FAULT_LEGACY_SITES_RETAINED";
-        foreach (HCXAISiteState retained : m_States) { retained.LocalityId = ""; }
-        if (m_Phase == "run" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
-        {
-            this.HCAddLegacySites();
-            m_Phase = "bind";
-            m_Cursor = 0;
-        }
-        Print(this.HCLocalitySummary());
-    }
-    // Attempts have a durable cursor. A full page retains its next candidate:
-    // advancing while full can alias periodic expiry and starve an island.
-    // Geometry/provider refusals advance, keeping their coverage pending.
-    protected vector HCSiteAnchor(HCXAISite site)
-    {
-        if (site.Kind == "holdout") { return site.HousePosition; }
-        return site.Waypoints[0];
-    }
-    protected float HCPlayerGap(HCXAISite site)
-    {
-        this.HCRefreshPlayers();
-        vector anchor = this.HCSiteAnchor(site);
-        float nearestSq = 1000000000;
-        // Horizontal distance: authored anchors may still have y=0. This only
-        // orders work; native trigger/observer checks retain their 3D checks.
-        for (int playerIndex = 0; playerIndex < m_Players.Count() && playerIndex < 64; playerIndex++)
-        {
-            Man observer = m_Players[playerIndex];
-            if (!observer || !observer.GetIdentity() || !observer.IsAlive()) { continue; }
-            vector position = observer.GetPosition();
-            position[1] = anchor[1];
-            float gapSq = vector.DistanceSq(position, anchor);
-            if (gapSq < nearestSq) { nearestSq = gapSq; }
-        }
-        return nearestSq;
-    }
-    protected bool HCWithinActivation(HCXAISite site)
-    {
-        float radius = this.HCActivationRadius(site, false);
-        return this.HCPlayerGap(site) <= radius * radius;
-    }
-    protected void HCScanNearby(int now)
-    {
-        for (int scan = 0; scan < HC_PROXIMITY_ROWS && m_ProximityCursor < m_Policy.Sites.Count(); scan++)
-        {
-            int candidateIndex = m_ProximityCursor++;
-            HCXAISite candidate = m_Policy.Sites[candidateIndex];
-            if (!m_SiteLocalities.Contains(candidate.Id) || this.HCHasSite(candidate.Id)) { continue; }
-            if (candidate.Checkpoint && !HCXAIQualification.EncountersEnabled()) { continue; }
-            int localityIndex = m_SiteLocalities.Get(candidate.Id);
-            HCXAILocalityCoverage coverage = m_CoverageRows.Get(m_Localities.Localities[localityIndex].Id);
-            if (!coverage || now < coverage.RetryAt) { continue; }
-            float radius = this.HCActivationRadius(candidate, false);
-            float gap = this.HCPlayerGap(candidate);
-            if (gap > radius * radius || gap >= m_ScanNearGap) { continue; }
-            m_ScanNearGap = gap;
-            m_ScanNearSite = candidateIndex;
-        }
-        if (m_ProximityCursor < m_Policy.Sites.Count()) { return; }
-        m_NearSite = m_ScanNearSite;
-        m_ProximityCursor = 0;
-        m_ScanNearSite = -1;
-        m_ScanNearGap = 1000000000;
-    }
-    // Supplement owners can wait for authored road candidates to settle. A
-    // failed supplement releases the survey to the original authored policy.
+    protected bool HCStartLocalities() { return false; }
+    protected int HCLocalityPageCount() { return 0; }
+    protected bool HCHasSite(string id) { return false; }
+    protected bool HCReconcileLocalitySites() { return false; }
+    protected void HCAddLegacySites() {  }
+    protected void HCLocalityFault() {  }
+    protected vector HCSiteAnchor(HCXAISite site) { return vector.Zero; }
+    protected float HCPlayerGap(HCXAISite site) { return 0; }
+    protected bool HCWithinActivation(HCXAISite site) { return false; }
+    protected void HCScanNearby(int now) {  }
     protected bool HCSurveyReady() { return true; }
-    protected HCXAISiteState HCSurveyState(HCXAISite site)
-    {
-        HCXAISiteState state = m_Survey.Get(site.Id);
-        if (state) { return state; }
-        state = new HCXAISiteState();
-        state.Site = site;
-        if (m_Localities && m_SiteLocalities.Contains(site.Id))
-        {
-            state.LocalityId = m_Localities.Localities[m_SiteLocalities.Get(site.Id)].Id;
-        }
-        m_Survey.Set(site.Id, state);
-        return state;
-    }
-    // Reuse the proximity scan's nearest candidate and the maintenance page's
-    // nearby-first ordering. At most 64 live rows; never scan the full policy
-    // for distances in a survey tick. The sequential cursor remains the fallback.
-    protected HCXAISiteState HCNearbySurveyState()
-    {
-        HCXAISiteState nearest;
-        float nearestGap = 1000000000;
-        if (m_NearSite >= 0 && m_NearSite < m_Policy.Sites.Count())
-        {
-            HCXAISiteState candidate = this.HCSurveyState(m_Policy.Sites[m_NearSite]);
-            if (!candidate.Failed && !candidate.Qualified && this.HCWithinActivation(candidate.Site))
-            {
-                nearest = candidate;
-                nearestGap = this.HCPlayerGap(candidate.Site);
-            }
-        }
-        for (int index = 0; index < m_States.Count() && index < 64; index++)
-        {
-            HCXAISiteState waiting = m_States[index];
-            if (waiting.LocalityId == "" || waiting.Failed || waiting.Qualified || waiting.Patrol || !m_PolicySiteIds.Contains(waiting.Site.Id)) { continue; }
-            float gap = this.HCPlayerGap(waiting.Site);
-            float radius = this.HCActivationRadius(waiting.Site, false);
-            if (gap > radius * radius || gap >= nearestGap) { continue; }
-            nearest = waiting;
-            nearestGap = gap;
-        }
-        return nearest;
-    }
-    protected void HCStepSurvey()
-    {
-        if (m_SurveyCursor >= m_Policy.Sites.Count()) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 64)) { return; }
-        int nowMs = GetGame().GetTime();
-        if (m_SurveyStartedMs < 0) { m_SurveyStartedMs = nowMs; }
-        // A time limit cannot establish a geometry verdict. Keep pending work
-        // under the same shared admission and slice after the boot window.
-        if (!m_SurveyBackgroundLogged && (nowMs < m_SurveyStartedMs || nowMs - m_SurveyStartedMs >= 1500000))
-        {
-            m_SurveyBackgroundLogged = true;
-            Print("[HC Expansion AI] survey continuing in background; pending geometry retains qualification gate runtime=PENDING");
-        }
-        if (!this.HCSurveyReady()) { return; }
-        string refusedSites;
-        // Reserve half the target for the last native sample/path operation.
-        m_SurveyWork.HCReset(64, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        HCXAISiteState nearby = this.HCNearbySurveyState();
-        while (m_SurveyCursor < m_Policy.Sites.Count() && m_SurveyWork.HCContinue())
-        {
-            HCXAISiteState state = nearby;
-            if (!state) { state = this.HCSurveyState(m_Policy.Sites[m_SurveyCursor]); }
-            if (state.Failed || state.Qualified)
-            {
-                this.HCRecordRouteState(state);
-                if (nearby) { nearby = null; }
-                else { m_SurveyCursor++; }
-                continue;
-            }
-            if (state.Site.Checkpoint && !HCXAIQualification.EncountersEnabled())
-            {
-                state.Failed = true;
-                state.Reason = "checkpoint encounters disabled";
-                refusedSites += " " + state.Site.Id;
-                continue;
-            }
-            if (!state.Bound) { this.Bind(state); continue; }
-            int calls = state.PathCalls;
-            this.QualifyStep(state);
-            // An atomic FindPath cannot be cancelled. Do no more work in its
-            // tick; samples and script postprocessing use the real deadline.
-            if (state.PathCalls > calls) { break; }
-        }
-        if (refusedSites != "")
-        {
-            Print("[HC Expansion AI] survey refused sites=" + refusedSites + " reason=checkpoint encounters disabled runtime=PENDING");
-        }
-        if (m_SurveyCursor >= m_Policy.Sites.Count())
-        {
-            this.HCRoutesWarm();
-            Print("[HC Expansion AI] survey complete qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " elapsed_ms=" + (nowMs - m_SurveyStartedMs).ToString() + " runtime=PENDING");
-        }
-    }
-    protected void HCRecordRouteState(HCXAISiteState state)
-    {
-        if (state.Transient || (!state.Failed && !state.Qualified)) { return; }
-        // Retain only qualified geometry, never a large native scratch path.
-        state.HCPath.Clear();
-        state.AttemptPoints.Clear();
-        // Summary geometry counters cover only the authored policy denominator.
-        // Zone-guard/dynamic outcomes still release scratch buffers above, but
-        // cannot reduce policy pending or inflate qualified_per_s.
-        if (!m_PolicySiteIds.Contains(state.Site.Id)) { return; }
-        int result = 1;
-        if (state.Failed) { result = 2; }
-        int previous = m_RouteResults.Get(state.Site.Id);
-        if (previous == result) { return; }
-        if (previous == 1) { m_QualifiedCount--; }
-        if (previous == 2) { m_RefusedCount--; }
-        if (result == 1) { m_QualifiedCount++; }
-        else { m_RefusedCount++; }
-        m_RouteResults.Set(state.Site.Id, result);
-    }
-    // A full page cannot hold distant empty controllers for an hour while a
-    // nearby site waits. Never retire live/deferred actors or encounter leases.
-    protected void HCMakeNearbyRoom()
-    {
-        if (this.HCLocalityPageCount() < HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites)) { return; }
-        int victim = -1;
-        float farthest = 0;
-        HCXAIEncounters encounters = HCXAIEncounters.Active();
-        for (int index = 0; index < m_States.Count() && index < 64; index++)
-        {
-            HCXAISiteState state = m_States[index];
-            if (state.Transient || state.LocalityId == "" || this.HCWithinActivation(state.Site)) { continue; }
-            if (state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0))) { continue; }
-            if (encounters && encounters.SiteBound(state.Site.Id)) { continue; }
-            float gap = this.HCPlayerGap(state.Site);
-            if (gap <= farthest) { continue; }
-            victim = index;
-            farthest = gap;
-        }
-        if (victim < 0) { return; }
-        HCXAISiteState retired = m_States[victim];
-        this.HCRecordRouteState(retired);
-        if (retired.Patrol) { retired.Patrol.m_HCFinished = true; HCXExpansionBridge.HCSitePatrolStop(retired.Patrol); HCXExpansionBridge.HCSitePatrolDelete(retired.Patrol); }
-        retired.Patrol = null;
-        HCAIBudget.Release("site:" + retired.Site.Id);
-        m_States.RemoveOrdered(victim);
-    }
-    protected void HCTryLocality(int now)
-    {
-        HCXAISite nearby;
-        if (m_NearSite >= 0)
-        {
-            nearby = m_Policy.Sites[m_NearSite];
-            int nearLocality = m_SiteLocalities.Get(nearby.Id);
-            HCXAILocalityCoverage nearCoverage = m_CoverageRows.Get(m_Localities.Localities[nearLocality].Id);
-            if (!nearCoverage || now < nearCoverage.RetryAt || this.HCHasSite(nearby.Id) || !this.HCWithinActivation(nearby)) { nearby = null; m_NearSite = -1; }
-            else { this.HCMakeNearbyRoom(); }
-        }
-        if (this.HCLocalityPageCount() >= HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites)) { return; }
-        // Selection is durable before controller admission, but persistence
-        // advances on the shared scheduler instead of draining every stage here.
-        if (m_LocalitySave.HCDirty || m_LocalitySave.HCInFlight) { return; }
-        if (m_SelectionPending)
-        {
-            foreach (HCXAISite pendingSite : m_SelectionPending)
-            {
-                if (this.HCHasSite(pendingSite.Id)) { continue; }
-                HCXAISiteState pendingState = this.HCSurveyState(pendingSite);
-                if (pendingState.Failed) { continue; }
-                // Nearby geometry keeps the maintenance page's qualification
-                // priority after the durable selection receipt. Distant sites
-                // can wait for the independent background survey.
-                if (!pendingState.Qualified && !this.HCWithinActivation(pendingSite)) { continue; }
-                pendingState.LocalityId = m_SelectionLocality;
-                pendingState.OpportunityAt = now;
-                m_States.Insert(pendingState);
-                m_AdmittedTotal++;
-            }
-            m_SelectionPending = null;
-            return;
-        }
-        HCXAILocalityRotation rotation = m_LocalitySave.Data;
-        if (rotation.SelectionSerial >= 2147483646) { this.HCLocalityFault(); return; }
-        int index;
-        if (nearby) { index = m_SiteLocalities.Get(nearby.Id); m_NearSite = -1; }
-        else { index = HCXAISiteRules.HCNextLocality(m_Localities, rotation); }
-        rotation.SelectionSerial++;
-        HCXAILocality locality = m_Localities.Localities[index];
-        HCXAILocalityCoverage row = HCXAISiteRules.HCCoverage(rotation, locality.Id);
-        array<ref HCXAISite> selected = new array<ref HCXAISite>();
-        int slots = HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) - this.HCLocalityPageCount();
-        if (now >= row.RetryAt)
-        {
-            row.LastSelected = rotation.SelectionSerial;
-            if (!row.Pending) { row.PendingSinceSerial = rotation.SelectionSerial; }
-            row.Pending = true;
-            row.RetryAt = now + HCXAISiteRules.HCRetrySeconds(m_Localities);
-            row.Refusal = "route_not_reviewed";
-            if (locality.Island) { row.Refusal = "island_access_route_unreviewed"; }
-            if (locality.SiteIds.Count() == 0) { row.Refusal = "authored_site_data_missing"; }
-            // A nearby admission selects the exact anchor found by the bounded
-            // scan. Background admissions retain their durable rotation order.
-            if (nearby) { selected.Insert(nearby); }
-            int tries = 0;
-            while (!nearby && tries < locality.SiteIds.Count() && selected.Count() < slots)
-            {
-                int siteIndex = row.NextSite % locality.SiteIds.Count();
-                string siteId = locality.SiteIds[siteIndex];
-                row.NextSite = (siteIndex + 1) % locality.SiteIds.Count();
-                tries++;
-                if (this.HCHasSite(siteId)) { continue; }
-                foreach (HCXAISite candidate : m_Policy.Sites)
-                {
-                    if (candidate.Id != siteId) { continue; }
-                    if (candidate.Checkpoint && !HCXAIQualification.EncountersEnabled()) { row.Refusal = "checkpoint_gate_pending"; break; }
-                    selected.Insert(candidate);
-                    break;
-                }
-            }
-            if (selected.Count() > 0) { row.Refusal = "route_provider_pending"; }
-        }
-        m_LocalitySave.HCChanged();
-        m_LocalitySave.HCUrgent = true;
-        m_SelectionPending = selected;
-        m_SelectionLocality = locality.Id;
-        if (selected.Count() == 0)
-        {
-            // Missing authored rows were diagnosed once at boot, not per lap.
-            if (locality.SiteIds.Count() == 0) { return; }
-            if (row.LastSelected == rotation.SelectionSerial && now >= m_LocalityNextPendingLogAt)
-            {
-                m_LocalityNextPendingLogAt = now + 300;
-                Print("[HC Plan] HC-18 state=pending locality=" + locality.Id + " reason=" + row.Refusal + " pending=1 runtime=PENDING");
-            }
-            return;
-        }
-    }
-    protected void HCStepLocalities()
-    {
-        if (!m_Localities || !m_LocalitySave || m_LocalityRefused) { return; }
-        if (m_LocalitySave.Fault) { this.HCLocalityFault(); return; }
-        int now = ExpansionStatic.GetTimestamp(true);
-        if (now < 1 || now > 2146878847) { this.HCLocalityFault(); return; }
-        // One composite slice admission includes the proximity page and first
-        // maintenance step. Separate admissions let the scan consume the sole
-        // starvation grant forever, preventing qualification on a busy server.
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
-        // HC_WORK_AI_SITES is the lead-owned shared consumer integration.
-        // Reserve candidate work separately from maintenance. Otherwise four
-        // armed controllers consume every local unit and prevent page growth.
-        m_LocalityUnits.HCReset(HCXAISiteDirector.WORK_PER_TICK + HCXAISiteRules.HCAttemptsPerTick(m_Localities));
-        m_LocalityWork.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        this.HCScanNearby(now);
-        if (m_LocalitySave.HCUrgent && m_LocalitySave.HCDirty && (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_LocalitySave)))
-        {
-            if (m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
-            {
-                HCServer.HCTickWork().HCCharge(1);
-                HCSaveScheduler.HCPumpFallback(m_LocalitySave);
-                if (m_LocalitySave.Fault) { this.HCLocalityFault(); return; }
-            }
-        }
-        bool admissionTurn = m_LocalityAdmissionTurn;
-        m_LocalityAdmissionTurn = !m_LocalityAdmissionTurn;
-        if (!m_LocalitySave.HCDirty && !m_LocalitySave.HCInFlight && (m_SelectionPending || (admissionTurn && (m_NearSite >= 0 || now >= m_LocalityNextAttemptAt))))
-        {
-            // A receipt wait only holds new admissions. Existing controllers
-            // still get maintenance within the remaining slice and unit cap.
-            if (m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
-            {
-                HCServer.HCTickWork().HCCharge(1);
-                int selectionBegan = TickCount(0);
-                this.HCTryLocality(now);
-                this.HCSiteStageCost("locality_selection", selectionBegan);
-                m_LocalityNextAttemptAt = now + HCXAISiteRules.HCSelectionIntervalSeconds(m_Localities);
-            }
-            if (m_LocalityRefused) { return; }
-        }
-        int refusedThisSlice = 0;
-        int visited = 0;
-        int count = m_States.Count();
-        float nearestWork = 1000000000;
-        for (int workIndex = 0; workIndex < count && workIndex < 64; workIndex++)
-        {
-            HCXAISiteState waiting = m_States[workIndex];
-            if (waiting.LocalityId == "" || waiting.Failed || waiting.Patrol) { continue; }
-            float workGap = this.HCPlayerGap(waiting.Site);
-            float workRadius = this.HCActivationRadius(waiting.Site, false);
-            if (workGap > workRadius * workRadius || workGap >= nearestWork) { continue; }
-            nearestWork = workGap;
-            m_LocalityCursor = workIndex;
-        }
-        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
-        {
-            if (visited > 0) { HCServer.HCTickWork().HCCharge(1); }
-            if (m_LocalityCursor >= m_States.Count()) { m_LocalityCursor = 0; }
-            HCXAISiteState state = m_States[m_LocalityCursor];
-            visited++;
-            if (state.LocalityId == "") { m_LocalityCursor++; continue; }
-            this.HCRecordRouteState(state);
-            // With enough slots, keep every legacy-eligible controller armed.
-            // Expiry is solely for fairness among candidates beyond the cap.
-            bool expired = m_Policy.Sites.Count() > HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) && now >= state.OpportunityAt + HCXAISiteRules.HCOpportunitySeconds(m_Localities);
-            bool live = state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0));
-            if (state.Patrol && state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0)
-            {
-                HCXAILocalityCoverage observed = HCXAISiteRules.HCCoverage(m_LocalitySave.Data, state.LocalityId);
-                if (observed.Pending)
-                {
-                    observed.Pending = false;
-                    observed.LastObserved = observed.LastSelected;
-                    observed.Refusal = "";
-                    m_LocalitySave.HCChanged();
-                }
-            }
-            // Never evict a live/deferred member, or a bound encounter. Natural
-            // provider retirement remains observer/combat guarded. Empty patrol
-            // controllers can be discarded; no actor is moved or spawned here.
-            HCXAIEncounters encounters = HCXAIEncounters.Active();
-            bool boundEncounter = encounters && encounters.SiteBound(state.Site.Id);
-            if ((expired || state.Failed) && !live && !boundEncounter)
-            {
-                if (state.Patrol) { state.Patrol.m_HCFinished = true; HCXExpansionBridge.HCSitePatrolStop(state.Patrol); HCXExpansionBridge.HCSitePatrolDelete(state.Patrol); }
-                state.Patrol = null;
-                HCAIBudget.Release("site:" + state.Site.Id);
-                m_States.RemoveOrdered(m_LocalityCursor);
-                continue;
-            }
-            m_LocalityCursor++;
-            if (state.Failed || state.Patrol) { continue; }
-            bool createFailed = false;
-            bool pathIssued = false;
-            if (!state.Bound) { this.Bind(state); }
-            else if (!state.Qualified)
-            {
-                int pathCallsBefore = state.PathCalls;
-                int qualifyBegan = TickCount(0);
-                this.QualifyStep(state);
-                this.HCSiteStageCost("qualification", qualifyBegan);
-                // [HC TickCost] window 12 of 096: the admitted row is 1 of a probe's 64 units.
-                // Local units bound the slice; shared units debit the pool once, only for a real probe.
-                if (state.PathCalls > pathCallsBefore)
-                {
-                    pathIssued = true;
-                    m_LocalityUnits.HCCharge(63);
-                    HCServer.HCTickWork().HCCharge(63);
-                }
-            }
-            else
-            {
-                this.Create(state);
-                createFailed = !state.Patrol;
-            }
-            this.HCRecordRouteState(state);
-            if (state.Failed || createFailed)
-            {
-                HCXAILocalityCoverage row = HCXAISiteRules.HCCoverage(m_LocalitySave.Data, state.LocalityId);
-                row.Pending = true;
-                row.Refusal = "route_geometry_or_provider_refused";
-                row.RetryAt = now + HCXAISiteRules.HCRetrySeconds(m_Localities);
-                m_LocalitySave.HCChanged();
-                // Provider admission failure is not a geometry refusal.
-                // Retire this empty controller on its next visit; the survey
-                // retains the qualified route for later activation.
-                if (createFailed) { state.OpportunityAt = now - HCXAISiteRules.HCOpportunitySeconds(m_Localities); }
-                this.HCRecordRouteState(state);
-                refusedThisSlice++;
-            }
-            if (pathIssued) { break; }
-        }
-        if (refusedThisSlice > 0)
-        {
-            Print("[HC Plan] HC-18 state=refused count=" + refusedThisSlice.ToString() + " reason=route_geometry_or_provider_refused pending=1 runtime=PENDING");
-        }
-    }
-
-    // Includes full deferred-member reservations and not-yet-created transient
-    // states. Authored and transient patrols consult the same ledger at spawn.
-    string BudgetProblem(int actorCap, HCXAISitePatrol exceptPatrol)
-    {
-        int reservedSites = 0;
-        int reservedActors = 0;
-        foreach (HCXAISiteState reservation : m_States)
-        {
-            if (reservation.Completed) { continue; }
-            if (exceptPatrol && reservation.Patrol == exceptPatrol) { continue; }
-            // Empty native groups can outlive every member. Only an uncreated
-            // transient, a living member or a queued deferred member owns a slot.
-            if (!(reservation.Transient && !reservation.Materialized))
-            {
-                if (!reservation.Patrol || !reservation.Patrol.m_Group || (HCXExpansionBridge.HCGroupCount(reservation.Patrol.m_Group) == 0 && reservation.Patrol.m_HCPendingMembers <= 0))
-                {
-                    if (!reservation.Transient) { HCAIBudget.Release("site:" + reservation.Site.Id); }
-                    continue;
-                }
-            }
-            reservedSites++;
-            reservedActors += reservation.Site.NumberOfAIMax;
-        }
-        if (reservedSites >= HCAILimits.Get().MaxLiveGroups || reservedActors + actorCap > HCAILimits.Get().MaxLiveAI) { return "global AI budget reached"; }
-        if (reservedSites >= HCAILimits.Get().MaxActiveSites) { return "site budget reached"; }
-        if (reservedActors + actorCap > HCAILimits.Get().MaxActiveAI) { return "AI budget reached"; }
-        return "";
-    }
-
-    // true reserves a one-shot site; route/observer/create failures complete via
-    // the bridge callback. It does not mean actors already exist or acceptance.
+    protected HCXAISiteState HCSurveyState(HCXAISite site) { return null; }
+    protected HCXAISiteState HCNearbySurveyState() { return null; }
+    protected void HCStepSurvey() {  }
+    protected void HCRecordRouteState(HCXAISiteState state) {  }
+    protected void HCMakeNearbyRoom() {  }
+    protected void HCTryLocality(int now) {  }
+    protected void HCStepLocalities() {  }
+    string BudgetProblem(int actorCap, HCXAISitePatrol exceptPatrol) { return ""; }
     bool AdmitTransient(string proposalId, string factionId, vector placePos, int actorCap, out string reason)
     {
         if (m_Phase != "run" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { reason = "sites not running"; return false; }
@@ -1320,8 +290,6 @@ class HCXAISiteDirector : Managed
         transientSite.Loadout = loadout;
         transientSite.NumberOfAI = actorCap;
         transientSite.NumberOfAIMax = actorCap;
-        // Small place-relative loop, never player-relative. All four endpoints
-        // must go through Bind and the authored RouteMinimum/FindPath process.
         transientSite.Waypoints.Insert(placePos);
         transientSite.Waypoints.Insert(placePos + Vector(30, 0, 0));
         transientSite.Waypoints.Insert(placePos + Vector(30, 0, 30));
@@ -1338,13 +306,9 @@ class HCXAISiteDirector : Managed
         reason = "";
         return true;
     }
-
-    // Configured bounded reserved states, one qualification step each/tick. An idle
-    // trigger/blocked route gets five minutes, then traces; live groups retain
-    // their reservation until death or the observed native despawn callback.
     protected void StepTransients()
     {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 64)) { return; }
+        if (!this.HCTakeSiteUnits(64)) { return; }
         int inspected = 0;
         int transientWork = 0;
         while (inspected < m_States.Count() && transientWork < 1)
@@ -1362,24 +326,17 @@ class HCXAISiteDirector : Managed
                 if (!transientState.Patrol) { this.FinishTransient(transientState, true, 0); continue; }
                 if (!transientState.Patrol.m_Group)
                 {
-                    // Preserve provider load-balancing cleanup even when a
-                    // native group was removed outside its normal callback.
                     HCXExpansionBridge.HCSitePatrolDespawn(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
                 }
                 else if (HCXExpansionBridge.HCGroupCount(transientState.Patrol.m_Group) == 0)
                 {
-                    // Balances the provider's active-patrol counter once;
-                    // do not ClearAI here, so lootable corpses remain native.
                     HCXExpansionBridge.HCSitePatrolWasGroupDestroyed(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
                 }
                 continue;
             }
             int transientNow = GetGame().GetTime();
-            // Retained qualification stages must not expire merely because
-            // they now yield. Five minutes without progress still expires;
-            // after qualification the same grace bounds safe activation waits.
             int progressAt = Math.Max(transientState.AdmittedAt, transientState.HCQualificationProgressAt);
             if (transientNow < progressAt || transientNow - progressAt >= 300000)
             {
@@ -1410,7 +367,6 @@ class HCXAISiteDirector : Managed
         Print("[HC Expansion AI] materializer ended site=" + state.ProposalId + " materialized=" + materialized.ToString() + " survivors=" + survivors.ToString() + " reason=" + state.Reason);
         HCXMaterializerBridge.SiteEnded(state.ProposalId, materialized, survivors);
     }
-
     void Start()
     {
         m_SitesLogLine = "";
@@ -1419,7 +375,7 @@ class HCXAISiteDirector : Managed
         m_SpawnLogAt = 0;
         if (!GetGame() || !GetGame().IsServer()) { return; }
         m_SurveyStartedMs = GetGame().GetTime();
-        s_Active = this;
+        s_Active = HCXAISiteDirector.Cast(this);
         HCXAIStore.HCPrimeJournal();
         HCSettings preferences = HCServer.Get().GetSettings();
         m_GroupScaling = preferences && preferences.EnableGroupScaling;
@@ -1434,8 +390,6 @@ class HCXAISiteDirector : Managed
         m_Build = HCXAIStore.NativeBuild();
         m_Diagnostic = FileExist(HCXAISiteDirector.DIAGNOSTIC);
         m_RespawnOff = FileExist("$profile:HollowCountry/acceptance/ai-respawn.disable");
-        // One provenance helper covers every expansion-ai profile copy sharing
-        // the PBO-default path, before its existing owner reads/provisions it.
         string shippedSites = HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile();
         string missionSites = "$mission:hollow-country/ai/sites.json";
         if (FileExist(missionSites)) { shippedSites = missionSites; }
@@ -1446,7 +400,6 @@ class HCXAISiteDirector : Managed
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", shippedLocalities, true);
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-formations.json", HCXAIDefaults.Shipped() + "expansion-ai-formations.json");
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-tactics.json", HCXAIDefaults.Shipped() + "expansion-ai-tactics.json");
-        // Startup step markers: log timestamps locate slow steps on large policies.
         Print("[HC Expansion AI] start step=defaults_checked");
         m_Policy = HCXAISiteDirector.LoadPolicy();
         if (!m_Policy)
@@ -1475,8 +428,6 @@ class HCXAISiteDirector : Managed
                 return;
             }
         }
-        // Persistent input reads are a startup snapshot. Admission after provider
-        // readiness retains its ownership write barrier. Formats/paths unchanged.
         m_Routes = HCXAISiteDirector.LoadRoutes();
         if (m_Routes)
         {
@@ -1490,9 +441,20 @@ class HCXAISiteDirector : Managed
             }
             this.HCDiscardLegacyRoutes();
             this.HCRoutesWarm();
+            this.HCIndexRoutes();
         }
         m_Caches = HCXAISiteDirector.LoadCaches();
         m_BootOwned = HCXAISiteDirector.LoadOwned();
+        if (m_Caches)
+        {
+            foreach (HCXAICacheRow bootCache : m_Caches.Rows)
+            {
+                if (!m_CacheRows.Contains(bootCache.SiteId)) { m_CacheRows.Set(bootCache.SiteId, bootCache); }
+            }
+            m_CacheSave = new HCXAICacheSave();
+            m_CacheSave.Owner = HCXAISiteDirector.Cast(this);
+            HCSaveScheduler.HCRegister(m_CacheSave);
+        }
         Print("[HC Expansion AI] start step=policy_checked");
         if (!this.HCStartLocalities())
         {
@@ -1531,23 +493,43 @@ class HCXAISiteDirector : Managed
         }
         if (m_RouteSave)
         {
-            // Shutdown is the shared scheduler's synchronous owner flush.
             m_RouteSave.HCShutdown = true;
             HCSaveScheduler.HCFlush(m_RouteSave);
             HCSaveScheduler.HCUnregister(m_RouteSave);
             m_RouteSave = null;
         }
         this.SaveOwned();
+        if (m_OwnedSave) { HCSaveScheduler.HCUnregister(m_OwnedSave); }
+        if (m_CacheSave)
+        {
+            HCSaveScheduler.HCFlush(m_CacheSave);
+            HCSaveScheduler.HCUnregister(m_CacheSave);
+        }
+        HCXAIDefaults.HCStopLoadouts();
         m_Phase = "stopped";
         m_LocalityStatus = "off";
         if (m_Localities) { Print(this.HCLocalitySummary()); }
         if (s_Active == this) { s_Active = null; }
     }
+    // Capacity/disabled fallback keeps routine debounce and advances one stage.
+    // Urgency is temporary here; routine mutations never bypass coalescing.
+    protected void HCPumpSiteSave(HCSaveJob job)
+    {
+        if (!job || !job.HCDirty || job.HCFaulted) { return; }
+        if (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(job)) { return; }
+        float now = GetGame().GetTickTime();
+        if (!job.HCInFlight && (now < job.HCDue || (job.HCHasCommitted && now < job.HCLastCommitSeconds + job.HCInterval()))) { return; }
+        job.HCUrgent = true;
+        HCSaveScheduler.HCPumpFallback(job);
+        job.HCUrgent = false;
+    }
+    protected bool HCTakeSiteUnits(int units) { return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, units); }
     void Step()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         m_Ticks++;
-        // Registration capacity cannot strand a dirty cache: advance one stage.
+        this.HCPumpSiteSave(m_CacheSave);
+        this.HCPumpSiteSave(m_OwnedSave);
         if (m_RouteSave && m_RouteSave.HCDirty && !m_RouteSave.HCFaulted && !HCSaveScheduler.HCRegistered(m_RouteSave))
         {
             int routeResult = m_RouteSave.HCStep();
@@ -1562,8 +544,6 @@ class HCXAISiteDirector : Managed
         if (m_Phase == "run")
         {
             m_SurveyTurn = !m_SurveyTurn;
-            // Review the boot image independently of uncached policy routes.
-            // A slow/refused policy site cannot suppress the cache receipt.
             if (m_SurveyTurn) { m_CacheReviewTurn = !m_CacheReviewTurn; }
             if (!m_RoutesWarm && m_SurveyTurn && m_CacheReviewTurn && (!m_Localities || this.HCSurveyReady()))
             {
@@ -1578,106 +558,11 @@ class HCXAISiteDirector : Managed
             this.StepRun();
         }
     }
-    protected void HCRoutesWarm()
-    {
-        if (m_RoutesWarm || m_CachePending.Count() > 0) { return; }
-        m_RoutesWarm = true;
-        m_CacheStates.Clear();
-        m_CachePolicy.Clear();
-        m_CacheReviewIds.Clear();
-        int elapsed;
-        if (m_SurveyStartedMs >= 0) { elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000; }
-        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString());
-    }
-    protected void HCCacheVerdict(string siteId, bool reused)
-    {
-        if (!m_CachePending.Contains(siteId)) { return; }
-        m_CachePending.Remove(siteId);
-        if (reused) { m_CacheHits++; }
-        else { m_CacheDiscarded++; }
-    }
-    protected void HCCacheDiscard(HCXAIRouteRow row, string reason, string field = "")
-    {
-        string diagnostic = reason;
-        if (field != "") { diagnostic += " field=" + field; }
-        if (!m_CacheReasons.Contains(diagnostic))
-        {
-            m_CacheReasons.Set(diagnostic, true);
-            string detail;
-            if (reason == "validity_mismatch" && row.ValidityKey == "") { detail = " detail=missing_validity"; }
-            Print("[HC Expansion AI] route cache discarded reason=" + diagnostic + detail);
-        }
-        this.HCCacheVerdict(row.SiteId, false);
-        m_Routes.Rows.RemoveItem(row);
-        this.SaveRoutes();
-    }
-    // Upgrade repair over the already size/structure-validated boot snapshot.
-    // Preserve order and retained modern rows; one dirty notification for the whole pass.
-    protected void HCDiscardLegacyRoutes()
-    {
-        array<ref HCXAIRouteRow> retained = new array<ref HCXAIRouteRow>;
-        int discarded = 0;
-        foreach (HCXAIRouteRow row : m_Routes.Rows)
-        {
-            if (row.ValidityKey != "") { retained.Insert(row); continue; }
-            discarded++;
-            if (!m_CachePolicy.Contains(row.SiteId)) { m_CacheRetained--; }
-            this.HCCacheVerdict(row.SiteId, false);
-        }
-        if (discarded == 0) { return; }
-        m_Routes.Rows = retained;
-        m_LegacyRoutesDirty = true;
-        Print("[HC Expansion AI] route cache discarded reason=validity_mismatch field=policy detail=missing_validity count=" + discarded.ToString());
-    }
-    protected void HCReviewCachedRoute()
-    {
-        // Structural work uses the site slot. Leave the cache slot's single
-        // starvation grant available for the retained-point sample below.
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
-        HCWorkBudget slice = new HCWorkBudget;
-        slice.HCReset(16, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        while (m_CacheReviewCursor < m_CacheReviewIds.Count() && !m_CachePending.Contains(m_CacheReviewIds[m_CacheReviewCursor]) && slice.HCContinue()) { m_CacheReviewCursor++; }
-        if (m_CacheReviewCursor >= m_CacheReviewIds.Count()) { this.HCRoutesWarm(); return; }
-        string siteId = m_CacheReviewIds[m_CacheReviewCursor];
-        if (!m_CachePending.Contains(siteId)) { return; }
-        HCXAISiteState state = m_CacheStates.Get(siteId);
-        if (!state && m_CachePolicy.Contains(siteId)) { state = this.HCSurveyState(m_CachePolicy.Get(siteId)); }
-        // Operator opt-outs preserve the boot row without binding or sampling.
-        if (state && state.Site.Checkpoint && !HCXAIQualification.EncountersEnabled())
-        {
-            m_CachePending.Remove(siteId);
-            m_CacheRetained++;
-            return;
-        }
-        // A live survey may already have finished or discarded this row. Never
-        // re-enter fresh qualification from the boot review (including FindPath).
-        if (state && (state.Qualified || (state.HCRouteCacheChecked && !state.HCCachedRoute)))
-        {
-            this.HCCacheVerdict(siteId, state.Cached);
-            return;
-        }
-        HCXAIRouteRow row;
-        if (state && state.HCRouteCacheChecked) { row = state.HCCachedRoute; }
-        else
-        {
-            row = this.RouteRow(siteId);
-            if (state) { state.HCCachedRoute = row; state.HCRouteCacheChecked = true; }
-        }
-        if (!row) { this.HCCacheVerdict(siteId, false); return; }
-        if (!state) { this.HCCacheDiscard(row, "site_absent"); return; }
-        if (state.Failed) { this.HCCacheDiscard(row, "site_failed"); return; }
-        // Legacy/changed scalar stamps need no house lookup or route hash.
-        string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity);
-        if (scalarField != "")
-        {
-            this.HCCacheDiscard(row, "validity_mismatch", scalarField);
-            state.HCCachedRoute = null;
-            return;
-        }
-        if (!state.Bound) { this.Bind(state); return; }
-        this.QualifyStep(state, true);
-    }
-
+    protected void HCRoutesWarm() {  }
+    protected void HCCacheVerdict(string siteId, bool reused) {  }
+    protected void HCCacheDiscard(HCXAIRouteRow row, string reason, string field = "") {  }
+    protected void HCDiscardLegacyRoutes() {  }
+    protected void HCReviewCachedRoute() {  }
     protected void StepWait()
     {
         ExpansionAISettings aiSettings = HCXExpansionBridge.HCSettings();
@@ -1685,7 +570,8 @@ class HCXAISiteDirector : Managed
         bool patrolLoaded = false;
         if (aiLoaded) { patrolLoaded = HCXExpansionBridge.HCPatrolSettings() != null; }
         if (!aiLoaded || !patrolLoaded) { return; }
-        HCXAIDefaults.ProvisionLoadouts(m_Policy); // once: the wait phase ends below
+        HCXAIDefaults.ProvisionLoadouts(m_Policy);
+        if (!HCXAIDefaults.HCLoadoutsReady()) { return; }
         HCXAISiteAdmission admission = this.Observe();
         string problem = HCXAISiteRules.AdmissionProblem(m_Policy, admission);
         if (problem != "")
@@ -1698,7 +584,7 @@ class HCXAISiteDirector : Managed
         if (m_Routes && !m_RouteSave)
         {
             m_RouteSave = new HCXAIRouteSave();
-            m_RouteSave.Owner = this;
+            m_RouteSave.Owner = HCXAISiteDirector.Cast(this);
             if (m_LegacyRoutesDirty) { this.SaveRoutes(); m_LegacyRoutesDirty = false; }
             HCSaveScheduler.HCRegister(m_RouteSave);
         }
@@ -1712,18 +598,12 @@ class HCXAISiteDirector : Managed
         m_Filter = new PGFilter();
         int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
         int exclude = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
-        // eAIBase's static default is updated only in its actor constructor.
-        // Cache policy must depend on loaded settings, never actor spawn order.
         if (aiSettings.Vaulting) { include = include | PGPolyFlags.SPECIAL; }
         else { exclude = exclude | PGPolyFlags.SPECIAL; }
         m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
-        // Native: 3_Game/AI/AIWorld.c:1-26 PGPolyFlags, :65 PGFilter.SetFlags. Walkable
-        // outdoor polygons only, as HCEventPoliceNav samples police barrel ground.
         m_OutdoorFilter = new PGFilter();
         int outdoorExclude = PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.DOOR | PGPolyFlags.LADDER | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
         m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, outdoorExclude, PGPolyFlags.NONE);
-        // Small, verbatim qualification key. Per-site Key covers RouteText/build.
-        // Native has no navmesh revision; reused geometry still samples below.
         m_RouteValidity = HCXAISiteRules.HCRouteValidity(m_Build, GetGame().GetWorldName(), m_Policy.MaxLegLength, include, exclude, PGPolyFlags.WALK, outdoorExclude);
         if (m_RouteValidity == "") { Print("[HC Expansion AI] route cache reuse disabled reason=validity_scalars"); }
         foreach (HCXAISite site : m_Policy.Sites)
@@ -1747,8 +627,6 @@ class HCXAISiteDirector : Managed
         m_Phase = "bind";
         m_Cursor = 0;
     }
-    // Installed ai_scripts.pbo eAIFaction.c: GetType/Create. An empty name
-    // resolves to the unregistered base class, so it is skipped, not created.
     protected bool HCFactionFair(string factionName, map<string, bool> factionChecked)
     {
         if (factionName == "" || factionChecked.Contains(factionName)) { return true; }
@@ -1758,7 +636,6 @@ class HCXAISiteDirector : Managed
         if (!faction || HCXExpansionBridge.HCFactionIsInvincible(faction) || HCXExpansionBridge.HCFactionIsObserver(faction) || HCXExpansionBridge.HCFactionIsPassive(faction) || HCXExpansionBridge.HCFactionHasUnlimitedStamina(faction)) { return false; }
         return HCXExpansionBridge.HCFactionGetMeleeDamageMultiplier(faction) == 1 && HCXExpansionBridge.HCFactionGetMeleeYeetForce(faction) == 0;
     }
-    // Every admission input is observed here from the engine, never read from a file.
     protected HCXAISiteAdmission Observe()
     {
         HCXAISiteAdmission a = new HCXAISiteAdmission();
@@ -1776,10 +653,6 @@ class HCXAISiteDirector : Managed
         if (adapter) { a.Globals = adapter.GlobalsProblem(); }
         else { a.Globals = "adapter not bound"; }
         if (a.Globals == "") { a.Globals = HCXAIQualification.ProviderProblem(); }
-        // Admission runs before encounters are armed, so check both the catalog
-        // faction and the provider faction the site takes once armed. Each name
-        // is created once; an empty catalog faction is skipped, because
-        // eAIFaction.Create("") spawns the unregistered base class.
         map<string, bool> factionChecked = new map<string, bool>();
         foreach (HCXAISite factionSite : m_Policy.Sites)
         {
@@ -1787,7 +660,6 @@ class HCXAISiteDirector : Managed
             string armedFaction = HCXFactions.EncounterFaction(factionSite);
             if (!this.HCFactionFair(armedFaction, factionChecked)) { a.UnfairFaction = armedFaction; break; }
         }
-        // The reviewed catalog names a handful of loadouts across hundreds of sites: stat each name once.
         map<string, bool> loadoutChecked = new map<string, bool>();
         foreach (HCXAISite loadoutSite : m_Policy.Sites)
         {
@@ -1804,14 +676,13 @@ class HCXAISiteDirector : Managed
         a.OwnershipReconciled = this.Reconcile();
         return a;
     }
-    // Orphan cleanup: any actor in an "HC:" group at startup belongs to a
-    // previous session (this director has created nothing yet) and is removed.
     protected bool Reconcile()
     {
         HCXAIOwnership previous = m_BootOwned;
         if (!previous) { return false; }
         array<eAIBase> all = new array<eAIBase>();
-        all.Copy(HCXExpansionBridge.HCBaseGetAll());
+        array<eAIBase> observedActors = HCXExpansionBridge.HCBaseGetAll();
+        all.Copy(observedActors);
         int removed = 0;
         foreach (eAIBase actor : all)
         {
@@ -1827,685 +698,35 @@ class HCXAISiteDirector : Managed
         int rows = previous.Rows.Count();
         Print("[HC Expansion AI] sites ownership: previous session " + previous.Session.ToString() + " listed " + rows.ToString() + " live sites; removed " + removed.ToString() + " orphan actors");
         m_Owned = previous;
+        m_OwnedRows.Clear();
+        foreach (HCXAIOwnedRow bootRow : m_Owned.Rows)
+        {
+            if (!m_OwnedRows.Contains(bootRow.SiteId)) { m_OwnedRows.Set(bootRow.SiteId, bootRow); }
+        }
+        if (!m_OwnedSave)
+        {
+            m_OwnedSave = new HCXAIOwnedSave();
+            m_OwnedSave.Owner = HCXAISiteDirector.Cast(this);
+            HCSaveScheduler.HCRegister(m_OwnedSave);
+        }
         m_Owned.Session = previous.Session + 1;
-        // Kills were recorded (and saved) as they happened, so ClearedAt already
-        // locks raided sites across the restart; an intact live group is not
-        // looted gear and is not locked out.
         return this.SaveOwned();
     }
-    protected void StepBind()
-    {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
-        HCWorkBudget slice = new HCWorkBudget;
-        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
-        {
-            if (!m_States[m_Cursor].Bound && !m_States[m_Cursor].Failed) { this.Bind(m_States[m_Cursor]); }
-            if (m_States[m_Cursor].Bound || m_States[m_Cursor].Failed) { m_Cursor++; }
-            work++;
-        }
-        if (m_Cursor < m_States.Count()) { return; }
-        int bound = 0;
-        foreach (HCXAISiteState counted : m_States)
-        {
-            if (counted.Bound) { bound++; }
-        }
-        Print("[HC Expansion AI] sites bound: " + bound.ToString() + "/" + m_States.Count().ToString() + "; qualifying routes on the navmesh");
-        m_Phase = "qualify";
-        m_Cursor = 0;
-    }
-    protected void Bind(HCXAISiteState state)
-    {
-        if (state.Bound || state.Failed) { return; }
-        if (!state.Transient && !m_RoutesWarm) { m_CacheStates.Set(state.Site.Id, state); }
-        // Nearby locality maintenance can arrive before the supplement has
-        // settled. Do not freeze a fallback key before its road route is known.
-        if (m_Localities && !state.Transient && HCXAISiteRules.HCRoadFallback(state.Site, state.LocalityId) && !this.HCSurveyReady()) { return; }
-        // Retain geometry and hash progress independently. The provider uses
-        // static hash storage, so the adapter restores ambient state each call.
-        if (state.HCBindHash)
-        {
-            int partBytes = Math.Min(128, state.HCBindText.Length() - state.HCBindCursor);
-            bool lastPart = state.HCBindCursor + partBytes == state.HCBindText.Length();
-            string digest = HCGapcodeRouteHash.HCRoutePart(state.HCBindHash, state.HCBindText.Substring(state.HCBindCursor, partBytes), lastPart);
-            state.HCBindCursor += partBytes;
-            if (!lastPart) { return; }
-            state.Key = digest;
-            state.HCBindHash = null;
-            state.HCBindText = "";
-            state.Bound = true;
-            return;
-        }
-        HCXAISite site = state.Site;
-        if (site.Kind != "holdout")
-        {
-            foreach (vector waypoint : site.Waypoints)
-            {
-                state.Points.Insert(Vector(waypoint[0], GetGame().SurfaceY(waypoint[0], waypoint[2]), waypoint[2]));
-            }
-        }
-        else
-        {
-            array<Object> objects = new array<Object>();
-            array<CargoBase> cargos = new array<CargoBase>();
-            GetGame().GetObjectsAtPosition(site.HousePosition, 10, objects, cargos);
-            float best = 11;
-            foreach (Object candidate : objects)
-            {
-                if (!candidate || candidate.GetType() != site.HouseClass) { continue; }
-                float gap = vector.Distance(candidate.GetPosition(), site.HousePosition);
-                if (gap < best)
-                {
-                    best = gap;
-                    state.HouseObject = candidate;
-                }
-            }
-            if (!state.HouseObject)
-            {
-                state.Failed = true;
-                state.Reason = "house " + site.HouseClass + " not found at its position";
-                Print("[HC Expansion AI] site " + site.Id + " not bound: " + state.Reason);
-                return;
-            }
-            foreach (vector inner : site.LocalPoints)
-            {
-                state.Points.Insert(state.HouseObject.ModelToWorld(inner));
-            }
-            state.CacheWorld = HCXExpansionBridge.HCPlacementPosition(state.HouseObject.ModelToWorld(site.CacheLocal));
-            state.CacheOrientation = state.HouseObject.GetOrientation();
-        }
-        if (state.Transient)
-        {
-            state.Key = "transient:" + state.ProposalId;
-            state.Bound = true;
-            return;
-        }
-        state.HCBindText = HCXAISiteRules.RouteText(site, m_Build);
-        state.HCBindCursor = 0;
-        state.HCBindHash = new HCGapcodeRouteHashState;
-    }
-    protected HCXAIRouteRow RouteRow(string siteId)
-    {
-        if (siteId.Length() >= 10 && siteId.Substring(0, 10) == "transient:") { return null; }
-        foreach (HCXAIRouteRow row : m_Routes.Rows)
-        {
-            if (row.SiteId == siteId) { return row; }
-        }
-        return null;
-    }
-    protected void StepQualify()
-    {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 64)) { return; }
-        HCWorkBudget slice = new HCWorkBudget;
-        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
-        {
-            HCXAISiteState state = m_States[m_Cursor];
-            if (!state.Bound || state.Failed || state.Qualified)
-            {
-                m_Cursor++;
-                continue;
-            }
-            int callsBefore = state.PathCalls;
-            this.QualifyStep(state);
-            work++;
-            if (state.PathCalls > callsBefore) { return; }
-        }
-        if (m_Cursor < m_States.Count()) { return; }
-        int qualified = 0;
-        foreach (HCXAISiteState counted : m_States)
-        {
-            if (counted.Qualified) { qualified++; }
-        }
-        this.HCRoutesWarm();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v6; cached geometry or navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
-        m_Phase = "create";
-        m_Cursor = 0;
-    }
-    // One retained unit: one authored sample, one native FindPath, or at most
-    // 8 script path segments. Outdoor partial paths resume from their actual end.
-    protected void QualifyStep(HCXAISiteState state, bool cacheOnly = false)
-    {
-        if (cacheOnly && (state.Qualified || !state.HCCachedRoute || state.HCOutdoorSampling || state.HCPathReady)) { this.HCCacheVerdict(state.Site.Id, state.Cached); return; }
-        if (state.HCOutdoorSampling) { this.HCOutdoorStep(state); return; }
-        if (state.HCPathReady) { this.HCFinishPath(state); return; }
-        AIWorld world = GetGame().GetWorld().GetAIWorld();
-        // A state's route/build key is immutable once bound. Resolve once,
-        // including cache misses, rather than scanning the journal on every
-        // sample, chain continuation and native-path visit.
-        if (!state.HCRouteCacheChecked)
-        {
-            state.HCCachedRoute = this.RouteRow(state.Site.Id);
-            state.HCRouteCacheChecked = true;
-        }
-        HCXAIRouteRow cached = state.HCCachedRoute;
-        if (cached)
-        {
-            string cacheProblem;
-            string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity);
-            if (cacheField != "") { cacheProblem = "validity_mismatch"; }
-            else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2 || cached.Waypoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())) { cacheProblem = "no_geometry"; }
-            if (cacheProblem == "")
-            {
-                if (!cached.Qualified)
-                {
-                    if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
-                    this.HCCacheVerdict(state.Site.Id, true);
-                    state.Failed = true;
-                    state.Reason = cached.Reason;
-                    Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
-                    return;
-                }
-                int tick = GetGame().GetTime();
-                if (m_CacheSampleTick != tick) { m_CacheSampleTick = tick; m_CacheSamples = 0; }
-                if (m_CacheSamples >= 4 || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1)) { return; }
-                m_CacheSamples++;
-                vector point = cached.Waypoints[state.HCCacheCursor];
-                // Live qualification can skip a middle anchor, leaving a kept
-                // leg spanning two authored legs plus sampling/snap allowance.
-                float maxCachedLeg = m_Policy.MaxLegLength * 2 + 32;
-                if (!HCXAIRules.PositionValid(point, 16000)) { cacheProblem = "waypoint_bounds"; }
-                else if (state.HCCacheCursor > 0 && vector.DistanceSq(cached.Waypoints[state.HCCacheCursor - 1], point) > maxCachedLeg * maxCachedLeg) { cacheProblem = "waypoint_leg"; }
-                else if (state.HCCacheCursor == cached.Waypoints.Count() - 1 && !cached.OpenRoute && state.Site.Behaviour == "LOOP" && vector.DistanceSq(point, cached.Waypoints[0]) > maxCachedLeg * maxCachedLeg) { cacheProblem = "closing_leg"; }
-                else
-                {
-                    vector sampled = this.NavSample(point, 0.5, m_Filter);
-                    if (sampled == vector.Zero || vector.Distance(sampled, point) > 0.5) { cacheProblem = "waypoint_sample"; }
-                }
-                if (cacheProblem == "")
-                {
-                    state.HCCacheCursor++;
-                    if (state.HCCacheCursor < cached.Waypoints.Count()) { return; }
-                    state.PatrolPoints.Copy(cached.Waypoints);
-                    state.OpenRoute = cached.OpenRoute;
-                    state.Qualified = true;
-                    this.HCReusedRoute(state);
-                    return;
-                }
-            }
-            this.HCCacheDiscard(cached, cacheProblem, cacheField);
-            state.HCCachedRoute = null;
-            return;
-        }
-        if (cacheOnly) { this.HCCacheVerdict(state.Site.Id, false); return; }
-        float radius = 12;
-        if (state.Site.Kind == "holdout") { radius = 2; }
-        if (state.Sampled.Count() < state.Points.Count())
-        {
-            if (state.Points.Count() < 2 || state.Points.Count() > 8)
-            {
-                this.Refuse(state, "2..8 authored waypoints are required");
-                return;
-            }
-            vector wanted = state.Points[state.Sampled.Count()];
-            {
-                vector found = this.NavSample(wanted, radius, m_Filter);
-                if (found == vector.Zero)
-                {
-                    this.Refuse(state, HCXAISiteRules.LegProblem(false, false, 0, 0, 0, 0));
-                    return;
-                }
-                state.Sampled.Insert(found);
-            }
-            if (state.Sampled.Count() < state.Points.Count()) { return; }
-            state.PatrolPoints.Insert(state.Sampled[0]);
-            return;
-        }
-        int authoredCount = state.Sampled.Count();
-        if (authoredCount < 2 || authoredCount > 8)
-        {
-            this.Refuse(state, "2..8 authored waypoints are required");
-            return;
-        }
-        int minimum = HCXAISiteRules.RouteMinimum(state.Site.Kind);
-        bool closing = state.Leg >= authoredCount - 1;
-        if (closing && state.Kept < minimum && authoredCount - state.StartIndex - 1 >= minimum)
-        {
-            // Too few later targets were reachable (an isolated first point, or
-            // an isolated kept group). Drop the first point, retry all later
-            // points, and keep the site's consumed-call budget.
-            state.StartIndex++;
-            state.Kept = 1;
-            state.Leg = state.StartIndex;
-            state.Skipped = state.StartIndex;
-            state.Snapped = 0;
-            state.SkippedPoints = "";
-            int droppedIndex = 0;
-            while (droppedIndex < state.StartIndex)
-            {
-                state.SkippedPoints = state.SkippedPoints + " " + droppedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[droppedIndex]);
-                droppedIndex++;
-            }
-            state.PatrolPoints.Clear();
-            state.PatrolPoints.Insert(state.Sampled[state.StartIndex]);
-            state.AttemptPoints.Clear();
-            state.ChainSteps = 0;
-            return;
-        }
-        if (closing && state.Kept < minimum)
-        {
-            this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
-            return;
-        }
-        // A reduced rural route uses only its proven forward leg. ONCE does
-        // not ask Expansion to walk an unqualified reverse/closing connection.
-        if (closing && state.Kept == 2 && state.Site.Kind != "holdout") { state.OpenRoute = true; }
-        if (closing && (state.Site.Behaviour != "LOOP" || state.Closed || state.OpenRoute))
-        {
-            state.Qualified = true;
-            state.Reason = "";
-            HCXAIRouteRow passed = new HCXAIRouteRow();
-            passed.Key = state.Key;
-            passed.SiteId = state.Site.Id;
-            passed.Qualified = true;
-            passed.ValidityKey = m_RouteValidity;
-            passed.OpenRoute = state.OpenRoute;
-            if (state.PatrolPoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())
-            {
-                state.Qualified = false;
-                this.Refuse(state, "route geometry exceeds cache cap");
-                return;
-            }
-            passed.Waypoints.Copy(state.PatrolPoints);
-            if (m_PolicySiteIds.Contains(state.Site.Id) && !m_RouteResults.Contains(state.Site.Id)) { m_Requalified++; }
-            this.Remember(passed);
-            int legs = state.Kept - 1;
-            if (state.Closed) { legs++; }
-            string sampling = "navmesh";
-            if (state.OutdoorPass) { sampling = "outdoor"; }
-            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v6 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
-            qualifiedLine = qualifiedLine + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute);
-            qualifiedLine = qualifiedLine + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints;
-            Print("" + qualifiedLine);
-            return;
-        }
-        if (state.PathCalls >= 96)
-        {
-            this.Refuse(state, "route search budget");
-            return;
-        }
-        vector legFrom = state.PatrolPoints[state.PatrolPoints.Count() - 1];
-        vector legTo = state.Sampled[(state.Leg + 1) % authoredCount];
-        if (closing) { legTo = state.PatrolPoints[0]; }
-        if (state.ChainSteps == 0)
-        {
-            state.ChainFrom = legFrom;
-            state.ChainLength = 0;
-            state.ClosestEnd = legFrom;
-            state.ClosestGap = vector.Distance(legFrom, legTo);
-            state.AttemptPoints.Clear();
-        }
-        state.HCPath.Clear();
-        int nativeBegan = TickCount(0);
-        bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, state.HCPath);
-        this.HCSiteStageCost("native_path", nativeBegan);
-        if (!pathFound) { state.HCPath.Clear(); }
-        state.PathCalls++;
-        state.ChainSteps++;
-        state.HCPathReady = true;
-        state.HCPathCursor = 1;
-        state.HCPathLength = 0;
-        // Yield even when the native call was fast; never append script path
-        // traversal to an unpreemptible native query in the same slice.
-    }
-    protected void HCFinishPath(HCXAISiteState state)
-    {
-        int postBegan = TickCount(0);
-        TVectorArray path = state.HCPath;
-        int pathPoints = path.Count();
-        int processed = 0;
-        while (state.HCPathCursor < pathPoints && processed < 8)
-        {
-            int index = state.HCPathCursor;
-            state.HCPathLength += vector.Distance(path[index - 1], path[index]);
-            state.HCPathCursor++;
-            processed++;
-        }
-        this.HCSiteStageCost("path_post", postBegan);
-        if (state.HCPathCursor < pathPoints) { return; }
-        state.HCPathReady = false;
-        float length = state.HCPathLength;
-        float endGap = 1000;
-        int authoredCount = state.Sampled.Count();
-        int minimum = HCXAISiteRules.RouteMinimum(state.Site.Kind);
-        bool closing = state.Leg >= authoredCount - 1;
-        vector legFrom = state.PatrolPoints[state.PatrolPoints.Count() - 1];
-        vector legTo = state.Sampled[(state.Leg + 1) % authoredCount];
-        if (closing) { legTo = state.PatrolPoints[0]; }
-        vector pathEnd = state.ChainFrom;
-        float advance = 0;
-        if (pathPoints > 0)
-        {
-            pathEnd = path[pathPoints - 1];
-            endGap = vector.Distance(pathEnd, legTo);
-            advance = vector.Distance(state.ChainFrom, pathEnd);
-            if (state.ChainSteps == 1 || endGap < state.ClosestGap)
-            {
-                state.ClosestGap = endGap;
-                state.ClosestEnd = pathEnd;
-            }
-        }
-        state.ChainLength = state.ChainLength + length;
-        string problem = HCXAISiteRules.ChainAction(state.Site.Kind, state.ChainSteps, pathPoints, endGap, advance, state.ChainLength, vector.Distance(legFrom, legTo));
-        // A closing near miss keeps stepping toward the first point, as chain-v2
-        // did, before falling back to native ONCE.
-        if (closing && problem == "snap" && state.Site.Kind != "holdout" && advance >= 0.5 && state.ChainSteps < 16) { problem = "continue"; }
-        if (problem == "continue")
-        {
-            state.AttemptPoints.Insert(pathEnd);
-            state.ChainFrom = pathEnd;
-            state.Continuations++;
-            return;
-        }
-        // A closing snap would move the first point and invalidate its outgoing
-        // qualified leg. Keep that first point and use native ONCE instead.
-        if (closing && problem == "snap") { problem = "closing path ends short of the waypoint"; }
-        if (problem != "" && problem != "snap")
-        {
-            state.Reason = "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo);
-            state.Reason = state.Reason + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString();
-            state.AttemptPoints.Clear();
-            state.ChainSteps = 0;
-            if (closing)
-            {
-                state.OpenRoute = true;
-                return;
-            }
-            int skippedIndex = state.Leg + 1;
-            state.Skipped++;
-            state.SkippedPoints = state.SkippedPoints + " " + skippedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[skippedIndex]);
-            state.Leg++;
-            // Refuse immediately when no remaining/restarted route can meet
-            // the minimum; keep the final leg diagnostic for data correction.
-            if (state.Leg >= authoredCount - 1 && state.Kept < minimum && authoredCount - state.StartIndex - 1 < minimum)
-            {
-                this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
-            }
-            return;
-        }
-        foreach (vector acceptedEnd : state.AttemptPoints)
-        {
-            state.PatrolPoints.Insert(acceptedEnd);
-        }
-        state.AttemptPoints.Clear();
-        state.ChainSteps = 0;
-        if (closing)
-        {
-            state.Closed = true;
-            return;
-        }
-        // A snap keeps the end of the path that qualified it (endGap above).
-        if (problem == "snap") { legTo = pathEnd; }
-        vector lastKept = state.PatrolPoints[state.PatrolPoints.Count() - 1];
-        if (!HCXAISiteRules.SnapKeeps(lastKept, legTo))
-        {
-            int mergedIndex = state.Leg + 1;
-            state.Skipped++;
-            state.SkippedPoints = state.SkippedPoints + " " + mergedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[mergedIndex]);
-            state.Leg++;
-            return;
-        }
-        if (problem == "snap") { state.Snapped++; }
-        state.PatrolPoints.Insert(legTo);
-        state.Kept++;
-        state.Leg++;
-    }
-    // Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition (false leaves the
-    // output untouched). vector.Zero means no sample, as in HCEventPoliceNav.
-    protected vector NavSample(vector wanted, float radius, PGFilter filter)
-    {
-        AIWorld world = GetGame().GetWorld().GetAIWorld();
-        if (!world) { return vector.Zero; }
-        vector found = wanted;
-        int sampleBegan = TickCount(0);
-        bool sampled = world.SampleNavmeshPosition(wanted, radius, filter, found);
-        this.HCSiteStageCost("native_sample", sampleBegan);
-        if (!sampled) { return vector.Zero; }
-        return found;
-    }
-    // Outdoor walkable ground near the terrain (Game.c:1176 SurfaceY); a sample
-    // more than 2 m off the terrain is a roof, deck or ramp and is refused.
-    protected vector GroundSample(vector probe, float radius)
-    {
-        vector found = this.NavSample(probe, radius, m_OutdoorFilter);
-        if (found == vector.Zero) { return vector.Zero; }
-        if (Math.AbsFloat(found[1] - GetGame().SurfaceY(found[0], found[2])) > 2) { return vector.Zero; }
-        return found;
-    }
-    // A refused outdoor route gets one retry with outdoor-ground samples. The
-    // first pass is unchanged, so routes that qualify keep their FindPath
-    // sequence. PathCalls and Continuations stay cumulative: one 96-call budget.
-    protected void RefuseOrRetry(HCXAISiteState state, string reason)
-    {
-        int count = state.Sampled.Count();
-        if (state.Site.Kind == "holdout" || state.OutdoorPass || state.PathCalls >= 96 || count < HCXAISiteRules.RouteMinimum(state.Site.Kind) || state.Points.Count() != count)
-        {
-            this.Refuse(state, reason);
-            return;
-        }
-        state.OutdoorPass = true;
-        state.HCOutdoorSampling = true;
-        state.HCOutdoorCursor = 0;
-        state.HCOutdoorReason = reason;
-        state.Outdoor = 0;
-    }
-    protected void HCOutdoorStep(HCXAISiteState state)
-    {
-        int outdoorBegan = TickCount(0);
-        int index = state.HCOutdoorCursor;
-        // One native sample per retained outdoor unit, including the four
-        // fallback probes. The old helper ran all five before yielding.
-        vector wanted = state.Points[index];
-        vector found;
-        if (state.HCOutdoorProbe == 0)
-        {
-            found = this.GroundSample(wanted, 16);
-            if (found == vector.Zero) { state.HCOutdoorProbe = 1; return; }
-        }
-        else
-        {
-            float dx = 0;
-            float dz = 0;
-            if (state.HCOutdoorProbe == 1) { dx = 12; }
-            if (state.HCOutdoorProbe == 2) { dx = -12; }
-            if (state.HCOutdoorProbe == 3) { dz = 12; }
-            if (state.HCOutdoorProbe == 4) { dz = -12; }
-            float px = wanted[0] + dx;
-            float pz = wanted[2] + dz;
-            vector candidate = this.GroundSample(Vector(px, GetGame().SurfaceY(px, pz), pz), 8);
-            if (candidate != vector.Zero)
-            {
-                float gap = vector.Distance(Vector(candidate[0], 0, candidate[2]), Vector(wanted[0], 0, wanted[2]));
-                if (gap < state.HCOutdoorBestGap) { state.HCOutdoorBestGap = gap; state.HCOutdoorBest = candidate; }
-            }
-            state.HCOutdoorProbe++;
-            if (state.HCOutdoorProbe <= 4) { return; }
-            found = state.HCOutdoorBest;
-        }
-        state.HCOutdoorProbe = 0;
-        state.HCOutdoorBest = vector.Zero;
-        state.HCOutdoorBestGap = 1000;
-        if (found != vector.Zero) { state.Sampled[index] = found; state.Outdoor++; }
-        state.HCOutdoorCursor++;
-        this.HCSiteStageCost("outdoor_sample", outdoorBegan);
-        if (state.HCOutdoorCursor < state.Points.Count()) { return; }
-        state.HCOutdoorSampling = false;
-        if (state.Outdoor == 0) { this.Refuse(state, state.HCOutdoorReason); return; }
-        Print("[HC Expansion AI] site " + state.Site.Id + " route retry with outdoor ground samples outdoor=" + state.Outdoor.ToString() + " after: " + state.HCOutdoorReason);
-        state.PatrolPoints.Clear();
-        state.PatrolPoints.Insert(state.Sampled[0]);
-        state.AttemptPoints.Clear();
-        state.Leg = 0;
-        state.StartIndex = 0;
-        state.Kept = 1;
-        state.Skipped = 0;
-        state.Snapped = 0;
-        state.SkippedPoints = "";
-        state.ChainSteps = 0;
-        state.Closed = false;
-        state.OpenRoute = false;
-        state.Reason = "";
-    }
-    protected void Refuse(HCXAISiteState state, string reason)
-    {
-        string text = reason;
-        if (state.OutdoorPass) { text = "outdoor=" + state.Outdoor.ToString() + "/" + state.Sampled.Count().ToString() + "; " + reason; }
-        state.Failed = true;
-        state.Reason = text;
-        HCXAIRouteRow failed = new HCXAIRouteRow();
-        failed.Key = state.Key;
-        failed.SiteId = state.Site.Id;
-        failed.Qualified = false;
-        failed.ValidityKey = m_RouteValidity;
-        failed.Reason = text;
-        this.Remember(failed);
-        Print("[HC Expansion AI] site " + state.Site.Id + " route refused: " + text);
-    }
-    protected void HCReusedRoute(HCXAISiteState state)
-    {
-        state.Cached = true;
-        this.HCCacheVerdict(state.Site.Id, true);
-        HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_cache");
-    }
-    protected void Remember(HCXAIRouteRow row)
-    {
-        // Transient route outcomes live only in their temporary state.
-        if (row.SiteId.Length() >= 10 && row.SiteId.Substring(0, 10) == "transient:") { return; }
-        int index = m_Routes.Rows.Count() - 1;
-        while (index >= 0)
-        {
-            if (m_Routes.Rows[index].SiteId == row.SiteId) { m_Routes.Rows.Remove(index); }
-            index--;
-        }
-        if (m_Routes.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows())
-        {
-            this.HCCacheVerdict(m_Routes.Rows[0].SiteId, false);
-            m_Routes.Rows.Remove(0);
-        }
-        m_Routes.Rows.Insert(row);
-        this.SaveRoutes();
-        if (row.Qualified) { HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_cache"); }
-    }
-    protected void StepCreate()
-    {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 8)) { return; }
-        HCWorkBudget slice = new HCWorkBudget;
-        slice.HCReset(HCXAISiteDirector.WORK_PER_TICK, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
-        int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && slice.HCContinue())
-        {
-            HCXAISiteState state = m_States[m_Cursor];
-            m_Cursor++;
-            if (!state.Qualified || state.Patrol) { continue; }
-            this.Create(state);
-            work++;
-        }
-        if (m_Cursor < m_States.Count()) { return; }
-        int created = 0;
-        string ids = "";
-        foreach (HCXAISiteState counted : m_States)
-        {
-            if (!counted.Patrol) { continue; }
-            created++;
-            ids = ids + " " + counted.Site.Id;
-        }
-        Print("[HC Expansion AI] sites created: " + created.ToString() + " native dynamic patrols (activate when a player is inside ActivationRadius and every player is beyond MinPlayerDistance):" + ids);
-        m_Phase = "run";
-    }
-    protected void Create(HCXAISiteState state)
-    {
-        HCXAISite site = state.Site;
-        ExpansionAIDynamicSpawnBase config = new HCXAISiteSpawnConfig();
-        config.Name = "HC:" + site.Id;
-        string populationKind = site.Kind;
-        if (site.Kind == "holdout") { populationKind = "occupation"; }
-        if (site.Kind == "scavenger") { populationKind = "party"; }
-        int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, site.Id, populationKind);
-        if (state.Transient) { population = site.NumberOfAIMax; }
-        HCXZoneGuardsSite zoneSite = HCXZoneGuardsSite.Cast(site);
-        if (zoneSite) { population = zoneSite.Members; }
-        site.NumberOfAI = population;
-        site.NumberOfAIMax = population;
-        config.NumberOfAI = population;
-        config.NumberOfAIMax = population;
-        config.Speed = site.Speed;
-        config.UnderThreatSpeed = "SPRINT";
-        config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);
-        config.Faction = HCXFactions.SiteFaction(site);
-        if (state.Transient) { config.Faction = state.ProviderFaction; }
-        if (zoneSite) { config.Faction = zoneSite.ProviderFaction; }
-        config.Loadout = site.Loadout;
-        config.Persist = false;
-        config.CanBeLooted = true;
-        config.UnlimitedReload = 0;
-        config.Chance = 1.0;
-        config.CanBeTriggeredByAI = false;
-        config.CanSpawnInContaminatedArea = false;
-        // Expansion stores its trigger centre once. A player inside the old
-        // inner radius must still be able to trigger a relocated ring spawn.
-        // HC's current-position distance + LOS checks remain authoritative in
-        // CanSpawn, Spawn and every deferred member callback.
-        config.MinDistRadius = 0;
-        // Start with the event-binding radius (EncounterRadius), then apply
-        // operator activation tuning. Perception and event bindings stay native.
-        config.MaxDistRadius = this.HCActivationRadius(site, state.Transient);
-        config.DespawnRadius = config.MaxDistRadius + 100;
-        config.DespawnTime = site.DespawnSeconds;
-        config.RespawnTime = HCXAISiteDirector.HCRespawnDelay(site, m_Policy);
-        if (state.Transient) { config.RespawnTime = -1; }
-        config.MinSpreadRadius = 0;
-        config.MaxSpreadRadius = 0;
-        config.DamageMultiplier = 1;
-        config.DamageReceivedMultiplier = 1;
-        config.HeadshotResistance = 0;
-        config.ShoryukenChance = 0;
-        config.ShoryukenDamageMultiplier = 1;
-        config.EnableFlankingOutsideCombat = 0;
-        config.AccuracyMin = HCXAISiteRules.AccuracyMin(site.Kind);
-        config.AccuracyMax = HCXAISiteRules.AccuracyMax(site.Kind);
-        config.ThreatDistanceLimit = HCXAISiteRules.ThreatDistance(site.Kind);
-        config.NoiseInvestigationDistanceLimit = HCXAISiteRules.NoiseDistance(site.Kind);
-        config.MaxFlankingDistance = HCXAISiteRules.FlankDistance(site.Kind);
-        config.LootingBehaviour = "NONE";
-        config.UseRandomWaypointAsStartPoint = false;
-        if (site.Kind == "holdout")
-        {
-            config.Formation = "File";
-            config.FormationScale = 1.0;
-        }
-        config.Waypoints = new TVectorArray();
-        foreach (vector point : state.PatrolPoints)
-        {
-            config.Waypoints.Insert(point);
-        }
-        string providerIssue = HCXAIQualification.ProviderProblem();
-        if (providerIssue == "" && !HCXFactions.Registered(config.Faction)) { providerIssue = "unregistered faction '" + config.Faction + "'"; }
-        if (providerIssue == "") { providerIssue = HCXAIRules.PatrolProblem(config, state.PatrolPoints); }
-        if (providerIssue != "")
-        {
-            Print("[HollowCountry] Living AI admission refused: " + site.Id + ": " + providerIssue);
-            return;
-        }
-        // Installed ai_scripts.pbo eAIDynamicPatrol.c:287 autostarts Setup;
-        // :752-755 creates the radius trigger, which calls our guarded Spawn.
-        // Authored sites do not need a MaterializerBridge proposal to spawn.
-        HCXAISitePatrol patrol = HCXExpansionBridge.HCCreatePatrol(config, vector.Zero);
-        if (!patrol)
-        {
-            Print("[HC Expansion AI] site " + site.Id + " native patrol setup refused");
-            return;
-        }
-        patrol.m_HCSiteId = site.Id;
-        patrol.m_HCKind = site.Kind;
-        patrol.m_HCGroupMax = site.NumberOfAIMax;
-        patrol.m_HCAuthoredMin = site.NumberOfAI;
-        patrol.m_HCAuthoredMax = site.NumberOfAIMax;
-        patrol.m_HCTransient = state.Transient;
-        state.Patrol = patrol;
-        if (!state.Transient) { Print("[HC Expansion AI] site " + site.Id + " configured respawn=" + config.RespawnTime.ToString() + "s; raid timestamps persist in expansion-ai-owned.json"); }
-    }
+    protected void StepBind() {  }
+    protected void Bind(HCXAISiteState state) {  }
+    protected HCXAIRouteRow RouteRow(string siteId) { return null; }
+    protected void StepQualify() {  }
+    protected void QualifyStep(HCXAISiteState state, bool cacheOnly = false) {  }
+    protected void HCFinishPath(HCXAISiteState state) {  }
+    protected vector NavSample(vector wanted, float radius, PGFilter filter) { return vector.Zero; }
+    protected vector GroundSample(vector probe, float radius) { return vector.Zero; }
+    protected void RefuseOrRetry(HCXAISiteState state, string reason) {  }
+    protected void HCOutdoorStep(HCXAISiteState state) {  }
+    protected void Refuse(HCXAISiteState state, string reason) {  }
+    protected void HCReusedRoute(HCXAISiteState state) {  }
+    protected void Remember(HCXAIRouteRow row) {  }
+    protected void StepCreate() {  }
+    protected void Create(HCXAISiteState state) {  }
     float HCActivationRadius(HCXAISite site, bool transient)
     {
         float radius = site.ActivationRadius;
@@ -2513,9 +734,6 @@ class HCXAISiteDirector : Managed
         float scale = m_Policy.ActivationRadiusScale;
         if (scale == 0) { scale = 1.0; }
         radius = radius * scale;
-        // ExpansionAIPatrolBase.c:218-219; eAIDynamicPatrol.c:172-185
-        // (installed read-only xref): native minimum/maximum trigger distances.
-        // Scaled authored radius stays a lower bound, widened to SpawnMax.
         float clamped = HCPerceptionRing.HCClampActivation(radius);
         if (clamped != radius && !m_RadiusClampLogged)
         {
@@ -2526,11 +744,7 @@ class HCXAISiteDirector : Managed
     }
     protected void StepRun()
     {
-        // Retry independently of the stage: multiples of 60 always land on
-        // an early-return stage in the eight-visit rotation.
-        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.SaveOwned(); }
-        // Locality maintenance every second visit; rotate the other upkeep
-        // paths between those visits so no adjunct consumes its whole tick.
+        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.HCQueueOwned(); }
         int stage = 0;
         if (m_RunStage % 2 == 1) { stage = 1 + m_RunStage / 2; }
         m_RunStage = (m_RunStage + 1) % 8;
@@ -2556,7 +770,6 @@ class HCXAISiteDirector : Managed
         int pending = m_Policy.Sites.Count() - m_QualifiedCount - m_RefusedCount;
         string summary = "[HC Expansion AI] sites summary: qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " pending=" + pending.ToString();
         string spawnStatusLine = "[HC Expansion AI] spawn summary admitted=" + m_AdmittedTotal.ToString() + " spawned=" + m_SpawnedTotal.ToString() + " relocated=" + m_RelocatedTotal.ToString() + " runtime=PENDING";
-        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
         float spawnStatusLineNow = GetGame().GetTickTime();
         if (spawnStatusLine != m_SpawnLogLine || spawnStatusLineNow < m_SpawnLogAt || spawnStatusLineNow - m_SpawnLogAt >= 1800)
         {
@@ -2584,7 +797,6 @@ class HCXAISiteDirector : Managed
         m_LastSummaryQualified = m_QualifiedCount;
         summary += " qualified_per_s=" + qualifiedRate.ToString() + " survey_cursor=" + m_SurveyCursor.ToString();
         string sitesStatusLine = summary + " active_sites=" + sites.ToString() + " actors=" + actors.ToString() + " controllers=" + m_States.Count().ToString() + " runtime=PENDING";
-        // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
         float sitesStatusLineNow = GetGame().GetTickTime();
         if (sitesStatusLine != m_SitesLogLine || sitesStatusLineNow < m_SitesLogAt || sitesStatusLineNow - m_SitesLogAt >= 1800)
         {
@@ -2593,8 +805,6 @@ class HCXAISiteDirector : Managed
             m_SitesLogAt = sitesStatusLineNow;
         }
     }
-    // Diagnostic only (marker off by default): the first created site of each
-    // kind spawns once with no player so Wine runs can observe loadouts.
     protected void StepDiagnostic()
     {
         map<string, bool> done = new map<string, bool>();
@@ -2614,216 +824,18 @@ class HCXAISiteDirector : Managed
         Print("[HC Expansion AI] DIAGNOSTIC spawn of site " + selected.Site.Id + " (" + selected.Site.Kind + ")");
         HCXExpansionBridge.HCSitePatrolSpawn(selected.Patrol);
     }
-    // Select only an unmaterialized outdoor patrol anchor. HCFindLand is a
-    // proposal; navmesh, route reachability and final sight veto still own it.
-    // Native Game.c:1196 SurfaceIsSea, :1197 SurfaceIsPond; Object.c:287
-    // GetPosition, :517 IsAlive; Man.c:21 GetIdentity; AIWorld.c:98 FindPath.
-    // Expansion eAIDynamicPatrol.c:17 m_Position, :617 SpawnAI(m_Position).
-    string HCPrepareRingSpawn(HCXAISitePatrol patrol)
-    {
-        if (!m_Policy || m_Phase != "run") { return "sites not running"; }
-        if (patrol.m_Group || patrol.m_HCTransient || patrol.m_HCKind == "holdout") { return ""; }
-        vector original = patrol.m_Position;
-        float minimum = HCPerceptionRing.HCSpawnMin();
-        if (this.NearestPlayer(original) >= minimum && !GetGame().SurfaceIsSea(original[0], original[2]) && !GetGame().SurfaceIsPond(original[0], original[2])) { return ""; }
-        this.HCRefreshPlayers();
-        array<vector> ringObservers = new array<vector>();
-        array<Man> ringPlayers = m_Players;
-        vector centre = vector.Zero;
-        float nearestGap = -1;
-        foreach (Man ringPlayer : ringPlayers)
-        {
-            if (!ringPlayer || !ringPlayer.GetIdentity() || !ringPlayer.IsAlive()) { continue; }
-            vector observerPoint = ringPlayer.GetPosition();
-            ringObservers.Insert(observerPoint);
-            float observerGap = vector.Distance(observerPoint, original);
-            if (nearestGap < 0 || observerGap < nearestGap) { centre = observerPoint; nearestGap = observerGap; }
-        }
-        if (ringObservers.Count() == 0) { return "spawn_ring_search_unavailable"; }
-        int ringNowMs = GetGame().GetTime();
-        if (ringNowMs < patrol.m_HCRingRetryMs || ringNowMs < m_RingNextProbeMs) { return "spawn_ring_work_pending"; }
-        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_RING, HCUnitBudget.HC_WORK_AI_SITES, 64)) { return "spawn_ring_work_pending"; }
-        m_RingNextProbeMs = ringNowMs + 1000;
-        // Leave enough round-robin opportunity for every armed controller;
-        // otherwise the first five failing callbacks monopolize a 5 s retry.
-        patrol.m_HCRingRetryMs = ringNowMs + Math.Max(5000, m_States.Count() * 2000);
-        HCPerceptionRingPick pick = HCPerceptionRing.HCFindLand(centre, m_RingDegrees, ringObservers, m_RingCandidates);
-        if (pick.Reason != "")
-        {
-            m_RingDegrees += 180.0 / m_RingCandidates;
-            if (m_RingDegrees >= 360.0) { m_RingDegrees -= 360.0; }
-            return pick.Reason;
-        }
-        HCServer.HCTickWork().HCCharge(1);
-        string ringProblem = this.HCRingPickProblem(pick, centre, ringObservers, original);
-        if (ringProblem != "")
-        {
-            // Step past the refused candidate (half a slot interleaves the next pass).
-            m_RingDegrees = m_RingDegrees + 360.0 * (pick.Attempts + 0.5) / m_RingCandidates;
-            while (m_RingDegrees >= 360.0) { m_RingDegrees = m_RingDegrees - 360.0; }
-            return ringProblem;
-        }
-        patrol.m_HCRingRetryMs = 0;
-        patrol.m_Position = m_RingGround;
-        m_RelocatedTotal++;
-        if (!patrol.m_HCRingLogged)
-        {
-            patrol.m_HCRingLogged = true;
-            Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " spawn ring relocated; runtime=PENDING");
-        }
-        return "";
-    }
-
+    string HCPrepareRingSpawn(HCXAISitePatrol patrol) { return ""; }
     protected vector m_RingGround;
-
-    protected string HCRingPickProblem(HCPerceptionRingPick pick, vector centre, array<vector> ringObservers, vector original)
-    {
-        vector ground = this.GroundSample(pick.Position, HCPerceptionRing.HCGet().SpawnMarginMeters);
-        if (ground == vector.Zero || !HCPerceptionRing.HCClearOfObservers(ground, ringObservers)) { return "spawn_ring_ground_unavailable"; }
-        if (vector.Distance(ground, centre) > HCPerceptionRing.HCSpawnMax()) { return "spawn_ring_ground_outside_band"; }
-        string routeProblem = this.HCRingRouteProblem(ground, original);
-        if (routeProblem != "") { return routeProblem; }
-        string observerProblem = this.MemberProblemFor(ground);
-        if (observerProblem != "") { return observerProblem; }
-        // No actor exists here. Provider owns the eventual fresh spawn.
-        m_RingGround = ground;
-        return "";
-    }
-
-    protected string HCRingRouteProblem(vector start, vector target)
-    {
-        AIWorld ringWorld = GetGame().GetWorld().GetAIWorld();
-        if (!ringWorld) { return "spawn_ring_navmesh_unavailable"; }
-        TVectorArray ringPath = new TVectorArray();
-        HCServer.HCTickWork().HCCharge(1);
-        int ringBegan = TickCount(0);
-        bool ringFound = ringWorld.FindPath(start, target, m_Filter, ringPath);
-        this.HCSiteStageCost("ring_native_path", ringBegan);
-        if (!ringFound || ringPath.Count() < 2) { return "spawn_ring_route_unreachable"; }
-        // Match the route qualifier's 2.5 m terminal tolerance, including height.
-        // Large partial paths remain refused; no actor or route is teleported.
-        if (vector.DistanceSq(ringPath[ringPath.Count() - 1], target) > 6.25) { return "spawn_ring_route_incomplete"; }
-        return "";
-    }
-    string SpawnProblemFor(HCXAISitePatrol patrol)
-    {
-        if (!m_Policy || m_Phase != "run") { return "sites not running"; }
-        if (patrol.m_HCFinished) { return "transient site completed"; }
-        if (!m_OwnedSaved) { return "raid ownership save pending"; }
-        foreach (HCXAISiteState raidState : m_States)
-        {
-            if (raidState.Patrol != patrol || raidState.Transient) { continue; }
-            if (this.RaidLocked(raidState.Site, ExpansionStatic.GetTimestamp(true))) { return "raided site lockout"; }
-            // Population is fixed from AILimits.WorldSeed + site ID at Create.
-        }
-        string providerIssue = HCXAIQualification.ProviderProblem();
-        if (providerIssue != "") { return providerIssue; }
-        string sharedBudget = this.BudgetProblem(patrol.m_HCGroupMax, patrol);
-        if (sharedBudget != "") { return sharedBudget; }
-        int activeSites = 0;
-        int activeAI = 0;
-        foreach (HCXAISiteState state : m_States)
-        {
-            if (state.Completed || !state.Patrol || state.Patrol == patrol || !state.Patrol.m_Group) { continue; }
-            if (HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
-            activeSites++;
-            activeAI = activeAI + state.Patrol.m_NumberOfAI;
-        }
-        if (activeSites >= HCAILimits.Get().MaxLiveGroups || activeAI + patrol.m_HCGroupMax > HCAILimits.Get().MaxLiveAI) { return "global AI budget reached"; }
-        return HCXAISiteRules.SpawnProblem(m_Policy, activeAI, activeSites, patrol.m_HCGroupMax, this.NearestPlayer(patrol.m_Position), this.SeenByPlayer(patrol.m_Position));
-    }
-    string MemberProblemFor(vector pos)
-    {
-        if (!m_Policy || m_Phase != "run") { return "sites not running"; }
-        string memberIssue = HCXAIQualification.ProviderProblem();
-        if (memberIssue != "") { return memberIssue; }
-        return HCXAISiteRules.MemberSpawnProblem(m_Policy, this.NearestPlayer(pos), this.SeenByPlayer(pos));
-    }
-    // Reuse the same population list for scaling, spawn safety and caches.
-    // Provider callbacks may run between director ticks; refresh at most once
-    // per second, including rollback. The intended server load is 3..6 players.
-    protected void HCRefreshPlayers()
-    {
-        int now = GetGame().GetTime();
-        if (m_PlayersAt >= 0 && now >= m_PlayersAt && now - m_PlayersAt < 1000) { return; }
-        m_PlayersAt = now;
-        m_Players.Copy(HCPerfPlayers.HCGet()); // native EnScript.c:499 array.Copy
-        if (!m_GroupScaling) { return; }
-        m_OnlinePlayers = 0;
-        foreach (Man connected : m_Players)
-        {
-            // Connected dead/unconscious players still count; provider actors
-            // have no identity and must never amplify their own group sizes.
-            if (connected && connected.GetIdentity()) { m_OnlinePlayers++; }
-        }
-    }
-    protected void HCRefreshGroupFactor()
-    {
-        if (!m_GroupScaling) { return; }
-        this.HCRefreshPlayers();
-        if (m_ScalePlayers == m_OnlinePlayers) { return; }
-        m_ScalePlayers = m_OnlinePlayers;
-        m_GroupFactor = HCXAISiteRules.HCGroupFactor(m_OnlinePlayers);
-        Print("[HC Expansion AI] group scale players=" + m_OnlinePlayers.ToString() + " factor=" + m_GroupFactor.ToString());
-    }
-    float NearestPlayer(vector pos)
-    {
-        this.HCRefreshPlayers();
-        float nearest = 100000;
-        foreach (Man player : m_Players)
-        {
-            if (!player || !player.GetIdentity() || !player.IsAlive()) { continue; }
-            float gap = vector.Distance(player.GetPosition(), pos);
-            if (gap < nearest) { nearest = gap; }
-        }
-        return nearest;
-    }
-    // Native ray from each live player's eye to a standing chest height at pos.
-    bool SeenByPlayer(vector pos)
-    {
-        this.HCRefreshPlayers();
-        vector aim = pos + Vector(0, 1.2, 0);
-        foreach (Man player : m_Players)
-        {
-            if (!player || !player.GetIdentity() || !player.IsAlive()) { continue; }
-            if (vector.DistanceSq(player.GetPosition(), pos) > m_Policy.LineOfSightRange * m_Policy.LineOfSightRange) { continue; }
-            vector eye = player.GetPosition() + Vector(0, 1.6, 0);
-            vector contact;
-            vector contactDir;
-            int component;
-            bool hit = DayZPhysics.RaycastRV(eye, aim, contact, contactDir, component, null, null, player);
-            if (!hit || vector.Distance(contact, aim) < 1.0) { return true; }
-        }
-        return false;
-    }
-    void Spawned(HCXAISitePatrol patrol)
-    {
-        m_SpawnedTotal++;
-        if (!patrol.m_HCTransient)
-        {
-            HCXAIOwnedRow freshRow = this.OwnershipRow(patrol.m_HCSiteId);
-            if (freshRow) { freshRow.ClearedAt = 0; freshRow.PartialRaid = false; }
-        }
-        foreach (HCXAISiteState spawnedState : m_States)
-        {
-            if (!spawnedState.Transient || spawnedState.Patrol != patrol || spawnedState.Materialized) { continue; }
-            spawnedState.Materialized = true;
-            HCXMaterializerBridge.SiteSpawned();
-        }
-        int spawnX = Math.Round(patrol.m_Position[0]);
-        int spawnZ = Math.Round(patrol.m_Position[2]);
-        Print("[HC Expansion AI] Spawning " + patrol.m_NumberOfAI.ToString() + " AI HC:" + patrol.m_HCSiteId + " at " + spawnX.ToString() + " " + spawnZ.ToString());
-        this.SaveOwned();
-    }
-    void Despawned(HCXAISitePatrol patrol, bool intact)
-    {
-        foreach (HCXAISiteState endedState : m_States)
-        {
-            if (endedState.Transient && endedState.Patrol == patrol) { this.FinishTransient(endedState, true, patrol.m_HCSurvivors); }
-        }
-        Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " despawned (intact=" + intact.ToString() + ")");
-        this.SaveOwned();
-    }
+    protected string HCRingPickProblem(HCPerceptionRingPick pick, vector centre, array<vector> ringObservers, vector original) { return ""; }
+    protected string HCRingRouteProblem(vector start, vector target) { return ""; }
+    string SpawnProblemFor(HCXAISitePatrol patrol) { return ""; }
+    string MemberProblemFor(vector pos) { return ""; }
+    protected void HCRefreshPlayers() {  }
+    protected void HCRefreshGroupFactor() {  }
+    float NearestPlayer(vector pos) { return 0; }
+    bool SeenByPlayer(vector pos) { return false; }
+    void Spawned(HCXAISitePatrol patrol) {  }
+    void Despawned(HCXAISitePatrol patrol, bool intact) {  }
     static int RaidCooldown(HCXAISite site, int operatorFloor = 0)
     {
         int minimum = site.RespawnSeconds;
@@ -2846,610 +858,42 @@ class HCXAISiteDirector : Managed
         if (row.PartialRaid && m_Policy.MemberReplaceSeconds > 0) { return m_Policy.MemberReplaceSeconds; }
         return HCXAISiteDirector.HCRespawnDelay(site, m_Policy);
     }
-    protected void HCStepRespawns()
-    {
-        if (!m_Policy || m_States.Count() == 0 || m_RespawnOff) { return; }
-        int checked = 0;
-        while (checked < HCXAISiteDirector.WORK_PER_TICK && checked < m_States.Count())
-        {
-            if (m_RespawnCursor >= m_States.Count()) { m_RespawnCursor = 0; }
-            HCXAISiteState respawnState = m_States[m_RespawnCursor];
-            int cost = 1;
-            if (respawnState.Patrol) { cost += respawnState.Patrol.m_HCGroupMax; }
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_RESPAWN, cost)) { return; }
-            m_RespawnCursor++;
-            checked++;
-            if (respawnState.Patrol) { this.HCRefreshDepleted(respawnState.Patrol); }
-        }
-    }
-    // SpawnAI is private (eAIDynamicPatrol.c:376); deferred spawning at :681
-    // uses the live formation, which cannot satisfy an independent spawn ring.
-    // Retire an unseen depleted group, then use native fresh-group Spawn/loadout.
-    // Work is bounded by the already reserved group size (AILimits ceiling).
-    void HCRefreshDepleted(HCXAISitePatrol patrol)
-    {
-        if (!m_Policy || m_Phase != "run" || !m_OwnedSaved || patrol.m_HCTransient || !patrol.m_Group || patrol.m_HCPendingMembers > 0) { return; }
-        if (m_RespawnOff) { return; }
-        int surviving = HCXExpansionBridge.HCGroupCount(patrol.m_Group);
-        // A wiped native group can retain its last combat flag: there is no
-        // living actor whose combat needs protecting or can clear that flag.
-        if (surviving >= patrol.m_NumberOfAI || (surviving > 0 && HCXExpansionBridge.HCGroupIsInCombat(patrol.m_Group))) { return; }
-        HCXAIOwnedRow deathRow = this.OwnershipRow(patrol.m_HCSiteId);
-        if (!deathRow || deathRow.ClearedAt <= 0) { return; }
-        int now = ExpansionStatic.GetTimestamp(true);
-        array<ref HCXAISiteState> freshStates = m_States;
-        foreach (HCXAISiteState freshState : freshStates)
-        {
-            if (freshState.Patrol != patrol) { continue; }
-            if (now < deathRow.ClearedAt || now - deathRow.ClearedAt < this.HCDeathDelay(freshState.Site, deathRow)) { return; }
-            int liveIndex = 0;
-            while (liveIndex < HCXExpansionBridge.HCGroupCount(patrol.m_Group))
-            {
-                DayZPlayerImplement liveMember = HCXExpansionBridge.HCGroupGetMember(patrol.m_Group, liveIndex);
-                if (liveMember && this.MemberProblemFor(liveMember.GetPosition()) != "") { return; }
-                liveIndex++;
-            }
-            HCXExpansionBridge.HCSitePatrolDespawn(patrol);
-            // The durable death epoch has already served the delay. Avoid a
-            // second native timer after safe retirement. CanSpawn still checks
-            // journal, budget, provider, ring and visibility on every attempt.
-            if (!patrol.m_Group) { patrol.m_TimeSinceLastSpawn = patrol.m_RespawnTime; }
-            return;
-        }
-    }
-    bool RaidLocked(HCXAISite site, int now)
-    {
-        if (!m_Owned || now <= 0) { return true; }
-        foreach (HCXAIOwnedRow raidRow : m_Owned.Rows)
-        {
-            if (raidRow.SiteId != site.Id || raidRow.ClearedAt == 0) { continue; }
-            if (now < raidRow.ClearedAt) { return true; }
-            if (m_RespawnOff) { return true; }
-            return now - raidRow.ClearedAt < this.HCDeathDelay(site, raidRow);
-        }
-        return false;
-    }
-    protected HCXAIOwnedRow OwnershipRow(string siteId)
-    {
-        foreach (HCXAIOwnedRow candidateRow : m_Owned.Rows)
-        {
-            if (candidateRow.SiteId == siteId) { return candidateRow; }
-        }
-        if (m_Owned.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return null; }
-        HCXAIOwnedRow createdRow = new HCXAIOwnedRow();
-        createdRow.SiteId = siteId;
-        m_Owned.Rows.Insert(createdRow);
-        return createdRow;
-    }
-    // Called before native death cleanup, while the killed actor still has its
-    // group. Partial raids also lock out replacement bodies across a restart.
-    void RecordDeath(eAIGroup killedGroup)
-    {
-        if (!killedGroup) { return; }
-        foreach (HCXAISiteState killedState : m_States)
-        {
-            if (killedState.Transient || !killedState.Patrol) { continue; }
-            if (killedState.Patrol.m_Group == killedGroup)
-            {
-                this.RecordCleared(killedState.Patrol, true);
-                return;
-            }
-        }
-    }
-    void RecordCleared(HCXAISitePatrol patrol, bool death = false)
-    {
-        if (!m_Owned || patrol.m_HCTransient) { return; }
-        HCXAIOwnedRow clearedRow = this.OwnershipRow(patrol.m_HCSiteId);
-        if (!clearedRow) { m_OwnedSaved = false; return; }
-        // Despawn must never restart the death timer. A new kill updates the
-        // epoch; callback runs before native death cleanup (HCXStance).
-        if (!death && clearedRow.ClearedAt > 0) { return; }
-        clearedRow.ClearedAt = ExpansionStatic.GetTimestamp(true);
-        clearedRow.PartialRaid = death && patrol.m_Group && HCXExpansionBridge.HCGroupCount(patrol.m_Group) > 1;
-        this.SaveOwned();
-        Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " cleared-at=" + clearedRow.ClearedAt.ToString() + " saved=" + m_OwnedSaved.ToString());
-    }
-    // One holdout cache per tick: seed once per lifecycle, adopt after a crash,
-    // mark looted when empty or gone, refill only after the cooldown.
-    protected void StepCache()
-    {
-        int count = m_States.Count();
-        int tries = 0;
-        while (tries < count)
-        {
-            HCXAISiteState state = m_States[m_CacheCursor % count];
-            m_CacheCursor++;
-            tries++;
-            if (state.Site.Kind != "holdout" || !state.Patrol || !state.HouseObject) { continue; }
-            this.CacheStep(state);
-            return;
-        }
-    }
-    protected void CacheStep(HCXAISiteState state)
-    {
-        HCXAISite site = state.Site;
-        EntityAI crate = this.FindCrate(state);
-        int items = 0;
-        if (crate && crate.GetInventory() && crate.GetInventory().GetCargo()) { items = crate.GetInventory().GetCargo().GetItemCount(); }
-        bool playerNear = false;
-        this.HCRefreshPlayers();
-        foreach (Man player : m_Players)
-        {
-            if (!player || !player.GetIdentity()) { continue; }
-            if (vector.DistanceSq(player.GetPosition(), state.CacheWorld) < m_Policy.CacheClearRadius * m_Policy.CacheClearRadius) { playerNear = true; break; }
-        }
-        HCXAICacheRow row = this.CacheRow(site.Id);
-        int now = ExpansionStatic.GetTimestamp(true);
-        bool present = false;
-        if (crate) { present = true; }
-        string action = HCXAISiteRules.CacheAction(row, present, items, now, playerNear);
-        if (action == "seed" || action == "refill")
-        {
-            if (!m_OwnedSaved || this.RaidLocked(site, now)) { return; }
-            // Migrate old four-hour cooldown rows as well as new policy files.
-            if (row && row.LootedAt > 0 && now - row.LootedAt < 604800) { return; }
-            this.SeedCache(state, row, now, crate);
-            return;
-        }
-        if (action == "adopt")
-        {
-            row.State = "seeded";
-            this.SaveCaches();
-            Print("[HC Expansion AI] site " + site.Id + " cache adopted after an interrupted seed (no new items)");
-            return;
-        }
-        if (action == "mark-looted")
-        {
-            row.State = "looted";
-            row.LootedAt = now;
-            int cacheCooldown = site.CacheCooldownSeconds;
-            if (cacheCooldown < 604800) { cacheCooldown = 604800; }
-            row.NextRefillAt = HCXAISiteRules.RefillAt(now, cacheCooldown);
-            this.SaveCaches();
-            Print("[HC Expansion AI] site " + site.Id + " cache looted or gone; refill not before " + row.NextRefillAt.ToString());
-            return;
-        }
-        if (action == "refuse") { Print("[HC Expansion AI] site " + site.Id + " cache journal row in unknown state " + row.State); }
-    }
-    protected EntityAI FindCrate(HCXAISiteState state)
-    {
-        array<Object> objects = new array<Object>();
-        array<CargoBase> cargos = new array<CargoBase>();
-        GetGame().GetObjectsAtPosition(state.CacheWorld, 1.5, objects, cargos);
-        foreach (Object candidate : objects)
-        {
-            if (candidate && candidate.GetType() == state.Site.CacheClass) { return EntityAI.Cast(candidate); }
-        }
-        return null;
-    }
-    protected HCXAICacheRow CacheRow(string siteId)
-    {
-        foreach (HCXAICacheRow row : m_Caches.Rows)
-        {
-            if (row.SiteId == siteId) { return row; }
-        }
-        return null;
-    }
-    void SeedCache(HCXAISiteState state, HCXAICacheRow row, int now, EntityAI crate)
-    {
-        HCXAISite site = state.Site;
-        if (!row)
-        {
-            if (m_Caches.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return; }
-            HCXAICacheRow newRow = new HCXAICacheRow();
-            newRow.SiteId = site.Id;
-            m_Caches.Rows.Insert(newRow);
-            row = newRow;
-        }
-        row.ClassName = site.CacheClass;
-        row.State = "seeding";
-        row.Lifecycle = row.Lifecycle + 1;
-        row.SeededAt = now;
-        row.LootedAt = 0;
-        row.NextRefillAt = 0;
-        // Intent is durable before any item exists: a crash from here on can
-        // only adopt or mark the cache looted, never seed it twice.
-        if (!this.SaveCaches())
-        {
-            Print("[HC Expansion AI] site " + site.Id + " cache intent not saved; nothing created");
-            return;
-        }
-        if (!crate)
-        {
-            crate = EntityAI.Cast(GetGame().CreateObjectEx(site.CacheClass, state.CacheWorld, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
-            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); HCPathgraphRefresh.Mark(crate); }
-        }
-        if (!crate || !crate.GetInventory())
-        {
-            Print("[HC Expansion AI] site " + site.Id + " cache container could not be created; left as seeding");
-            return;
-        }
-        int created = 0;
-        foreach (HCXAISiteLoot loot : site.CacheLoot)
-        {
-            int made = 0;
-            while (made < loot.Quantity)
-            {
-                EntityAI item = crate.GetInventory().CreateEntityInCargo(loot.ClassName);
-                made++;
-                if (!item) { continue; }
-                created++;
-                Magazine ammo = Magazine.Cast(item);
-                if (ammo) { ammo.ServerSetAmmoCount(ammo.GetAmmoMax() / 2); }
-            }
-        }
-        row.State = "seeded";
-        this.SaveCaches();
-        vector at = state.CacheWorld;
-        Print("[HC Expansion AI] site " + site.Id + " cache " + site.CacheClass + " seeded lifecycle " + row.Lifecycle.ToString() + " with " + created.ToString() + " items at " + at.ToString());
-    }
-    // Creation barrier shared with HCXAIPickerCaches.HCPickerSeedCache: true
-    // authorizes entity/item creation immediately. Async conversion needs that
-    // caller's durable continuation as well; never return a queued receipt here.
-    bool SaveCaches()
-    {
-        if (!m_Caches || m_Caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
-        string error;
-        MakeDirectory("$profile:HollowCountry");
-        return JsonFileLoader<HCXAICacheJournal>.SaveFile(HCXAISiteDirector.CACHES, m_Caches, error);
-    }
-    // Only mutations dirty the cache; validated reuse never schedules a write.
-    bool SaveRoutes()
-    {
-        if (!HCXAISiteRules.HCRouteRowsValid(m_Routes) || !m_RouteSave) { return false; }
-        m_RouteSave.HCChanged();
-        return true;
-    }
-    // The director owns slot 40 for both validation and its save preflight.
-    bool HCTakeRouteCacheUnit()
-    {
-        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTE_CACHE, 1);
-    }
-    int HCRouteRowCount() { return m_Routes.Rows.Count(); }
-    HCXAIRouteRow HCRouteRowAt(int index) { return m_Routes.Rows[index]; }
-    // Snapshot rows are byte-budgeted incrementally under AI_ROUTE_CACHE.
-    // Keep the existing native pretty-printed JSON persistence format.
-    bool HCRoutesText(HCXAIRouteCache snapshot, out string text)
-    {
-        if (!HCXAISiteRules.HCRouteRowsValid(snapshot)) { return false; }
-        string error;
-        // The save job checks the real size and trims the tail between steps.
-        return JsonFileLoader<HCXAIRouteCache>.MakeData(snapshot, text, error);
-    }
-    bool SaveOwned()
-    {
-        if (!m_Owned) { return false; }
-        foreach (HCXAIOwnedRow resetRow : m_Owned.Rows)
-        {
-            resetRow.Members = 0;
-        }
-        foreach (HCXAISiteState state : m_States)
-        {
-            if (state.Transient) { continue; }
-            if (!state.Patrol || !state.Patrol.m_Group) { continue; }
-            HCXAIOwnedRow ownedRow = this.OwnershipRow(state.Site.Id);
-            if (!ownedRow) { m_OwnedSaved = false; return false; }
-            ownedRow.Members = HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group);
-        }
-        string error;
-        MakeDirectory("$profile:HollowCountry");
-        // Shared verified intent/backup/copy store: an interrupted promotion
-        // quarantines the epoch rather than silently resetting a raid timer.
-        m_OwnedSaved = HCV2ThreatStore<HCXAIOwnership>.Save(HCXAISiteDirector.OWNED, m_Owned, HCWorldStore.MAX_BYTES);
-        if (!m_OwnedSaved) { Print("[HC Expansion AI] ownership save refused: " + error + "; new spawns and cache seeds held"); }
-        return m_OwnedSaved;
-    }
-    static string ReadBounded(string path)
-    {
-        if (!FileExist(path)) { return ""; }
-        FileHandle handle = OpenFile(path, FileMode.READ);
-        if (!handle) { return ""; }
-        string data;
-        int count = ReadFile(handle, data, 65537);
-        CloseFile(handle);
-        if (count < 1 || count > 65536) { return ""; }
-        return data;
-    }
-    static HCXAISitePolicy LoadPolicy()
-    {
-        string data = HCWorldStore.Read(HCXAISiteDirector.POLICY);
-        if (data == "") { return null; }
-        string error;
-        HCXAISitePolicy policy;
-        if (!JsonFileLoader<HCXAISitePolicy>.LoadData(data, policy, error) || !policy) { return null; }
-        // JsonFileLoader zero-fills absent scalars. Missing respawn policy
-        // gets the short defaults; explicit zero intentionally inherits sites.
-        if (!HCJsonFields.Has(data, "AIRespawnSeconds")) { policy.AIRespawnSeconds = 900; }
-        if (!HCJsonFields.Has(data, "MemberReplaceSeconds")) { policy.MemberReplaceSeconds = 600; }
-        // Legacy JSON fields are retained for old profiles, with one authority.
-        policy.MaxActiveAI = HCAILimits.Get().MaxActiveAI;
-        policy.MaxActiveSites = HCAILimits.Get().MaxActiveSites;
-        return policy;
-    }
-    // A truncated prefix can end at a nested closing brace. Check balanced
-    // containers and strings as well as the shared first/last-line guard.
-    // Balanced-but-corrupt content still requires the native parser and DTO checks.
-    // Work on small windows: native string operations on large stores are capped.
-    static string HCWholeCacheText(string path)
-    {
-        if (!HCGroupIO.HCLooksWholeObject(path, HCWorldStore.MAX_BYTES)) { return ""; }
-        string data = HCWorldStore.Read(path);
-        array<string> stack = new array<string>;
-        bool quoted = false;
-        bool escaped = false;
-        bool ended = false;
-        for (int offset = 0; offset < data.Length(); offset += 4096)
-        {
-            int length = Math.Min(4096, data.Length() - offset);
-            string piece = data.Substring(offset, length);
-            for (int index = 0; index < piece.Length(); index++)
-            {
-                string character = piece.Substring(index, 1);
-                if (quoted)
-                {
-                    if (escaped) { escaped = false; }
-                    else if (character == "\\") { escaped = true; }
-                    else if (character == "\"") { quoted = false; }
-                    continue;
-                }
-                if (character == " " || character == "\n" || character == "\r" || character == "\t") { continue; }
-                if (ended) { return ""; }
-                if (character == "\"") { quoted = true; }
-                else if (character == "{" || character == "[")
-                {
-                    if (stack.Count() >= 128) { return ""; }
-                    stack.Insert(character);
-                }
-                else if (character == "}" || character == "]")
-                {
-                    int depth = stack.Count();
-                    if (depth < 1) { return ""; }
-                    string open = stack[depth - 1];
-                    if ((character == "}" && open != "{") || (character == "]" && open != "[")) { return ""; }
-                    stack.Remove(depth - 1);
-                    ended = stack.Count() == 0;
-                }
-            }
-        }
-        if (quoted || stack.Count() != 0 || !ended) { return ""; }
-        return data;
-    }
-    protected static bool s_HCRoutesRefused;
-    protected static bool s_HCCachesRefused;
-    static void HCRoutesRefused(string reason)
-    {
-        if (s_HCRoutesRefused) { return; }
-        s_HCRoutesRefused = true;
-        Print("[HC XAI] routes refused reason=" + reason);
-    }
-    static void HCCachesRefused(string reason)
-    {
-        if (s_HCCachesRefused) { return; }
-        s_HCCachesRefused = true;
-        Print("[HC XAI] caches refused reason=" + reason);
-    }
-    // Preserve raw bytes (including empty files) to a new bounded slot. Never
-    // rely on CopyFile overwriting an existing target. Native EnSystem.c:417,
-    // 425,443,528,531 supplies the read/close/delete/copy operations.
-    static bool HCPreserveRoute(string path, out string preserved)
-    {
-        preserved = "none";
-        if (!FileExist(path)) { return true; }
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            string target = path + ".torn-" + attempt.ToString();
-            if (FileExist(target)) { continue; }
-            FileHandle original = OpenFile(path, FileMode.READ);
-            if (!original) { return false; }
-            string expected;
-            expected = "";
-            int expectedCount = ReadFile(original, expected, HCWorldStore.MAX_BYTES + 1);
-            CloseFile(original);
-            if (expectedCount < 0 || expectedCount > HCWorldStore.MAX_BYTES || expected.Length() != expectedCount) { return false; }
-            if (!CopyFile(path, target) || !FileExist(target)) { return false; }
-            FileHandle copy = OpenFile(target, FileMode.READ);
-            if (!copy) { return false; }
-            string actual;
-            actual = "";
-            int count = ReadFile(copy, actual, HCWorldStore.MAX_BYTES + 1);
-            CloseFile(copy);
-            if (count != expectedCount || actual != expected) { return false; }
-            // Evidence is a relative file name, never a private profile path.
-            if (target.Length() > 256) { return false; }
-            int slash = target.LastIndexOf("/");
-            preserved = target.Substring(slash + 1, target.Length() - slash - 1);
-            return true;
-        }
-        return false;
-    }
-    static HCXAIRouteCache LoadRoutes()
-    {
-        string path = HCXAISiteDirector.ROUTES;
-        // A valid primary is committed. Otherwise prefer newer verified tmp to bak.
-        for (int candidate = 0; candidate < 3; candidate++)
-        {
-            HCXAIRouteCache routes;
-            string error;
-            routes = null;
-            error = "";
-            string source = path;
-            string label = "primary";
-            if (candidate == 1) { source = path + ".tmp"; label = "tmp"; }
-            if (candidate == 2) { source = path + ".bak"; label = "bak"; }
-            string data = HCWholeCacheText(source);
-            if (data == "") { continue; }
-            if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !HCXAISiteRules.HCRouteRowsValid(routes)) { continue; }
-            if (candidate > 0)
-            {
-                string preserved = "";
-                if (!HCPreserveRoute(path, preserved)) { HCRoutesRefused("preserve_failed"); return null; }
-                if (FileExist(path) && !DeleteFile(path)) { HCRoutesRefused("delete_failed"); return null; }
-                if (!CopyFile(source, path) || HCWholeCacheText(path) != data) { HCRoutesRefused("promote_failed"); return null; }
-                // Readback matches the structurally checked, parsed and validated DTO.
-                if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
-                Print("[HC XAI] routes recovered source=" + label + " preserved=" + preserved);
-            }
-            else if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
-            return routes;
-        }
-        // Route rows are recomputable qualification results, not a barrier:
-        // keep the invalid primary for inspection, then start from empty rows.
-        if (FileExist(path) || FileExist(path + ".tmp") || FileExist(path + ".bak"))
-        {
-            string kept = "none";
-            if (FileExist(path))
-            {
-                if (!HCPreserveRoute(path, kept)) { HCRoutesRefused("preserve_failed"); return null; }
-                if (!DeleteFile(path)) { HCRoutesRefused("delete_failed"); return null; }
-            }
-            if (FileExist(path + ".tmp") && !DeleteFile(path + ".tmp")) { HCRoutesRefused("tmp_delete_failed"); return null; }
-            Print("[HC XAI] routes reset reason=no_valid_image preserved=" + kept);
-        }
-        return new HCXAIRouteCache();
-    }
-    static HCXAICacheJournal LoadCaches()
-    {
-        string path = HCXAISiteDirector.CACHES;
-        // This journal is the item-creation barrier, never a disposable cache.
-        // SaveCaches writes the primary directly, so bak/tmp cannot prove a commit.
-        if (!FileExist(path))
-        {
-            if (FileExist(path + ".tmp") || FileExist(path + ".bak")) { HCCachesRefused("primary_missing"); return null; }
-            return new HCXAICacheJournal();
-        }
-        string data = HCWholeCacheText(path);
-        if (data == "") { HCCachesRefused("structural_or_size"); return null; }
-        string error;
-        HCXAICacheJournal caches;
-        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches) { HCCachesRefused("invalid_json"); return null; }
-        if (caches.SchemaVersion != 1) { HCCachesRefused("schema"); return null; }
-        if (!caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { HCCachesRefused("rows"); return null; }
-        return caches;
-    }
-    static HCXAIOwnership LoadOwned()
-    {
-        if (!HCV2ThreatStore<HCXAIOwnership>.CanOpen(HCXAISiteDirector.OWNED)) { return null; }
-        if (!FileExist(HCXAISiteDirector.OWNED)) { return new HCXAIOwnership(); }
-        string data = HCWorldStore.Read(HCXAISiteDirector.OWNED);
-        if (data == "") { return null; }
-        string error;
-        HCXAIOwnership journal;
-        if (!JsonFileLoader<HCXAIOwnership>.LoadData(data, journal, error) || !journal || journal.SchemaVersion != 1 || !journal.Rows || journal.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
-        foreach (HCXAIOwnedRow checkedRow : journal.Rows)
-        {
-            if (!checkedRow || checkedRow.ClearedAt < 0 || checkedRow.Members < 0) { return null; }
-        }
-        return journal;
-    }
+    protected void HCStepRespawns() {  }
+    void HCRefreshDepleted(HCXAISitePatrol patrol) {  }
+    bool RaidLocked(HCXAISite site, int now) { return false; }
+    protected HCXAIOwnedRow OwnershipRow(string siteId) { return null; }
+    void RecordDeath(eAIGroup killedGroup) {  }
+    void RecordCleared(HCXAISitePatrol patrol, bool death = false) {  }
+    protected void StepCache() {  }
+    protected void CacheStep(HCXAISiteState state) {  }
+    protected EntityAI FindCrate(HCXAISiteState state) { return null; }
+    protected HCXAICacheRow CacheRow(string siteId) { return null; }
+    void SeedCache(HCXAISiteState state, HCXAICacheRow row, int now, EntityAI crate) {  }
+    bool SaveCaches() { return false; }
+    bool SaveRoutes() { return false; }
+    bool HCTakeRouteCacheUnit() { return false; }
+    int HCRouteRowCount() { return 0; }
+    HCXAIRouteRow HCRouteRowAt(int index) { return null; }
+    bool HCRoutesText(HCXAIRouteCache snapshot, out string text) { return false; }
+    protected void HCIndexRoutes() {  }
+    protected void HCRemoveRoute(HCXAIRouteRow row) {  }
+    void HCQueueCaches() {  }
+    void HCQueueOwned() {  }
+    protected bool HCUpdateMembers() { return false; }
+    bool HCCachesText(out string text) { return false; }
+    HCXAIOwnership HCOwnershipData() { return null; }
+    void HCOwnershipSaved(bool saved) {  }
+    bool SaveOwned() { return false; }
+    static string ReadBounded(string path) { return HCXAISiteStore.ReadBounded(path); }
+    static HCXAISitePolicy LoadPolicy() { return HCXAISiteStore.LoadPolicy(); }
+    static string HCWholeCacheText(string path) { return HCXAISiteStore.HCWholeCacheText(path); }
+    static void HCRoutesRefused(string reason) { HCXAISiteStore.HCRoutesRefused(reason); }
+    static void HCCachesRefused(string reason) { HCXAISiteStore.HCCachesRefused(reason); }
+    static bool HCPreserveRoute(string path, out string preserved) { return HCXAISiteStore.HCPreserveRoute(path, preserved); }
+    static HCXAIRouteCache LoadRoutes() { return HCXAISiteStore.LoadRoutes(); }
+    static HCXAICacheJournal LoadCaches() { return HCXAISiteStore.LoadCaches(); }
+    static HCXAIOwnership LoadOwned() { return HCXAISiteStore.LoadOwned(); }
 }
-// LC-T410 / EXP-L1 fallback: one empty roadside table at each reviewed entry.
-// Installed vanilla structures_military.pbo/config.bin CfgVehicles Land_Roadblock_Table;
-// native scripts-1.30.164289/3_Game/Global/Game.c:703 CreateObjectEx, :945 GetPlayers,
-// :923 GetObjectsAtPosition, :1176 SurfaceY; existing director NearestPlayer/SeenByPlayer supplies observer
-// checks using 3_Game/Global/DayZPhysics.c:199 RaycastRV.
-// Installed structures_military.pbo!config.bin CfgVehicles:
-// Land_Roadblock_Table scope=1; Land_Roadblock_Table_DE inherits it, scope=2.
-// Static config evidence only: factory/collision/path acceptance remains pending.
-// Source review is a candidate placement; native path and client checks pending.
-class HCXCheckpointProp
-{
-    ref HCXAISite Site;
-    Object Table;
-    int QuietSince = -1;
-    int Attempts;
-    int LastAttempt = -1;
-    bool Finished;
-}
-class HCXCheckpointProps
-{
-    protected ref array<ref HCXCheckpointProp> m_Props = new array<ref HCXCheckpointProp>();
-    protected int m_Cursor;
-    // Start runs once per stance start, so every refusal logs once.
-    protected void HCStartRefused(string problem)
-    {
-        Print("[HollowCountry] Checkpoints props not placed: " + problem + "; runtime=PENDING");
-    }
-    void Start()
-    {
-        HCXAISitePolicy policy = HCXAISiteDirector.LoadPolicy();
-        if (!policy) { this.HCStartRefused("policy unavailable"); return; }
-        string policyProblem = HCXAISiteRules.PolicyProblem(policy);
-        if (policyProblem != "") { this.HCStartRefused(policyProblem); return; }
-        if (!GetGame() || !HCBuildIdentity.SameWorld(policy.WorldName, GetGame().GetWorldName())) { this.HCStartRefused("policy world differs from the running world"); return; }
-        foreach (HCXAISite site : policy.Sites)
-        {
-            if (!site.Checkpoint) { continue; }
-            if (m_Props.Count() >= 3) { this.HCStartRefused("checkpoint prop cap=3 reached at " + site.Id); return; }
-            string siteProblem = HCXAIRules.CheckpointProblem(site);
-            if (siteProblem != "") { this.HCStartRefused(site.Id + ": " + siteProblem); return; }
-            HCXCheckpointProp row = new HCXCheckpointProp();
-            row.Site = site;
-            m_Props.Insert(row);
-        }
-    }
-    protected void HCRetry(HCXCheckpointProp row, string reason)
-    {
-        row.QuietSince = -1;
-        if (row.Attempts < 3) { return; }
-        row.Finished = true;
-        Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; attempts=3; " + reason + "; runtime=PENDING");
-    }
-    void Step()
-    {
-        if (!HCXAIQualification.EncountersEnabled() || m_Props.Count() == 0) { return; }
-        HCXCheckpointProp row = m_Props[m_Cursor % m_Props.Count()];
-        m_Cursor++;
-        if (row.Finished) { return; }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (!director) { return; }
-        vector wanted = row.Site.CheckpointProp;
-        vector at = Vector(wanted[0], GetGame().SurfaceY(wanted[0], wanted[2]), wanted[2]);
-        int nowMs = GetGame().GetTime();
-        if (nowMs < 0 || director.NearestPlayer(at) < 200 || director.SeenByPlayer(at)) { row.QuietSince = -1; return; }
-        if (row.LastAttempt >= 0)
-        {
-            if (nowMs < row.LastAttempt) { row.LastAttempt = nowMs; row.QuietSince = -1; return; }
-            if (nowMs - row.LastAttempt < 600000) { return; }
-        }
-        if (row.QuietSince < 0 || nowMs < row.QuietSince) { row.QuietSince = nowMs; return; }
-        if (nowMs - row.QuietSince < 5000) { return; }
-        row.Attempts++;
-        row.LastAttempt = nowMs;
-        array<Object> objects = new array<Object>();
-        array<CargoBase> cargos = new array<CargoBase>();
-        // House includes walls and wrecks. Keep a conservative near-field veto
-        // at 8 m rather than rejecting every roadside structure within 25 m.
-        GetGame().GetObjectsAtPosition(at, 8, objects, cargos);
-        if (objects.Count() > 128)
-        {
-            this.HCRetry(row, "nearby objects exceed cap=128 radius=8m");
-            return;
-        }
-        foreach (Object candidate : objects)
-        {
-            // Adopt either generation before the House veto, regardless of
-            // query order; never duplicate scenery on a restart.
-            if (!candidate) { continue; }
-            if ((candidate.GetType() == "Land_Roadblock_Table_DE" || candidate.GetType() == "Land_Roadblock_Table") && vector.Distance(candidate.GetPosition(), at) < 2)
-            {
-                row.Table = candidate;
-                row.Finished = true;
-                return;
-            }
-        }
-        foreach (Object nearbyHouse : objects)
-        {
-            if (nearbyHouse && House.Cast(nearbyHouse))
-            {
-                this.HCRetry(row, "House within 8m");
-                return;
-            }
-        }
-        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
-        if (!row.Table) { this.HCRetry(row, "native factory"); return; }
-        HCGroundSnap.Snap(row.Table);
-        HCPathgraphRefresh.Mark(row.Table);
-        row.Finished = true;
-        Print("[HollowCountry] Checkpoints props present: " + row.Site.Id + "; empty roadside table remains if guards unavailable");
-    }
-}
+
+// External picker/caravan/routes mods extend only this final facade.
+class HCXAISiteDirector : HCXAISitePatrols {}

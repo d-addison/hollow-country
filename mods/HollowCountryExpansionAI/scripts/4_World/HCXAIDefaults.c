@@ -1,3 +1,105 @@
+// Provider-ready startup work: one native file operation or image stage/visit.
+// Native EnSystem OpenFile/ReadFile/CloseFile, EnScript map.Contains/Set were
+// inspected in scripts-1.30.164289. No operator file is overwritten.
+class HCXAILoadoutSave : HCSaveJob
+{
+    ref array<string> Names = new array<string>();
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
+    protected int m_Cursor;
+    protected int m_Phase;
+    protected FileHandle m_Source;
+    protected bool m_Open;
+    protected string m_Text;
+    protected string m_Target;
+    bool Finished;
+    int Provisioned;
+    override string HCName() { return "HCX-loadouts"; }
+    void ~HCXAILoadoutSave() { if (m_Open) { CloseFile(m_Source); } }
+    protected void HCNext()
+    {
+        m_Cursor++;
+        m_Phase = 1;
+        m_Text = "";
+    }
+    override int HCStep()
+    {
+        if (Finished) { return STEP_DONE; }
+        if (m_Phase == 0)
+        {
+            if (!FileExist(EXPANSION_LOADOUT_FOLDER))
+            {
+                Print("[HC Expansion AI] loadout defaults skipped: Expansion loadout folder absent");
+                Finished = true;
+                return STEP_DONE;
+            }
+            m_Phase = 1;
+            return STEP_MORE;
+        }
+        if (m_Cursor >= Names.Count()) { Finished = true; return STEP_DONE; }
+        string name = Names[m_Cursor];
+        if (m_Phase == 1)
+        {
+            m_Target = EXPANSION_LOADOUT_FOLDER + name + ".json";
+            if (FileExist(m_Target))
+            {
+                HCXAIDefaults.HCSetLoadoutPresent(name, true);
+                this.HCNext();
+            }
+            else { m_Phase = 2; }
+            return STEP_MORE;
+        }
+        if (m_Phase == 2)
+        {
+            m_Source = OpenFile(HCXAIDefaults.Shipped() + "loadouts/" + name + ".json", FileMode.READ);
+            m_Open = m_Source != 0;
+            if (!m_Open) { this.HCNext(); return STEP_MORE; }
+            m_Text = "";
+            m_Phase = 3;
+            return STEP_MORE;
+        }
+        if (m_Phase == 3)
+        {
+            string piece;
+            int count = ReadFile(m_Source, piece, 4096);
+            if (count < 0 || count != piece.Length() || m_Text.Length() + count > 65536)
+            {
+                m_Text = "";
+                m_Phase = 4;
+            }
+            else
+            {
+                m_Text += piece;
+                if (count < 4096) { m_Phase = 4; }
+            }
+            return STEP_MORE;
+        }
+        if (m_Phase == 4)
+        {
+            CloseFile(m_Source);
+            m_Open = false;
+            m_Phase = 5;
+            return STEP_MORE;
+        }
+        if (m_Phase == 5)
+        {
+            if (m_Text == "") { this.HCNext(); return STEP_MORE; }
+            // Immutable create preserves operator files even if one appeared
+            // after the initial existence probe. No replace/backup promotion.
+            if (!m_Image.BeginNew(m_Target, m_Text, 65536)) { return STEP_FAILED; }
+            m_Phase = 6;
+            return STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        if (result == STEP_FAILED) { return STEP_FAILED; }
+        if (result == STEP_DONE)
+        {
+            HCXAIDefaults.HCSetLoadoutPresent(name, true);
+            Provisioned++;
+            this.HCNext();
+        }
+        return STEP_MORE;
+    }
+}
 // Self-provisioned HCX defaults (owner report 2026-11-18: the Workshop install
 // route has no deploy step, so a fresh server had no site policy ("sites off")
 // and no HollowCountry_* loadouts ("loadout file missing"), and AI_ENCOUNTER
@@ -15,6 +117,7 @@
 class HCXAIDefaults
 {
     protected static bool s_LoadoutsProbed;
+    protected static ref HCXAILoadoutSave s_LoadoutSave;
     protected static int s_ProvisionedLoadouts;
     // Native EnScript.c:866/902/917 Get/Set/Contains. Boot snapshot after
     // Expansion settings are loaded; operator loadout edits require restart.
@@ -88,36 +191,44 @@ class HCXAIDefaults
         return true;
     }
 
-    // One pass over the accepted policy (bounded catalog, each name once).
+    static void HCSetLoadoutPresent(string name, bool present) { s_LoadoutsPresent.Set(name, present); }
+    static bool HCLoadoutsReady() { return s_LoadoutSave && (s_LoadoutSave.Finished || s_LoadoutSave.HCFaulted); }
+    static void HCStopLoadouts()
+    {
+        if (s_LoadoutSave) { HCSaveScheduler.HCUnregister(s_LoadoutSave); }
+        s_LoadoutSave = null;
+        s_LoadoutsProbed = false;
+        s_LoadoutsPresent.Clear();
+    }
+    // The provider-ready tick queues one bounded job instead of copying a
+    // whole catalog synchronously. Admission waits for its completed snapshot.
     static int ProvisionLoadouts(HCXAISitePolicy policy)
     {
         if (!policy || !policy.Sites) { return 0; }
-        if (s_LoadoutsProbed) { return s_ProvisionedLoadouts; }
-        s_LoadoutsProbed = true;
-        // Provider-ready boot initialization only: never reprovision on later ticks.
-        if (!FileExist(EXPANSION_LOADOUT_FOLDER))
+        if (!s_LoadoutsProbed)
         {
-            Print("[HC Expansion AI] loadout defaults skipped: Expansion loadout folder absent");
-            return 0;
+            s_LoadoutsProbed = true;
+            s_LoadoutSave = new HCXAILoadoutSave();
+            map<string, bool> seen = new map<string, bool>();
+            foreach (HCXAISite site : policy.Sites)
+            {
+                if (!site || !HCXAIDefaults.LoadoutNameSafe(site.Loadout) || seen.Contains(site.Loadout)) { continue; }
+                seen.Set(site.Loadout, true);
+                s_LoadoutSave.Names.Insert(site.Loadout);
+            }
+            array<string> common = {"HollowCountry_Holdout", "HollowCountry_Patrol", "HollowCountry_Scavenger"};
+            foreach (string commonName : common)
+            {
+                if (seen.Contains(commonName)) { continue; }
+                s_LoadoutSave.Names.Insert(commonName);
+            }
+            s_LoadoutSave.HCDirty = true;
+            s_LoadoutSave.HCUrgent = true;
+            HCSaveScheduler.HCRegister(s_LoadoutSave);
         }
-        int provisioned = 0;
-        int visited = 0;
-        string seen = "|";
-        foreach (HCXAISite site : policy.Sites)
-        {
-            visited++;
-            if (visited > HCXAISiteRules.HCMaxCatalogRows()) { break; }
-            if (!site) { continue; }
-            if (seen.Contains("|" + site.Loadout + "|")) { continue; }
-            seen = seen + site.Loadout + "|";
-            if (HCXAIDefaults.ProvisionLoadout(site.Loadout)) { provisioned++; }
-            HCXAIDefaults.HCProbeLoadout(site.Loadout);
-        }
-        HCXAIDefaults.HCProbeLoadout("HollowCountry_Holdout");
-        HCXAIDefaults.HCProbeLoadout("HollowCountry_Patrol");
-        HCXAIDefaults.HCProbeLoadout("HollowCountry_Scavenger");
-        s_ProvisionedLoadouts = provisioned;
-        return provisioned;
+        HCSaveScheduler.HCPumpFallback(s_LoadoutSave);
+        if (s_LoadoutSave) { s_ProvisionedLoadouts = s_LoadoutSave.Provisioned; }
+        return s_ProvisionedLoadouts;
     }
 
     static bool MatchesShipped()
