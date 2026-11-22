@@ -1,0 +1,10 @@
+{
+  "schema": "ops.v1",
+  "name": "hc_testcube",
+  "ops": [
+    {"op": "primitive", "id": "cube", "kind": "box", "size": [1, 1, 1]},
+    {"op": "uv-unwrap", "target": "cube"},
+    {"op": "named-selection", "target": "cube", "name": "body"},
+    {"op": "memory-point", "name": "center", "position": [0, 0, 0]}
+  ]
+}
