@@ -263,9 +263,8 @@ class HCSaveScheduler : HCModule
     }
 
     // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
-    // that never reports completion is abandoned at SaveFlushStageLimit (default/ceiling 4096: a staged
-    // image flush may finish an older snapshot before writing the current one).
-    static bool HCFlush(HCSaveJob job)
+    // that never reports completion is abandoned at the configured limit. Only custody opts into a larger default.
+    static bool HCFlush(HCSaveJob job, bool custodyBarrier = false)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
         // Parameters are weak: a failing step may quarantine its owner, which unregisters and drops
@@ -275,7 +274,12 @@ class HCSaveScheduler : HCModule
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
-        while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < config.SaveFlushStageLimit)
+        // Custody alone needs room for two maximum-size images (an older snapshot
+        // plus a refresh). Explicit lower operator limits remain authoritative.
+        // 8 MiB / 4096 = 2048 chunks; two guards derived from the raw cap, plus 64 owner stages.
+        int flushLimit = config.SaveFlushStageLimit;
+        if (custodyBarrier && flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
+        while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
             result = job.HCStep();
             guard = guard + 1;
@@ -467,7 +471,7 @@ class HCStagedSaveImage
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
     // Conservative synchronous finish guard, including optional prior reads.
-    static const int HC_MAX_STAGES = 17000;
+    static const int HC_MAX_STAGES = 8 * (HCGroupIO.HC_RAW_READ_CAP / HC_CHUNK_BYTES) + 128;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;
@@ -488,6 +492,7 @@ class HCStagedSaveImage
     protected bool m_TargetExists;
     protected ref array<string> m_PriorChunks = new array<string>;
     protected int m_PriorBytes;
+    protected int m_BackupChunk;
     protected int m_BackupStage;
     protected bool m_BackupExists;
     protected bool m_Unchanged = true;
@@ -506,6 +511,7 @@ class HCStagedSaveImage
         if (m_WriteOpen) { CloseFile(m_Write); m_WriteOpen = false; }
         m_Opened = false;
         m_Offset = 0;
+        m_BackupChunk = 0;
         m_OpenStage = 0;
         m_SourceAbsent = false;
         m_TargetExists = false;
@@ -816,9 +822,13 @@ class HCStagedSaveImage
             {
                 if (m_Phase == 2 && !m_CheckPrior)
                 {
-                    int chunk = m_Offset / HC_CHUNK_BYTES;
+                    int chunk = m_BackupChunk;
                     if (m_Offset + count > m_PriorBytes || (count == 0 && m_Offset != m_PriorBytes)) { return HCFail(); }
-                    if (count > 0 && (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk])) { return HCFail(); }
+                    if (count > 0)
+                    {
+                        if (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk]) { return HCFail(); }
+                        m_BackupChunk++;
+                    }
                 }
                 else
                 {

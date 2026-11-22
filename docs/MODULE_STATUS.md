@@ -1,5 +1,20 @@
 # Gameplay implementation and remaining work
 
+Custody recovery (W2-08 round 8) remains **implemented-unverified**. Rejected
+archives are bounded to eight slots; cap retirement prints a reason. A crash
+mid-rotation can drop older archives; the current rejected source stays intact
+until its copy verifies. When native raw comparison cannot qualify, an
+unverified copy is retained alongside its untouched source, and the valid backup
+owns subsequent checkpoints using the same schema and staged-save protocol.
+After unverified-source relocation, a downgraded build reads the stale base
+checkpoint; downgrade recovery is unverified and may regress custody. A retained
+primary with neither a backup nor a deeper backup stays faulted at its current
+path, never opens an empty backup store; an existing deeper backup remains
+eligible for recovery. Compare/scan budget exhaustion writes a durable marker,
+so a one-boot budget event causes permanent relocation without losing data.
+The disposable `tools.setup.custody_read_probe` stages/ingests the 5000-byte and
+NUL experiments; the lead's native run and crash/upgrade checks are still pending.
+
 This file distinguishes authored functionality from missing implementation and
 unperformed validation. The current test package is not the completed
 overhaul. Outstanding work is tracked in
