@@ -175,6 +175,7 @@ class Finding:
 class Model:
     def __init__(self, sources):
         self.nodes = [(s, m) for s in sources for m in s.methods]
+        self.sources = list(sources)
         self.classes = {}
         self._lineages = {}
         self.index = {}
@@ -261,6 +262,21 @@ class Model:
                         (i, re.sub(r'\s+', '', write.group(1)).rstrip('.'), write.group(3).strip()))
         return self._writes
 
+    def scan_units(self):
+        """(code, text, start, end) spans in which calls can occur: every method body and every
+        field initializer (`ref T x = Make(out_value);` runs at construction, not in a method).
+        An initializer is a masked string; its raw text is recovered from the source at the same offsets."""
+        units = [(s.code, s.text, m.body_start, m.body_end) for s, m in self.nodes]
+        for s in self.sources:
+            for c in s.classes:
+                for f in c.fields:
+                    if not f.initializer:
+                        continue
+                    at = s.code.find(f.initializer, f.offset)
+                    raw = s.text[at:at + len(f.initializer)] if at >= 0 else f.initializer
+                    units.append((f.initializer, raw, 0, len(f.initializer)))
+        return units
+
     def out_written_names(self):
         """Leaf names of fields or variables that a call may write through an out parameter.
 
@@ -274,8 +290,8 @@ class Model:
                     if is_out:
                         out_positions.setdefault(m.name, set()).add(k)
             names = set()
-            for s, m in self.nodes:
-                for call in _CALL.finditer(s.code, m.body_start, m.body_end):
+            for code, _, start, end in self.scan_units():
+                for call in _CALL.finditer(code, start, end):
                     expression = re.sub(r'\s+', '', call.group(1))
                     leaf = expression.split('.')[-1]
                     positions = set(out_positions.get(leaf, ()))
@@ -283,9 +299,9 @@ class Model:
                         positions.add(0)
                     if not positions:
                         continue
-                    opening = s.code.find('(', call.start(1) + len(call.group(1)) - 1)
-                    closing = es.matching_paren(s.code, opening)
-                    args = [a for a in es.split_top(s.code[opening + 1:closing], ',') if a.strip()]
+                    opening = code.find('(', call.start(1) + len(call.group(1)) - 1)
+                    closing = es.matching_paren(code, opening)
+                    args = [a for a in es.split_top(code[opening + 1:closing], ',') if a.strip()]
                     for k in positions:
                         if k < len(args):
                             argument = re.sub(r'\s+', '', args[k])
@@ -300,16 +316,17 @@ class Model:
         (CallLaterByName, CallByName, CallFunction, CallFunctionParams with Param arguments)."""
         if self._scheduled is None:
             names = set()
-            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams)\s*\(')
-            for s, m in self.nodes:
-                for call in queue.finditer(s.code, m.body_start, m.body_end):
-                    opening = s.code.find('(', call.start(), call.end())
-                    closing = es.matching_paren(s.code, opening)
-                    for argument in es.split_top(s.code[opening + 1:closing], ','):
+            queue = re.compile(r'\b(CallLater|Call|Insert|CallLaterByName|CallByName|CallFunction|CallFunctionParams'
+                               r'|ScriptCaller\s*\.\s*Create)\s*\(')
+            for code, text, start, end in self.scan_units():
+                for call in queue.finditer(code, start, end):
+                    opening = code.find('(', call.start(), call.end())
+                    closing = es.matching_paren(code, opening)
+                    for argument in es.split_top(code[opening + 1:closing], ','):
                         leaf = re.sub(r'\s+', '', argument).split('.')[-1]
                         if re.fullmatch(_IDENT, leaf):
                             names.add(leaf)
-                    for argument in es.split_top(s.text[opening + 1:closing], ','):
+                    for argument in es.split_top(text[opening + 1:closing], ','):
                         quoted = re.fullmatch(r'\s*"(\w+)"\s*', argument)
                         if quoted:
                             names.add(quoted.group(1))
