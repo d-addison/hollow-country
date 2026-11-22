@@ -18,6 +18,7 @@ class HCEventModule : HCModule
     protected int m_RuntimeStep;
     protected int m_RosterStep;
     protected int m_CacheStep;
+    protected int m_ReceiptStep;
     protected int m_BeaconStep;
     // Public mission map: toasts and the pushed map snapshot (HCMissionBeacon).
     protected ref HCMissionBeacon m_Beacon;
@@ -341,6 +342,7 @@ class HCEventModule : HCModule
         m_RuntimeStep = m_TickSteps.HCDefine("maintenance");
         m_RosterStep = m_TickSteps.HCDefine("roster");
         m_CacheStep = m_TickSteps.HCDefine("scene_cache");
+        m_ReceiptStep = m_TickSteps.HCDefine("receipt_files");
         m_BeaconStep = m_TickSteps.HCDefine("beacon");
         m_CacheTickElapsed = 0;
         if (s_CleanupOwner && s_CleanupOwner != this)
@@ -472,6 +474,14 @@ class HCEventModule : HCModule
                     m_NativeObserver.HCTickSceneCaches();
                     HCMeasureStep(m_CacheStep, "scene_cache", cacheStarted);
                 }
+            }
+            // Police ledger and scene cache receipt files: one native file call per tick, never beside a
+            // journal step of the same tick.
+            if (!journalTick && !m_Stopping && !m_Runtime.HCPublishPending())
+            {
+                int receiptStarted = TickCount(0);
+                HCEventCacheSpawner.HCStepReceipts();
+                HCMeasureStep(m_ReceiptStep, "receipt_files", receiptStarted);
             }
             if (m_Beacon && !m_Stopping)
             {

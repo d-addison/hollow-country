@@ -57,6 +57,9 @@ class HCEventRuntime
     // Fixed reasons, retained across Start retries for this runtime lifetime.
     protected int m_ObservationCloneRefusals;
     protected int m_ObservationRunRefusals;
+    // Staged publishes refused because the store is not the staged journal. Counted,
+    // logged once; the runtime faults exactly as a failed save does.
+    protected int m_UnstagedStoreRefusals;
 
     protected HCEventRun HCRunAt(HCEventRuntimeState state, int eventId)
     {
@@ -176,7 +179,19 @@ class HCEventRuntime
     protected bool HCBeginPublish(HCEventRuntimeState candidate)
     {
         HCEventJournal journal = HCEventJournal.Cast(m_Store);
-        if (!journal) { return Publish(candidate); }
+        if (!journal)
+        {
+            // Tick and ingress never fall back to the synchronous Publish: a store
+            // without a staged journal job cannot persist here. Refuse with a counted,
+            // logged reason (same fault a failed save causes); boot and shutdown keep
+            // their own synchronous Publish calls.
+            if (m_UnstagedStoreRefusals < 1000000000) { m_UnstagedStoreRefusals++; }
+            if (m_UnstagedStoreRefusals == 1) { Print("[HC Events] publish refused reason=store_not_staged count=" + m_UnstagedStoreRefusals.ToString()); }
+            m_Ready = false;
+            FaultCleanup();
+            HCPublishRefused();
+            return false;
+        }
         if (m_PendingPublish) { return false; }
         if (!candidate || candidate.Revision >= 999999999)
         {
@@ -718,12 +733,8 @@ class HCEventRuntime
             if (m_PendingPublish) { return; }
             if (m_AnnounceStage == 8)
             {
-                if (m_AnnounceStarted)
-                {
-                    if (m_AnnounceRepeat > 0) { Print("[HC Events] mission re-announced after cooldown; " + m_AnnounceMission.Id); }
-                    HCFinishAnnounce(HCEventCode.OK);
-                }
-                else { HCFinishAnnounce(HCEventCode.BLOCKED); }
+                // Only the refused/cancelled provider start reaches the second publish.
+                HCFinishAnnounce(HCEventCode.BLOCKED);
                 return;
             }
             if (m_AnnounceRepeat > 0)
@@ -782,7 +793,27 @@ class HCEventRuntime
                 HCFinishAnnounce(HCEventCode.BLOCKED);
                 return;
             }
-            if (m_AnnounceStarted) { nextRun.Phase = HCEventRunPhase.ACTIVE; }
+            if (m_AnnounceStarted)
+            {
+                // One durable publish per announce (stage 3, the write-ahead provider
+                // intent). The provider is running, so ACTIVE is promoted in memory only:
+                // a crash before the next publish leaves PREPARED with ProviderIntent, and
+                // Start converts every non-CLOSED run (PREPARED and ACTIVE alike) to CLEANUP.
+                // Revision stays equal to the committed one; the next publish increments it.
+                nextRun.Phase = HCEventRunPhase.ACTIVE;
+                if (!HCEventRuntimePolicy.StateValid(m_AnnounceCandidate))
+                {
+                    m_Ready = false;
+                    FaultCleanup();
+                    HCPublishRefused();
+                    HCFinishAnnounce(HCEventCode.BLOCKED);
+                    return;
+                }
+                m_State = m_AnnounceCandidate;
+                if (m_AnnounceRepeat > 0) { Print("[HC Events] mission re-announced after cooldown; " + m_AnnounceMission.Id); }
+                HCFinishAnnounce(HCEventCode.OK);
+                return;
+            }
             else
             {
                 if (Operation(m_AnnounceCandidate, m_AnnounceId, HCEventOp.CANCEL, "", m_AnnounceContext) != HCEventCode.OK)
@@ -1067,12 +1098,11 @@ class HCEventRuntime
         HCEventRun cancelledRun = HCRunAt(candidate, id);
         if (!cancelledRun) { return HCEventCode.NOT_FOUND; }
         cancelledRun.Phase = HCEventRunPhase.CLEANUP;
-        if (!Publish(candidate))
-        {
-            return HCEventCode.BLOCKED;
-        }
-        Cleanup(id);
-        return HCEventCode.OK;
+        // Cancel runs on the scenes tick, so it only stages the journal image. The
+        // caller sees BLOCKED with HCCancelPending() true and retries; the run tick
+        // releases the lease (Cleanup) after the image is durable, as for an expiry.
+        HCBeginPublish(candidate);
+        return HCEventCode.BLOCKED;
     }
     bool Cleanup(int id, bool staged = false)
     {
@@ -1112,7 +1142,7 @@ class HCEventRuntime
     }
     void Observe(HCEventSubscription sub, HCEventContext context)
     {
-        if (HCAnnouncePending() || !sub) { return; }
+        if (HCAnnouncePending() || m_PendingPublish || !sub) { return; }
         HCEventRun run = HCRunAt(m_State, sub.EventId);
         if (!run) { return; }
         HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
@@ -1188,10 +1218,12 @@ class HCEventRuntime
             return;
         }
         completingRun.Phase = HCEventRunPhase.CLEANUP;
-        if (Publish(candidate))
+        // Staged commit: the cooldown is remembered by HCAdvancePublish after the
+        // journal confirms, exactly as the synchronous path did after Publish.
+        if (HCBeginPublish(candidate) && m_PendingPublish)
         {
-            HCEventRecord completedRecord = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
-            if (completedRecord) { RememberCooldown(completedRecord, context.Now); }
+            m_PendingExpiryId = sub.EventId;
+            m_PendingExpiryAt = context.Now;
         }
     }
     void Tick(HCEventContext context)
@@ -1314,7 +1346,7 @@ class HCEventRuntime
         }
         int work = 0;
         int count = m_Subscriptions.Count();
-        while (m_Ready && m_Subscriptions.Count() > 0 && work < m_Settings.WorkPerTick && work < count)
+        while (m_Ready && !m_PendingPublish && m_Subscriptions.Count() > 0 && work < m_Settings.WorkPerTick && work < count)
         {
             if (m_Cursor >= m_Subscriptions.Count())
             {
