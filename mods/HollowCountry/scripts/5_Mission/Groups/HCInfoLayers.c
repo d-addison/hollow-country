@@ -54,11 +54,13 @@ class HCInfoMapPins
     }
 }
 
-// One drawable known-event site: a label, a position and the joined flag.
+// One drawable known-event site: a label, a position, the zone radius in metres
+// (0 = no zone ring) and the joined flag.
 class HCInfoPin
 {
     vector Position;
     string Label;
+    float Radius = 0;
     bool Joined = false;
 }
 
@@ -173,21 +175,49 @@ class HCInfoEventSites
     }
 }
 
-// HC-38: always empty; map redraws perform no event/network/clock query.
+// Public mission zones for the group map, built only from the server's pushed
+// snapshot (HCMissionBeaconStore). Map redraws perform no network or world query;
+// the list is rebuilt when the store version changes and every ten seconds so the
+// minutes-left text follows the local countdown.
 class HCInfoEventCache
 {
     protected ref array<ref HCInfoPin> mHCPins = new array<ref HCInfoPin>();
     protected float mHCStamp = -100.0;
+    protected int mHCVersion = -1;
 
     void Clear()
     {
         mHCPins.Clear();
         mHCStamp = -100.0;
+        mHCVersion = -1;
+    }
+
+    static string MinutesLeft(int seconds)
+    {
+        int minutes = Math.Floor((seconds + 59) / 60);
+        if (minutes < 1) { minutes = 1; }
+        return minutes.ToString();
     }
 
     array<ref HCInfoPin> Pins(float now, float worldSize)
     {
-        Clear();
+        HCMissionBeaconStore store = HCMissionBeaconStore.Get();
+        int version = store.Poll(now);
+        if (version == mHCVersion && now >= mHCStamp && now - mHCStamp < 10) { return mHCPins; }
+        mHCVersion = version;
+        mHCStamp = now;
+        mHCPins.Clear();
+        for (int index = 0; index < store.Count(); index++)
+        {
+            HCBeaconRow row = store.At(index);
+            if (!row) { continue; }
+            if (worldSize >= 1 && (row.X > worldSize || row.Z > worldSize)) { continue; }
+            HCInfoPin pin = new HCInfoPin;
+            pin.Position = Vector(row.X, 0, row.Z);
+            pin.Radius = row.Radius;
+            pin.Label = "Mission: " + row.Title + " ~" + MinutesLeft(store.Remaining(row, now)) + " min";
+            mHCPins.Insert(pin);
+        }
         return mHCPins;
     }
 }
@@ -197,7 +227,7 @@ class HCInfoEventCache
 class HCInfoLayerFlags
 {
     protected static ref HCInfoLayerFlags s_Instance;
-    bool ShowEvents = false;
+    bool ShowEvents = true;
     bool ShowVisited = true;
     bool ShowTeam = true;
     bool ShowMarkers = true;
@@ -225,7 +255,7 @@ class HCInfoLayerFlags
     {
         if (action == "HCInfoToggleEvents")
         {
-            ShowEvents = false;
+            ShowEvents = !ShowEvents;
             return true;
         }
         if (action == "HCInfoToggleVisited")
@@ -255,7 +285,7 @@ class HCInfoLayerFlags
     {
         if (action == "HCInfoToggleEvents")
         {
-            return "";
+            return StateText("Missions", ShowEvents);
         }
         if (action == "HCInfoToggleVisited")
         {
@@ -320,8 +350,8 @@ class HCInfoLayerControls
         ButtonWidget button = ButtonWidget.Cast(mHCPanel.FindAnyWidget(action));
         if (button)
         {
-            // Native EnWidgets.c:125 Show. No quest toggle in the map strip.
-            if (action == "HCInfoToggleEvents") { button.Show(false); return; }
+            // Native EnWidgets.c:125 Show. The Events button now toggles the public mission layer.
+            if (action == "HCInfoToggleEvents") { button.Show(true); }
             button.SetText(HCInfoLayerFlags.Get().Label(action));
         }
     }

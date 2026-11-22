@@ -28,7 +28,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
 
 
 def find_apply(source, key, target, decoded, text):
@@ -250,7 +250,7 @@ def check_search_limits(rows):
 
 def check_local_policy(rows):
     """W7 optional profile files: defaults, bounds and compiled metadata."""
-    prefixes = ('SignsOfLife.', 'LeatherTailoring.', 'Signals.')
+    prefixes = ('SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.')
     scoped = [r for r in rows if r['key'].startswith(prefixes)]
     registry = (ROOT / 'mods/HollowCountry/scripts/3_Game/gapcode_localpolicy_SettingsRegistry.c').read_text()
     compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
@@ -261,6 +261,7 @@ def check_local_policy(rows):
         'HCSignsConfig': ('Atmosphere/HCSignsOfLife.c', 'SignsOfLife.'),
         'HCAuditLeatherConfig': ('Crafting/auditleather_recipes.c', 'LeatherTailoring.'),
         'HCSignalConfig': ('Actions/HCActionAskForNews.c', 'Signals.'),
+        'HCMissionBeaconConfig': ('Events/HCMissionBeacon.c', 'Events.'),
     }
     for owner, (relative, prefix) in owners.items():
         source = (ROOT / 'mods/HollowCountry/scripts/4_World' / relative).read_text()
@@ -411,7 +412,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_local_policy(rows))
     errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
     errors.extend(check_zone_guards([r for r in rows if r['key'].startswith('HCZoneGuards.')]))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]

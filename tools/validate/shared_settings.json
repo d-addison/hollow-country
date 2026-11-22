@@ -3146,6 +3146,110 @@
     "owner": "HCSignalConfig"
   },
   {
+    "key": "Events.MissionMapMarkers",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionNotifications",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionZoneRadiusMeters",
+    "type": "int",
+    "default": 250,
+    "min": 50,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionZoneOffsetFraction",
+    "type": "float",
+    "default": 0.35,
+    "min": 0,
+    "max": 0.6,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionNotificationSeconds",
+    "type": "int",
+    "default": 10,
+    "min": 3,
+    "max": 30,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionMapMaxRows",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 16,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusRecovery",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusDelivery",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusInvestigation",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusSalvage",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusEncounter",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusPresence",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
+    "key": "Events.MissionRadiusInfectedClear",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1500,
+    "owner": "HCMissionBeaconConfig"
+  },
+  {
     "key": "StoryIndex.ReadLinesPerTick",
     "type": "int",
     "default": 16,

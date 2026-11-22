@@ -19,6 +19,9 @@ class HCEventModule : HCModule
     protected int m_RuntimeStep;
     protected int m_RosterStep;
     protected int m_CacheStep;
+    protected int m_BeaconStep;
+    // Public mission map: toasts and the pushed map snapshot (HCMissionBeacon).
+    protected ref HCMissionBeacon m_Beacon;
     // Seconds since the last scene cache re-probe pass (HCEventNativeObserver.HCTickSceneCaches).
     protected float m_CacheTickElapsed;
 
@@ -92,6 +95,9 @@ class HCEventModule : HCModule
         HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound");
         // Scene cache fill: counted at 0 from module start, so a never-filled case shows count=0.
         HCModuleReadiness.HCRegisterUse("Events", "cache_filled");
+        // Public mission map: rows published to clients and toasts sent, counted at 0 from start.
+        HCModuleReadiness.HCRegisterUse("Events", "mission_marker");
+        HCModuleReadiness.HCRegisterUse("Events", "mission_notice");
     }
     override bool IsEnabled(HCSettings settings)
     {
@@ -338,6 +344,7 @@ class HCEventModule : HCModule
         m_RuntimeStep = m_TickSteps.HCDefine("maintenance");
         m_RosterStep = m_TickSteps.HCDefine("roster");
         m_CacheStep = m_TickSteps.HCDefine("scene_cache");
+        m_BeaconStep = m_TickSteps.HCDefine("beacon");
         m_CacheTickElapsed = 0;
         if (s_CleanupOwner && s_CleanupOwner != this)
         {
@@ -414,6 +421,8 @@ class HCEventModule : HCModule
             OnStop();
             return;
         }
+        m_Beacon = new HCMissionBeacon;
+        m_Beacon.HCOpen();
         s_Instance = this;
         Print("[HC Events] roster admission queued; participation is optional");
     }
@@ -482,6 +491,12 @@ class HCEventModule : HCModule
                     m_NativeObserver.HCTickSceneCaches();
                     HCMeasureStep(m_CacheStep, "scene_cache", cacheStarted);
                 }
+            }
+            if (m_Beacon && !m_Stopping)
+            {
+                int beaconStarted = TickCount(0);
+                m_Beacon.HCTick(m_Runtime, context, deltaTime);
+                HCMeasureStep(m_BeaconStep, "beacon", beaconStarted);
             }
             m_RosterElapsed = m_RosterElapsed + deltaTime;
             HCRosterSummaryTick(deltaTime);
@@ -744,6 +759,11 @@ class HCEventModule : HCModule
         }
         return false;
     }
+    // Connect/respawn hook seam: current public mission list to one identity.
+    static void HCMissionMapConnected(PlayerIdentity identity, bool inWorld)
+    {
+        if (s_Instance && s_Instance.m_Beacon) { s_Instance.m_Beacon.HCConnected(identity, inWorld); }
+    }
     void ItemLocationChanged(ItemBase item, PlayerBase previousCarrier, EntityAI destination)
     {
         if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
@@ -777,6 +797,11 @@ class HCEventModule : HCModule
             m_Announcing = null;
         }
         HCCloseSituations();
+        if (m_Beacon)
+        {
+            m_Beacon.HCClose();
+            m_Beacon = null;
+        }
         if (m_EventRPC)
         {
             m_EventRPC.Stop();
