@@ -34,6 +34,8 @@ class HCXConvoyRoute
     int mHCCurrent = -1;
     int mHCEdge;
     bool mHCIncludeEnd;
+    // Weak request owner: cancellation clears its mark without retaining recovery.
+    HCXAIStuckRecovery mHCFixtureRecovery;
 
     static float HCFlatSq(vector a, vector b)
     {
@@ -45,13 +47,15 @@ class HCXConvoyRoute
 
     bool HCFail(string reason)
     {
+        mHCFixtureRecovery = null;
         mHCPhase = "failed";
         mHCReason = reason;
         return false;
     }
 
-    bool HCPlan(vector origin, vector destination, HCConvoyPolicy policy, bool includeEnd = false)
+    bool HCPlan(vector origin, vector destination, HCConvoyPolicy policy, bool includeEnd = false, HCXAIStuckRecovery fixtureRecovery = null)
     {
+        mHCFixtureRecovery = fixtureRecovery;
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (!policy) { return HCFail("CONVOY_POLICY_INVALID"); }
         if (!roads) { return HCFail("CONVOY_ROAD_NETWORK_UNAVAILABLE"); }
@@ -240,9 +244,12 @@ class HCXConvoyRoute
         if (mHCPath.Count() < 1 || mHCLength < mHCPolicy.MinDriveMeters) { HCFail("CONVOY_ROUTE_TOO_SHORT"); return; }
         if (mHCLength > mHCPolicy.MaxDriveMeters) { HCFail("CONVOY_ROUTE_LENGTH_CAP"); return; }
         mHCPhase = "ready";
-        HCXAIStuckRecovery.HCRouteUsed();
+        bool fixture = mHCFixtureRecovery && mHCFixtureRecovery.Fixture;
+        HCXAIStuckRecovery.HCRouteUsed(fixture);
         string line = "[HC Convoy] astar expanded=" + mHCExpanded.ToString();
         line += " nodes=" + mHCPath.Count().ToString() + " length_m=" + mHCLength.ToString();
+        if (fixture) { line += " fixture=1"; }
         Print(line + HCXAIStuckRecovery.HCSummary() + " runtime=PENDING");
+        mHCFixtureRecovery = null;
     }
 }
