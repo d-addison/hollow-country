@@ -273,6 +273,8 @@ def main(argv=None):
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments[:1] == ['run']:
         return run_main(arguments[1:])
+    if arguments[:1] == ['coverage']:
+        return coverage_main(arguments[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('catalog', type=Path, help='Portable test catalog JSON')
     parser.add_argument('--capability', action='append', default=[], metavar='NAME=STATUS',
@@ -557,8 +559,55 @@ def run_automation(manifest, output_dir, *, trusted_drivers=(), capabilities=Non
                                   "rows": [original[key] for key in sorted(original)]}},
         "tests": rows, "status": overall,
     }
+    report["coverage_report"] = _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins)
     (out / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
+
+
+def _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins, reviews=None):
+    """Post-run hook (AV-T027): coverage.json and coverage.md next to the sealed store, never in the repo."""
+    from tools.testing import coverage
+    built = coverage.build_report(
+        catalog, store.root, run_id=manifest["run_id"], covers=covers, capabilities=capabilities,
+        selected=selected, pins=pins, manifest_sha256=store.manifest_sha256(), reviews=reviews,
+        expected_tasks=[entry["task"] for entry in store.entries])
+    try:
+        written = coverage.write_outputs(out, built)
+    except ValueError as error:
+        return {"written": False, "reason": discovery.redact(error)}
+    return dict(written, written=True, status=built["status"], complete=built["complete"])
+
+
+def coverage_main(arguments):
+    """Rebuild the coverage report of a finished run from its sealed store and the run manifest."""
+    from tools.testing import coverage
+    parser = argparse.ArgumentParser(prog="automation coverage",
+                                     description="Coverage, human-review and blocker report for a sealed run")
+    parser.add_argument("run_dir", type=Path, help="the run's output directory (holds evidence/)")
+    parser.add_argument("manifest", type=Path, help="the manifest the run used (names the covering tasks)")
+    parser.add_argument("--reviews", type=Path, help="JSON object id -> {decision, reviewer, artifact:{path, sha256}}")
+    parser.add_argument("--out", type=Path, help="directory for coverage.json and coverage.md (default: the run dir)")
+    args = parser.parse_args(arguments)
+    try:
+        manifest = _load_json_file(args.manifest)
+        catalog = load_catalog(ROOT / _manifest_catalog(manifest))
+        covers = coverage.covers_from_manifest(manifest, {row["id"] for row in catalog["tests"]})
+        previous = _load_json_file(args.run_dir / "report.json") if (args.run_dir / "report.json").exists() else {}
+        capabilities = previous.get("capabilities", {}) if isinstance(previous, dict) else {}
+        reviews = _load_json_file(args.reviews) if args.reviews else None
+        store_manifest = coverage._load_store(args.run_dir / "evidence")
+        if store_manifest is None or store_manifest.get("run_id") != manifest["run_id"]:
+            raise ValueError("manifest run_id does not match the sealed store")
+        built = coverage.build_report(
+            catalog, args.run_dir / "evidence", run_id=manifest["run_id"], covers=covers,
+            capabilities=capabilities, selected=manifest.get("selected"),
+            pins=coverage.pins_for_run(drivers.DRIVERS), reviews=reviews)
+        written = coverage.write_outputs(args.out or args.run_dir, built)
+    except ValueError as error:
+        parser.error(discovery.redact(error))
+    print(json.dumps(dict(written, status=built["status"], complete=built["complete"], counts=built["counts"]),
+                     sort_keys=True))
+    return 1 if built["status"] in ("FAIL", "INCOMPLETE") else 0
 
 
 def run_main(arguments):
