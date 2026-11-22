@@ -6,6 +6,10 @@ positive building-routed types together against shared group/container caps,
 category/tag filters and actual placed tier sets, without splitting shared
 capacity evenly between usages. It is an optimistic upper bound: dimensions,
 point range/height, collisions and native selection remain unobserved.
+
+CLI: ``MISSION --feasibility`` (alias ``--all-categories``) emits one JSON
+report and exits 0 for a static pass, 1 for a capacity deficit, or 2 for invalid
+inputs/options. A static pass is never native placement acceptance.
 """
 import argparse
 from collections import Counter
@@ -333,13 +337,23 @@ def main(argv=None):
     parser.add_argument('mission', type=Path)
     parser.add_argument('--category', default='weapons')
     parser.add_argument('--limit', type=float, default=LIMIT)
-    parser.add_argument('--military-weapons', action='store_true', help='joint Military/Police/Prison weapon bound with LIMIT headroom and named unrouted types')
-    parser.add_argument('--all-categories', action='store_true', help='joint shared-capacity bound across all building-routed categories')
-    parser.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--military-weapons', action='store_true', help='joint Military/Police/Prison weapon bound with LIMIT headroom and named unrouted types')
+    modes.add_argument('--all-categories', '--feasibility', action='store_true', help='joint shared-capacity bound across all building-routed categories; exit 1 on deficit')
+    modes.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
     parser.add_argument('--top', type=int, default=10)
     args = parser.parse_args(argv)
+    if not math.isfinite(args.limit) or not 0 < args.limit <= 1:
+        parser.error('--limit must be greater than zero and at most one')
+    if args.top < 0:
+        parser.error('--top must be nonnegative')
     if args.all_categories or args.military_weapons:
-        result = feasibility(args.mission, args.military_weapons, args.limit)
+        try:
+            result = feasibility(args.mission, args.military_weapons, args.limit)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, struct.error, ET.ParseError):
+            # Stable machine-readable failure without leaking local input paths.
+            print(json.dumps({'status': 'error', 'reason': 'CE inputs unreadable or invalid'}, sort_keys=True))
+            return 2
         print(json.dumps(result, sort_keys=True))
         return 1 if result['status'] == 'fail' else 0
     if args.coverage:
