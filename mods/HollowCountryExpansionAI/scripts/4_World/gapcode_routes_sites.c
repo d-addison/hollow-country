@@ -105,7 +105,7 @@ modded class HCXAISiteDirector
                     array<vector> points = route.Points;
                     foreach (vector roadWaypoint : points) { candidateSite.Waypoints.Insert(roadWaypoint); }
                     state.Site = candidateSite;
-                    HCModuleReadiness.HCUse("optional-expansion-human-ai", "manifest_route_binding");
+                    HCModuleReadiness.HCUse("optional-expansion-human-ai", "regional_road_site_binding");
                 }
                 else
                 {

@@ -104,6 +104,7 @@ class HCXAICaravanRoads : Managed
     protected bool m_CompactProject;
     protected string m_ReadWindow;
     protected int m_ReadCursor;
+    protected int m_WindowBracket = -1;
     protected int m_CompactBytes;
     protected int m_CompactArray;
     protected int m_ArrayValues;
@@ -222,7 +223,22 @@ class HCXAICaravanRoads : Managed
         Grid.Clear();
         m_Offsets.Clear();
         m_Edges.Clear();
+        m_CompactHeaderRead = false;
+        m_CompactProject = false;
         m_ReadWindow = "";
+        m_ReadCursor = 0;
+        m_WindowBracket = -1;
+        m_CompactBytes = 0;
+        m_CompactArray = 0;
+        m_ArrayValues = 0;
+        m_ExpectValue = true;
+        m_StreamFault = false;
+        m_ProjectCursor = 0;
+        m_EdgeCount = 0;
+        m_Count = 0;
+        m_LoadDegree = 0;
+        m_LoadEdge = 0;
+        m_LoadTick = -1;
         m_LoadField = 0;
         m_LoadNode = null;
         this.HCLoadInstalled();
@@ -240,6 +256,9 @@ class HCXAICaravanRoads : Managed
             m_CompactBytes += bytes;
             if (bytes < 0 || bytes != m_ReadWindow.Length() || m_CompactBytes > 4194304)
             { m_StreamFault = true; return ""; }
+            // Scan once per window; the large Positions array has no closing
+            // bracket in most windows. Repeating this per token was quadratic.
+            m_WindowBracket = m_ReadWindow.IndexOfFrom(0, "]");
             if (bytes == 0) { return ""; }
         }
         return m_ReadWindow.Get(m_ReadCursor);
@@ -287,7 +306,9 @@ class HCXAICaravanRoads : Managed
             string first = this.HCStreamAt();
             if (first == "" || m_StreamFault || m_ReadWindow.Length() > 4096) { return ""; }
             int stop = m_ReadWindow.IndexOfFrom(m_ReadCursor, ",");
-            int bracket = m_ReadWindow.IndexOfFrom(m_ReadCursor, "]");
+            if (m_WindowBracket >= 0 && m_WindowBracket < m_ReadCursor)
+            { m_WindowBracket = m_ReadWindow.IndexOfFrom(m_ReadCursor, "]"); }
+            int bracket = m_WindowBracket;
             if (stop < 0 || (bracket >= 0 && bracket < stop)) { stop = bracket; }
             if (stop == m_ReadCursor)
             {
@@ -393,7 +414,12 @@ class HCXAICaravanRoads : Managed
         if (m_CompactArray == 0)
         {
             if (m_ArrayValues >= m_Count * 3) { return false; }
-            if (m_ArrayValues % 3 == 0) { m_LoadNode = new HCXAICaravanRoadNode; }
+            if (m_ArrayValues % 3 == 0)
+            {
+                // Compact IDs are implicit: XYZ triple i must publish node i.
+                if (m_ArrayValues / 3 != Nodes.Count()) { return false; }
+                m_LoadNode = new HCXAICaravanRoadNode;
+            }
             m_LoadNode.Position[m_ArrayValues % 3] = token.ToFloat();
             if (m_ArrayValues % 3 == 2)
             {

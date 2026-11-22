@@ -24,6 +24,8 @@ class HCGapcodeRoutesSources
 {
     string road_virtual_path;
     string road_sha256;
+    string localities_sha256;
+    string sites_sha256;
 }
 class HCGapcodeRoutesGraph
 {
@@ -166,6 +168,8 @@ class HCGapcodeRoutesCatalog
     protected int m_Cursor;
     protected int m_PinPeakTicks;
     protected int m_Pending;
+    protected ref map<string, int> m_Refusals = new map<string, int>;
+    protected bool m_RefusalsDirty;
     protected int m_ValidityMismatch;
     protected bool m_ManifestAdmitted;
     protected int m_Slices;
@@ -198,6 +202,10 @@ class HCGapcodeRoutesCatalog
     void HCStop()
     {
         this.HCClose();
+        if (m_RefusalsDirty)
+        {
+            Print("[HC Routes] catalog=stopped" + this.HCRefusalSummary() + " runtime=PENDING");
+        }
         m_PageHash = null;
         m_HashPage = "";
         m_HashCursor = 0;
@@ -221,7 +229,7 @@ class HCGapcodeRoutesCatalog
         m_Enabled = !FileExist("$profile:HollowCountry/acceptance/gapcode_routes.disable");
         Print(HCV2Admission.Line("RegionalRoadCandidates", m_Enabled, "GAPCOV-NATIVE-ROUTES", false) + " runtime=PENDING");
         if (!m_Enabled) { return; }
-        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "manifest_route_binding");
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "regional_road_site_binding");
         string content = HCWorldStore.Read("$mission:hollow-country/travel/route-surveys.json");
         string error;
         HCGapcodeRoutesDocument document;
@@ -232,6 +240,8 @@ class HCGapcodeRoutesCatalog
         { this.HCRefuse("ROUTE_HEADER_INVALID"); return; }
         if (!Data.routes || Data.routes.Count() < 1 || Data.routes.Count() > HCXAISiteRules.HCMaxCatalogRows())
         { this.HCRefuse("ROUTE_ROW_CAP"); return; }
+        if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
+        { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
         if (this.HCManifestMatches())
         {
             m_ManifestAdmitted = true;
@@ -239,12 +249,11 @@ class HCGapcodeRoutesCatalog
             m_Reason = "ROUTE_GRAPH_LOADING";
             return;
         }
+        if (m_Phase == "failed") { return; }
         // No stale manifest is treated as proof. Keep the original sampled-source
         // fallback and its refusal paths; count the downgrade once per catalog.
         m_ValidityMismatch++;
         Print("[HC Routes] manifest=fallback reason=validity_mismatch count=" + m_ValidityMismatch.ToString() + " runtime=PENDING");
-        if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
-        { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
         string pinText = HCWorldStore.Read("$mission:hollow-country/travel/gapcode_routes_source-pages.json");
         if (!JsonFileLoader<HCGapcodeRoutesPins>.LoadData(pinText, m_Pins, error) || !m_Pins || m_Pins.SchemaVersion != 1)
         { this.HCRefuse("ROUTE_SOURCE_PINS_MISSING"); return; }
@@ -285,7 +294,14 @@ class HCGapcodeRoutesCatalog
             if (!source.Pages || source.PageStart != pages || source.PageCount != (source.Bytes + 4095) / 4096 || source.Pages.Count() != source.PageCount) { return false; }
             pages += source.PageCount;
         }
-        return pages == manifest.PageCount && manifest.Files[0].Sha256 == Data.sources.road_sha256 && manifest.Files[0].Path == Data.sources.road_virtual_path;
+        if (pages != manifest.PageCount || manifest.Files[0].Sha256 != Data.sources.road_sha256 || manifest.Files[0].Path != Data.sources.road_virtual_path) { return false; }
+        // Retain the survey's mission-source binding on the no-hash path.
+        // A partial upgrade must not silently admit routes from another bundle.
+        if (manifest.Files[1].Sha256 != Data.sources.sites_sha256)
+        { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_SITES_DRIFT"); return false; }
+        if (manifest.Files[2].Sha256 != Data.sources.localities_sha256)
+        { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_LOCALITIES_DRIFT"); return false; }
+        return true;
     }
     bool HCSourcePath(int index, string path)
     {
@@ -385,7 +401,24 @@ class HCGapcodeRoutesCatalog
         row.Fault = reason;
         row.Points.Clear();
         m_Pending++;
-        // Candidate faults remain queryable on the row; one loaded summary below.
+        int count;
+        m_Refusals.Find(reason, count);
+        m_Refusals.Set(reason, count + 1);
+        m_RefusalsDirty = true;
+    }
+    // One boot summary; post-load binding refusals are also flushed at stop.
+    // Keys come only from the finite refusal reasons below, never mission text.
+    string HCRefusalSummary()
+    {
+        string summary = " refusals=";
+        for (int index = 0; index < m_Refusals.Count(); index++)
+        {
+            if (index > 0) { summary += ","; }
+            summary += m_Refusals.GetKey(index) + ":" + m_Refusals.GetElement(index).ToString();
+        }
+        if (m_Refusals.Count() == 0) { summary += "none"; }
+        m_RefusalsDirty = false;
+        return summary;
     }
     void HCBindingRefuse(HCGapcodeRoutesRow row, string reason)
     {
@@ -530,7 +563,7 @@ class HCGapcodeRoutesCatalog
                     line += " slices=" + m_Slices.ToString() + " units=" + m_Units.ToString();
                     float elapsed = GetGame().GetTickTime() - m_Started;
                     line += " elapsed_s=" + elapsed.ToString() + " resolve_ticks_max=" + m_ResolvePeakTicks.ToString();
-                    Print(line + " runtime=PENDING");
+                    Print(line + this.HCRefusalSummary() + " runtime=PENDING");
                     return;
                 }
             }
@@ -551,7 +584,13 @@ class HCGapcodeRoutesCatalog
     {
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_opt_out"); }
         else if (m_Phase == "failed") { m_Status.HCPublish("degraded", m_Reason); }
-        else if (m_Phase != "loaded" && owner) { m_Status.HCPublish(owner.HCState(), owner.HCReason()); }
+        else if (m_Phase != "loaded")
+        {
+            HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
+            string loadingReason = "catalog_loading";
+            if (!roads || roads.Phase == "cold" || roads.Phase == "loading") { loadingReason = "roads_loading"; }
+            m_Status.HCPublish("degraded", loadingReason);
+        }
         else if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
         // Candidate-local refusals (island access, a site binding) keep every other
         // candidate running, so they are admitted coverage gaps, not an owner fault
