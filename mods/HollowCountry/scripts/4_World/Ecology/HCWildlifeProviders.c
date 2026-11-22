@@ -85,30 +85,119 @@ class HCWildlifeCarcassIO : HCEventRewardIO
 
 // Keep the shared grant-before-creation barrier. Only this owner may renew an
 // exhausted/part-used generation, after verified release and no surviving body.
+// Both the grant file and the renewal are staged: one native file operation per
+// step, driven by the provider's carcass slices, never a synchronous write on a tick.
 class HCWildlifeCarcassLedger : HCEventRewardLedger
 {
-    bool HCRenew()
+    protected ref HCStagedSaveImage m_Writer;
+    protected string m_CreateName;
+    protected int m_Admission;
+    // 0 idle, 1 writing the new boot marker, 2 removing the prior boot's files.
+    protected int m_RenewStage;
+    protected int m_RenewSerial;
+    protected int m_RenewNext;
+
+    // Immutable create of one ledger file through the shared staged writer. The
+    // caller stages both admission probes (temporary and target absent) first.
+    protected bool HCCreateBegin(string name, string text, int limit)
     {
-        if (!m_Ready || m_Fault || m_Boot >= 2147483646) { return false; }
-        int next = m_Boot + 1;
-        string marker = next.ToString() + "-boot.txt";
-        if (!m_IO.WriteNew(marker, "HC-EVENT-REWARDS v1 boot " + next.ToString(), 128)) { return Fault(); }
-        // Known filenames only: no Names/FindFile/Start on a tick. At most
-        // eight grants + one marker; the new marker precedes every removal.
-        for (int serial = 1; serial <= m_Granted.Count(); serial++)
+        m_Writer = new HCStagedSaveImage;
+        m_Admission = 0;
+        m_CreateName = name;
+        if (!m_Writer.HCPrepareJournal(m_IO.HCPath(name), text, limit)) { m_Writer = null; return false; }
+        return true;
+    }
+
+    protected int HCCreateStep()
+    {
+        if (!m_Writer) { return HCSaveJob.STEP_FAILED; }
+        if (m_Admission < 2)
         {
-            string name = m_Boot.ToString() + "-grant-" + serial.ToString() + ".txt";
-            if (!m_IO.Remove(name)) { return Fault(); }
+            string probe = m_CreateName;
+            if (m_Admission == 0) { probe = probe + ".tmp"; }
+            m_Admission = m_Admission + 1;
+            if (m_IO.Exists(probe)) { m_Writer = null; return HCSaveJob.STEP_FAILED; }
+            return HCSaveJob.STEP_MORE;
         }
-        if (!m_IO.Remove(m_Boot.ToString() + "-boot.txt")) { return Fault(); }
-        m_Boot = next;
+        int result = m_Writer.HCStepImage();
+        if (result != HCSaveJob.STEP_MORE) { m_Writer = null; }
+        return result;
+    }
+
+    bool HCBusy() { return m_Writer != null || m_RenewStage != 0; }
+
+    // Same decision as Commit, split in two: this step spends the allowance in
+    // memory (before any file or item exists) and prepares the grant file; HCGrantStep
+    // then admits and writes it. A failed or uncertain write faults the ledger, so
+    // no second grant is possible in this process, exactly as the synchronous path.
+    HCEventRewardPlan HCGrantBegin(string siteId)
+    {
+        if (!HCEventDirector.TextValid(siteId, 48) || siteId.Trim().Length() < 1) { return null; }
+        if (!m_Ready || m_Fault) { HCRefuse("not_started_or_faulted"); return null; }
+        if (HCBusy() || m_Granted.Find(siteId) >= 0 || m_Granted.Count() >= m_Pool.MaxCaches) { return null; }
+        HCEventRewardPlan plan = Take(siteId);
+        if (plan.Items.Count() < 1) { return null; }
+        m_Granted.Insert(siteId);
+        int serial = m_Granted.Count();
+        string text = "HC-EVENT-REWARD v1 boot " + m_Boot.ToString() + " site " + siteId + " items";
+        foreach (string item : plan.Items)
+        {
+            text = text + " " + item;
+        }
+        string name = m_Boot.ToString() + "-grant-" + serial.ToString() + ".txt";
+        if (!HCCreateBegin(name, text, 512)) { Fault(); return null; }
+        return plan;
+    }
+
+    int HCGrantStep()
+    {
+        int result = HCCreateStep();
+        if (result == HCSaveJob.STEP_FAILED) { Fault(); }
+        return result;
+    }
+
+    // Renewal order is unchanged: the new boot marker is written and verified first,
+    // then at most eight grants and the old marker are removed (known filenames, one
+    // delete per step), and only then does the in-memory pool reset.
+    bool HCRenewBegin()
+    {
+        if (!m_Ready || m_Fault || HCBusy() || m_Boot >= 2147483646) { return false; }
+        m_RenewNext = m_Boot + 1;
+        string marker = m_RenewNext.ToString() + "-boot.txt";
+        if (!HCCreateBegin(marker, "HC-EVENT-REWARDS v1 boot " + m_RenewNext.ToString(), 128)) { return Fault(); }
+        m_RenewStage = 1;
+        m_RenewSerial = 0;
+        return true;
+    }
+
+    int HCRenewStep()
+    {
+        if (m_RenewStage == 1)
+        {
+            int written = HCCreateStep();
+            if (written == HCSaveJob.STEP_FAILED) { m_RenewStage = 0; Fault(); return HCSaveJob.STEP_FAILED; }
+            if (written == HCSaveJob.STEP_DONE)
+            {
+                m_RenewStage = 2;
+                m_RenewSerial = 1;
+            }
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_RenewStage != 2) { return HCSaveJob.STEP_FAILED; }
+        string name = m_Boot.ToString() + "-boot.txt";
+        if (m_RenewSerial <= m_Granted.Count()) { name = m_Boot.ToString() + "-grant-" + m_RenewSerial.ToString() + ".txt"; }
+        if (!m_IO.Remove(name)) { m_RenewStage = 0; Fault(); return HCSaveJob.STEP_FAILED; }
+        m_RenewSerial = m_RenewSerial + 1;
+        if (m_RenewSerial <= m_Granted.Count() + 1) { return HCSaveJob.STEP_MORE; }
+        m_Boot = m_RenewNext;
         m_Granted.Clear();
         m_Remaining.Clear();
         foreach (HCEventRewardEntry entry : m_Pool.Entries)
         {
             m_Remaining.Insert(entry.Count);
         }
-        return true;
+        m_RenewStage = 0;
+        return HCSaveJob.STEP_DONE;
     }
 }
 
@@ -141,6 +230,16 @@ class HCWildlifeProviders
     // Alternate creation/refill with maintenance on the existing slot.
     // Neither path can consume the other path's starvation allowance first.
     protected bool m_CarcassTurn = true;
+    // Staged carcass pipeline. One native file operation (or one creation) per
+    // carcass slice: 1 claim save, 2 grant file, 3 refill save, 4 ledger renewal,
+    // 5 body creation. Persisted order is unchanged: claim, then grant, then body.
+    protected int m_Job;
+    protected int m_JobSlices;
+    protected int m_JobHolds;
+    protected ref HCWildlifeProviderSite m_JobSite;
+    protected ref HCEventRewardPlan m_JobPlan;
+    static const int HC_JOB_MAX_SLICES = 160;
+    static const int HC_JOB_MAX_HOLDS = 120;
     protected int m_LastReport = -1;
     protected int m_Attempts;
     protected int m_Spawned;
@@ -362,39 +461,104 @@ class HCWildlifeProviders
         return utc >= 1577836801 && utc >= m_State.RefillAfterUtc;
     }
 
-    bool HCRefill()
+    // Starts the staged refill. Same gate as before: a surviving body keeps its
+    // slot. The in-memory release is persisted first (job 3), and only a verified
+    // save leads to the ledger renewal (job 4), exactly the previous order.
+    bool HCRefillBegin()
     {
-        // Caller owns one cost-eight creation slice. At most eight handles
-        // and nine known journal files are visited; no directory enumeration.
-        // Never release by elapsed time alone: a still-existing body retains
-        // its slot even if native lifetime cleanup was delayed near players.
         foreach (AnimalBase body : m_Carcasses)
         {
             if (body) { return false; }
         }
+        if (m_Job != 0 || (m_Ledger && m_Ledger.HCBusy())) { return false; }
         m_State.SpentSites.Clear();
         m_State.RefillAfterUtc = 0;
-        // Release only after verified persistence. Uncertain saves fail closed;
-        // no body exists here, including after a crash before the next ledger.
-        if (!m_Store.Save(m_State)) { m_Fault = true; HCRefuse("allocation_refill_failed"); return true; }
-        m_Carcasses.Clear();
-        if (!m_Ledger.HCRenew()) { m_Fault = true; HCRefuse("carcass_economy_renewal_failed"); return true; }
-        m_Refills++;
-        Print("[HC Wildlife] carcass_allowance_refilled cap=" + m_Config.MaxCarcasses.ToString() + " minimum_interval_s=" + CARCASS_REFILL_SECONDS.ToString() + " runtime=PENDING");
+        m_Job = 3;
+        m_JobSlices = 0;
         return true;
     }
 
-    bool HCClaim(string siteId)
+    bool HCClaimBegin(string siteId)
     {
-        if (m_Fault || m_State.SpentSites.Count() >= m_Config.MaxCarcasses || m_State.SpentSites.Find(siteId) >= 0) { return false; }
+        if (m_Fault || m_Job != 0 || m_State.SpentSites.Count() >= m_Config.MaxCarcasses || m_State.SpentSites.Find(siteId) >= 0) { return false; }
         int utc = HCEcologyMigrationNative.Utc();
         if (utc < 1577836801) { return false; }
         m_State.SpentSites.Insert(siteId);
         // A failed grant/creation still occupies this generation. Extend the
         // deadline on each claim so even its last body gets a full interval.
         m_State.RefillAfterUtc = utc + CARCASS_REFILL_SECONDS;
-        if (!m_Store.Save(m_State)) { m_Fault = true; return false; }
         return true;
+    }
+
+    void HCJobEnd()
+    {
+        m_Job = 0;
+        m_JobSlices = 0;
+        m_JobHolds = 0;
+        m_JobSite = null;
+        m_JobPlan = null;
+    }
+
+    void HCJobFail(string reason)
+    {
+        m_Fault = true;
+        HCRefuse(reason);
+        HCJobEnd();
+    }
+
+    // One bounded step. The claim save, the grant write and the renewal each
+    // return to the scheduler after a single native operation.
+    void HCJobStep()
+    {
+        m_JobSlices = m_JobSlices + 1;
+        if (m_Job != 5 && m_JobSlices > HC_JOB_MAX_SLICES) { HCJobFail("carcass_job_overrun"); return; }
+        int result;
+        if (m_Job == 1 || m_Job == 3)
+        {
+            result = m_Store.SaveStep(m_State);
+            if (result == HCSaveJob.STEP_MORE) { return; }
+            if (result != HCSaveJob.STEP_DONE)
+            {
+                if (m_Job == 1) { m_RefusedAllocation++; HCJobFail("carcass_allocation_claim_failed"); }
+                else { HCJobFail("allocation_refill_failed"); }
+                return;
+            }
+            m_JobSlices = 0;
+            if (m_Job == 1)
+            {
+                m_JobPlan = m_Ledger.HCGrantBegin(m_JobSite.Id);
+                if (!m_JobPlan) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); HCJobEnd(); return; }
+                m_Job = 2;
+                return;
+            }
+            // Release only after verified persistence. Uncertain saves fail closed;
+            // no body exists here, including after a crash before the next ledger.
+            m_Carcasses.Clear();
+            if (!m_Ledger.HCRenewBegin()) { HCJobFail("carcass_economy_renewal_failed"); return; }
+            m_Job = 4;
+            return;
+        }
+        if (m_Job == 2)
+        {
+            result = m_Ledger.HCGrantStep();
+            if (result == HCSaveJob.STEP_MORE) { return; }
+            if (result != HCSaveJob.STEP_DONE) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); HCJobEnd(); return; }
+            m_Job = 5;
+            m_JobSlices = 0;
+            return;
+        }
+        if (m_Job == 4)
+        {
+            result = m_Ledger.HCRenewStep();
+            if (result == HCSaveJob.STEP_MORE) { return; }
+            if (result != HCSaveJob.STEP_DONE) { HCJobFail("carcass_economy_renewal_failed"); return; }
+            m_Refills++;
+            Print("[HC Wildlife] carcass_allowance_refilled cap=" + m_Config.MaxCarcasses.ToString() + " minimum_interval_s=" + CARCASS_REFILL_SECONDS.ToString() + " runtime=PENDING");
+            HCJobEnd();
+            return;
+        }
+        if (m_Job == 5) { HCJobSpawn(); return; }
+        HCJobEnd();
     }
 
     bool HCHidden(vector point)
@@ -411,13 +575,38 @@ class HCWildlifeProviders
         return true;
     }
 
-    AnimalBase HCCreate(HCWildlifeProviderSite site)
+    // Slice 1 of the pipeline: the visibility and allowance checks, then the
+    // in-memory claim. Nothing is persisted or created here.
+    bool HCCreate(HCWildlifeProviderSite site)
     {
-        if (!m_Running || m_Fault || !HCEcologyNative.Authority()) { return null; }
-        if (!HCHidden(site.Position)) { return null; }
-        if (!HCClaim(site.Id)) { m_RefusedAllocation++; HCRefuse("carcass_allocation_claim_failed"); return null; }
-        HCEventRewardPlan plan = m_Ledger.Commit(site.Id);
-        if (!plan) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); return null; }
+        if (!m_Running || m_Fault || m_Job != 0 || !HCEcologyNative.Authority()) { return false; }
+        if (!HCHidden(site.Position)) { return false; }
+        if (!HCClaimBegin(site.Id)) { m_RefusedAllocation++; HCRefuse("carcass_allocation_claim_failed"); return false; }
+        m_JobSite = site;
+        m_Job = 1;
+        m_JobSlices = 0;
+        return true;
+    }
+
+    // Last slice: the grant file is already verified. The observers are checked
+    // again because the earlier visibility result is stale after the staged writes.
+    void HCJobSpawn()
+    {
+        if (!HCEcologyNative.Authority()) { HCJobFail("carcass_authority_lost_allocation_spent"); return; }
+        if (!HCHidden(m_JobSite.Position))
+        {
+            m_JobHolds = m_JobHolds + 1;
+            if (m_JobHolds > HC_JOB_MAX_HOLDS)
+            {
+                m_RefusedCreation++;
+                HCRefuse("carcass_creation_not_hidden_allocation_spent");
+                HCJobEnd();
+            }
+            return;
+        }
+        HCWildlifeProviderSite site = m_JobSite;
+        HCEventRewardPlan plan = m_JobPlan;
+        HCJobEnd();
         int flags = ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD | ECE_INITAI;
         Object created = GetGame().CreateObjectEx(plan.Items.Get(0), site.Position, flags);
         AnimalBase body = AnimalBase.Cast(created);
@@ -426,7 +615,7 @@ class HCWildlifeProviders
             if (created) { GetGame().ObjectDelete(created); }
             m_RefusedCreation++;
             HCRefuse("carcass_creation_failed_allocation_spent");
-            return null;
+            return;
         }
         // Red deer inherit ReplaceOnDeath=false in inspected native scripts.
         // Fail closed if the installed stack changes that: losing a handle to
@@ -436,7 +625,7 @@ class HCWildlifeProviders
             GetGame().ObjectDelete(body);
             m_RefusedCreation++;
             HCRefuse("carcass_replacement_unsupported_allocation_spent");
-            return null;
+            return;
         }
         m_Carcasses.Insert(body);
         body.SetHealth("", "Health", 0);
@@ -445,7 +634,6 @@ class HCWildlifeProviders
         Print("[HC Plan] HC-149 authored_carcass site=" + site.Id + " allocation=spent creation=issued death=issued runtime=PENDING");
         // Retain only a weak handle until native corpse deletion. No forced
         // skinning, inventory writes, lifetime extension or deletion timer.
-        return body;
     }
 
     void HCStep(int nowMs)
@@ -456,24 +644,35 @@ class HCWildlifeProviders
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
-        bool refill = m_Config.CarcassesEnabled && HCRefillDue();
-        bool pending = m_Config.CarcassesEnabled && m_State && (m_State.SpentSites.Count() < m_Config.MaxCarcasses || refill);
+        bool busy = m_Job != 0;
+        bool refill = !busy && m_Config.CarcassesEnabled && HCRefillDue();
+        bool pending = busy || (m_Config.CarcassesEnabled && m_State && (m_State.SpentSites.Count() < m_Config.MaxCarcasses || refill));
         if (pending && m_CarcassTurn)
         {
             // One atomic creation attempt, including at most 16 current
             // observers (six native rays each). Never reuse stale sight checks.
             // Cost 8 is the shared budget's object-creation convention; use the
-            // named consumer so exhausted earlier modules cannot starve it.
+            // named consumer so exhausted earlier modules cannot starve it. A
+            // staged file step costs one unit; only the creation slice costs 8.
             HCUnitBudget work = HCServer.HCTickWork();
-            if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 8))
+            int cost = 8;
+            if (busy && m_Job != 5) { cost = 1; }
+            if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, cost))
             {
                 m_CarcassTurn = false;
+                if (busy)
+                {
+                    HCJobStep();
+                    HCReport(false);
+                    HCObserve();
+                    return;
+                }
                 // Completed renewal is its own slice. A surviving body can
                 // block renewal without starving another unspent site.
                 if (refill)
                 {
-                    bool renewed = HCRefill();
-                    if (renewed || m_State.SpentSites.Count() >= m_Config.MaxCarcasses)
+                    bool renewing = HCRefillBegin();
+                    if (renewing || m_State.SpentSites.Count() >= m_Config.MaxCarcasses)
                     {
                         HCReport(false);
                         HCObserve();

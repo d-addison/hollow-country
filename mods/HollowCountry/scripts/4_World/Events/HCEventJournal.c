@@ -18,7 +18,22 @@ class HCEventJournalIO
         }
         return false;
     }
+    // Directory availability is probed once per instance (three FileExist/MakeDirectory
+    // calls); every later Ensure answers from the remembered result. A directory that
+    // disappears later still fails the file operation that needs it, and the staged
+    // journal save probes the same three directories again on every save.
+    protected bool m_Probed;
+    protected bool m_ProbeResult;
     bool Ensure()
+    {
+        if (!m_Probed)
+        {
+            m_Probed = true;
+            m_ProbeResult = HCProbeDirectories();
+        }
+        return m_ProbeResult;
+    }
+    protected bool HCProbeDirectories()
     {
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return HCRefuse("profile_directory_unavailable"); }
         if (!FileExist("$profile:HollowCountry/Events") && !MakeDirectory("$profile:HollowCountry/Events")) { return HCRefuse("events_directory_unavailable"); }
@@ -76,24 +91,34 @@ class HCEventJournalIO
         return Read(name, limit) == text;
     }
     // Copy every surviving top-revision file before deleting any of them.
-    // A separate attempt directory preserves earlier crashes of a reused revision.
+    // The torn set is the three immutable files of one revision. A separate attempt
+    // directory preserves earlier crashes of a reused revision: sixteen attempts per
+    // revision, after which recovery refuses (files stay untouched) instead of
+    // probing without a bound at startup.
     protected string m_TornDirectory;
     string HCTornDirectory() { return m_TornDirectory; }
     bool PreserveTorn(array<string> names, int revision)
     {
+        if (!names || names.Count() > 3) { return false; }
         string root = "$profile:HollowCountry/Events/torn";
         if (!FileExist(root) && !MakeDirectory(root)) { return false; }
         string target;
         int attempt = 0;
-        while (attempt < 1024)
+        bool vacant = false;
+        for (int probe = 0; probe < 16; probe++)
         {
-            target = root + "/" + revision.ToString() + "-" + attempt.ToString();
-            if (!FileExist(target)) { break; }
-            attempt++;
+            target = root + "/" + revision.ToString() + "-" + probe.ToString();
+            if (!FileExist(target))
+            {
+                attempt = probe;
+                vacant = true;
+                break;
+            }
         }
-        if (attempt >= 1024 || !MakeDirectory(target)) { return false; }
-        foreach (string name : names)
+        if (!vacant || !MakeDirectory(target)) { return false; }
+        for (int index = 0; index < 3 && index < names.Count(); index++)
         {
+            string name = names[index];
             if (!Exists(name)) { continue; }
             // Verify raw bytes, including an empty torn file, before any delete.
             string original = Read(name, 4194304);
@@ -109,8 +134,9 @@ class HCEventJournalIO
             CloseFile(handle);
             if (count != originalCount || actual != original) { return false; }
         }
-        foreach (string obsolete : names)
+        for (int last = 0; last < 3 && last < names.Count(); last++)
         {
+            string obsolete = names[last];
             if (Exists(obsolete) && !Remove(obsolete)) { return false; }
         }
         m_TornDirectory = "Events/torn/" + revision.ToString() + "-" + attempt.ToString();
@@ -351,12 +377,20 @@ class HCEventJournal : HCEventPersistence
         // A crash during pruning only removes old files; it cannot raise this bound.
         array<string> retained = m_IO.Names();
         if (!retained) { Fault(); return null; }
-        foreach (string retainedName : retained)
+        // Names() admits at most 27 entries, so three blocks of nine cover every
+        // retained name; the nest is a constant bound, not a configured one.
+        for (int block = 0; block < 3; block++)
         {
-            int revision = RevisionInName(retainedName, "intent-");
-            if (revision == 0) { revision = RevisionInName(retainedName, "image-"); }
-            if (revision == 0) { revision = RevisionInName(retainedName, "commit-"); }
-            if (revision > 0 && revision <= loaded - 7 && !m_IO.Remove(retainedName)) { Fault(); return null; }
+            for (int slot = 0; slot < 9; slot++)
+            {
+                int position = block * 9 + slot;
+                if (position >= retained.Count()) { break; }
+                string retainedName = retained[position];
+                int revision = RevisionInName(retainedName, "intent-");
+                if (revision == 0) { revision = RevisionInName(retainedName, "image-"); }
+                if (revision == 0) { revision = RevisionInName(retainedName, "commit-"); }
+                if (revision > 0 && revision <= loaded - 7 && !m_IO.Remove(retainedName)) { Fault(); return null; }
+            }
         }
         return state;
     }
@@ -851,6 +885,17 @@ class HCEventJournalSaveJob : HCSaveJob
 {
     HCEventJournal Journal;
     int Result = HCSaveJob.STEP_MORE;
+    // The runtime builds one job per publish, and the scheduler prints its "[HC Save]"
+    // line once per job instance (its peak starts at 0): 32 summaries in a 30 minute soak.
+    // Carry the slowest stage across instances so a summary prints only on a new
+    // high-water mark for the process; the timings stay visible, the repeats stop.
+    static int s_PeakTicks;
+    void HCEventJournalSaveJob() { HCPeakTicks = s_PeakTicks; }
+    override void HCCommitted(float now)
+    {
+        super.HCCommitted(now);
+        if (HCStatStageMax > s_PeakTicks) { s_PeakTicks = HCStatStageMax; }
+    }
     override string HCName() { return "EventJournal"; }
     override int HCStep()
     {
