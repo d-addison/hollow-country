@@ -43,6 +43,7 @@ MAX_BYTES = 16 * 1024 * 1024
 # (vanilla wheels, doors and hoods are lootdispatch with Industrial usage).
 LEGACY_CATEGORIES = {'vehiclesparts': 'lootdispatch'}
 BASE_TARGETS = {'cfgeconomycore.xml', 'cfgenvironment.xml', 'cfgeventspawns.xml', 'env/hen_territories.xml'}
+# Keep snake territories allowed only for rollback of older receipts.
 GENERATED = {'events.xml', 'types.xml', 'spawnabletypes.xml'} | {
     species + '_territories.xml' for species in (*AMBIENT_SPECIES, 'snake')}
 
@@ -209,18 +210,20 @@ def loaded_paths(loaded_mods):
 
 
 def ambient_caps(options):
-    """Installed schema: six independent ambient maxima and a separate snake CE
-    event. Reserve snakes first, then share the remainder; there is no native
-    aggregate field. These are authored ceilings, never observed occupancy.
+    """Share the aggregate ceiling among healthy installed ambient species.
+
+    Validate legacy snake policy fields for existing bundles, but never reserve
+    population for the withdrawn Snake content. These are authored ceilings,
+    never observed occupancy.
     """
     cap, total, snake = (options[k] for k in ('per_species_cap', 'total_cap', 'snake_cap'))
     if (any(type(n) is not int for n in (cap, total, snake)) or not 1 <= cap <= 8
             or not 0 <= snake <= 2 or not snake <= total <= 48
             or options.get('total_cap_includes_snakes', True) is not True):
         raise ValueError('ambient policy exceeds provisional aggregate caps')
-    share, remainder = divmod(min(total - snake, cap * len(AMBIENT_SPECIES)), len(AMBIENT_SPECIES))
+    share, remainder = divmod(min(total, cap * len(AMBIENT_SPECIES)), len(AMBIENT_SPECIES))
     return {**{name: share + (index < remainder) for index, name in enumerate(AMBIENT_SPECIES)},
-            'snake': snake}
+            'snake': 0}
 
 
 def plan(workshop, mission, loaded_mods, policy_path=POLICY):
@@ -329,15 +332,16 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         territories = environment.find('territories')
         if territories is None:
             raise ValueError('mission lacks native environment territories')
-        for species in (*AMBIENT_SPECIES, 'snake'):
+        # Dayz_Snake's snake.agr is defective; omit its types/events/territories
+        # without opening or modifying the subscribed pack's Snake files.
+        candidate['diagnostics'].append(
+            '[HC Plan] AmbientAnimals excluded=Snake reason=snake_animgraph runtime=PENDING')
+        for species in AMBIENT_SPECIES:
             directory = animals / (species + '_territories')
-            if species == 'snake':
-                instructions = find_file(directory, 'Snake_TypesEvents.txt')
-            else:
-                matches = [p for p in directory.iterdir() if p.name.lower().endswith('_readme.txt')]
-                if len(matches) != 1:
-                    raise ValueError('missing or ambiguous installed species README: ' + species)
-                instructions = matches[0]
+            matches = [p for p in directory.iterdir() if p.name.lower().endswith('_readme.txt')]
+            if len(matches) != 1:
+                raise ValueError('missing or ambiguous installed species README: ' + species)
+            instructions = matches[0]
             data = source(instructions)
             territory_nodes = fragments(data, 'territory')
             event_nodes = fragments(data, 'event')
@@ -356,7 +360,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
             territory.find('file').set('usable', usable)
             limit = caps[species]
             maxima = territory.findall("item[@name='globalCountMax']")
-            if species != 'snake' and len(maxima) != 1:
+            if len(maxima) != 1:
                 raise ValueError('ambient cap schema missing or ambiguous: ' + species)
             for item in maxima:
                 item.set('val', str(min(int(item.get('val')), limit)))
