@@ -128,7 +128,8 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
 5. [ ] On clear flat ground use Infected -> **sitter**; let pose settle, then
    approach/noise/hit to produce a real wake: **InfectedVariety/actor_woken**.
    Land an ordinary close melee hit on an infected:
-   **Melee/hit_processed, parity_probe**. Fire a genuine unsuppressed round into
+   **Melee/hit_processed, parity_probe**. Swing at an infected through a closed door or
+   thin wall (no damage), then through the open doorway (hit lands): **Melee/wall_veto**. Fire a genuine unsuppressed round into
    safe ground: **InfectedMemory/heat_recorded**. Let an eligible chasing infected
    open an ordinary shut unlocked door while leaving escape and swing clear:
    **InfectedDoors/door_action**. Leave original infected corpse for client flies:
@@ -415,6 +416,7 @@ logs; every checkbox below is deliberately unchecked.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing.
 - [ ] `Melee/hit_processed` — `client_action`; `mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c#HCMeleeLog.Event`.
 - [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c#HCMeleeTargetingParity.Observe`.
+- [ ] `Melee/wall_veto` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeWall.c#HCMeleeWall.Vetoes`.
 - [ ] `Notes/note_read` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#HCNoteLedger.Read`.
 - [ ] `OptionalPacks/animal_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#AnimalBase.EEInit`.
 - [ ] `Pickers/trip_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCPickers.c#HCModuleRegistry.RegisterModules`.
