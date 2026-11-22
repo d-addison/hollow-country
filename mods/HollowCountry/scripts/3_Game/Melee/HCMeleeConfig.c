@@ -36,6 +36,8 @@ class HCMeleeSettings
     float WeightStaminaFist = 0.75;
     bool InPlaceLight = true;
     float InPlaceDistance = 2.0;
+    // Hard veto of melee hits on infected/AI whose head-to-zone line crosses a wall or closed door.
+    bool WallVeto = true;
 }
 
 class HCMeleeConfig
@@ -95,6 +97,7 @@ class HCMeleeConfig
         if (HCJsonFields.Has(image, "WeightStaminaFist") && HCMeleeConfig.HCAccept("Melee.WeightStaminaFist", decoded.WeightStaminaFist)) { s_Settings.WeightStaminaFist = decoded.WeightStaminaFist; }
         if (HCJsonFields.Has(image, "InPlaceLight") && HCMeleeConfig.HCAccept("Melee.InPlaceLight", decoded.InPlaceLight)) { s_Settings.InPlaceLight = decoded.InPlaceLight; }
         if (HCJsonFields.Has(image, "InPlaceDistance") && HCMeleeConfig.HCAccept("Melee.InPlaceDistance", decoded.InPlaceDistance)) { s_Settings.InPlaceDistance = decoded.InPlaceDistance; }
+        if (HCJsonFields.Has(image, "WallVeto") && HCMeleeConfig.HCAccept("Melee.WallVeto", decoded.WallVeto)) { s_Settings.WallVeto = decoded.WallVeto; }
         return true;
     }
 
@@ -148,5 +151,6 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Melee.WeightStaminaFist", "float", 0.75, 0.25, 2, "HCMeleeConfig");
         HCAdd("Melee.InPlaceLight", "bool", 1, 0, 1, "HCMeleeConfig");
         HCAdd("Melee.InPlaceDistance", "float", 2.0, 1.5, 3, "HCMeleeConfig");
+        HCAdd("Melee.WallVeto", "bool", 1, 0, 1, "HCMeleeConfig");
     }
 }
