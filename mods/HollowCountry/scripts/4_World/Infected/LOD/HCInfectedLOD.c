@@ -624,6 +624,16 @@ class HCInfectedLODModule : HCModule
         return m_Store.Find(id);
     }
 
+    // Walk observations can repeat while idle or stalled. Only actual centre
+    // changes need a revision; the save job coalesces moving herds at 30 s.
+    protected void HCLODUpdateCentre(HCInfectedLODHerd herd, vector position)
+    {
+        if (herd.X == position[0] && herd.Z == position[2]) { return; }
+        herd.X = position[0];
+        herd.Z = position[2];
+        m_Store.MarkDirty();
+    }
+
     // Debits one living head (death or horde release) with a fresh regrow clock.
     protected void Debit(string herdId)
     {
@@ -698,9 +708,7 @@ class HCInfectedLODModule : HCModule
         if (herd && body)
         {
             vector position = body.GetPosition();
-            herd.X = position[0];
-            herd.Z = position[2];
-            m_Store.MarkDirty();
+            HCLODUpdateCentre(herd, position);
         }
         RemoveLease(index);
         if (body) { infected.HCLODRetire(body); GetGame().ObjectDelete(body); }
@@ -773,9 +781,7 @@ class HCInfectedLODModule : HCModule
         if (lease.Journey)
         {
             vector observed = lease.Body.GetPosition();
-            herd.X = observed[0];
-            herd.Z = observed[2];
-            m_Store.MarkDirty();
+            HCLODUpdateCentre(herd, observed);
             if (lease.Journey.Tick(now)) { return; }
             bool reached = lease.Journey.RouteResult == 2;
             lease.Journey = null;
@@ -791,9 +797,7 @@ class HCInfectedLODModule : HCModule
         lease.JourneyRetry = now + 30;
         vector position = lease.Body.GetPosition();
         // Observed physical progress becomes the next folded centre.
-        herd.X = position[0];
-        herd.Z = position[2];
-        m_Store.MarkDirty();
+        HCLODUpdateCentre(herd, position);
         vector destination = journey.Point(lease.JourneyNode);
         vector direction = destination - position;
         float distance = direction.Length();
@@ -835,9 +839,7 @@ class HCInfectedLODModule : HCModule
             {
                 virtualDirection.Normalize();
                 current = current + virtualDirection * Math.Min(virtualDistance, elapsed);
-                herd.X = current[0];
-                herd.Z = current[2];
-                m_Store.MarkDirty();
+                HCLODUpdateCentre(herd, current);
             }
         }
         vector centre = Vector(herd.X, GetGame().SurfaceY(herd.X, herd.Z), herd.Z);
