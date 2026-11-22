@@ -1,5 +1,6 @@
 """Stage/ingest a disposable native CE initial-fill experiment; never launch DayZ."""
 import argparse
+import csv
 import contextlib
 import datetime
 import io
@@ -62,27 +63,114 @@ def installed_mods(friend=FRIEND):
 def binding(plan):
     fields = {key: plan[key] for key in ('variant', 'layers', 'mods', 'mod_source',
               'stock_mission_sha256', 'run_id', 'hold_seconds', 'server_exe_sha256')}
-    for key in ('authored_inputs_sha256', 'tool_sha256', 'variants', 'variant_receipts', 'type_catalog'):
+    for key in ('authored_inputs_sha256', 'tool_sha256', 'variants', 'variant_receipts', 'type_catalog', 'census_version'):
         if key in plan:
             fields[key] = plan[key]
     return rt.sha256(json.dumps(fields, sort_keys=True, separators=(',', ':')).encode())
 
 
 def render_hook(token, hold_seconds):
-    # Same native OnInit/CallLater/file APIs as ce_site_probe; no CE/gameplay mutation.
+    # Native declarations inspected in the pinned 1.30 scripts; read-only survey.
     return ('''\nclass HCDisposableDiagnosticMission : CustomMission
 {
+    protected int m_FillTile;
+    protected int m_FillObjects;
+    protected ref map<string, int> m_FillLoose = new map<string, int>;
+    protected ref map<string, int> m_FillAttached = new map<string, int>;
+
     override void OnInit()
     {
         super.OnInit();
         Print("[HC FillProbe] begin binding=TOKEN");
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(FillFinish, HOLD, false);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(FillStart, HOLD, false);
+    }
+    void FillStart()
+    {
+        CEApi fillEconomy = GetCEApi();
+        if (fillEconomy)
+            fillEconomy.EconomyLog(EconomyLogCategories.Economy);
+        FillStep();
+    }
+    int FillAttachments(EntityAI fillRoot)
+    {
+        int fillTotal = 0;
+        ref array<EntityAI> fillPending = new array<EntityAI>;
+        fillPending.Insert(fillRoot);
+        while (fillPending.Count() > 0)
+        {
+            EntityAI fillNode = fillPending[fillPending.Count() - 1];
+            fillPending.Remove(fillPending.Count() - 1);
+            GameInventory fillInventory = fillNode.GetInventory();
+            if (!fillInventory)
+                continue;
+            for (int fillSlot = 0; fillSlot < fillInventory.AttachmentCount(); fillSlot++)
+            {
+                EntityAI fillChild = fillInventory.GetAttachmentFromIndex(fillSlot);
+                if (!fillChild)
+                    continue;
+                if (ItemBase.Cast(fillChild))
+                    fillTotal++;
+                fillPending.Insert(fillChild);
+            }
+        }
+        return fillTotal;
+    }
+    void FillStep()
+    {
+        // 60 x 60 half-open 256 m tiles cover the 15,360 m map.
+        // One tile per callback; circles overlap, ownership squares do not.
+        int fillTilesPerStep = 1;
+        for (int fillBatch = 0; fillBatch < fillTilesPerStep && m_FillTile < 3600; fillBatch++)
+        {
+            int fillX = m_FillTile % 60;
+            int fillZ = m_FillTile / 60;
+            vector fillCenter = Vector(fillX * 256 + 128, 0, fillZ * 256 + 128);
+            ref array<Object> fillObjects = new array<Object>;
+            ref array<CargoBase> fillProxies = new array<CargoBase>;
+            GetGame().GetObjectsAtPosition(fillCenter, 182, fillObjects, fillProxies);
+            m_FillObjects += fillObjects.Count();
+            foreach (Object fillObject : fillObjects)
+            {
+                ItemBase fillItem = ItemBase.Cast(fillObject);
+                if (!fillItem || fillItem.GetHierarchyRoot() != fillItem)
+                    continue;
+                vector fillPosition = fillItem.GetPosition();
+                if (fillPosition[0] < fillX * 256 || fillPosition[0] >= (fillX + 1) * 256)
+                    continue;
+                if (fillPosition[2] < fillZ * 256 || fillPosition[2] >= (fillZ + 1) * 256)
+                    continue;
+                string fillName = fillItem.GetType();
+                m_FillLoose.Set(fillName, m_FillLoose.Get(fillName) + 1);
+                m_FillAttached.Set(fillName, m_FillAttached.Get(fillName) + FillAttachments(fillItem));
+            }
+            m_FillTile++;
+        }
+        if (m_FillTile < 3600)
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(FillStep, 10, false);
+            return;
+        }
+        FillFinish();
     }
     void FillFinish()
     {
-        Print("[HC FillProbe] done binding=TOKEN");
-        if (!MakeDirectory("$profile:HCCEFillProbe"))
+        if (!FileExist("$profile:HCCEFillProbe") && !MakeDirectory("$profile:HCCEFillProbe"))
             return;
+        FileHandle fillCensus = OpenFile("$profile:HCCEFillProbe/census.txt", FileMode.WRITE);
+        if (!fillCensus)
+            return;
+        FPrintln(fillCensus, "[HC FillProbe] census binding=TOKEN");
+        foreach (string fillType, int fillLooseCount : m_FillLoose)
+        {
+            string fillRow = fillType + "\\t" + fillLooseCount.ToString();
+            fillRow += "\\t" + m_FillAttached.Get(fillType).ToString();
+            FPrintln(fillCensus, fillRow);
+        }
+        CloseFile(fillCensus);
+        string fillMarker = "[HC FillProbe] census binding=TOKEN tiles=" + m_FillTile.ToString();
+        fillMarker += " objects=" + m_FillObjects.ToString() + " types=" + m_FillLoose.Count().ToString();
+        Print(fillMarker);
+        Print("[HC FillProbe] done binding=TOKEN");
         FileHandle handle = OpenFile("$profile:HCCEFillProbe/complete.txt", FileMode.WRITE);
         if (!handle)
             return;
@@ -193,6 +281,7 @@ def type_catalog(mission):
         for row in ET.fromstring(data).findall('type'):
             result[row.get('name').lower()] = dict(
                 file=name, file_sha256=rt.sha256(data),
+                nominal=int(row.findtext('nominal', '0')), min=int(row.findtext('min', '0')),
                 category=sorted({n.get('name') for n in row.findall('category')}),
                 usage=sorted({n.get('name') for n in row.findall('usage')}),
                 tier=sorted({n.get('name') for n in row.findall('value')}))
@@ -287,7 +376,7 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
     source = rt.verify_source(source_runtime, rt.BATTLEYE_SHA256)
     stock_sha = ce_site_probe.stock_digest(source['records'])
     plan = rt.plan_header('ce-fill-probe', None, after={'variant': treatment})
-    plan.update(variants=variants, layers=list(TREATMENTS[treatment]), mods=mods, mod_source=mod_source,
+    plan.update(census_version=1, variants=variants, layers=list(TREATMENTS[treatment]), mods=mods, mod_source=mod_source,
                 stock_control='verified vanilla-p0-001; supplied bundle-src-005 is already HC-layered',
                 stock_mission_sha256=stock_sha, run_id=secrets.token_hex(16),
                 hold_seconds=hold_seconds, server_exe_sha256=rt.SERVER_EXE_SHA256)
@@ -333,6 +422,9 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
         old_hook = hook
         plan['binding'] = binding(plan)
         hook = render_hook(plan['binding'], hold_seconds)
+        found = rt.lint_hook(hook.decode(), native_types=native)
+        if found:
+            raise ValueError('hook lint: ' + '; '.join(found[:3]))
         init = built['mission_dest'] / 'init.c'
         data = init.read_bytes()
         if data.count(old_hook) != 1:
@@ -376,6 +468,68 @@ def timestamp(line):
     if h >= 24 or m >= 60 or s >= 60:
         raise ValueError('invalid RPT timestamp')
     return h*3600+m*60+s
+
+
+def parse_census(raw, token):
+    """Strict, bound tab-separated census; case-insensitive class uniqueness."""
+    lines = raw.decode('utf-8').splitlines()
+    if not lines or lines[0] != '[HC FillProbe] census binding=' + token:
+        raise ValueError('missing or mismatched census binding header')
+    rows = {}
+    for line in lines[1:]:
+        fields = line.split('\t')
+        if (len(fields) != 3 or not re.fullmatch(r'[A-Za-z0-9_]+', fields[0])
+                or any(not re.fullmatch(r'[0-9]+', value) for value in fields[1:])):
+            raise ValueError('malformed census row')
+        name = fields[0].lower()
+        if name in rows:
+            raise ValueError('duplicate census type')
+        rows[name] = dict(loose=int(fields[1]), attached=int(fields[2]))
+    return rows
+
+
+def fill_ratios(rows, catalog):
+    """Include every staged definition, even classes absent from the census."""
+    files, signatures, classes = {}, {}, {}
+    for name, definition in sorted(catalog.items()):
+        measured = rows.get(name, dict(loose=0, attached=0))
+        classes[name] = dict(**measured, definition=definition)
+        signature = json.dumps([definition[k] for k in ('category', 'usage', 'tier')], separators=(',', ':'))
+        for groups, key in ((files, definition['file']), (signatures, signature)):
+            group = groups.setdefault(key, dict(nominal=0, min=0, loose=0, attached=0))
+            for field in ('nominal', 'min'):
+                group[field] += definition[field]
+            for field in ('loose', 'attached'):
+                group[field] += measured[field]
+    for groups in (files, signatures):
+        for group in groups.values():
+            group['fill_ratio'] = group['loose'] / group['nominal'] if group['nominal'] else None
+    return dict(per_defining_file=files, per_signature=signatures, types=classes,
+                below_min=[n for n, r in classes.items() if r['loose'] < r['definition']['min']],
+                zero_with_nominal=[n for n, r in classes.items() if not r['loose'] and r['definition']['nominal'] > 0],
+                unattributed={n: r for n, r in rows.items() if n not in catalog})
+
+
+def read_census(runtime, token, catalog, required=False):
+    path = runtime / 'profiles/HCCEFillProbe/census.txt'
+    if not path.exists() and not required:
+        return dict(present=False)
+    raw = rt._read_bounded(path, MAX_RPT_BYTES)
+    rows = parse_census(raw, token)
+    if not catalog or any('nominal' not in r or 'min' not in r for r in catalog.values()):
+        raise ValueError('census requires staged nominal/min catalog')
+    return dict(present=True, sha256=rt.sha256(raw), observed_types=len(rows), **fill_ratios(rows, catalog))
+
+
+def economy_logs(runtime):
+    """Optional DIAG export: absence is evidence too; never depend on it."""
+    records = []
+    directory = runtime / 'storage/log'
+    for path in sorted(directory.glob('*.csv')):
+        raw = rt._read_bounded(path, MAX_RPT_BYTES)
+        records.append(dict(file=path.name, sha256=rt.sha256(raw),
+                            rows=sum(1 for _ in csv.reader(io.StringIO(raw.decode('utf-8-sig'))))))
+    return dict(present=bool(records), files=records, row_count_includes_header=True)
 
 
 def ingest(rpt, out, plan_path=None):
@@ -433,9 +587,18 @@ def ingest(rpt, out, plan_path=None):
         if rt.sha256(catalog_raw) != pin['sha256']:
             raise ValueError('type catalog hash drift')
         catalog = json.loads(catalog_raw)
+    census = read_census(plan_path.parent, plan['binding'], catalog, required=bool(plan.get('census_version')))
+    if census['present']:
+        census_markers = re.findall(r'\[HC FillProbe\] census binding=([a-f0-9]{64}) tiles=(\d+) objects=(\d+) types=(\d+)', text)
+        if (len(census_markers) != 1 or census_markers[0][0] != plan['binding']
+                or int(census_markers[0][1]) != 3600
+                or int(census_markers[0][3]) != census['observed_types']
+                or not text.index('[HC FillProbe] begin') < text.index('[HC FillProbe] census') < text.index('[HC FillProbe] done')):
+            raise ValueError('missing or invalid census completion marker')
+        census['tiles'], census['objects'], census['observed_types'] = map(int, census_markers[0][1:])
     for name, row in counts.items():
         row['definition'] = catalog.get(name.lower())
-    result = dict(schema=1, variants=plan.get('variants', {}),
+    result = dict(schema=2, census=census, economy_log=economy_logs(plan_path.parent), variants=plan.get('variants', {}),
                   variant_receipts=plan.get('variant_receipts', {}), status='observed-not-accepted', treatment=plan['variant'],
                   total=sum(r['count'] for r in counts.values()), first_timestamp=first, last_timestamp=last,
                   types=dict(sorted(counts.items())), ce_init_summaries=summaries, mission_hold_seconds=elapsed,
@@ -475,7 +638,8 @@ def compare(paths):
             raise ValueError('summary total differs from type counts')
         names = set(base) | set(run['types'])
         deltas = {n: (base.get(n, {}).get('count', 0), run['types'].get(n, {}).get('count', 0)) for n in names}
-        output.append(dict(treatment=run['treatment'], variants=run.get('variants', {}), total=run['total'],
+        output.append(dict(census=run.get('census', dict(present=False)),
+                           economy_log=run.get('economy_log', dict(present=False)), treatment=run['treatment'], variants=run.get('variants', {}), total=run['total'],
                            per_defining_file=dict(sorted(files.items())), per_signature=dict(sorted(signatures.items())),
                            went_to_zero=sorted(n for n, (a, b) in deltas.items() if a > 0 and b == 0),
                            rose={n: dict(before=a, after=b) for n, (a, b) in sorted(deltas.items()) if b > a}))

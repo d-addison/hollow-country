@@ -150,6 +150,93 @@ class FillProbeTests(unittest.TestCase):
                     probe.stage('unused', self.root/'unused', treatment=treatment, hold_seconds=239, dry_run=True)
 
 
+class CensusTests(unittest.TestCase):
+    def setUp(self):
+        FillProbeTests.setUp(self)
+        self.catalog = {
+            'example': dict(file='db/types.xml', nominal=7, min=4,
+                            category=['tools'], usage=['Town'], tier=['Tier1']),
+            'other': dict(file='extra/types.xml', nominal=3, min=1,
+                          category=['weapons'], usage=['Police'], tier=['Tier3']),
+            'disabled': dict(file='db/types.xml', nominal=0, min=0,
+                             category=['tools'], usage=['Town'], tier=['Tier1'])}
+        self.rows = {'example': dict(loose=2, attached=3)}
+
+    lines = FillProbeTests.lines
+    ingest = FillProbeTests.ingest
+
+    def raw(self):
+        return ('[HC FillProbe] census binding=' + self.plan['binding'] + '\n' +
+                ''.join(f"{name}\t{row['loose']}\t{row['attached']}\n" for name, row in self.rows.items())).encode()
+
+    def test_census_parser_and_refusals(self):
+        self.assertEqual(probe.parse_census(self.raw(), self.plan['binding']), self.rows)
+        header = self.raw().splitlines()[0] + b'\n'
+        for raw in (b'example\t1\t0', self.raw().replace(self.plan['binding'].encode(), b'f'*64),
+                    self.raw()+b'EXAMPLE\t0\t0\n', header+b'Other\t-1\t0',
+                    header+b'Other\t1', header+b'Other\t1.5\t0', header+b'bad name\t1\t0'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                probe.parse_census(raw, self.plan['binding'])
+
+    def test_fill_aggregation_includes_absent_and_disabled_classes(self):
+        result = probe.fill_ratios(self.rows, self.catalog)
+        for grouping in ('per_defining_file', 'per_signature'):
+            groups = result[grouping]
+            self.assertEqual(sum(g['nominal'] for g in groups.values()),
+                             sum(r['nominal'] for r in self.catalog.values()))
+            self.assertEqual(sum(g['min'] for g in groups.values()), sum(r['min'] for r in self.catalog.values()))
+            self.assertEqual(sum(g['loose'] for g in groups.values()), sum(r['loose'] for r in self.rows.values()))
+            for group in groups.values():
+                self.assertEqual(group['fill_ratio'], group['loose']/group['nominal'] if group['nominal'] else None)
+        self.assertEqual(result['below_min'], sorted(n for n, r in self.catalog.items()
+                         if self.rows.get(n, {}).get('loose', 0) < r['min']))
+        self.assertEqual(result['zero_with_nominal'], sorted(n for n, r in self.catalog.items()
+                         if n not in self.rows and r['nominal'] > 0))
+
+    def test_ingest_bound_census_optional_export_and_compare_legacy(self):
+        catalog_raw = json.dumps(self.catalog).encode()
+        (self.root/probe.CATALOG_NAME).write_bytes(catalog_raw)
+        self.plan.update(census_version=1, type_catalog=dict(path=probe.CATALOG_NAME, sha256=rt.sha256(catalog_raw)))
+        self.plan['binding'] = probe.binding(self.plan)
+        output = self.root/'profiles/HCCEFillProbe/census.txt'
+        output.parent.mkdir(parents=True)
+        output.write_bytes(self.raw())
+        export = self.root/'storage/log/economy.csv'
+        export.parent.mkdir(parents=True)
+        export.write_text('type,count\nExample,2\n')
+        lines = self.lines()
+        lines.insert(-1, '0:02:01 [HC FillProbe] census binding=' + self.plan['binding'] +
+                     f' tiles=3600 objects=20 types={len(self.rows)}')
+        result = self.ingest(lines)
+        self.assertTrue(result['census']['present'])
+        self.assertEqual(result['census']['sha256'], rt.sha256(output.read_bytes()))
+        self.assertEqual(result['economy_log']['files'][0]['rows'], len(export.read_text().splitlines()))
+        self.assertEqual(result['economy_log']['files'][0]['sha256'], rt.sha256(export.read_bytes()))
+        legacy = copy.deepcopy(result)
+        legacy['schema'] = 1
+        del legacy['census']
+        paths = [self.root/'new.json', self.root/'legacy.json']
+        for path, run in zip(paths, (result, legacy)):
+            path.write_text(json.dumps(run))
+        compared = probe.compare(paths)['runs']
+        self.assertEqual(compared[0]['census'], result['census'])
+        self.assertFalse(compared[1]['census']['present'])
+        self.assertEqual(compared[0]['total'], result['total'])
+        output.unlink()
+        self.assertFalse(probe.economy_logs(self.root/'absent')['present'])
+        with self.assertRaises(OSError):
+            probe.read_census(self.root, self.plan['binding'], self.catalog, required=True)
+
+    def test_hook_has_bounded_tile_steps_and_native_name_lint(self):
+        hook = probe.render_hook(self.plan['binding'], self.plan['hold_seconds']).decode()
+        cache = Path.home()/'.cache/hollow-country/native-scripts/scripts-1.30.164289'
+        self.assertFalse(rt.lint_hook(hook, native_types=rt.native_type_names(cache)))
+        # Tool-generation contract, not a simulation of Enforce behaviour.
+        self.assertIn('fillBatch < fillTilesPerStep', hook)
+        self.assertIn('CallLater(FillStep,', hook)
+        self.assertLess(hook.index('CloseFile(fillCensus)'), hook.index('[HC FillProbe] done'))
+
+
 class VariantTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -232,9 +319,12 @@ class VariantTests(unittest.TestCase):
     def test_multiline_registrations_binding_and_ingest_variants(self):
         self.write('cfgeconomycore.xml', '<economycore><ce\n folder="extra/ce">\n<file name="rows.xml" type="types"/>\n</ce></economycore>')
         self.write('db/types.xml', '<types><type name="Example"><category name="tools"/></type></types>')
-        self.write('extra/ce/rows.xml', '<types><type name="Example"><category name="weapons"/><usage name="Police"/><value name="Tier3"/></type></types>')
+        self.write('extra/ce/rows.xml', '<types><type name="Example"><nominal>9</nominal><min>3</min><category name="weapons"/><usage name="Police"/><value name="Tier3"/></type></types>')
         catalog = probe.type_catalog(self.root)
         self.assertEqual(catalog['example']['file'], 'extra/ce/rows.xml')
+        staged_row = ET.parse(self.root/'extra/ce/rows.xml').find('type')
+        for field in ('nominal', 'min'):
+            self.assertEqual(catalog['example'][field], int(staged_row.findtext(field)))
         fixture = FillProbeTests()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
@@ -245,7 +335,7 @@ class VariantTests(unittest.TestCase):
                             type_catalog=dict(path=probe.CATALOG_NAME, sha256=rt.sha256(catalog_raw)))
         fixture.plan['binding'] = probe.binding(fixture.plan)
         self.assertNotEqual(old, fixture.plan['binding'])
-        for key in ('variants', 'variant_receipts', 'type_catalog'):
+        for key in ('variants', 'variant_receipts', 'type_catalog', 'census_version'):
             changed = copy.deepcopy(fixture.plan)
             changed[key] = {'changed': True}
             self.assertNotEqual(probe.binding(changed), fixture.plan['binding'])
