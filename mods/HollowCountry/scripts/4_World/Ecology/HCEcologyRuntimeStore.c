@@ -146,7 +146,7 @@ class HCEcologyRuntimeStore
     // Boot only. A whole pending image was verified before primary promotion.
     // If promotion started, the verified backup must be its exact predecessor.
     // No-backup table: whole intent + absent/torn primary -> verified promotion;
-    // torn intent + absent primary -> archive once/empty; both torn -> operator;
+    // torn intent + absent primary -> archive once/empty (absent_primary); both torn -> operator;
     // whole primary wins through the existing primary/Revision checks below.
     // Existing backups retain the verified-predecessor rules unchanged.
     protected bool HCRecoverPrior(string imagePath, string pendingPath, string world)
@@ -186,7 +186,7 @@ class HCEcologyRuntimeStore
                 return false;
             }
             bool retired = HCV2ThreatStore<HCEcologyCheckpoint>.HCRetireFirstPending(imagePath, pendingPath, 2048);
-            if (retired) { Print("[HC Ecology] action=archived_first_pending reason=no_predecessor runtime=PENDING"); }
+            if (retired) { Print("[HC Ecology] action=archived_first_pending reason=absent_primary runtime=PENDING"); }
             else { Print("[HC Ecology] action=left_for_operator reason=first_pending_retirement_failed runtime=PENDING"); }
             return retired;
         }
@@ -207,12 +207,17 @@ class HCEcologyRuntimeStore
             Print("[HC Ecology] recovery=retained_primary reason=verified_predecessor runtime=PENDING");
             return true;
         }
+        if (primaryValid)
+        {
+            Print("[HC Ecology] action=retained_verified_primary reason=unexpected_revision runtime=PENDING");
+            return true; // Open quarantines pending; never roll back a valid image.
+        }
         string backupText = HCEcologyRuntimeIO.Read(imagePath + ".bak", 2048);
         HCEcologyCheckpoint backup = HCEcologyRuntimeIO.Decode(backupText);
         if (!HCEcologyRuntimeRules.CheckpointValid(backup, world) || backup.Revision != intent.Revision - 1) { return false; }
         if (FileExist(imagePath))
         {
-            if (!HCPersistenceDisposition.HCArchive(imagePath, ".interrupted-" + HCGroupClock.Utc().ToString(), 2048, true)) { return false; }
+            if (!HCV2ThreatStore<HCEcologyCheckpoint>.HCArchiveFirstPending(imagePath, 2048)) { return false; }
             if (!DeleteFile(imagePath)) { return false; }
         }
         if (!CopyFile(imagePath + ".bak", imagePath)) { return false; }
