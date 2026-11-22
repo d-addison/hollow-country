@@ -145,6 +145,40 @@ class HCXAIRouteSave : HCSaveJob
         return result;
     }
 }
+// Prior scalar fields of a cache row, restored when a seed intent is refused so a
+// never-persisted "seeding" state can never be read back as a looted cache.
+class HCXAICacheRowMemo : Managed
+{
+    string ClassName;
+    string State;
+    int Lifecycle;
+    int SeededAt;
+    int LootedAt;
+    int NextRefillAt;
+    string CrateId;
+    static HCXAICacheRowMemo Take(HCXAICacheRow row)
+    {
+        HCXAICacheRowMemo memo = new HCXAICacheRowMemo();
+        memo.ClassName = row.ClassName;
+        memo.State = row.State;
+        memo.Lifecycle = row.Lifecycle;
+        memo.SeededAt = row.SeededAt;
+        memo.LootedAt = row.LootedAt;
+        memo.NextRefillAt = row.NextRefillAt;
+        memo.CrateId = row.HCPickerCrateId;
+        return memo;
+    }
+    void Restore(HCXAICacheRow row)
+    {
+        row.ClassName = ClassName;
+        row.State = State;
+        row.Lifecycle = Lifecycle;
+        row.SeededAt = SeededAt;
+        row.LootedAt = LootedAt;
+        row.NextRefillAt = NextRefillAt;
+        row.HCPickerCrateId = CrateId;
+    }
+}
 class HCXAICacheSave : HCSaveJob
 {
     // Consecutive failed images/refusals before the job faults (a barrier rearms it).
@@ -158,43 +192,102 @@ class HCXAICacheSave : HCSaveJob
     protected bool m_NeedReap;
     protected bool m_Reaping;
     protected int m_Reaps;
+    // The primary may be touched (deleted, copied, or not yet read back): the verified
+    // .tmp is then the newest image and is KEPT, never reaped (the next boot promotes
+    // it when the primary is absent or torn). Cleared when the primary reads back
+    // verified (phase 5) or the image completes.
+    protected bool m_KeepTmp;
     override string HCName() { return "HCX-caches"; }
     void HCChanged() { m_Revision++; HCDirty = true; }
-    // The synchronous barrier defers to a staged image in flight or an intent repair
-    // in progress; a faulted job is rearmed (it reaps the stale intent, then retries).
-    // True means "not now": the caller requeues the newest state and refuses.
+    // The synchronous barrier defers to a staged image in flight, an intent repair in
+    // progress or a kept intent; a faulted job is rearmed (it reaps the stale
+    // untouched-primary intent, then retries). True means "not now": the caller
+    // requeues the newest state and refuses.
     bool HCBusy()
     {
+        if (m_KeepTmp && !m_Image.Active()) { return true; }
         if (HCFaulted)
         {
             HCFaulted = false;
             m_Reaps = 0;
             m_Reaping = false;
             m_Image = new HCStagedSaveImage();
-            m_NeedReap = true;
+            m_NeedReap = !m_KeepTmp;
             this.HCChanged();
             return true;
         }
         return m_Image.Active() || m_NeedReap;
     }
     // The barrier wrote the newest in-memory image itself; nothing staged is pending.
-    void HCBarrierCommitted()
+    protected void HCBarrierCommitted()
     {
         HCDirty = false;
         HCInFlight = false;
         HCUrgent = false;
+        m_KeepTmp = false;
         m_Revision++;
         m_SnapshotRevision = m_Revision;
         this.HCCommitted(GetGame().GetTickTime());
     }
-    // A failed or refused image may have left its intent: reap it, then retry, a
-    // bounded number of times. Persistent failure faults the job (barrier rearm).
-    protected int HCRepair()
+    // One staged image stage; tracks whether the primary may have been touched. The
+    // static stage name is cleared first so a stale name never reads as a touch.
+    protected int HCImageStep()
+    {
+        HCSaveJob.HCOperation = "";
+        int result = m_Image.HCStepImage();
+        if (m_Reaping) { return result; }
+        string operation = HCSaveJob.HCOperation;
+        if (m_Image.HCReadyToClearIntent()) { m_KeepTmp = false; }
+        else if (operation.IndexOf("copy_primary") == 0 || operation.IndexOf("read_primary") == 0) { m_KeepTmp = true; }
+        return result;
+    }
+    // Synchronous barrier write of the newest in-memory image through the same staged
+    // writer (verified tmp, backup rotation, primary readback, intent clear), so a
+    // failure knows exactly whether the primary was touched. Caller checked HCBusy().
+    bool HCBarrierWrite(string text)
+    {
+        m_SnapshotRevision = m_Revision;
+        if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false))
+        {
+            this.HCRepair("barrier_begin_refused");
+            this.HCChanged();
+            return false;
+        }
+        int result = STEP_MORE;
+        int guard = 0;
+        while (result == STEP_MORE && guard < HCStagedSaveImage.HC_MAX_STAGES)
+        {
+            result = this.HCImageStep();
+            guard++;
+        }
+        if (result != STEP_DONE)
+        {
+            this.HCRepair("barrier_stage_failed");
+            this.HCChanged();
+            return false;
+        }
+        this.HCBarrierCommitted();
+        return true;
+    }
+    // A failed or refused image may have left its intent. Before the primary was
+    // touched the intent is reaped and the image retried, a bounded number of times;
+    // persistent failure faults the job (barrier rearm). After the primary was touched
+    // the verified intent is the newest image: keep it and freeze (restart recovers it).
+    protected int HCRepair(string reason)
     {
         m_Reaps++;
         m_Reaping = false;
         m_Image = new HCStagedSaveImage();
-        if (m_Reaps > MAX_REAPS) { return STEP_FAILED; }
+        if (m_KeepTmp)
+        {
+            Print("[HC Expansion AI] cache image failed reason=" + reason + " action=intent_kept_until_restart runtime=PENDING");
+            return STEP_FAILED;
+        }
+        if (m_Reaps > MAX_REAPS)
+        {
+            Print("[HC Expansion AI] cache image failed reason=" + reason + " action=reaps_exhausted runtime=PENDING");
+            return STEP_FAILED;
+        }
         m_NeedReap = true;
         return STEP_MORE;
     }
@@ -204,25 +297,28 @@ class HCXAICacheSave : HCSaveJob
         if (!HCDirty) { return STEP_DONE; }
         if (!m_Image.Active())
         {
+            // A kept intent is never reaped or begun over; restart recovers it.
+            if (m_KeepTmp) { return STEP_FAILED; }
             if (m_NeedReap)
             {
                 m_NeedReap = false;
                 m_Reaping = true;
-                if (!m_Image.BeginRemove(HCXAISiteDirector.CACHES + ".tmp")) { return this.HCRepair(); }
+                if (!m_Image.BeginRemove(HCXAISiteDirector.CACHES + ".tmp")) { return this.HCRepair("reap_refused"); }
                 return STEP_MORE;
             }
             string text;
             if (!Owner.HCCachesText(text)) { return STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
-            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false)) { return this.HCRepair(); }
+            if (!m_Image.Begin(HCXAISiteDirector.CACHES, text, HCWorldStore.MAX_BYTES, true, false)) { return this.HCRepair("begin_refused"); }
             return STEP_MORE;
         }
-        int result = m_Image.HCStepImage();
-        if (result == STEP_FAILED) { return this.HCRepair(); }
+        int result = this.HCImageStep();
+        if (result == STEP_FAILED) { return this.HCRepair("stage_failed"); }
         if (result == STEP_DONE)
         {
             if (m_Reaping) { m_Reaping = false; return STEP_MORE; }
             m_Reaps = 0;
+            m_KeepTmp = false;
             if (m_SnapshotRevision != m_Revision) { return STEP_MORE; }
         }
         return result;
@@ -248,6 +344,7 @@ class HCXAISiteStorage : HCXAISiteBase
 {
     protected float m_OwnedRetryAt;
     protected int m_OwnedFailures;
+    protected int m_CacheSaveBusy;
     protected bool HCRetryOwned()
     {
         if (!m_OwnedSave || !m_OwnedSave.HCFaulted) { return m_OwnedSave != null; }
@@ -528,9 +625,36 @@ class HCXAISiteStorage : HCXAISiteBase
     {
         return m_CacheRows.Get(siteId);
     }
+    // True while the save barrier cannot take a new intent. Seeding refuses BEFORE it
+    // touches the row (a mutated "seeding" row that was never persisted would read back
+    // as looted for seven days); the next visit retries. Counted in [HC Use].
+    protected bool HCCacheSaveBusy(string key)
+    {
+        if (!m_CacheSave || !m_CacheSave.HCBusy()) { return false; }
+        m_CacheSaveBusy++;
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "cache_save_busy");
+        if (m_CacheSaveBusy == 1 || m_CacheSaveBusy % 50 == 0)
+        {
+            Print("[HC Expansion AI] cache seed deferred key=" + key + " reason=cache_save_busy count=" + m_CacheSaveBusy.ToString() + " runtime=PENDING");
+        }
+        return true;
+    }
+    // Undo a refused seed: a row added for it is dropped, an existing one restored.
+    protected void HCCacheSeedRevert(HCXAICacheRow row, HCXAICacheRowMemo memo, bool added)
+    {
+        if (added)
+        {
+            m_Caches.Rows.RemoveItem(row);
+            if (m_CacheRows.Contains(row.SiteId)) { m_CacheRows.Remove(row.SiteId); }
+            return;
+        }
+        memo.Restore(row);
+    }
     override void SeedCache(HCXAISiteState state, HCXAICacheRow row, int now, EntityAI crate)
     {
         HCXAISite site = state.Site;
+        if (this.HCCacheSaveBusy(site.Id)) { return; }
+        bool added = false;
         if (!row)
         {
             if (m_Caches.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return; }
@@ -539,7 +663,9 @@ class HCXAISiteStorage : HCXAISiteBase
             m_Caches.Rows.Insert(newRow);
             m_CacheRows.Set(site.Id, newRow);
             row = newRow;
+            added = true;
         }
+        HCXAICacheRowMemo memo = HCXAICacheRowMemo.Take(row);
         row.ClassName = site.CacheClass;
         row.State = "seeding";
         row.Lifecycle = row.Lifecycle + 1;
@@ -548,7 +674,8 @@ class HCXAISiteStorage : HCXAISiteBase
         row.NextRefillAt = 0;
         if (!this.SaveCaches())
         {
-            Print("[HC Expansion AI] site " + site.Id + " cache intent not saved; nothing created");
+            this.HCCacheSeedRevert(row, memo, added);
+            Print("[HC Expansion AI] site " + site.Id + " cache intent not saved; row restored, nothing created reason=cache_intent_unsaved");
             return;
         }
         if (!crate)
@@ -558,7 +685,7 @@ class HCXAISiteStorage : HCXAISiteBase
         }
         if (!crate || !crate.GetInventory())
         {
-            Print("[HC Expansion AI] site " + site.Id + " cache container could not be created; left as seeding");
+            Print("[HC Expansion AI] site " + site.Id + " cache container could not be created; left as seeding reason=container_create_failed");
             return;
         }
         int created = 0;
@@ -594,10 +721,10 @@ class HCXAISiteStorage : HCXAISiteBase
         // Same synchronous return/durability contract for picker and seeding.
         // Verified tmp + backup rotation + primary readback; never truncate the
         // primary in place. LoadCaches refuses backup-only rollback.
-        bool saved = HCV2ThreatStore<HCXAICacheJournal>.Save(CACHES, m_Caches, HCWorldStore.MAX_BYTES);
-        if (saved && m_CacheSave) { m_CacheSave.HCBarrierCommitted(); }
-        if (!saved && m_CacheSave) { m_CacheSave.HCChanged(); }
-        return saved;
+        if (!m_CacheSave) { return false; }
+        string text;
+        if (!this.HCCachesText(text)) { return false; }
+        return m_CacheSave.HCBarrierWrite(text);
     }
     override bool SaveRoutes()
     {
@@ -866,6 +993,23 @@ class HCXAISiteStore
     static HCXAICacheJournal LoadCaches()
     {
         string path = HCXAISiteDirector.CACHES;
+        // A whole verified intent is the newest image: promote it when the primary is
+        // absent or torn, before the core recovery could roll back to the older backup.
+        string pending = path + ".tmp";
+        if (FileExist(pending) && !HCV2ThreatStore<HCXAICacheJournal>.HCWholeImage(path) && HCV2ThreatStore<HCXAICacheJournal>.HCWholeImage(pending))
+        {
+            if (!HCV2ThreatStore<HCXAICacheJournal>.HCPromoteWholePending(path, pending, HCGroupIO.HC_RAW_READ_CAP))
+            {
+                HCCachesRefused("pending_promote_failed");
+                return null;
+            }
+            if (!DeleteFile(pending) || FileExist(pending))
+            {
+                HCCachesRefused("pending_clear_failed");
+                return null;
+            }
+            Print("[HC Expansion AI] caches recovered action=promoted_whole_pending reason=primary_missing_or_torn runtime=PENDING");
+        }
         // A backup is the PRIOR committed image, never proof of latest loot
         // state. Refuse backup-only rollback (including legacy sync tears).
         // Recovery may promote a whole newer intent; never refill from old bak.

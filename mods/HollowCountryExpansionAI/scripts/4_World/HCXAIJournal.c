@@ -115,7 +115,7 @@ class HCXAIJournal
         row.MissionId = missionId;
         m_Data.Rows.Insert(row);
         // An uncertain save keeps the consumed intent but must say why Begin failed.
-        bool saved = HCXAIStore.SaveJournal(m_Data);
+        bool saved = HCXAIStore.SaveJournalDurable(m_Data);
         if (!saved) { return this.RefuseBegin("journal_save_failed"); }
         m_Refusal = "";
         return true;

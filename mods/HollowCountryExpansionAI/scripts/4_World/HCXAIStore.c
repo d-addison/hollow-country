@@ -50,13 +50,22 @@ class HCXAIJournalBoot
     protected ref HCXAIJournalData m_Journal;
     protected ref HCXAIJournalData m_Recovery;
     protected int m_Ops;
+    // Last refusal code, printed once with the phase that raised it.
+    protected string m_Reason;
+
+    // A retired or abandoned boot read must not leak its handle.
+    void ~HCXAIJournalBoot()
+    {
+        if (m_Opened) { CloseFile(m_Handle); m_Opened = false; }
+    }
 
     bool Done() { return m_Phase == PHASE_DONE; }
     int Ops() { return m_Ops; }
     HCXAIJournalData Journal() { return m_Journal; }
 
-    protected void HCFail()
+    protected void HCFail(string reason)
     {
+        if (!m_Failed) { Print("[HC Expansion AI] lease journal boot refused reason=" + reason + " phase=" + m_Phase.ToString() + " file_ops=" + m_Ops.ToString() + " runtime=PENDING"); }
         m_Failed = true;
         m_Journal = null;
         m_Recovery = null;
@@ -74,13 +83,27 @@ class HCXAIJournalBoot
         return HCSaveJob.STEP_MORE;
     }
 
-    // Parses a bounded journal image. Null on a malformed or oversize image.
+    // Parses a bounded journal image. Null on a malformed or oversize image, with the
+    // reason in m_Reason. A sealed image (HCXAIStore.HCSeal) ends in a length line and
+    // is complete only when that length equals the JSON body length; images written
+    // before the seal existed have no such line and are read as before (upgrade path).
     protected HCXAIJournalData HCParse(string data)
     {
-        if (data.Length() < 1 || data.Length() > MAX_BYTES) { return null; }
+        m_Reason = "";
+        if (data.Length() < 1 || data.Length() > MAX_BYTES) { m_Reason = "size_out_of_bounds"; return null; }
+        string body = data;
+        int mark = data.LastIndexOf(HCXAIStore.SEAL_MARK);
+        // A cut inside the length line leaves a stray "\n#" with no whole mark.
+        if (mark < 0 && data.LastIndexOf("\n#") >= 0) { m_Reason = "seal_truncated"; return null; }
+        if (mark >= 0)
+        {
+            string tail = data.Substring(mark + HCXAIStore.SEAL_MARK.Length(), data.Length() - mark - HCXAIStore.SEAL_MARK.Length());
+            if (tail != mark.ToString() + "\n") { m_Reason = "seal_length_mismatch"; return null; }
+            body = data.Substring(0, mark);
+        }
         string error;
         HCXAIJournalData journal;
-        if (!JsonFileLoader<HCXAIJournalData>.LoadData(data, journal, error)) { return null; }
+        if (!JsonFileLoader<HCXAIJournalData>.LoadData(body, journal, error) || !journal) { m_Reason = "json_unparseable"; return null; }
         return journal;
     }
 
@@ -90,7 +113,7 @@ class HCXAIJournalBoot
         if (m_Failed) { m_Phase = PHASE_DONE; return; }
         if (m_Verify)
         {
-            if (m_Data != m_Recovered) { this.HCFail(); return; }
+            if (m_Data != m_Recovered) { this.HCFail("promoted_primary_mismatch"); return; }
             m_Journal = m_Recovery;
             m_Phase = PHASE_DELETE_PENDING;
             return;
@@ -109,18 +132,23 @@ class HCXAIJournalBoot
             }
             // Partial intent: the protocol keeps the old primary until the intent is
             // verified, so the primary (when present) is the last committed image.
+            // Without a primary this is the very first image of the file, torn before
+            // it was ever verified: nothing was committed, so the journal starts empty.
             m_ReadingPending = false;
+            string partialReason = m_Reason;
             if (m_HavePrimary)
             {
+                Print("[HC Expansion AI] lease journal pending discarded reason=pending_partial_primary_kept detail=" + partialReason + " runtime=PENDING");
                 m_Source = HCXAIStore.HCJournalPath();
                 m_Phase = PHASE_OPEN;
                 return;
             }
+            Print("[HC Expansion AI] lease journal pending discarded reason=pending_partial_no_primary detail=" + partialReason + " action=start_empty runtime=PENDING");
             m_Journal = new HCXAIJournalData();
             m_Phase = PHASE_DELETE_PENDING;
             return;
         }
-        if (!parsed) { this.HCFail(); return; }
+        if (!parsed) { this.HCFail("primary_" + m_Reason); return; }
         m_Journal = parsed;
         m_Phase = PHASE_DONE;
         if (m_HavePending) { m_Phase = PHASE_DELETE_PENDING; }
@@ -158,7 +186,7 @@ class HCXAIJournalBoot
         else if (m_Phase == PHASE_OPEN)
         {
             m_Handle = OpenFile(m_Source, FileMode.READ);
-            if (!m_Handle) { this.HCFail(); return this.HCStepResult(); }
+            if (!m_Handle) { this.HCFail("open_failed"); return this.HCStepResult(); }
             m_Opened = true;
             m_Data = "";
             m_Phase = PHASE_READ;
@@ -167,7 +195,7 @@ class HCXAIJournalBoot
         {
             string piece;
             int count = ReadFile(m_Handle, piece, READ_BYTES);
-            if (count < 0 || count != piece.Length() || m_Data.Length() + count > MAX_BYTES) { this.HCFail(); return this.HCStepResult(); }
+            if (count < 0 || count != piece.Length() || m_Data.Length() + count > MAX_BYTES) { this.HCFail("read_failed_or_oversize"); return this.HCStepResult(); }
             if (count == 0) { m_Phase = PHASE_CLOSE; }
             else { m_Data = m_Data + piece; }
         }
@@ -179,12 +207,12 @@ class HCXAIJournalBoot
         }
         else if (m_Phase == PHASE_DELETE_PRIMARY)
         {
-            if (!DeleteFile(path)) { this.HCFail(); return this.HCStepResult(); }
+            if (!DeleteFile(path)) { this.HCFail("delete_primary_failed"); return this.HCStepResult(); }
             m_Phase = PHASE_COPY;
         }
         else if (m_Phase == PHASE_COPY)
         {
-            if (!CopyFile(pending, path)) { this.HCFail(); return this.HCStepResult(); }
+            if (!CopyFile(pending, path)) { this.HCFail("promote_copy_failed"); return this.HCStepResult(); }
             // Re-read the promoted primary and compare it with the recovered bytes.
             m_Verify = true;
             m_Source = path;
@@ -192,7 +220,7 @@ class HCXAIJournalBoot
         }
         else if (m_Phase == PHASE_DELETE_PENDING)
         {
-            if (!DeleteFile(pending)) { this.HCFail(); return this.HCStepResult(); }
+            if (!DeleteFile(pending)) { this.HCFail("delete_pending_failed"); return this.HCStepResult(); }
             m_Phase = PHASE_DONE;
         }
         return this.HCStepResult();
@@ -256,6 +284,8 @@ class HCXAIJournalSave : HCSaveJob
 
 class HCXAIStore
 {
+    // Completeness line appended to every journal image this build writes.
+    static const string SEAL_MARK = "\n#hc-end ";
     protected static bool s_JournalPrimed;
     protected static bool s_JournalUncertain;
     protected static bool s_JournalLoaded;
@@ -287,7 +317,7 @@ class HCXAIStore
     static void HCStepJournal()
     {
         if (!s_Boot) { return; }
-        if (!s_Boot.Done() && !HCStartupPump.HCInSlice()) { s_Boot.HCStepBoot(); }
+        if (!s_Boot.Done() && !HCStartupPump.HCInSlice() && HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 1)) { s_Boot.HCStepBoot(); }
         if (s_Save) { HCSaveScheduler.HCPumpFallback(s_Save); }
     }
 
@@ -340,16 +370,35 @@ class HCXAIStore
     // Begin/Prune/End consume this bool as acceptance of the mutation. The journal
     // text is validated and bounded here, then staged by HCXAIJournalSave; failure of
     // a later stage latches s_JournalUncertain so every following mutation is refused.
+    // The text carries a length line (HCSeal) so a reader can tell a whole image
+    // from a torn one without relying on the JSON merely parsing.
+    static string HCSeal(string text)
+    {
+        return text + SEAL_MARK + text.Length().ToString() + "\n";
+    }
     static bool SaveJournal(HCXAIJournalData journal)
     {
         if (!GetGame() || !GetGame().IsServer() || !journal || !journal.Rows || journal.Rows.Count() > 64) { return false; }
         if (s_JournalUncertain || !s_Save || !HCXAIStore.HCJournalSettled()) { return false; }
         string text;
         string error;
-        if (!JsonFileLoader<HCXAIJournalData>.MakeData(journal, text, error) || text.Length() > HCXAIJournalBoot.MAX_BYTES) { return false; }
-        if (!s_Save.HCQueue(text)) { return false; }
+        if (!JsonFileLoader<HCXAIJournalData>.MakeData(journal, text, error)) { return false; }
+        string image = HCXAIStore.HCSeal(text);
+        if (image.Length() > HCXAIJournalBoot.MAX_BYTES) { return false; }
+        if (!s_Save.HCQueue(image)) { return false; }
         s_BootJournal = journal;
         return true;
+    }
+    // A new lease intent consumes its id: a tombstone lost to a crash would let the
+    // same id be issued again and rebind its receipt tokens. Intent creation is
+    // therefore a durability barrier (rare, one bounded image); other mutations stay
+    // write-behind.
+    static bool SaveJournalDurable(HCXAIJournalData journal)
+    {
+        if (!HCXAIStore.SaveJournal(journal)) { return false; }
+        if (HCSaveScheduler.HCFlush(s_Save)) { return true; }
+        HCXAIStore.HCJournalFault("intent_flush_failed");
+        return false;
     }
 }
 

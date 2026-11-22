@@ -187,6 +187,10 @@ modded class HCXAISiteDirector
 
     void HCPickerSeedCache(HCPickerSurvey survey, string key, vector at, bool source, HCXAICacheRow row, EntityAI crate, int now)
     {
+        // Refuse before touching the row while the barrier is busy: a "seeding" row that
+        // was never persisted must not survive to be read back as looted.
+        if (this.HCCacheSaveBusy(key)) { return; }
+        bool wasAdded = false;
         if (!row)
         {
             if (m_Caches.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return; }
@@ -194,7 +198,9 @@ modded class HCXAISiteDirector
             added.SiteId = key;
             m_Caches.Rows.Insert(added);
             row = added;
+            wasAdded = true;
         }
+        HCXAICacheRowMemo memo = HCXAICacheRowMemo.Take(row);
         // An unjournaled existing crate is adopted without replaying stock.
         bool existing = false;
         if (crate) { existing = true; }
@@ -205,7 +211,12 @@ modded class HCXAISiteDirector
         row.LootedAt = 0;
         row.NextRefillAt = 0;
         row.HCPickerCrateId = "";
-        if (!this.SaveCaches()) { return; }
+        if (!this.SaveCaches())
+        {
+            this.HCCacheSeedRevert(row, memo, wasAdded);
+            Print("[HC Pickers] cache key=" + key + " outcome=seed_refused reason=cache_intent_unsaved runtime=PENDING");
+            return;
+        }
         if (!crate)
         {
             crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME));

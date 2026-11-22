@@ -113,7 +113,6 @@ class HCXAICaravanRoads : Managed
     static const int HC_WINDOW_BYTES = 4096;
     static const int HC_WINDOW_LOW = 1152;
     static const int HC_WINDOW_MAX = 5248;
-    static const int HC_COMPACT_BYTES = 4194304;
     static const int HC_INSTALLED_BYTES = 67108864;
     protected int m_WindowBracket = -1;
     protected int m_CompactBytes;
@@ -149,7 +148,9 @@ class HCXAICaravanRoads : Managed
     }
     // Next installed-source line from the prefetched window (no native call): at
     // most 96 bytes, a CR before the newline is dropped, a last line may lack a newline.
-    string HCLine()
+    // An empty line is refused (it is a torn or corrupt record, never a value) except
+    // for the provider flags field, whose content this reader never uses.
+    string HCLine(bool allowEmpty = false)
     {
         int end = -1;
         if (m_FileOpen && m_ReadCursor < m_ReadWindow.Length()) { end = m_ReadWindow.IndexOfFrom(m_ReadCursor, "\n"); }
@@ -165,6 +166,11 @@ class HCXAICaravanRoads : Managed
         if (line.Length() > 96)
         {
             HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED");
+            return "";
+        }
+        if (line.Length() == 0 && !allowEmpty)
+        {
+            HCRefuse("CARAVAN_ROAD_DATA_EMPTY_LINE");
             return "";
         }
         return line;
@@ -252,9 +258,11 @@ class HCXAICaravanRoads : Managed
         string chunk;
         int bytes = ReadFile(m_File, chunk, HC_WINDOW_BYTES);
         m_CompactBytes += bytes;
-        int byteCap = HC_INSTALLED_BYTES;
-        if (m_Compact) { byteCap = HC_COMPACT_BYTES; }
-        if (bytes < 0 || bytes != chunk.Length() || m_CompactBytes > byteCap)
+        // The compact road graph's cap is the literal below: the loader-cap gate
+        // (tools/validate/json_loader_caps) reads it from this comparison.
+        bool overCap = m_CompactBytes > HC_INSTALLED_BYTES;
+        if (m_Compact) { overCap = m_CompactBytes > 4194304; }
+        if (bytes < 0 || bytes != chunk.Length() || overCap)
         {
             if (m_Compact) { this.HCCompactFallback(); }
             else { HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED"); }
@@ -569,7 +577,7 @@ class HCXAICaravanRoads : Managed
     {
         // One file line per unit, including each edge. A high-degree node can
         // no longer consume an entire slice without a shared deadline check.
-        string value = HCLine();
+        string value = HCLine(m_LoadField == 2);
         if (Phase == "failed") { return; }
         if (m_LoadField == 0)
         {

@@ -831,13 +831,13 @@ class HCGapcodeRoutesCatalog
         else if (m_Phase == "failed") { m_Status.HCPublish("degraded", m_Reason); }
         else if (m_Phase == "resolving")
         {
-            // Route data is runtime work, not readiness: once the pinned index and
-            // manifest are admitted, the shared road graph load and the per-row
-            // resolve continue in bounded slices and the owner is serviceable. A
-            // later failure still degrades (phase "failed" above); binding keeps
-            // waiting for the loaded catalog through HCSurveyReady/HCFind.
+            // Not ready: the shared road graph is still loading and candidates are still
+            // resolving, so no [HC Ready] ready=true is published until phase "loaded".
+            // The reason is distinct from the header/index/manifest "catalog_loading"
+            // stage. A failure in this window flips to degraded (phase "failed" above)
+            // and HCRefuse prints "[HC Routes] catalog=degraded reason=...".
             if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
-            else { m_Status.HCPublish(owner.HCState(), "routes_admitted_resolving_in_background"); }
+            else { m_Status.HCPublish("requested", "routes_resolving"); }
         }
         else if (m_Phase != "loaded")
         {
