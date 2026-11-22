@@ -126,12 +126,61 @@ class HCInfectedVarietyConfig
     }
 }
 
+// Nearest admissible variety site for one request, walked across ticks by HCBoundedJob. The
+// module owns the maps and the config; the job holds weak pointers and no owner (a static module).
+class HCInfectedVarietyNearestJob : HCBoundedJob
+{
+    array<ref HCInfectedVarietySite> Sites;
+    map<int, bool> Used;
+    map<int, bool> Tried;
+    vector Request;
+    float NearestSq;
+    int Best = -1;
+
+    void HCStart(array<ref HCInfectedVarietySite> sites, map<int, bool> used, map<int, bool> tried, vector request, float range)
+    {
+        Sites = sites;
+        Used = used;
+        Tried = tried;
+        Request = request;
+        NearestSq = range * range;
+        Best = -1;
+        HCBegin(null);
+    }
+
+    override int HCItemCount()
+    {
+        if (!Sites || !Used || !Tried) { return 0; }
+        return Sites.Count();
+    }
+
+    override string HCJobModule() { return "InfectedVariety"; }
+
+    override void HCOnClear()
+    {
+        Sites = null;
+        Used = null;
+        Tried = null;
+    }
+
+    override int HCStepItem(int index)
+    {
+        if (Used.Contains(index) || Tried.Contains(index)) { return ITEM_ADVANCE; }
+        float distance = vector.DistanceSq(Request, Sites[index].Position);
+        if (distance > NearestSq) { return ITEM_ADVANCE; }
+        Best = index;
+        NearestSq = distance;
+        return ITEM_ADVANCE;
+    }
+}
+
 class HCInfectedVariety
 {
     protected static ref HCInfectedVarietyConfig s_Config;
     protected static ref array<ZombieBase> s_Bodies = new array<ZombieBase>;
     protected static ref map<int, bool> s_Used = new map<int, bool>;
     protected static ref map<int, bool> s_Tried = new map<int, bool>;
+    protected static ref HCInfectedVarietyNearestJob s_Nearest = new HCInfectedVarietyNearestJob;
     protected static bool s_Running;
     protected static bool s_PosesOptedOut;
     protected static bool s_Pending;
@@ -453,23 +502,9 @@ class HCInfectedVariety
         s_Selected = -1;
         s_Made = 0;
         s_Tried.Clear();
+        s_Nearest.HCClear();
         reason = "variety_fresh_group_queued_runtime_PENDING";
         return true;
-    }
-
-    static int HCNearestCandidate()
-    {
-        int selected = -1;
-        float nearest = s_Config.RequestRange * s_Config.RequestRange;
-        for (int siteIndex = 0; siteIndex < s_Config.Sites.Count(); siteIndex++)
-        {
-            if (s_Used.Contains(siteIndex) || s_Tried.Contains(siteIndex)) { continue; }
-            float distance = vector.DistanceSq(s_Request, s_Config.Sites[siteIndex].Position);
-            if (distance > nearest) { continue; }
-            selected = siteIndex;
-            nearest = distance;
-        }
-        return selected;
     }
 
     static bool HCHidden(vector pos, array<Man> players)
@@ -520,10 +555,17 @@ class HCInfectedVariety
             s_Selected = -1;
             s_Made = 0;
             s_Tried.Clear();
+            s_Nearest.HCClear();
         }
         if (!infected.HCVarietyFreshRoom(scale)) { s_Pending = false; HCRefuse("normal_infected_or_posed_cap"); return; }
         if (!workBudget.HCContinue()) { return; }
-        if (s_Selected < 0) { s_Selected = HCNearestCandidate(); }
+        if (s_Selected < 0)
+        {
+            // One request walks the site list across ticks; a walk still running resumes at its cursor.
+            if (!s_Nearest.HCRunning()) { s_Nearest.HCStart(s_Config.Sites, s_Used, s_Tried, s_Request, s_Config.RequestRange); }
+            if (s_Nearest.HCRun(workBudget)) { return; }
+            if (s_Nearest.HCDone()) { s_Selected = s_Nearest.Best; }
+        }
         if (s_Selected < 0) { s_Pending = false; HCRefuse("no_admissible_place"); return; }
         HCInfectedVarietySite site = s_Config.Sites[s_Selected];
         vector pos = site.Position;
@@ -583,6 +625,7 @@ class HCInfectedVariety
     {
         s_Running = false;
         s_Pending = false;
+        s_Nearest.HCClear();
         s_Config = null;
         // Existing variety owner releases idle. Weak bodies, used sites and
         // corpse capacity survive off/on in this process, preventing refill.

@@ -109,6 +109,19 @@ whose every initializer and assignment is `new` of a budget type or null, never 
 an HCSetProfile) has no other consumer and no attribution table and is not flagged;
 parameters, aliases of the shared accessor and unknown receiver/return types are not
 inferred by method name alone.
+
+P011 finds a for/foreach/while over a collection field the method's class owns (array, map or
+set; the receiver chain starts at a field, never a local or parameter) on the P003 tick graph
+(OnStop and Stop are shutdown, not followed) that does per-item world work (a spawn, delete, move,
+ray or entity enumeration call, a Distance/GetPosition read, or an authored call reaching one
+within WORLD_WORK_DEPTH calls) and neither spends a budget nor runs through HCBoundedJob. Not
+flagged: a head or body that tests HCWorkBudget, a TickCount or a clock; a literal bound <= 16
+(small_loop); a method of an HCBoundedJob class (the job is the budget); a player roster; a
+collection capped by an authored `receiver.Count() >= limit` comparison (capped_collections; a
+chained receiver resolves through its declared type); a loop whose every per-item site is followed
+by a return or break in its own block (_terminal); and world work that only runs under an
+equality test (_keyed). It cannot see a cap enforced in another class's method, a bound that
+only exists at runtime or a comment that says the collection is small.
 """
 import argparse
 import ast
@@ -137,6 +150,7 @@ RULES = {
     'HC-P008': 'synchronous store Save reachable on a tick path',
     'HC-P009': 'synchronous multi-file loop reachable from OnStart',
     'HC-P010': 'raw HCTake bypasses consumer fairness and attribution',
+    'HC-P011': 'unbudgeted loop over a module-owned collection on a tick path, not run through HCBoundedJob',
 }
 MAX_DEPTH = 24
 # A retry window shorter than this is not a bound on a per-tick attempt (seconds).
@@ -866,6 +880,167 @@ def small_loop(s, start):
         header = parts[1]
     return bool('||' not in header and re.search(
         rf'\b{_IDENT}\s*<=?\s*(?:[0-9]|1[0-6])\b(?!\s*[\w.+*/-])', header))
+
+
+_COLLECTION = re.compile(r'^(?:array<.*>|map<.*>|set<.*>|set|T\w*(?:Array|Set|Map))$')
+# Engine calls that spawn, delete, move or enumerate world entities, or cast physics rays.
+_WORLD_WORK = re.compile(r'\b(?:CreateObject\w*|ObjectDelete|GetObjectsAtPosition\w*|GetNearestObjects|SpawnEntity\w*|'
+                         r'CreateInInventory|SetPosition|SetOrigin|SetOrientation|SetTransform|SurfaceY|SurfaceGetType\w*|'
+                         r'Raycast\w*|RayCast\w*|Delete|DeleteSafe|Kill)\s*\(')
+# Anything in a loop that spends or checks a shared budget or a clock deadline.
+_BUDGET_MARK = re.compile(r'\b(?:HCContinue|HCMayContinue|HCTake\w*|HCCharge|HCTickWork|HCBoundedJob|TickCount|GetTickTime)\b')
+# Per-item geometry written in the loop body itself (not followed through calls).
+_GEOMETRY = re.compile(r'\b(?:Distance|DistanceSq|GetPosition)\s*\(')
+_SHUTDOWN = frozenset({'OnStop', 'Stop'})
+# A collection of connected players or their per-player records is bounded by the server slots.
+_ROSTER_TYPE = re.compile(r'<(?:ref)?(?:Man|PlayerBase|PlayerIdentity|\w*Peer|\w*Player)>$')
+_ROSTER_NAME = re.compile(r'(?i)player|peer|roster')
+_LIMIT = rf'{_IDENT}(?:\s*\(\s*\))?(?:\s*\.\s*{_IDENT}(?:\s*\(\s*\))?)*'
+_CAP_TEST = re.compile(rf'(?<![\w.])((?:this\s*\.\s*)?{_CHAIN})\s*\.\s*Count\s*\(\s*\)\s*(?:>=|>|<=|<)\s*({_LIMIT}|\d+)')
+WORLD_WORK_DEPTH = 3
+
+
+def _field_owner(model, i, chain):
+    """(declaring class, field) of the last segment of an authored receiver chain, or None."""
+    parts = re.sub(r'\s+', '', chain).split('.')
+    if parts[0] == 'this':
+        parts = parts[1:]
+    s, m = model.nodes[i]
+    if not parts or not m.owner:
+        return None
+    if len(parts) == 1:
+        holder = m.owner.name
+    else:
+        holder = re.sub(r'^(?:ref|autoptr|const)', '', re.sub(r'\s+', '', model.type_of('.'.join(parts[:-1]), model.envs[i])))
+        holder = holder.split('<')[0]
+    for ancestor in model.lineage(holder):
+        if any(f.name == parts[-1] for c in model.classes.get(ancestor, []) for f in c.fields):
+            return ancestor, parts[-1]
+    return None
+
+
+def capped_collections(model):
+    """(declaring class, field) of collections that an authored comparison caps.
+
+    `receiver.Count() >= X` (or >, <, <=) with X a named limit or a literal of at least 4 is the
+    insertion guard of a capped collection; a collection the module itself keeps below a fixed
+    limit is a bounded set, not a catalog that grows with the world."""
+    caps = set()
+    for i, (s, m) in enumerate(model.nodes):
+        if not m.owner:
+            continue
+        for test in _CAP_TEST.finditer(s.code, m.body_start, m.body_end):
+            limit = test.group(2)
+            if limit.isdecimal() and int(limit) < 4:
+                continue
+            owner = _field_owner(model, i, test.group(1))
+            if owner:
+                caps.add(owner)
+    return caps
+
+
+def world_work_methods(model, edges):
+    """Methods whose body calls a _WORLD_WORK engine call, or reach one within WORLD_WORK_DEPTH authored calls."""
+    worldly = {i for i, (s, m) in enumerate(model.nodes) if _WORLD_WORK.search(s.code, m.body_start, m.body_end)}
+    for _ in range(WORLD_WORK_DEPTH):
+        worldly |= {i for i, pairs in enumerate(edges) if any(target in worldly for _, target in pairs)}
+    return worldly
+
+
+def _terminal(s, offsets, closing, end):
+    """True when every offset is followed, in its innermost enclosing block, by a top-level `return` or `break`.
+
+    A loop whose per-item work is always followed by leaving the loop (or the method) does that work
+    on one item, not on the whole collection. The loop body itself is the outermost block; a body
+    without braces is one statement."""
+    code = s.code
+    blocks = []
+    stack = []
+    for position in range(closing + 1, end):
+        if code[position] == '{':
+            stack.append(position)
+        elif code[position] == '}' and stack:
+            blocks.append((stack.pop(), position))
+    blocks.append((closing, end))
+
+    def leaves(offset):
+        inner = min((blk for blk in blocks if blk[0] < offset < blk[1]), key=lambda blk: blk[1] - blk[0])
+        depth = 0
+        for position in range(inner[0] + 1, inner[1]):
+            if code[position] in '{(':
+                depth += 1
+            elif code[position] in '})':
+                depth -= 1
+            elif depth == 0 and position > offset and re.match(r'(?:return|break)\b', code[position:position + 7]) \
+                    and not (code[position - 1].isalnum() or code[position - 1] == '_'):
+                return True
+        return False
+    return all(leaves(offset) for offset in offsets)
+
+
+def _keyed(s, offsets, closing, end):
+    """True when every offset lies in an `if (a == b ...) { }` branch with no `||`: a keyed lookup."""
+    spans = []
+    for test in re.finditer(r'\bif\s*\(', s.code[closing:end]):
+        opening = closing + test.end() - 1
+        close = es.matching_paren(s.code, opening)
+        condition = s.code[opening + 1:close]
+        if '==' not in condition or '||' in condition:
+            continue
+        node, after = _statement_at(s, close + 1, end)
+        spans.append((close, after))
+    return all(any(a <= offset < b for a, b in spans) for offset in offsets)
+
+
+def owned_loops(model, i, spans, edges, worldly, capped):
+    """(offset, collection) for each loop in method i that walks a module-owned collection field.
+
+    The head is `foreach (... : field)` or a for/while head that tests field.Count(). A walk
+    counts as module-owned when the receiver chain starts at a field of the method's class
+    lineage whose declared type is an array/map/set, never a local or a parameter. The loop
+    must do per-item world work: a _WORLD_WORK call, or an authored call that reaches one
+    (world_work_methods). A loop is skipped when its head or body tests an HCWorkBudget,
+    HCBoundedJob or a clock, when a constant bound of at most 16 limits it (small_loop), when
+    the method belongs to an HCBoundedJob class (the job is the budget), when the collection is
+    a player roster or a capped set (capped_collections), when every per-item site is followed by a
+    return or break in its own block (_terminal), or when the world work only runs under an
+    equality test (a keyed lookup)."""
+    s, m = model.nodes[i]
+    code = s.code
+    if m.owner and 'HCBoundedJob' in model.lineage(m.owner.name):
+        return
+    for a, b in spans:
+        keyword = re.compile(r'(for|foreach|while)\s*\(').match(code, a)
+        if not keyword or small_loop(s, a):
+            continue
+        opening = keyword.end() - 1
+        closing = es.matching_paren(code, opening)
+        header = code[opening + 1:closing]
+        if _BUDGET_MARK.search(code[opening:b]):
+            continue
+        sites = [closing + w.start() for w in _WORLD_WORK.finditer(code[closing:b])]
+        sites.extend(closing + w.start() for w in _GEOMETRY.finditer(code[closing:b]))
+        sites.extend(offset for offset, target in edges[i] if a <= offset < b and target in worldly)
+        if not sites or _terminal(s, sites, closing, b) or _keyed(s, sites, closing, b):
+            continue
+        receivers = re.findall(rf':\s*({_CHAIN})\s*$', header) if keyword.group(1) == 'foreach' else []
+        receivers.extend(re.findall(rf'\b({_CHAIN})\s*\.\s*Count\s*\(', header))
+        for receiver in dict.fromkeys(re.sub(r'\s+', '', r) for r in receivers):
+            parts = receiver.split('.')
+            if parts[0] == 'this':
+                parts = parts[1:]
+            if not parts or not m.owner or model.field_of(m.owner.name, parts[0]) is None:
+                continue
+            typ = re.sub(r'\s+', '', model.type_of('.'.join(parts), model.envs[i]))
+            typ = re.sub(r'^(?:ref|autoptr|const)', '', typ)
+            if not _COLLECTION.match(typ):
+                continue
+            if _ROSTER_TYPE.search(typ) or _ROSTER_NAME.search(parts[-1]):
+                continue
+            if _field_owner(model, i, receiver) in capped:
+                continue
+            yield a, '.'.join(parts)
+            break
 
 
 def nested_scans(model, i, spans):
@@ -2045,7 +2220,8 @@ def check(sources, root=ROOT):
     # synchronous Save there is the durability barrier, not per-tick persistence. A
     # Save also reachable without passing through an OnStop is still reported.
     outside_stop = walk(skipped, avoid=lambda n: model.nodes[n][1].name == 'OnStop')
-    for i, chain in walk(skipped).items():
+    tick_reach = walk(skipped, avoid=lambda n: model.nodes[n][1].name in _SHUTDOWN)
+    for i, chain in tick_reach.items():
         s, m = model.nodes[i]
         # Once-only code (a load-once latch, or a Print/Save inside a set-once guard)
         # is not per-tick or per-item work.
@@ -2058,6 +2234,20 @@ def check(sources, root=ROOT):
             tick_counts[key] = tick_counts.get(key, 0) + 1
             findings.append(Finding(rule, s.rel, s.line_of(offset), symbol(m),
                                     f'{operation}#{tick_counts[key]}', message))
+    worldly = world_work_methods(model, edges)
+    capped = capped_collections(model)
+    for i, chain in tick_reach.items():
+        s, m = model.nodes[i]
+        live = lambda offset: not any(a <= offset < b for a, b in skipped.get(i, ()))
+        counts = {}
+        for offset, collection in owned_loops(model, i, loop_spans[i], edges, worldly, capped):
+            if not live(offset):
+                continue
+            counts[collection] = counts.get(collection, 0) + 1
+            witness = ' -> '.join(symbol(model.nodes[n][1]) for n in chain)
+            findings.append(Finding('HC-P011', s.rel, s.line_of(offset), symbol(m),
+                                    f'{collection}.loop#{counts[collection]}',
+                                    f'unbudgeted walk over module-owned {collection} on a tick path via {witness}; run it through HCBoundedJob'))
     gates = {}
     sliced = {i: budget_loops(model, i, edges, ios, cost.io_reaching, gates) for i in range(len(model.nodes))}
     for i, chain in walk(skipped, True, True, budgeted=sliced, polls=slow_polls(model, cost)).items():

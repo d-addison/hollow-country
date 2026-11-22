@@ -87,6 +87,8 @@ class HCInteriorsModule : HCModule
     int InspectOwnedProp(vector point, vector orientation, string type, out Object reusable)
     {
         reusable = null;
+        // Placement stops at MaxFurnishedProps (<=1500); more owned props than that is not a state to scan.
+        if (m_Objects.Count() > 1500) return 3;
         int matches;
         bool exact = true;
         foreach (Object ownedProp : m_Objects)

@@ -158,6 +158,7 @@ class HCXZoneGuards : HCModule
                 state.ChangedDay = HCEscalationClock.Day();
                 m_Data.Rows.Insert(state);
             }
+            if (m_Zones.Count() >= 128) { m_Refusal = "zone_journal_capacity"; return; }
             HCXZoneGuardsRuntime runtime = new HCXZoneGuardsRuntime;
             runtime.Zone = zone;
             runtime.Row = state;
