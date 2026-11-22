@@ -3,8 +3,9 @@
 This is an exercise plan, not runtime evidence or a release pass. Owner decision
 2026-11-21: **no waivers**. Every registered default-on `[HC Use]` counter must
 be ACTIVE after the 30-minute soak plus one-client smoke on the exact release
-commit. Build 156's supplied list has 67 INERT counters; the companion
-[JSON plan](../tools/release/r3_smoke_plan.json) contains exactly those 67. Reconcile
+commit. Build 156's supplied list had 67 INERT counters; the companion
+[JSON plan](../tools/release/r3_smoke_plan.json) holds those 67 plus the counters
+added since (variety packs: notes, cooking, fortify), 75 entries in total. Reconcile
 against registration on the candidate commit: other counters and subsequent
 workers' changes remain part of R3. One server plus at most one client is the
 acceptance limit. This cannot establish multiplayer behaviour.

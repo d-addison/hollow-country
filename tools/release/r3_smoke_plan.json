@@ -408,10 +408,10 @@
       "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c#HCWorldMaterializer.Resolve",
       "trigger": "Resolve folds back a genuinely materialized ended lease, releases budget and successfully writes world fact plus strength adjustment.",
       "exercise": "admin_action",
-      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
+      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1–2 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
       "est_minutes": 10,
       "prerequisites": "WorldMaterializer and Expansion bridge; genuine materialized lease; world faction/fact stores healthy; observer-safe body absence confirmed.",
-      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_materialize. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
+      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_materialize. Nearest existing short (1–2 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
       "implementation_status": "implemented-unverified"
     },
     {
@@ -752,6 +752,36 @@
       "steps": "1. With the cooking pack loaded, put the ingredients of one pack dish in a pot on a lit fire. 2. Wait until the dish is done and take it from the pot (keep a free inventory slot). 3. Require [HC Use] CookingCompat cooking_dish_cooked count>=1 and no SCRIPT (E) line.",
       "est_minutes": 10,
       "prerequisites": "Cooking pack present (CookingCompat enabled); a pot, fire source and the dish ingredients; one server plus at most one client."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify_placed",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCPlaced",
+      "trigger": "A shelter-scale pack kit is placed on a building the player's group has claimed.",
+      "exercise": "client_action",
+      "steps": "1. Claim a building with your group. 2. Place one shelter-scale pack kit at that building and finish the placement. 3. Require [HC Use] module=Fortify feature=fortify_placed count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 8,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify_refused",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCRefuseTo",
+      "trigger": "A pack kit placement is refused (kit larger than shelter scale, or a building claimed by another group).",
+      "exercise": "client_action",
+      "steps": "1. Try to place a pack kit that is larger than shelter scale, or a kit on a building claimed by another group. 2. Expect the 'Refused: …' status line and no placed object. 3. Require [HC Use] module=Fortify feature=fortify_refused count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 5,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. With one client, use the larger-than-shelter-scale kit; the other-group case needs a second player (owner multiplayer playtest pending)."
+    },
+    {
+      "module": "Fortify",
+      "feature": "barricade_breached",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge (breach step)",
+      "trigger": "Infected door pressure ruins the last part of a placed barricade.",
+      "exercise": "not_deterministic",
+      "steps": "1. Place a barricade on a door of your claimed building. 2. Draw several infected to the far side of that door and stay out of their reach until they stop at it. 3. Wait for the breach window (about 90 s, half for heavy infected). 4. Require [HC Use] module=Fortify feature=barricade_breached count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 10,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. Infected nearby; breach pacing depends on their count and the work budget."
     }
   ]
 }

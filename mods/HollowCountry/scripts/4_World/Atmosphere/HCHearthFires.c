@@ -345,6 +345,8 @@ class HCHearthFires
             ItemBase item = ItemBase.Cast(cargo.GetItem(fuelIndex));
             fuelIndex = fuelIndex + 1;
             if (!item || item.IsRuined()) { continue; }
+            // Lead notes are never burned as kindling.
+            if (HCNoteEntities.IsLead(item)) { continue; }
             string itemKind = item.GetType();
             if (!kindling && (itemKind == "Paper" || itemKind == "Bark_Birch" || itemKind == "Bark_Oak")) { kindling = item; }
             if (!wood && (itemKind == "Firewood" || itemKind == "WoodenStick")) { wood = item; }
