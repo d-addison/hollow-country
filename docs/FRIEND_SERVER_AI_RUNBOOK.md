@@ -335,7 +335,8 @@ policy, raid cooldowns, ownership or loot/cache journals. Set its `Enabled` to
 A v1-test-14 leftover (temporary file deleted before origin was written, followed
 by a shipped-policy change) can safely refuse adoption with
 `[HC AI Defaults] refused file=<relative> reason=operator_modified` or
-`reason=legacy_backup_conflict`. Stop the server, back up any operator edits,
+`reason=operator_unprovenanced` or `reason=legacy_backup_conflict`.
+Stop the server, back up any operator edits,
 and delete the affected profile policy file to adopt the current shipped image
 on next startup.
 

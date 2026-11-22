@@ -150,6 +150,17 @@ class HCProfileDefaults
                 return true;
             }
             if (intent == "") { return true; }
+            // A completed older image remains valid operator-visible data.
+            // Retire its receipt so later warm boots take the existence path.
+            if (profile == intent)
+            {
+                if (!DeleteFile(provisionPath))
+                {
+                    Print("[HollowCountry] profile default refused file=" + relative + " reason=provision_delete");
+                    return false;
+                }
+                return true;
+            }
             repair = profile == "";
             if (repair)
             {

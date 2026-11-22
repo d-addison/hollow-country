@@ -408,7 +408,8 @@ class HCXAITactics
     static HCXAITacticsConfig LoadConfig()
     {
         HCXAITacticsConfig config = new HCXAITacticsConfig();
-        HCProfileDefaults.Ensure(HCXAITacticsPolicy.FILE, HCXAIDefaults.Shipped());
+        // HCXAIRespawnDefaults.HCEnsure owns provisioning in HCXAISites;
+        // readers must not start a second copy with the same temporary path.
         string path = HCProfileDefaults.Resolve(HCXAITacticsPolicy.FILE, HCXAIDefaults.Shipped());
         string data = "";
         if (path != "") { data = HCProfileDefaults.ReadText(path); }

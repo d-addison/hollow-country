@@ -429,7 +429,8 @@ class HCXAIFormationLoader
     static HCXAIFormationConfig Load()
     {
         s_Problem = "";
-        HCProfileDefaults.Ensure(HCXAIFormationLoader.FILE, HCXAIDefaults.Shipped());
+        // HCXAIRespawnDefaults.HCEnsure owns provisioning in HCXAISites;
+        // readers must not start a second copy with the same temporary path.
         string path = HCProfileDefaults.Resolve(HCXAIFormationLoader.FILE, HCXAIDefaults.Shipped());
         string text = HCProfileDefaults.ReadText(path);
         if (text == "")

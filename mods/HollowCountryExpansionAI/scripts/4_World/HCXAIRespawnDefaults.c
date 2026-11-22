@@ -139,8 +139,9 @@ class HCXAIRespawnDefaults
         string mode = "provenance";
         string staged = HCProfileDefaults.ReadText(temporary);
         bool hasTemporary = FileExist(temporary);
-        // Empty ReadText can also mean oversized/unreadable. Refuse once and
-        // discard our intent rather than mistaking those files for torn copies.
+        // Empty ReadText can also mean oversized/unreadable. An open failure
+        // must keep our intent: a transient sharing lock cannot retire the only
+        // witness authorizing repair of a torn target on a later boot.
         if (profile == "" && FileExist(target))
         {
             FileHandle probeHandle = OpenFile(target, FileMode.READ);
@@ -151,10 +152,15 @@ class HCXAIRespawnDefaults
                 probeBytes = ReadFile(probeHandle, probe, 1);
                 CloseFile(probeHandle);
             }
-            if (probeBytes != 0)
+            if (probeBytes < 0)
+            {
+                Print(refused + "profile_unreadable");
+                return false;
+            }
+            if (probeBytes > 0)
             {
                 if (hasTemporary && !DeleteFile(temporary)) { Print(refused + "tmp_delete"); return false; }
-                Print(refused + "profile_unreadable_or_too_large");
+                Print(refused + "profile_too_large");
                 return false;
             }
         }
@@ -243,7 +249,7 @@ class HCXAIRespawnDefaults
         {
             if (FileExist(target))
             {
-                if (profile == "") { Print(refused + "profile_unreadable"); return false; }
+                if (profile == "") { Print(refused + "profile_empty_unprovenanced"); return false; }
                 if (origin == "")
                 {
                     bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped);
