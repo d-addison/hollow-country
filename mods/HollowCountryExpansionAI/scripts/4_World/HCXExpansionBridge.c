@@ -725,18 +725,10 @@ modded class eAIBase
         PlayerBase participant = PlayerBase.Cast(source.GetHierarchyRootPlayer());
         if (!participant || !participant.GetIdentity()) { return; }
         string participantId = participant.GetIdentity().GetId();
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (adapter) { adapter.RecordDeath(this, participantId); }
         // Expansion defers group cleanup to the next frame so EEKilled may still
         // read it: DayZPlayerImplement.c:431-438 (GetGroup at :234).
         HCXAIEncounters encounters = HCXAIEncounters.Active();
         if (encounters) { encounters.RecordKill(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(this), participantId); }
-    }
-    override void EEDelete(EntityAI parent)
-    {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (adapter) { adapter.RecordDelete(this); }
-        super.EEDelete(parent);
     }
 
     bool HCBaseRaidUnlock;

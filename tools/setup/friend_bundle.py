@@ -83,7 +83,6 @@ PROFILE_INCLUDE = (
     'HollowCountry/interiors-measured-profile.json',
     'HollowCountry/measured-interiors/**',
     'HollowCountry/templates/**',
-    'HollowCountry/expansion-ai.json',
     'HollowCountry/expansion-ai-sites.json',
     'HollowCountry/expansion-ai-localities.json',
     'HollowCountry/expansion-ai-formations.json',

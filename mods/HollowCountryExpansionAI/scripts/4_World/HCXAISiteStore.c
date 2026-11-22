@@ -542,7 +542,9 @@ class HCXAISiteStorage : HCXAISiteBase
         if (m_CacheSave) { m_CacheSave.HCSupersede(); }
         // Supersede the crash-recovery intent too, before the synchronous
         // inventory barrier can write a newer (possibly failed) primary.
-        if (FileExist(CACHES + ".tmp") && !DeleteFile(CACHES + ".tmp")) { return false; }
+        // HCSupersede cleared the dirty flag; a failed barrier must requeue the
+        // staged save so the in-memory image is retried, never silently dropped.
+        if (FileExist(CACHES + ".tmp") && !DeleteFile(CACHES + ".tmp")) { if (m_CacheSave) { m_CacheSave.HCChanged(); } return false; }
         foreach (HCXAICacheRow barrierRow : m_Caches.Rows)
         {
             if (!m_CacheRows.Contains(barrierRow.SiteId)) { m_CacheRows.Set(barrierRow.SiteId, barrierRow); }
@@ -552,6 +554,7 @@ class HCXAISiteStorage : HCXAISiteBase
         // primary in place. LoadCaches refuses backup-only rollback.
         bool saved = HCV2ThreatStore<HCXAICacheJournal>.Save(CACHES, m_Caches, HCWorldStore.MAX_BYTES);
         if (saved && m_CacheSave) { m_CacheSave.HCCommitted(GetGame().GetTickTime()); }
+        if (!saved && m_CacheSave) { m_CacheSave.HCChanged(); }
         return saved;
     }
     override bool SaveRoutes()

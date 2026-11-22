@@ -135,7 +135,8 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    after calm AI observations. Observe eligible owned AI in the area during the
    same stop: **AIRoles/activity_started; v2-expansion-living-world/actor_admitted;
    optional-expansion-human-ai/actor_spawned**. These require their own real
-   provider paths; ordinary patrol presence cannot stand in for adapter spawning.
+   provider paths; actor_spawned counts a live site-patrol actor that passed its fairness
+   check, so site presence or config readiness alone cannot stand in for a spawn.
 7. [ ] Run World & Events -> **scene**, leave placement out of sight and await
    complete healthy placement: **Scenes/scene_placed**. Hold powered receiving
    `PersonalRadio` **in hands**, tune 87.8 MHz or actual authored faction channel,
@@ -432,7 +433,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `VehicleFlip/impulse_applied` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c:215`.
 - [ ] `WreckSalvage/part_created` — `client_action`; `mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:681`.
 - [ ] `ZoneGuards/guards_posted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:220`.
-- [ ] `optional-expansion-human-ai/actor_spawned` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c:568`.
+- [ ] `optional-expansion-human-ai/actor_spawned` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c:204`.
 - [ ] `optional-expansion-human-ai/convoy_astar` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:103`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. The per-request fixture mark follows the journey FIFO into the planner. Require a real successful A* outcome and convoy_astar use line with fixture=1; a queued journey diagnostic must also carry fixture=1. Completion, refusal and queue removal clear attribution. Lead native compile and runtime fixture evidence remain pending. No sample or stuck outcome is forced.
 - [ ] `optional-expansion-human-ai/stuck_recovery` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:178`.
