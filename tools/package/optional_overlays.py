@@ -39,6 +39,9 @@ DEFAULT_OVERLAY_IDS = (rag_optional.NAVIGATION_ID, rag_optional.RAG_CORE_ID,
                        rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID)
 AMBIENT_SPECIES = ('otter', 'rabbit', 'rat', 'raven', 'seagull', 'squirrel')
 MAX_BYTES = 16 * 1024 * 1024
+# Pre-1.30 CE category -> the native category vanilla 1.30 uses for the same items
+# (vanilla wheels, doors and hoods are lootdispatch with Industrial usage).
+LEGACY_CATEGORIES = {'vehiclesparts': 'lootdispatch'}
 BASE_TARGETS = {'cfgeconomycore.xml', 'cfgenvironment.xml', 'cfgeventspawns.xml', 'env/hen_territories.xml'}
 GENERATED = {'events.xml', 'types.xml', 'spawnabletypes.xml'} | {
     species + '_territories.xml' for species in (*AMBIENT_SPECIES, 'snake')}
@@ -132,6 +135,34 @@ def fragments(data, tag):
             # supplies a separate complete snippet. Only that snippet is data.
             continue
     return result
+
+
+def native_categories(types, limits):
+    """Route dependency-authored rows through categories the installed CE defines.
+
+    A category the mission's cfglimitsdefinition.xml lacks matches no proxy, so a
+    positive row would never place. Known legacy names map to the native category
+    vanilla uses for the same items; any other undefined category on a positive
+    row is refused rather than silently left unplaceable. Returns changed names.
+    """
+    defined = {node.get('name') for node in limits.iter('category')}
+    changed = []
+    for row in types.findall('type'):
+        names = [node.get('name') for node in row.findall('category')]
+        if all(name in defined for name in names):
+            continue
+        mapped = [name if name in defined else LEGACY_CATEGORIES.get(name) for name in names]
+        if any(name not in defined for name in mapped):
+            if int(row.findtext('nominal', '0') or 0) > 0:
+                raise ValueError('positive optional row has an undefined CE category: ' + row.get('name', ''))
+            continue
+        for node in row.findall('category'):
+            row.remove(node)
+        index = next((i for i, node in enumerate(row) if node.tag in ('tag', 'usage', 'value')), len(row))
+        for offset, name in enumerate(dict.fromkeys(mapped)):
+            row.insert(index + offset, ET.Element('category', {'name': name}))
+        changed.append(row.get('name'))
+    return changed
 
 
 def unique_append(parent, node, attribute='name'):
@@ -379,6 +410,8 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     existing_vehicles = {n.get('type', '').casefold() for event in effective_events.values()
                          for n in event.findall('children/child')}
     travel.validate_vehicle_budgets(types, existing_vehicles | set(owners))
+    if len(types):
+        native_categories(types, xml(source(mission / 'cfglimitsdefinition.xml'), 'lists'))
     for kind, additions, stock in (('events', events, 'db/events.xml'), ('types', types, 'db/types.xml'),
                                    ('spawnabletypes', spawnable, 'cfgspawnabletypes.xml')):
         if not len(additions):
