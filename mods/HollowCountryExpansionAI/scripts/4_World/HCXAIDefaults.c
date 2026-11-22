@@ -1,10 +1,32 @@
+// Loadout-only adapter: base BeginNew probes both temporary and primary in
+// one call. HCXAILoadoutSave separates those probes before arming a fresh image;
+// all writing/readback/handle cleanup still uses the shared image state machine.
+class HCXAILoadoutImage : HCStagedSaveImage
+{
+    bool HCArmNew(string path, string text)
+    {
+        if (Active() || m_Failed || text.Length() < 1 || text.Length() > 65536) { return false; }
+        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
+        // Fresh instance per loadout: remaining base cursors/handles retain
+        // constructor defaults. Immutable mode writes and verifies the primary.
+        m_Path = path;
+        m_Temporary = path + ".tmp";
+        m_Text = text;
+        m_Limit = 65536;
+        m_Mode = HC_IMAGE_CREATE;
+        m_CheckPrior = false;
+        m_Backup = false;
+        m_Phase = 0;
+        return true;
+    }
+}
 // Provider-ready startup work: one native file operation or image stage/visit.
 // Native EnSystem OpenFile/ReadFile/CloseFile, EnScript map.Contains/Set were
 // inspected in scripts-1.30.164289. No operator file is overwritten.
 class HCXAILoadoutSave : HCSaveJob
 {
     ref array<string> Names = new array<string>();
-    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
+    protected ref HCXAILoadoutImage m_Image = new HCXAILoadoutImage();
     protected int m_Cursor;
     protected int m_Phase;
     protected FileHandle m_Source;
@@ -20,7 +42,10 @@ class HCXAILoadoutSave : HCSaveJob
         m_Cursor++;
         m_Phase = 1;
         m_Text = "";
+        m_Image = new HCXAILoadoutImage();
     }
+    // Each visit probes once, opens once, reads <=4096 bytes, closes once,
+    // or delegates one staged-image operation. Phases always yield separately.
     override int HCStep()
     {
         if (Finished) { return STEP_DONE; }
@@ -83,10 +108,22 @@ class HCXAILoadoutSave : HCSaveJob
         if (m_Phase == 5)
         {
             if (m_Text == "") { this.HCNext(); return STEP_MORE; }
-            // Immutable create preserves operator files even if one appeared
-            // after the initial existence probe. No replace/backup promotion.
-            if (!m_Image.BeginNew(m_Target, m_Text, 65536)) { return STEP_FAILED; }
+            if (FileExist(m_Target + ".tmp")) { return STEP_FAILED; }
             m_Phase = 6;
+            return STEP_MORE;
+        }
+        if (m_Phase == 6)
+        {
+            // Recheck immediately before arming: preserve operator files that
+            // appeared while the shipped source was being read.
+            if (FileExist(m_Target))
+            {
+                HCXAIDefaults.HCSetLoadoutPresent(name, true);
+                this.HCNext();
+                return STEP_MORE;
+            }
+            if (!m_Image.HCArmNew(m_Target, m_Text)) { return STEP_FAILED; }
+            m_Phase = 7;
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();

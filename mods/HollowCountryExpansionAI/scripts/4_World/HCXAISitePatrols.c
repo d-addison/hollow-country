@@ -369,9 +369,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
         this.HCScanNearby(now);
         if (m_LocalitySave.HCUrgent && m_LocalitySave.HCDirty && (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_LocalitySave)))
         {
-            if (m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+            if (m_LocalityWork.HCContinue() && this.HCTakeLocalityUnit())
             {
-                HCServer.HCTickWork().HCCharge(1);
                 HCSaveScheduler.HCPumpFallback(m_LocalitySave);
                 if (m_LocalitySave.Fault) { this.HCLocalityFault(); return; }
             }
@@ -380,9 +379,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
         m_LocalityAdmissionTurn = !m_LocalityAdmissionTurn;
         if (!m_LocalitySave.HCDirty && !m_LocalitySave.HCInFlight && (m_SelectionPending || (admissionTurn && (m_NearSite >= 0 || now >= m_LocalityNextAttemptAt))))
         {
-            if (m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+            if (m_LocalityWork.HCContinue() && this.HCTakeLocalityUnit())
             {
-                HCServer.HCTickWork().HCCharge(1);
                 int selectionBegan = TickCount(0);
                 this.HCTryLocality(now);
                 this.HCSiteStageCost("locality_selection", selectionBegan);
@@ -404,9 +402,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
             nearestWork = workGap;
             m_LocalityCursor = workIndex;
         }
-        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && this.HCTakeLocalityUnit())
         {
-            if (visited > 0) { HCServer.HCTickWork().HCCharge(1); }
             if (m_LocalityCursor >= m_States.Count()) { m_LocalityCursor = 0; }
             HCXAISiteState state = m_States[m_LocalityCursor];
             visited++;
@@ -779,6 +776,7 @@ class HCXCheckpointProps
 {
     protected ref array<ref HCXCheckpointProp> m_Props = new array<ref HCXCheckpointProp>();
     protected int m_Cursor;
+    protected ref HCPathgraphRefresh m_PathgraphPending;
     protected void HCStartRefused(string problem)
     {
         Print("[HollowCountry] Checkpoints props not placed: " + problem + "; runtime=PENDING");
@@ -810,6 +808,14 @@ class HCXCheckpointProps
     }
     void Step()
     {
+        if (m_PathgraphPending)
+        {
+            // One post-snap region on the next props visit; never queue an
+            // unbounded series of runtime marks or depend on the boot flush.
+            m_PathgraphPending.Update();
+            m_PathgraphPending = null;
+            return;
+        }
         if (!HCXAIQualification.EncountersEnabled() || m_Props.Count() == 0) { return; }
         HCXCheckpointProp row = m_Props[m_Cursor % m_Props.Count()];
         m_Cursor++;
@@ -855,10 +861,11 @@ class HCXCheckpointProps
                 return;
             }
         }
-        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
+        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
         if (!row.Table) { this.HCRetry(row, "native factory"); return; }
         HCGroundSnap.Snap(row.Table);
-        HCPathgraphRefresh.Mark(row.Table);
+        m_PathgraphPending = new HCPathgraphRefresh();
+        m_PathgraphPending.Include(row.Table);
         row.Finished = true;
         Print("[HollowCountry] Checkpoints props present: " + row.Site.Id + "; empty roadside table remains if guards unavailable");
     }

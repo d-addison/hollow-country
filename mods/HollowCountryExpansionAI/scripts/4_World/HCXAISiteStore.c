@@ -146,6 +146,7 @@ class HCXAIRouteSave : HCSaveJob
 }
 class HCXAICacheSave : HCSaveJob
 {
+    protected int m_CleanupPhase;
     HCXAISiteDirector Owner;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
@@ -157,7 +158,10 @@ class HCXAICacheSave : HCSaveJob
         m_Image.HCAbort();
         m_Image.HCAbort();
         m_Image = new HCStagedSaveImage();
-        DeleteFile(HCXAISiteDirector.CACHES + ".tmp");
+        // Abort drains at most two retained handles, one per HCAbort call.
+        // This synchronous inventory barrier never advances/promotes an old
+        // image. Defer its temporary-file deletion to a one-op save visit.
+        m_CleanupPhase = 1;
         HCDirty = false;
         HCInFlight = false;
         HCUrgent = false;
@@ -169,6 +173,19 @@ class HCXAICacheSave : HCSaveJob
     {
         if (!Owner) { return STEP_FAILED; }
         if (!HCDirty) { return STEP_DONE; }
+        if (m_CleanupPhase == 1)
+        {
+            // One native file operation on this visit, even if no temp exists.
+            DeleteFile(HCXAISiteDirector.CACHES + ".tmp");
+            m_CleanupPhase = 2;
+            return STEP_MORE;
+        }
+        if (m_CleanupPhase == 2)
+        {
+            if (FileExist(HCXAISiteDirector.CACHES + ".tmp")) { return STEP_FAILED; }
+            m_CleanupPhase = 0;
+            return STEP_MORE;
+        }
         if (!m_Image.Active())
         {
             string text;
@@ -484,8 +501,8 @@ class HCXAISiteStorage : HCXAISiteBase
         }
         if (!crate)
         {
-            crate = EntityAI.Cast(GetGame().CreateObjectEx(site.CacheClass, state.CacheWorld, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
-            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); HCPathgraphRefresh.Mark(crate); }
+            crate = EntityAI.Cast(GetGame().CreateObjectEx(site.CacheClass, state.CacheWorld, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME));
+            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); }
         }
         if (!crate || !crate.GetInventory())
         {

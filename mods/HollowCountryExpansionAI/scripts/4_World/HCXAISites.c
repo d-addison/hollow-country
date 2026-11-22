@@ -1,10 +1,7 @@
-// Coordinator and shared state. Explicit inheritance keeps all split behavior
-// below HCXAISiteDirector: existing picker/caravan/routes modded overrides still
-// dispatch last, independently of file order. Base virtual seams are declared
-// here so lower implementation layers can call later layer behavior safely.
-// SiteBase -> SiteStorage -> SiteSurvey -> SitePatrols -> SiteDirector.
-// Runtime/API provenance: scripts-1.30.164289 AIWorld PGFilter/FindPath,
-// Game GetTime/GetPlayers/SurfaceY, Object GetPosition/IsAlive, DayZPhysics RaycastRV.
+// Shared state: SiteBase -> SiteStorage -> SiteSurvey -> SitePatrols -> SiteDirector.
+// Base virtual seams preserve picker/caravan/routes modded dispatch regardless of file order.
+// Native scripts-1.30.164289: AIWorld PGFilter/FindPath, Game GetTime/GetPlayers/SurfaceY,
+// Object GetPosition/IsAlive, DayZPhysics RaycastRV.
 modded class HCXAIOwnedRow
 {
     int ClearedAt = 0;
@@ -524,6 +521,11 @@ class HCXAISiteBase : Managed
         job.HCUrgent = false;
     }
     protected bool HCTakeSiteUnits(int units) { return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, units); }
+    protected bool HCTakeLocalityUnit()
+    {
+        if (!m_LocalityUnits.HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1)) { return false; }
+        return this.HCTakeSiteUnits(1);
+    }
     void Step()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
@@ -894,6 +896,5 @@ class HCXAISiteBase : Managed
     static HCXAICacheJournal LoadCaches() { return HCXAISiteStore.LoadCaches(); }
     static HCXAIOwnership LoadOwned() { return HCXAISiteStore.LoadOwned(); }
 }
-
 // External picker/caravan/routes mods extend only this final facade.
 class HCXAISiteDirector : HCXAISitePatrols {}

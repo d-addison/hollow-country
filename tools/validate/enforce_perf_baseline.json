@@ -544,15 +544,6 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2266,
-      "symbol": "HCXAISiteDirector.SaveCaches",
-      "key": "JsonFileLoader.SaveFile#1",
-      "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
       "line": 31,
       "symbol": "HCXAIStore.ReadJournal",
@@ -1733,166 +1724,6 @@
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
       "reason": "W1-11 legacy budget caller: HCXAICampRoutine.Step still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P010",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1135,
-      "symbol": "HCXAISiteDirector.HCStepLocalities",
-      "key": "HCTake#1",
-      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
-      "native": false,
-      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P010",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1148,
-      "symbol": "HCXAISiteDirector.HCStepLocalities",
-      "key": "HCTake#2",
-      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
-      "native": false,
-      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P010",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1172,
-      "symbol": "HCXAISiteDirector.HCStepLocalities",
-      "key": "HCTake#3",
-      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
-      "native": false,
-      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3234,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3238,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3239,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3246,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "CopyFile#1",
-      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3246,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "FileExist#3",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3247,
-      "symbol": "HCXAISiteDirector.HCPreserveRoute",
-      "key": "OpenFile#2",
-      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3283,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3283,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3284,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "CopyFile#1",
-      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3286,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "DeleteFile#2",
-      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3286,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3289,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "DeleteFile#3",
-      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 3289,
-      "symbol": "HCXAISiteDirector.LoadRoutes",
-      "key": "FileExist#3",
-      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
     },
     {
       "rule": "HC-P009",
@@ -3203,6 +3034,296 @@
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
       "native": false,
       "reason": "w6-persist-fu P3-2: deletes our own mismatched staged-rejection copy before returning copy_mismatch so the next boot retries into a free slot; source stays intact. Boot/retry-only, at most one call per rejected source per load; bounded."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 54,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 54,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers. HC-P009 startup witness is a false virtual-dispatch edge: HCCampModule.OnStart calls HCBuildingClaim.HCStop, which flushes only its HCBuildingClaimSave; that object cannot dispatch to this save job override. No native timing acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 68,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 68,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers. HC-P009 startup witness is a false virtual-dispatch edge: HCCampModule.OnStart calls HCBuildingClaim.HCStop, which flushes only its HCBuildingClaimSave; that object cannot dispatch to this save job override. No native timing acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 78,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 78,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers. HC-P009 startup witness is a false virtual-dispatch edge: HCCampModule.OnStart calls HCBuildingClaim.HCStop, which flushes only its HCBuildingClaimSave; that object cannot dispatch to this save job override. No native timing acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 88,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded scheduler loadout job: mutually exclusive phases perform at most one probe, open, <=4096-byte read, close, or shared image stage per visit; total source capped at 65536 bytes. No routine catalog drain; single-name ProvisionLoadout remains synchronous for zone guard callers."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 179,
+      "symbol": "HCXAICacheSave.HCStep",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCXAICacheSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 179,
+      "symbol": "HCXAICacheSave.HCStep",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAICacheSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages. HC-P009 startup witness is a false virtual-dispatch edge: HCCampModule.OnStart calls HCBuildingClaim.HCStop, which flushes only its HCBuildingClaimSave; that object cannot dispatch to this save job override. No native timing acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 185,
+      "symbol": "HCXAICacheSave.HCStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAICacheSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 185,
+      "symbol": "HCXAICacheSave.HCStep",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAICacheSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded cache cleanup: one DeleteFile visit followed by one FileExist visit; refuse if the aborted temporary still exists. Sync SaveCaches aborts old images and closes retained handles before writing current state, preventing stale promotion; routine writes remain scheduler stages. HC-P009 startup witness is a false virtual-dispatch edge: HCCampModule.OnStart calls HCBuildingClaim.HCStop, which flushes only its HCBuildingClaimSave; that object cannot dispatch to this save job override. No native timing acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 541,
+      "symbol": "HCXAISiteStorage.SaveCaches",
+      "key": "JsonFileLoader.SaveFile#1",
+      "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteBase.Step -> HCXAISiteBase.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteStorage.SaveCaches",
+      "native": false,
+      "reason": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches; moved by W3-01 split. Owner-required synchronous durability barrier before picker/holdout inventory creation; routine cache saves use scheduler stages. Same schema and refusal semantics; engine evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 719,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 723,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 724,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 731,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 731,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 732,
+      "symbol": "HCXAISiteStore.HCPreserveRoute",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes -> HCXAISiteStore.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 766,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 766,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 767,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 768,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 768,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 771,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteStore.c",
+      "line": 771,
+      "symbol": "HCXAISiteStore.LoadRoutes",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteBase.Start -> HCXAISiteBase.LoadRoutes -> HCXAISiteStore.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance.; moved by W3-01 split."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 111,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded loadout preflight: temporary and primary existence checks run on separate visits after source readback; one probe per visit, then arm a fresh immutable shared-image adapter without file I/O. Source reads remain <=4096 bytes per visit and <=65536 bytes total; ProvisionLoadout remains synchronous."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 111,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded loadout preflight: temporary and primary existence checks run on separate visits after source readback; one probe per visit, then arm a fresh immutable shared-image adapter without file I/O. Source reads remain <=4096 bytes per visit and <=65536 bytes total; ProvisionLoadout remains synchronous. Startup witness is a false virtual-dispatch edge: HCBuildingClaim.HCStop flushes only HCBuildingClaimSave, which cannot dispatch to HCXAILoadoutSave.HCStep. No native acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 119,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCXAILoadoutSave.HCStep",
+      "native": false,
+      "reason": "W3-01 bounded loadout preflight: temporary and primary existence checks run on separate visits after source readback; one probe per visit, then arm a fresh immutable shared-image adapter without file I/O. Source reads remain <=4096 bytes per visit and <=65536 bytes total; ProvisionLoadout remains synchronous."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 119,
+      "symbol": "HCXAILoadoutSave.HCStep",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAILoadoutSave.HCStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W3-01 bounded loadout preflight: temporary and primary existence checks run on separate visits after source readback; one probe per visit, then arm a fresh immutable shared-image adapter without file I/O. Source reads remain <=4096 bytes per visit and <=65536 bytes total; ProvisionLoadout remains synchronous. Startup witness is a false virtual-dispatch edge: HCBuildingClaim.HCStop flushes only HCBuildingClaimSave, which cannot dispatch to HCXAILoadoutSave.HCStep. No native acceptance."
     }
   ]
 }
