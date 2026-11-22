@@ -12,8 +12,10 @@ item with its own allowlist, title and description:
 
 * base, @HollowCountry: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and, optionally,
   meta.cpp.
-* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo and, optionally, the signed weapon-pack
-  guard addons/hollowcountry_weapon_pack_guards.pbo, each with its .bisign, keys/*.bikey and,
+* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo, the always-built compat config addon
+  addons/hollowcountry_compat.pbo (required) and, optionally, the signed weapon-pack guard
+  addons/hollowcountry_weapon_pack_guards.pbo and the per-provider compat PBOs
+  addons/hollowcountry_compat_[a-f].pbo, each with its .bisign, keys/*.bikey and,
   optionally, mod.cpp and meta.cpp. Load it with -mod after HollowCountry on the server and every client;
   players subscribe to it when the server uses it.
 
@@ -49,6 +51,8 @@ import stat
 import sys
 import tempfile
 
+from tools.package import pbo
+
 APP_ID = '221100'  # DayZ (the Workshop app id used by DayZ mods)
 VISIBILITY_UNLISTED = '3'  # ERemoteStoragePublishedFileVisibility_Unlisted
 VISIBILITY_PUBLIC = '0'  # ERemoteStoragePublishedFileVisibility_Public (owner-authorized 2026-11-18)
@@ -80,6 +84,10 @@ ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
 ANIMS_PBO_NAME = 'hollowcountryanims.pbo'
 # Signed weapon-pack attachment guard (#302); ships in @HollowCountryExpansionAI beside the addon.
 GUARDS_PBO_NAME = 'hollowcountry_weapon_pack_guards.pbo'
+# Build-time compat config addon (tools/package/compat_addon.py): the base PBO is always built and
+# shipped; one more PBO per declared optional provider slot (never required, signed when present).
+COMPAT_PBO_NAME = pbo.COMPAT_PBO_NAME
+COMPAT_SLOT_PBO_NAMES = tuple(pbo.compat_slot_pbo(slot) for slot in pbo.COMPAT_SLOTS)
 # Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
 # the meta.cpp name line.
 ITEMS = {
@@ -88,7 +96,12 @@ ITEMS = {
     'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True,
              'extra_pbos': (ANIMS_PBO_NAME,)},
     'addon': {'pbo': ADDON_PBO_NAME, 'title': ADDON_TITLE, 'description': ADDON_DESCRIPTION,
-              'mod_cpp_required': False, 'extra_pbos': (GUARDS_PBO_NAME,)},
+              'mod_cpp_required': False,
+              'extra_pbos': (GUARDS_PBO_NAME, COMPAT_PBO_NAME) + COMPAT_SLOT_PBO_NAMES,
+              # Extras that must be present (the guard is built only when its pack is declared).
+              'required_extra_pbos': (COMPAT_PBO_NAME,),
+              # Extras that need no more than a signature when they are present.
+              'optional_pbos': COMPAT_SLOT_PBO_NAMES},
 }
 DEFAULT_ITEM = 'base'
 # The real Workshop ids of our two Unlisted items. An item never accepts the other item's id, so a
@@ -163,7 +176,8 @@ def validate_content(mod, item=DEFAULT_ITEM):
 
     Allowed: addons/<item pbo>, addons/<item pbo>.<key>.bisign (at least one), keys/<key>.bikey (one per
     signing key), meta.cpp when present and mod.cpp (required for base, optional for addon). Anything else
-    is refused, including the other item's PBO.
+    is refused, including the other item's PBO. The addon item also requires its base compat PBO; its
+    optional extras (guard, compat slot PBOs) are allowed when present and must each be signed.
     """
     spec = item_spec(item)
     pbo_name = spec['pbo']
@@ -217,6 +231,9 @@ def validate_content(mod, item=DEFAULT_ITEM):
         raise PublishError('mod.cpp is missing')
     if 'addons/' + pbo_name not in files:
         raise PublishError('addons/%s is missing' % pbo_name)
+    for name in spec.get('required_extra_pbos', ()):
+        if 'addons/' + name not in files:
+            raise PublishError('addons/%s is missing' % name)
     for name in pbo_names:
         if (name == pbo_name or 'addons/' + name in files) and not bisigns_by_pbo[name]:
             raise PublishError('addons/%s has no matching .bisign signature' % name)

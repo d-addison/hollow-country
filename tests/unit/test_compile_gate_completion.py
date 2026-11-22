@@ -29,6 +29,8 @@ class CompileCompletionTests(unittest.TestCase):
             stack.enter_context(patch.object(compile_gate, 'ship_config'))
             stack.enter_context(patch.object(compile_gate, 'compatibility_inputs',
                                              return_value=contextlib.nullcontext({})))
+            stack.enter_context(patch.object(compile_gate, 'compat_inputs',
+                                             return_value=contextlib.nullcontext([])))
             stack.enter_context(patch.object(compile_gate.pbo, 'collect_addon', return_value={}))
             stack.enter_context(patch.object(compile_gate.pbo, 'pack', return_value=b'fixture'))
             stack.enter_context(patch.object(compile_gate, 'stage_release_pbos', return_value={}))

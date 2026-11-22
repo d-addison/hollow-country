@@ -17,7 +17,35 @@ PREFIX = 'HollowCountry'
 # The weapon-pack guard ships beside the HCX PBO in the same mod folder, so it needs its own
 # nested prefix: two PBOs with one prefix in one folder crash the native server at load.
 GUARD_PREFIX = 'HollowCountryExpansionAI\\weapon-pack-guards'
-PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX, 'HollowCountryExpansionAI\\compat')
+# The compat config addon (tools/package/compat_addon.py) ships beside the HCX PBO: one base PBO
+# for mandatory dependencies plus one PBO per optional provider slot, each on its own nested prefix.
+COMPAT_PREFIX = 'HollowCountryExpansionAI\\compat'
+COMPAT_SLOTS = ('a', 'b', 'c', 'd', 'e', 'f')
+COMPAT_PBO_NAME = 'hollowcountry_compat.pbo'
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX,
+            COMPAT_PREFIX) + tuple(COMPAT_PREFIX + '-' + slot for slot in COMPAT_SLOTS)
+
+
+def compat_slot_pbo(slot):
+    """File name of the optional compat PBO of one provider slot."""
+    return f'hollowcountry_compat_{slot}.pbo'
+
+
+def pbo_file_name(prefix):
+    """Shipped file name of the PBO packed under a registered prefix (None for an unknown prefix).
+
+    Most PBOs are the lower-cased prefix; the weapon-pack guard and the compat addon use their own names
+    because their prefixes are nested (a backslash is not a file-name character)."""
+    if prefix == COMPAT_PREFIX:
+        return COMPAT_PBO_NAME
+    for slot in COMPAT_SLOTS:
+        if prefix == COMPAT_PREFIX + '-' + slot:
+            return compat_slot_pbo(slot)
+    if prefix == GUARD_PREFIX:
+        return 'hollowcountry_weapon_pack_guards.pbo'
+    return prefix.lower() + '.pbo' if prefix in PREFIXES else None
+
+
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024

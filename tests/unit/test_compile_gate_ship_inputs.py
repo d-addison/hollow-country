@@ -14,7 +14,7 @@ class ShipInputsTests(unittest.TestCase):
     def test_release_uses_shared_catalogue(self):
         # Identity ensures the gate reads the release's own catalogue, not a snapshot.
         self.assertIs(release.ship_inputs.signing_inputs, ship_inputs.signing_inputs)
-        self.assertIn('ship_inputs.signing_inputs(guard_name)',
+        self.assertIn('ship_inputs.signing_inputs(guard_name, compat_names)',
                       Path(release.__file__).read_text())
 
     def test_staged_set_and_missing_future_addon(self):
@@ -39,6 +39,30 @@ class ShipInputsTests(unittest.TestCase):
                 next(iter(staged.values())).unlink()
                 with self.assertRaisesRegex(ValueError, 'release PBOs not staged:'):
                     compile_gate.validate_staged_pbos(staged, guard)
+
+    def test_compat_pbos_join_catalogue_and_staging_is_validated(self):
+        compat = (ship_inputs.COMPAT_STEM + '.pbo',
+                  ship_inputs.COMPAT_STEM + '_a.pbo')
+        stems = {Path(name).stem for name in compat}
+        base = {name for name, _, _ in ship_inputs.signing_inputs()}
+        rows = ship_inputs.signing_inputs(None, compat)
+        self.assertEqual({name for name, _, _ in rows} - base, stems)
+        self.assertTrue(all(mod == 'HollowCountryExpansionAI'
+                            for name, mod, _ in rows if name in stems))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            staged = {}
+            for name, mod, _ in rows:
+                relative = f'@{mod}/addons/{name}.pbo'
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'fixture')
+                staged[relative] = path
+            with contextlib.redirect_stdout(io.StringIO()):
+                compile_gate.validate_staged_pbos(staged, None, compat)
+            staged = {r: p for r, p in staged.items() if not r.endswith('_a.pbo')}
+            with self.assertRaisesRegex(ValueError, 'release PBOs not staged:'):
+                compile_gate.validate_staged_pbos(staged, None, compat)
 
     def test_animation_recipe_uses_selected_tree_and_installed_input(self):
         calls = []

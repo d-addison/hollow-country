@@ -1,12 +1,15 @@
 {
   "schema": 1,
-  "_doc": "Rules for the HC compat config addon (tools/package/compat_addon.py, docs/tools/COMPAT_ADDON.md). The addon only fills config entries by inheritance; it never copies a dependency's class bodies, assets, scripts or text. own_rules come from this repo's own data and are empty today: our own CE types and config.cpp need no compat entry. dependency_rules is the slot the lead fills from native RPT evidence (rpt_config_audit No entry rows); each row is {id, section, class, parent, requires[], set{}, evidence} and requires/evidence are mandatory there. required_addons must name our own CfgPatches classes; the generator checks them against mods/*/config.cpp.",
+  "_doc": "Rules for the HC compat config addon (tools/package/compat_addon.py, docs/tools/COMPAT_ADDON.md). The addon only fills config entries by inheritance; it never copies a dependency's class bodies, assets, scripts or text. own_rules come from this repo's own data and are empty today: our own CE types and config.cpp need no compat entry. dependency_rules is the slot for rules derived from native RPT evidence; each row is {id, section, class, parent, requires[], provider?, set{}, evidence} and requires/evidence are mandatory there. A rule that requires an optional (non-mandatory) addon needs a provider slot declared in providers [{slot, item}]; each slot becomes its own PBO built only when its Workshop item is declared. required_addons must name our own CfgPatches classes; the generator checks them against mods/*/config.cpp. Empty on 2026-11-22: the config 'No entry' rows in the newest RPT are nested sub-entries (DamageSystem, OpticsInfo, Beam) of vanilla and pack base classes, which this schema (top-level scalar properties on a class with a proven upstream parent) cannot and may not patch; see the doc.",
   "addon": {
     "patch": "HollowCountryCompat",
     "prefix": "HollowCountryExpansionAI\\compat",
     "pbo": "hollowcountry_compat.pbo",
-    "required_addons": ["HollowCountryExpansionAI"]
+    "required_addons": [
+      "HollowCountryExpansionAI"
+    ]
   },
   "own_rules": [],
-  "dependency_rules": []
+  "dependency_rules": [],
+  "providers": []
 }

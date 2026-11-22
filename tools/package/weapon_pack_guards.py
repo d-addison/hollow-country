@@ -110,12 +110,20 @@ def generate(workshop):
     }
 
 
-def declared(manifest=None):
-    """Only the pinned repository's declared stack can activate this compatibility addon."""
+def declared_item(item, manifest=None):
+    """True when the pinned stack manifest declares this third-party Workshop item (shared gate).
+
+    Optional-provider addons (the weapon-pack guard, the optional compat PBOs) are built only
+    for items the repository's declared stack lists; an undeclared item emits no PBO."""
     data = json.loads(Path(manifest or ROOT / 'tools/setup/workshop_mods.json').read_bytes())
     if data.get('schema') != 1 or not isinstance(data.get('mods'), list):
         raise ValueError('invalid Workshop stack manifest')
-    return any(row.get('id') == ITEM and not row.get('publish') for row in data['mods'])
+    return any(row.get('id') == item and not row.get('publish') for row in data['mods'])
+
+
+def declared(manifest=None):
+    """Only the pinned repository's declared stack can activate this compatibility addon."""
+    return declared_item(ITEM, manifest)
 
 
 def generate_for_stack(workshop, manifest=None):
