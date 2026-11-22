@@ -6,6 +6,13 @@
 // 3_Game/DayZGame.c:991 Event_OnRPC; Global/Game.c:914/1120 tick/server;
 // Object.c:215/287/467 pending/position/type; Man.c:21 GetIdentity;
 // 1_Core/proto/EnSystem.c:106 TickCount. Cooperative native calls cannot preempt.
+class HCAdminWorldCatalogHeader
+{
+    int Version;
+    int Count;
+    ref array<ref HCAdminMark> Rows;
+}
+
 class HCAdminWorldPeer
 {
     PlayerIdentity Identity;
@@ -24,6 +31,7 @@ modded class HCAdminModule
     protected ref HCAdminWorldConfig m_WorldConfig;
     protected ref array<ref HCAdminWorldPeer> m_WorldPeers = new array<ref HCAdminWorldPeer>;
     protected ref HCAdminWorldCapture m_WorldStatic;
+    protected ref HCAdminWorldCatalog m_WorldCatalog;
     protected ref HCAdminWorldCapture m_WorldCapture;
     protected ref HCAdminWorldSources m_WorldSources;
     protected HCAdminWorldPeer m_WorldPeer;
@@ -74,12 +82,11 @@ modded class HCAdminModule
         m_Status.HCPublish("ready", "allowlist_loaded_m_map_stream_native_admin_client_pending");
     }
 
-    // The teleport layer re-derives readiness on every poll; keep its state
-    // and fault, and name the M-map stream in a ready reason.
+    // Readiness covers permission admission and the bound M-map transport.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         HCOperationalStatus status = super.HCGetOperationalStatus();
-        if (m_Running && status && status.HCState() == "ready") { status.HCPublish("ready", "allowlist_loaded_teleport_catalog_m_map_stream_native_admin_client_pending"); }
+        if (m_Running && status && status.HCState() == "ready") { status.HCPublish("ready", "allowlist_loaded_m_map_stream_native_admin_client_pending"); }
         return status;
     }
 
@@ -162,6 +169,7 @@ modded class HCAdminModule
 
     protected void HCWorldCancel()
     {
+        if (m_WorldCatalog) { m_WorldCatalog.Close(); m_WorldCatalog = null; }
         m_WorldPeer = null;
         m_WorldCapture = null;
         m_WorldSources = null;
@@ -186,6 +194,7 @@ modded class HCAdminModule
             if (peer.Due > now || !HCWorldLive(peer)) { continue; }
             m_WorldPeer = peer;
             peer.Sequence++;
+            peer.Until = now + 15;
             peer.Due = now + m_WorldConfig.RefreshSeconds;
             m_WorldIsStatic = peer.StaticVersion != HCAdminWorldCatalog.VERSION;
             m_WorldCapture = new HCAdminWorldCapture(0);
@@ -195,6 +204,7 @@ modded class HCAdminModule
             if (m_WorldIsStatic)
             {
                 m_WorldStage = 1;
+                m_WorldCatalog = new HCAdminWorldCatalog;
                 m_WorldCapture.Limit = HCAdminWorldWire.ROWS;
                 if (m_WorldStatic) { m_WorldCapture = m_WorldStatic; m_WorldStage = 7; }
             }
@@ -285,16 +295,30 @@ modded class HCAdminModule
             if (!m_WorldCapture.CatalogReserved) { m_WorldCapture.HCReserveCatalog(); }
             else
             {
-                while (m_WorldCursor < HCAdminWorldCatalog.COUNT && m_WorldWork.HCContinue())
+                // Bounded file/scan/decode steps share the row/time cap. Keep the
+                // authenticated lease alive while preparing the first transfer.
+                m_WorldPeer.Until = GetGame().GetTickTime() + 15;
+                while (m_WorldStage == 1 && m_WorldWork.HCContinue())
                 {
                     int emitStart = TickCount(0);
-                    HCAdminWorldCatalog.Emit(m_WorldCapture, m_WorldCursor);
+                    bool finished = m_WorldCatalog.Step(m_WorldCapture);
                     int emitCost = TickCount(emitStart);
                     if (emitCost > m_WorldEmitPeak) { m_WorldEmitPeak = emitCost; }
-                    m_WorldCursor++;
+                    m_WorldCursor = m_WorldCapture.Rows.Count();
+                    if (finished)
+                    {
+                        if (m_WorldCatalog.Failed)
+                        {
+                            Print("[HC Admin] map_catalog_failed reason=invalid_or_missing retry_seconds=30");
+                            m_WorldPeer.Due = GetGame().GetTickTime() + 30;
+                            HCWorldCancel();
+                            return;
+                        }
+                        m_WorldStatic = m_WorldCapture;
+                        m_WorldStage = 7;
+                    }
                 }
             }
-            if (m_WorldCursor >= HCAdminWorldCatalog.COUNT) { m_WorldStatic = m_WorldCapture; m_WorldStage = 7; }
         }
         else if (m_WorldStage == 2)
         {

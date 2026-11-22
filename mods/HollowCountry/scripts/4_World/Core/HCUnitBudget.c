@@ -94,7 +94,8 @@ class HCUnitBudget
     // P1.2 qualified-route cache validity/sampling. Own slot: it shares HCXAISiteDirector with the
     // AI_SITES pager and must not starve the gapcode route catalog on AI_ROUTES.
     static const int HC_WORK_AI_ROUTE_CACHE = 40;
-    static const int HC_WORK_CONSUMERS = 41;
+    static const int HC_WORK_ADMIN_TELEPORT = 41;
+    static const int HC_WORK_CONSUMERS = 42;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
@@ -158,6 +159,7 @@ class HCUnitBudget
         HCRegisterConsumer(HC_WORK_WILDLIFE, "WILDLIFE", 1);
         HCRegisterConsumer(HC_WORK_ZONE_GUARDS, "ZONE_GUARDS", 1);
         HCRegisterConsumer(HC_WORK_AI_ROUTE_CACHE, "AI_ROUTE_CACHE", 1);
+        HCRegisterConsumer(HC_WORK_ADMIN_TELEPORT, "ADMIN_TELEPORT", 1);
     }
 
     static string HCConsumerName(int slot)

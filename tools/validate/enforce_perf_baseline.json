@@ -613,26 +613,6 @@
     },
     {
       "rule": "HC-P010",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 301,
-      "symbol": "HCAdminTeleport.HCStep",
-      "key": "HCTake#1",
-      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
-      "native": false,
-      "reason": "Line moved by capped automatic catalogue refresh and frozen-index publication; budget call unchanged. W1-11 legacy budget caller: HCAdminTeleport.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P010",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 492,
-      "symbol": "HCAdminTeleport.HCFindGround",
-      "key": "HCTake#1",
-      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
-      "native": false,
-      "reason": "Line moved by capped automatic catalogue refresh and frozen-index publication; budget call unchanged. W1-11 legacy budget caller: HCAdminTeleport.HCFindGround still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P010",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldStream.c",
       "line": 270,
       "symbol": "HCAdminModule.HCWorldTick",
@@ -1970,6 +1950,26 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 409,
+      "symbol": "HCAdminTeleport.HCReadSites",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites",
+      "native": false,
+      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldCatalog.c",
+      "line": 60,
+      "symbol": "HCAdminJsonRows.Step",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCAdminTeleport.HCStep -> HCAdminTeleport.HCReadSites -> HCAdminJsonRows.Step",
+      "native": false,
+      "reason": "W2-04 bounded lazy admin loading: profile existence is checked once when the optional site reader starts; ReadFile reads at most 1024 bytes per admitted slice step. No synchronous whole-file load; native I/O latency and R2 timing remain unverified."
     }
   ]
 }
