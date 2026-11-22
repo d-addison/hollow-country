@@ -59,9 +59,15 @@ not establish native transaction, collision, audio or replication correctness.
 Atmosphere uses the admitted Chernarus world-data owner and HCServer.Start hook
 instead of a module slot. Its exact local build gate accepts `1.30.164289` and
 `1.30.164289.70` only; production qualification remains false. The atmosphere
-owner alone adjusts lightingConfig and disablePersonalLight at runtime, and only
-from native defaults 0/false. Existing operator values are retained and logged.
-The separate cfgGameplay delta owner must not write those two settings.
+owner forces the bright-night native lightingConfig 0 at runtime whatever the
+operator value (owner rule 2026-11-17: no dark nights; the previous value is
+logged); HCWeatherDaysModule writes the same 0 and nothing else writes it. It does
+not write disablePersonalLight. Between 20:00 and 05:00 the native overcast limit is
+0.55 (server only; applied at startup and by an idempotent 10 s dusk/dawn check, at
+most a 60 s transition, dawn restores 0..1), and the forecast, rain and wind derived
+from cloud are capped too, so a storm band cannot darken the night; daytime storms
+are unchanged. The separate cfgGameplay delta owner must not write those two
+settings.
 
 Search/crafting use native actions/recipes and server inventory authority; do
 not invent a generic client command RPC. Cross-module requests must be narrow,

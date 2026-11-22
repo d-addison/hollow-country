@@ -9,7 +9,7 @@ class CfgPatches
 {
     class HollowCountryAnims
     {
-        units[] = {"HC_ZmbM_Sitter", "HC_ZmbM_Sleeper", "HC_ZmbM_Riser", "HC_ZmbM_Feeder", "HC_ZmbM_Crawler", "HC_ZmbF_Crawler_ZmbF_JoggerSkinny_Red", "HC_ZmbF_Crawler_ZmbF_MechanicNormal_Beige", "HC_ZmbF_Crawler_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green", "HC_ZmbF_Crawler_ZmbF_SurvivorNormal_Orange", "HC_ZmbF_Crawler_ZmbF_usSoldier_normal_Desert", "HC_ZmbF_Feeder_ZmbF_BlueCollarFat_Green", "HC_ZmbF_Feeder_ZmbF_CitizenBSkinny", "HC_ZmbF_Feeder_ZmbF_Clerk_Normal_Green", "HC_ZmbF_Feeder_ZmbF_HikerSkinny_Green", "HC_ZmbF_Feeder_ZmbF_JoggerSkinny_Brown", "HC_ZmbF_Feeder_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Feeder_ZmbF_NurseFat", "HC_ZmbF_Feeder_ZmbF_PoliceWomanNormal", "HC_ZmbF_Feeder_ZmbF_VillagerOld_Blue", "HC_ZmbF_Feeder_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Riser_ZmbF_BlueCollarFat_White", "HC_ZmbF_Riser_ZmbF_HikerSkinny_Red", "HC_ZmbF_Riser_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue", "HC_ZmbF_Riser_ZmbF_PoliceWomanNormal", "HC_ZmbF_Riser_ZmbF_ShortSkirt_Black", "HC_ZmbF_Riser_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Riser_ZmbF_usSoldier_normal_Desert", "HC_ZmbF_Sitter_ZmbF_BlueCollarFat_Red", "HC_ZmbF_Sitter_ZmbF_HikerSkinny_Grey", "HC_ZmbF_Sitter_ZmbF_JournalistNormal_White", "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Green", "HC_ZmbF_Sitter_ZmbF_PatientOld", "HC_ZmbF_Sitter_ZmbF_PoliceWomanNormal", "HC_ZmbF_Sitter_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_Blue", "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_White", "HC_ZmbF_Sleeper_ZmbF_CitizenANormal_Brown", "HC_ZmbF_Sleeper_ZmbF_DoctorSkinny", "HC_ZmbF_Sleeper_ZmbF_HikerSkinny_Blue", "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Blue", "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Red", "HC_ZmbF_Sleeper_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Sleeper_ZmbF_PoliceWomanNormal", "HC_ZmbF_Sleeper_ZmbF_usSoldier_normal_Desert", "HC_ZmbM_Crawler_ZmbM_CitizenASkinny_Blue", "HC_ZmbM_Crawler_ZmbM_CitizenBFat_Red", "HC_ZmbM_Crawler_ZmbM_CommercialPilotOld_Grey", "HC_ZmbM_Crawler_ZmbM_ConstrWorkerNormal_Green", "HC_ZmbM_Crawler_ZmbM_FarmerFat_Blue", "HC_ZmbM_Crawler_ZmbM_FirefighterNormal", "HC_ZmbM_Crawler_ZmbM_FishermanOld_Green", "HC_ZmbM_Crawler_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Crawler_ZmbM_HermitSkinny_Beige", "HC_ZmbM_Crawler_ZmbM_Jacket_blue", "HC_ZmbM_Crawler_ZmbM_Jacket_magenta", "HC_ZmbM_Crawler_ZmbM_NBC_Grey", "HC_ZmbM_Crawler_ZmbM_NBC_Yellow", "HC_ZmbM_Crawler_ZmbM_PatientSkinny", "HC_ZmbM_Crawler_ZmbM_PatrolNormal_Flat", "HC_ZmbM_Crawler_ZmbM_PolicemanFat", "HC_ZmbM_Crawler_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Crawler_ZmbM_PrisonerSkinny", "HC_ZmbM_Crawler_ZmbM_Santa", "HC_ZmbM_Crawler_ZmbM_priestPopSkinny", "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Woodland", "HC_ZmbM_Feeder_ZmbM_CitizenBFat_Green", "HC_ZmbM_Feeder_ZmbM_FirefighterNormal", "HC_ZmbM_Feeder_ZmbM_FishermanOld_Red", "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Feeder_ZmbM_Jacket_black", "HC_ZmbM_Feeder_ZmbM_JoggerSkinny_Red", "HC_ZmbM_Feeder_ZmbM_MotobikerFat_Black", "HC_ZmbM_Feeder_ZmbM_NBC_Grey", "HC_ZmbM_Feeder_ZmbM_NBC_Yellow", "HC_ZmbM_Feeder_ZmbM_ParamedicNormal_Blue", "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Autumn", "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Summer", "HC_ZmbM_Feeder_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Feeder_ZmbM_PrisonerSkinny", "HC_ZmbM_Feeder_ZmbM_Santa", "HC_ZmbM_Feeder_ZmbM_priestPopSkinny", "HC_ZmbM_Feeder_ZmbM_usSoldier_Heavy_Woodland", "HC_ZmbM_Feeder_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Riser_ZmbM_CitizenBFat_Blue", "HC_ZmbM_Riser_ZmbM_ClerkFat_Brown", "HC_ZmbM_Riser_ZmbM_ConstrWorkerNormal_Black", "HC_ZmbM_Riser_ZmbM_FirefighterNormal", "HC_ZmbM_Riser_ZmbM_FishermanOld_Blue", "HC_ZmbM_Riser_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Riser_ZmbM_Jacket_beige", "HC_ZmbM_Riser_ZmbM_Jacket_bluechecks", "HC_ZmbM_Riser_ZmbM_JoggerSkinny_Green", "HC_ZmbM_Riser_ZmbM_JournalistSkinny", "HC_ZmbM_Riser_ZmbM_NBC_Grey", "HC_ZmbM_Riser_ZmbM_NBC_Yellow", "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev", "HC_ZmbM_Riser_ZmbM_PolicemanFat", "HC_ZmbM_Riser_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Riser_ZmbM_PrisonerSkinny", "HC_ZmbM_Riser_ZmbM_Santa", "HC_ZmbM_Riser_ZmbM_SoldierNormal", "HC_ZmbM_Riser_ZmbM_VillagerOld_Green", "HC_ZmbM_Riser_ZmbM_priestPopSkinny", "HC_ZmbM_Riser_ZmbM_usSoldier_Officer_Desert", "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Brown", "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Grey", "HC_ZmbM_Sitter_ZmbM_ConstrWorkerNormal_Beige", "HC_ZmbM_Sitter_ZmbM_DoctorFat", "HC_ZmbM_Sitter_ZmbM_FarmerFat_Brown", "HC_ZmbM_Sitter_ZmbM_FirefighterNormal", "HC_ZmbM_Sitter_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Sitter_ZmbM_HunterOld_Autumn", "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Blue", "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red", "HC_ZmbM_Sitter_ZmbM_MotobikerFat_Beige", "HC_ZmbM_Sitter_ZmbM_NBC_Grey", "HC_ZmbM_Sitter_ZmbM_NBC_Yellow", "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn", "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Summer", "HC_ZmbM_Sitter_ZmbM_PolicemanFat", "HC_ZmbM_Sitter_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Sitter_ZmbM_PrisonerSkinny", "HC_ZmbM_Sitter_ZmbM_Santa", "HC_ZmbM_Sitter_ZmbM_SoldierNormal", "HC_ZmbM_Sitter_ZmbM_priestPopSkinny", "HC_ZmbM_Sitter_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Sleeper_ZmbM_CitizenASkinny_Red", "HC_ZmbM_Sleeper_ZmbM_ConstrWorkerNormal_Grey", "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Beige", "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Green", "HC_ZmbM_Sleeper_ZmbM_FirefighterNormal", "HC_ZmbM_Sleeper_ZmbM_FishermanOld_Grey", "HC_ZmbM_Sleeper_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Sleeper_ZmbM_NBC_Grey", "HC_ZmbM_Sleeper_ZmbM_NBC_Yellow", "HC_ZmbM_Sleeper_ZmbM_ParamedicNormal_Black", "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat", "HC_ZmbM_Sleeper_ZmbM_PolicemanFat", "HC_ZmbM_Sleeper_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Sleeper_ZmbM_PrisonerSkinny", "HC_ZmbM_Sleeper_ZmbM_Santa", "HC_ZmbM_Sleeper_ZmbM_SkaterYoung_Blue", "HC_ZmbM_Sleeper_ZmbM_priestPopSkinny", "HC_ZmbM_Sleeper_ZmbM_usSoldier_Heavy_Woodland", "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Woodland"};
+        units[] = {"HC_ZmbM_Sitter", "HC_ZmbF_Crawler_ZmbF_JoggerSkinny_Red", "HC_ZmbF_Crawler_ZmbF_MechanicNormal_Beige", "HC_ZmbF_Crawler_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green", "HC_ZmbF_Crawler_ZmbF_SurvivorNormal_Orange", "HC_ZmbF_Crawler_ZmbF_usSoldier_normal_Desert", "HC_ZmbF_Feeder_ZmbF_BlueCollarFat_Green", "HC_ZmbF_Feeder_ZmbF_CitizenBSkinny", "HC_ZmbF_Feeder_ZmbF_Clerk_Normal_Green", "HC_ZmbF_Feeder_ZmbF_HikerSkinny_Green", "HC_ZmbF_Feeder_ZmbF_JoggerSkinny_Brown", "HC_ZmbF_Feeder_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Feeder_ZmbF_NurseFat", "HC_ZmbF_Feeder_ZmbF_PoliceWomanNormal", "HC_ZmbF_Feeder_ZmbF_VillagerOld_Blue", "HC_ZmbF_Feeder_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Riser_ZmbF_BlueCollarFat_White", "HC_ZmbF_Riser_ZmbF_HikerSkinny_Red", "HC_ZmbF_Riser_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue", "HC_ZmbF_Riser_ZmbF_PoliceWomanNormal", "HC_ZmbF_Riser_ZmbF_ShortSkirt_Black", "HC_ZmbF_Riser_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Riser_ZmbF_usSoldier_normal_Desert", "HC_ZmbF_Sitter_ZmbF_BlueCollarFat_Red", "HC_ZmbF_Sitter_ZmbF_HikerSkinny_Grey", "HC_ZmbF_Sitter_ZmbF_JournalistNormal_White", "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Sitter_ZmbF_MilkMaidOld_Green", "HC_ZmbF_Sitter_ZmbF_PatientOld", "HC_ZmbF_Sitter_ZmbF_PoliceWomanNormal", "HC_ZmbF_Sitter_ZmbF_usSoldier_Heavy_Desert", "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_Blue", "HC_ZmbF_Sleeper_ZmbF_BlueCollarFat_White", "HC_ZmbF_Sleeper_ZmbF_CitizenANormal_Brown", "HC_ZmbF_Sleeper_ZmbF_DoctorSkinny", "HC_ZmbF_Sleeper_ZmbF_HikerSkinny_Blue", "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Blue", "HC_ZmbF_Sleeper_ZmbF_JoggerSkinny_Red", "HC_ZmbF_Sleeper_ZmbF_MilkMaidOld_Black", "HC_ZmbF_Sleeper_ZmbF_PoliceWomanNormal", "HC_ZmbF_Sleeper_ZmbF_usSoldier_normal_Desert", "HC_ZmbM_Crawler_ZmbM_CitizenASkinny_Blue", "HC_ZmbM_Crawler_ZmbM_CitizenBFat_Red", "HC_ZmbM_Crawler_ZmbM_CommercialPilotOld_Grey", "HC_ZmbM_Crawler_ZmbM_ConstrWorkerNormal_Green", "HC_ZmbM_Crawler_ZmbM_FarmerFat_Blue", "HC_ZmbM_Crawler_ZmbM_FirefighterNormal", "HC_ZmbM_Crawler_ZmbM_FishermanOld_Green", "HC_ZmbM_Crawler_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Crawler_ZmbM_HermitSkinny_Beige", "HC_ZmbM_Crawler_ZmbM_Jacket_blue", "HC_ZmbM_Crawler_ZmbM_Jacket_magenta", "HC_ZmbM_Crawler_ZmbM_NBC_Grey", "HC_ZmbM_Crawler_ZmbM_NBC_Yellow", "HC_ZmbM_Crawler_ZmbM_PatientSkinny", "HC_ZmbM_Crawler_ZmbM_PatrolNormal_Flat", "HC_ZmbM_Crawler_ZmbM_PolicemanFat", "HC_ZmbM_Crawler_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Crawler_ZmbM_PrisonerSkinny", "HC_ZmbM_Crawler_ZmbM_Santa", "HC_ZmbM_Crawler_ZmbM_priestPopSkinny", "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Woodland", "HC_ZmbM_Feeder_ZmbM_CitizenBFat_Green", "HC_ZmbM_Feeder_ZmbM_FirefighterNormal", "HC_ZmbM_Feeder_ZmbM_FishermanOld_Red", "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Feeder_ZmbM_Jacket_black", "HC_ZmbM_Feeder_ZmbM_JoggerSkinny_Red", "HC_ZmbM_Feeder_ZmbM_MotobikerFat_Black", "HC_ZmbM_Feeder_ZmbM_NBC_Grey", "HC_ZmbM_Feeder_ZmbM_NBC_Yellow", "HC_ZmbM_Feeder_ZmbM_ParamedicNormal_Blue", "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Autumn", "HC_ZmbM_Feeder_ZmbM_PatrolNormal_Summer", "HC_ZmbM_Feeder_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Feeder_ZmbM_PrisonerSkinny", "HC_ZmbM_Feeder_ZmbM_Santa", "HC_ZmbM_Feeder_ZmbM_priestPopSkinny", "HC_ZmbM_Feeder_ZmbM_usSoldier_Heavy_Woodland", "HC_ZmbM_Feeder_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Riser_ZmbM_CitizenBFat_Blue", "HC_ZmbM_Riser_ZmbM_ClerkFat_Brown", "HC_ZmbM_Riser_ZmbM_ConstrWorkerNormal_Black", "HC_ZmbM_Riser_ZmbM_FirefighterNormal", "HC_ZmbM_Riser_ZmbM_FishermanOld_Blue", "HC_ZmbM_Riser_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Riser_ZmbM_Jacket_beige", "HC_ZmbM_Riser_ZmbM_Jacket_bluechecks", "HC_ZmbM_Riser_ZmbM_JoggerSkinny_Green", "HC_ZmbM_Riser_ZmbM_JournalistSkinny", "HC_ZmbM_Riser_ZmbM_NBC_Grey", "HC_ZmbM_Riser_ZmbM_NBC_Yellow", "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev", "HC_ZmbM_Riser_ZmbM_PolicemanFat", "HC_ZmbM_Riser_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Riser_ZmbM_PrisonerSkinny", "HC_ZmbM_Riser_ZmbM_Santa", "HC_ZmbM_Riser_ZmbM_SoldierNormal", "HC_ZmbM_Riser_ZmbM_VillagerOld_Green", "HC_ZmbM_Riser_ZmbM_priestPopSkinny", "HC_ZmbM_Riser_ZmbM_usSoldier_Officer_Desert", "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Brown", "HC_ZmbM_Sitter_ZmbM_CitizenASkinny_Grey", "HC_ZmbM_Sitter_ZmbM_ConstrWorkerNormal_Beige", "HC_ZmbM_Sitter_ZmbM_DoctorFat", "HC_ZmbM_Sitter_ZmbM_FarmerFat_Brown", "HC_ZmbM_Sitter_ZmbM_FirefighterNormal", "HC_ZmbM_Sitter_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Sitter_ZmbM_HunterOld_Autumn", "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Blue", "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red", "HC_ZmbM_Sitter_ZmbM_MotobikerFat_Beige", "HC_ZmbM_Sitter_ZmbM_NBC_Grey", "HC_ZmbM_Sitter_ZmbM_NBC_Yellow", "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn", "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Summer", "HC_ZmbM_Sitter_ZmbM_PolicemanFat", "HC_ZmbM_Sitter_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Sitter_ZmbM_PrisonerSkinny", "HC_ZmbM_Sitter_ZmbM_Santa", "HC_ZmbM_Sitter_ZmbM_SoldierNormal", "HC_ZmbM_Sitter_ZmbM_priestPopSkinny", "HC_ZmbM_Sitter_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Sleeper_ZmbM_CitizenASkinny_Red", "HC_ZmbM_Sleeper_ZmbM_ConstrWorkerNormal_Grey", "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Beige", "HC_ZmbM_Sleeper_ZmbM_FarmerFat_Green", "HC_ZmbM_Sleeper_ZmbM_FirefighterNormal", "HC_ZmbM_Sleeper_ZmbM_FishermanOld_Grey", "HC_ZmbM_Sleeper_ZmbM_HandymanNormal_Beige", "HC_ZmbM_Sleeper_ZmbM_NBC_Grey", "HC_ZmbM_Sleeper_ZmbM_NBC_Yellow", "HC_ZmbM_Sleeper_ZmbM_ParamedicNormal_Black", "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat", "HC_ZmbM_Sleeper_ZmbM_PolicemanFat", "HC_ZmbM_Sleeper_ZmbM_PolicemanSpecForce_Heavy", "HC_ZmbM_Sleeper_ZmbM_PrisonerSkinny", "HC_ZmbM_Sleeper_ZmbM_Santa", "HC_ZmbM_Sleeper_ZmbM_SkaterYoung_Blue", "HC_ZmbM_Sleeper_ZmbM_priestPopSkinny", "HC_ZmbM_Sleeper_ZmbM_usSoldier_Heavy_Woodland", "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Desert", "HC_ZmbM_Sleeper_ZmbM_usSoldier_normal_Woodland"};
         weapons[] = {};
         requiredVersion = 0.1;
         // One-way dependency: shared HC-45 admission must compile before this
@@ -40,10 +40,6 @@ class CfgMods
 class CfgVehicles
 {
     class ZmbM_HermitSkinny_Beige;
-    class ZmbM_CitizenASkinny_Grey;
-    class ZmbM_CitizenASkinny_Red;
-    class ZmbM_Jacket_brown;
-    class ZmbM_FarmerFat_Brown;
     // #279: public so the vanilla CE can spawn them as children of the stock infected
     // events (tools/package/infected_variety.py); CE owns lifecycle, caps and cleanup.
     // Runtime acceptance (native playback, client graph, wake) remains PENDING.
@@ -60,56 +56,6 @@ class CfgVehicles
             skeletonName = "hermit_newbindpose.xob";
             startnode = "HCMasterControl";
         };
-    };
-    // Pose 2: flat sleeper. Outfit from a stock city male; every vanilla infected shares
-    // the ZombieBase mesh/skeleton block above (only CfgVehicles/ZombieBase defines it).
-    class HC_ZmbM_Sleeper: ZmbM_CitizenASkinny_Grey
-    {
-        scope = 2;
-        hcSpawnPose = 2;
-        class enfanimsys
-        {
-            meshObject = "dz\characters\zombies\z_hermit_m.xob";
-            graphname = "HollowCountryAnims\anims\infected\hc_infected.agr";
-            defaultinstance = "HollowCountryAnims\anims\infected\hc_infected.asi";
-            skeletonName = "hermit_newbindpose.xob";
-            startnode = "HCMasterControl";
-        };
-    };
-    // Pose 3: lying body that rises when alerted.
-    class HC_ZmbM_Riser: ZmbM_Jacket_brown
-    {
-        scope = 2;
-        hcSpawnPose = 3;
-        class enfanimsys
-        {
-            meshObject = "dz\characters\zombies\z_hermit_m.xob";
-            graphname = "HollowCountryAnims\anims\infected\hc_infected.agr";
-            defaultinstance = "HollowCountryAnims\anims\infected\hc_infected.asi";
-            skeletonName = "hermit_newbindpose.xob";
-            startnode = "HCMasterControl";
-        };
-    };
-    // Pose 4: kneeling feeder.
-    class HC_ZmbM_Feeder: ZmbM_FarmerFat_Brown
-    {
-        scope = 2;
-        hcSpawnPose = 4;
-        class enfanimsys
-        {
-            meshObject = "dz\characters\zombies\z_hermit_m.xob";
-            graphname = "HollowCountryAnims\anims\infected\hc_infected.agr";
-            defaultinstance = "HollowCountryAnims\anims\infected\hc_infected.asi";
-            skeletonName = "hermit_newbindpose.xob";
-            startnode = "HCMasterControl";
-        };
-    };
-    // Native crawler: vanilla graph (inherited enfanimsys); the script requests the
-    // vanilla crawl transition at spawn.
-    class HC_ZmbM_Crawler: ZmbM_CitizenASkinny_Red
-    {
-        scope = 2;
-        hcSpawnPose = 5;
     };
     // BEGIN GENERATED CE OUTFITS (tools.anim.ce_variants)
     class ZmbF_BlueCollarFat_Blue;
@@ -143,6 +89,8 @@ class CfgVehicles
     class ZmbF_usSoldier_normal_Desert;
     class ZmbM_CitizenASkinny_Blue;
     class ZmbM_CitizenASkinny_Brown;
+    class ZmbM_CitizenASkinny_Grey;
+    class ZmbM_CitizenASkinny_Red;
     class ZmbM_CitizenBFat_Blue;
     class ZmbM_CitizenBFat_Green;
     class ZmbM_CitizenBFat_Red;
@@ -155,6 +103,7 @@ class CfgVehicles
     class ZmbM_DoctorFat;
     class ZmbM_FarmerFat_Beige;
     class ZmbM_FarmerFat_Blue;
+    class ZmbM_FarmerFat_Brown;
     class ZmbM_FarmerFat_Green;
     class ZmbM_FirefighterNormal;
     class ZmbM_FishermanOld_Blue;

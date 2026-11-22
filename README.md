@@ -878,12 +878,10 @@ Shared save scheduling and retained world facts/leads/scenes; EnableSharedSaves=
 
 #### SearchLimits: `search-limits.json`
 
-Search refresh records and journal maintenance (the retry keys are reserved, see below); EnableSearch=false opts out. Work alternates within the shared tick budget.
+Search refresh records and journal maintenance; EnableSearch=false opts out. Work alternates within the shared tick budget. `RetryDelayMs` and `RetryAttempts` were retired with the interiors pilot (2026-11-22): an existing file that still carries them loads normally, the keys are ignored and logged once per boot, and they can be deleted.
 
 | Key | Default | Allowed range |
 | :--- | :--- | :--- |
-| `RetryDelayMs` | `10000` | 1000–60000; reserved: no effect since the interiors pilot retirement (2026-11-22) |
-| `RetryAttempts` | `3` | 1–12; reserved: no effect since the interiors pilot retirement (2026-11-22) |
 | `RefreshRecordsPerMinute` | `32` | 1–32 |
 | `RefreshMaxRecords` | `4096` | 1–4096 |
 | `RefreshMinSeconds` | `172800` | 60–2592000 |

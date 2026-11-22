@@ -1,6 +1,7 @@
 """Configurable source wiring census. Static evidence never establishes engine behavior."""
 import argparse
 import ast
+import bisect
 import copy
 from collections import Counter, defaultdict
 import fnmatch
@@ -229,13 +230,7 @@ class Audit:
         self.bundle_check()
         self.data_check(script_literals)
         self.settings_check(scripts, script_classes)
-        token_files = defaultdict(set)
-        for p, t in scripts.items():
-            for token in WORD.findall(t):
-                token_files[token].add(p)
-        for p, c in script_classes:
-            if not c['modded'] and not token_files[c['name']] - {p}:
-                self.add('W004', c['name'], p, c['line'], 'No reference outside definition file (engine/config callbacks may be intentional)')
+        self.dead_class_check(scripts, script_classes)
         self.module_check(scripts, script_classes)
         self.rpc_check(scripts, script_classes)
         spawn = re.compile(r'\b(?:' + '|'.join(map(re.escape, r['spawn_calls'])) + r')\s*\(\s*"([^"\n]+)"')
@@ -387,6 +382,27 @@ class Audit:
         for i, (_, name, _, _, _, _) in enumerate(methods):
             byname[name].append(i)
         qualified = {(m[5], m[1]): i for i, m in enumerate(methods)}
+        # Member fields of each class (top-level declarations of its body): a string assigned to a field in
+        # one method reaches a creation call in another method of the same class.
+        members = defaultdict(set)
+        for _, c in script_classes:
+            clean, depth, statement = mask(c['body'], strings=True), 0, ''
+            for ch in clean:
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        statement = ''
+                elif depth == 0 and ch == ';':
+                    head = statement.split('=', 1)[0]
+                    if '(' not in head and re.search(r'\w\s+\w+\s*$', head.strip()):
+                        members[c['name']].add(head.split()[-1])
+                    statement = ''
+                elif depth == 0:
+                    statement += ch
+        def slot(i, name):
+            return (methods[i][5], name) if name in members[methods[i][5]] else (i, name)
         def resolve(name, caller):
             parts = name.split('.')
             key = (parts[-2] if len(parts) > 1 else methods[caller][5], parts[-1])
@@ -394,7 +410,14 @@ class Audit:
                 return qualified[key]
             matches = byname[parts[-1]]
             return matches[0] if len(matches) == 1 else None
-        expression = r'(?:"[^"\n]*"|\b\w+(?:\.\w+)*(?:\([^();]*\))?)'
+        # String-array fields with a literal default (`array<string> Field = {"a", "b"};`): an indexed
+        # read of such a field supplies those literals to the class argument it feeds.
+        array_defaults = defaultdict(list)
+        for _, c in script_classes:
+            for field, items in re.findall(r'\barray\s*<\s*string\s*>\s+(\w+)\s*=\s*\{([^{};]*)\}\s*;', c['body']):
+                array_defaults[field].append(re.findall(r'"([^"\n]*)"', items))
+        indexed = r'(?:\w+(?:\(\))?\.)*\w+\[[^\[\]();]*\]'
+        expression = r'(?:"[^"\n]*"|' + indexed + r'|\b\w+(?:\.\w+)*(?:\([^();]*\))?)'
         calls = re.compile(r'\b((?:\w+\.)*\w+)\s*\(([^();]*)\)')
         for diagnostic in (False, True):
             active = {i for i, (p, _, static, _, _, _) in enumerate(methods)
@@ -416,6 +439,10 @@ class Audit:
                 expr = expr.strip()
                 if expr.startswith('"') and expr.endswith('"'):
                     return {expr[1:-1].lower()}
+                read = re.fullmatch(r'(?:\w+(?:\(\))?\.)*(\w+)\[\s*(\w+)\s*\]', expr)
+                if read and read[1] in array_defaults:
+                    return {item.lower() for items in array_defaults[read[1]]
+                            for item in (items[int(read[2]):int(read[2]) + 1] if read[2].isdigit() else items)}
                 call = re.fullmatch(r'((?:\w+\.)*\w+)\([^()]*\)', expr)
                 if call:
                     callee = resolve(call[1], i)
@@ -423,13 +450,13 @@ class Audit:
                         return returned[callee]
                 parts = expr.split('.')
                 constant = constants.get((parts[-2] if len(parts) > 1 else methods[i][5], parts[-1]))
-                return {constant} if constant is not None else variables[(i, expr)]
+                return {constant} if constant is not None else variables[slot(i, expr)]
             for _ in range(12):
                 count = sum(map(len, variables.values())) + sum(map(len, returned.values()))
                 for i in active:
                     p, name, _, params, body, owner = methods[i]
                     for m in re.finditer(r'\b(\w+)\s*=(?!=)\s*(' + expression + r')\s*;', body):
-                        variables[(i, m[1])].update(names(m[2], i))
+                        variables[slot(i, m[1])].update(names(m[2], i))
                     for m in re.finditer(r'\breturn\s+(' + expression + r')\s*;', body):
                         returned[i].update(names(m[1], i))
                     for call in calls.finditer(body):
@@ -893,6 +920,75 @@ class Audit:
                 bare |= any(k.startswith(key + '.') for k in registry)
             if not (getter or member or bare):
                 self.add('W003', key, p, n, 'Registered key has no resolved getter-key, member or owning-class field read' + ('; ambiguous receiver matches require review' if field in ambiguous else ''))
+
+    def dead_class_check(self, scripts, script_classes):
+        """W004: a non-modded script class that no live code, config class list or name literal reaches.
+
+        A reference counts when it sits outside the class's own definition, in the same file or in
+        another one. References only count from live code: top-level code, `modded class` bodies
+        (engine entry points), config.cpp class lists, and classes that are themselves reached, so a
+        file-local helper used by live code is live while a class used only by dead classes is not.
+        Comments never reference; a string literal references a class only when it is exactly the
+        class name (CreateObject/ToType style lookups). Enforce source embedded in a shipping or
+        diagnostic tool (a static call `Name.Method(` or `new Name`) is a tool-side entry point.
+        """
+        names = {c['name'] for _, c in script_classes}
+        by_file = defaultdict(list)
+        for p, c in script_classes:
+            by_file[p].append(c)
+        refs = defaultdict(set)
+        for p, text in scripts.items():
+            spans = sorted(by_file[p], key=lambda c: c['start'])
+            starts = [c['start'] for c in spans]
+
+            def owner(offset):
+                i = bisect.bisect_right(starts, offset) - 1
+                return (p, spans[i]['start']) if i >= 0 and offset < spans[i]['end'] else None
+            for m in WORD.finditer(mask(text, strings=True)):
+                if m[0] in names:
+                    refs[owner(m.start())].add(m[0])
+            for m in LEX.finditer(text):
+                if m[0].startswith('"') and m[0][1:-1] in names:
+                    refs[owner(m.start())].add(m[0][1:-1])
+        # Engine entry points: top-level code, modded classes and anything a config.cpp names.
+        queue = [None] + [(p, c['start']) for p, c in script_classes if c['modded']]
+        reached = set(queue)
+        config_names = set()
+        for p in self.paths(self.rules['roots']['configs']):
+            config_names.update(w for w in WORD.findall(mask(self.read(p))) if w in names)
+        definitions = defaultdict(list)
+        for p, c in script_classes:
+            if not c['modded']:
+                definitions[c['name']].append((p, c['start']))
+        queue.extend(key for name in config_names | self.tool_entry_points(names) for key in definitions[name])
+        reached.update(queue)
+        while queue:
+            for name in refs[queue.pop()]:
+                for key in definitions[name]:
+                    if key not in reached:
+                        reached.add(key)
+                        queue.append(key)
+        for p, c in script_classes:
+            if not c['modded'] and (p, c['start']) not in reached:
+                self.add('W004', c['name'], p, c['line'],
+                         'No reference from live code, config class lists or name literals outside the class itself')
+
+    def tool_entry_points(self, names):
+        """Script classes invoked by Enforce text that a Python tool embeds (generated mission hooks)."""
+        call = re.compile(r'\b(?:new\s+(\w+)|(\w+)\s*\.\s*\w+\s*\()')
+        found = set()
+        for p in self.paths(self.rules['roots']['tools']):
+            if p == Path(__file__):
+                continue
+            tree = ast.parse(self.read(p))
+            docs = {id(n.body[0].value) for n in ast.walk(tree)
+                    if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                    and n.body and isinstance(n.body[0], ast.Expr)}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and id(node) not in docs and isinstance(node.value, (str, bytes)):
+                    text = node.value if isinstance(node.value, str) else node.value.decode('latin-1')
+                    found.update(m[1] or m[2] for m in call.finditer(text))
+        return found & names
 
     def module_check(self, scripts, script_classes):
         r = self.rules

@@ -515,17 +515,6 @@ class HCBuildingClaim
     }
 }
 
-class HCBuildingClaimSave : HCSaveJob
-{
-    HCBuildingClaim Owner;
-    override string HCName() { return "BuildingClaimVisits"; }
-    override int HCStep()
-    {
-        if (!Owner) { return STEP_FAILED; }
-        return Owner.HCStepCheckpoint();
-    }
-}
-
 // Same layer, narrow server-only bridge. No group journal/ACL/RPC changes.
 modded class HCGroupService
 {
