@@ -11,14 +11,17 @@ import hashlib
 import io
 import json
 import math
+import tempfile
 from pathlib import Path, PurePosixPath
+
+from tools.audit import gapcov_routes
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
 PINS = 'mission/hollow-country/travel/gapcode_routes_source-pages.json'
 ROAD_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 OUTPUTS = ('mission/hollow-country/travel/routes-manifest.json',
-           'mission/hollow-country/ai/road-graph.compact.json')
+           'mission/hollow-country/ai/road-graph.compact.json', *gapcov_routes.OUTPUTS)
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
 
 
@@ -105,6 +108,14 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
     if type(chunk) is not int or type(cap) is not int or not 0 < chunk <= cap <= MAX_SOURCE_BYTES:
         raise ValueError('invalid source-page byte limits')
     road = road_bytes(root, workshop, roads)
+    # Regenerate candidates before pinning their complete document bytes. Minimal
+    # graph-only callers need no locality catalog; shipped missions always have it.
+    derived = {}
+    if (root / gapcov_routes.OUTPUTS[0]).is_file():
+        with tempfile.TemporaryDirectory(prefix='hc-gapcov-roads-') as temporary:
+            road_file = Path(temporary) / 'installed.roads'
+            road_file.write_bytes(road)
+            derived = gapcov_routes.catalog_outputs(root, gapcov_routes.build(root, road_file))
     files, seen, page_start = [], set(), 0
     for row in pins['Files']:
         path = row['Path']
@@ -122,8 +133,11 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
             target = root / 'mission/hollow-country' / parts
             if not target.resolve().is_relative_to((root / 'mission/hollow-country').resolve()):
                 raise ValueError('route source escapes mission')
-            with target.open('rb') as stream:
-                data = stream.read(cap + 1)
+            if target.relative_to(root).as_posix() in derived:
+                data = derived[target.relative_to(root).as_posix()]
+            else:
+                with target.open('rb') as stream:
+                    data = stream.read(cap + 1)
         if not 0 < len(data) <= cap:
             raise ValueError('route source outside byte cap')
         pages = [sha(data[i:i + chunk]) for i in range(0, len(data), chunk)]
@@ -140,7 +154,7 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
                 'ChunkBytes': chunk, 'SourceCount': len(files), 'PageCount': page_start,
                 'Files': files, 'RoadGraphPath': '$mission:hollow-country/ai/road-graph.compact.json',
                 'RoadGraphSha256': sha(graph), 'Runtime': 'PENDING'}
-    return dict(zip(OUTPUTS, (encode(manifest), graph)))
+    return {OUTPUTS[0]: encode(manifest), OUTPUTS[1]: graph, **derived}
 
 
 def check(root=ROOT, **kwargs):

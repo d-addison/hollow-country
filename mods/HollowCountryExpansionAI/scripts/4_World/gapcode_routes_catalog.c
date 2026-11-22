@@ -40,6 +40,7 @@ class HCGapcodeRoutesRow
     bool connected_both_directions;
     ref array<int> road_node_ids;
     string route_sha256;
+    string status;
     ref array<vector> Points = new array<vector>;
     string Fault;
     bool Resolved;
@@ -439,6 +440,10 @@ class HCGapcodeRoutesCatalog
         if (!HCXAIRules.Token(row.locality_id) || row.id != "gapcov-road-" + row.locality_id || m_Ids.Find(row.locality_id) >= 0)
         { this.HCRefuse("ROUTE_ID_INVALID_OR_DUPLICATE"); return; }
         m_Ids.Insert(row.locality_id);
+        // Explicit offline-unresolved anchors are inventoried, never bound.
+        // Retain the ordinary chain checks for malformed or unknown statuses.
+        if (row.status == "anchor-runtime-resolved" && row.road_node_ids && row.road_node_ids.Count() == 0 && !row.connected_both_directions && row.route_sha256.Length() == 64)
+        { this.HCRowRefuse(row, "ROUTE_ANCHOR_RUNTIME_RESOLUTION_PENDING"); return; }
         if (!row.road_node_ids || row.road_node_ids.Count() < 2 || row.road_node_ids.Count() > Data.limits.waypoints || !row.connected_both_directions || row.route_sha256.Length() != 64)
         { this.HCRowRefuse(row, "ROUTE_CHAIN_INVALID"); return; }
         HCXAILocality locality;
