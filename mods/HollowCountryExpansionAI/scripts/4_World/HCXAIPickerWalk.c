@@ -12,7 +12,7 @@
 // for m_HCPendingMembers == 0 before borrowing that same group.
 // 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup;
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:6 eAIWaypointBehavior.ONCE.
-// Expansion Core ExpansionStatic.c:1748 GetTimestamp (UTC seconds).
+// UTC seconds via HCXExpansionBridge.HCGetTimestamp (negative on refusal).
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :385 Clear,
 // :407 Insert. Other calls are existing HC ports. Runtime acceptance PENDING.
 // Preserve the existing party's patrol, never create a second group. Each leg
@@ -32,7 +32,8 @@ class HCXAIPickerWalk : HCScavengeInventory
         HCScavengeState homeCheck = new HCScavengeState;
         homeCheck.Phase = "returning";
         if (HCCampTheft.HCGuard(this, homeCheck)) { return true; }
-        int now = ExpansionStatic.GetTimestamp(true);
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { return false; }
         if (m_DepositWaitUntil == 0) { m_DepositWaitUntil = now + Defaults.PartyCooldownSeconds; }
         // At expiry enter the normal durable intent/refusal path. HCMove still
         // vetoes observation, retaining the exact physical item on the carrier.
@@ -181,15 +182,30 @@ modded class HCScavengeTrip
     {
         // UTC seconds, same existing clock as the site's raid journal. Stamp
         // before the durable terminal barrier; old V1 receipts zero-fill safely.
+        bool clockValid = true;
         if (m_State && m_IO)
         {
             string terminal = m_State.Phase;
             if (terminal == "returned" || terminal == "lost" || terminal == "quarantined")
             {
-                m_State.NextTripAt = ExpansionStatic.GetTimestamp(true) + m_IO.Defaults.PartyCooldownSeconds;
+                int now = HCXExpansionBridge.HCGetTimestamp();
+                if (now < 0)
+                {
+                    // Fail closed like a refused journal barrier. Preserve the
+                    // durable image; restore the borrowed patrol below even
+                    // when no valid cooldown can be stamped. Boot recovery
+                    // quarantines the preceding non-terminal image.
+                    clockValid = false;
+                    m_Ready = false;
+                    m_State.Phase = "quarantined";
+                    m_State.CargoOwner = "unknown";
+                    m_State.Refusal = "PICKER_CLOCK_UNAVAILABLE";
+                }
+                else { m_State.NextTripAt = now + m_IO.Defaults.PartyCooldownSeconds; }
             }
         }
-        bool saved = super.HCCheckpoint();
+        bool saved = false;
+        if (clockValid) { saved = super.HCCheckpoint(); }
         HCLogTripBoundary(saved);
         HCXAIPickerWalk walkPort = HCXAIPickerWalk.Cast(m_IO);
         if (walkPort && m_State)

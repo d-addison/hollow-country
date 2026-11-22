@@ -8,10 +8,8 @@
 // 3_Game/Systems/Inventory/Inventory.c:138 GetCargo, :143 CreateEntityInCargo;
 // Cargo.c:28 GetItemCount; 1_Core/proto/EnConvert.c:210 DistanceSq;
 // EnScript.c:380 Count, :407 Insert; EnDebug.c:96 Print.
-// Expansion (read-only .banso-writer/xref):
-// core/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
-// static int GetTimestamp(bool useUTC = false). No other Expansion call added.
-// Runtime acceptance PENDING, including CE persistence/visibility on two clients.
+// UTC epoch via HCXExpansionBridge.HCGetTimestamp (negative on refusal).
+// Runtime acceptance PENDING: one server and at most one client.
 modded class HCPickerSurvey
 {
     string CacheClass;
@@ -92,12 +90,14 @@ modded class HCXAISiteDirector
         }
         if (!survey.Routes || survey.Routes.Count() == 0) { return; }
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_CACHE, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
+        int now = HCXExpansionBridge.HCGetTimestamp();
+        if (now < 0) { return; }
         int endpoints = survey.Routes.Count() * 2;
         if (m_HCPickerCacheCursor >= endpoints) { m_HCPickerCacheCursor = 0; }
         HCPickerRoute route = survey.Routes[m_HCPickerCacheCursor / 2];
         bool source = (m_HCPickerCacheCursor % 2) == 1;
         m_HCPickerCacheCursor++;
-        this.HCPickerCacheStep(survey, route, source, ExpansionStatic.GetTimestamp(true));
+        this.HCPickerCacheStep(survey, route, source, now);
     }
 
     EntityAI HCPickerFindCache(HCPickerSurvey survey, vector at, HCXAICacheRow row)
@@ -208,8 +208,9 @@ modded class HCXAISiteDirector
         if (!this.SaveCaches()) { return; }
         if (!crate)
         {
-            crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
+            crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOLIFETIME));
             HCGroundSnap.Snap(crate);
+            HCXAISiteDirector.HCPickerSchedulePathgraph(crate);
         }
         if (!crate || !crate.GetInventory()) { return; }
         row.HCPickerCrateId = HCSearchSupplyRegistry.PersistentId(crate);
@@ -234,5 +235,34 @@ modded class HCXAISiteDirector
         this.SaveCaches();
         string receipt = "[HC Pickers] cache key=" + key + " outcome=seeded lifecycle=" + row.Lifecycle.ToString();
         Print(receipt + " attempts=" + created.ToString() + " runtime=PENDING");
+    }
+
+// One cache per existing budgeted endpoint visit. Capture final 3D bounds
+// after snapping; apply them after physics settles, rather than leaving a
+// runtime Mark() waiting for vanilla's boot-only marked-object flush.
+// Native 1.30.164289: Game.c:1206/1550, 2_GameLib/tools.c:61.
+    static void HCPickerSchedulePathgraph(Object object)
+    {
+        if (!object || !GetGame() || !GetGame().IsServer()) { return; }
+        HCPathgraphRefresh region = new HCPathgraphRefresh;
+        if (!region.Include(object)) { return; }
+        // Shared pending cap bounds retained regions and queued callbacks.
+        if (!HCPathgraphRefresh.Hold(region))
+        {
+            HCPickerApplyPathgraph(region);
+            return;
+        }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCXAISiteDirector.HCPickerApplyPathgraph, 100, false, region);
+    }
+
+    static void HCPickerApplyPathgraph(HCPathgraphRefresh region)
+    {
+        if (!region) { return; }
+        if (GetGame() && GetGame().IsServer())
+        {
+            region.Update();
+            HCModuleReadiness.HCUse("Pickers", "pathgraph_refresh");
+        }
+        HCPathgraphRefresh.Release(region);
     }
 }
