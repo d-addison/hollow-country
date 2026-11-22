@@ -167,6 +167,8 @@ class HCBodyStories : HCModule
     }
 
     override string GetName() { return "BodyStories"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("BodyStories", "body_observed"); }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
     override bool IsEnabled(HCSettings settings)
     {
@@ -183,11 +185,17 @@ class HCBodyStories : HCModule
             Print(HCV2Admission.Line("BodyStories", true, "EXP-S3", HCV2Gates.Qualified("EXP-S3")));
             m_AdmissionPrinted = true;
         }
+        m_Config = HCBodyStoryConfig.HCLoad();
+        s_Instance = this;
+    }
+
+    override void OnAllModulesStarted()
+    {
+        if (s_Instance != this) { return; }
+        // Leads, World and the optional death producer have all started now.
         m_Store = HCLeadStore.Get();
         if (!m_Store || !m_Store.Healthy()) { m_Status.HCPublish("refused", "LEAD_STORE_UNAVAILABLE"); return; }
-        m_Config = HCBodyStoryConfig.HCLoad();
         m_Ready = true;
-        s_Instance = this;
         HCRefreshStatus();
         Print("[HC BodyStories] BODY_SCENE_PRODUCER_ADMITTED state=" + m_Status.HCState() + " reason=" + m_Status.HCReason() + " runtime=PENDING");
     }

@@ -76,6 +76,8 @@ class HCEventModule : HCModule
     {
         return "Events";
     }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound"); }
     override bool IsEnabled(HCSettings settings)
     {
         HCEventConfiguration loader = new HCEventConfiguration;
@@ -153,19 +155,17 @@ class HCEventModule : HCModule
         if (m_IncidentOwner && m_Incidents) { m_IncidentOwner.HCObserve(m_SituationEnabled, m_Incidents.HCStatus(), observedAt); }
     }
 
-    void HCStepSituations()
+    override void OnAllModulesStarted()
     {
-        if (!m_SituationEnabled || !m_Situations) { return; }
-        if (m_Incidents) { m_Incidents.HCStep(); }
+        if (!m_Situations || !m_SituationEnabled) { HCPublishSituations(); return; }
         HCSceneChainState source = HCSituationSource.HCState();
         HCSceneChainStore store = HCSituationSource.HCStore();
-        // The first server tick follows all module starts. Resolve once, so
-        // registry order cannot hide a scene binding and missing input never
-        // creates a retry scan or another persistence owner.
+        // Resolve only after Scenes and the optional actor ports have started.
+        // The validated source has at most four retained chains.
         if (!m_SourceAttempted)
         {
             m_SourceAttempted = true;
-            // A missing source on the first tick is named once (refused, no retry scan).
+            // Missing input is refused once; no retry scan or second store owner.
             if (!source || !store) { m_Situations.HCOpen(null, null, true); }
             if (source && store && m_Situations.HCOpen(source, store, true))
             {
@@ -175,6 +175,15 @@ class HCEventModule : HCModule
                 foreach (HCSceneChain retained : source.Chains) { m_Situations.HCOffer(retained); }
             }
         }
+        HCPublishSituations();
+    }
+
+    void HCStepSituations()
+    {
+        if (!m_SituationEnabled || !m_Situations) { return; }
+        if (m_Incidents) { m_Incidents.HCStep(); }
+        HCSceneChainState source = HCSituationSource.HCState();
+        HCSceneChainStore store = HCSituationSource.HCStore();
         if (!source || !store)
         {
             string prerequisite = "source";

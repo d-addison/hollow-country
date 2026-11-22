@@ -208,6 +208,8 @@ class HCSettlementDecay : HCModule
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "SettlementDecay"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("SettlementDecay", "prop_placed"); }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
     // Store allocation is only a start request; both state and catalogue must finish loading.
@@ -265,7 +267,18 @@ class HCSettlementDecay : HCModule
         HCSaveScheduler.HCRegister(m_SaveJob);
         m_Started = true;
         m_Initialized = false;
-        // World may start after us; resolve it on the bounded module tick.
+    }
+
+    override void OnAllModulesStarted()
+    {
+        if (!m_Started || m_Fault || m_Initialized) { return; }
+        // Resolve World and its epoch after all starts, before the readiness
+        // snapshot. Only the fixed authored town catalogue is initialized here;
+        // history scans and visual admission remain on the bounded tick.
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world) { return; }
+        int now = HCWorldClock.UTC();
+        if (now < world.Epoch() || !Initialize(world, now)) { Fail(); }
     }
 
     protected bool Valid(HCWorldModule world, int now)
