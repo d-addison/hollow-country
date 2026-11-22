@@ -179,6 +179,8 @@ class HCXAISiteSurvey : HCXAISiteStorage
             m_CacheReasons.Set(diagnostic, true);
             string detail;
             if (reason == "validity_mismatch" && row.ValidityKey == "") { detail = " detail=missing_validity"; }
+            // Pre-manifest (chain-v6) rows: stale by design, replaced one by one.
+            if (reason == "validity_mismatch" && (field == "algorithm" || field == "manifest")) { detail = " detail=manifest_term"; }
             Print("[HC Expansion AI] route cache discarded reason=" + diagnostic + detail);
         }
         this.HCCacheVerdict(row.SiteId, false);
@@ -357,16 +359,31 @@ class HCXAISiteSurvey : HCXAISiteStorage
             if (counted.Qualified) { qualified++; }
         }
         this.HCRoutesWarm();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v6; cached geometry or navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
+        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v7; cached geometry or navmesh sample + bounded FindPath chains, outdoor-first ground sampling; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
     }
     override protected void QualifyStep(HCXAISiteState state, bool cacheOnly = false)
     {
-        if (cacheOnly && (state.Qualified || !state.HCCachedRoute || state.HCOutdoorSampling || state.HCPathReady)) { this.HCCacheVerdict(state.Site.Id, state.Cached); return; }
-        if (state.HCOutdoorSampling) { this.HCOutdoorStep(state); return; }
+        if (cacheOnly && (state.Qualified || !state.HCCachedRoute || state.HCPathReady)) { this.HCCacheVerdict(state.Site.Id, state.Cached); return; }
         if (state.HCPathReady) { this.HCFinishPath(state); return; }
         AIWorld world = GetGame().GetWorld().GetAIWorld();
+        if (!world)
+        {
+            // Transient: never a refusal and never a discard of a cached row.
+            // The qualify phase retries each tick; only the non-cache path
+            // gives up (uncached) after 600 postponed visits.
+            state.HCAiWorldWaits++;
+            if (m_AiWorldPostponed == 0) { Print("[HC Expansion AI] route postponed reason=aiworld"); }
+            m_AiWorldPostponed++;
+            if (!cacheOnly && state.HCAiWorldWaits > 600)
+            {
+                state.Failed = true;
+                state.Reason = "navmesh unavailable";
+                Print("[HC Expansion AI] site " + state.Site.Id + " route refused (not cached): navmesh unavailable after 600 visits; postponed=" + m_AiWorldPostponed.ToString());
+            }
+            return;
+        }
         if (!state.HCRouteCacheChecked)
         {
             state.HCCachedRoute = this.RouteRow(state.Site.Id);
@@ -420,8 +437,6 @@ class HCXAISiteSurvey : HCXAISiteStorage
             return;
         }
         if (cacheOnly) { this.HCCacheVerdict(state.Site.Id, false); return; }
-        float radius = 12;
-        if (state.Site.Kind == "holdout") { radius = 2; }
         if (state.Sampled.Count() < state.Points.Count())
         {
             if (state.Points.Count() < 2 || state.Points.Count() > 8)
@@ -429,9 +444,12 @@ class HCXAISiteSurvey : HCXAISiteStorage
                 this.Refuse(state, "2..8 authored waypoints are required");
                 return;
             }
+            // Outdoor ground first for every kind but holdouts (their points are
+            // indoors on purpose): one native sample per step, no second pass.
+            if (state.Site.Kind != "holdout") { this.HCOutdoorStep(state); return; }
             vector wanted = state.Points[state.Sampled.Count()];
             {
-                vector found = this.NavSample(wanted, radius, m_Filter);
+                vector found = this.NavSample(wanted, 2, m_Filter);
                 if (found == vector.Zero)
                 {
                     this.Refuse(state, HCXAISiteRules.LegProblem(false, false, 0, 0, 0, 0));
@@ -473,7 +491,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         }
         if (closing && state.Kept < minimum)
         {
-            this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+            this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
             return;
         }
         if (closing && state.Kept == 2 && state.Site.Kind != "holdout") { state.OpenRoute = true; }
@@ -495,14 +513,14 @@ class HCXAISiteSurvey : HCXAISiteStorage
             }
             passed.Waypoints.Copy(state.PatrolPoints);
             if (m_PolicySiteIds.Contains(state.Site.Id) && !m_RouteResults.Contains(state.Site.Id)) { m_Requalified++; }
-            this.Remember(passed);
+            if (m_RouteValidity != "") { this.Remember(passed); }
             int legs = state.Kept - 1;
             if (state.Closed) { legs++; }
             string sampling = "navmesh";
-            if (state.OutdoorPass) { sampling = "outdoor"; }
-            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v6 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
+            if (state.Site.Kind != "holdout") { sampling = "outdoor"; }
+            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v7 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
             qualifiedLine = qualifiedLine + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute);
-            qualifiedLine = qualifiedLine + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints;
+            qualifiedLine = qualifiedLine + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " indoor_fallback=" + state.IndoorFallback.ToString() + " skipped-points=" + state.SkippedPoints;
             Print("" + qualifiedLine);
             return;
         }
@@ -598,7 +616,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
             state.Leg++;
             if (state.Leg >= authoredCount - 1 && state.Kept < minimum && authoredCount - state.StartIndex - 1 < minimum)
             {
-                this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+                this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
             }
             return;
         }
@@ -646,32 +664,25 @@ class HCXAISiteSurvey : HCXAISiteStorage
         if (Math.AbsFloat(found[1] - GetGame().SurfaceY(found[0], found[2])) > 2) { return vector.Zero; }
         return found;
     }
-    override protected void RefuseOrRetry(HCXAISiteState state, string reason)
-    {
-        int count = state.Sampled.Count();
-        if (state.Site.Kind == "holdout" || state.OutdoorPass || state.PathCalls >= 96 || count < HCXAISiteRules.RouteMinimum(state.Site.Kind) || state.Points.Count() != count)
-        {
-            this.Refuse(state, reason);
-            return;
-        }
-        state.OutdoorPass = true;
-        state.HCOutdoorSampling = true;
-        state.HCOutdoorCursor = 0;
-        state.HCOutdoorReason = reason;
-        state.Outdoor = 0;
-    }
+    // Samples the next authored point of a non-holdout site, one native sample
+    // per step: centre probe radius 16, then four 12 m probes radius 8 (best
+    // horizontal gap), all on the outdoor filter within 2 m of the surface;
+    // when none lands outdoors, one primary-filter sample (radius 12) is the
+    // fallback and is counted as indoor_fallback.
     override protected void HCOutdoorStep(HCXAISiteState state)
     {
         int outdoorBegan = TickCount(0);
-        int index = state.HCOutdoorCursor;
+        int index = state.Sampled.Count();
         vector wanted = state.Points[index];
-        vector found;
+        vector found = vector.Zero;
+        bool pointDone = false;
         if (state.HCOutdoorProbe == 0)
         {
             found = this.GroundSample(wanted, 16);
-            if (found == vector.Zero) { state.HCOutdoorProbe = 1; return; }
+            if (found == vector.Zero) { state.HCOutdoorProbe = 1; }
+            else { pointDone = true; state.Outdoor++; }
         }
-        else
+        else if (state.HCOutdoorProbe <= 4)
         {
             float dx = 0;
             float dz = 0;
@@ -688,37 +699,36 @@ class HCXAISiteSurvey : HCXAISiteStorage
                 if (gap < state.HCOutdoorBestGap) { state.HCOutdoorBestGap = gap; state.HCOutdoorBest = candidate; }
             }
             state.HCOutdoorProbe++;
-            if (state.HCOutdoorProbe <= 4) { return; }
-            found = state.HCOutdoorBest;
+            if (state.HCOutdoorProbe > 4 && state.HCOutdoorBest != vector.Zero)
+            {
+                found = state.HCOutdoorBest;
+                pointDone = true;
+                state.Outdoor++;
+            }
         }
+        else
+        {
+            found = this.NavSample(wanted, 12, m_Filter);
+            if (found == vector.Zero)
+            {
+                this.HCSiteStageCost("outdoor_sample", outdoorBegan);
+                this.Refuse(state, HCXAISiteRules.LegProblem(false, false, 0, 0, 0, 0));
+                return;
+            }
+            pointDone = true;
+            state.IndoorFallback++;
+        }
+        this.HCSiteStageCost("outdoor_sample", outdoorBegan);
+        if (!pointDone) { return; }
         state.HCOutdoorProbe = 0;
         state.HCOutdoorBest = vector.Zero;
         state.HCOutdoorBestGap = 1000;
-        if (found != vector.Zero) { state.Sampled[index] = found; state.Outdoor++; }
-        state.HCOutdoorCursor++;
-        this.HCSiteStageCost("outdoor_sample", outdoorBegan);
-        if (state.HCOutdoorCursor < state.Points.Count()) { return; }
-        state.HCOutdoorSampling = false;
-        if (state.Outdoor == 0) { this.Refuse(state, state.HCOutdoorReason); return; }
-        Print("[HC Expansion AI] site " + state.Site.Id + " route retry with outdoor ground samples outdoor=" + state.Outdoor.ToString() + " after: " + state.HCOutdoorReason);
-        state.PatrolPoints.Clear();
-        state.PatrolPoints.Insert(state.Sampled[0]);
-        state.AttemptPoints.Clear();
-        state.Leg = 0;
-        state.StartIndex = 0;
-        state.Kept = 1;
-        state.Skipped = 0;
-        state.Snapped = 0;
-        state.SkippedPoints = "";
-        state.ChainSteps = 0;
-        state.Closed = false;
-        state.OpenRoute = false;
-        state.Reason = "";
+        state.Sampled.Insert(found);
+        if (state.Sampled.Count() >= state.Points.Count()) { state.PatrolPoints.Insert(state.Sampled[0]); }
     }
     override protected void Refuse(HCXAISiteState state, string reason)
     {
         string text = reason;
-        if (state.OutdoorPass) { text = "outdoor=" + state.Outdoor.ToString() + "/" + state.Sampled.Count().ToString() + "; " + reason; }
         state.Failed = true;
         state.Reason = text;
         HCXAIRouteRow failed = new HCXAIRouteRow();
@@ -727,7 +737,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         failed.Qualified = false;
         failed.ValidityKey = m_RouteValidity;
         failed.Reason = text;
-        this.Remember(failed);
+        if (m_RouteValidity != "") { this.Remember(failed); }
         Print("[HC Expansion AI] site " + state.Site.Id + " route refused: " + text);
     }
     override protected void HCReusedRoute(HCXAISiteState state)

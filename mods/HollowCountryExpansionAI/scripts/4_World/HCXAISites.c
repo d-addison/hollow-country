@@ -46,14 +46,12 @@ class HCXAISiteState : Managed
     string SkippedPoints;
     bool Closed;
     bool OpenRoute;
-    bool OutdoorPass;
-    bool HCOutdoorSampling;
-    int HCOutdoorCursor;
     int HCOutdoorProbe;
     vector HCOutdoorBest;
     float HCOutdoorBestGap = 1000;
-    string HCOutdoorReason;
     int Outdoor;
+    int IndoorFallback;
+    int HCAiWorldWaits;
     Object HouseObject;
     vector CacheWorld;
     vector CacheOrientation;
@@ -92,6 +90,7 @@ class HCXAISiteBase : Managed
     protected ref PGFilter m_OutdoorFilter;
     protected string m_Build;
     protected string m_RouteValidity;
+    protected int m_AiWorldPostponed;
     protected ref map<string, bool> m_CacheReasons = new map<string, bool>();
     protected int m_CacheSampleTick = -1;
     protected int m_CacheSamples;
@@ -605,8 +604,14 @@ class HCXAISiteBase : Managed
         m_OutdoorFilter = new PGFilter();
         int outdoorExclude = PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.DOOR | PGPolyFlags.LADDER | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
         m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, outdoorExclude, PGPolyFlags.NONE);
-        m_RouteValidity = HCXAISiteRules.HCRouteValidity(m_Build, GetGame().GetWorldName(), m_Policy.MaxLegLength, include, exclude, PGPolyFlags.WALK, outdoorExclude);
-        if (m_RouteValidity == "") { Print("[HC Expansion AI] route cache reuse disabled reason=validity_scalars"); }
+        string navContent = HCXAISiteRules.HCNavContent();
+        m_RouteValidity = HCXAISiteRules.HCRouteValidity(m_Build, GetGame().GetWorldName(), m_Policy.MaxLegLength, include, exclude, PGPolyFlags.WALK, outdoorExclude, navContent);
+        if (m_RouteValidity == "")
+        {
+            string validityReason = "validity_scalars";
+            if (!HCXAISiteRules.HCManifestValid(navContent)) { validityReason = "validity_manifest"; }
+            Print("[HC Expansion AI] route cache reuse disabled reason=" + validityReason);
+        }
         foreach (HCXAISite site : m_Policy.Sites)
         {
             if (m_Localities) { break; } // sparse pages enter through HCStepLocalities
@@ -721,7 +726,6 @@ class HCXAISiteBase : Managed
     protected void HCFinishPath(HCXAISiteState state) {  }
     protected vector NavSample(vector wanted, float radius, PGFilter filter) { return vector.Zero; }
     protected vector GroundSample(vector probe, float radius) { return vector.Zero; }
-    protected void RefuseOrRetry(HCXAISiteState state, string reason) {  }
     protected void HCOutdoorStep(HCXAISiteState state) {  }
     protected void Refuse(HCXAISiteState state, string reason) {  }
     protected void HCReusedRoute(HCXAISiteState state) {  }
