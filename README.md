@@ -1638,7 +1638,7 @@ The Map tab displays snapshot layers, routes and per-layer counts. The loot map 
 
 The intended test load is **3–6 players**. Recorded boots do not establish a tested player capacity. Performance budgets remain provisional until measurements with that load; larger-server capacity is unproven.
 
-`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared across forty consumers. For cost-one requests, starvation prevention permits up to 71 items in a tick; heavier requests and measured charges can exceed that unit total. This is a work allowance, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need native cost observations; target-load capacity remains provisional in [#138](https://github.com/d-addison/hollow-country/issues/138).
+`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared across fifty-three consumers. For cost-one requests, starvation prevention permits up to 84 items in a tick; heavier requests and measured charges can exceed that unit total. This is a work allowance, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need native cost observations; target-load capacity remains provisional in [#138](https://github.com/d-addison/hollow-country/issues/138).
 
 | Consumer ID | Constant | Work |
 | :--- | :--- | :--- |
@@ -1682,6 +1682,19 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | 37 | `HC_WORK_SEARCH_RETIREMENT` | Search retirement. |
 | 38 | `HC_WORK_WILDLIFE` | Wildlife maintenance and carcass creation. |
 | 39 | `HC_WORK_ZONE_GUARDS` | Dynamic military zone guards. |
+| 40 | `HC_WORK_AI_ROUTE_CACHE` | Qualified-route cache validity and sampling. |
+| 41 | `HC_WORK_ADMIN_TELEPORT` | Admin teleport site warming. |
+| 42 | `HC_WORK_ADMIN_WORLD` | Admin world-stream visit admission (catalog peers), separate from teleport site warming. |
+| 43 | `HC_WORK_SIGNS_OF_LIFE` | Lit-window and chimney-smoke house scans. |
+| 44 | `HC_WORK_ECOLOGY_TOWN` | Ecology settlement-name reads, one source row per request. |
+| 45 | `HC_WORK_ECOLOGY_ANIMAL` | Ecology animal visit rows. |
+| 46 | `HC_WORK_ECOLOGY_PATH` | The one native path query per core tick shared by animal and infected ecology callers (charged after admission). |
+| 47 | `HC_WORK_ECOLOGY_MIGRATION` | Ecology cohort migration retargeting of infected packs. |
+| 48 | `HC_WORK_FORAGE` | Forage fallback checkpoint stage or one pending spawn, never both in one call. |
+| 49 | `HC_WORK_HORDE_REINFORCE` | Horde reinforcement spawn-lease cleanup rows. |
+| 50 | `HC_WORK_PICKERS` | Scavenger party trip admission. |
+| 51 | `HC_WORK_PICK_CARRY` | Scavenger carried-goods unload receipts. |
+| 52 | `HC_WORK_PICK_HOUSES` | Scavenger run house scan. |
 
 Package hash caching serializes read/merge/replace with persistent OS-held locks; process exit releases ownership. Stop older lock-file builds before switching protocols. Windows contention remains unverified.
 

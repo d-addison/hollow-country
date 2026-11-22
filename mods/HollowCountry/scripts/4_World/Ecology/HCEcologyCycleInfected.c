@@ -56,7 +56,7 @@ modded class HCInfectedModule
     {
         HCEcologyCycle cycle = HCEcologyCycle.Active();
         int count = m_Packs.Count();
-        if (cycle && cycle.Ready() && cycle.NeedsMigration() && HCServer.HCTickWork().HCTake(1) && m_Healthy && m_Hordes && m_State && m_RoutesRemaining > 0 && count > 0 && count == m_State.Groups.Count())
+        if (cycle && cycle.Ready() && cycle.NeedsMigration() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ECOLOGY_MIGRATION, 1) && m_Healthy && m_Hordes && m_State && m_RoutesRemaining > 0 && count > 0 && count == m_State.Groups.Count())
         {
             int index = m_HCEcologyPackCursor % count;
             m_HCEcologyPackCursor = (index + 1) % count;

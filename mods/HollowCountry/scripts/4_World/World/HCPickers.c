@@ -924,7 +924,7 @@ class HCPickers : HCModule
         }
         float arrival = m_Survey.ArrivalRangeMeters;
         if (vector.DistanceSq(actor.GetPosition(), route.HCHomePoint()) > arrival * arrival) { return "PICKER_NOT_AT_HOME"; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return "PICKER_WORK_BUDGET"; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_PICKERS, 1)) { return "PICKER_WORK_BUDGET"; }
         if (phase == "returned" || phase == "lost")
         {
             m_Trip.m_IO.HCClear();

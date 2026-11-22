@@ -181,7 +181,7 @@ class HCPickRunner
                 Stage = "done";
                 return "";
             }
-            if (!HCServer.HCTickWork().HCTake(1)) { return HCPickRunner.HOLD; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_PICK_HOUSES, 1)) { return HCPickRunner.HOLD; }
             Targets.Clear();
             HCPickHouseScan.HCFind(port.Source.GetPosition(), survey.RunHouseSearchRadiusMeters, survey.RunMaxHouseCandidates, survey.MaxScannedObjects, Targets);
             Stage = "pick";

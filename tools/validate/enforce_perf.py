@@ -46,8 +46,9 @@ rows and shared_settings.json weight defaults/ranges. No profile DTO ceremony.
 HC_WORK_CONSUMERS is a count; HC_WORK_UNBOUNDED is an arithmetic sentinel,
 not a slot. This is structural completeness, not runtime settings validation.
 P008 finds Save calls on declared types ending in Store on P003's tick graph;
-it cannot resolve returned stores, infer synchronous implementation details or
-distinguish required durability barriers. All rules report review candidates,
+it cannot resolve returned stores or infer synchronous implementation details. A
+Save reachable only through a module OnStop (shutdown, run once) is the durability
+barrier and is not reported; any other tick-reachable Save still is. All rules report review candidates,
 never measured complexity, timing or native acceptance.
 
 CallLater roots (B-14): a method scheduled through CallLater/CallLaterByName is a
@@ -63,8 +64,11 @@ open handle are not. It cannot distinguish repeated access to one path from
 different paths, prove loop trip counts, or follow queued callbacks.
 P010 finds raw HCTake calls on declared HCUnitBudget receivers (including
 derived types) and HCServer.HCTickWork() chains. The shared budget's own
-implementation is excluded. Private budgets remain review candidates; unknown
-receiver/return types are not inferred by method name alone.
+implementation is excluded. A module-owned budget (a local or one-identifier field
+whose every initializer and assignment is `new` of a budget type or null, never given
+an HCSetProfile) has no other consumer and no attribution table and is not flagged;
+parameters, aliases of the shared accessor and unknown receiver/return types are not
+inferred by method name alone.
 """
 import argparse
 import ast
@@ -273,6 +277,104 @@ def parameter_caps(model):
     return {key: max(items) for key, items in values.items() if all(0 < n <= 1024 for n in items)}
 
 
+def refusal_exit(text, start):
+    """End offset of a branch that always returns, else -1.
+
+    Either `return ...;` directly, or a brace-free block whose last statement is
+    `return ...;`. Nested blocks are not followed, so a conditional return inside
+    the branch cannot be mistaken for an unconditional one.
+    """
+    direct = re.match(r'\s*return\b[^;]*;', text[start:])
+    if direct:
+        return start + direct.end()
+    block = re.match(r'\s*\{([^{}]*)\}', text[start:])
+    if block and re.search(r'(?:^|;)\s*return\b[^;]*;\s*$', block.group(1)):
+        return start + block.end()
+    return -1
+
+
+_FIELD_CAP = 65536   # two 32 KiB read chunks: one native pass over the field stays cheap
+_FIELD_GET_CAP = 4096
+
+
+def field_bound(model, owner, name):
+    """Longest value a string field can hold, proven from every write, else None.
+
+    Each write in the authored lineage must be a literal (<=1024), a ReadFile or
+    FGets into the field with a constant byte cap, `field = field.Substring(a, n)`
+    where n is refused above a constant before the copy, or `field = field + piece`
+    where piece is a local filled only by a constant-cap ReadFile in the same
+    method. Appends add that read cap to the largest non-append value. Anything
+    else (parameters, other expressions, unknown receivers) is unbounded.
+    """
+    declared = model.field_of(owner, name) if owner else None
+    if not declared or re.sub(r'\s+', '', declared.type) != 'string':
+        return None
+    ident = re.escape(name)
+    assign = re.compile(rf'(?<![\w.])(?:this\s*\.\s*)?{ident}\s*(\+=|=(?!=))\s*([^;]*);')
+    load = re.compile(rf'\b(?:ReadFile|FGets)\s*\(\s*[^,;()]+,\s*(?:this\s*\.\s*)?{ident}\s*,\s*([^;)]+)\)')
+    base, grow, seen = 0, 0, False
+    values = [f.initializer for ancestor in model.lineage(owner) for c in model.classes.get(ancestor, [])
+              for f in c.fields if f.name == name and f.initializer]
+    for value in values:
+        if not re.fullmatch(r'\s*"[^"\n]*"\s*', value) or len(value) > 1026:
+            return None
+    for ancestor in model.lineage(owner):
+        for c in model.classes.get(ancestor, []):
+            for method in c.methods:
+                text = c.source.body(method)
+                for call in load.finditer(text):
+                    cap = model.const_int(call.group(1).strip())
+                    if not cap or cap > 32768:
+                        return None
+                    base, seen = max(base, cap), True
+                for write in assign.finditer(text):
+                    rhs = write.group(2).strip()
+                    if re.fullmatch(r'"[^"\n]*"', rhs) and write.group(1) == '=' and len(rhs) <= 1026:
+                        seen = True
+                        continue
+                    shape = (re.fullmatch(rf'(?:this\s*\.\s*)?{ident}\s*\.\s*Substring\s*\(\s*[^,]+,\s*({_IDENT}|\d+)\s*\)', rhs)
+                             if write.group(1) == '=' else None)
+                    if shape:
+                        limit = guarded_limit(model, text[:write.start()], shape.group(1))
+                        if not limit:
+                            return None
+                        base, seen = max(base, limit), True
+                        continue
+                    appended = (re.fullmatch(rf'(?:(?:this\s*\.\s*)?{ident}\s*\+\s*)?({_IDENT})', rhs)
+                                if write.group(1) == '+=' else
+                                re.fullmatch(rf'(?:this\s*\.\s*)?{ident}\s*\+\s*({_IDENT})', rhs))
+                    if not appended:
+                        return None
+                    piece = appended.group(1)
+                    reads = [model.const_int(r.group(1).strip()) for r in re.finditer(
+                        rf'\b(?:ReadFile|FGets)\s*\(\s*[^,;()]+,\s*{re.escape(piece)}\s*,\s*([^;)]+)\)', text)]
+                    if (len(reads) != 1 or not reads[0] or reads[0] > 32768
+                            or re.search(rf'(?<![\w.]){re.escape(piece)}\s*(?:\+=|=(?!=))', text)):
+                        return None
+                    grow, seen = max(grow, reads[0]), True
+    return base + grow if seen else None
+
+
+def guarded_limit(model, before, variable):
+    """Constant ceiling for an int local refused above it before this point."""
+    if variable.isdecimal():
+        return int(variable)
+    # The declaration is the only write: a later reassignment could escape the guard.
+    if len(re.findall(rf'(?<![\w.]){variable}\s*(?:\+=|-=|\*=|=(?!=))', before)) > 1:
+        return 0
+    for guard in re.finditer(r'\bif\s*\(', before):
+        opening = before.find('(', guard.start(), guard.end())
+        closing = es.matching_paren(before, opening)
+        if closing < 0 or '&&' in before[opening + 1:closing] or refusal_exit(before, closing + 1) < 0:
+            continue
+        for term in before[opening + 1:closing].split('||'):
+            bound = re.fullmatch(rf'\s*{variable}\s*>\s*(\w+)\s*', term)
+            if bound and model.const_int(bound.group(1)):
+                return model.const_int(bound.group(1))
+    return 0
+
+
 def bounded_string(s, m, receiver, offset, caps, model=None, index=None):
     """Recognize small literal values and early length guards, not file caps."""
     body = s.code[m.body_start:offset]
@@ -298,9 +400,11 @@ def bounded_string(s, m, receiver, offset, caps, model=None, index=None):
         opening = body.find('(', guard.start(), guard.end())
         closing = es.matching_paren(body, opening)
         condition = body[opening + 1:closing]
-        if '&&' in condition or not re.match(r'\s*{?\s*return\b[^;]*;', body[closing + 1:]):
+        exit_end = refusal_exit(body, closing + 1)
+        if '&&' in condition or exit_end < 0:
             continue
-        if any(w.start() > closing for w in writes):
+        # Writes inside the refusing branch never reach the guarded scan.
+        if any(w.start() > closing and w.start() >= exit_end for w in writes):
             continue
         for term in condition.split('||'):
             # >= N refuses every length from N up, so it bounds just as > N does.
@@ -550,6 +654,53 @@ def slot_registrations(sources, root):
                           'HC_WORK_CONSUMERS must match contiguous unique consumer slots')
 
 
+def private_budget(model, i, receiver):
+    """True when a budget receiver is a module-owned instance, never the shared pool.
+
+    The receiver is one identifier (optionally this.): a local or a field of declared
+    type HCUnitBudget whose every initializer and assignment in the authored sources
+    is `new` of a budget type or null, with no HCSetProfile call on it. Such an
+    instance has no other consumer to be fair to and no attribution table (only the
+    shared core budget gets a profile), so its HCTake is that module's own pacing
+    limit. Parameters, aliases of HCServer.HCTickWork() and anything unprovable stay
+    flagged.
+    """
+    s, m = model.nodes[i]
+    parts = re.sub(r'\s+', '', receiver).split('.')
+    if parts[0] == 'this':
+        parts = parts[1:]
+    if len(parts) != 1:
+        return False
+    name = parts[0]
+    assign = re.compile(rf'(?<![\w.])(?:this\s*\.\s*)?{name}\s*=(?!=)\s*([^;]*);')
+    profile = re.compile(rf'\b{name}\s*\.\s*HCSetProfile\b')
+
+    def owned(value):
+        value = value.strip()
+        made = re.match(r'new\s+(\w+)', value)
+        return value == 'null' or bool(made and 'HCUnitBudget' in model.lineage(made.group(1)))
+
+    body = s.body(m)
+    if re.search(rf'\bHCUnitBudget\s+{name}\b', body):
+        values = [a.group(1) for a in assign.finditer(body)]
+        return bool(values) and all(owned(v) for v in values) and not profile.search(body)
+    if not m.owner or name in {p[1] for p in m.parameters()}:
+        return False
+    declared = model.field_of(m.owner.name, name)
+    if not declared or 'HCUnitBudget' not in model.lineage(declared.type):
+        return False
+    values = []
+    for ancestor in model.lineage(m.owner.name):
+        for c in model.classes.get(ancestor, []):
+            values.extend(f.initializer for f in c.fields if f.name == name and f.initializer)
+            for method in c.methods:
+                text = c.source.body(method)
+                if profile.search(text):
+                    return False
+                values.extend(a.group(1) for a in assign.finditer(text))
+    return bool(values) and all(owned(v) for v in values)
+
+
 def raw_budget_calls(model, i):
     """Typed budget calls plus the known shared accessor's call-result chain."""
     s, m = model.nodes[i]
@@ -566,6 +717,8 @@ def raw_budget_calls(model, i):
         shared = re.search(r'\bHCServer\s*\.\s*(?:Get\s*\(\s*\)\s*\.\s*)?'
                            r'HCTickWork\s*\(\s*\)\s*\.\s*$', prefix)
         if 'HCUnitBudget' not in model.lineage(typ) and not shared:
+            continue
+        if not shared and receiver and private_budget(model, i, receiver.group(1)):
             continue
         count += 1
         yield Finding('HC-P010', s.rel, s.line_of(call.start()), symbol(m),
@@ -688,6 +841,10 @@ def check(sources, root=ROOT):
             enclosing = [(a, b) for a, b in spans if a <= call.start() < b]
             if not enclosing or model.type_of(receiver, model.envs[i]) != 'string':
                 continue
+            if m.owner and receiver.removeprefix('this.').isidentifier():
+                held = field_bound(model, m.owner.name, receiver.removeprefix('this.'))
+                if held is not None and held <= (_FIELD_GET_CAP if call.group(2) == 'Get' else _FIELD_CAP):
+                    continue
             if bounded_string(s, m, receiver, call.start(),
                               {name: cap for (target, name), cap in caps.items() if target == i}, model, i):
                 continue
@@ -750,10 +907,13 @@ def check(sources, root=ROOT):
              and (not m.owner or m.name != m.owner.name)]
     roots.extend(i for i in sorted(callback_roots(model, edges)) if i not in roots and not boundary(i))
 
-    def walk(skipped):
-        """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only."""
-        queue = deque((i, (i,)) for i in roots)
-        reached = {i: (i,) for i in roots}
+    def walk(skipped, avoid=lambda i: False):
+        """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only.
+
+        A method for which avoid(i) holds is neither a root nor traversed."""
+        live_roots = [i for i in roots if not avoid(i)]
+        queue = deque((i, (i,)) for i in live_roots)
+        reached = {i: (i,) for i in live_roots}
         while queue:
             i, chain = queue.popleft()
             s, m = model.nodes[i]
@@ -764,7 +924,7 @@ def check(sources, root=ROOT):
                     continue
                 drains_writer = (m.owner and m.owner.name == 'HCStagedSaveImage' and m.name == 'Finish'
                                  and s.rel == _WRITER_PATH)
-                if target not in reached and (not boundary(target) or drains_writer):
+                if target not in reached and not avoid(target) and (not boundary(target) or drains_writer):
                     reached[target] = chain + (target,)
                     queue.append((target, chain + (target,)))
         return reached
@@ -782,6 +942,10 @@ def check(sources, root=ROOT):
     skipped = {i: [(a, b) for a, b, latch in spans if latch[:2] not in resettable]
                for i, spans in latched.items() if spans}
 
+    # A module OnStop runs once, at shutdown or when the module is retired; a
+    # synchronous Save there is the durability barrier, not per-tick persistence. A
+    # Save also reachable without passing through an OnStop is still reported.
+    outside_stop = walk(skipped, lambda n: model.nodes[n][1].name == 'OnStop')
     for i, chain in walk(skipped).items():
         s, m = model.nodes[i]
         # Once-only code (a load-once latch, or a Print/Save inside a set-once guard)
@@ -789,7 +953,7 @@ def check(sources, root=ROOT):
         live = lambda offset: not any(a <= offset < b for a, b in skipped.get(i, ()))
         tick_counts = {}
         for offset, rule, operation, message in tick_sites[i]:
-            if not live(offset):
+            if not live(offset) or (rule == 'HC-P008' and i not in outside_stop):
                 continue
             key = (rule, operation)
             tick_counts[key] = tick_counts.get(key, 0) + 1

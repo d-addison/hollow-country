@@ -1061,6 +1061,94 @@
     "owner": "HCPerfConfig"
   },
   {
+    "key": "Performance.TickWeight_ADMIN_WORLD",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_SIGNS_OF_LIFE",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_ECOLOGY_TOWN",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_ECOLOGY_ANIMAL",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_ECOLOGY_PATH",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_ECOLOGY_MIGRATION",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_FORAGE",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_HORDE_REINFORCE",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_PICKERS",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_PICK_CARRY",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.TickWeight_PICK_HOUSES",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
     "key": "Performance.EnableSharedSaves",
     "type": "bool",
     "default": true,

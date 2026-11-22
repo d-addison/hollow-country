@@ -1104,6 +1104,7 @@ class HCWorldMaterializer : HCModule
     protected void HCRestoreCustody()
     {
         int recovered = 0;
+        string recoveredLeases = "";
         foreach (HCAIPartyCustodyRow restored : m_Custody.Rows)
         {
             if (restored.Outcome == "CLAIMED" || restored.Outcome == "QUARANTINED")
@@ -1113,7 +1114,8 @@ class HCWorldMaterializer : HCModule
                 restored.Survivors = 0;
                 HCAIBudget.Release(restored.LeaseId);
                 recovered++;
-                Print("[HC AI] custody restore lease=" + restored.LeaseId + " outcome=FINISHED_UNKNOWN runtime=PENDING");
+                // Rows are capped by HCAIPartyCustody.MAX_ROWS; leases ride in the single summary line.
+                recoveredLeases += " lease=" + restored.LeaseId;
             }
             else { HCAIBudget.Release(restored.LeaseId); }
         }
@@ -1122,7 +1124,7 @@ class HCWorldMaterializer : HCModule
             m_Custody.SchemaVersion = 2;
             this.HCSaveCustody();
         }
-        Print("[HC AI] custody restore finished_unknown=" + recovered.ToString() + " runtime=PENDING");
+        Print("[HC AI] custody restore finished_unknown=" + recovered.ToString() + " runtime=PENDING" + recoveredLeases);
     }
 
     protected bool HCValidCustody(HCAIPartyCustodyData data)

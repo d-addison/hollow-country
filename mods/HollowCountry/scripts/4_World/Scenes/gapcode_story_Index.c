@@ -97,6 +97,9 @@ class HCGapcodeStoryIndex : Managed
     protected bool m_Reading;
     // At most one 32 KiB chunk plus an unfinished bounded row. Scan by offset
     // rather than copying the remaining chunk after every decoded row.
+    // MAX_TAIL_BYTES equals the StoryIndex.MaxLineBytes registry ceiling, so the buffer never
+    // exceeds MAX_TAIL_BYTES + one 32768-byte read chunk.
+    static const int MAX_TAIL_BYTES = 8192;
     protected string m_Buffer;
     protected int m_BufferCursor;
     protected int m_ReadChunks;
@@ -302,7 +305,7 @@ class HCGapcodeStoryIndex : Managed
                     // Compact only at a chunk boundary; preserve a split JSON
                     // row byte-for-byte. A read is the last operation this visit.
                     int tail = m_Buffer.Length() - m_BufferCursor;
-                    if (tail > m_Limits.MaxLineBytes) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                    if (tail > m_Limits.MaxLineBytes || tail > MAX_TAIL_BYTES) { HCRefuse("HC42_INDEX_INVALID"); return; }
                     if (tail > 0) { m_Buffer = m_Buffer.Substring(m_BufferCursor, tail); }
                     else { m_Buffer = ""; }
                     m_BufferCursor = 0;

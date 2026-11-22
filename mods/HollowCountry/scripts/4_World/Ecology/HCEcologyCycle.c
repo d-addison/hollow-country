@@ -99,16 +99,16 @@ class HCEcologyCycle
     }
 
     // One path maximum across animal and infected callers in each core tick.
-    // Use the shared pool directly: the assigned Ecology scope cannot add a
-    // consumer ID to core. A refused request resumes on a later core tick.
+    // Owned slot ECOLOGY_PATH on the shared pool. A refused request resumes on a later core tick.
     bool TakePath()
     {
         int now = GetGame().GetTime();
         if (m_PathTick == now) { return false; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return false; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ECOLOGY_PATH, 1)) { return false; }
         // One admitted native query consumes the remainder of this local slice.
         // Charge its fixed conservative cost after shared admission so a
-        // 256-unit operation can run in the 32-unit pool. No forced slot used.
+        // 256-unit operation can run in the 32-unit pool. The slot's forced first item of a
+        // starved tick still pays this charge, and m_PathTick keeps it to one path per tick.
         HCServer.HCTickWork().HCCharge(255);
         m_PathTick = now;
         return true;
@@ -125,7 +125,7 @@ class HCEcologyCycle
         m_TownPhase = (utc - m_State.EpochUtc) / (m_Settings.TownShiftDays * 86400);
         // Names are inspected incrementally, one source row per tick. Only
         // settlement types qualify, never arbitrary hills or player positions.
-        if (m_NameCursor < m_NameCount && HCServer.HCTickWork().HCTake(1)) { ReadTown(); }
+        if (m_NameCursor < m_NameCount && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ECOLOGY_TOWN, 1)) { ReadTown(); }
         int index = m_Movers.Count() - 1;
         while (index >= 0)
         {
@@ -139,7 +139,7 @@ class HCEcologyCycle
         int rows = 0;
         while (m_Settings.Animals && rows < HCPerfConfig.HCGet().EcologyRowsPerTick && m_Work.HCContinue())
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { break; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ECOLOGY_ANIMAL, 1)) { break; }
             AnimalBase animal = HCEcologyRuntime.HCCycleAnimal(m_ActorCursor);
             rows++;
             if (!animal) { break; }

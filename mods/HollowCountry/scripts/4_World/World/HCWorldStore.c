@@ -601,6 +601,7 @@ class HCWorldIntentRecovery
     {
         string rejected = source + ".rejected";
         int free = -1;
+        bool existingCopy = false;
         for (int slot = 0; slot < 8; slot++)
         {
             string candidate = source + ".rejected";
@@ -611,16 +612,23 @@ class HCWorldIntentRecovery
             }
             else if (HCWorldStore.RejectRawEqual(source, candidate))
             {
-                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
-                if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
-                return true;
+                existingCopy = true;
+                break;
             }
+        }
+        if (existingCopy)
+        {
+            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
+            if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
+            return true;
         }
         if (free < 0)
         {
             // Bounded oldest-first rotation. A crash can lose an old archive,
             // but leaves the current source available to retry on the next boot.
             if (!DeleteFile(source + ".rejected")) { return RotationFailed(source, "rotation_delete_failed"); }
+            bool rotationUnverified = false;
+            bool rotationBudgetOut = false;
             for (int rotate = 1; rotate < 8; rotate++)
             {
                 string oldPath = source + ".rejected." + rotate.ToString();
@@ -637,19 +645,22 @@ class HCWorldIntentRecovery
                 if (!rotatedEqual)
                 {
                     if (textMismatch || rawMismatch) { return RotationFailed(source, "rotation_copy_mismatch"); }
-                    if (!s_RotationWarnings.Contains(source) && s_RotationWarnings.Count() < 64)
-                    {
-                        s_RotationWarnings.Set(source, true);
-                        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_copy_unverified_non_authoritative");
-                    }
-                    string budgetKey = source + ".budget";
-                    if (budgetExhausted && !s_RotationWarnings.Contains(budgetKey) && s_RotationWarnings.Count() < 64)
-                    {
-                        s_RotationWarnings.Set(budgetKey, true);
-                        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_compare_budget_exhausted action=continue_non_authoritative");
-                    }
+                    rotationUnverified = true;
+                    if (budgetExhausted) { rotationBudgetOut = true; }
                 }
                 if (!DeleteFile(oldPath)) { return RotationFailed(source, "rotation_delete_failed"); }
+            }
+            // One latched line per source after the rotation, never one per rotated file.
+            if (rotationUnverified && !s_RotationWarnings.Contains(source) && s_RotationWarnings.Count() < 64)
+            {
+                s_RotationWarnings.Set(source, true);
+                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_copy_unverified_non_authoritative");
+            }
+            string budgetKey = source + ".budget";
+            if (rotationBudgetOut && !s_RotationWarnings.Contains(budgetKey) && s_RotationWarnings.Count() < 64)
+            {
+                s_RotationWarnings.Set(budgetKey, true);
+                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_compare_budget_exhausted action=continue_non_authoritative");
             }
             rejected = source + ".rejected.7";
         }
