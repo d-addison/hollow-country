@@ -67,45 +67,10 @@ class HCXAIAdmission
     bool InventoryLedgerQualified = false;
     bool OwnershipReconciled = false;
 }
-class HCXAIActorSlot
-{
-    Object Handle;
-    bool Attempted = false;
-    bool DeleteRequested = false;
-    bool DeleteObserved = false;
-    bool Gone = false;
-    bool DeathObserved = false;
-    ref HCObserverTransitionState SpawnGate = new HCObserverTransitionState();
-    ref HCObserverTransitionState RetireGate = new HCObserverTransitionState();
-}
 class HCXAIKill
 {
     string ParticipantId;
     string Token;
-}
-class HCXAILease
-{
-    string Id;
-    string Session;
-    string MissionId;
-    vector Anchor;
-    int RequestedCap = 0;
-    int StartedAtMs = 0;
-    int ActorReservation = 0;
-    int ItemReservation = 0;
-    int Cursor = 0;
-    int Sequence = 0;
-    string ReceiptToken;
-    string ReceiptParticipant;
-    bool Busy = false;
-    bool IntentConfirmed = false;
-    bool Retiring = false;
-    bool Failed = false;
-    bool Released = false;
-    eAIGroup Group;
-    ref HCXAIMission Objective;
-    ref array<ref HCXAIActorSlot> Slots = new array<ref HCXAIActorSlot>();
-    ref array<ref HCXAIKill> Kills = new array<ref HCXAIKill>();
 }
 // One AI_ENCOUNTER bound to an HC site patrol (in memory only; the journal
 // keeps the intent row). It owns no actors: the patrol stays the director's.
