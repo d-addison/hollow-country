@@ -17,7 +17,8 @@ from tools.validate import layout_lint
 ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
-          'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests')
+          'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests',
+          'mission_sources')
 
 
 # This list is the CI contract, not a blanket permission to skip a whole gate.

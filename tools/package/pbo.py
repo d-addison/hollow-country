@@ -98,6 +98,8 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
 # Expansion vehicle variety: event positions, roster and the reviewed types merge record.
 MISSION_FILES.update({'vehicles/vehexp-eventspawns.xml', 'vehicles/vehexp-types.append.xml',
                       'vehicles/vehexp-roster.json', 'vehicles/vehexp-integration.md'})
+# Native site measurements: install-time input to the generated HC event positions.
+MISSION_FILES.add('ce/hc-site-measurements.json')
 # Regional road source pages for the paged route catalog.
 MISSION_FILES.add('travel/gapcode_routes_source-pages.json')
 # Named-locality catalogue for clue direction/distance wording (Leads).
