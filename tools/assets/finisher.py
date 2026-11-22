@@ -192,18 +192,23 @@ def _point_triangle(p, a, b, c):
     ab, ac, ap = sub(b, a), sub(c, a), sub(p, a)
     normal = cross(ab, ac)
     n2 = dot(normal, normal)
-    projected = tuple(p[i] - normal[i] * dot(ap, normal) / n2 for i in range(3))
-    v = sub(projected, a)
     d00, d01, d11 = dot(ab, ab), dot(ab, ac), dot(ac, ac)
     denom = d00*d11 - d01*d01
-    if denom > 0:
+    # A zero-area (collapsed) triangle has no plane: fall through to its edges
+    # rather than dividing by zero. clean() never emits one; hausdorff() is public.
+    if n2 > 0 and denom > 0:
+        projected = tuple(p[i] - normal[i] * dot(ap, normal) / n2 for i in range(3))
+        v = sub(projected, a)
         u = (d11*dot(v, ab) - d01*dot(v, ac)) / denom
         w = (d00*dot(v, ac) - d01*dot(v, ab)) / denom
         if u >= 0 and w >= 0 and u + w <= 1:
             return math.dist(p, projected)
     def edge(x, y):
         direction = sub(y, x)
-        fraction = max(0, min(1, dot(sub(p, x), direction) / dot(direction, direction)))
+        length = dot(direction, direction)
+        if length == 0:
+            return math.dist(p, x)
+        fraction = max(0, min(1, dot(sub(p, x), direction) / length))
         return math.dist(p, tuple(x[i] + fraction*direction[i] for i in range(3)))
     return min(edge(a, b), edge(b, c), edge(c, a))
 
