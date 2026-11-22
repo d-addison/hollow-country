@@ -1,7 +1,8 @@
 """Six orthographic Blender TGA views and a bounded stdlib image difference.
 
-Metric: RGBA byte-space normalized MAE, RMSE and maximum error, not FLIP or a
-perceptual/engine equivalence claim. Compare captures with identical framing,
+Metric: RGBA byte-space normalized MAE, RMSE and maximum error. This is not a
+perceptual measure and not an engine equivalence claim; the perceptual FLIP gate
+and heatmap live in tools.validate.flip_diff and are wired in by render_check. Compare captures with identical framing,
 renderer, colour settings and Blender version. build renders use fixed settings;
 recipe-dependent auto framing means separately built models can hide scale
 changes, so mesh/LOD checks remain necessary.

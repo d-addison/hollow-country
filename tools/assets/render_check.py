@@ -1,7 +1,9 @@
-"""Six-view contact sheet and silhouette checks over rendered asset views.
+"""Six-view contact sheet, silhouette and FLIP checks over rendered asset views.
 
 The pure-Python part (silhouette masks, IoU, contact sheet, golden pins) needs
-no Blender or GPU. Views come from visual_diff.render_request (one isolated
+no Blender or GPU. The FLIP perceptual gate (tools.validate.flip_diff) is a second
+gate next to the IoU check and needs numpy; without it the gate refuses with
+flip.numpy_required, it never skips. Views come from visual_diff.render_request (one isolated
 external Blender run, lead-only) or from directories holding front/back/left/
 right/top/bottom .tga or .png files. Verdicts are offline mesh evidence only:
 engine_verified is always false and never replaces a native in-game check.
@@ -19,9 +21,11 @@ import zlib
 from tools.assets import blender_runner, visual_diff
 from tools.assets.pbr_pack import Image, decode_image
 from tools.assets.provenance import SHA256, Refusal, digest
+from tools.validate import flip_diff
 
 VIEWS = visual_diff.VIEWS
 MIN_IOU = 0.92
+MAX_MEAN_FLIP = flip_diff.MAX_MEAN_FLIP
 BACKGROUND_TOLERANCE = 8
 MAX_VIEW_BYTES = 8 * 1024 * 1024
 GOLDEN_SCHEMA = 'render-golden.v1'
@@ -113,7 +117,13 @@ def pin_goldens(views):
     return {'schema': GOLDEN_SCHEMA, 'views': {v: digest(views[v]) for v in VIEWS}}
 
 
-def check_goldens(views, manifest, goldens, *, min_iou=MIN_IOU, threshold=0.01):
+def compare_flip(reference, candidate, *, max_mean=MAX_MEAN_FLIP):
+    """Perceptual gate: per-view mean LDR-FLIP error against max_mean (provisional)."""
+    return flip_diff.compare(reference, candidate, max_mean=max_mean)
+
+
+def check_goldens(views, manifest, goldens, *, min_iou=MIN_IOU, threshold=0.01,
+                  max_flip=MAX_MEAN_FLIP):
     """goldens: {view: bytes} read from the external store. Every golden must match
     its pinned sha256 before it is used; mismatch is a refusal, never a pass."""
     if (not isinstance(manifest, dict) or set(manifest) != {'schema', 'views'}
@@ -129,7 +139,20 @@ def check_goldens(views, manifest, goldens, *, min_iou=MIN_IOU, threshold=0.01):
     report = compare_silhouettes(goldens, views, min_iou=min_iou)
     report['pixel_diff'] = visual_diff.compare(goldens, views, threshold=threshold)
     report['pass'] = report['pass'] and report['pixel_diff']['pass']
+    if max_flip is not None:
+        report['flip'] = compare_flip(goldens, views, max_mean=max_flip)
+        report['pass'] = report['pass'] and report['flip']['pass']
     return report
+
+
+def write_heatmaps(reference, candidate, directory):
+    """One magma FLIP heatmap PNG per view; outputs must stay under the ignored build root."""
+    out = blender_runner.build_directory(directory)
+    for view in VIEWS:
+        errors = flip_diff.error_map(decode_image(reference[view]), decode_image(candidate[view]))
+        image = flip_diff.heatmap(errors)
+        with (out / ('flip-' + view + '.png')).open('xb') as stream:
+            stream.write(_png(image.width, image.height, image.rgba))
 
 
 def read_views(directory):
@@ -166,6 +189,10 @@ def main(argv=None):
     parser.add_argument('--views', type=Path, help='directory of six candidate views')
     parser.add_argument('--reference', type=Path, help='directory of six reference views')
     parser.add_argument('--min-iou', type=float, default=MIN_IOU)
+    parser.add_argument('--max-flip', type=float, default=MAX_MEAN_FLIP,
+                        help='per-view mean FLIP error limit; the gate runs whenever --reference is given')
+    parser.add_argument('--flip-heatmaps', type=Path,
+                        help='write one FLIP heatmap PNG per view into this directory under build/')
     parser.add_argument('--sheet', type=Path, help='write contact sheet PNG under build/')
     args = parser.parse_args(argv)
     if args.selftest:
@@ -178,8 +205,13 @@ def main(argv=None):
         views = read_views(args.views)
         result = {'valid': True}
         if args.reference:
-            report = compare_silhouettes(read_views(args.reference), views, min_iou=args.min_iou)
+            reference = read_views(args.reference)
+            report = compare_silhouettes(reference, views, min_iou=args.min_iou)
+            report['flip'] = compare_flip(reference, views, max_mean=args.max_flip)
+            report['pass'] = report['pass'] and report['flip']['pass']
             result = {'valid': report['pass'], 'report': report}
+            if args.flip_heatmaps:
+                write_heatmaps(reference, views, args.flip_heatmaps)
         if args.sheet:
             out = blender_runner.build_directory(args.sheet.parent) / args.sheet.name
             with out.open('xb') as stream:
