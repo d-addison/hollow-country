@@ -115,7 +115,7 @@ def check_generator(generator, values, timeout):
                 return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
         command = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--compare', generator.name,
                    '--timeout', str(timeout)]
-        for key in ('addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'reader', 'image_to_paa'):
+        for key in ('addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'):
             if values.get(key) is not None:
                 command += ['--' + key.replace('_', '-'), str(values[key])]
         for census in values.get('native_census', []):
@@ -147,14 +147,14 @@ def main(argv=None):
     parser.add_argument('--source', type=Path, help='pristine stock mission; default: sibling of Addons under mpmissions/dayzOffline.chernarusplus')
     parser.add_argument('--snafu-report', type=Path, help='existing external verification report')
     parser.add_argument('--tactical-flava-report', type=Path, help='existing external verification report')
-    parser.add_argument('--reader', type=Path, help='pinned geometry reader directory')
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--native-census', type=Path, action='append', default=[])
     parser.add_argument('--image-to-paa', type=Path, help='installed ImageToPAA converter')
     parser.add_argument('--timeout', type=positive_timeout, default=60, help='seconds per child (default: 60)')
     args = parser.parse_args(argv)
     values = {name: path.expanduser().resolve() if path is not None else None
               for name, path in vars(args).items() if name in
-              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'reader', 'image_to_paa'}}
+              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'}}
     values['native_census'] = [p.expanduser().resolve() for p in args.native_census]
     if values['source'] is None:
         values['source'] = values['addons'].parent / 'mpmissions/dayzOffline.chernarusplus'

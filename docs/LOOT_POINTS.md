@@ -167,8 +167,8 @@ layout does not parse exactly to its end. Models are never written out.
 `READER_REVISION` and `READER_HASHES` in `interior_points_gen.py` are legacy
 output provenance: shipped overlays embed them, so they stay fixed to keep
 regenerated files byte-identical. They no longer select any code to download.
-The `--reader` argument of the audit CLIs is a legacy, ignored option (the
-generator and the world mesh audit no longer need it). Reproduce from the
+The `--reader` argument of the generator, audit and preservation CLIs is a
+legacy, optional, ignored option; no CLI requires it. Reproduce from the
 same installed vanilla build, unmodified stock prototype and stock map positions:
 
 ```sh
@@ -269,17 +269,16 @@ not coordinate overlays. The tool uses the in-repo ODOL reader
 stock prototype, `interior_catalog.py`, `interior_templates.py`, measured
 `interior_prop_boxes.json`, and the authored interior templates. Assets and
 unpacked model/memory data remain external and are never written by this tool.
-Its `--reader` option is still required by this CLI but is a legacy argument:
-pass any existing directory; it is ignored.
+Its `--reader` option is a legacy argument, optional and ignored.
 
 ```sh
 python3 -B -m tools.package.loot_reach_audit \
   --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
-  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach.json"
+  --report "$HC_INTERIOR_WORK/reach.json"
 # Review the refusal report, then remove points with insufficient static evidence:
 python3 -B -m tools.package.loot_reach_audit \
   --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
-  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach-before.json" --fix
+  --report "$HC_INTERIOR_WORK/reach-before.json" --fix
 ```
 
 The static admission checks are deliberately conservative:
@@ -420,7 +419,7 @@ syntax PASS; git diff --check PASS
 The retained 33 building groups have decoded memory/roadway LODs and no unresolved
 proxy member references; 74 proxy instances still require visual blocker
 fallbacks. All native acceptance limits above remain in force. Scratch inputs,
-the external reader and local reports are moved outside the worktree before
+the scratch reports are moved outside the worktree before
 handoff because `.scratch/` is not ignored in this checkout. The lead should
 ignore that directory if future briefs continue to prescribe it for local dumps.
 
@@ -570,7 +569,7 @@ introduced. No existing test module targets the changed utilities; no unit suite
 was run. Enforce lint/performance and the native compile gate are not applicable
 to this Python/data/documentation diff. The prior worker's audit utility is
 retained without changes to its admission limits. Scratch mission inputs, the
-external reader and diagnostic reports remain outside the worktree. The supplied
+diagnostic reports remain outside the worktree. The supplied
 reproduction command generates the audited file directly.
 
 Physical item support and fit, actual CE tag admission/spawning, complete
@@ -754,7 +753,7 @@ independent audit without `--fix`:
 ```sh
 python3 -B -m tools.package.loot_reach_audit \
   --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
-  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach-report.json"
+  --report "$HC_INTERIOR_WORK/reach-report.json"
 ```
 
 No settings, Enforce code or floor-overlay changes are part of this pass. No new
@@ -1174,7 +1173,7 @@ git show fa0c2ac8:mission/hollow-country/loot-points/additions-interiors.json > 
 for index in 0 1 2 3; do
   agent-run --memory 3G -- python3 -B -m tools.package.loot_point_preserve \
     --prior "$HC_WORK/prior.json" --candidate "$HC_WORK/candidate.json" \
-    --addons "$DAYZ_CLIENT_ADDONS" --reader "$HC_READER" --stock-proto "$STOCK_PROTO" \
+    --addons "$DAYZ_CLIENT_ADDONS" --stock-proto "$STOCK_PROTO" \
     --partition "$index" 4 --refresh-models --out "$HC_WORK/preserve-$index.json" &
 done
 wait
