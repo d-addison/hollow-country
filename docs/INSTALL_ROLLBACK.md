@@ -249,8 +249,10 @@ No active package is modified before initialization completes.
 The house-search journal is per-record JSON, one file per step under its own
 root (`entry_`, `claim_`, `attempt_`, `result_` and `compact_` with the slot
 number, plus the retired-supply archive). Since Wave C every write and delete
-runs through the shared save scheduler, one native call per stage, in strict
-queue order. The bytes on disk are unchanged: a journal written by an older
+runs through the shared save scheduler, one native call per stage (the first
+stage of a new file also makes two existence probes), in strict first-in
+first-out queue order (queue pops are ordered removals; the engine's plain
+array remove would move the last element forward and break the order). The bytes on disk are unchanged: a journal written by an older
 build loads as is, and an older build reads a journal written by this one. A
 new file is created directly at its final name (no rename step) and read back
 and byte-compared; an existing name is never overwritten. Entry, claim,
@@ -264,25 +266,37 @@ preserved.
 
 | Crash point (process dies after) | State on disk | Next boot |
 | --- | --- | --- |
-| Entry create started, file partial | `entry_<n>` torn, nothing else for the slot | Entry unreadable: journal faults and is preserved with a reason; the supply is never handed out. Same as the old writer, no self-repair |
+| Entry create started, file partial | `entry_<n>` torn, nothing else for the slot | Self-repair: the torn entry is removed and the slot is free; the supply was never handed out. A torn entry that has any claim, attempt, result or compact file beside it is not this case and faults with a reason |
 | Entry create finished | `entry_<n>` complete | Row restored as available (phase 0) |
 | Claim create started, partial | `entry_<n>` plus torn `claim_<n>` | Claim does not match: row restored as quarantined, never searchable again |
 | Claim complete, no attempt | `entry_<n>`, `claim_<n>` | Intent without result: row restored as quarantined (spent for good) |
 | Attempt partial or complete, no result | claim plus torn or complete `attempt_<n>` | Quarantined, as above |
 | Result partial or missing after the native move | claim, attempt, torn or no `result_<n>` | Quarantined; a result that does not match its claim is never trusted |
-| Result complete | claim, attempt, `result_<n>` phase 2, 3 or 4 | Restored as spent, quarantined or no-transfer exactly as recorded |
+| Result complete | claim, attempt, `result_<n>` phase 2, 3 or 4 | Restored as spent, quarantined or no-transfer as recorded, except that phase 2 without an `attempt_<n>` is restored as quarantined |
 | Compact intent queued, not yet created | terminal slot files only | Nothing lost; the slot is compacted again by the normal pass |
-| Compact intent created, file partial | torn `compact_<n>` plus the slot files | Intent unreadable: journal faults and is preserved with a reason; nothing is deleted |
+| Compact intent created, file partial | torn `compact_<n>` plus the slot files | Self-repair: removals and the archive checkpoint are queued only after the intent was read back, so the slot is untouched. The torn intent is removed and the row is restored as terminal (never available) and compacted again later. Only an unreadable intent with an unreadable or missing entry faults and is preserved |
 | Compact intent complete, retirement archive not yet checkpointed | `compact_<n>` plus all slot files | Boot re-runs the cleanup: archive checkpoint first, then the removals below |
 | Archive checkpointed, no removal done | `compact_<n>` plus all slot files, supply listed in the archive | Boot repeats the same removals; the archive entry is idempotent |
 | Removal of `claim_<n>`, `attempt_<n>`, `result_<n>` or `entry_<n>` done, others pending | `compact_<n>` and a subset of the slot files | Boot finishes the remaining removals (missing files are accepted); a half-removed slot is never restored as an entry |
 | All four removed, `compact_<n>` not yet removed | `compact_<n>` only | Boot removes it; slot becomes free |
 | Compact intent removed | slot empty | Slot free for reuse; the supply stays known through the archive |
 | Legacy `spent_<supply>` removal pending or interrupted | old tombstone still present, supply also in the archive | Supply still counts as known; the tombstone is migrated and removed again in the background |
-| Queue full or writer failure (no crash) | whatever was already verified | Routine work waits and retries. A failed barrier write refuses the caller with a reason and the journal is preserved rather than guessed |
+| Slot reused: removals of the old slot done, new `entry_<n>` partial | torn `entry_<n>`, no `compact_<n>` (it is removed before the create starts) | Torn-entry self-repair above: slot free, nothing handed out |
+| Slot reused: crash while the old slot's removals are still queued | `compact_<n>` and a subset of the old slot files; the new entry was never started | Boot finishes the old compaction first; the reuse is simply retried later |
+| Queue full (no crash) | whatever was already verified | Routine producers stop at 16 queued operations (at most 3 creates), so a claim barrier normally finds room and drains at most about 70 native calls. If the queue is ever full, the barrier drains it before enqueueing; it never faults the claim. Routine work waits and retries |
+| Writer failure (no crash) | whatever was already verified | A failed barrier write refuses the caller with a reason and the journal is preserved rather than guessed. The journal reports this itself and does not make the world save module report not ready |
 
-Slot reuse is safe because the queue is first in, first out: the removals of a
-slot's previous files always precede the next create for that slot. Nothing
+Slot reuse is safe because the queue is first in, first out (ordered pops): the
+removals of a slot's previous files, `compact_<n>` last, always precede the next
+create for that slot, so a crash leaves either the old slot still compactable or
+the new entry alone. Legacy `spent_<supply>` names are indexed once at boot (up
+to 65,536). Past that the index is incomplete: boot checks the exact tombstone
+file for each live entry instead of the index, and until the legacy files have
+drained (32 per minute) every supply not already recorded in a journal row or
+the archive is treated as known, so no new supply is bound while draining.
+The index is dropped only after two consecutive empty directory scans, and a
+legacy file is removed only when the archive image holding its supply has
+committed. Nothing
 about this table is proven in game; it follows from the code and from the
 recovery rules above, which are unchanged. Runtime acceptance stays PENDING.
 
