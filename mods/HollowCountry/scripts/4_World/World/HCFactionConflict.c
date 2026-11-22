@@ -55,6 +55,8 @@ class HCFactionConflict : HCModule
     protected ref HCUnitBudget m_CallbackUnits = new HCUnitBudget;
 
     override string GetName() { return "FactionConflict"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("FactionConflict", "outcome_recorded"); }
     override HCOperationalStatus HCGetOperationalStatus()
     {
         string fault = "";
@@ -104,11 +106,14 @@ class HCFactionConflict : HCModule
             HCRefuse("RESTART_OUTCOME_STORE_UNCERTAIN");
             return;
         }
-        // The addon binds its combat port after this module starts; the real provider
-        // state is derived on the first tick (HCRefreshStatus), never assumed here.
-        m_StatusReason = "awaiting_provider_bind";
-        m_Operational.HCPublish("ready", "awaiting_provider_bind");
-        HCLog(null, "ready", "AWAITING_SURVEYED_PAIR");
+    }
+
+    override void OnAllModulesStarted()
+    {
+        if (s_Instance != this || !m_Healthy || m_Refusal != "") { return; }
+        // The addon has installed its combat port; derive the actual provider
+        // status before core captures the first readiness receipt.
+        HCRefreshStatus();
         string raidReason = HCCampRaidActors.HCGet().HCRefusal();
         Print("[HC Plan] HC-37 raids=delegated_to_HC39 reason=" + raidReason + " runtime=PENDING");
         Print("[HC Plan] HC-37 camp_population_outcome=owner_required data_pressure=enabled runtime=PENDING");
@@ -118,8 +123,6 @@ class HCFactionConflict : HCModule
     void HCRefreshStatus()
     {
         if (!s_Active || !m_Healthy) { return; }
-        HCServiceWorld();
-        if (!m_Healthy) { return; }
         if (!m_ProviderLogged)
         {
             m_ProviderLogged = true;
@@ -399,6 +402,8 @@ class HCFactionConflict : HCModule
     override void OnTick(float deltaTime)
     {
         if (!s_Active || !m_Healthy || !(deltaTime > 0)) { return; }
+        HCServiceWorld();
+        if (!m_Healthy) { return; }
         HCRefreshStatus();
         if (!m_Current || !(deltaTime > 0)) { return; }
         m_Units.HCReset(1);

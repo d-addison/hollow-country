@@ -207,6 +207,8 @@ class HCHordeMigration : HCModule
     protected string m_LastSummary;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     override string GetName() { return "HordeMigration"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("HordeMigration", "route_advanced"); }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
     static bool Active() { return s_Active; }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
@@ -256,6 +258,9 @@ class HCHordeMigration : HCModule
             return;
         }
         s_Active = HCHordeRoutes.HCLoad(GetGame().GetWorldName());
+    }
+    override void OnAllModulesStarted()
+    {
         HCRefreshStatus(HCInfectedModule.Instance);
     }
     override void OnTick(float deltaTime)
