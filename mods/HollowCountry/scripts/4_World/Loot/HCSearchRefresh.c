@@ -1332,7 +1332,7 @@ class HCSearchRefreshPilotHouses : HCSearchHouses
             Print("[HC Search Refresh] pilot journal refused; pilot house search stays refused");
             return false;
         }
-        return true;
+        return m_Journal.Healthy();
     }
 
     override bool EnsureJournal()

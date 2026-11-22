@@ -172,6 +172,7 @@ class HCInteriorResolvedBuilding
 class HCInteriorResolveCursor
 {
     static const int CANDIDATES_PER_STEP = 8;
+    protected static int s_SphereFrame = -1;
     protected ref HCInteriorResolveEntry m_Entry;
     protected ref HCInteriorResolvedBuilding m_Binding;
     protected bool m_TrySphere;
@@ -223,19 +224,35 @@ class HCInteriorResolveCursor
         }
         if (!m_Entry)
         {
-            if (!m_Fresh && !m_TrySphere) { m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position); }
-            if (m_Entry) { m_QueryComplete = true; }
+            // Reuse only the same native query shape at this exact centre;
+            // sphere and circle snapshots have different candidate-cap semantics.
+            if (!m_Fresh) { m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position, m_TrySphere); }
+            if (m_Entry) { m_QueryComplete = true; m_Sphere = m_Entry.Sphere; }
             else
             {
                 if (m_TrySphere)
                 {
+                    // Native queries cannot be preempted. Wait until ALL startup
+                    // pump owners finish, and admit at most one sphere per frame,
+                    // even if another caller advances a resolver in that frame.
+                    if (!HCStartupPump.HCInteriorQueriesReady())
+                    {
+                        HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
+                        HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "startup_wait", TickCount(mark));
+                        return false;
+                    }
+                    int sphereFrame = GetGame().GetTime();
+                    if (s_SphereFrame == sphereFrame) { return false; }
+                    s_SphereFrame = sphereFrame;
                     m_Entry = new HCInteriorResolveEntry;
                     m_Entry.Position = position;
+                    m_Entry.Sphere = true;
                     // Installed Game.c:930, sphere encloses every admissible
                     // origin (<=0.75 m in the unchanged exact filter).
                     GetGame().GetObjectsAtPosition3D(position, 0.75, m_Entry.Objects, null);
                     m_Entry.QuerySize = m_Entry.Objects.Count();
                     if (m_Entry.QuerySize > 256) { m_Entry.Objects.Clear(); }
+                    HCInteriorTemplatePlacement.HCStoreResolveObjects(m_Entry);
                     m_QueryComplete = true;
                     m_Sphere = true;
                     HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query3d", TickCount(mark));
@@ -390,6 +407,21 @@ class HCInteriorResolveCursor
             return true;
         }
         m_Reason = "";
+        return true;
+    }
+}
+
+// Scope-local accessor for the shared pump's completion state. s_Installed is
+// cleared only after every registered owner has finished or reached its deadline.
+modded class HCStartupPump
+{
+    static bool HCInteriorQueriesReady()
+    {
+        if (s_Installed || s_InSlice) { return false; }
+        // Template completion publishes after the inner placement tick. Do not
+        // slip a cold query into the gap before recovery registers its owner.
+        HCSearchHouses houses = HCSearchBinding.Houses();
+        if (houses && !houses.HCJournalReady() && !houses.HCJournalFaulted()) { return false; }
         return true;
     }
 }

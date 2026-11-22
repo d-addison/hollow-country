@@ -164,11 +164,11 @@ class HCInteriorTemplatePlacement
     // Native 1_Core/proto/EnScript.c:380/385/389/407 Count/Clear/Set/Insert.
     // Reuse the 0.75 m native candidate query for all slices/templates at this building centre.
     // Filtering still runs on live object state in Resolve; cached failure snapshots retain #q.
-    static HCInteriorResolveEntry HCFindResolveObjects(vector position)
+    static HCInteriorResolveEntry HCFindResolveObjects(vector position, bool sphere = false)
     {
         foreach (HCInteriorResolveEntry cached : s_ResolveCache)
         {
-            if (cached.Position == position)
+            if (cached.Position == position && cached.Sphere == sphere)
             {
                 return cached;
             }

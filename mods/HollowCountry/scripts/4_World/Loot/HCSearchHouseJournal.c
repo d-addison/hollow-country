@@ -1,4 +1,6 @@
 // Native 1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile;
+// :520-522 FindFile/FindNextFile/CloseFindFile (vanilla VideoPlayer.c:81-93);
+// EnString.c:20/113 ToInt/Substring; discovery validates canonical names before use.
 // 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove; :852 map.Count.
 // 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :448 Get. Existing HCSearchJson owns JSON I/O.
 // Sparse active slots retain indices; bounded FIFO/archive tombstones prevent regrant.
@@ -57,7 +59,73 @@ class HCSearchHouseJournal
         Print("[HC Search Houses] journal inactive: " + reason + " runtime=PENDING");
     }
 
-    bool Healthy() { return m_Open && !m_Fault; }
+    // Recovery owns the journal until every slot and settled-site index is rebuilt.
+    static const int RESTORE_UNITS = 8;
+    protected bool m_Recovered;
+    protected bool m_RetirementChecked;
+    protected int m_RestorePhase;
+    protected int m_RestoreNext;
+    protected int m_RestoreSteps;
+    protected int m_RestoreMaxTicks;
+    protected int m_RestoreTotalTicks;
+    protected int m_RestoreScanned;
+    protected int m_DiscoveryKind;
+    protected bool m_FindOpen;
+    protected FindFileHandle m_Find;
+    protected string m_FindName;
+    protected FileAttr m_FindAttr;
+    protected ref map<string, bool> m_RestoreFiles = new map<string, bool>;
+    protected ref array<string> m_SettledSites = new array<string>;
+    protected ref array<bool> m_SettledFlags = new array<bool>;
+    protected ref map<string, int> m_SettledAt = new map<string, int>;
+    protected ref HCWorkBudget m_RestoreBudget = new HCWorkBudget;
+    protected ref HCStartupHouseRecovery m_StartupRecovery;
+
+    bool Healthy() { return m_Open && !m_Fault && m_Recovered; }
+    bool Recovering() { return m_Open && !m_Fault && !m_Recovered; }
+    bool Faulted() { return m_Fault; }
+
+    void HCStopRecovery()
+    {
+        if (m_FindOpen) { CloseFindFile(m_Find); m_FindOpen = false; }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCRecoveryTick);
+        if (m_StartupRecovery)
+        {
+            HCStartupPump.HCFinish(m_StartupRecovery);
+            m_StartupRecovery.Journal = null;
+        }
+    }
+
+    void HCRecoveryTick()
+    {
+        // Pump slices share its frame deadline; the 50 ms fallback runs only
+        // after this owner's startup allowance ends (including pump opt-out).
+        if (m_StartupRecovery && !m_StartupRecovery.Finished) { return; }
+        HCRecoverSlice();
+    }
+
+    void HCRecoverSlice()
+    {
+        if (!Recovering()) { HCStopRecovery(); return; }
+        int began = TickCount(0);
+        m_RestoreBudget.HCReset(RESTORE_UNITS, HCStartupPump.HCSliceMs(1));
+        while (Recovering() && m_RestoreBudget.HCContinue())
+        {
+            if (!Restore()) { break; }
+        }
+        int elapsed = TickCount(began);
+        m_RestoreSteps++;
+        m_RestoreMaxTicks = Math.Max(m_RestoreMaxTicks, elapsed);
+        m_RestoreTotalTicks += elapsed;
+        if (!Recovering())
+        {
+            HCStopRecovery();
+            float rate = HCWorkBudget.HCTicksPerMs();
+            string summary = "[HC Search Houses] recovery pass=" + Healthy().ToString() + " slots_scanned=" + m_RestoreScanned.ToString() + " steps=" + m_RestoreSteps.ToString();
+            summary += " ms_max=" + ((float)m_RestoreMaxTicks / rate).ToString() + " journal_recovery_ms=" + ((float)m_RestoreTotalTicks / rate).ToString();
+            Print("" + summary);
+        }
+    }
     int Count() { return m_Rows.Count(); }
     int SiteCount() { return m_Sites.Count() - m_ReleasedSites.Count(); }
     HCSearchHouseRow Row(int index)
@@ -142,15 +210,10 @@ class HCSearchHouseJournal
         m_Root = parent + "/pin_" + sourcePin.Substring(0, 16);
         if (!FileExist(m_Root) && !MakeDirectory(m_Root)) return Fail("journal directory unavailable");
         m_Open = true;
-        // Never ignore a partial retirement commit, even if its primary is missing.
-        bool retiredExists = FileExist(m_Root + "/retired.json");
-        bool retiredIntent = FileExist(m_Root + "/retired.json.tmp");
-        bool retiredBackup = FileExist(m_Root + "/retired.json.bak");
-        if (retiredExists || retiredIntent || retiredBackup)
-        {
-            if (!EnsureRetirement()) { return false; }
-        }
-        if (!Restore()) return false;
+        m_StartupRecovery = new HCStartupHouseRecovery;
+        m_StartupRecovery.Journal = this;
+        HCStartupPump.HCRegister(m_StartupRecovery, "search_house_recovery");
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCRecoveryTick, 50, true);
         return true;
     }
 
@@ -305,78 +368,150 @@ class HCSearchHouseJournal
         }
     }
 
-    // Fixed sparse scan; unfinished cleanup is completed before a slot can be reused.
+    // Discover only the five legacy record kinds, incrementally. No format
+    // change/high-water assumption: sparse old journals and orphan intents are
+    // still inspected all the way to MAX_ENTRIES. Empty slots need no FileExist.
+    protected string HCDiscoveryKind()
+    {
+        if (m_DiscoveryKind == 0) { return "compact"; }
+        if (m_DiscoveryKind == 1) { return "entry"; }
+        if (m_DiscoveryKind == 2) { return "claim"; }
+        if (m_DiscoveryKind == 3) { return "attempt"; }
+        return "result";
+    }
+
+    protected void HCDiscoverRecord()
+    {
+        string kind = HCDiscoveryKind();
+        if (!m_FindOpen)
+        {
+            m_FindName = "";
+            m_Find = FindFile(m_Root + "/" + kind + "_*.json", m_FindName, m_FindAttr, FindFileFlags.DIRECTORIES);
+            m_FindOpen = true;
+        }
+        else if (!FindNextFile(m_Find, m_FindName, m_FindAttr)) { m_FindName = ""; }
+        if (m_FindName == "")
+        {
+            CloseFindFile(m_Find);
+            m_FindOpen = false;
+            m_DiscoveryKind++;
+            if (m_DiscoveryKind == 5) { m_RestorePhase = 1; }
+            return;
+        }
+        int prefix = kind.Length() + 1;
+        int digits = m_FindName.Length() - prefix - 5;
+        if (digits < 1 || digits > 4) { return; }
+        int slot = m_FindName.Substring(prefix, digits).ToInt();
+        if (slot < 0 || slot >= MAX_ENTRIES) { return; }
+        if (m_FindName != kind + "_" + slot.ToString() + ".json") { return; }
+        m_RestoreFiles.Set(m_FindName, true);
+    }
+
+    protected bool HCRestorePresent(int index, string kind)
+    {
+        return m_RestoreFiles.Contains(kind + "_" + index.ToString() + ".json");
+    }
+
+    protected bool HCRestoreSlot(int index)
+    {
+        if (HCRestorePresent(index, "compact"))
+        {
+            HCSearchRecord compactedRecord = LoadRecord(index, "compact");
+            if (!FinishCompaction(index, compactedRecord)) { return false; }
+            // Cleanup removed every transfer file for this slot. The directory
+            // snapshot must never resurrect its now-retired entry.
+            m_Rows.Insert(null);
+            return true;
+        }
+        if (!HCRestorePresent(index, "entry"))
+        {
+            bool orphanIntent = HCRestorePresent(index, "claim") || HCRestorePresent(index, "attempt");
+            if (orphanIntent || HCRestorePresent(index, "result")) { return Fail("orphan transfer record; preserve journal"); }
+            m_Rows.Insert(null);
+            return true;
+        }
+        HCSearchRecord record = LoadRecord(index, "entry");
+        if (!record || record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
+        HCSearchHouseRow row = new HCSearchHouseRow;
+        row.SiteId = record.SiteId;
+        row.SupplyId = record.SupplyId;
+        row.ItemClass = record.ItemClass;
+        bool validText = HCSearchRules.TextValid(row.SiteId, 768) && HCSearchRules.TextValid(row.SupplyId, 64);
+        if (!Matches(record, row) || !validText || !HCSearchRules.TextValid(row.ItemClass, 128)) { return Fail("stored entry identity changed; migration required"); }
+        if (SupplyKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
+        row.Phase = Recover(index, row);
+        m_Rows.Insert(row);
+        m_Supplies.Set(row.SupplyId, index);
+        return true;
+    }
+
+    // ONE discovery/slot/index/site operation per shared budget unit. During
+    // restore no binding/compaction can run, so indexes are built once in order.
     protected bool Restore()
     {
-        int index = 0;
-        while (index < MAX_ENTRIES)
+        if (!m_RetirementChecked)
         {
-            if (FileExist(PathFor(index, "compact")))
-            {
-                HCSearchRecord compactedRecord = LoadRecord(index, "compact");
-                if (!FinishCompaction(index, compactedRecord)) { return false; }
-            }
-            if (!FileExist(PathFor(index, "entry")))
-            {
-                bool orphanIntent = FileExist(PathFor(index, "claim")) || FileExist(PathFor(index, "attempt"));
-                if (orphanIntent || FileExist(PathFor(index, "result"))) { return Fail("orphan transfer record; preserve journal"); }
-                index++;
-                continue;
-            }
-            HCSearchRecord record = LoadRecord(index, "entry");
-            if (!record || record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
-            HCSearchHouseRow row = new HCSearchHouseRow;
-            row.SiteId = record.SiteId;
-            row.SupplyId = record.SupplyId;
-            row.ItemClass = record.ItemClass;
-            bool validText = HCSearchRules.TextValid(row.SiteId, 768) && HCSearchRules.TextValid(row.SupplyId, 64);
-            if (!Matches(record, row) || !validText || !HCSearchRules.TextValid(row.ItemClass, 128)) { return Fail("stored entry identity changed; migration required"); }
-            if (SupplyKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
-            row.Phase = Recover(index, row);
-            while (m_Rows.Count() < index) { m_Rows.Insert(null); }
-            m_Rows.Insert(row);
-            m_Supplies.Set(row.SupplyId, index);
-            index++;
+            m_RetirementChecked = true;
+            // Attribute the existing bounded archive read/validation to recovery
+            // as well. Preserve refusal of partial archive commits on old saves.
+            bool retiredExists = FileExist(m_Root + "/retired.json");
+            bool retiredIntent = FileExist(m_Root + "/retired.json.tmp");
+            bool retiredBackup = FileExist(m_Root + "/retired.json.bak");
+            if (retiredExists || retiredIntent || retiredBackup) { return EnsureRetirement(); }
+            return true;
         }
-        Reindex();
-        // Mission initialization precedes player joins; settled histories spend no live cap.
-        // One pass over the rows (not one scan per row): a site is settled when all of its rows reached phase 2.
-        array<string> settledSites = new array<string>;
-        array<bool> settledFlags = new array<bool>;
-        map<string, int> settledAt = new map<string, int>;
-        array<ref HCSearchHouseRow> restoredRows = m_Rows;
-        foreach (HCSearchHouseRow restored : restoredRows)
+        if (m_RestorePhase == 0) { HCDiscoverRecord(); return true; }
+        if (m_RestorePhase == 1)
         {
-            if (!restored) { continue; }
-            bool rowSettled = restored.Phase >= 2;
-            int siteAt = -1;
-            if (!settledAt.Find(restored.SiteId, siteAt)) { siteAt = -1; }
-            if (siteAt < 0)
+            if (m_RestoreNext < MAX_ENTRIES)
             {
-                settledAt.Set(restored.SiteId, settledSites.Count());
-                settledSites.Insert(restored.SiteId);
-                settledFlags.Insert(rowSettled);
+                int slotIndex = m_RestoreNext;
+                m_RestoreNext++;
+                m_RestoreScanned++;
+                return HCRestoreSlot(slotIndex);
             }
-            else
-            {
-                bool merged = settledFlags[siteAt] && rowSettled;
-                settledFlags[siteAt] = merged;
-            }
+            m_RestorePhase = 2;
+            return true;
         }
-        int releasedCount = 0;
-        int flagAt = 0;
-        map<string, bool> alreadyReleased = new map<string, bool>;
-        foreach (string releasedSite : m_ReleasedSites) { alreadyReleased.Set(releasedSite, true); }
-        foreach (string settledSite : settledSites)
+        if (m_RestorePhase == 2)
         {
-            bool isSettled = settledFlags[flagAt];
-            flagAt++;
-            if (!isSettled || alreadyReleased.Contains(settledSite)) { continue; }
-            m_ReleasedSites.Insert(settledSite);
-            alreadyReleased.Set(settledSite, true);
-            releasedCount++;
+            int last = m_Rows.Count() - 1;
+            if (last >= 0 && !m_Rows[last]) { m_Rows.Remove(last); return true; }
+            m_RestoreNext = 0;
+            m_RestorePhase = 3;
+            return true;
         }
-        if (releasedCount > 0) { Print("[HC Search Houses] spent bindings released at restore sites=" + releasedCount.ToString()); }
+        if (m_RestorePhase == 3)
+        {
+            if (m_RestoreNext < m_Rows.Count())
+            {
+                HCSearchHouseRow restored = m_Rows[m_RestoreNext];
+                m_RestoreNext++;
+                if (!restored) { return true; }
+                int perSite = 0;
+                m_Sites.Find(restored.SiteId, perSite);
+                m_Sites.Set(restored.SiteId, perSite + 1);
+                int siteAt = -1;
+                if (!m_SettledAt.Find(restored.SiteId, siteAt))
+                {
+                    m_SettledAt.Set(restored.SiteId, m_SettledSites.Count());
+                    m_SettledSites.Insert(restored.SiteId);
+                    m_SettledFlags.Insert(restored.Phase >= 2);
+                }
+                else { m_SettledFlags[siteAt] = m_SettledFlags[siteAt] && restored.Phase >= 2; }
+                return true;
+            }
+            m_RestoreNext = 0;
+            m_RestorePhase = 4;
+            return true;
+        }
+        if (m_RestoreNext < m_SettledSites.Count())
+        {
+            if (m_SettledFlags[m_RestoreNext]) { m_ReleasedSites.Insert(m_SettledSites[m_RestoreNext]); }
+            m_RestoreNext++;
+            return true;
+        }
+        m_Recovered = true;
         return true;
     }
 
