@@ -86,7 +86,7 @@ class HCHordeReinforce
         // Retain leases when visibility or budget is unknown. No global actor
         // scan, CE deletion, or shutdown burst; normal ticks drain the cursor.
         int inspected = 0;
-        while (s_Leases.Count() > 0 && inspected < 2 && s_CleanupWork.HCContinue() && shared.HCTake(1))
+        while (s_Leases.Count() > 0 && inspected < 2 && s_CleanupWork.HCContinue() && shared.HCTakeFor(HCUnitBudget.HC_WORK_HORDE_REINFORCE, 1))
         {
             if (s_Cursor >= s_Leases.Count()) { s_Cursor = 0; }
             HCHordeSpawnLease lease = s_Leases[s_Cursor];

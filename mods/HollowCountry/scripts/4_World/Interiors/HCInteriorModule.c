@@ -26,6 +26,10 @@ class HCInteriorsModule : HCModule
     // Set by the template-load tick once the pack is loaded; every layer guards on it.
     protected static HCInteriorsModule s_Instance;
     protected ref array<Object> m_Objects = new array<Object>;
+    // Membership index over m_Objects, which only ever appends (placement Insert) until OnStop clears it.
+    // Synced incrementally so an ownership lookup is a map probe, never a linear array scan per match.
+    protected ref map<Object, bool> m_OwnedIndex = new map<Object, bool>;
+    protected int m_OwnedIndexed;
 
     static HCInteriorsModule Get()
     {
@@ -60,6 +64,21 @@ class HCInteriorsModule : HCModule
         }
     }
 
+    protected void HCSyncOwnedIndex()
+    {
+        if (m_OwnedIndexed > m_Objects.Count())
+        {
+            m_OwnedIndex.Clear();
+            m_OwnedIndexed = 0;
+        }
+        while (m_OwnedIndexed < m_Objects.Count())
+        {
+            Object indexed = m_Objects.Get(m_OwnedIndexed);
+            if (indexed) { m_OwnedIndex.Insert(indexed, true); }
+            m_OwnedIndexed++;
+        }
+    }
+
     int InspectProp(vector point, vector orientation, string type, out Object reusable)
     {
         reusable = null;
@@ -68,6 +87,7 @@ class HCInteriorsModule : HCModule
         // building's unused cargo proxies on every slot (#275).
         GetGame().GetObjectsAtPosition3D(point, 0.75, objects, null);
         if (objects.Count() > 256) return 3;
+        HCSyncOwnedIndex();
         int matches;
         int ownedCount;
         bool exact = true;
@@ -77,7 +97,7 @@ class HCInteriorsModule : HCModule
             matches++;
             // Only exact nearby type/position matches need an ownership lookup;
             // the retained prop array is capped by MaxFurnishedProps (<=1500).
-            if (m_Objects.Find(object) >= 0)
+            if (m_OwnedIndex.Contains(object))
             {
                 ownedCount++;
                 reusable = object;
@@ -143,6 +163,8 @@ class HCInteriorsModule : HCModule
             if (object) GetGame().ObjectDelete(object);
         }
         m_Objects.Clear();
+        m_OwnedIndex.Clear();
+        m_OwnedIndexed = 0;
         if (s_Instance == this) s_Instance = null;
     }
 }

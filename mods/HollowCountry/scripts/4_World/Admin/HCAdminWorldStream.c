@@ -277,7 +277,7 @@ modded class HCAdminModule
         if (!m_WorldPeer) { HCWorldChoose(); }
         if (!m_WorldPeer) { return; }
         if (!HCWorldLive(m_WorldPeer)) { HCWorldCancel(); return; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_WORLD, 1)) { return; }
         int start = TickCount(0);
         int visitStage = m_WorldStage;
         int visitCursor = m_WorldCursor;
@@ -298,6 +298,7 @@ modded class HCAdminModule
                 // Bounded file/scan/decode steps share the row/time cap. Keep the
                 // authenticated lease alive while preparing the first transfer.
                 m_WorldPeer.Until = GetGame().GetTickTime() + 15;
+                bool catalogFailed = false;
                 while (m_WorldStage == 1 && m_WorldWork.HCContinue())
                 {
                     int emitStart = TickCount(0);
@@ -309,14 +310,19 @@ modded class HCAdminModule
                     {
                         if (m_WorldCatalog.Failed)
                         {
-                            Print("[HC Admin] map_catalog_failed reason=invalid_or_missing retry_seconds=30");
-                            m_WorldPeer.Due = GetGame().GetTickTime() + 30;
-                            HCWorldCancel();
-                            return;
+                            catalogFailed = true;
+                            break;
                         }
                         m_WorldStatic = m_WorldCapture;
                         m_WorldStage = 7;
                     }
+                }
+                if (catalogFailed)
+                {
+                    Print("[HC Admin] map_catalog_failed reason=invalid_or_missing retry_seconds=30");
+                    m_WorldPeer.Due = GetGame().GetTickTime() + 30;
+                    HCWorldCancel();
+                    return;
                 }
             }
         }

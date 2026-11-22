@@ -367,3 +367,136 @@ class HCProbe
             'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLaterByName(this, "Work", 1000, true);'))
         self.assertEqual([], self.keys(
             'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLaterByName(this, "Work", 1000, false);'))
+
+
+class P010PrivateBudgetTests(unittest.TestCase):
+    """A module-owned budget has no other consumer; the shared pool and unprovable receivers keep flagging."""
+    BUDGET = 'class HCUnitBudget { bool HCTake(int cost) { return true; } void HCSetProfile(int x) {} }\n'
+
+    def keys(self, body, fields='', params=''):
+        text = self.BUDGET + 'class M\n{\n%s\n    void F(%s)\n    {\n%s\n    }\n}\n' % (fields, params, body)
+        return [f.key for f in findings(text, 'HC-P010')]
+
+    def test_field_only_ever_new_or_null_is_private(self):
+        fields = '    ref HCUnitBudget m_Budget = new HCUnitBudget();'
+        self.assertEqual(self.keys('m_Budget.HCTake(1);', fields), [])
+        self.assertEqual(self.keys('m_Budget = new HCUnitBudget(); m_Budget.HCTake(1);', fields), [])
+
+    def test_local_new_budget_is_private(self):
+        self.assertEqual(self.keys('HCUnitBudget budget = new HCUnitBudget(); budget.HCTake(1);'), [])
+
+    def test_alias_of_the_shared_accessor_stays_flagged(self):
+        fields = '    ref HCUnitBudget m_Budget;'
+        self.assertEqual(self.keys('m_Budget = HCServer.HCTickWork(); m_Budget.HCTake(1);', fields), ['HCTake#1'])
+        self.assertEqual(self.keys('HCUnitBudget budget = HCServer.HCTickWork(); budget.HCTake(1);'), ['HCTake#1'])
+
+    def test_parameter_receiver_stays_flagged(self):
+        self.assertEqual(self.keys('budget.HCTake(1);', params='HCUnitBudget budget'), ['HCTake#1'])
+
+    def test_profiled_budget_is_attributed_so_stays_flagged(self):
+        fields = '    ref HCUnitBudget m_Budget = new HCUnitBudget();'
+        self.assertEqual(self.keys('m_Budget.HCSetProfile(1); m_Budget.HCTake(1);', fields), ['HCTake#1'])
+
+    def test_shared_accessor_chain_stays_flagged(self):
+        self.assertEqual(self.keys('HCServer.HCTickWork().HCTake(1);'), ['HCTake#1'])
+
+
+class P001FieldBoundTests(unittest.TestCase):
+    """A string field whose every write is provably capped is bounded; any unproven write defeats it."""
+    SOURCE = '''
+class A
+{
+    static const int CHUNK = 32768;
+    string m_Window;
+    void Load(FileHandle h) { FGets(h, m_Window, CHUNK); }
+    void Fill(string other) { %s }
+    void Scan()
+    {
+        for (int i = 0; i < 9; i++) { int at = m_Window.IndexOf("x"); }
+    }
+}
+'''
+
+    def keys(self, write):
+        return [f.key for f in findings(self.SOURCE % write, 'HC-P001')]
+
+    def test_capped_reads_bound_the_field(self):
+        self.assertEqual(self.keys(''), [])
+
+    def test_unproven_write_defeats_the_bound(self):
+        self.assertEqual(self.keys('m_Window = other;'), ['m_Window.IndexOf#1'])
+
+    def test_oversized_read_cap_does_not_bound(self):
+        text = self.SOURCE.replace('CHUNK = 32768', 'CHUNK = 1048576') % ''
+        self.assertEqual([f.key for f in findings(text, 'HC-P001')], ['m_Window.IndexOf#1'])
+
+
+class P001RefusalBlockTests(unittest.TestCase):
+    """A block that always returns bounds the scan after it; a write inside the refusing branch does not."""
+    SOURCE = '''
+class A
+{
+    void F(string text)
+    {
+        if (text.Length() > 256)
+        {
+            %s
+        }
+        for (int i = 0; i < 9; i++) { int at = text.IndexOf("x"); }
+    }
+}
+'''
+
+    def keys(self, inside):
+        return [f.key for f in findings(self.SOURCE % inside, 'HC-P001')]
+
+    def test_block_that_ends_in_return_is_a_refusal_guard(self):
+        self.assertEqual(self.keys('Print("too long"); return;'), [])
+
+    def test_conditional_return_is_not_a_guard(self):
+        self.assertEqual(self.keys('if (i > 0) { return; }'), ['text.IndexOf#1'])
+
+    def test_block_without_return_is_not_a_guard(self):
+        self.assertEqual(self.keys('Print("too long");'), ['text.IndexOf#1'])
+
+
+class P008DurabilityBarrierTests(unittest.TestCase):
+    """A Save only reachable through a module OnStop is the shutdown barrier; other tick-reachable Saves flag."""
+    SOURCE = '''
+class FooStore { bool Save() { return true; } }
+class M
+{
+    ref FooStore m_Store = new FooStore();
+    override void OnStop() { Flush(); }
+    void Flush() { m_Store.Save(); }
+    void OnUpdate() { %s }
+}
+'''
+
+    def keys(self, tick):
+        return [f.key for f in findings(self.SOURCE % tick, 'HC-P008')]
+
+    def test_save_reached_only_from_on_stop_is_a_barrier(self):
+        self.assertEqual(self.keys('OnStop();'), [])
+        self.assertEqual(self.keys(''), [])
+
+    def test_save_also_reached_without_on_stop_still_flags(self):
+        self.assertEqual(self.keys('Flush();'), ['m_Store.Save#1'])
+
+
+class P005SingleLinePerPassTests(unittest.TestCase):
+    def test_print_after_the_loop_is_not_per_item(self):
+        text = '''
+class M
+{
+    void OnUpdate()
+    {
+        string lines = "";
+        for (int i = 0; i < 9; i++) { lines += "x"; }
+        Print("" + lines);
+    }
+}
+'''
+        self.assertEqual([f.key for f in findings(text, 'HC-P005')], [])
+        looped = text.replace('{ lines += "x"; }', '{ Print("x"); }')
+        self.assertEqual([f.key for f in findings(looped, 'HC-P005')], ['Print#1'])

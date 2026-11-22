@@ -95,7 +95,7 @@ class HCPickCarry
         {
             HCPickCarryReceipt receipt = row.HouseGoods[carryIndex];
             if (receipt.Phase != "held") { continue; }
-            if (!HCServer.HCTickWork().HCTake(1)) { return HCPickRunner.HOLD; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_PICK_CARRY, 1)) { return HCPickRunner.HOLD; }
             ItemBase goods = ItemBase.Cast(Handles[carryIndex]);
             receipt.Phase = "absent";
             if (!goods || HCSearchSupplyRegistry.PersistentId(goods) != receipt.ItemId || goods.GetHierarchyRootPlayer() != port.Actor)

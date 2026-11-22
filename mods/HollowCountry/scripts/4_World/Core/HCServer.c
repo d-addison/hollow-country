@@ -250,6 +250,7 @@ class HCServer
             HCOperationalOwner refreshOwner = null;
             HCOperationalStatus refreshStatus = null;
             string refreshLine = "";
+            string refreshLines = "";
             foreach (HCModule refreshModule : m_Active)
             {
                 if (refreshIndex >= HCOperationalChanges.HC_CAP) { break; }
@@ -263,9 +264,15 @@ class HCServer
                     if (refreshStatus && refreshStatus.HCState() != "ready") { refreshPending = true; }
                     // Wave 16: one line per state change after boot ("" when unchanged: no allocation).
                     refreshLine = m_Changes.HCChange(refreshIndex - 1, refreshModule.GetName(), refreshStatus);
-                    if (refreshLine != "") { Print("" + refreshLine); }
+                    if (refreshLine != "")
+                    {
+                        if (refreshLines != "") { refreshLines += "\n"; }
+                        refreshLines += refreshLine;
+                    }
                 }
             }
+            // One Print per refresh pass; a change is reported once, so this is bounded by the module cap.
+            if (refreshLines != "") { Print("" + refreshLines); }
             m_RefreshPending = refreshPending;
             float refreshStep = HC_REFRESH_SLOW_S;
             if (m_RefreshPending && now - m_FirstTickAt < HC_REFRESH_FAST_WINDOW_S) { refreshStep = HC_REFRESH_FAST_S; }

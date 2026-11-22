@@ -95,7 +95,19 @@ class HCUnitBudget
     // AI_SITES pager and must not starve the gapcode route catalog on AI_ROUTES.
     static const int HC_WORK_AI_ROUTE_CACHE = 40;
     static const int HC_WORK_ADMIN_TELEPORT = 41;
-    static const int HC_WORK_CONSUMERS = 42;
+    // Wave D (HC-P010): one owned slot per real consumer that used to take the shared pool raw.
+    static const int HC_WORK_ADMIN_WORLD = 42;
+    static const int HC_WORK_SIGNS_OF_LIFE = 43;
+    static const int HC_WORK_ECOLOGY_TOWN = 44;
+    static const int HC_WORK_ECOLOGY_ANIMAL = 45;
+    static const int HC_WORK_ECOLOGY_PATH = 46;
+    static const int HC_WORK_ECOLOGY_MIGRATION = 47;
+    static const int HC_WORK_FORAGE = 48;
+    static const int HC_WORK_HORDE_REINFORCE = 49;
+    static const int HC_WORK_PICKERS = 50;
+    static const int HC_WORK_PICK_CARRY = 51;
+    static const int HC_WORK_PICK_HOUSES = 52;
+    static const int HC_WORK_CONSUMERS = 53;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
@@ -160,6 +172,17 @@ class HCUnitBudget
         HCRegisterConsumer(HC_WORK_ZONE_GUARDS, "ZONE_GUARDS", 1);
         HCRegisterConsumer(HC_WORK_AI_ROUTE_CACHE, "AI_ROUTE_CACHE", 1);
         HCRegisterConsumer(HC_WORK_ADMIN_TELEPORT, "ADMIN_TELEPORT", 1);
+        HCRegisterConsumer(HC_WORK_ADMIN_WORLD, "ADMIN_WORLD", 1);
+        HCRegisterConsumer(HC_WORK_SIGNS_OF_LIFE, "SIGNS_OF_LIFE", 1);
+        HCRegisterConsumer(HC_WORK_ECOLOGY_TOWN, "ECOLOGY_TOWN", 1);
+        HCRegisterConsumer(HC_WORK_ECOLOGY_ANIMAL, "ECOLOGY_ANIMAL", 1);
+        HCRegisterConsumer(HC_WORK_ECOLOGY_PATH, "ECOLOGY_PATH", 1);
+        HCRegisterConsumer(HC_WORK_ECOLOGY_MIGRATION, "ECOLOGY_MIGRATION", 1);
+        HCRegisterConsumer(HC_WORK_FORAGE, "FORAGE", 1);
+        HCRegisterConsumer(HC_WORK_HORDE_REINFORCE, "HORDE_REINFORCE", 1);
+        HCRegisterConsumer(HC_WORK_PICKERS, "PICKERS", 1);
+        HCRegisterConsumer(HC_WORK_PICK_CARRY, "PICK_CARRY", 1);
+        HCRegisterConsumer(HC_WORK_PICK_HOUSES, "PICK_HOUSES", 1);
     }
 
     static string HCConsumerName(int slot)

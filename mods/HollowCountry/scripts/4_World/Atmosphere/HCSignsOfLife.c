@@ -312,7 +312,7 @@ class HCSignsOfLife extends HCModule
             if (vector.DistanceSq(position, center) > HCSignsOfLife.HOUSE_RADIUS * HCSignsOfLife.HOUSE_RADIUS) continue;
             if (housesExamined >= HCHearthConfig.HCGet().HousesPerScan) { break; }
             if (!houseBudget.HCContinue()) { break; }
-            if (GetGame().IsServer() && !HCServer.HCTickWork().HCTake(1)) { break; }
+            if (GetGame().IsServer() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SIGNS_OF_LIFE, 1)) { break; }
             housesExamined = housesExamined + 1;
             if (night && IsLit(candidate, day)) Offer(lit, candidate, day, HCHearthConfig.HCGet().MaxLit);
             if (cold && IsSmoke(candidate, day)) Offer(smoke, candidate, day, HCHearthConfig.HCGet().MaxSmoke);

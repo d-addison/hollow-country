@@ -682,13 +682,13 @@ class HCForageModule : HCModule
             // per core tick, preserving reservation safety.
             if (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_SaveJob))
             {
-                if (!HCServer.HCTickWork().HCTake(1)) { return; }
+                if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_FORAGE, 1)) { return; }
                 int result = HCStepCheckpoint();
                 if (result == HCSaveJob.STEP_DONE) { m_SaveJob.HCDirty = false; }
             }
             return;
         }
-        if (!HCServer.HCTickWork().HCTake(8)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_FORAGE, 8)) { return; }
         HCForageNode selected = m_PendingSpawn;
         string type = m_PendingType;
         // Clear before creation; a failure spends the already durable cooldown.

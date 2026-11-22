@@ -400,7 +400,7 @@ modded class HCCampModule
         for (int candidateIndex = 0; candidateIndex < count; candidateIndex++)
         {
             reason = "camp-admin-shared-work-budget";
-            if (!selectionCharged && !HCServer.Get().HCTickWork().HCTake(1)) { return null; }
+            if (!selectionCharged && !HCServer.Get().HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return null; }
             HCCampRecord candidate;
             if (includeClaims) { candidate = HCEncounterTarget(candidateIndex, now); }
             else { candidate = m_Data.Camps[candidateIndex]; }
