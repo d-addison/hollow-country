@@ -389,8 +389,8 @@ class HCSearchHouseJournal
 
     void HCPumpJob() { if (m_Job) { HCSaveScheduler.HCPumpFallback(m_Job); } }
 
-    // Shutdown: finish queued cleanup before the owner lets go of the journal. The job unregisters itself
-    // when drained; the explicit unregister covers a faulted queue.
+    // Shutdown: finish queued cleanup before the owner lets go of the journal. The job stays registered
+    // while idle (see HCDrained), so this explicit unregister releases its scheduler slot.
     void HCStopJob()
     {
         if (!m_Job) { return; }
@@ -535,6 +535,8 @@ class HCSearchHouseJournal
 
     // Recovery duplicate check. Past LEGACY_MAX names the in-memory index is incomplete and SupplyKnown
     // answers true for everything, which would flag every live entry; probe the exact tombstone instead.
+    // The overflow path skips the virtual SupplyKnown override (the pilot journal's catalog check); that
+    // is harmless while the pilot is retired.
     protected bool HCRestoreKnown(string supplyId)
     {
         if (!m_LegacyOverflow) { return SupplyKnown(supplyId); }
@@ -543,6 +545,20 @@ class HCSearchHouseJournal
         string tombstone = TombstonePath(supplyId);
         if (tombstone == "") { return false; }
         return m_LegacySpent.Contains(supplyId) || FileExist(tombstone);
+    }
+
+    // A bound entry that passes every check boot applies (phase 0, bind actor, identity, text limits),
+    // or null. Never mutates the journal.
+    protected HCSearchHouseRow HCValidEntryRow(HCSearchRecord candidate)
+    {
+        if (!candidate || candidate.Phase != 0 || candidate.ActorId != BIND_ACTOR) { return null; }
+        HCSearchHouseRow validRow = new HCSearchHouseRow;
+        validRow.SiteId = candidate.SiteId;
+        validRow.SupplyId = candidate.SupplyId;
+        validRow.ItemClass = candidate.ItemClass;
+        bool textOk = HCSearchRules.TextValid(validRow.SiteId, 768) && HCSearchRules.TextValid(validRow.SupplyId, 64);
+        if (!Matches(candidate, validRow) || !textOk || !HCSearchRules.TextValid(validRow.ItemClass, 128)) { return null; }
+        return validRow;
     }
 
     protected bool HCRestoreSlot(int index)
@@ -558,8 +574,13 @@ class HCSearchHouseJournal
             // A torn compact_<n> (crash while the intent was being created) is harmless when the entry is
             // intact: removals are queued only after the intent was read back, so nothing of the slot was
             // removed. Only an unreadable intent AND an unreadable or missing entry is preserved as a fault.
-            bool entryIntact = false;
-            if (!compactedRecord && HCRestorePresent(index, "entry")) { entryIntact = LoadRecord(index, "entry") != null; }
+            // The entry must pass every boot check and its supply must not already be recorded: if the
+            // supply is archived the intent was durable and merely failed to read, so compact_<n> is KEPT
+            // (nothing deleted, the next boot retries) rather than turned into a permanent fault.
+            HCSearchHouseRow intentRow;
+            if (!compactedRecord && HCRestorePresent(index, "entry")) { intentRow = HCValidEntryRow(LoadRecord(index, "entry")); }
+            bool entryIntact = intentRow != null;
+            if (entryIntact && HCRestoreKnown(intentRow.SupplyId)) { return Fail("compact intent unreadable and supply already recorded; preserve journal"); }
             if (compactedRecord || !entryIntact)
             {
                 if (!FinishCompaction(index, compactedRecord)) { return false; }
@@ -584,7 +605,10 @@ class HCSearchHouseJournal
         {
             // A torn entry with no claim, attempt or result was never handed out (the create is a barrier
             // and the claim follows it): drop it and treat the slot as free instead of faulting for good.
-            bool hasIntent = HCRestorePresent(index, "claim") || HCRestorePresent(index, "attempt") || HCRestorePresent(index, "result");
+            // The directory snapshot can miss files, so probe each sibling by exact name before deleting.
+            bool hasIntent = HCRestorePresent(index, "claim") || HCRestorePresent(index, "attempt") || HCRestorePresent(index, "result") || HCRestorePresent(index, "compact");
+            if (!hasIntent) { hasIntent = FileExist(PathFor(index, "claim")) || FileExist(PathFor(index, "attempt")); }
+            if (!hasIntent) { hasIntent = FileExist(PathFor(index, "result")) || FileExist(PathFor(index, "compact")); }
             if (hasIntent) { return Fail("stored entry unreadable; preserve journal"); }
             if (!HCRemoveNow(PathFor(index, "entry"), "torn entry cleanup failed; preserve journal")) { return false; }
             Print("[HC Search Houses] torn entry removed slot=" + index.ToString() + "; slot free, supply never handed out");
@@ -592,12 +616,8 @@ class HCSearchHouseJournal
             return true;
         }
         if (record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
-        HCSearchHouseRow row = new HCSearchHouseRow;
-        row.SiteId = record.SiteId;
-        row.SupplyId = record.SupplyId;
-        row.ItemClass = record.ItemClass;
-        bool validText = HCSearchRules.TextValid(row.SiteId, 768) && HCSearchRules.TextValid(row.SupplyId, 64);
-        if (!Matches(record, row) || !validText || !HCSearchRules.TextValid(row.ItemClass, 128)) { return Fail("stored entry identity changed; migration required"); }
+        HCSearchHouseRow row = HCValidEntryRow(record);
+        if (!row) { return Fail("stored entry identity changed; migration required"); }
         if (HCRestoreKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
         row.Phase = Recover(index, row);
         // A compact intent exists only for a terminal row; no transfer files left means the intent was
