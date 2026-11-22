@@ -1969,17 +1969,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
       "native": false,
-      "reason": "W2-03 bounded reader: one <=32767-byte file per retained startup step, or one lazy template per module tick; no pack-wide prime. Native I/O latency remains unverified."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
-      "line": 195,
-      "symbol": "HCInteriorPackIndex.HCReadFile",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorsModule.PlaceCandidate -> HCInteriorTemplatePlacement.PlaceRow -> HCInteriorTemplatePlacement.HCPlaceRowSlice -> HCInteriorTemplatePlacement.HCPlaceRowSliceWork -> HCInteriorTemplates.Template -> HCInteriorTemplates.HCLoadTemplate -> HCInteriorTemplates.ReadStrict -> HCInteriorPackIndex.HCReadChunk -> HCInteriorPackIndex.HCRead -> HCInteriorPackIndex.HCReadFile; enqueue bounded startup work",
-      "native": false,
-      "reason": "W2-03 path-insensitive startup witness: Template returns before I/O until s_Loaded, which is published only by the staged reader on ticks/pump. Lazy claims share a one-file-per-module-tick grant; no synchronous pack prime remains."
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
     },
     {
       "rule": "HC-P003",
@@ -1989,7 +1979,7 @@
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRootStep -> HCInteriorPackIndex.HCReadFile",
       "native": false,
-      "reason": "W2-03 bounded reader: one <=32767-byte file per retained startup step, or one lazy template per module tick; no pack-wide prime. Native I/O latency remains unverified."
+      "reason": "W2-03 bounded startup reader: one <=32767-byte file per retained step on ticks/startup pump; Template() only reads the preloaded cache. Index pins validate one entry per grant. Native I/O/validation latency remains unverified."
     }
   ]
 }

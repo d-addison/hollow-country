@@ -62,8 +62,7 @@ class HCInteriorTemplatePlacement
 
     static HCInteriorResolveCursor HCResolver(HCInteriorFurnishRow row)
     {
-        // Returning null keeps the production cursor on its prepare grant;
-        // a busy lazy reader must never turn into a permanent building refusal.
+        // Published furnishing rows always have a preloaded, validated template.
         if (!HCInteriorTemplates.Template(row.BuildingClass)) { return null; }
         HCInteriorResolvedBuilding binding = HCBinding(row);
         if (!binding.Pending) { binding.Pending = new HCInteriorBoundedResolveCursor; }
