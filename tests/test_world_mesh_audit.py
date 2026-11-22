@@ -271,8 +271,7 @@ class WorldMeshAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             self.write(root, 'config/map-overlays/classes.json', {'classes': {'Crate': {}}})
-            readers, addons = root / 'reader', root / 'Addons'
-            readers.mkdir()
+            addons = root / 'Addons'
             addons.mkdir()
             (addons / 'a.pbo').touch()
             out = root / 'bounds.json'
@@ -281,7 +280,7 @@ class WorldMeshAuditTests(unittest.TestCase):
             with patch.object(audit, 'discover', return_value=[]), \
                     patch.object(audit, 'Installed', return_value=installed), \
                     contextlib.redirect_stdout(output):
-                code = audit.main(['--repo', str(root), '--addons', str(addons), '--reader', str(readers),
+                code = audit.main(['--repo', str(root), '--addons', str(addons),
                                    '--bounds-out', str(out), '--report', str(root / 'r.json')])
             self.assertEqual(code, 0)
             written = json.loads(out.read_text())
@@ -292,8 +291,7 @@ class WorldMeshAuditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             target = root / 'report.json'
-            args = ['--repo', str(root), '--addons', str(root/'absent'),
-                    '--reader', str(root/'absent-reader'), '--report', str(target)]
+            args = ['--repo', str(root), '--addons', str(root/'absent'), '--report', str(target)]
             for strict in (False, True):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
@@ -301,9 +299,8 @@ class WorldMeshAuditTests(unittest.TestCase):
                 result = json.loads(target.read_text())
                 self.assertEqual(code, int(strict))
                 self.assertEqual(result['checked'], 0)
-                self.assertEqual({s['reason'] for s in result['skipped']},
-                                 {'PINNED_READER_UNAVAILABLE', 'INSTALLED_ADDONS_UNAVAILABLE'})
-                self.assertIn('world_mesh_audit: pass checked=0 findings=0 skipped=2', output.getvalue())
+                self.assertEqual({s['reason'] for s in result['skipped']}, {'INSTALLED_ADDONS_UNAVAILABLE'})
+                self.assertIn('world_mesh_audit: pass checked=0 findings=0 skipped=1', output.getvalue())
                 self.assertNotIn(str(root), output.getvalue()+target.read_text())
                 self.assertIn('preland', result['wiring_needed'])
 
@@ -333,19 +330,27 @@ class WorldMeshAuditTests(unittest.TestCase):
                 obj.bounding_center = (1, 2, 3)
                 decoded.append(obj)
                 return obj
-            reader = NS(module=NS(ODOL_File=NS(read=decode), ODOL_Error=ValueError))
-            with patch.object(audit.gen, 'Reader', return_value=reader) as load_reader, \
+            with patch.object(audit.odol56, 'read_odol', side_effect=decode) as read_odol, \
                     patch.object(audit.pbo, 'read_pbo_index', side_effect=index) as read_index, \
                     patch.object(audit.pbo, 'read_configs', return_value={'CfgVehicles': classes}), \
                     patch.object(audit.pbo, 'read_member', return_value=b'synthetic'):
-                installed = audit.Installed(root, root/'reader')
-                load_reader.assert_called_once_with(root/'reader')
+                installed = audit.Installed(root)
                 self.assertEqual({call.args[0] for call in read_index.call_args_list}, set(archives))
                 installed.classes['Parent']['model'] = 'gear_test/mesh'
                 self.assertEqual(installed.model('Prop').bounding_center, (1, 2, 3))
                 self.assertEqual(installed.model('Land_Building').bounding_center, (0, 0, 0))
                 self.assertEqual(installed.model('Prop', host=True).bounding_center, (0, 0, 0))
                 self.assertIsNone(installed.model('Missing'))
+                read_odol.assert_called_with(b'synthetic')
+
+    def test_undecodable_model_raises_without_private_diagnostic(self):
+        installed = audit.Installed.__new__(audit.Installed)
+        key = audit.pbo.normalize_path('prefix/mesh.p3d')
+        installed.classes, installed.members = {}, {key: ('private-archive', {}, 'mesh.p3d')}
+        with patch.object(audit.pbo, 'read_member', return_value=b'not a model'):
+            with self.assertRaises(ValueError) as caught:
+                installed.model('prefix/mesh.p3d')
+        self.assertNotIn('private-archive', str(caught.exception))
 
     def test_invalid_available_reader_fails_without_private_diagnostic(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -354,7 +359,7 @@ class WorldMeshAuditTests(unittest.TestCase):
             output = io.StringIO()
             with patch.object(audit, 'Installed', side_effect=ValueError('private-folder-name')):
                 with contextlib.redirect_stdout(output):
-                    code = audit.main(['--repo', str(root), '--addons', str(root), '--reader', str(root)])
+                    code = audit.main(['--repo', str(root), '--addons', str(root)])
             self.assertEqual(code, 1)
             self.assertNotIn('private-folder-name', output.getvalue())
             self.assertIn('INVALID_INPUT_OR_READER', output.getvalue())
