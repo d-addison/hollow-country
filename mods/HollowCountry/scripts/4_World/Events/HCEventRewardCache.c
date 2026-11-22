@@ -90,6 +90,16 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         return m_IO.WriteNew(siteId + ".pos", position.ToString(false), 96);
     }
 
+    // Persisted record complete (spent .txt plus recorded .pos) and the position valid.
+    // Read-only: recreation writes nothing, so every crash point leaves the same record.
+    bool HCBarrelRecordPosition(string siteId, out vector position)
+    {
+        position = vector.Zero;
+        if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return false; }
+        if (!m_IO || m_Fault || !m_IO.Ensure() || !m_IO.Exists(siteId + ".txt")) { return false; }
+        return CachePosition(siteId, position);
+    }
+
     bool CachePosition(string siteId, out vector position)
     {
         position = vector.Zero;
@@ -128,6 +138,7 @@ class HCEventPoliceStockSlice
     vector OwnedPosition;
     bool HasOwnedPosition;
     bool GroundBarrelPresent;
+    bool OwnedBarrelNear;
     ItemBase GroundItem;
     ItemBase DeliveryContainer;
     ItemBase CargoOwner;
@@ -141,6 +152,8 @@ class HCEventCacheSpawner
     protected static ref map<string, ref HCEventPoliceStockSlice> s_StockSlices = new map<string, ref HCEventPoliceStockSlice>;
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
+    // Sites whose empty barrel was recreated by this process; never a second time per boot.
+    protected static ref array<string> s_BarrelRecreated = new array<string>;
 
     protected static int s_PoliceQueryPeak;
     protected static int s_CacheQueryPeak;
@@ -369,6 +382,8 @@ class HCEventCacheSpawner
                     HCEventPoliceStockLedger barrelLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
                     if (barrelLedger) { barrelLedger.HCRepairOrphan(mission.SiteId, true); }
                 }
+                // Any live barrel (even ruined) at the recorded position blocks recreation.
+                if (nearbyBarrel && job.HasOwnedPosition && !nearbyBarrel.IsSetForDeletion() && !nearbyBarrel.GetHierarchyParent() && vector.DistanceSq(nearbyBarrel.GetPosition(), job.OwnedPosition) <= 4) { job.OwnedBarrelNear = true; }
                 if (!HCPhysicalGround(cache)) { continue; }
                 if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
                 Barrel_Green tagged = Barrel_Green.Cast(cache);
@@ -420,6 +435,15 @@ class HCEventCacheSpawner
                 s_StockSlices.Remove(mission.Id);
                 return PoliceStockTarget(mission, job.OwnedCache);
             }
+            if (job.HasOwnedPosition)
+            {
+                // The record (.txt + .pos) exists and the capped scan found no barrel
+                // at it: recreate it empty. Contents are never restored.
+                s_StockSlices.Remove(mission.Id);
+                Barrel_Green recreated = RecreatePoliceBarrel(mission, job);
+                if (recreated) { return PoliceStockTarget(mission, recreated); }
+                return null;
+            }
             HCEventPoliceStockLedger repairLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
             if (repairLedger) { repairLedger.HCRepairOrphan(mission.SiteId, job.GroundBarrelPresent); }
             // No native creation handle or partially initialized cache crosses a grant.
@@ -429,6 +453,32 @@ class HCEventCacheSpawner
             return null;
         }
         return null;
+    }
+
+    // Owner 2026-11-22: a police site whose .txt/.pos record exists but whose barrel
+    // entity is gone gets a new EMPTY barrel at the recorded position, logged, with
+    // contents left to the normal refill. No ledger write: the immutable record is
+    // untouched, so a crash anywhere leaves the same record and the scan at the next
+    // boot (barrel within 2 m of .pos) is the only duplicate guard needed.
+    // Runs inside the PoliceWork grant of SpawnPoliceSlice; one create per grant.
+    static Barrel_Green RecreatePoliceBarrel(HCEventMission mission, HCEventPoliceStockSlice job)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { PoliceRefused("police_server_unavailable"); return null; }
+        if (job.OwnedBarrelNear) { PoliceRefused("police_cache_unavailable", "; barrel_at_record=blocked"); return null; }
+        if (s_BarrelRecreated.Find(mission.SiteId) >= 0) { PoliceRefused("police_barrel_recreated_once"); return null; }
+        HCEventPoliceStockLedger ledger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        vector position;
+        if (!ledger || !ledger.HCBarrelRecordPosition(mission.SiteId, position)) { PoliceRefused("police_barrel_record_invalid"); return null; }
+        if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { PoliceRefused("police_position_outside_radius"); return null; }
+        Barrel_Green barrel = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
+        if (!barrel) { PoliceRefused("police_cache_create_failed"); return null; }
+        // Mark before anything else can fail: one recreation per site per boot.
+        s_BarrelRecreated.Insert(mission.SiteId);
+        HCGroundSnap.Snap(barrel);
+        barrel.Open();
+        Print("[HC Police] site=" + mission.SiteId + " action=barrel_recreated reason=missing_entity");
+        HCModuleReadiness.HCUse("Events", "police_barrel_recreated");
+        return barrel;
     }
 
     // Restore the pre-slicing creation order (4b12d4f0) within one PoliceWork grant.

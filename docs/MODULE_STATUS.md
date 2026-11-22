@@ -651,7 +651,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | DebugSnapshot | `snapshot_saved` |
 | Ecology | `animal_observed` |
 | Escalation | `state_advanced` |
-| Events | `police_supply_bound` |
+| Events | `police_supply_bound`, `police_barrel_recreated` |
 | FactionConflict | `outcome_recorded` |
 | Forage | `item_picked`, `item_spawned` |
 | Grade | `grade_applied` |
@@ -705,3 +705,9 @@ refusals appear in admin status. Scenes retirement reads committed status withou
 cloning. The approximately 290-second Scenes readiness delay remains unresolved;
 no startup row/time ceiling is claimed. Lead native compile to Mission, boot/use
 receipts and one-server/at-most-one-client checks remain pending.
+
+## Police stock barrel recreation (wc-police74, 2026-11-22)
+
+Source only, **implemented-unverified**; native compile, boot and soak evidence pending. No acceptance claim or release waiver added.
+
+Owner 2026-11-22: when a police site's persisted record (`.txt` and `.pos`) exists but its barrel entity is gone, the Events module recreates an empty barrel at the recorded position and leaves the contents to the normal refill. Items are never restored or duplicated. The immutable ledger is not written, so every crash point leaves the same record; the capped site scan (no barrel within 2 m of the recorded position) is the only duplicate guard, plus one recreation per site per boot. Logged once as `[HC Police] site=<id> action=barrel_recreated reason=missing_entity`; counter `Events/police_barrel_recreated` (R1 table). The activity row is recovery-only: the release scenario shows it INERT unless the lead plants a fixture (delete the barrel while the `.pos` exists) or the owner accepts a waiver. The existing one-time orphan repair (`.txt` without `.pos`) is unchanged.

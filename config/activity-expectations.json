@@ -285,6 +285,24 @@
       "note": "Matches the named total independently of later identity/source/store refusal counters; zero starts remain INERT."
     },
     {
+      "module": "Events",
+      "feature": "police-barrel-recreated",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Events feature=police_barrel_recreated count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "scope": "runtime",
+      "note": "Recovery-only: counts empty police barrels recreated from a persisted .txt/.pos record. Silent or inert when no barrel is missing; needs a planted fixture to show ACTIVE."
+    },
+    {
       "module": "FactionConflict",
       "feature": "encounters-observed",
       "signal": {

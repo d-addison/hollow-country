@@ -77,7 +77,11 @@ class HCEventModule : HCModule
         return "Events";
     }
     override int StartupPhase() { return HC_PHASE_FEATURE; }
-    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound"); }
+    override void RegisterUses()
+    {
+        HCModuleReadiness.HCRegisterUse("Events", "police_supply_bound");
+        HCModuleReadiness.HCRegisterUse("Events", "police_barrel_recreated");
+    }
     override bool IsEnabled(HCSettings settings)
     {
         HCEventConfiguration loader = new HCEventConfiguration;
