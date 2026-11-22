@@ -30,9 +30,14 @@ On Windows, after acquiring the normal shared native-tool host lock:
 .\tools\setup\Start-CEProbeServer.ps1 -Runtime D:\HollowCountryLocal\ce-site-current-001 -Kind ce-site-probe
 ```
 
-The hook measures every authored HC group/cache position and cache rings at
-4/8/12 m over eight bearings. IDs are `event:siteNNN` and
-`event:ringRR_B`. It samples 16 targets per timer tick (hard cap 400 targets).
+The current-treatment hook measures every authored HC group/cache position and
+cache rings at 4/8/12 m over eight bearings. IDs are `event:siteNNN` and
+`event:ringRR_B`. `siteNNN` is always the one-based authored XML index,
+including after earlier anchors retire. Measured staging skips retired group ids,
+lists them under `measured_retired_anchors` in the plan (and dry-run report), and
+samples surviving groups at their generated coordinates. Relocation chunks use
+authored ids and coordinates; ingest/merge retain those plan ids verbatim. It
+samples 16 targets per timer tick (hard cap 400 targets).
 `IsBoxColliding` measures geometry within a conservative box of half-width
 `BLOCKER_RADIUS_M=2` and height 2 m above the ground; it includes objects whose
 origins lie outside that box. `nearest` reports the nearest returned collider's
@@ -82,14 +87,18 @@ plan. A factorial runtime is evidence for choosing a fix, never a shipped treatm
 
 Run and ingest this second fresh runtime in the same way. The measured treatment
 refuses missing group observations or coordinate drift. It emits terrain `y` on every
-group position. Group anchors that fail the screen (water, slope above
-`MAX_SLOPE_DEG=12`, or any geometry blocker inside the clearance box) stay in the
-output, because CE retries other anchors and relocation needs native candidates.
-The install report lists them under `measured_unusable_anchors`. With merged ring
-evidence, screened-out groups instead move to the nearest usable candidate within
+group position. Group anchors first pass the conservative screen: no water, slope
+at most `MAX_SLOPE_DEG=12`, and no geometry blocker inside the clearance box.
+A failed anchor moves to the nearest usable measured ring candidate within
 `RELOCATE_RADIUS_M=12`; usable authored anchors always stay. Generated `x`, `z` and
 `y` change together, while angle and group identity stay unchanged. The report maps
 each moved id to `from`, `to` and `distance` under `measured_relocated_anchors`.
+If there is no usable candidate, the anchor and its generated group retire from
+output. `measured_retired_anchors` maps each authored id to authored `x`/`z` and
+`reasons` containing the failing measurement fields/values. Every event must retain
+at least nominal + `MAX_OBSERVERS` (six) generated anchors; otherwise validation,
+merge and install refuse with the event name. Survey-only application without
+lifecycle policies retains unusable anchors under `measured_unusable_anchors`.
 Both the 340 m all-group-anchor spacing and same-type exclusion radius are checked
 again on the generated output; a violation refuses the install. Authored XML and
 `hc-event-sites.json` evidence never move. It also emits at least `MIN_CACHE_POSITIONS=3` usable measured positions per cache,
@@ -101,9 +110,11 @@ After native review, the lead can commit the ingested JSON as
 `mission/hollow-country/ce/hc-site-measurements.json`; the installer automatically
 uses it and includes its bytes in receipt ownership. With that file absent,
 output and source digest are unchanged. `current` always explicitly omits it,
-so the control remains reproducible after measurements land. No measured data
-or generated artifacts are included with this implementation. Run 003 (2026-11-22 UTC,
-current treatment) is committed this way.
+so the control remains reproducible after measurements land. The committed evidence
+contains run 003 plus four relocation chunks: five runs and 1,477 targets.
+Current validation reports 33 relocated anchors, 17 retired and zero remaining
+unusable group anchors. The minimum generated pool is 10 against 9 required.
+These counts come from `hc_events.validate()[3]`, not runtime acceptance.
 
 ## Relocate screened-out group anchors (lead sequence)
 
@@ -116,14 +127,15 @@ is one-based `i/k`; a missing selector or incorrect total refuses with the requi
 `k`. Each plan records `relocation.chunk` and the exact source measurement SHA.
 Those fields participate in the run binding and survive ingest.
 
-1. Compute `k` from the committed original evidence and dry-run **every** chunk:
+1. Compute `k` from the original unmerged evidence and dry-run **every** chunk:
 
    ```sh
-   k=$(python3 -B -c 'import math; from tools.package import hc_events as h; from tools.setup import ce_site_probe as p; print(math.ceil(len(h.validate()[3]["measured_unusable_anchors"]) / (p.HARD_CAP // (len(p.RING_RADII) * p.RING_BEARINGS))))')
+   base=tmp/logs/ce-site-current-measured.json  # original unmerged survey
+   k=$(python3 -B -c 'import json, math, sys; from tools.package import hc_events as h; from tools.setup import ce_site_probe as p; ids={r["id"] for r in p.targets() if r["id"].startswith("StaticHC")}; rows=h.measurement_rows(json.load(open(sys.argv[1]))); print(math.ceil(sum(not h.measurement_usable(r) for ident,r in rows.items() if ident in ids) / (p.HARD_CAP // (len(p.RING_RADII) * p.RING_BEARINGS))))' "$base")
    for i in $(seq 1 "$k"); do
      python3 -B -m tools.setup.ce_site_probe stage --dry-run \
        --destination "tmp/logs/ce-relocate-$i" \
-       --relocate-from mission/hollow-country/ce/hc-site-measurements.json --chunk "$i/$k"
+       --relocate-from "$base" --chunk "$i/$k"
    done
    ```
 
@@ -133,7 +145,7 @@ Those fields participate in the run binding and survive ingest.
    i=1
    python3 -B -m tools.setup.ce_site_probe stage \
      --destination "/mnt/d/HollowCountryLocal/ce-site-relocate-$i" \
-     --relocate-from mission/hollow-country/ce/hc-site-measurements.json --chunk "$i/$k"
+     --relocate-from "$base" --chunk "$i/$k"
    ```
 
 3. Under the shared host lock, run that chunk alone on Windows, then ingest its
@@ -153,7 +165,7 @@ Those fields participate in the run binding and survive ingest.
 
    ```sh
    python3 -B -m tools.setup.ce_site_probe merge \
-     --base mission/hollow-country/ce/hc-site-measurements.json \
+     --base "$base" \
      --chunks tmp/logs/ce-site-relocate-*.json \
      --out tmp/logs/ce-site-relocated-measurements.json
    ```
@@ -172,9 +184,9 @@ Those fields participate in the run binding and survive ingest.
    replaces the committed measurements and regenerates digests. Workers do not
    run native chunks, change mission data or update generated digest receipts.
 
-A group with no usable candidate inside the relocation radius stays at its authored
-anchor and remains explicitly reported as unusable. No anchor is retired and no
-headroom is silently reduced. These offline transformations do not establish native
+A group with no usable candidate inside the relocation radius retires only with
+the headroom check above, and every retired id remains explicit in the report.
+These offline transformations do not establish native
 placement success; engine experiments and release acceptance remain pending.
 
 Event-definition variants are also available: `event` overrides `lifetime`, `restock`,

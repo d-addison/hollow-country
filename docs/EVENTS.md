@@ -4,7 +4,7 @@ Authored 2026-11-20 for ChernarusPlus 1.30. Native acceptance remains **PENDING*
 The owner’s “Lots” policy is now 48 nominal HC instances across 16 event types.
 Nominal is a CE population target; no active count has been observed in DayZ.
 
-| Event (`StaticHC` prefix) | Nominal | Anchors | Story composition |
+| Event (`StaticHC` prefix) | Nominal | Authored anchors | Story composition |
 | --- | ---: | ---: | --- |
 | ConvoyAmbush | 3 | 12 | Ural and abandoned UAZ with scattered supply crates |
 | ArmorRecovery | 3 | 13 | BMP and recovery Ural abandoned with weapons cargo |
@@ -41,9 +41,27 @@ Restock is 0, the value vanilla static events use. A native factorial
 (docs/tools/CE_SITE_PROBE.md) showed that any restock above 0 made every HC fixed
 event fail its CE Init spawn and never appear. Caches use the same value.
 
+The measured generator screens group anchors for water, slope above 12 degrees
+and geometry blockers within the 2 m clearance box. Failed anchors relocate to
+the nearest usable measured candidate within 12 m, then retire from generated
+output if none exists. Each event must retain nominal + six observer anchors;
+validation/install refuse with the event name if retirement breaches this bound.
+Reports list authored ids and failing measurement values in
+`measured_retired_anchors`, and moves in `measured_relocated_anchors`.
+Authored XML and `hc-event-sites.json` remain unchanged. Site ids and generated
+group names use authored order even when earlier anchors retire.
+
+With the committed five-run, 1,477-target evidence, `hc_events.validate()[3]`
+reports 33 relocated, 17 retired and zero remaining unusable anchors: 185 generated
+group anchors, with a minimum of 10 per type against 9 needed. The table above
+lists authored counts. Measured probe staging skips retired ids and lists them in
+its plan. Absent measurements and the explicit `current` probe treatment retain
+their prior output and source digests. Native placement and release acceptance
+remain pending; see [the probe workflow](tools/CE_SITE_PROBE.md).
+
 All HC candidate centers are mutually separated by at least **401.517 m**;
-validation refuses separation below 340 m. There are 13 candidates per type for
-three nominal instances. Source pools contribute 72 helicopter, 84 police-car,
+validation refuses separation below 340 m. Authored pools contain 12 or 13 candidates per type for
+three nominal instances, before measured retirement. Source pools contribute 72 helicopter, 84 police-car,
 18 police-situation, 13 military-convoy and 21 bonfire seeds. Roadside seeds are
 shifted laterally by 90 or 130 m using their stock orientation, instead of placing
 large compositions on the original roadside anchors. Other seeds retain stock
@@ -62,7 +80,7 @@ shifted candidates in DayZ before marking placement accepted.
 The installer transfers each exact source seed out of its original stock pool,
 retaining at least ten positions per affected pool. On the inspected mission the
 remaining pools are heli 23, police car 216, police situation 21, military convoy
-10 and bonfire 42. Total position count stays 1647. This prevents reuse of the
+10 and bonfire 42. Before measured transformations, total position count stays 1647. This prevents reuse of the
 same source seed; proximity to unrelated stock events and actual CE spacing still
 need engine observation.
 

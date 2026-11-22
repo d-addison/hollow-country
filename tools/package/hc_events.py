@@ -132,8 +132,15 @@ def check_anchor_separation(events, positions):
             same_type.append((x, z))
 
 
-def apply_measurements(positions, cache_positions, measured, *, relocated=None):
-    """Apply complete native observations to generated XML, never authored anchors."""
+def apply_measurements(positions, cache_positions, measured, *, relocated=None,
+                       retired=None, events=None):
+    """Apply native observations using authored indices, never renumbering survivors.
+
+    Without lifecycle policies, retain/report unusable anchors for ring surveys.
+    Retirement requires both policies (headroom admission) and a report sink.
+    """
+    if events is not None and retired is None:
+        raise ValueError('anchor retirement requires a report')
     by_id = measurement_rows(measured)
     rows = list(by_id.values())
 
@@ -170,8 +177,22 @@ def apply_measurements(positions, cache_positions, measured, *, relocated=None):
                             'distance': distance}
                     row = selected
                 else:
-                    unusable.append(ident)
+                    if events is None:
+                        unusable.append(ident)
+                    else:
+                        reasons = {key: row[key] for key, failing in (
+                            ('water', row['water'] != 0),
+                            ('slope_deg', row['slope_deg'] > MAX_SLOPE_DEG),
+                            ('blockers', row['blockers'] != 0)) if failing}
+                        retired[ident] = dict(x=origin['x'], z=origin['z'], reasons=reasons)
+                        event.remove(pos)
+                        continue
             pos.set('y', format(row['y'], '.6f'))
+    if events is not None:
+        for event in positions:
+            policy = events.find("event[@name='%s']" % event.get('name'))
+            if len(event.findall('pos')) < int(policy.findtext('nominal')) + MAX_OBSERVERS:
+                raise ValueError('insufficient encounter positions after retirement: ' + event.get('name'))
     for event in cache_positions:
         anchor = event.find('pos')
         x, z = (float(anchor.get(a)) for a in ('x', 'z'))
@@ -333,11 +354,18 @@ def validate(source=SOURCE):
     measured_path = economy.child(source, MEASUREMENTS)
     unusable = None
     relocated = {}
+    retired = {}
     if os.path.lexists(measured_path):
         data[MEASUREMENTS] = economy.read_plain(source, MEASUREMENTS)
         unusable = apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]),
-                                      relocated=relocated)
+                                      relocated=relocated, retired=retired, events=events)
         check_anchor_separation(events, positions)
+        active_groups = {p.get('group') for e in positions for p in e.findall('pos')}
+        groups[:] = [g for g in groups if g.get('name') in active_groups]
+        count = sum(len(e.findall('pos')) for e in positions)
+        for budget, event in zip(budgets, positions):
+            budget['positions'] = len(event.findall('pos'))
+            budget['positions_after_six_observers'] = budget['positions'] - MAX_OBSERVERS
     encounter_count = len(events)
     events.extend(caches)
     positions.extend(cache_positions)
@@ -349,14 +377,17 @@ def validate(source=SOURCE):
         'observer_headroom': MAX_OBSERVERS, 'event_budgets': budgets,
         'measured_unusable_anchors': unusable,
         'measured_relocated_anchors': relocated,
+        'measured_retired_anchors': retired,
         'runtime': 'PENDING'}
 
 
 def _digest(data):
     # A prior receipt with shared template identities must require reinstall,
-    # even when the authored XML itself has not changed.
+    # even when the authored XML itself has not changed. Measured retirement
+    # likewise changes generated output without changing its source evidence.
     names = (*DATA, *CACHE_DATA) + ((MEASUREMENTS,) if MEASUREMENTS in data else ())
-    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in names))
+    policy = GROUP_POLICY + (b'measured-retirement-v1\0' if MEASUREMENTS in data else b'')
+    return economy.sha(policy + b''.join(n.encode() + b'\0' + data[n] for n in names))
 
 
 def plan(target, source=SOURCE):

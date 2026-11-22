@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import hc_events as hc
@@ -122,7 +123,7 @@ class SiteProbeTests(unittest.TestCase):
             with self.subTest(case=len(bad['targets'])), self.assertRaises(ValueError):
                 hc.validate(self.root)
 
-    def test_screened_out_group_anchor_is_kept_and_reported(self):
+    def test_screened_out_group_anchor_is_retired_and_reported(self):
         self.source_copy()
         for key, value in (('water', 1), ('slope_deg', hc.MAX_SLOPE_DEG + 1), ('blockers', 1)):
             bad = measurement(self.rows)
@@ -130,7 +131,17 @@ class SiteProbeTests(unittest.TestCase):
             (self.root / hc.MEASUREMENTS).write_text(json.dumps(bad))
             with self.subTest(key=key):
                 report = hc.validate(self.root)[3]
-                self.assertEqual(report['measured_unusable_anchors'], [bad['targets'][0]['id']])
+                anchor = bad['targets'][0]
+                self.assertEqual(report['measured_unusable_anchors'], [])
+                self.assertEqual(report['measured_retired_anchors'], {
+                    anchor['id']: dict(x=anchor['x'], z=anchor['z'], reasons={key: value})})
+
+    def original_survey_bytes(self):
+        doc = json.loads((hc.SOURCE / hc.MEASUREMENTS).read_bytes())
+        authored_ids = {r['id'] for r in self.rows}
+        doc['targets'] = [r for r in doc['targets'] if r['id'] in authored_ids]
+        doc['provenance'].pop('runs', None)
+        return json.dumps(doc).encode()
 
     def relocation_source(self):
         doc = measurement(self.rows)
@@ -140,7 +151,7 @@ class SiteProbeTests(unittest.TestCase):
         return path, doc
 
     def test_relocation_chunks_cover_only_screened_out_group_rings_under_cap(self):
-        raw = (hc.SOURCE / hc.MEASUREMENTS).read_bytes()
+        raw = self.original_survey_bytes()
         measured = json.loads(raw)
         groups = {r['id']: r for r in self.rows if ':site' in r['id']
                   and not r['id'].startswith('ItemHCSceneCache')}
@@ -220,12 +231,23 @@ class SiteProbeTests(unittest.TestCase):
                 probe.merge(base, chunks, self.root / 'merged.json')
 
     def test_merge_requires_every_chunk_and_keeps_unusable_evidence(self):
-        raw = (hc.SOURCE / hc.MEASUREMENTS).read_bytes()
+        original = measurement(self.rows)
+        # Enough screened-out anchors across types to exercise multiple chunks,
+        # while each type retains its nominal + observer headroom.
+        per_chunk = probe.HARD_CAP // (len(probe.RING_RADII) * probe.RING_BEARINGS)
+        bad_ids = set()
+        by_event = {}
+        for row in original['targets']:
+            if row['id'].startswith('StaticHC'):
+                by_event.setdefault(row['id'].split(':')[0], []).append(row)
+        for event_rows in by_event.values():
+            for row in event_rows[:2]:
+                row['water'] = 1
+                bad_ids.add(row['id'])
+        raw = json.dumps(original).encode()
         base = self.root / 'base.json'
         base.write_bytes(raw)
-        original = json.loads(raw)
-        count = math.ceil(len(hc.validate()[3]['measured_unusable_anchors']) /
-                          (probe.HARD_CAP // (len(probe.RING_RADII) * probe.RING_BEARINGS)))
+        count = math.ceil(len(bad_ids) / per_chunk)
         chunks = []
         for index in range(1, count + 1):
             rows, metadata = probe.relocation_targets(raw, '%d/%d' % (index, count))
@@ -246,7 +268,8 @@ class SiteProbeTests(unittest.TestCase):
         self.source_copy()
         (self.root / hc.MEASUREMENTS).write_bytes(out.read_bytes())
         report = hc.validate(self.root)[3]
-        self.assertEqual(report['measured_unusable_anchors'], hc.validate()[3]['measured_unusable_anchors'])
+        self.assertEqual(report['measured_unusable_anchors'], [])
+        self.assertEqual(set(report['measured_retired_anchors']), bad_ids)
         self.assertEqual(report['measured_relocated_anchors'], {})
 
     def test_relocation_selects_nearest_usable_and_preserves_angle_and_group(self):
@@ -278,7 +301,7 @@ class SiteProbeTests(unittest.TestCase):
         self.assertEqual(float(roots[1][0].find('pos').get('x')), anchor['x'])
         self.assertEqual(report['measured_relocated_anchors'], {})
 
-    def test_no_usable_candidate_within_radius_keeps_and_reports_anchor(self):
+    def test_no_usable_candidate_within_radius_retires_and_reports_anchor(self):
         self.source_copy()
         _, doc = self.relocation_source()
         anchor = doc['targets'][0]
@@ -288,9 +311,83 @@ class SiteProbeTests(unittest.TestCase):
                  x=anchor['x'] + hc.RELOCATE_RADIUS_M + 1, water=0)])
         (self.root / hc.MEASUREMENTS).write_text(json.dumps(doc))
         _, roots, _, report = hc.validate(self.root)
-        self.assertEqual(report['measured_unusable_anchors'], [anchor['id']])
+        self.assertEqual(report['measured_unusable_anchors'], [])
+        self.assertIn(anchor['id'], report['measured_retired_anchors'])
         self.assertEqual(report['measured_relocated_anchors'], {})
-        self.assertEqual(float(roots[1][0].find('pos').get('x')), anchor['x'])
+        event = roots[1][0]
+        self.assertNotIn(anchor['x'], [float(p.get('x')) for p in event.findall('pos')])
+        name, site = anchor['id'].split(':')
+        self.assertNotIn(name + '_Site' + site.removeprefix('site'),
+                         {g.get('name') for g in roots[2]})
+        budget = next(b for b in report['event_budgets'] if b['event'] == name)
+        self.assertEqual(budget['positions'], len(event.findall('pos')))
+        self.assertGreaterEqual(budget['positions_after_six_observers'], budget['nominal'])
+
+    def test_retirement_refuses_headroom_breach_with_event_name(self):
+        self.source_copy()
+        doc = measurement(self.rows)
+        events = ET.fromstring((self.root / 'ce/hc-events.xml').read_bytes())
+        name = doc['targets'][0]['id'].split(':')[0]
+        policy = events.find("event[@name='%s']" % name)
+        anchors = [r for r in doc['targets'] if r['id'].startswith(name + ':site')]
+        keep = int(policy.findtext('nominal')) + hc.MAX_OBSERVERS
+        for row in anchors[:len(anchors) - keep + 1]:
+            row['water'] = 1
+        (self.root / hc.MEASUREMENTS).write_text(json.dumps(doc))
+        with self.assertRaisesRegex(ValueError, name):
+            hc.validate(self.root)
+
+    def test_later_authored_ids_survive_retirement_and_measured_staging(self):
+        self.source_copy()
+        _, doc = self.relocation_source()
+        first, later = doc['targets'][:2]
+        later['y'] = 123.5
+        later['water'] = 1
+        moved = dict(later, id=later['id'] + ':ring04_0', x=later['x'] + 4, water=0)
+        doc['targets'].append(moved)
+        path = self.root / hc.MEASUREMENTS
+        path.write_text(json.dumps(doc))
+        _, roots, _, report = hc.validate(self.root)
+        name, site = later['id'].split(':')
+        survivor = roots[1].find("event[@name='%s']/pos" % name)
+        self.assertEqual(survivor.get('group'), name + '_Site' + site.removeprefix('site'))
+        self.assertEqual(float(survivor.get('y')), later['y'])
+        self.assertEqual(probe.targets(self.root), self.rows)
+        with mock.patch.object(probe, 'render_hook', wraps=probe.render_hook) as render:
+            result = probe.stage('unused', self.root / 'fresh', source=self.root,
+                                 treatment='measured', measured=path, dry_run=True)
+        staged = {r['id']: r for r in render.call_args.args[0]}
+        self.assertNotIn(first['id'], staged)
+        self.assertEqual(staged[later['id']], dict(id=later['id'], x=moved['x'], z=moved['z']))
+        self.assertEqual(result['targets'], len(self.rows) - len(report['measured_retired_anchors']))
+        self.assertEqual(result['measured_retired_anchors'], report['measured_retired_anchors'])
+        # A survey without policies cannot admit retirement; it keeps the unusable id.
+        positions = ET.fromstring((self.root / 'ce/hc-eventspawns.xml').read_bytes())
+        caches = ET.fromstring((self.root / 'events/cache-eventspawns.xml').read_bytes())
+        self.assertEqual(hc.apply_measurements(positions, caches, doc), [first['id']])
+        # Ingest keeps the surviving authored ids, including relocated coordinates.
+        self.rows = list(staged.values())
+        self.plan.update(variant='measured', targets=self.rows)
+        self.plan['binding'] = probe.binding(self.rows, 'measured', self.plan['stock_mission_sha256'],
+                                            self.plan['run_id'])
+        self.plan_path.write_text(json.dumps(self.plan))
+        ingested = self.ingest(self.log())
+        self.assertEqual({r['id'] for r in ingested['targets']}, set(staged))
+        self.assertNotIn(first['id'], {r['id'] for r in ingested['targets']})
+
+    def test_current_staging_ignores_committed_measurements(self):
+        self.source_copy()
+        def current():
+            with mock.patch.object(probe, 'render_hook', wraps=probe.render_hook) as render:
+                result = probe.stage('unused', self.root / 'fresh', source=self.root, dry_run=True)
+            return result, render.call_args
+        before, before_args = current()
+        (self.root / hc.MEASUREMENTS).write_bytes((hc.SOURCE / hc.MEASUREMENTS).read_bytes())
+        after, after_args = current()
+        self.assertEqual(before, after)
+        self.assertEqual(before_args, after_args)
+        self.assertEqual(after['targets'], len(self.rows))
+        self.assertEqual(after['measured_retired_anchors'], {})
 
     def test_relocated_output_refuses_both_separation_violations(self):
         for same_type in (False, True):
