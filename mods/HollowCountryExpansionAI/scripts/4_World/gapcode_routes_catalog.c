@@ -51,8 +51,11 @@ class HCGapcodeRoutesData
     int schema;
     string kind;
     int row_count;
+    // Index-page envelopes reuse this DTO before root manifest admission.
+    int page_start;
     string identity_sha256;
     ref array<ref HCGapcodeRoutesPageIdentity> pages;
+    ref array<ref HCGapcodeRoutesPageIdentity> index_pages;
     bool enabled_by_default;
     ref HCGapcodeRoutesSources sources;
     ref HCGapcodeRoutesLimits limits;
@@ -84,6 +87,7 @@ class HCGapcodeRoutesPins
 // Runtime compares source identities; small manifest pages are hashed incrementally.
 class HCGapcodeRoutesManifest : HCGapcodeRoutesPins
 {
+    int CatalogPageStart;
     int HashPageVersion;
     ref array<ref HCGapcodeRoutesSourceFile> HashPages;
     // Bounded hash-page documents use the same manifest envelope.
@@ -179,6 +183,8 @@ class HCGapcodeRoutesCatalog
     protected ref HCGapcodeRouteHashState m_PageHash;
     protected int m_PagesRead;
     protected int m_Cursor;
+    protected int m_IndexPage;
+    protected int m_IndexRows;
     protected int m_CatalogPage;
     protected int m_CatalogRows;
     protected int m_PinPeakTicks;
@@ -191,6 +197,7 @@ class HCGapcodeRoutesCatalog
     protected int m_ManifestPage;
     protected int m_ManifestHashes;
     protected int m_ManifestCatalogPages;
+    protected int m_ManifestCatalogRows;
     protected string m_ManifestText;
     protected ref HCGapcodeRouteHashState m_ManifestHash;
     protected int m_ManifestHashCursor;
@@ -220,6 +227,8 @@ class HCGapcodeRoutesCatalog
             sourceContext = " file=" + sourcePath + " page_index=" + pageIndex.ToString();
         }
         Print("[HC Routes] catalog=degraded reason=" + reason + sourceContext + " runtime=PENDING");
+        if (m_ValidityMismatch > 0)
+        { Print("[HC Routes] validity_mismatch=" + m_ValidityMismatch.ToString() + " reason=" + reason + " runtime=PENDING"); }
     }
     void HCClose()
     {
@@ -260,18 +269,19 @@ class HCGapcodeRoutesCatalog
         if (!m_Enabled) { return; }
         HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "regional_road_site_binding");
         string content;
-        if (!this.HCReadBounded("$mission:hollow-country/travel/gapcov-roads/index.json", 32768, content))
+        if (!this.HCReadBounded("$mission:hollow-country/travel/gapcov-roads/index.json", 4096, content))
         { this.HCRefuse("ROUTE_HEADER_SIZE_OR_MISSING"); return; }
         string error;
         if (!JsonFileLoader<HCGapcodeRoutesData>.LoadData(content, Data, error) || !Data)
         { this.HCRefuse("ROUTE_DATA_MISSING_OR_INVALID"); return; }
         if (Data.schema != 1 || Data.kind != "gapcov-road-proposals" || !Data.sources || !Data.graph || !this.HCLimitsValid(Data.limits))
         { this.HCRefuse("ROUTE_HEADER_INVALID"); return; }
-        if (Data.row_count < 1 || Data.row_count > HCXAISiteRules.HCMaxCatalogRows() || !Data.pages || Data.pages.Count() < 1 || Data.pages.Count() > 32)
+        if (Data.row_count < 1 || Data.row_count > HCXAISiteRules.HCMaxCatalogRows() || !Data.index_pages || Data.index_pages.Count() < 1 || Data.index_pages.Count() > 32)
         { this.HCRefuse("ROUTE_ROW_CAP"); return; }
         Data.routes = new array<ref HCGapcodeRoutesRow>;
-        m_Phase = "manifest";
-        m_Reason = "ROUTE_MANIFEST_PENDING";
+        Data.pages = new array<ref HCGapcodeRoutesPageIdentity>;
+        m_Phase = "index";
+        m_Reason = "ROUTE_INDEX_PENDING";
     }
     // Read at most cap+1 bytes; reject oversized inputs before JSON parsing.
     bool HCReadBounded(string path, int cap, out string content)
@@ -282,16 +292,91 @@ class HCGapcodeRoutesCatalog
         CloseFile(file);
         return count > 0 && count <= cap && content.Length() == count;
     }
+    bool HCIndexRefuse(string reason)
+    {
+        m_ValidityMismatch++;
+        this.HCRefuse(reason);
+        return false;
+    }
+    // One bounded read, <=128-byte hash update, or <=4 KiB parse per visit.
+    // Reuse the manifest scratch state; the phases never overlap.
+    bool HCIndexPageStep()
+    {
+        HCGapcodeRoutesPageIdentity identity = Data.index_pages[m_IndexPage];
+        string suffix = m_IndexPage.ToString();
+        if (m_IndexPage < 10) { suffix = "00" + suffix; }
+        else { suffix = "0" + suffix; }
+        string expected = "$mission:hollow-country/travel/gapcov-roads/index-";
+        expected += suffix;
+        expected += ".json";
+        if (!identity) { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_INVALID"); }
+        if (identity.Path != expected) { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_PATH"); }
+        if (identity.Bytes < 1 || identity.Bytes > 4096)
+        { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_SIZE"); }
+        if (identity.Sha256.Length() != 64 || identity.IdentitySha256.Length() != 64)
+        { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_INVALID"); }
+        if (m_ManifestText == "")
+        {
+            if (!this.HCReadBounded(expected, identity.Bytes, m_ManifestText) || m_ManifestText.Length() != identity.Bytes)
+            { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_SIZE_OR_MISSING"); }
+            m_ManifestHash = new HCGapcodeRouteHashState;
+            m_ManifestHashCursor = 0;
+            m_ManifestHashVerified = false;
+            return false;
+        }
+        if (!m_ManifestHashVerified)
+        {
+            int count = Math.Min(HASH_BYTES_PER_STEP, m_ManifestText.Length() - m_ManifestHashCursor);
+            bool last = m_ManifestHashCursor + count == m_ManifestText.Length();
+            string digest = HCGapcodeRouteHash.HCRoutePart(m_ManifestHash, m_ManifestText.Substring(m_ManifestHashCursor, count), last);
+            m_ManifestHashCursor += count;
+            if (!last) { return false; }
+            digest.ToLower();
+            if (digest != identity.Sha256) { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_MISMATCH"); }
+            m_ManifestHashVerified = true;
+            m_ManifestHash = null;
+            return false;
+        }
+        string error;
+        HCGapcodeRoutesData page;
+        if (!JsonFileLoader<HCGapcodeRoutesData>.LoadData(m_ManifestText, page, error) || !page)
+        { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_INVALID"); }
+        if (page.schema != 1 || page.kind != "gapcov-road-index-page" || page.identity_sha256 != identity.IdentitySha256)
+        { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_INVALID"); }
+        if (!page.pages || page.pages.Count() < 1 || page.pages.Count() > 12 || page.page_start != Data.pages.Count())
+        { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_ORDER"); }
+        foreach (HCGapcodeRoutesPageIdentity pin : page.pages)
+        {
+            int number = Data.pages.Count();
+            if (number >= 256) { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_TOTAL"); }
+            string catalogSuffix = number.ToString();
+            if (number < 10) { catalogSuffix = "00" + catalogSuffix; }
+            else if (number < 100) { catalogSuffix = "0" + catalogSuffix; }
+            string catalogPath = "$mission:hollow-country/travel/gapcov-roads/page-";
+            catalogPath += catalogSuffix;
+            catalogPath += ".json";
+            if (!HCPageMatches(pin, pin, catalogPath)) { return this.HCIndexRefuse("ROUTE_INDEX_CATALOG_PIN"); }
+            Data.pages.Insert(pin);
+            m_IndexRows += pin.Rows;
+        }
+        m_IndexPage++;
+        m_ManifestText = "";
+        if (m_IndexPage < Data.index_pages.Count()) { return false; }
+        if (m_IndexRows != Data.row_count) { return this.HCIndexRefuse("ROUTE_INDEX_ROW_TOTAL"); }
+        m_Phase = "manifest";
+        m_Reason = "ROUTE_MANIFEST_PENDING";
+        return true;
+    }
     void HCLoadCatalogPage()
     {
         HCGapcodeRoutesPageIdentity identity = Data.pages[m_CatalogPage];
         string content;
         if (!this.HCReadBounded(identity.Path, identity.Bytes, content) || content.Length() != identity.Bytes)
-        { this.HCRefuse("ROUTE_PAGE_SIZE_OR_MISSING"); return; }
+        { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_SIZE_OR_MISSING"); return; }
         string error;
         HCGapcodeRoutesPage page;
         if (!JsonFileLoader<HCGapcodeRoutesPage>.LoadData(content, page, error) || !page || page.schema != 1 || page.kind != "gapcov-road-page" || page.identity_sha256 != identity.IdentitySha256 || !page.routes || page.routes.Count() != identity.Rows)
-        { this.HCRefuse("ROUTE_PAGE_INVALID"); return; }
+        { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_INVALID"); return; }
         if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
         { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
         foreach (HCGapcodeRoutesRow row : page.routes) { Data.routes.Insert(row); }
@@ -329,12 +414,12 @@ class HCGapcodeRoutesCatalog
         bool catalogOk = manifest.CatalogPath == "$mission:hollow-country/travel/gapcov-roads/index.json";
         if (catalogOk) { catalogOk = manifest.CatalogSha256.Length() == 64 && Data.identity_sha256.Length() == 64; }
         if (catalogOk) { catalogOk = manifest.CatalogIdentitySha256 == Data.identity_sha256; }
-        if (!catalogOk) { this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
+        if (!catalogOk) { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
         m_Manifest = manifest;
         return true;
     }
     // Each visit does one bounded read, one <=128-byte provider hash update, or
-    // one <=6 KiB parse. Never combine the final hash block with JSON parsing.
+    // one <=4 KiB parse. Never combine the final hash block with JSON parsing.
     bool HCManifestPageStep()
     {
         HCGapcodeRoutesSourceFile identity = m_Manifest.HashPages[m_ManifestPage];
@@ -346,7 +431,7 @@ class HCGapcodeRoutesCatalog
         expected += ".json";
         if (!identity) { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_INVALID"); return false; }
         if (identity.Path != expected) { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_PATH"); return false; }
-        if (identity.Bytes < 1 || identity.Bytes > 6144 || identity.Sha256.Length() != 64)
+        if (identity.Bytes < 1 || identity.Bytes > 4096 || identity.Sha256.Length() != 64)
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_INVALID"); return false; }
         if (m_ManifestText == "")
         {
@@ -365,7 +450,7 @@ class HCGapcodeRoutesCatalog
             m_ManifestHashCursor += count;
             if (!last) { return false; }
             digest.ToLower();
-            if (digest != identity.Sha256) { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_MISMATCH"); return false; }
+            if (digest != identity.Sha256) { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_MISMATCH"); return false; }
             m_ManifestHashVerified = true;
             m_ManifestHash = null;
             return false;
@@ -378,12 +463,14 @@ class HCGapcodeRoutesCatalog
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_INVALID"); return false; }
         if (page.PageStart != m_ManifestHashes || page.Hashes.Count() > 80)
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_ORDER"); return false; }
-        if (m_ManifestPage == 0)
+        if (page.CatalogPageStart != m_ManifestCatalogPages)
+        { this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
+        if (page.CatalogPages.Count() > 0)
         {
-            if (page.Hashes.Count() != 0 || page.CatalogPages.Count() != Data.pages.Count())
-            { this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
+            if (page.Hashes.Count() != 0 || m_ManifestHashes != 0)
+            { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_ORDER"); return false; }
         }
-        else if (page.Hashes.Count() < 1 || page.CatalogPages.Count() != 0)
+        else if (page.Hashes.Count() < 1 || m_ManifestCatalogPages != Data.pages.Count())
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_ORDER"); return false; }
         foreach (string hash : page.Hashes)
         {
@@ -392,22 +479,23 @@ class HCGapcodeRoutesCatalog
         int totalRows = 0;
         for (int pageIndex = 0; pageIndex < page.CatalogPages.Count(); pageIndex++)
         {
-            HCGapcodeRoutesPageIdentity catalogPage = Data.pages[pageIndex];
+            int catalogIndex = m_ManifestCatalogPages + pageIndex;
+            if (catalogIndex >= Data.pages.Count()) { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
+            HCGapcodeRoutesPageIdentity catalogPage = Data.pages[catalogIndex];
             if (!catalogPage) { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
             if (!HCPageMatches(catalogPage, page.CatalogPages[pageIndex], catalogPage.Path))
             { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
             // Preserve the fixed catalog path allowlist independently of pins.
-            string catalogSuffix = pageIndex.ToString();
-            if (pageIndex < 10) { catalogSuffix = "00" + catalogSuffix; }
-            else { catalogSuffix = "0" + catalogSuffix; }
+            string catalogSuffix = catalogIndex.ToString();
+            if (catalogIndex < 10) { catalogSuffix = "00" + catalogSuffix; }
+            else if (catalogIndex < 100) { catalogSuffix = "0" + catalogSuffix; }
             string catalogPath = "$mission:hollow-country/travel/gapcov-roads/page-";
             catalogPath += catalogSuffix;
             catalogPath += ".json";
             if (catalogPage.Path != catalogPath) { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
             totalRows += catalogPage.Rows;
         }
-        if (m_ManifestPage == 0 && totalRows != Data.row_count)
-        { this.HCRefuse("ROUTE_PAGE_ROW_TOTAL"); return false; }
+        m_ManifestCatalogRows += totalRows;
         m_ManifestCatalogPages += page.CatalogPages.Count();
         m_ManifestHashes += page.Hashes.Count();
         m_ManifestPage++;
@@ -415,6 +503,8 @@ class HCGapcodeRoutesCatalog
         if (m_ManifestPage < m_Manifest.HashPages.Count()) { return false; }
         if (m_ManifestHashes != m_Manifest.PageCount || m_ManifestCatalogPages != Data.pages.Count())
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_TOTAL"); return false; }
+        if (m_ManifestCatalogRows != Data.row_count)
+        { this.HCRefuse("ROUTE_PAGE_ROW_TOTAL"); return false; }
         m_Manifest = null;
         return true;
     }
@@ -423,8 +513,8 @@ class HCGapcodeRoutesCatalog
     {
         if (!page || !pinned) { return false; }
         if (page.Path != expected) { return false; }
-        if (page.Bytes < 1 || page.Bytes > 32768) { return false; }
-        if (page.Rows < 1 || page.Rows > 64) { return false; }
+        if (page.Bytes < 1 || page.Bytes > 4096) { return false; }
+        if (page.Rows < 1 || page.Rows > 5) { return false; }
         if (page.Sha256.Length() != 64 || page.IdentitySha256.Length() != 64) { return false; }
         if (pinned.IdentitySha256 != page.IdentitySha256 || pinned.Path != page.Path) { return false; }
         if (pinned.Bytes != page.Bytes || pinned.Rows != page.Rows) { return false; }
@@ -636,6 +726,16 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
+        if (m_Phase == "index")
+        {
+            if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, Data.limits.page_size)) { return; }
+            m_Slices++;
+            int indexBegan = TickCount(0);
+            this.HCIndexPageStep();
+            float indexMs = (float)TickCount(indexBegan) / HCWorkBudget.HCTicksPerMs();
+            if (indexMs > m_PageMsMax) { m_PageMsMax = indexMs; }
+            return;
+        }
         if (m_Phase == "manifest")
         {
             if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, Data.limits.page_size)) { return; }

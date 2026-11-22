@@ -23,8 +23,10 @@ ROAD_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 OUTPUTS = ('mission/hollow-country/travel/routes-manifest.json',
            'mission/hollow-country/ai/road-graph.compact.json', *gapcov_routes.OUTPUTS)
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
-MANIFEST_PAGE_BYTES = 6144
-MANIFEST_HASHES_PER_PAGE = 80
+MANIFEST_ROOT_BYTES = 6144
+MANIFEST_PAGE_BYTES = 4096
+MANIFEST_HASHES_PER_PAGE = 59
+MANIFEST_CATALOG_PINS_PER_PAGE = 15
 
 
 def manifest_page_paths(root=ROOT):
@@ -38,7 +40,9 @@ def manifest_page_paths(root=ROOT):
             size = (root / name).stat().st_size
             count += (size + pins['ChunkBytes'] - 1) // pins['ChunkBytes']
     return tuple('mission/hollow-country/travel/routes-manifest-%03d.json' % i
-                 for i in range(1 + (count + MANIFEST_HASHES_PER_PAGE - 1) // MANIFEST_HASHES_PER_PAGE))
+                 for i in range(max(1, (len(gapcov_routes.page_paths(root)) + MANIFEST_CATALOG_PINS_PER_PAGE - 1)
+                                    // MANIFEST_CATALOG_PINS_PER_PAGE)
+                                + (count + MANIFEST_HASHES_PER_PAGE - 1) // MANIFEST_HASHES_PER_PAGE))
 
 
 OUTPUTS = (*OUTPUTS, *manifest_page_paths())
@@ -179,17 +183,22 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
         manifest['CatalogPath'] = '$mission:hollow-country/' + gapcov_routes.CATALOG_INDEX
         manifest['CatalogIdentitySha256'] = header['identity_sha256']
         manifest['CatalogSha256'] = sha(derived[index_path])
-        manifest['CatalogPages'] = header['pages']
+        manifest['CatalogPages'] = [pin for identity in header['index_pages']
+                                    for pin in json.loads(derived[identity['Path'].replace(
+                                        '$mission:', 'mission/', 1)])['pages']]
     # Keep graph fields/schema compatible with the shared compact-road reader.
     # The catalog pin list and source hash arrays each get bounded atomic parses.
     hashes = [value for row in files for value in row.pop('Pages')]
     catalog_pages = manifest.pop('CatalogPages', [])
-    documents = [{'SchemaVersion': 1, 'PageStart': 0, 'Hashes': [],
-                  'CatalogPages': catalog_pages}]
+    documents = []
+    for start in range(0, max(1, len(catalog_pages)), MANIFEST_CATALOG_PINS_PER_PAGE):
+        documents.append({'SchemaVersion': 1, 'PageStart': 0, 'Hashes': [],
+                          'CatalogPageStart': start,
+                          'CatalogPages': catalog_pages[start:start + MANIFEST_CATALOG_PINS_PER_PAGE]})
     for start in range(0, len(hashes), MANIFEST_HASHES_PER_PAGE):
         documents.append({'SchemaVersion': 1, 'PageStart': start,
                           'Hashes': hashes[start:start + MANIFEST_HASHES_PER_PAGE],
-                          'CatalogPages': []})
+                          'CatalogPageStart': len(catalog_pages), 'CatalogPages': []})
     manifest['HashPageVersion'] = 1
     manifest['HashPages'] = []
     paged = {}
@@ -202,7 +211,7 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
         manifest['HashPages'].append({'Path': name.replace('mission/', '$mission:', 1),
                                       'Bytes': len(data), 'Sha256': sha(data)})
     header_data = encode(manifest)
-    if len(header_data) > MANIFEST_PAGE_BYTES:
+    if len(header_data) > MANIFEST_ROOT_BYTES:
         raise ValueError('manifest header exceeds byte cap')
     return {OUTPUTS[0]: header_data, OUTPUTS[1]: graph, **derived, **paged}
 

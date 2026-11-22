@@ -105,9 +105,7 @@ MISSION_FILES.update({'travel/gapcode_routes_source-pages.json',
                       'travel/routes-manifest.json', 'ai/road-graph.compact.json'})
 # Generated bounded regional road catalog inventory.
 # Shipped together with the generated header (inventory checked by route tests).
-MISSION_FILES.update('travel/routes-manifest-%03d.json' % index for index in range(11))
 MISSION_FILES.add('travel/gapcov-roads/index.json')
-MISSION_FILES.update('travel/gapcov-roads/page-%03d.json' % index for index in range(17))
 # Named-locality catalogue for clue direction/distance wording (Leads).
 MISSION_FILES.add('leads/localities.json')
 MISSION_FILES.add('admin/world-catalog.json')
@@ -609,6 +607,93 @@ def json_bytes(value):
     return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode()
 
 
+def route_inventory(files):
+    """Validate the complete generated route inventory, including every pinned byte.
+
+    ``files`` maps mission-relative names to bytes. Minimal development handoffs
+    may omit routes entirely; partial catalogs and unlisted pages always refuse.
+    """
+    index_name = 'travel/gapcov-roads/index.json'
+    manifest_name = 'travel/routes-manifest.json'
+    pages = {name for name in files if name.startswith('travel/gapcov-roads/')
+             or re.fullmatch(r'travel/routes-manifest-.*\.json', name)}
+    if not pages and manifest_name not in files:
+        return set()
+    try:
+        index = json.loads(files[index_name])
+        manifest = json.loads(files[manifest_name])
+        expected = {index_name, manifest_name}
+        if not 0 < len(files[index_name]) <= 4096 or not 0 < len(files[manifest_name]) <= 6144:
+            raise ValueError('route inventory root size outside bounds')
+        index_pins = index['index_pages']
+        manifest_pins = manifest['HashPages']
+        if not 1 <= len(index_pins) <= 32 or not 1 <= len(manifest_pins) <= 32:
+            raise ValueError('route inventory page count outside bounds')
+
+        def check_identity(document, identity):
+            if not isinstance(document, dict):
+                return False
+            unsigned = {key: value for key, value in document.items() if key != 'identity_sha256'}
+            canonical = json.dumps(unsigned, sort_keys=True, separators=(',', ':')).encode()
+            return (document['identity_sha256'] == identity
+                    and hashlib.sha256(canonical).hexdigest() == identity)
+
+        def pinned_documents(pins, pattern):
+            for number, pin in enumerate(pins):
+                name = pattern % number
+                if pin['Path'] != '$mission:hollow-country/' + name:
+                    raise ValueError('route inventory page path mismatch')
+                data = files[name]
+                if not 0 < len(data) <= 4096 or pin['Bytes'] != len(data):
+                    raise ValueError('route inventory page size mismatch: ' + name)
+                if hashlib.sha256(data).hexdigest() != pin['Sha256']:
+                    raise ValueError('route inventory page digest mismatch: ' + name)
+                expected.add(name)
+                yield pin, json.loads(data)
+
+        if not check_identity(index, index['identity_sha256']):
+            raise ValueError('route inventory root identity mismatch')
+        catalog_pins = []
+        for pin, document in pinned_documents(index_pins, 'travel/gapcov-roads/index-%03d.json'):
+            if (not check_identity(document, pin['IdentitySha256'])
+                    or document['schema'] != 1 or document['kind'] != 'gapcov-road-index-page'
+                    or document['page_start'] != len(catalog_pins) or not 1 <= len(document['pages']) <= 12):
+                raise ValueError('route inventory index page identity/order mismatch')
+            catalog_pins.extend(document['pages'])
+        if not 1 <= len(catalog_pins) <= 256:
+            raise ValueError('route inventory catalog page count outside bounds')
+        rows = 0
+        for pin, document in pinned_documents(catalog_pins, 'travel/gapcov-roads/page-%03d.json'):
+            if (not check_identity(document, pin['IdentitySha256'])
+                    or document['schema'] != 1 or document['kind'] != 'gapcov-road-page'
+                    or not 1 <= pin['Rows'] <= 5 or len(document['routes']) != pin['Rows']):
+                raise ValueError('route inventory page identity/rows mismatch')
+            rows += pin['Rows']
+        if rows != index['row_count']:
+            raise ValueError('route inventory row total mismatch')
+        collected = []
+        for pin, document in pinned_documents(manifest_pins, 'travel/routes-manifest-%03d.json'):
+            collected.extend(document['CatalogPages'])
+        if collected != catalog_pins:
+            raise ValueError('route inventory manifest/catalog pins mismatch')
+        if (manifest['CatalogIdentitySha256'] != index['identity_sha256']
+                or manifest['CatalogSha256'] != hashlib.sha256(files[index_name]).hexdigest()):
+            raise ValueError('route inventory manifest/catalog identity mismatch')
+        if pages != expected - {manifest_name}:
+            raise ValueError('route inventory page set mismatch')
+        return expected
+    except (KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError('route inventory missing or malformed page/pin') from exc
+
+
+_ROUTE_ROOT = Path(__file__).resolve().parents[2] / 'mission/hollow-country'
+_ROUTE_FILES = {path.relative_to(_ROUTE_ROOT).as_posix(): path.read_bytes()
+                for pattern in ('travel/gapcov-roads/*.json', 'travel/routes-manifest*.json')
+                for path in _ROUTE_ROOT.glob(pattern)}
+MISSION_FILES.update(route_inventory(_ROUTE_FILES))
+del _ROUTE_FILES
+
+
 def handoff(addon, mission, release=False):
     if release:
         raise ValueError('release gated: official signatures and native/multiplayer acceptance pending')
@@ -622,10 +707,12 @@ def handoff(addon, mission, release=False):
         if guide.is_symlink():
             raise ValueError('symlinked portable documentation forbidden')
         files[name] = guide.read_bytes()
-    for name, path in _regular_files(mission):
+    mission_files = {name: path.read_bytes() for name, path in _regular_files(mission)}
+    route_inventory(mission_files)
+    for name, data in mission_files.items():
         if name not in MISSION_FILES:
             raise ValueError(f'mission handoff file outside allowlist: {name}')
-        files['mission/hollow-country/' + name] = path.read_bytes()
+        files['mission/hollow-country/' + name] = data
     # Only these authored helpers, never arbitrary repository or build outputs.
     for name in ('hc_events.py', 'travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'HCWildlife_habitats.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
         path = Path(__file__).with_name(name)
@@ -670,6 +757,8 @@ def verify_handoff(blob):
                 raise ValueError('unsupported handoff manifest')
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
+            route_inventory({name.removeprefix('mission/hollow-country/'): z.read(name)
+                             for name in names if name.startswith('mission/hollow-country/')})
             helper_names = {'hc_events.py', 'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
                             'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'HCWildlife_habitats.py', 'xml_text.py', 'rag_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py',
                             'firearms_roster.json', 'README.md'}

@@ -6,6 +6,7 @@ unsigned PBOs through the existing pbo tooling; nothing here proves DayZ or laun
 """
 import contextlib
 import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -59,6 +60,42 @@ class Case(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.tmp = Path(self._tmp.name)
+
+
+class RouteInventory(Case):
+    def test_generated_inventory_matches_pins_and_refuses_partial_or_mixed_data(self):
+        mission = ROOT / 'mission/hollow-country'
+        files = {path.relative_to(mission).as_posix(): path.read_bytes()
+                 for pattern in ('travel/gapcov-roads/*.json', 'travel/routes-manifest*.json')
+                 for path in mission.glob(pattern)}
+        index = json.loads(files['travel/gapcov-roads/index.json'])
+        manifest = json.loads(files['travel/routes-manifest.json'])
+        expected = {'travel/gapcov-roads/index.json', 'travel/routes-manifest.json'}
+        catalog_pins = []
+        for pin in index['index_pages']:
+            document = json.loads(files[pin['Path'].removeprefix('$mission:hollow-country/')])
+            catalog_pins.extend(document['pages'])
+        pins = index['index_pages'] + catalog_pins + manifest['HashPages']
+        expected.update(pin['Path'].removeprefix('$mission:hollow-country/') for pin in pins)
+        self.assertEqual(expected, pbo.route_inventory(files))
+        self.assertTrue(expected <= pbo.MISSION_FILES)
+        for pin in pins:
+            name = pin['Path'].removeprefix('$mission:hollow-country/')
+            missing = dict(files)
+            del missing[name]
+            with self.subTest(missing=name), self.assertRaises(ValueError):
+                pbo.route_inventory(missing)
+            mixed = dict(files, **{name: files[name] + b' '})
+            with self.subTest(mixed=name), self.assertRaises(ValueError):
+                pbo.route_inventory(mixed)
+        extra = dict(files, **{'travel/gapcov-roads/page-unlisted.json': b'{}'})
+        with self.assertRaisesRegex(ValueError, 'page set mismatch'):
+            pbo.route_inventory(extra)
+        mixed = dict(files)
+        manifest['CatalogIdentitySha256'] = '0' * len(manifest['CatalogIdentitySha256'])
+        mixed['travel/routes-manifest.json'] = json.dumps(manifest).encode()
+        with self.assertRaisesRegex(ValueError, 'identity mismatch'):
+            pbo.route_inventory(mixed)
 
 
 class ExpectedSpec(Case):
