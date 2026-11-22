@@ -7,6 +7,20 @@ modded class ObjectSpawnerHandler
     static int HCPathgraphSkipped;
     static ref HCGroundSnapStats HCGroundStats;
 
+    // #335: vanilla OnGameplayDataHandlerLoad (3_Game/ObjectSpawner.c:71) calls
+    // SpawnObjects() unqualified inside the vanilla class, which binds to the vanilla
+    // static, so the override below never ran (no "[HC Ground] source=object_spawner"
+    // line in any native boot). DayZGame.GlobalsInit (DayZGame.c:1174) enters through
+    // the class name, so the entry is re-declared here and its call binds to HC.
+    override static void OnGameplayDataHandlerLoad()
+    {
+        if (g_Game && g_Game.IsServer())
+        {
+            SpawnObjects();
+            g_Game.GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
+        }
+    }
+
     override static void SpawnObjects()
     {
         HCGroundStats = new HCGroundSnapStats;
