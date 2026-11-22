@@ -1,9 +1,6 @@
 {
   "families": {
     "VehicleOffroadHatchback": [
-      "Expansion_Landrover",
-      "Expansion_Landrover_Green",
-      "Expansion_Landrover_Yellow",
       "ExpansionUAZ",
       "ExpansionUAZ_Green",
       "ExpansionUAZRoofless",
@@ -55,10 +52,7 @@
     "ExpansionUh1h",
     "ExpansionUtilityBoat",
     "ExpansionUtilityBoat_Green",
-    "ExpansionZodiacBoat",
-    "Expansion_Landrover",
-    "Expansion_Landrover_Green",
-    "Expansion_Landrover_Yellow"
+    "ExpansionZodiacBoat"
   ],
   "newParts": [
     "ExpansionBusWheel",
@@ -86,13 +80,6 @@
     "ExpansionUh1hDoor_1_2",
     "ExpansionUh1hDoor_2_1",
     "ExpansionUh1hDoor_2_2",
-    "Expansion_Landrover_Codriverdoor",
-    "Expansion_Landrover_Driverdoor",
-    "Expansion_Landrover_Hood",
-    "Expansion_Landrover_Left",
-    "Expansion_Landrover_Right",
-    "Expansion_Landrover_Trunk",
-    "Expansion_Landrover_Wheel",
     "Expansion_Mh6_Door_1_1",
     "Expansion_Mh6_Door_1_2",
     "Expansion_Mh6_Door_2_1",
@@ -113,5 +100,23 @@
     ],
     "placement": "existing stock family positions; merge vehexp-eventspawns.xml for air",
     "acceptance": "normal PBO/server boot and two-client visibility/perception/flight/persistence checks pending"
+  },
+  "dropped": {
+    "decision": "owner 2026-11-22",
+    "reason": "Land Rover model proxies print 'Wrong inventory shape' (wooden_case/sea_chest) on every creation; model data in a read-only dependency, no config override can fix it. Removed from the VehicleOffroadHatchback event, ce/types.xml and travel-spawnabletypes.xml with their loose parts and repair templates until the dependency model is fixed. Existing objects of these classes in a persisted world are not touched.",
+    "vehicles": [
+      "Expansion_Landrover",
+      "Expansion_Landrover_Green",
+      "Expansion_Landrover_Yellow"
+    ],
+    "parts": [
+      "Expansion_Landrover_Codriverdoor",
+      "Expansion_Landrover_Driverdoor",
+      "Expansion_Landrover_Hood",
+      "Expansion_Landrover_Left",
+      "Expansion_Landrover_Right",
+      "Expansion_Landrover_Trunk",
+      "Expansion_Landrover_Wheel"
+    ]
   }
 }

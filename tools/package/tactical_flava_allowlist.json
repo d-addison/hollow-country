@@ -375,26 +375,6 @@
   {
    "kind": "magazine",
    "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 5,
-    "min": 2,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
-   "class": "TF_Mag_M249_200Rnd"
-  },
-  {
-   "kind": "magazine",
-   "role": "support",
    "tier": "uncommon",
    "set": {
     "nominal": 12,
@@ -1042,7 +1022,6 @@
     "TF_VPO190",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_SR25",
     "TF_SVCh308",
     "TF_SVCh",
@@ -1110,7 +1089,6 @@
     "TF_VPO190",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_SR25",
     "TF_SVCh308",
     "TF_SVCh",
@@ -1178,7 +1156,6 @@
     "TF_VPO190",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_SR25",
     "TF_SVCh308",
     "TF_SVCh",
@@ -1246,7 +1223,6 @@
     "TF_VPO190",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_SR25",
     "TF_SVCh308",
     "TF_SVCh",
@@ -1359,7 +1335,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -1422,7 +1397,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -1485,7 +1459,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -3502,7 +3475,6 @@
     "TF_VPO190",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_SR25",
     "TF_SVCh308",
     "TF_SVCh",
@@ -4913,7 +4885,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -4976,7 +4947,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -5039,7 +5009,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -5102,7 +5071,6 @@
     "TF_AEK999",
     "TF_M16A4",
     "TF_M240",
-    "TF_M249",
     "TF_PKM",
     "TF_PKP",
     "TF_SR25",
@@ -6634,34 +6602,6 @@
     "Tier4"
    ],
    "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
-   "class": "TF_M249",
-   "vanilla_ammo": [
-    "Ammo_556x45",
-    "Ammo_556x45Tracer"
-   ],
-   "optic_requires": [],
-   "magazines": [
-    "TF_Mag_M249_200Rnd"
-   ]
-  },
-  {
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 5,
-    "min": 2,
-    "lifetime": 7200,
-    "restock": 1800
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
    "class": "TF_PKM",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -6868,6 +6808,14 @@
     "TF_MakarovPB_Suppressor"
    ],
    "reason": "Owner 2026-11-20: Makarov PB (pb6p9 model) still renders bugged in game; removed from CE until a fixed model is verified."
+  },
+  {
+   "group": "M249",
+   "classes": [
+    "TF_M249",
+    "TF_Mag_M249_200Rnd"
+   ],
+   "reason": "Owner 2026-11-22: Expansion AI weapon-event crash with the M249 is unreproduced; removed from CE loot (types, spawnabletypes) until a sanitised crash capture exists. Nominal not redistributed; other LMGs stay. Re-admit by restoring the rows."
   }
  ],
  "hc61": {
@@ -6974,12 +6922,6 @@
     "unit_rounds": 1,
     "parts": [],
     "class": "TF_Mag_M240_50Rnd"
-   },
-   {
-    "family": "tf-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "TF_Mag_M249_200Rnd"
    },
    {
     "family": "tf-magazine",
@@ -8058,12 +8000,6 @@
     "family": "tf-weapon",
     "unit_rounds": 1,
     "parts": [],
-    "class": "TF_M249"
-   },
-   {
-    "family": "tf-weapon",
-    "unit_rounds": 1,
-    "parts": [],
     "class": "TF_PKM"
    },
    {
@@ -8142,7 +8078,6 @@
    "TF_Mag_M14_10Rnd": "de3ecbbba1cb46568af1d87ee27f3c09057673b753fca18bc5bae62ee2dde014",
    "TF_Mag_M14_20Rnd": "a04bd68c8b8aab371017d26086894af4c13aebb2cf4976d93f2ed27732d097d5",
    "TF_Mag_M240_50Rnd": "6481e0801094085b19cf2df218534b2d08a8d108d6d6e602a539cf04abf5f434",
-   "TF_Mag_M249_200Rnd": "090d3276c11f617c9dc5455caceab651860ee1002303f29cb3d1e3a9c742605e",
    "TF_Mag_M4_PMAG10Rnd": "db198b6c67bc599983749f48ceead3d50de67ec443b6d37bb8802d58abd4890f",
    "TF_Mag_M4_PMAG20Rnd": "d3b86a3405a7492dcf5e690b476c4a133dfc862e777e51ddd3f543eb5d21178b",
    "TF_Mag_M4_PMAG30Rnd": "8d377f9d612daeb856b2a4c3967b113e67439f29a5429e6f6a232b87bdd30fe1",
@@ -8321,7 +8256,6 @@
    "TF_AEK999": "4857e0f7086e0fc7781a88f29a6a3d8d685dc82da033035fd499bf1b47421ccb",
    "TF_M16A4": "ff7fe4b348852dac8db0444ccfa4f745e7c172bc49e5157f656e1ea77800a545",
    "TF_M240": "c6a0a13ab8bc02353b7c313f5bb2dd023fee9ea557f2dec5afa2a50200803912",
-   "TF_M249": "18a4ba21f3d3ef40216ca5940f5bff9fea8da2a029ae18f8fde783d49bef0b86",
    "TF_PKM": "c6614276fd2bf241e408f18f7bfcf1d2bef6f79e663094d288d00c4b5a1766aa",
    "TF_PKP": "0c7a373864580187622681098b099e31e8f0fbc6877c45a0b71d6396f63523c0",
    "TF_SR25": "18ad6dcccfecad4683eefdc6cf82169be96ca56de5e64e04f02091f9d17387d3",
