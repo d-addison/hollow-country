@@ -68,13 +68,35 @@ class HCWorldStore
         if (!handle) { return false; }
         int count = ReadFile(handle, text, MAX_BYTES + 1);
         CloseFile(handle);
-        return count >= 0 && count == text.Length();
+        return count >= 0 && count <= MAX_BYTES + 1 && count == text.Length();
     }
 
-    // Recovery-only raw byte comparison. ReadFile's documented int[] target
-    // avoids treating embedded NUL/string conversion as proof of different bytes.
-    // One-time boot work, bounded by MAX_BYTES; native NUL probe remains pending.
+    protected static bool s_RawTested;
+    protected static bool s_RawEnabled;
+    protected static int s_CompareCalls;
+    static const int HC_COMPARE_LIMIT = 128;
+
+    // Process-wide boot/retry allowance: at most 128 MiB of raw input per
+    // side (plus the small self-test). Exhaustion uses checked string equality.
     static bool RawEqual(string left, string right)
+    {
+        if (!s_RawTested) { HCTestRawRead(); }
+        if (s_CompareCalls >= HC_COMPARE_LIMIT) { return false; }
+        s_CompareCalls++;
+        if (s_RawEnabled)
+        {
+            return HCRawEqual(left, right);
+        }
+        string a;
+        string b;
+        if (!ReadChecked(left, a) || !ReadChecked(right, b)) { return false; }
+        return a.Length() > 0 && a.Length() <= MAX_BYTES && a == b;
+    }
+
+    // EnSystem.c:425 leaves the array unit ambiguous. Allocate enough elements
+    // even if length means elements; reject impossible return counts BEFORE
+    // indexing. Zero bytes, errors and oversize images never prove equality.
+    protected static bool HCRawEqual(string left, string right)
     {
         FileHandle a = OpenFile(left, FileMode.READ);
         if (!a) { return false; }
@@ -83,22 +105,84 @@ class HCWorldStore
         int x[4096];
         int y[4096];
         int total;
-        bool equal = true;
+        bool equal;
         while (total <= MAX_BYTES)
         {
             int nx = ReadFile(a, x, 4096);
             int ny = ReadFile(b, y, 4096);
-            if (nx < 0 || nx != ny || total + nx > MAX_BYTES) { equal = false; break; }
-            for (int i = 0; i < nx; i++)
+            if (nx < 0 || ny < 0 || nx > 4096 || ny > 4096 || nx != ny || total + nx > MAX_BYTES) { break; }
+            if (nx == 0) { equal = total > 0; break; }
+            bool different = false;
+            for (int i = 0; i < nx && i < 4096; i++)
             {
-                if (x[i] != y[i]) { equal = false; break; }
+                if (x[i] != y[i]) { different = true; break; }
             }
-            if (!equal || nx == 0) { break; }
+            if (different) { break; }
             total += nx;
         }
         CloseFile(a);
         CloseFile(b);
         return equal;
+    }
+
+    protected static bool HCRawCounts(string path)
+    {
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int buffer[4096];
+        int first = ReadFile(handle, buffer, 4096);
+        int second = ReadFile(handle, buffer, 4096);
+        int eof = ReadFile(handle, buffer, 4096);
+        CloseFile(handle);
+        return first == 4096 && second == 904 && eof == 0;
+    }
+
+    // One-time native qualification before the first raw comparison. Fixtures
+    // are disposable, actor-free profile files. EnConvert.c:44 AsciiToString.
+    // A NUL that cannot be emitted/read exactly disables raw comparisons too.
+    protected static void HCTestRawRead()
+    {
+        s_RawTested = true;
+        string a = "$profile:HollowCountry/custody-read-selftest-a";
+        string b = "$profile:HollowCountry/custody-read-selftest-b";
+        string empty = "$profile:HollowCountry/custody-read-selftest-empty";
+        FileHandle fa = OpenFile(a, FileMode.WRITE);
+        FileHandle fb = OpenFile(b, FileMode.WRITE);
+        FileHandle fe = OpenFile(empty, FileMode.WRITE);
+        if (fa && fb && fe)
+        {
+            int nul;
+            string zero = nul.AsciiToString();
+            string block;
+            for (int n = 0; n < 1000; n++) { block += "a"; }
+            for (int chunk = 0; chunk < 5; chunk++)
+            {
+                string left = block;
+                string right = block;
+                if (chunk == 4 && block.Length() == 1000)
+                {
+                    left = block.Substring(0, 500) + zero + block.Substring(501, 499);
+                    right = block.Substring(0, 500) + "b" + block.Substring(501, 499);
+                }
+                FPrint(fa, left);
+                FPrint(fb, right);
+            }
+        }
+        if (fa) { CloseFile(fa); }
+        if (fb) { CloseFile(fb); }
+        if (fe) { CloseFile(fe); }
+        // The differing byte must survive beyond the first 4096-byte read.
+        // Never enable the raw path when the NUL fixture was shortened.
+        string fixture;
+        FileHandle check = OpenFile(a, FileMode.READ);
+        int length = -1;
+        if (check) { length = ReadFile(check, fixture, 6000); CloseFile(check); }
+        if (fa && fb && fe && length == 5000 && HCRawCounts(a) && HCRawCounts(b) && HCRawEqual(a, a) && !HCRawEqual(a, b) && !HCRawEqual(empty, empty)) { s_RawEnabled = true; }
+        DeleteFile(a);
+        DeleteFile(b);
+        DeleteFile(empty);
+        if (!s_RawEnabled) { Print("[HC WorldStore] custody_raw_compare_disabled reason=native_selftest_failed string_fallback=true"); }
+        else { Print("[HC WorldStore] custody_raw_compare_selftest pass=true"); }
     }
 
     // JSON serializer compatibility can ignore unknown fields. Since the DTOs

@@ -1964,23 +1964,533 @@
     },
     {
       "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 79,
-      "symbol": "HCWorldStore.RawEqual",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness -> HCWorldStore.RawEqual; enqueue bounded startup work",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 438,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 439,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 454,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 459,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 461,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 463,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 467,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 475,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 497,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 499,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 499,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 523,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 523,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 524,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 544,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 556,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#4",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 558,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 585,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 585,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 589,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 596,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 615,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 628,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 633,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 633,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#5",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 634,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#2",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 643,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 643,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#6",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 644,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#3",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 651,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 651,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#7",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 657,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 658,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#6",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 658,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#8",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 676,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#7",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 690,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 690,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 691,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 691,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 720,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#5",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 725,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
     },
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 81,
-      "symbol": "HCWorldStore.RawEqual",
-      "key": "OpenFile#2",
-      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness -> HCWorldStore.RawEqual; enqueue bounded startup work",
+      "line": 67,
+      "symbol": "HCWorldStore.ReadChecked",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldStore.ReadChecked; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 101,
+      "symbol": "HCWorldStore.HCRawEqual",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 103,
+      "symbol": "HCWorldStore.HCRawEqual",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 130,
+      "symbol": "HCWorldStore.HCRawCounts",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 149,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 150,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 151,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#3",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 177,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#4",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 181,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 182,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 183,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 654,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#9",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 6: synchronous boot/retry recovery only; eight-slot archive, 64 slot comparisons and 128 raw/string comparisons across retries; 1 MiB per side. Unverified sources stay untouched; a valid backup owns checkpoints. Native boot latency/crash/upgrade evidence pending."
     }
   ]
 }

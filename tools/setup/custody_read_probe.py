@@ -1,6 +1,6 @@
 """Disposable native ReadFile/NUL experiment: stage and ingest only, never launch.
 
-Stage emits an actor-free CE-disabled mission overlay and three binary fixtures.
+Stage emits an actor-free CE-disabled mission overlay and binary fixtures.
 The lead runs it in a fresh disposable runtime under the normal host lock and
 external watchdog. It never belongs in a production mission/profile. Ingest
 reports observations, not a native behavior verdict or gameplay acceptance.
@@ -11,7 +11,9 @@ from pathlib import Path
 
 from tools.setup.probe_core import safe
 
-FIXTURES = {"ascii": b"abcdef", "nul": b"ab\x00def", "torn": b"\xff\x00x\x01"}
+FIXTURES = {"ascii": b"abcdef", "nul": b"ab\x00def", "torn": b"\xff\x00x\x01",
+            "long": b"a" * 4500 + b"Z" + b"a" * 499,
+            "long_nul": b"a" * 4500 + b"\x00" + b"a" * 499}
 RESULT = "hc-custody-read-observations.json"
 HOOK = '''// Disposable CE-disabled mission; no entities, hive, or player state.
 void main() {}
@@ -21,6 +23,11 @@ class HCNulReadRow
     int string_count;
     int string_length;
     int raw_count;
+    int raw_second_count;
+    int raw_eof_count;
+    int raw_second_at_101;
+    int raw_second_at_404;
+    ref array<int> raw_second_head = new array<int>;
     ref array<int> raw_head = new array<int>;
 }
 class HCNulReadReceipt
@@ -37,9 +44,9 @@ class CustomMission : MissionServer
     }
     void HCNulRead()
     {
-        string names[] = {"ascii", "nul", "torn"};
+        string names[] = {"ascii", "nul", "torn", "long", "long_nul"};
         HCNulReadReceipt receipt = new HCNulReadReceipt;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 5; i++)
         {
             string path = "$mission:hc-read-" + names[i] + ".bin";
             FileHandle handle = OpenFile(path, FileMode.READ);
@@ -54,7 +61,14 @@ class CustomMission : MissionServer
             if (!handle) { Print("[HC NulRead] raw_open_failed"); return; }
             int raw[4096];
             row.raw_count = ReadFile(handle, raw, 4096);
+            int second[4096];
+            row.raw_second_count = ReadFile(handle, second, 4096);
+            int eof[4096];
+            row.raw_eof_count = ReadFile(handle, eof, 4096);
+            row.raw_second_at_101 = second[101];
+            row.raw_second_at_404 = second[404];
             CloseFile(handle);
+            for (int k = 0; k < 8; k++) { row.raw_second_head.Insert(second[k]); }
             for (int j = 0; j < 8; j++) { row.raw_head.Insert(raw[j]); }
             receipt.cases.Insert(row);
         }
@@ -103,13 +117,14 @@ def ingest(receipt):
         if not isinstance(row, dict) or row.get("name") not in FIXTURES or row["name"] in seen:
             raise ValueError("invalid or duplicate fixture")
         seen.add(row["name"])
-        for field in ("string_count", "string_length", "raw_count"):
-            if type(row.get(field)) is not int or not -1 <= row[field] <= 4096:
+        for field in ("string_count", "string_length", "raw_count", "raw_second_count", "raw_eof_count", "raw_second_at_101", "raw_second_at_404"):
+            if type(row.get(field)) is not int or not -(2**31) <= row[field] < 2**31:
                 raise ValueError("invalid read observation")
-        head = row.get("raw_head")
-        if not isinstance(head, list) or len(head) != 8 or any(
-                type(value) is not int or not -(2**31) <= value < 2**31 for value in head):
-            raise ValueError("invalid raw sample")
+        for field in ("raw_head", "raw_second_head"):
+            head = row.get(field)
+            if not isinstance(head, list) or len(head) != 8 or any(
+                    type(value) is not int or not -(2**31) <= value < 2**31 for value in head):
+                raise ValueError("invalid raw sample")
     return {"observations": data, "native_behavior_acceptance": "PENDING"}
 
 

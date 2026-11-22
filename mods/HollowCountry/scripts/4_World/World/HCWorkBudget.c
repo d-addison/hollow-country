@@ -263,8 +263,7 @@ class HCSaveScheduler : HCModule
     }
 
     // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
-    // that never reports completion is abandoned at SaveFlushStageLimit (default/ceiling 4096: a staged
-    // image flush may finish an older snapshot before writing the current one).
+    // that never reports completion is abandoned at the configured limit (the default expands to cover two maximum-size images).
     static bool HCFlush(HCSaveJob job)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
@@ -275,7 +274,12 @@ class HCSaveScheduler : HCModule
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
-        while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < config.SaveFlushStageLimit)
+        // The default must cover two maximum-size images (an older snapshot
+        // plus a refresh). Explicit lower operator limits remain authoritative.
+        // 8 MiB / 4096 = 2048 chunks; two guards derived from the raw cap, plus 64 owner stages.
+        int flushLimit = config.SaveFlushStageLimit;
+        if (flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
+        while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
             result = job.HCStep();
             guard = guard + 1;
@@ -467,7 +471,7 @@ class HCStagedSaveImage
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
     // Conservative synchronous finish guard, including optional prior reads.
-    static const int HC_MAX_STAGES = 17000;
+    static const int HC_MAX_STAGES = 8 * (HCGroupIO.HC_RAW_READ_CAP / HC_CHUNK_BYTES) + 128;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;
