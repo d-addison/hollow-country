@@ -18,7 +18,9 @@ controller is introduced.
   intact. The installed Expansion TT650/250N/OldBike are scope-0 legacy prototypes,
   not usable CE additions. Their vehicle base is obsolete; changing scope is not
   an implementation of working vehicle simulation. No third-party source is copied.
-- Seven Land Rover/UAZ variants share the existing nine-offroad budget. Native
+- Four UAZ variants share the existing nine-offroad budget. The three Expansion Land Rover
+  variants and their parts are dropped (owner 2026-11-22; model proxies print
+  "Wrong inventory shape"; see `dropped` in vehexp-roster.json). Native
   trucks plus three buses and four tractors share a seven-vehicle truck event.
   Three Expansion boat variants share the existing six-boat coastal event, so
   this does not add six more boats. Stock boat positions remain unchanged.
@@ -70,7 +72,7 @@ controller is introduced.
 2. Cov-items: merge **every exact type element** from
    `vehicles/vehexp-types.append.xml` into `ce/types.xml`, replacing by case-folded
    name if a row already exists. Do not also register the append document as a CE
-   file. Its 23 vehicle rows have nominal/min zero and its 36 part rows are finite.
+   file. Its 20 vehicle rows have nominal/min zero and its 29 part rows are finite.
    Native trucks and existing native vehicle rows remain under their existing
    zero loose-loot budgets. Do not add scope-0 legacy bikes/An-2 types rows.
 3. In tools/package/pbo.py MISSION_FILES add these exact relative strings:
@@ -117,8 +119,7 @@ calls only super.EOnPostSimulate and IsLanded, reusing provider contact state.
 EXPANSIONMODVEHICLE. No Expansion code is copied or repacked.
 
 Vehicle class/attachment evidence is installed CfgVehicles in config.bin (binary
-configs have no source line numbers): 2291785437 vehicles_ground_landrover,
-vehicles_ground_uaz, vehicles_air_gyro, vehicles_air_hatchbird,
+configs have no source line numbers): 2291785437 vehicles_ground_uaz, vehicles_air_gyro, vehicles_air_hatchbird,
 vehicles_water_zodiac, vehicles_objects_gear and vehicles_scripts PBOs;
 2116157322 vehicles_ground_bus, vehicles_ground_tractor, vehicles_air_mh6,
 vehicles_air_uh1h, vehicles_air_merlin, vehicles_water_utility PBOs.

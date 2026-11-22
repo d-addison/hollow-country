@@ -19,8 +19,5 @@
   "ExpansionUh1h": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
   "ExpansionUtilityBoat": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
   "ExpansionUtilityBoat_Green": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
-  "ExpansionZodiacBoat": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
-  "Expansion_Landrover": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
-  "Expansion_Landrover_Green": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified).",
-  "Expansion_Landrover_Yellow": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified)."
+  "ExpansionZodiacBoat": "Vehicle entity reserved for native vehicle events; see mission/hollow-country/ce/events.xml and vehicles/vehexp-roster.json (runtime unverified)."
 }

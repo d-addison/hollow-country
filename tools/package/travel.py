@@ -133,9 +133,8 @@ def roster(source=SOURCE):
 def expansion_repairs(vehicle):
     """Authored repair subset of installed Expansion CfgVehicles attachment slots.
 
-    config.bin has no source lines. Evidence: 2291785437 vehicles_ground_landrover,
-    vehicles_ground_uaz, vehicles_air_gyro, vehicles_air_hatchbird,
-    vehicles_water_zodiac; 2116157322 vehicles_ground_bus, vehicles_ground_tractor,
+    config.bin has no source lines. Evidence: 2291785437 vehicles_ground_uaz,
+    vehicles_air_gyro, vehicles_air_hatchbird, vehicles_water_zodiac; 2116157322 vehicles_ground_bus, vehicles_ground_tractor,
     vehicles_air_mh6, vehicles_air_uh1h, vehicles_air_merlin, vehicles_water_utility.
     Four road/rotor wheels are authored, without spare/dummy Niva wheel slots.
     These are source policy multiplicities, never a claim about live attachments.
@@ -143,11 +142,6 @@ def expansion_repairs(vehicle):
     road = Counter({'CarBattery': 1, 'CarRadiator': 1, 'SparkPlug': 1})
     air = Counter({'ExpansionHelicopterBattery': 1, 'ExpansionIgniterPlug': 1,
                    'ExpansionHydraulicHoses': 1})
-    if vehicle.startswith('Expansion_Landrover'):
-        road.update({'Expansion_Landrover_Wheel': 4})
-        road.update({'Expansion_Landrover_' + panel: 1 for panel in
-                     ('Driverdoor', 'Codriverdoor', 'Left', 'Right', 'Trunk', 'Hood')})
-        return road
     if vehicle.startswith('ExpansionUAZ'):
         road.update({'ExpansionUAZWheel': 4})
         panels = ['Driver', 'CoDriver', 'Hood']
