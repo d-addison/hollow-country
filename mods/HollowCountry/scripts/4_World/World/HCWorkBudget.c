@@ -100,7 +100,7 @@ class HCPerfPlayers
 // and claim/result durability barriers MUST remain synchronous until their
 // callers have durable continuation state. Shutdown bypasses staggering.
 // Issue #138: a routine save may span several module ticks. HCStep() runs ONE bounded stage and
-// reports whether more stages follow; the default is the unchanged single whole write.
+// reports whether more stages follow; each owner must supply its staged implementation.
 class HCSaveJob
 {
     static const int STEP_DONE = 0;
@@ -129,12 +129,7 @@ class HCSaveJob
     string HCName() { return "job"; }
     // Snapshot owners may have newer requests after a committed image.
     bool HCPendingCheckpoint() { return false; }
-    bool HCWrite() { return false; }
-    int HCStep()
-    {
-        if (HCWrite()) { return STEP_DONE; }
-        return STEP_FAILED;
-    }
+    int HCStep() { return STEP_FAILED; }
 }
 
 // Bound: <=32 registered stores examined (operator may lower), SaveStagesPerTick
