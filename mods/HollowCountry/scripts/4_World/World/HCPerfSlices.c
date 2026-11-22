@@ -19,47 +19,7 @@ class HCPerfConfig
     int DebugSnapshotIntervalSeconds = 300;
     // Per-consumer multipliers of existing caller costs; 1 preserves provisional defaults.
     // Read once at startup; invalid/missing entries retain 1 (registry range 1..64).
-    int TickWeight_INFECTED = 1;
-    int TickWeight_INTERIORS = 1;
-    int TickWeight_SEARCH_BIND = 1;
-    int TickWeight_SEARCH_MAINT = 1;
-    int TickWeight_SEARCH_REFRESH = 1;
-    int TickWeight_SEARCH_DETACHED = 1;
-    int TickWeight_LOD_CLASSIFY = 1;
-    int TickWeight_LOD_HERD = 1;
-    int TickWeight_BASES = 1;
-    int TickWeight_CONFLICT = 1;
-    int TickWeight_TRADE = 1;
-    int TickWeight_SITUATIONS = 1;
-    int TickWeight_BASE_RAID = 1;
-    int TickWeight_ROLES = 1;
-    int TickWeight_FORMATION = 1;
-    int TickWeight_CARFIX = 1;
-    int TickWeight_HEARTH = 1;
-    int TickWeight_INCIDENTS = 1;
-    int TickWeight_INCIDENT_RESPONSE = 1;
-    int TickWeight_AI_RESPAWN = 1;
-    int TickWeight_SEARCH_COMPACT = 1;
-    int TickWeight_SHELTER = 1;
-    int TickWeight_AI_SITES = 1;
-    int TickWeight_STORY_INDEX = 1;
-    int TickWeight_AI_ROUTES = 1;
-    int TickWeight_POLICE_BIND = 1;
-    int TickWeight_ROADS = 1;
-    int TickWeight_INFECTED_VARIETY = 1;
-    int TickWeight_INFECTED_VARIETY_ROUTES = 1;
-    int TickWeight_SITUATION_RUNTIME = 1;
-    int TickWeight_SITUATION_SMOKE = 1;
-    int TickWeight_ADMIN_VISITOR = 1;
-    int TickWeight_TACTICS_SCAN = 1;
-    int TickWeight_AI_TRADE_PRODUCER = 1;
-    int TickWeight_CONVOY_ROUTE = 1;
-    int TickWeight_CONVOY_RUN = 1;
-    int TickWeight_SEARCH_COVERAGE = 1;
-    int TickWeight_SEARCH_RETIREMENT = 1;
-    int TickWeight_WILDLIFE = 1;
-    int TickWeight_ZONE_GUARDS = 1;
-    int TickWeight_AI_ROUTE_CACHE = 1;
+    protected string m_WeightText;
     protected static ref HCPerfConfig s_Config;
 
     static HCPerfConfig HCGet()
@@ -85,49 +45,60 @@ class HCPerfConfig
         return s_Config;
     }
 
+    // Boot-only lookup in the already size-bounded, successfully parsed JSON.
+    // Reuse shared text windows/key matching (including escaped JSON keys).
+    // The native JSON loader validates the numeric token; strings, fractions,
+    // nested lookalikes and out-of-range values retain the table default.
+    int HCWeight(string name, int defaultWeight)
+    {
+        HCTextWindow text = new HCTextWindow(m_WeightText);
+        string key = "TickWeight_" + name;
+        int depth = 0;
+        int cursor = 0;
+        while (cursor < text.Length())
+        {
+            string token = text.At(cursor);
+            if (token == "\"")
+            {
+                int start = cursor + 1;
+                cursor = start;
+                while (cursor < text.Length() && text.At(cursor) != "\"")
+                {
+                    if (text.At(cursor) == "\\") { cursor++; }
+                    cursor++;
+                }
+                int stop = cursor;
+                cursor++;
+                while (cursor < text.Length() && HCWeightSpace(text.At(cursor))) { cursor++; }
+                if (depth == 1 && text.At(cursor) == ":" && HCJsonFields.KeyMatchesAt(text, start, stop, key))
+                {
+                    cursor++;
+                    while (cursor < text.Length() && HCWeightSpace(text.At(cursor))) { cursor++; }
+                    int valueStart = cursor;
+                    while (cursor < text.Length() && text.At(cursor) != "," && text.At(cursor) != "}") { cursor++; }
+                    int value;
+                    string error;
+                    string number = text.Range(valueStart, cursor - valueStart);
+                    if (JsonFileLoader<int>.LoadData(number, value, error) && HCOperatorSettingsRegistry.HCValid("Performance." + key, value)) { return value; }
+                    return defaultWeight;
+                }
+                continue;
+            }
+            if (token == "{" || token == "[") { depth++; }
+            if (token == "}" || token == "]") { depth--; }
+            cursor++;
+        }
+        return defaultWeight;
+    }
+
+    protected bool HCWeightSpace(string token)
+    {
+        return token == " " || token == "\t" || token == "\r" || token == "\n";
+    }
+
     void HCApply(HCPerfConfig decoded, string text)
     {
-        if (HCJsonFields.Has(text, "TickWeight_INFECTED") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED", decoded.TickWeight_INFECTED)) { TickWeight_INFECTED = decoded.TickWeight_INFECTED; }
-        if (HCJsonFields.Has(text, "TickWeight_INTERIORS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INTERIORS", decoded.TickWeight_INTERIORS)) { TickWeight_INTERIORS = decoded.TickWeight_INTERIORS; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_BIND") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_BIND", decoded.TickWeight_SEARCH_BIND)) { TickWeight_SEARCH_BIND = decoded.TickWeight_SEARCH_BIND; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_MAINT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_MAINT", decoded.TickWeight_SEARCH_MAINT)) { TickWeight_SEARCH_MAINT = decoded.TickWeight_SEARCH_MAINT; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_REFRESH") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_REFRESH", decoded.TickWeight_SEARCH_REFRESH)) { TickWeight_SEARCH_REFRESH = decoded.TickWeight_SEARCH_REFRESH; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_DETACHED") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_DETACHED", decoded.TickWeight_SEARCH_DETACHED)) { TickWeight_SEARCH_DETACHED = decoded.TickWeight_SEARCH_DETACHED; }
-        if (HCJsonFields.Has(text, "TickWeight_LOD_CLASSIFY") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_LOD_CLASSIFY", decoded.TickWeight_LOD_CLASSIFY)) { TickWeight_LOD_CLASSIFY = decoded.TickWeight_LOD_CLASSIFY; }
-        if (HCJsonFields.Has(text, "TickWeight_LOD_HERD") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_LOD_HERD", decoded.TickWeight_LOD_HERD)) { TickWeight_LOD_HERD = decoded.TickWeight_LOD_HERD; }
-        if (HCJsonFields.Has(text, "TickWeight_BASES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_BASES", decoded.TickWeight_BASES)) { TickWeight_BASES = decoded.TickWeight_BASES; }
-        if (HCJsonFields.Has(text, "TickWeight_CONFLICT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONFLICT", decoded.TickWeight_CONFLICT)) { TickWeight_CONFLICT = decoded.TickWeight_CONFLICT; }
-        if (HCJsonFields.Has(text, "TickWeight_TRADE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_TRADE", decoded.TickWeight_TRADE)) { TickWeight_TRADE = decoded.TickWeight_TRADE; }
-        if (HCJsonFields.Has(text, "TickWeight_SITUATIONS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATIONS", decoded.TickWeight_SITUATIONS)) { TickWeight_SITUATIONS = decoded.TickWeight_SITUATIONS; }
-        if (HCJsonFields.Has(text, "TickWeight_BASE_RAID") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_BASE_RAID", decoded.TickWeight_BASE_RAID)) { TickWeight_BASE_RAID = decoded.TickWeight_BASE_RAID; }
-        if (HCJsonFields.Has(text, "TickWeight_ROLES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ROLES", decoded.TickWeight_ROLES)) { TickWeight_ROLES = decoded.TickWeight_ROLES; }
-        if (HCJsonFields.Has(text, "TickWeight_FORMATION") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_FORMATION", decoded.TickWeight_FORMATION)) { TickWeight_FORMATION = decoded.TickWeight_FORMATION; }
-        if (HCJsonFields.Has(text, "TickWeight_CARFIX") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CARFIX", decoded.TickWeight_CARFIX)) { TickWeight_CARFIX = decoded.TickWeight_CARFIX; }
-        if (HCJsonFields.Has(text, "TickWeight_HEARTH") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_HEARTH", decoded.TickWeight_HEARTH)) { TickWeight_HEARTH = decoded.TickWeight_HEARTH; }
-        if (HCJsonFields.Has(text, "TickWeight_INCIDENTS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INCIDENTS", decoded.TickWeight_INCIDENTS)) { TickWeight_INCIDENTS = decoded.TickWeight_INCIDENTS; }
-        if (HCJsonFields.Has(text, "TickWeight_INCIDENT_RESPONSE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INCIDENT_RESPONSE", decoded.TickWeight_INCIDENT_RESPONSE)) { TickWeight_INCIDENT_RESPONSE = decoded.TickWeight_INCIDENT_RESPONSE; }
-        if (HCJsonFields.Has(text, "TickWeight_AI_RESPAWN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_RESPAWN", decoded.TickWeight_AI_RESPAWN)) { TickWeight_AI_RESPAWN = decoded.TickWeight_AI_RESPAWN; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_COMPACT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_COMPACT", decoded.TickWeight_SEARCH_COMPACT)) { TickWeight_SEARCH_COMPACT = decoded.TickWeight_SEARCH_COMPACT; }
-        if (HCJsonFields.Has(text, "TickWeight_SHELTER") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SHELTER", decoded.TickWeight_SHELTER)) { TickWeight_SHELTER = decoded.TickWeight_SHELTER; }
-        if (HCJsonFields.Has(text, "TickWeight_AI_SITES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_SITES", decoded.TickWeight_AI_SITES)) { TickWeight_AI_SITES = decoded.TickWeight_AI_SITES; }
-        if (HCJsonFields.Has(text, "TickWeight_STORY_INDEX") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_STORY_INDEX", decoded.TickWeight_STORY_INDEX)) { TickWeight_STORY_INDEX = decoded.TickWeight_STORY_INDEX; }
-        if (HCJsonFields.Has(text, "TickWeight_AI_ROUTES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTES", decoded.TickWeight_AI_ROUTES)) { TickWeight_AI_ROUTES = decoded.TickWeight_AI_ROUTES; }
-        if (HCJsonFields.Has(text, "TickWeight_POLICE_BIND") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_POLICE_BIND", decoded.TickWeight_POLICE_BIND)) { TickWeight_POLICE_BIND = decoded.TickWeight_POLICE_BIND; }
-        if (HCJsonFields.Has(text, "TickWeight_ROADS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ROADS", decoded.TickWeight_ROADS)) { TickWeight_ROADS = decoded.TickWeight_ROADS; }
-        if (HCJsonFields.Has(text, "TickWeight_INFECTED_VARIETY") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED_VARIETY", decoded.TickWeight_INFECTED_VARIETY)) { TickWeight_INFECTED_VARIETY = decoded.TickWeight_INFECTED_VARIETY; }
-        if (HCJsonFields.Has(text, "TickWeight_INFECTED_VARIETY_ROUTES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED_VARIETY_ROUTES", decoded.TickWeight_INFECTED_VARIETY_ROUTES)) { TickWeight_INFECTED_VARIETY_ROUTES = decoded.TickWeight_INFECTED_VARIETY_ROUTES; }
-        if (HCJsonFields.Has(text, "TickWeight_SITUATION_RUNTIME") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATION_RUNTIME", decoded.TickWeight_SITUATION_RUNTIME)) { TickWeight_SITUATION_RUNTIME = decoded.TickWeight_SITUATION_RUNTIME; }
-        if (HCJsonFields.Has(text, "TickWeight_SITUATION_SMOKE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATION_SMOKE", decoded.TickWeight_SITUATION_SMOKE)) { TickWeight_SITUATION_SMOKE = decoded.TickWeight_SITUATION_SMOKE; }
-        if (HCJsonFields.Has(text, "TickWeight_ADMIN_VISITOR") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ADMIN_VISITOR", decoded.TickWeight_ADMIN_VISITOR)) { TickWeight_ADMIN_VISITOR = decoded.TickWeight_ADMIN_VISITOR; }
-        if (HCJsonFields.Has(text, "TickWeight_TACTICS_SCAN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_TACTICS_SCAN", decoded.TickWeight_TACTICS_SCAN)) { TickWeight_TACTICS_SCAN = decoded.TickWeight_TACTICS_SCAN; }
-        if (HCJsonFields.Has(text, "TickWeight_AI_TRADE_PRODUCER") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_TRADE_PRODUCER", decoded.TickWeight_AI_TRADE_PRODUCER)) { TickWeight_AI_TRADE_PRODUCER = decoded.TickWeight_AI_TRADE_PRODUCER; }
-        if (HCJsonFields.Has(text, "TickWeight_CONVOY_ROUTE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONVOY_ROUTE", decoded.TickWeight_CONVOY_ROUTE)) { TickWeight_CONVOY_ROUTE = decoded.TickWeight_CONVOY_ROUTE; }
-        if (HCJsonFields.Has(text, "TickWeight_CONVOY_RUN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONVOY_RUN", decoded.TickWeight_CONVOY_RUN)) { TickWeight_CONVOY_RUN = decoded.TickWeight_CONVOY_RUN; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_COVERAGE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_COVERAGE", decoded.TickWeight_SEARCH_COVERAGE)) { TickWeight_SEARCH_COVERAGE = decoded.TickWeight_SEARCH_COVERAGE; }
-        if (HCJsonFields.Has(text, "TickWeight_SEARCH_RETIREMENT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_RETIREMENT", decoded.TickWeight_SEARCH_RETIREMENT)) { TickWeight_SEARCH_RETIREMENT = decoded.TickWeight_SEARCH_RETIREMENT; }
-        if (HCJsonFields.Has(text, "TickWeight_WILDLIFE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_WILDLIFE", decoded.TickWeight_WILDLIFE)) { TickWeight_WILDLIFE = decoded.TickWeight_WILDLIFE; }
-        if (HCJsonFields.Has(text, "TickWeight_ZONE_GUARDS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ZONE_GUARDS", decoded.TickWeight_ZONE_GUARDS)) { TickWeight_ZONE_GUARDS = decoded.TickWeight_ZONE_GUARDS; }
-        if (HCJsonFields.Has(text, "TickWeight_AI_ROUTE_CACHE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTE_CACHE", decoded.TickWeight_AI_ROUTE_CACHE)) { TickWeight_AI_ROUTE_CACHE = decoded.TickWeight_AI_ROUTE_CACHE; }
+        m_WeightText = text;
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
         if (HCJsonFields.Has(text, "StartupFrameMs") && HCOperatorSettingsRegistry.HCValid("Performance.StartupFrameMs", decoded.StartupFrameMs)) { StartupFrameMs = decoded.StartupFrameMs; }
         if (HCJsonFields.Has(text, "StartupDeadlineSeconds") && HCOperatorSettingsRegistry.HCValid("Performance.StartupDeadlineSeconds", decoded.StartupDeadlineSeconds)) { StartupDeadlineSeconds = decoded.StartupDeadlineSeconds; }
@@ -171,37 +142,6 @@ class HCPerfSlices : HCWorkBudget
 // Deadlines cannot interrupt a native call; retain the item cap as a backstop.
 class HCPerfBootBudget : HCWorkBudget
 {
-    protected bool m_ClockSeeded;
-    protected int m_PreviousTick;
-    protected float m_TicksPerMs;
-    protected int m_RawStart;
-    protected float m_RawDeadline;
-
-    void HCFrame(float deltaTime)
-    {
-        if (m_ClockSeeded && deltaTime > 0)
-        {
-            int elapsedTicks = TickCount(m_PreviousTick);
-            if (elapsedTicks > 0) { m_TicksPerMs = elapsedTicks / (deltaTime * 1000); }
-        }
-        m_PreviousTick = TickCount(0);
-        m_ClockSeeded = true;
-    }
-
-    override void HCReset(int limit, float milliseconds = 4)
-    {
-        m_RawStart = TickCount(0);
-        m_RawDeadline = milliseconds * m_TicksPerMs;
-        m_Limit = limit;
-        if (!(m_TicksPerMs > 0)) { m_Limit = 1; }
-        m_Used = 0;
-    }
-
-    override bool HCContinue()
-    {
-        if (m_Used >= m_Limit) { return false; }
-        if (m_TicksPerMs > 0 && TickCount(m_RawStart) >= m_RawDeadline) { return false; }
-        m_Used = m_Used + 1;
-        return true;
-    }
+    // Compatibility surface: all retained slices now use HCWorkBudget's clock.
+    void HCFrame(float deltaTime) { HCWorkBudget.HCCalibrate(); }
 }

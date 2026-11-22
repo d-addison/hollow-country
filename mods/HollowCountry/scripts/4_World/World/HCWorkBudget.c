@@ -9,9 +9,14 @@
 // #278: GetTickTime stays fixed inside a server tick. Use TickCount for slices.
 class HCWorkBudget
 {
-    // TickCount units are undocumented. Boot 117 observed 10,000 ticks/ms;
-    // use that until HCPerfSampler publishes a validated window conversion.
-    protected static float s_TicksPerMs = 10000.0;
+    // TickCount units are undocumented; one validated conversion serves all budgets.
+    protected static float s_TicksPerMs = 10000;
+    protected static bool s_ClockValidated;
+    protected static int s_ClockTick;
+    protected static float s_ClockTime;
+    protected static bool s_ClockSeeded;
+    protected static int s_ClockRejected;
+    protected static int s_ClockReported;
     protected float m_Deadline;
     protected int m_SliceStart;
     protected float m_SliceTicksPerMs;
@@ -19,25 +24,72 @@ class HCWorkBudget
     protected int m_Used;
     protected float m_LogAfter;
 
-    // Invalid/stopped sampler windows discard the old rate. Snapshot on reset
-    // so a rate publication cannot change the deadline of an active slice.
-    static void HCSetTicksPerMs(float ticksPerMs)
+    // Invalid/stopped sampler windows retain the last valid rate (or boot seed).
+    // Snapshot on reset so publication cannot change an active slice's deadline.
+    static bool HCSetTicksPerMs(float ticksPerMs)
     {
-        s_TicksPerMs = 10000.0;
-        if (ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS && ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS)
+        if (!(ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS && ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS)) { return false; }
+        // Admit the first validated sample directly; smooth later samples in O(1).
+        if (s_ClockValidated) { s_TicksPerMs = s_TicksPerMs * 0.75 + ticksPerMs * 0.25; }
+        else { s_TicksPerMs = ticksPerMs; }
+        s_ClockValidated = true;
+        return true;
+    }
+
+    static float HCTicksPerMs() { return s_TicksPerMs; }
+
+    protected static void HCRejectCalibration()
+    {
+        s_ClockRejected++;
+        if (s_ClockRejected == 1)
         {
-            s_TicksPerMs = ticksPerMs;
+            Print("[HC Clock] rejected=1 retained_ticks_per_ms=" + s_TicksPerMs.ToString() + " runtime=PENDING");
         }
+    }
+
+    // Called by the existing perf-window emission, never by the hot reset path.
+    static void HCPrintCalibrationSummary()
+    {
+        if (s_ClockRejected == s_ClockReported) { return; }
+        int rejectedWindow = s_ClockRejected - s_ClockReported;
+        Print("[HC Clock] rejected_window=" + rejectedWindow.ToString() + " rejected_total=" + s_ClockRejected.ToString() + " retained_ticks_per_ms=" + s_TicksPerMs.ToString() + " runtime=PENDING");
+        s_ClockReported = s_ClockRejected;
+    }
+
+    // Shared calibration across startup and steady-state frames. Anchor a whole
+    // >=1 s window: float uptime quantization must not amplify single-frame error.
+    // No allocation, per-frame accumulation or counter read before the window ends.
+    static void HCCalibrate()
+    {
+        if (!GetGame()) { return; }
+        float now = GetGame().GetTickTime();
+        if (s_ClockSeeded)
+        {
+            float intervalSeconds = now - s_ClockTime;
+            if (intervalSeconds >= 0 && intervalSeconds < 1) { return; }
+            bool accepted = false;
+            if (intervalSeconds >= 1 && intervalSeconds <= HC_PERF_MAX_WINDOW_SECONDS)
+            {
+                int ticks = TickCount(s_ClockTick);
+                if (ticks > 0) { accepted = HCSetTicksPerMs((float)ticks / (intervalSeconds * 1000)); }
+            }
+            if (!accepted) { HCRejectCalibration(); }
+        }
+        s_ClockTime = now;
+        s_ClockTick = TickCount(0);
+        s_ClockSeeded = true;
     }
 
     void HCReset(int limit, float milliseconds = 4)
     {
+        HCCalibrate();
         m_SliceStart = TickCount(0);
         m_SliceTicksPerMs = s_TicksPerMs;
         // Keep HCMayContinue's elapsed-seconds contract and compare deltas,
         // avoiding precision loss from adding a small slice to an uptime.
         m_Deadline = milliseconds / 1000.0;
         m_Limit = limit;
+        if (m_SliceTicksPerMs <= 0) { m_Limit = Math.Min(limit, 1); }
         m_Used = 0;
     }
 
@@ -60,6 +112,7 @@ class HCWorkBudget
             // Negative deltas refuse the remainder of this slice; reset seeds
             // a fresh counter next time. Never convert a raw uptime to float.
             if (elapsedTicks < 0) { return false; }
+            if (m_SliceTicksPerMs <= 0) { return false; }
             elapsed = (float)elapsedTicks / m_SliceTicksPerMs / 1000.0;
         }
         return HCMayContinue(elapsed);

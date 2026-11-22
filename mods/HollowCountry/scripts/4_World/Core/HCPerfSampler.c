@@ -1,7 +1,7 @@
 // Server-only tick performance sampler. Not an HCModule; HCServer owns one instance.
 // Collects the HC tick interval and the time HC modules spent inside one tick, and prints one
 // summary line per window. Memory is bounded: two ring buffers and two sort buffers of at most
-// HC_PERF_MAX_SAMPLES floats, module buffers capped at HC_PERF_MAX_MODULES, and 64*4 cost integers.
+// HC_PERF_MAX_SAMPLES floats, module buffers capped at HC_PERF_MAX_MODULES, and 128*4 cost integers.
 // No file I/O. Output is read by tools/testing/perf_capture.py.
 // Verified in the installed 1.30.164289 script dump: array<T>.Insert/Set/Get/Count/Clear/Sort/Reserve/Find (1_Core/proto/EnScript.c:380-493),
 // CGame.GetPlayers(out array<Man>), CGame.GetTickTime, Math.Round, string.ToString, Print,
@@ -18,7 +18,7 @@
 // The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
-const int HC_PERF_MAX_MODULES = 64;
+const int HC_PERF_MAX_MODULES = HC_MAX_MODULES;
 // Per-module [HC Cost] lines per emission (plus the pinned Ecology line when outside the top N);
 // a single [HC CostTotal] line covers all modules.
 const int HC_PERF_COST_TOP = 8;
@@ -47,10 +47,13 @@ class HCPerfSampler
     // Stable registration slots: capped/reserved once; no name lookup in SampleModule.
     protected ref array<string> m_ModuleNames = new array<string>();
     protected ref array<int> m_ModuleMaxTicks = new array<int>();
+    protected ref map<string, int> m_ModuleSlots = new map<string, int>;
     protected ref array<string> m_SortedModuleNames = new array<string>();
+    protected ref array<int> m_SortedModuleSlots = new array<int>();
+    protected ref array<HCModule> m_Modules = new array<HCModule>();
     // Four maxima per existing module slot: startup, native callback, save,
     // admission. Attribution can overlap module work; these are not additive.
-    // Fixed 64*4 integers, no new registry, clock, player scan or profiler.
+    // Fixed 128*4 integers, no new registry, clock, player scan or profiler.
     protected ref array<int> m_CostMaxTicks = new array<int>();
     // Scratch flags for the top-N selection; one per module slot, refilled at each emission.
     protected ref array<int> m_CostPicked = new array<int>();
@@ -69,6 +72,8 @@ class HCPerfSampler
         m_ModuleNames.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleMaxTicks.Reserve(HC_PERF_MAX_MODULES);
         m_SortedModuleNames.Reserve(HC_PERF_MAX_MODULES);
+        m_SortedModuleSlots.Reserve(HC_PERF_MAX_MODULES);
+        m_Modules.Reserve(HC_PERF_MAX_MODULES);
         m_Ticks.Reserve(HC_PERF_MAX_SAMPLES);
         m_Works.Reserve(HC_PERF_MAX_SAMPLES);
         m_SortedTicks.Reserve(HC_PERF_MAX_SAMPLES);
@@ -89,22 +94,35 @@ class HCPerfSampler
         m_CostLogTimes.Clear();
         m_TicksPerMs = 0;
         HCWorkBudget.HCSetTicksPerMs(0);
-        HCRefreshEcologyCalibration();
         m_EcologyIndex = -1;
+        m_ModuleSlots.Clear();
         m_ModuleNames.Clear();
         m_ModuleMaxTicks.Clear();
         m_SortedModuleNames.Clear();
+        m_SortedModuleSlots.Clear();
+        m_Modules.Clear();
         ResetWindow();
         m_Active = true;
         Print("[HollowCountry] Perf sampler started, window seconds: " + m_WindowSeconds.ToString());
     }
 
     // HCServer registers active modules once after Start, in tick-loop order.
-    void RegisterModule(string name)
+    void RegisterModule(string name, HCModule module = null)
     {
         if (!m_Active || m_ModuleNames.Count() >= HC_PERF_MAX_MODULES) return;
         if (name == "Ecology") m_EcologyIndex = m_ModuleNames.Count();
+        m_ModuleSlots.Set(name, m_ModuleNames.Count());
         m_ModuleNames.Insert(name);
+        m_Modules.Insert(module);
+        // Sort and resolve only during boot registration (bounded by 128).
+        // Runtime emission walks the retained slot order without a map.
+        m_SortedModuleNames.Insert(name);
+        m_SortedModuleNames.Sort();
+        m_SortedModuleSlots.Clear();
+        foreach (string sortedName : m_SortedModuleNames)
+        {
+            m_SortedModuleSlots.Insert(m_ModuleSlots.Get(sortedName));
+        }
         m_CostLogLines.Insert("");
         m_CostLogTimes.Insert(0);
         m_ModuleMaxTicks.Insert(0);
@@ -118,31 +136,19 @@ class HCPerfSampler
     {
         if (!m_Active || moduleIndex < 0 || moduleIndex >= m_ModuleMaxTicks.Count()) return;
         if (workTicks > m_ModuleMaxTicks.Get(moduleIndex)) m_ModuleMaxTicks.Set(moduleIndex, workTicks);
-        if (moduleIndex == m_EcologyIndex) HCSampleEcology(moduleIndex);
+        HCSampleOwner(moduleIndex);
     }
 
-    // Runtime keeps callback peaks until the next module sample. Startup runs
-    // before sampler Start, so its cached admission/startup costs survive too.
-    // No entity/player scan or module callback; registration binds the slot once.
-    protected void HCSampleEcology(int moduleIndex)
+    // Modules own optional attribution. Core never imports feature runtimes.
+    protected void HCSampleOwner(int moduleIndex)
     {
-        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
-        if (!runtime) return;
-        runtime.HCSetCalibration(m_TicksPerMs);
-        SampleCost(moduleIndex, 0, runtime.HCStartupTicks());
-        SampleCost(moduleIndex, 1, runtime.HCCallbackTicks());
-        SampleCost(moduleIndex, 2, runtime.HCSaveTicks());
-        SampleCost(moduleIndex, 3, runtime.HCAdmissionTicks());
-        runtime.HCResetCostTicks();
+        HCModule module = m_Modules.Get(moduleIndex);
+        if (module) { module.PerfSampleCosts(this, moduleIndex, m_TicksPerMs); }
     }
 
-    // Refresh when a window closes, including invalid calibration and Stop;
-    // waiting for the next module sample would leave a stale rate in HCReport.
-    // Passive singleton lookup only: no lifecycle callback or native query.
-    protected void HCRefreshEcologyCalibration()
+    protected void HCRefreshOwnerCalibration()
     {
-        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
-        if (runtime) runtime.HCSetCalibration(m_TicksPerMs);
+        for (int slot = 0; slot < m_Modules.Count(); slot++) { HCSampleOwner(slot); }
     }
 
     // Same validated registration index as SampleModule. Kind: 0 startup,
@@ -300,6 +306,8 @@ class HCPerfSampler
             cost = cost + " admission_ticks=" + admissionTicks.ToString();
             cost = cost + " calibration=invalid reason=invalid_calibration";
         }
+        HCModule owner = m_Modules.Get(costIndex);
+        if (owner) { cost = cost + owner.PerfExtraSummary(); }
         cost = cost + "; runtime=PENDING";
         float costNow = GetGame().GetTickTime();
         float costAt = m_CostLogTimes.Get(costIndex);
@@ -343,14 +351,14 @@ class HCPerfSampler
         if (!m_Active) return;
         // HCServer keeps this window open through every module's OnStop.
         // Consume the owner's cached shutdown save/refusal costs after Finish.
-        if (m_EcologyIndex >= 0) HCSampleEcology(m_EcologyIndex);
+        HCRefreshOwnerCalibration();
         // A partial window has no freshly validated conversion. Preserve raw
         // save costs (including failed writes) rather than reuse an old rate.
         EmitCosts(0);
         m_Active = false;
         m_TicksPerMs = 0;
         HCWorkBudget.HCSetTicksPerMs(0);
-        HCRefreshEcologyCalibration();
+        HCRefreshOwnerCalibration();
         ResetWindow();
         Print("[HollowCountry] Perf sampler stopped");
     }
@@ -474,26 +482,14 @@ class HCPerfSampler
                 if (m_Works.Get(workIndex) / ticksPerMs > 10.0) m_SlowTickCount++;
                 workIndex++;
             }
-            m_SortedModuleNames.Clear();
-            // First registered slot per name, built once so the sorted pass below
-            // does not rescan m_ModuleNames per module.
-            map<string, int> slotByName = new map<string, int>;
-            int nameSlot = 0;
-            foreach (string registeredName : m_ModuleNames)
-            {
-                m_SortedModuleNames.Insert(registeredName);
-                if (!slotByName.Contains(registeredName)) { slotByName.Insert(registeredName, nameSlot); }
-                nameSlot++;
-            }
-            m_SortedModuleNames.Sort();
             string slowestName = "none";
             int slowestTicks = -1;
             string moduleReport = "";
             int moduleOrder = 0;
-            while (moduleOrder < m_SortedModuleNames.Count())
+            while (moduleOrder < m_SortedModuleSlots.Count())
             {
-                string moduleName = m_SortedModuleNames.Get(moduleOrder);
-                int moduleSlot = slotByName.Get(moduleName);
+                int moduleSlot = m_SortedModuleSlots.Get(moduleOrder);
+                string moduleName = m_ModuleNames.Get(moduleSlot);
                 int moduleTicks = m_ModuleMaxTicks.Get(moduleSlot);
                 if (moduleTicks > slowestTicks)
                 {
@@ -515,8 +511,9 @@ class HCPerfSampler
             m_TicksPerMs = ticksPerMs;
         }
         HCWorkBudget.HCSetTicksPerMs(m_TicksPerMs);
-        HCRefreshEcologyCalibration();
+        HCRefreshOwnerCalibration();
         EmitCosts(m_TicksPerMs);
+        HCWorkBudget.HCPrintCalibrationSummary();
         Print("" + report);
         ResetWindow();
     }

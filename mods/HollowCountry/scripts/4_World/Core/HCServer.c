@@ -169,7 +169,7 @@ class HCServer
         m_TickWork.HCSetProfile(m_TickProfile);
         foreach (HCModule perfModule : m_Active)
         {
-            m_Perf.RegisterModule(perfModule.GetName());
+            m_Perf.RegisterModule(perfModule.GetName(), perfModule);
         }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
         Print(HCV2Admission.Summary(m_Settings));

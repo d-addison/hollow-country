@@ -99,6 +99,79 @@ class HCUnitBudget
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
 
+    // Authoring table: add a slot here and its Performance.TickWeight row in
+    // shared_settings.json. Labels and weights are consumed without DTO fields.
+    protected static ref array<string> s_ConsumerNames;
+    protected static ref array<int> s_DefaultWeights;
+
+    static void HCRegisterConsumer(int slot, string name, int defaultWeight)
+    {
+        s_ConsumerNames.Set(slot, name);
+        s_DefaultWeights.Set(slot, defaultWeight);
+    }
+
+    static void HCInitConsumers()
+    {
+        if (s_ConsumerNames) { return; }
+        s_ConsumerNames = new array<string>;
+        s_DefaultWeights = new array<int>;
+        s_ConsumerNames.Resize(HC_WORK_CONSUMERS);
+        s_DefaultWeights.Resize(HC_WORK_CONSUMERS);
+        HCRegisterConsumer(HC_WORK_INFECTED, "INFECTED", 1);
+        HCRegisterConsumer(HC_WORK_INTERIORS, "INTERIORS", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_BIND, "SEARCH_BIND", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_MAINT, "SEARCH_MAINT", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_REFRESH, "SEARCH_REFRESH", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_DETACHED, "SEARCH_DETACHED", 1);
+        HCRegisterConsumer(HC_WORK_LOD_CLASSIFY, "LOD_CLASSIFY", 1);
+        HCRegisterConsumer(HC_WORK_LOD_HERD, "LOD_HERD", 1);
+        HCRegisterConsumer(HC_WORK_BASES, "BASES", 1);
+        HCRegisterConsumer(HC_WORK_CONFLICT, "CONFLICT", 1);
+        HCRegisterConsumer(HC_WORK_TRADE, "TRADE", 1);
+        HCRegisterConsumer(HC_WORK_SITUATIONS, "SITUATIONS", 1);
+        HCRegisterConsumer(HC_WORK_BASE_RAID, "BASE_RAID", 1);
+        HCRegisterConsumer(HC_WORK_ROLES, "ROLES", 1);
+        HCRegisterConsumer(HC_WORK_FORMATION, "FORMATION", 1);
+        HCRegisterConsumer(HC_WORK_CARFIX, "CARFIX", 1);
+        HCRegisterConsumer(HC_WORK_HEARTH, "HEARTH", 1);
+        HCRegisterConsumer(HC_WORK_INCIDENTS, "INCIDENTS", 1);
+        HCRegisterConsumer(HC_WORK_INCIDENT_RESPONSE, "INCIDENT_RESPONSE", 1);
+        HCRegisterConsumer(HC_WORK_AI_RESPAWN, "AI_RESPAWN", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_COMPACT, "SEARCH_COMPACT", 1);
+        HCRegisterConsumer(HC_WORK_SHELTER, "SHELTER", 1);
+        HCRegisterConsumer(HC_WORK_AI_SITES, "AI_SITES", 1);
+        HCRegisterConsumer(HC_WORK_STORY_INDEX, "STORY_INDEX", 1);
+        HCRegisterConsumer(HC_WORK_AI_ROUTES, "AI_ROUTES", 1);
+        HCRegisterConsumer(HC_WORK_POLICE_BIND, "POLICE_BIND", 1);
+        HCRegisterConsumer(HC_WORK_ROADS, "ROADS", 1);
+        HCRegisterConsumer(HC_WORK_INFECTED_VARIETY, "INFECTED_VARIETY", 1);
+        HCRegisterConsumer(HC_WORK_INFECTED_VARIETY_ROUTES, "INFECTED_VARIETY_ROUTES", 1);
+        HCRegisterConsumer(HC_WORK_SITUATION_RUNTIME, "SITUATION_RUNTIME", 1);
+        HCRegisterConsumer(HC_WORK_SITUATION_SMOKE, "SITUATION_SMOKE", 1);
+        HCRegisterConsumer(HC_WORK_ADMIN_VISITOR, "ADMIN_VISITOR", 1);
+        HCRegisterConsumer(HC_WORK_TACTICS_SCAN, "TACTICS_SCAN", 1);
+        HCRegisterConsumer(HC_WORK_AI_TRADE_PRODUCER, "AI_TRADE_PRODUCER", 1);
+        HCRegisterConsumer(HC_WORK_CONVOY_ROUTE, "CONVOY_ROUTE", 1);
+        HCRegisterConsumer(HC_WORK_CONVOY_RUN, "CONVOY_RUN", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_COVERAGE, "SEARCH_COVERAGE", 1);
+        HCRegisterConsumer(HC_WORK_SEARCH_RETIREMENT, "SEARCH_RETIREMENT", 1);
+        HCRegisterConsumer(HC_WORK_WILDLIFE, "WILDLIFE", 1);
+        HCRegisterConsumer(HC_WORK_ZONE_GUARDS, "ZONE_GUARDS", 1);
+        HCRegisterConsumer(HC_WORK_AI_ROUTE_CACHE, "AI_ROUTE_CACHE", 1);
+    }
+
+    static string HCConsumerName(int slot)
+    {
+        HCInitConsumers();
+        return s_ConsumerNames.Get(slot);
+    }
+
+    static int HCConsumerWeight(int slot)
+    {
+        HCInitConsumers();
+        return HCPerfConfig.HCGet().HCWeight(s_ConsumerNames.Get(slot), s_DefaultWeights.Get(slot));
+    }
+
     protected ref HCUnitProfile m_Profile;
     void HCSetProfile(HCUnitProfile profile) { m_Profile = profile; }
     void HCCloseSpan() { if (m_Profile) { m_Profile.HCCloseSpan(); } }
@@ -248,7 +321,12 @@ class HCStartupFrameBudget : HCWorkBudget
 {
     float HCRemainingMs()
     {
+        if (m_SliceTicksPerMs <= 0) { return 0; }
         return Math.Max(0, m_Deadline * 1000 - TickCount(m_SliceStart) / m_SliceTicksPerMs);
     }
-    float HCMilliseconds(int ticks) { return ticks / m_SliceTicksPerMs; }
+    float HCMilliseconds(int ticks)
+    {
+        if (m_SliceTicksPerMs <= 0 || ticks < 0) { return 0; }
+        return ticks / m_SliceTicksPerMs;
+    }
 }
