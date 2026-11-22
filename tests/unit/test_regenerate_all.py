@@ -14,6 +14,7 @@ from tools.release.ship_inputs import ADDONS
 
 class RegenerateAllTests(unittest.TestCase):
     def invoke(self, args=(), **patches):
+        patches.setdefault('check_names_index', {'return_value': ('PASS', 'names index current')})
         with contextlib.ExitStack() as stack:
             for name, value in patches.items():
                 stack.enter_context(patch.object(regen, name, **value))
@@ -53,16 +54,33 @@ class RegenerateAllTests(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertEqual([g.name for g in regen.GENERATORS], [c[0] for c in calls])
         self.assertEqual(ADDONS, calls[0][1]['addons'])
-        self.assertIn(f'checked={len(calls)} failed=1 skipped=0', output)
-        self.assertEqual(len(calls) + 1, len(output.splitlines()))
+        self.assertIn(f'checked={len(calls) + 1} failed=1 skipped=0', output)
+        self.assertEqual(len(calls) + 2, len(output.splitlines()))
+        self.assertIn('PASS vanilla_names_index names index current', output)
 
     def test_skip_never_counts_as_checked_and_strict_mode_fails(self):
         skipped = {'return_value': ('SKIP', 'installed input unavailable')}
         for args, expected in (([], 0), (['--require-installed'], 1)):
-            code, output = self.invoke(args, check_generator=skipped)
+            code, output = self.invoke(args, check_generator=skipped, check_names_index=skipped)
             self.assertEqual(expected, code)
-            self.assertIn(f'checked=0 failed=0 skipped={len(regen.GENERATORS)}', output)
+            self.assertIn(f'checked=0 failed=0 skipped={len(regen.GENERATORS) + 1}', output)
             self.assertNotIn('PASS ', output)
+
+    def test_names_index_is_checked_and_a_stale_index_fails_the_aggregate(self):
+        passed = {'return_value': ('PASS', 'current')}
+        code, output = self.invoke(check_generator=passed, check_names_index={'return_value': ('FAIL', 'stale')})
+        self.assertEqual(1, code)
+        self.assertIn('FAIL vanilla_names_index stale', output)
+        self.assertIn(f'checked={len(regen.GENERATORS) + 1} failed=1 skipped=0', output)
+
+    def test_names_index_without_the_cache_is_needs_host_check_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as temp:
+            status, reason = regen.check_names_index({'native_scripts': Path(temp) / 'absent'})
+        self.assertEqual('SKIP', status)
+        self.assertIn('needs-host-check', reason)
+        code, output = self.invoke(['--require-installed'], check_generator={'return_value': ('PASS', 'current')},
+                                   check_names_index={'return_value': ('SKIP', 'needs-host-check')})
+        self.assertEqual(1, code)
 
     def test_missing_installed_input_skips_without_launching(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(regen.subprocess, 'run') as run:

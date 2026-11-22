@@ -7,6 +7,10 @@ index is written under the approved cache and is never committed. It is static f
 evidence of which classes the installed stack declares, never proof of engine behaviour.
 Coverage is exact: an archive whose config cannot be decoded is recorded as unreadable and
 makes the index incomplete, so a consumer never treats absence as proof without it.
+
+Without the installed game, ``main`` falls back to the committed vanilla script names index
+(``tools.validate.native_symbols``, names only): it lists script class names and parents, not
+config classes, so it writes no cache and never counts as config coverage.
 """
 import argparse
 import hashlib
@@ -19,7 +23,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.audit import pbo_config
-from tools.validate import texture_index
+from tools.validate import native_symbols, texture_index
 
 SCHEMA = 1
 CONFIG_ROOTS = ('CfgVehicles', 'CfgWeapons', 'CfgMagazines', 'CfgAmmo')
@@ -133,6 +137,17 @@ def declared_sources(addons=DEFAULT_ADDONS, workshop=DEFAULT_WORKSHOP, manifest=
     return sources
 
 
+def script_class_names(names_path=native_symbols.NAMES_INDEX):
+    """``{script class: parent}`` of the ordinary (not modded) vanilla script classes, names only."""
+    doc = native_symbols.load_names_index(names_path)
+    rows = {}
+    for name, entries in sorted(doc['classes'].items()):
+        for entry in entries:
+            if not entry['modded']:
+                rows.setdefault(name, entry['parent'] or None)
+    return rows
+
+
 def write_index(data, cache=DEFAULT_CACHE):
     cache = Path(cache).expanduser().resolve()
     if not cache.is_relative_to(DEFAULT_CACHE.parent.expanduser().resolve()):
@@ -172,6 +187,15 @@ def main(argv=None):
     parser.add_argument('--manifest', type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE)
     args = parser.parse_args(argv)
+    if not args.addons.is_dir() or not any(p.suffix.casefold() == '.pbo' for p in args.addons.iterdir()):
+        try:
+            rows = script_class_names()
+        except ValueError as error:
+            print('class_index: ' + str(error), file=sys.stderr)
+            return 1
+        print(f'class_index: names-index script classes={len(rows)}; vanilla Addons unavailable, '
+              'config class cache not written (script names only, not config coverage)')
+        return 0
     try:
         data = build_index(declared_sources(args.addons, args.workshop, args.manifest), manifest=args.manifest)
         write_index(data, args.cache)

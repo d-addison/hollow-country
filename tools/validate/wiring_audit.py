@@ -724,6 +724,15 @@ class Audit:
         uncovered = dependencies - cached_deps
         if uncovered:
             self.notes.append(f'Workshop class-index coverage incomplete: {len(uncovered)} declared dependencies lack a cache')
+        self.names_known = set()
+        if 'vanilla' not in indexed_sources:
+            # Committed vanilla script names (no config classes): known-class lookups only, never coverage.
+            try:
+                self.names_known = {n.lower() for n in class_index.script_class_names()}
+                self.notes.append(f'names-index: {len(self.names_known)} vanilla script class names supplement '
+                                  'W007/W008 lookups; they index no config root and prove no absence')
+            except ValueError as error:
+                self.notes.append('names-index unavailable: ' + str(error))
         if not missing and not uncovered and 'vanilla' in indexed_sources:
             coverage = 'the complete vanilla (base and DLC) and declared-dependency class index does not declare it'
         else:
@@ -763,7 +772,7 @@ class Audit:
             row['scope'] = pbo_config.resolve_scope(merged[row['root']], key)
         self.definitions = definitions
         self.indexed = merged
-        return definitions, {k for rows in merged.values() for k in rows}, coverage
+        return definitions, {k for rows in merged.values() for k in rows} | self.names_known, coverage
 
     def data_check(self, script_literals):
         r = self.rules

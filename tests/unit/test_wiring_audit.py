@@ -329,6 +329,17 @@ class ClassIndexSourceTests(unittest.TestCase):
         self.assertIn('not proof', findings['W007', 'Undeclared']['why'])
         self.assertTrue([n for n in audit.notes if '1 declared dependencies lack a cache' in n])
 
+    def test_names_index_supplements_known_classes_without_claiming_coverage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            audit, findings = self.audit(Path(temporary), ['1', '2'])
+        self.assertIn('playerbase', audit.names_known)
+        self.assertTrue([n for n in audit.notes if n.startswith('names-index:')])
+        self.assertIn('not proof', findings['W007', 'Undeclared']['why'])
+        with tempfile.TemporaryDirectory() as temporary:
+            audit, _ = self.audit(Path(temporary), ['vanilla', '1', '2'])
+        self.assertEqual(set(), audit.names_known)
+        self.assertFalse([n for n in audit.notes if n.startswith('names-index')])
+
     def test_index_for_another_manifest_is_not_treated_as_complete(self):
         with tempfile.TemporaryDirectory() as temporary:
             audit, findings = self.audit(Path(temporary), ['vanilla', '1', '2'], digest=False)
