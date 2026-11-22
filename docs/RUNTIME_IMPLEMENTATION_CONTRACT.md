@@ -115,7 +115,7 @@ markers. These do not prove successful client presentation, crafting, mounting,
 spawn, or native gameplay acceptance. Morse is disabled/folded into Radio and has
 no separate main path to mark. `runtime=PENDING` remains unchanged by any marker.
 
-Events instrumentation is deferred to its directory owner (no Events files changed):
+Events instrumentation is open and not yet added in source (no Events files were changed by this contract):
 put `HCReached.Mark("events.police_bind");` in
 `HCEventWorldBinding.BindPolice` after successful target/container registration
 beside the `police supply bound` diagnostic, including its already-bound success

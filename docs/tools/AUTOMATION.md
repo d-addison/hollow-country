@@ -35,8 +35,11 @@ that is never runnable.
   The documents above do not describe them as working, and the lane below reports them as
   blocked or not run.
 - AV-T017, AV-T018, AV-T019 and AV-T022 (two licensed clients, network faults, audio
-  judgement, six- and ninety-player load qualification) are deferred by the owner on
-  2026-11-22 and stay NOTRUN with reason `deferred_owner_2026-11-22`.
+  judgement, six- and ninety-player load qualification) are in scope: the owner decided on
+  2026-11-22 that spec 002 is built in full. They are not built or run yet and the lane
+  reports them NOTRUN. The constant `deferred_owner_2026-11-22` that the tooling still
+  emits as the reason (`tools/testing/discovery.py`, `tools/testing/automation.py`) is a
+  legacy label for "not built yet", not an owner deferral.
 - No capability observes gameplay, so no catalogue row can pass a gameplay submethod today.
 
 ## Offline CI lane
@@ -56,7 +59,7 @@ python3 -B -m tools.testing.automation lane --machine  # plus installed-tool fil
 
 The lane prints one bounded JSON report and launches nothing. For each registered native
 driver it reports BLOCKED when a needed capability is not available, or NOTRUN when it
-could be started by the owner. Deferred tasks are reported NOTRUN. The lane never reports
+could be started by the owner. Tasks that are not built yet (the `deferred.task` placeholder) are reported NOTRUN. The lane never reports
 PASS: a PASS exists only inside a sealed run of a trusted driver.
 
 Rules the lane states and the native tools enforce:
