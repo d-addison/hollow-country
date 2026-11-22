@@ -20,6 +20,7 @@ import time
 from tools.package import pbo
 from tools.setup import infected_death_probe as death_probe
 from tools.setup import diagnostic_mission as staging
+from tools.setup import probe_core
 from tools.validate.runtime import validate_settings
 
 MAX_LOG_FILE = 16 * 1024 * 1024
@@ -144,9 +145,7 @@ def configuration():
 
 
 def safe(path):
-    path = Path(path).absolute()
-    if any(p.is_symlink() for p in (path, *path.parents)):
-        raise ValueError('symlink ancestors forbidden')
+    path = probe_core.safe(path)  # absolute; refuses links, reparse points and '..'
     if any(n.lower() in {'steamapps', '.git'} for n in path.parts):
         raise ValueError('use isolated paths outside Steam/source')
     checkout = Path(__file__).absolute().parents[2]
