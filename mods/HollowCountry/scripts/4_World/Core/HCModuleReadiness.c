@@ -160,7 +160,7 @@ class HCModuleReadiness
             s_LegacyUses.Insert("Cellars", "visual_applied");
             s_LegacyUses.Insert("Grade", "grade_applied");
             s_LegacyUses.Insert("Lighting", "blend_applied");
-            s_LegacyUses.Insert("OptionalPacks", "animal_seen,bicycle_seen");
+            s_LegacyUses.Insert("OptionalPacks", "animal_seen");
             s_LegacyUses.Insert("SignsOfLife", "light_observed,smoke_observed,flies_created");
             s_LegacyUses.Insert("Camps", "camp_recognised");
             s_LegacyUses.Insert("CampRespawn", "respawn_reserved");

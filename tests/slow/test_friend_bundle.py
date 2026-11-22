@@ -505,7 +505,7 @@ else:
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
         self.assertIn('"-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;'
-                      '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI"', bat)
+                      '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI"', bat)
         self.assertNotIn('-serverMod', bat)
         self.assertIn('-config=serverDZ.cfg', bat)
         self.assertIn('-profiles=profiles', bat)
@@ -530,7 +530,7 @@ else:
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         readme = (self.out / 'README.txt').read_text()
-        for item in ['1559212036', '1564026768', '2792984722', '3556131153', '3105330157', '2545327648', '2291785308', '2116157322', '2291785437', '3114410963', '2918418331', '2971190303', '2792982069', '2443122116',
+        for item in ['1559212036', '1564026768', '2792984722', '3556131153', '3105330157', '2545327648', '2291785308', '2116157322', '2291785437', '3114410963', '2792982069', '2443122116',
                      '2646817942']:
             self.assertIn('workshop_download_item 221100 ' + item, readme)
         self.assertIn('2302', readme)
@@ -538,8 +538,8 @@ else:
         self.assertIn('Players subscribe to @HollowCountryExpansionAI when this server uses it', readme)
         self.assertIn('Default dependencies are subscribed from the Workshop, never repacked or included as third-party files.', readme)
         for optional_name in ['Community Framework (CF)', 'COT', 'RaG_Core', 'RaG Immersive Vehicles', 'Expansion Navigation (GPS)', 'Dabs Framework', 'Expansion-Core',
-                              'Expansion-AI', 'DayZ-Bicycle',
-                              'Ambient Animals Pack', 'Survivor Animations']:
+                              'Expansion-AI',
+                              'Ambient Animals Pack']:
             self.assertIn(optional_name, readme)
         mod_line = next(line for line in fb.ws.launch_lines(fb.ws.select(fb.ws.load_manifest(), fb.ws.GROUPS))
                         if line.startswith('-mod='))

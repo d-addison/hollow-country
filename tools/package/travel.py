@@ -41,13 +41,8 @@ NATIVE_FAMILIES = {
     'VehicleBoat': ('Boat_01_Black', 'Boat_01_Blue', 'Boat_01_Camo', 'Boat_01_Orange'),
     'VehicleTruck01': ('Truck_01_Covered', 'Truck_01_Covered_Blue', 'Truck_01_Covered_Orange'),
 }
-BICYCLE_WHEELS = {**dict.fromkeys(('Old_Bike', 'Old_Bike_White', 'Old_Bike_Red', 'Old_Bike_Green',
-                                 'Old_Bike_Blue', 'Old_Bike_Pink'), 'bicycle_wheel'),
-                  **dict.fromkeys(('Lady_Bicycle', 'Lady_Bicycle_Purple'), 'ladybicycle_wheel')}
-VEHICLE_CLASSES = {n.casefold() for names in NATIVE_FAMILIES.values() for n in names} | {
-    n.casefold() for n in BICYCLE_WHEELS}
+VEHICLE_CLASSES = {n.casefold() for names in NATIVE_FAMILIES.values() for n in names}
 CANONICAL_VEHICLES = {n.casefold(): n for names in NATIVE_FAMILIES.values() for n in names}
-CANONICAL_VEHICLES.update({n.casefold(): n for n in BICYCLE_WHEELS})
 
 
 def repair_parts(vehicle):
@@ -60,8 +55,6 @@ def repair_parts(vehicle):
     vehicle = CANONICAL_VEHICLES.get(vehicle.casefold(), '')
     if not vehicle:
         return None
-    if vehicle in BICYCLE_WHEELS:
-        return Counter({BICYCLE_WHEELS[vehicle]: 2})
     for base, wheel, panels in (
             ('CivilianSedan', 'CivSedanWheel', ('CivSedanDoors_Driver', 'CivSedanDoors_CoDriver',
               'CivSedanDoors_BackLeft', 'CivSedanDoors_BackRight', 'CivSedanHood', 'CivSedanTrunk')),

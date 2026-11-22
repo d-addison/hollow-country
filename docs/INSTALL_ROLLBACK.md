@@ -431,18 +431,41 @@ Workshop items; never repack, modify or redistribute them.
 | RaG_Core | 3556131153 | `@RaG_Core` |
 | RaG Immersive Vehicles | 3105330157 | `@RaG_Immersive_Vehicles` |
 | Ambient Animals Pack | 3114410963 | `@AmbientAnimals` |
-| Survivor Animations | 2918418331 | `@SurvivorAnimations` |
-| DayZ-Bicycle | 2971190303 | `@DayZ-Bicycle` |
 | Hollow Country | 3841628320 | `@HollowCountry` |
 | Hollow Country Expansion AI | 3841637854 | `@HollowCountryExpansionAI` |
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22 (see the upgrade note in INSTALL_ROLLBACK.md); an existing subscription is harmless and is no longer loaded.
+
+### Upgrade note: Survivor Animations and DayZ-Bicycle retired (2026-11-22)
+
+Both Workshop items are dropped. Survivor Animations references about 130 animation
+files its own package does not ship, and DayZ-Bicycle needs it; the owner chose to
+drop both rather than patch third-party content. The vanilla motorbikes stay.
+
+Upgrading an existing server needs no wipe. Bikes and bicycle parts that players left in
+the world, in inventories or in tents are dropped by the engine when the world loads once the
+mods are gone; no Hollow Country data references them. This has not been observed yet and is
+checked at the first retail boot after the upgrade. Ask players to empty bike cargo before the
+upgrade so nothing of value is inside a bike that disappears.
+
+- Remove `@SurvivorAnimations` and `@DayZ-Bicycle` from the server and client `-mod` lines.
+- `workshop_sync` keeps both folders in a `retired` list in `tools/setup/workshop_mods.json`,
+  so an older receipt that names them still loads; sync no longer downloads or loads them.
+- The friend installer removes what the Workshop receipt recorded for the retired folders:
+  their files and their copied `.bikey` files in `keys/`. A file that changed since the
+  install is left in place and listed. `workshop_sync rollback` removes the same files.
+  A key the receipt does not record is not touched; delete it from `keys/` by hand.
+- An existing install that carried the bicycle overlay upgrades the normal way: the friend
+  installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
+  receipt (it does not depend on the current pack list), then `bundle-apply` installs the
+  stack without any bicycle events or spawns. Do the same by hand with `bundle-rollback`
+  followed by `bundle-apply` when not using the installer.
+- Unsubscribing in Steam is optional; a leftover subscription is never loaded.
 
 COT owner roles stay private in the server profile; see [COT permissions](COT_PERMISSIONS.md).
 Admin ids are never written to git.
 
-The manifest's `living_packs` group contains both RaG items, Ambient Animals, Survivor Animations
-and Bicycle. COT and Navigation are in `pve_patrols`. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
+The manifest's `living_packs` group contains both RaG items and Ambient Animals. COT and Navigation are in `pve_patrols`. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
 stack. The friend bundle selects these groups by default. Copy public `.bikey`
 files to the server `keys` directory. Keep signing private keys outside the bundle.
 
@@ -487,7 +510,7 @@ python -m tools.package.optional_overlays bundle-apply --mission /private/server
 `bundle-plan` previews the authored merge. `bundle-apply` requires the default
 living-pack sources plus Navigation and RaG_Core, rehearses the merge and travel/optional plans on scratch,
 then writes a backup receipt before any mission file mutation. It installs the
-base merge, travel CE and Bicycle/Ambient/RaG/GPS overlays, then the loot boost last. Each installer
+base merge, travel CE and Ambient/RaG/GPS overlays, then the loot boost last. Each installer
 has its own receipt, including the first installation. Unknown existing overlay
 files and conflicting edited values refuse. Interrupted installs remain reversible
 using those receipts; preserve every receipt and backup. No stock mission is
@@ -569,5 +592,5 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```

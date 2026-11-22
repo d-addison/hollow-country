@@ -182,10 +182,10 @@ engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnSt
   for deposits, but this counter is cache binding, **not** a requested deposit.
   No crate refill or arbitrary supplied loot is permitted. Prefer a finite cache
   created during the player-free soak; preserve its identity/history.
-- [ ] Observe actual optional `Old_Bike` / `Animal_Otter` CE instances if available:
-  **OptionalPacks/bicycle_seen, animal_seen**. Server EEInit counts first actual
-  instantiation, so player proximity is not required; a vanilla bicycle substitute,
-  different animal or config existence is insufficient.
+- [ ] Observe an actual optional `Animal_Otter` CE instance if available:
+  **OptionalPacks/animal_seen**. Server EEInit counts first actual
+  instantiation, so player proximity is not required; a different animal or
+  config existence is insufficient.
 
 ## Stop 3 — Bor woodland and South Rest, 25–40/45 minutes
 
@@ -335,7 +335,7 @@ Detailed priority setups:
   change and its normal admission is required; a forced PPE start would be fake
   exercise. Whole-world sampler completion has no proven 30-minute bound.
 - **Optional packs:** ordinary CE instantiation is preferred. A finite admin
-  physical `Animal_Otter`/`Old_Bike` fixture, if later implemented, must be labelled
+  physical `Animal_Otter` fixture, if later implemented, must be labelled
   fixture evidence. Counter sees ancestry via real EEInit, never a config read.
   No generic COT/Expansion spawn menu is asserted or relied on by this script.
 
@@ -416,7 +416,6 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c#HCMeleeTargetingParity.Observe`.
 - [ ] `Notes/note_read` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#HCNoteLedger.Read`.
 - [ ] `OptionalPacks/animal_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#AnimalBase.EEInit`.
-- [ ] `OptionalPacks/bicycle_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#CarScript.EEInit`.
 - [ ] `Pickers/trip_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCPickers.c#HCModuleRegistry.RegisterModules`.
 - [ ] `Polish/hint_shown` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c#HCHints.HCAdvanceSave`.
 - [ ] `Polish/sound_played` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c#HCEnvSound.Update`.

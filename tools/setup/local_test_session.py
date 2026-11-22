@@ -14,8 +14,8 @@ reimplements it:
                   writes.
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied).
                   Workshop order: CF, COT, Dabs, Expansion Core/AI/Navigation, weapons,
-                  RaG_Core, RaG Immersive Vehicles, Ambient Animals, Survivor Animations,
-                  DayZ-Bicycle, HC, then HCX. Expansion-Animations stays excluded.
+                  RaG_Core, RaG Immersive Vehicles, Ambient Animals, HC, then HCX.
+                  Expansion-Animations stays excluded.
   opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
                   --[no-]travel (authored V2 CE, on by default, EnableTravel preference),

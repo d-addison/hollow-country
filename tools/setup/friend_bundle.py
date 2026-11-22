@@ -486,7 +486,7 @@ def readme(items, template, addon):
         '  @HollowCountryExpansionAI uses Community Framework (CF), COT, Dabs Framework, Expansion-Core, Expansion-AI and Expansion Navigation (GPS).',
         '  RaG_Core and RaG Immersive Vehicles are default subscribed dependencies after the weapons packs.',
         '  COT permissions stay in the server profile; see docs/COT_PERMISSIONS.md. Admin ids are never written to git.',
-        '  Ambient Animals Pack, Survivor Animations and DayZ-Bicycle are default subscriptions.',
+        '  Ambient Animals Pack is a default subscription. Survivor Animations and DayZ-Bicycle are retired; an existing subscription is harmless and is not loaded.',
         '  Load the listed dependencies before @HollowCountry, then @HollowCountryExpansionAI on every peer.',
         '  Review current Workshop terms and the optional-overlay instructions below before installing.',
         '',

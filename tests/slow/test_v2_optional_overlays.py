@@ -137,6 +137,8 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             workshop.mkdir()
             for name, data in {'cfgeconomycore.xml': '<economycore/>',
                                'cfgeventspawns.xml': '<eventposdef/>',
+                               'cfglimitsdefinition.xml': '<lists><categories><category name="tools"/>'
+                                   '<category name="lootdispatch"/></categories></lists>',
                                'db/types.xml': '<types/>'}.items():
                 path = mission / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,6 +203,7 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             put(mission, 'db/events.xml', '<events/>')
             put(mission, 'db/types.xml', '<types/>')
             put(mission, 'cfgspawnabletypes.xml', '<spawnabletypes/>')
+            put(mission, 'cfglimitsdefinition.xml', '<lists/>')
             put(mission, 'cfgenvironment.xml', '<env><territories>'
                 '<territory type="Ambient" name="AmbientHen" behavior="SyntheticNative">'
                 '<file usable="hen_territories"/><item name="globalCountMax" val="12"/>'
@@ -212,20 +215,10 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             before = snapshot(mission)
             absent = overlays.plan(workshop, mission, [])
             self.assertEqual(absent['files'], {})
-            self.assertEqual(len(absent['diagnostics']), 4)
+            self.assertEqual(len(absent['diagnostics']), 3)
             overlays.install(absent, mission)
             self.assertEqual(snapshot(mission), before)
 
-            bike = workshop / overlays.BICYCLE_ID
-            put(bike, 'events.xml', '<events><event name="SyntheticBikeEvent"><nominal>20</nominal>'
-                '<min>0</min><max>100</max><children><child type="SyntheticBike" min="0" max="20"/>'
-                '</children></event></events>')
-            put(bike, 'cfgeventspawns_Chernarus.xml', '<events><event name="SyntheticBikeEvent">'
-                '<pos x="11" z="11" a="0"/></event></events>')
-            put(bike, 'types.xml', '<types><type name="SyntheticBike"><nominal>0</nominal></type></types>')
-            put(bike, 'spawnabletypes.xml', '<spawnabletypes><type name="SyntheticBike"/></spawnabletypes>')
-            put(mission, 'mapgrouppos.xml', '<map><group name="Land_Shed_Synthetic" pos="11 0 11"/>'
-                '<group name="Land_Farm_Synthetic" pos="10 0 10"/></map>')
             animals = workshop / overlays.ANIMALS_ID
             for species in overlays.AMBIENT_SPECIES:
                 put(animals, species + '_territories/Ambient_' + species + '_ReadMe.txt',
@@ -253,15 +246,15 @@ class OptionalOverlaysSmoke(unittest.TestCase):
                 '<file usable="snake_territories"/></territory><event name="SyntheticSnake"/>')
             put(animals, 'snake_territories/Chernarus/snake_territories.xml',
                 '<territory-type><territory/></territory-type>')
-            put(bike, 'Addons/Synthetic.pbo', 'SYNTHETIC-DO-NOT-BUNDLE')
+            put(animals, 'Addons/Synthetic.pbo', 'SYNTHETIC-DO-NOT-BUNDLE')
             installed_source = snapshot(workshop)
             self.assertEqual(overlays.plan(workshop, mission, [])['files'], {})
             before = snapshot(mission)
-            candidate = overlays.plan(workshop, mission, [bike, animals], policy_path)
+            candidate = overlays.plan(workshop, mission, [animals], policy_path)
             self.assertEqual(snapshot(mission), before, 'plan must be read only')
             overlays.install(candidate, mission)
             events = ET.fromstring((mission / overlays.MANAGED / 'events.xml').read_bytes())
-            self.assertEqual(events.find("event[@name='SyntheticBikeEvent']/nominal").text, '40')
+            self.assertIsNone(events.find("event[@name='SyntheticBikeEvent']"))
             environment = ET.fromstring((mission / 'cfgenvironment.xml').read_bytes())
             self.assertTrue(all(int(i.get('val')) <= 8 for i in environment.findall(
                 "./territories/territory[@name='Synthetic_otter']/item[@name='globalCountMax']")))

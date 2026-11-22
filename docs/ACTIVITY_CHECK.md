@@ -94,8 +94,8 @@ The `scope` field distinguishes `runtime` (default), `transport`, `client`, and
 and Polish use the shared presentation tuning send receipt (`transport`); this
 proves only a send, not delivery, rendering or a specific layer being enabled.
 OptionalPacks is a subscription-only shell with no gameplay tick: its
-`config-probed` diagnostic proves the probe ran and cannot establish CE animal or
-bicycle activity. Such diagnostic evidence is explicitly separate from runtime
+`config-probed` diagnostic proves the probe ran and cannot establish CE animal
+activity. Such diagnostic evidence is explicitly separate from runtime
 work and must never be cited as gameplay activity. SurvivalAlignment declares the
 client stamina HUD receipt; supply it using `--client-rpt client.RPT` alongside
 the server RPT. A server-only RPT can leave it SILENT/WAITING. Client
