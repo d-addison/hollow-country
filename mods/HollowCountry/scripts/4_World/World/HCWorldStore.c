@@ -649,7 +649,12 @@ class HCWorldIntentRecovery
         bool copyRawMismatch;
         bool copyBudgetExhausted;
         if (!equal) { equal = HCWorldStore.RejectCompare(source, rejected, copyRawMismatch, copyBudgetExhausted); }
-        if (copyTextMismatch || copyRawMismatch) { return RotationFailed(source, "copy_mismatch"); }
+        if (copyTextMismatch || copyRawMismatch)
+        {
+            // Our own copy is wrong; remove it so the next boot retries with a free slot.
+            DeleteFile(rejected);
+            return RotationFailed(source, "copy_mismatch");
+        }
         string reason = "verified_copy";
         if (!equal) { reason = "copy_unverified_non_authoritative"; }
         Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retire_source");
