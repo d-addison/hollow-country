@@ -70,6 +70,55 @@ class HCPickHouseScan
     }
 }
 
+// Nearest unvisited house, walked across ticks by HCBoundedJob. The runner owns Targets and Visited;
+// the job only holds weak pointers, so a freed runner ends the job instead of reaching freed arrays.
+class HCPickNearestJob : HCBoundedJob
+{
+    array<ref HCPickHouseTarget> Targets;
+    map<string, bool> Visited;
+    vector From;
+    int Best = -1;
+    float BestGap;
+
+    void HCStart(array<ref HCPickHouseTarget> targets, map<string, bool> visited, vector origin)
+    {
+        Targets = targets;
+        Visited = visited;
+        From = origin;
+        Best = -1;
+        BestGap = 0;
+        // The runner is a plain class and owns this job by ref, so it cannot be tracked weakly.
+        HCBegin(null);
+    }
+
+    override int HCItemCount()
+    {
+        if (!Targets || !Visited) { return 0; }
+        return Targets.Count();
+    }
+
+    override string HCJobModule() { return "PickRunner"; }
+
+    override void HCOnClear()
+    {
+        Targets = null;
+        Visited = null;
+    }
+
+    override int HCStepItem(int index)
+    {
+        HCPickHouseTarget target = Targets[index];
+        if (!target || Visited.Contains(target.Key)) { return ITEM_ADVANCE; }
+        float gap = vector.DistanceSq(From, target.Point);
+        if (Best < 0 || gap < BestGap)
+        {
+            Best = index;
+            BestGap = gap;
+        }
+        return ITEM_ADVANCE;
+    }
+}
+
 // Per-trip run state. Methods take the port as an argument: no back-reference cycle.
 class HCPickRunner
 {
@@ -86,6 +135,11 @@ class HCPickRunner
     Class HouseToken;
     ref array<ref HCPickHouseTarget> Targets = new array<ref HCPickHouseTarget>;
     ref map<string, bool> Visited = new map<string, bool>;
+    // The nearest-house walk resumes across ticks: at most NEAREST_UNITS targets or NEAREST_MS per tick.
+    static const int NEAREST_UNITS = 64;
+    static const float NEAREST_MS = 0.5;
+    ref HCPickNearestJob Nearest = new HCPickNearestJob;
+    ref HCWorkBudget NearestWork = new HCWorkBudget;
 
     void HCReset(HCScavengeInventory port)
     {
@@ -98,6 +152,7 @@ class HCPickRunner
         CurrentIndex = -1;
         StageAt = 0;
         BackIssued = false;
+        Nearest.HCClear();
         Targets.Clear();
         Visited.Clear();
     }
@@ -202,27 +257,17 @@ class HCPickRunner
         Print("[HC Pickers] run houses=skipped reason=" + gap + " runtime=PENDING");
     }
 
-    int HCNearest(HCScavengeInventory port)
-    {
-        int best = -1;
-        float bestGap = 0;
-        for (int index = 0; index < Targets.Count(); index++)
-        {
-            if (Visited.Contains(Targets[index].Key)) { continue; }
-            float gap = vector.DistanceSq(port.Actor.GetPosition(), Targets[index].Point);
-            if (best < 0 || gap < bestGap)
-            {
-                best = index;
-                bestGap = gap;
-            }
-        }
-        return best;
-    }
-
     string HCPickNext(HCScavengeInventory port, HCPickerSurvey survey, float tick)
     {
         int next = -1;
-        if (Searched < survey.RunMaxHousesPerRun && Attempts < survey.RunMaxHouseAttempts) { next = HCNearest(port); }
+        if (Searched < survey.RunMaxHousesPerRun && Attempts < survey.RunMaxHouseAttempts)
+        {
+            // Begin once per pick; a walk still running keeps its cursor and resumes next tick.
+            if (!Nearest.HCRunning()) { Nearest.HCStart(Targets, Visited, port.Actor.GetPosition()); }
+            NearestWork.HCReset(NEAREST_UNITS, NEAREST_MS);
+            if (Nearest.HCRun(NearestWork)) { return HCPickRunner.HOLD; }
+            if (Nearest.HCDone()) { next = Nearest.Best; }
+        }
         if (next < 0) { return HCGoBack(port, tick); }
         HCPickHouseTarget target = Targets[next];
         Visited.Set(target.Key, true);

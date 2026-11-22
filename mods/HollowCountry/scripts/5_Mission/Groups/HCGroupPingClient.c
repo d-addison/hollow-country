@@ -59,7 +59,7 @@ modded class HCGroupClient
         int used;
         bool active;
         // <=3 points. Hidden behind camera/offscreen; never clamped to an edge.
-        for (int i = 0; i < m_HCLookFrame.Points.Count(); i++)
+        for (int i = 0; i < m_HCLookFrame.Points.Count() && i < 3; i++)
         {
             if (now < 1 || m_HCLookFrame.Expires.Get(i) <= now) { continue; }
             active = true;

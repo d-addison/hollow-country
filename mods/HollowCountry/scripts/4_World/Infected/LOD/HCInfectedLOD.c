@@ -848,7 +848,7 @@ class HCInfectedLODModule : HCModule
         if (nearest >= 0) { edge = Math.Max(0, nearest - herd.Radius); }
         int leasedHerd = LeasedFor(herd.Id);
         int desired = HCLODPolicy.DesiredMembers(herd.Alive, edge, m_Config.MaterializeRange, m_Config.MaxPerHerd);
-        if (!HCLODPolicy.MayMaterialize(desired, leasedHerd, m_Leases.Count(), m_Config.MaxMaterialized)) { return; }
+        if (m_Leases.Count() >= m_Config.MaxMaterialized || !HCLODPolicy.MayMaterialize(desired, leasedHerd, m_Leases.Count(), m_Config.MaxMaterialized)) { return; }
         float angle = Math.RandomFloat01() * Math.PI2;
         float distance = Math.Sqrt(Math.RandomFloat01()) * herd.Radius;
         float x = herd.X + Math.Cos(angle) * distance;

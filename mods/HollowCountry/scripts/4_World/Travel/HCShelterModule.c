@@ -47,6 +47,43 @@ enum HCShelterPropStage
     COMPLETE
 }
 
+// Folds the placed props of one regional scene into its pathgraph bounds across stages, a few
+// props per admission, through HCBoundedJob. The module owns the batch and the region; the job
+// holds weak pointers to them and finishes as empty if either is freed.
+class HCShelterBoundsJob : HCBoundedJob
+{
+    array<Object> Batch;
+    HCPathgraphRefresh Region;
+
+    void HCStart(array<Object> batch, HCPathgraphRefresh region)
+    {
+        Batch = batch;
+        Region = region;
+        // The module is a plain class and owns this job by ref, so it cannot be tracked weakly.
+        HCBegin(null);
+    }
+
+    override int HCItemCount()
+    {
+        if (!Batch || !Region) { return 0; }
+        return Batch.Count();
+    }
+
+    override string HCJobModule() { return "Shelters"; }
+
+    override void HCOnClear()
+    {
+        Batch = null;
+        Region = null;
+    }
+
+    override int HCStepItem(int index)
+    {
+        Region.Include(Batch[index]);
+        return ITEM_ADVANCE;
+    }
+}
+
 class HCShelterModule : HCModule
 {
     protected string m_StatusLogLine;
@@ -74,7 +111,9 @@ class HCShelterModule : HCModule
     protected Object m_RegionalHouse;
     protected ref HCInteriorTemplate m_RegionalLayout;
     protected ref array<Object> m_RegionalBatch = new array<Object>;
-    protected int m_RegionalPublish;
+    protected ref HCShelterBoundsJob m_RegionalBounds = new HCShelterBoundsJob;
+    static const int HC_REGIONAL_BOUNDS_UNITS = 4;
+    static const float HC_REGIONAL_BOUNDS_MS = 1.0;
     protected ref HCPathgraphRefresh m_RegionalRegion;
     // A private cursor never publishes partial props. Native calls cannot be
     // preempted; each costly query/create/snap/rebuild has its own admission.
@@ -320,7 +359,8 @@ class HCShelterModule : HCModule
         HCStartupPump.HCFinish(m_Startup);
         if (m_Startup) { m_Startup.Module = null; }
         m_Startup = null;
-        HCClearRegionalJob(true);
+        HCDrainRegionalBatch();
+        HCClearRegionalJob();
         array<Object> ownedProps = m_Objects;
         foreach (Object ownedProp : ownedProps)
         {
@@ -1092,13 +1132,15 @@ class HCShelterModule : HCModule
         if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
     }
 
-    protected void HCClearRegionalJob(bool rollback)
+    // Shutdown alone deletes the partial scene synchronously; the tick path rolls back one prop per admission.
+    protected void HCDrainRegionalBatch()
     {
-        if (rollback)
-        {
-            if (m_RegionalProp) { DeleteProp(m_RegionalProp); }
-            foreach (Object partial : m_RegionalBatch) { DeleteProp(partial); }
-        }
+        if (m_RegionalProp) { DeleteProp(m_RegionalProp); }
+        foreach (Object partial : m_RegionalBatch) { DeleteProp(partial); }
+    }
+
+    protected void HCClearRegionalJob()
+    {
         m_RegionalBatch.Clear();
         m_RegionalProp = null;
         m_RegionalPropStep = HCShelterPropStage.PREPARE;
@@ -1106,7 +1148,7 @@ class HCShelterModule : HCModule
         m_RegionalCargos.Clear();
         m_RegionalResolve = null;
         m_RegionalBinding = null;
-        m_RegionalPublish = 0;
+        m_RegionalBounds.HCClear();
         m_RegionalRegion = null;
         m_RegionalRollingBack = false;
         m_RegionalJobEntry = null;
@@ -1120,7 +1162,7 @@ class HCShelterModule : HCModule
         // Delete at most one partial prop on each later admission. OnStop
         // alone drains the remaining bounded batch synchronously.
         if (m_RegionalProp || m_RegionalBatch.Count() > 0) { m_RegionalRollingBack = true; return; }
-        HCClearRegionalJob(false);
+        HCClearRegionalJob();
         // Keep the existing candidate order, rollback and refusal policy.
         if (m_RefusalReason == "observed_regional_prop")
         {
@@ -1185,7 +1227,7 @@ class HCShelterModule : HCModule
             {
                 // Initial resolve failures were terminal site refusals,
                 // never candidate-refusal counters or layout retries.
-                HCClearRegionalJob(false);
+                HCClearRegionalJob();
                 HCRegionalRefuse(entry, "building_unresolved_or_tilted");
             }
             return;
@@ -1206,7 +1248,7 @@ class HCShelterModule : HCModule
             float tolerance = HCShelterCatalog.HCRegionalConfig().BoundsToleranceSquared;
             if (vector.DistanceSq(regionalClip[0], HCInteriorTemplates.AsVector(scene.ClipMin)) > tolerance || vector.DistanceSq(regionalClip[1], HCInteriorTemplates.AsVector(scene.ClipMax)) > tolerance)
             {
-                HCClearRegionalJob(false);
+                HCClearRegionalJob();
                 HCRegionalRefuse(entry, "building_bounds");
                 return;
             }
@@ -1246,11 +1288,18 @@ class HCShelterModule : HCModule
             HCRegionalPropStep(entry);
             return;
         }
-        if (m_RegionalPublish < m_RegionalBatch.Count())
+        if (!m_RegionalBounds.HCDone())
         {
             m_StepKind = "pathgraph_bounds";
-            m_RegionalRegion.Include(m_RegionalBatch[m_RegionalPublish]);
-            m_RegionalPublish++;
+            if (!m_RegionalBounds.HCRunning()) { m_RegionalBounds.HCStart(m_RegionalBatch, m_RegionalRegion); }
+            m_Work.HCReset(HC_REGIONAL_BOUNDS_UNITS, HC_REGIONAL_BOUNDS_MS);
+            if (m_RegionalBounds.HCRun(m_Work)) { return; }
+            if (!m_RegionalBounds.HCDone())
+            {
+                m_RefusalReason = "create_failed";
+                HCRegionalBatchRefused(entry);
+            }
+            // The stage that finished the walk ends here; the next admission publishes.
             return;
         }
         m_StepKind = "publish";
@@ -1266,7 +1315,7 @@ class HCShelterModule : HCModule
         m_Placed = m_Placed + 1;
         m_RegionalPlaced++;
         m_RegionalRemaining--;
-        HCClearRegionalJob(false);
+        HCClearRegionalJob();
         if (m_RegionalRemaining == 0 && m_PathgraphPending.Count() == 0) { HCRegionalSummary(); }
     }
 
