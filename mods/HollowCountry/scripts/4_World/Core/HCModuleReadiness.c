@@ -97,11 +97,88 @@ class HCModuleReadiness
     // existing activity parser can compare checkpoints without summing deltas.
     static void HCSummary()
     {
+        HCNavRegister();
+        HCNavRefresh();
         HCUseRegistrationSummary();
         int slot = 0;
         while (slot < s_UseCounts.Count())
         {
             if (s_UseCounts[slot] > s_UsePrintedCounts[slot]) { HCUseLine(slot); }
+            slot++;
+        }
+    }
+
+    // ---- Navigation aggregates (World P1.3) -----------------------------------------
+    // One domain row per navigation outcome, derived at each summary from counters the
+    // owners already report; no owner file calls these rows and none double-counts: the
+    // aggregate is recomputed from the member slots, never incremented. Printed through
+    // the shared [HC Use] line (module=NavInf|NavXai). Members that never registered
+    // contribute zero. tools/release/activity_check.py admits each row through its
+    // owner module; keep HCNavMembers and that table in step.
+    static const string HC_NAV_INF = "NavInf";
+    static const string HC_NAV_XAI = "NavXai";
+
+    protected static void HCNavRegister()
+    {
+        HCRegisterUse(HC_NAV_INF, "route_advance");
+        HCRegisterUse(HC_NAV_INF, "pathgraph_refresh");
+        HCRegisterUse(HC_NAV_INF, "door_action");
+        HCRegisterUse(HC_NAV_INF, "vault_started");
+        HCRegisterUse(HC_NAV_XAI, "routes");
+        HCRegisterUse(HC_NAV_XAI, "stuck_recovery");
+    }
+
+    // Member counters as "module/feature", joined with "+". Empty for a non-aggregate.
+    protected static string HCNavMembers(string module, string feature)
+    {
+        if (module == HC_NAV_INF)
+        {
+            if (feature == "route_advance") { return "HordeMigration/route_advanced"; }
+            if (feature == "pathgraph_refresh") { return "Interiors/pathgraph_refresh+Shelters/pathgraph_refresh+ObjectSpawner/pathgraph_refresh"; }
+            if (feature == "door_action") { return "InfectedDoors/door_action"; }
+            if (feature == "vault_started") { return "InfectedReach/vault_started"; }
+        }
+        if (module == HC_NAV_XAI)
+        {
+            if (feature == "routes") { return "optional-expansion-human-ai/route_cache+optional-expansion-human-ai/convoy_astar"; }
+            if (feature == "stuck_recovery") { return "optional-expansion-human-ai/stuck_recovery"; }
+        }
+        return "";
+    }
+
+    // Saturating sum of the member counts (or of their fixture counts).
+    protected static int HCNavSum(string members, bool fixtures)
+    {
+        array<string> parts = new array<string>();
+        members.Split("+", parts);
+        int total = 0;
+        foreach (string part : parts)
+        {
+            int memberSlot;
+            if (!s_UseSlots.Find(part, memberSlot)) { continue; }
+            int value = s_UseCounts[memberSlot];
+            if (fixtures) { value = s_UseFixtureCounts[memberSlot]; }
+            if (value > 2147483647 - total) { return 2147483647; }
+            total += value;
+        }
+        return total;
+    }
+
+    protected static void HCNavRefresh()
+    {
+        int slot = 0;
+        while (slot < s_UseCounts.Count())
+        {
+            if (s_UseModules[slot] == HC_NAV_INF || s_UseModules[slot] == HC_NAV_XAI)
+            {
+                string members = HCNavMembers(s_UseModules[slot], s_UseFeatures[slot]);
+                if (members != "")
+                {
+                    // Member counters only grow, but a mission restart clears slots first.
+                    s_UseCounts[slot] = HCNavSum(members, false);
+                    s_UseFixtureCounts[slot] = HCNavSum(members, true);
+                }
+            }
             slot++;
         }
     }
@@ -160,7 +237,7 @@ class HCModuleReadiness
             s_LegacyUses.Insert("Cellars", "visual_applied");
             s_LegacyUses.Insert("Grade", "grade_applied");
             s_LegacyUses.Insert("Lighting", "blend_applied");
-            s_LegacyUses.Insert("OptionalPacks", "animal_seen,bicycle_seen");
+            s_LegacyUses.Insert("OptionalPacks", "animal_seen");
             s_LegacyUses.Insert("SignsOfLife", "light_observed,smoke_observed,flies_created");
             s_LegacyUses.Insert("Camps", "camp_recognised");
             s_LegacyUses.Insert("CampRespawn", "respawn_reserved");
@@ -176,12 +253,12 @@ class HCModuleReadiness
             s_LegacyUses.Insert("InfectedMemory", "heat_recorded");
             s_LegacyUses.Insert("Infected", "actor_bound");
             s_LegacyUses.Insert("CellarSampler", "class_measured");
-            s_LegacyUses.Insert("Interiors", "prop_placed,search_completed");
+            s_LegacyUses.Insert("Interiors", "prop_placed,house_search_completed");
+            s_LegacyUses.Insert("SearchBinding", "house_bound");
             s_LegacyUses.Insert("BodyStories", "body_observed");
             s_LegacyUses.Insert("Leads", "lead_received");
             s_LegacyUses.Insert("Notes", "note_read");
             s_LegacyUses.Insert("Radio", "report_delivered");
-            s_LegacyUses.Insert("SearchBinding", "supply_bound");
             s_LegacyUses.Insert("LootRefresh", "timer_rearmed");
             s_LegacyUses.Insert("Melee", "hit_processed");
             s_LegacyUses.Insert("Polish", "hint_shown,sound_played");

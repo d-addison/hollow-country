@@ -13,25 +13,21 @@ class HCBuildIdentity
 {
     static const string CANONICAL_BUILD = "1.30.164289";
     static const string NATIVE_FULL_BUILD = "1.30.164289.70";
-    // Fixed five-bit set: legacy/shared + four XAI gates. Unknown caller tags
+    // Fixed bit set: legacy/shared (bit 1) + two XAI gates (bits 4, 16). Unknown caller tags
     // share bit 1, so arbitrary input can never grow a map or log without bound.
     // Shared across mission restarts; successes do not consume a bit.
     static int s_MismatchLogged = 0;
 
     static int GateMask(string gate)
     {
-        if (gate == "xai_profile") return 2;
         if (gate == "xai_prerequisites") return 4;
-        if (gate == "xai_receipt") return 8;
         if (gate == "xai_site") return 16;
         return 1;
     }
 
     static string GateSuffix(string gate)
     {
-        if (gate == "xai_profile") return " gate=xai_profile";
         if (gate == "xai_prerequisites") return " gate=xai_prerequisites";
-        if (gate == "xai_receipt") return " gate=xai_receipt";
         if (gate == "xai_site") return " gate=xai_site";
         return "";
     }

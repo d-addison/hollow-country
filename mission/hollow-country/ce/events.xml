@@ -57,9 +57,6 @@
       <child lootmax="0" lootmin="0" max="4" min="2" type="OffroadHatchback" />
       <child lootmax="0" lootmin="0" max="4" min="2" type="OffroadHatchback_Blue" />
       <child lootmax="0" lootmin="0" max="4" min="2" type="OffroadHatchback_White" />
-      <child lootmax="0" lootmin="0" max="3" min="0" type="Expansion_Landrover" />
-      <child lootmax="0" lootmin="0" max="3" min="0" type="Expansion_Landrover_Green" />
-      <child lootmax="0" lootmin="0" max="3" min="0" type="Expansion_Landrover_Yellow" />
       <child lootmax="0" lootmin="0" max="3" min="0" type="ExpansionUAZ" />
       <child lootmax="0" lootmin="0" max="3" min="0" type="ExpansionUAZ_Green" />
       <child lootmax="0" lootmin="0" max="3" min="0" type="ExpansionUAZRoofless" />

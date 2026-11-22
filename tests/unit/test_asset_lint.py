@@ -134,6 +134,7 @@ class AssetBuilderTests(unittest.TestCase):
         candidate.mkdir()
         payloads = {'config.cpp': b'class CfgPatches { class HollowCountryAssets { units[]={}; weapons[]={}; requiredAddons[]={"DZ_Data"}; }; };',
                     '$PBOPREFIX$': builder.PREFIX.encode(),
+                    'NOTICE.txt': b'Synthetic addon notice',
                     'HC_TestCube.p3d': mlod.write_mlod(hc_test_cube())}
         inputs = []
         for name, data in payloads.items():
@@ -187,6 +188,213 @@ class AssetBuilderTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     builder.build(plan, plan_dir=root, source=source, out=root / 'out')
                 self.assertFalse((root / 'out').exists())
+
+
+OWN_CO = 'HollowCountry\\data\\hc_testcube_co.paa'
+OWN_NOHQ = 'HollowCountry\\data\\hc_testcube_nohq.paa'
+OWN_RVMAT = 'HollowCountry\\data\\hc_testcube.rvmat'
+
+
+def paa(kind=b'\x01\xff', width=64, height=64, taggs=2):
+    data = kind
+    for name in (b'CGVA', b'SFFO')[:taggs]:
+        data += b'GGAT' + name + (4).to_bytes(4, 'little') + bytes(4)
+    return data + bytes(2) + width.to_bytes(2, 'little') + height.to_bytes(2, 'little') + bytes(3) + bytes(16)
+
+
+class ExtensionTests(unittest.TestCase):
+    """Mesh, texture and rig extensions on top of the synthetic HC_TestCube."""
+
+    def setUp(self):
+        self.cube = hc_test_cube()
+        geometry = self.cube.lods[mlod.GEOMETRY]
+        # The shared fixture's visual LOD is deliberately open; build a closed one.
+        faces = tuple(replace(f, texture=OWN_CO, material=r'DZ\data\data\default.rvmat') for f in geometry.faces)
+        body = mlod.Selection(tuple(range(8)), tuple(range(len(faces))))
+        self.closed = replace(self.cube, lods={**self.cube.lods, 0.: replace(
+            self.cube.lods[0.], faces=faces, selections={'body': body})})
+        self.sources = {OWN_CO, OWN_NOHQ, OWN_RVMAT, r'DZ\data\data\default.rvmat'}
+        self.model_cfg = emit_model_cfg('HC_TestCube', ['body'])
+        self.config = 'class Cube { hiddenSelections[]={"body"}; memoryPoint="origin"; };'
+
+    def check(self, asset=None, **kwargs):
+        options = dict(model_cfg=self.model_cfg, config=self.config, sources=self.sources)
+        options.update(kwargs)
+        return asset_lint.lint(asset or self.closed, **options)
+
+    def ids(self, asset=None, **kwargs):
+        return {f['id'] for f in self.check(asset, **kwargs)['findings']}
+
+    def with_visual(self, **changes):
+        return replace(self.closed, lods={**self.closed.lods, 0.: replace(self.closed.lods[0.], **changes)})
+
+    def triangulated(self):
+        lod = self.closed.lods[0.]
+        faces = tuple(replace(f, vertices=t, uv=tuple(f.uv[f.vertices.index(i)] for i in t))
+                      for f in lod.faces for t in asset_lint._triangles(f))
+        return self.with_visual(faces=faces, selections={'body': mlod.Selection(tuple(range(8)), tuple(range(len(faces))))})
+
+    def test_baseline_closed_cube_passes_every_policy(self):
+        policy = {'triangles_only': True, 'closed_visual': True, 'expected_bbox': [[-.5]*3, [.5]*3]}
+        self.assertTrue(self.check(self.triangulated(), policy=policy)['valid'])
+        self.assertEqual(self.ids(policy={'closed_visual': True}), set())
+
+    def test_policy_input_is_closed(self):
+        self.assertIn('HC-A010', self.ids(policy={'surprise': True}))
+        self.assertIn('HC-A010', self.ids(policy=[]))
+
+    def test_degenerate_and_nonfinite_triangles(self):
+        lod = self.closed.lods[0.]
+        face = mlod.Face((0, 8, 1), ((0., 0.), (.5, 0.), (1., 0.)), OWN_CO, r'DZ\data\data\default.rvmat')
+
+        def with_sliver(offset, **extra):
+            vertices = lod.vertices + (mlod.Vertex((0., -.5 + offset, -.5)),)
+            return self.with_visual(vertices=vertices, faces=lod.faces + (replace(face, **extra),))
+        # Exactly collinear faces are refused by the codec; slivers below the area floor are ours.
+        self.assertIn('HC-A010', self.ids(with_sliver(0.)))
+        self.assertIn('HC-A011', self.ids(with_sliver(1e-13)))
+        self.assertIn('HC-A011', self.ids(with_sliver(0., normals=((0., 0., 1.),) * 3)))
+        self.assertNotIn('HC-A011', self.ids(with_sliver(1e-3)))
+        nan = (mlod.Vertex((float('nan'), 0., 0.)),) + lod.vertices[1:]
+        self.assertIn('HC-A010', self.ids(self.with_visual(vertices=nan)))
+
+    def test_triangles_only_and_open_visual_shells(self):
+        self.assertIn('HC-A011', self.ids(policy={'triangles_only': True}))
+        lod = self.closed.lods[0.]
+        open_shell = self.with_visual(faces=lod.faces[:-1], selections={})
+        self.assertIn('HC-A011', self.ids(open_shell, policy={'closed_visual': True}))
+        non_physical = replace(open_shell, physical=False)
+        self.assertNotIn('HC-A011', self.ids(non_physical, policy={'closed_visual': True}))
+
+    def test_bounding_box_and_pivot(self):
+        self.assertNotIn('HC-A011', self.ids(policy={'expected_bbox': [[-.5]*3, [.5]*3]}))
+        self.assertNotIn('HC-A011', self.ids(policy={'expected_bbox': [[-.503]*3, [.5]*3]}))
+        self.assertIn('HC-A011', self.ids(policy={'expected_bbox': [[0]*3, [1]*3]}))
+        self.assertIn('HC-A011', self.ids(policy={'expected_bbox': [[-.51]*3, [.5]*3]}))
+        self.assertNotIn('HC-A011', self.ids(policy={'expected_bbox': [[-.51]*3, [.5]*3], 'bbox_tolerance': .02}))
+        for bad in ([[0]*3], 'x', [[0]*3, [float('nan')]*3], [[0]*3, [1]*3, [2]*3]):
+            self.assertIn('HC-A010', self.ids(policy={'expected_bbox': bad}))
+
+    def test_material_count_and_lod_reduction(self):
+        lod = self.closed.lods[0.]
+        materials = [r'DZ\data\data\m%d.rvmat' % i for i in range(4)]
+        faces = tuple(replace(f, material=materials[i % len(materials)]) for i, f in enumerate(lod.faces))
+        self.assertIn('HC-A012', self.ids(self.with_visual(faces=faces), sources=self.sources | set(materials)))
+        self.assertNotIn('HC-A012', self.ids(self.with_visual(faces=lod.faces)))
+        verts = tuple(mlod.Vertex(p) for p in ((0., 0., 0.), (1., 0., 0.), (0., 1., 0.), (0., 0., 1.)))
+        uv = ((0., 0.), (1., 0.), (0., 1.))
+        tetra = mlod.LOD(verts, tuple(mlod.Face(t, uv, OWN_CO, r'DZ\data\data\default.rvmat') for t in
+                                      ((0, 2, 1), (0, 1, 3), (1, 2, 3), (0, 3, 2))),
+                         {'body': mlod.Selection((0, 1, 2, 3))})
+        reduced = replace(self.closed, lods={**self.closed.lods, 1.: tetra})
+        self.assertNotIn('HC-A012', self.ids(reduced))
+        same = replace(self.closed, lods={**self.closed.lods, 1.: self.closed.lods[0.]})
+        self.assertIn('HC-A012', self.ids(same))
+
+    def test_uv_overlap_is_opt_in(self):
+        self.assertIn('HC-A011', self.ids(policy={'uv_overlap': True}))
+        lod = self.closed.lods[0.]
+        faces = tuple(replace(f, uv=tuple(((n % 3 + u) / 3, (n // 3 + v) / 2) for u, v in f.uv))
+                      for n, f in enumerate(lod.faces))
+        self.assertNotIn('HC-A011', self.ids(self.with_visual(faces=faces), policy={'uv_overlap': True}))
+
+    def test_paa_header_parser(self):
+        self.assertEqual(asset_lint.paa_info(paa()), ('DXT1', 64, 64))
+        self.assertEqual(asset_lint.paa_info(paa(b'\x05\xff', 128, 32, taggs=0)), ('DXT5', 128, 32))
+        # The high bit of the stored width marks LZO compression, not size.
+        self.assertEqual(asset_lint.paa_info(paa(width=64 | 0x8000))[1], 64)
+        for bad in (b'', b'\x00\x00' + bytes(20), paa()[:20], paa()[:-18], 'str'):
+            with self.assertRaises(ValueError):
+                asset_lint.paa_info(bad)
+
+    def test_textures(self):
+        rvmat = {OWN_RVMAT: 'class Stage1 { texture="%s"; };' % OWN_NOHQ}
+        good = {OWN_CO: paa(), OWN_NOHQ: paa(b'\x05\xff')}
+        self.assertTrue(self.check(textures=good, rvmats=rvmat)['valid'], self.check(textures=good, rvmats=rvmat))
+        cases = {
+            'magic': {**good, OWN_CO: b'\x00\x00' + bytes(30)},
+            'size': {**good, OWN_CO: paa(width=48)},
+            'zero': {**good, OWN_CO: paa(height=0)},
+            'normal': {**good, OWN_NOHQ: paa(b'\x01\xff')},
+            'unreferenced': {**good, 'HollowCountry\\data\\extra_co.paa': paa()},
+            'unshipped': {OWN_NOHQ: good[OWN_NOHQ]},
+        }
+        for label, textures in cases.items():
+            findings = self.ids(textures=textures, rvmats=rvmat, sources=self.sources | {'HollowCountry\\data\\extra_co.paa'})
+            self.assertIn('HC-A013', findings, label)
+        self.assertIn('HC-A013', self.ids(textures={r'C:\x_co.paa': paa()}))
+        self.assertIn('HC-A013', self.ids(textures=[]))
+
+    def test_rvmat_stage_paths(self):
+        stage = lambda value: {OWN_RVMAT: 'class Stage1 { texture="%s"; };' % value}
+        self.assertNotIn('HC-A014', self.ids(rvmats=stage(OWN_NOHQ)))
+        self.assertNotIn('HC-A014', self.ids(rvmats=stage('#(argb,8,8,3)color(0,0,0,0,DT)')))
+        self.assertNotIn('HC-A014', self.ids(rvmats=stage('#(ai,64,64,1)fresnel(1.3,7)')))
+        for bad in ('HollowCountry\\data\\absent_co.paa', r'C:\evil_co.paa', r'DZ\..\x_co.paa', '#(argb,8,8,3)exec(1)'):
+            self.assertIn('HC-A014', self.ids(rvmats=stage(bad)), bad)
+        self.assertIn('HC-A008', self.ids(rvmats={OWN_RVMAT.replace('.rvmat', '_x.rvmat'): ''}))
+        self.assertIn('HC-A014', self.ids(rvmats=[]))
+        self.assertIn('HC-A010', self.ids(rvmats={OWN_RVMAT: 'texture = $unknown;'}))
+
+    def test_packer_rvmat_text_is_accepted(self):
+        from tools.assets import pbr_pack
+        prefix = 'HollowCountry\\test\\cube'
+        paths = {prefix + suffix for suffix in ('_nohq.paa', '_as.paa', '_smdi.paa')}
+        findings = self.ids(rvmats={OWN_RVMAT: pbr_pack.rvmat(prefix)}, sources=self.sources | paths)
+        self.assertNotIn('HC-A014', findings)
+        self.assertNotIn('HC-A010', findings)
+
+    def rig(self, **overrides):
+        weights = {'0': [{'Head': 1.0}] * 4 + [{'Spine': 1.0}] * 4}
+        # The fixture's vertices 0-3 are on z=-.5, 4-7 on z=+.5.
+        rig = {'bones': ['Head', 'Spine'],
+               'skeleton': {'Spine': {'parent': None, 'pivot': [0, 0, 0]},
+                            'Head': {'parent': 'Spine', 'pivot': [0, 0, 10]}},
+               'poses': {'rest': {}, 'turn': {'Head': [[0, 1, 0], 5]}}}
+        rig.update(overrides)
+        return self.check(skin_weights=weights, rig=rig)
+
+    def test_rig_bone_allowlist_and_stretch(self):
+        self.assertTrue(self.rig()['valid'], self.rig())
+        self.assertIn('HC-A015', {f['id'] for f in self.rig(bones=['Spine'])['findings']})
+        far = {'Spine': {'parent': None, 'pivot': [0, 0, 0]}, 'Head': {'parent': 'Spine', 'pivot': [9, 9, 9]}}
+        pose = {'flip': {'Head': [[1, 0, 0], 170]}}
+        self.assertIn('HC-A015', {f['id'] for f in self.rig(skeleton=far, poses=pose)['findings']})
+
+    def test_rig_inputs_fail_closed(self):
+        loop = {'Head': {'parent': 'Spine', 'pivot': [0, 0, 0]}, 'Spine': {'parent': 'Head', 'pivot': [0, 0, 0]}}
+        for override in ({'skeleton': loop}, {'poses': {'bad': {'Nope': [[0, 1, 0], 1]}}},
+                         {'poses': {'bad': {'Head': [[0, 0, 0], 1]}}}, {'poses': {}}, {'skeleton': None},
+                         {'unknown': 1}):
+            self.assertIn('HC-A015', {f['id'] for f in self.rig(**override)['findings']}, override)
+        self.assertIn('HC-A015', self.ids(rig={'bones': ['Head']}, skin_weights={'0': [{'Spine': 1.0}] * 8}))
+        self.assertIn('HC-A015', self.ids(rig='x'))
+
+    def test_cli_options_read_local_files_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            ir = base / 'cube.json'
+            ir.write_text(json.dumps(asdict(self.closed)))
+            (base / 'cfg.cpp').write_text(self.config)
+            (base / 'model.cfg').write_text(self.model_cfg)
+            (base / 'sources.json').write_text(json.dumps(sorted(self.sources)))
+            (base / 'policy.json').write_text('{"closed_visual": true}')
+            (base / 'co.paa').write_bytes(paa())
+            (base / 'textures.json').write_text(json.dumps({OWN_CO: str(base / 'co.paa')}))
+            args = [str(ir), '--model-cfg', str(base / 'model.cfg'), '--config', str(base / 'cfg.cpp'),
+                    '--sources', str(base / 'sources.json'), '--json', '--policy', str(base / 'policy.json'),
+                    '--textures', str(base / 'textures.json')]
+            out = StringIO()
+            with redirect_stdout(out):
+                code = asset_lint.main(args)
+            self.assertEqual((code, json.loads(out.getvalue())), (0, {'valid': True, 'findings': []}))
+            (base / 'co.paa').write_bytes(paa(width=48))
+            out = StringIO()
+            with redirect_stdout(out):
+                code = asset_lint.main(args)
+            self.assertEqual(code, 1)
+            self.assertIn('HC-A013', out.getvalue())
+            self.assertNotIn(temp, out.getvalue())
 
 
 if __name__ == '__main__':

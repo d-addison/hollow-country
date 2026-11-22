@@ -80,7 +80,7 @@ Both story schedulers now use free window capacity; all 74 shelter scenes remain
 | :--- | :--- | :--- | :--- |
 | **Trail shelters** | Shared shelters offer places to stop and record discoveries. Five regional exterior scenes use stock roofs with access keepouts, budgeted placement and discovery only after completion. All 74 scenes remain enabled; bounded nearby layout retries check ground support and report placement refusals. Native access/rain checks remain pending. | `EnableTravel=true`; regional `Enabled=true`; regional `Enabled=false` opts out. | *In-game test pending* |
 | **Wreck salvage** | Eligible wrecks hold finite parts rather than an unlimited salvage source. The server records claims and refuses unsupported wrecks; bounded summaries report use and successful salvage. | `EnableTravel=true`. | *In-game test pending* |
-| **Repairable transport** | The installed travel roster adds 23 Expansion vehicles and finite repair parts: repairable common cars, many bikes and a few boats. Event budgets cover 39 cars, seven trucks, 28 motorbikes, six boats and four rare aircraft; bicycles use their separate overlay. These are configured populations, not observed counts. RaG vehicle repairs and bicycle animations come from the published dependencies. | `EnableTravel=true` controls travel services; installed vehicle/bicycle overlays need rollback to remove. | *In-game test pending* |
+| **Repairable transport** | The installed travel roster adds 23 Expansion vehicles and finite repair parts: repairable common cars, many bikes and a few boats. Event budgets cover 39 cars, seven trucks, 28 motorbikes, six boats and four rare aircraft; there are no bicycles (retired 2026-11-22). These are configured populations, not observed counts. RaG vehicle repairs come from the published dependencies. | `EnableTravel=true` controls travel services; installed vehicle overlays need rollback to remove. | *In-game test pending* |
 | **Vehicle recovery** | The vehicle-flip action checks nearby helpers or a crowbar, then applies at most three bounded torque/lift impulses with safety checks and a cooldown; summaries distinguish attempts from successful recovery. | `EnableVehicleFlip=true`. | *In-game test pending* |
 | **Helicopters** | Expansion helicopter support tracks world aircraft and caps CE spawn fuel without creating vehicles. A four-aircraft CE budget keeps helicopters rare. The crash/landing incident bridge lives in the Expansion AI addon after its vehicle dependency. Gap: ambient AI overflight has no flight port. [#147](https://github.com/d-addison/hollow-country/issues/147) | `helicopters.disable`; `Helicopters.WorldCap=4`, `Helicopters.SpawnFuelMaxFraction=0.1`. | *In-game test pending* |
 
@@ -170,12 +170,10 @@ Server and clients load these published Workshop items in the order declared by 
 | 11 | [RaG_Core](https://steamcommunity.com/sharedfiles/filedetails/?id=3556131153) | `@RaG_Core` | Dependency for RaG vehicles. |
 | 12 | [RaG_Immersive_Vehicles](https://steamcommunity.com/sharedfiles/filedetails/?id=3105330157) | `@RaG_Immersive_Vehicles` | Published dependency for the overhaul. |
 | 13 | [Ambient Animals Pack](https://steamcommunity.com/sharedfiles/filedetails/?id=3114410963) | `@AmbientAnimals` | Ambient animal content. |
-| 14 | [Survivor Animations](https://steamcommunity.com/sharedfiles/filedetails/?id=2918418331) | `@SurvivorAnimations` | Animation dependency for bicycles. |
-| 15 | [DayZ-Bicycle](https://steamcommunity.com/sharedfiles/filedetails/?id=2971190303) | `@DayZ-Bicycle` | Rideable bicycles. |
-| 16 | [Hollow Country](https://steamcommunity.com/sharedfiles/filedetails/?id=3841628320) | `@HollowCountry` | Core overhaul and client presentation. |
-| 17 | [Hollow Country Expansion AI](https://steamcommunity.com/sharedfiles/filedetails/?id=3841637854) | `@HollowCountryExpansionAI` | Connects the world systems to Expansion AI and owns the vehicle landing incident hook. |
+| 14 | [Hollow Country](https://steamcommunity.com/sharedfiles/filedetails/?id=3841628320) | `@HollowCountry` | Core overhaul and client presentation. |
+| 15 | [Hollow Country Expansion AI](https://steamcommunity.com/sharedfiles/filedetails/?id=3841637854) | `@HollowCountryExpansionAI` | Connects the world systems to Expansion AI and owns the vehicle landing incident hook. |
 
-Expansion-Animations is deliberately not loaded. A reported conflict with Survivor Animations, which DayZ-Bicycle requires, has not been reproduced locally; Expansion AI supplies its own AI animations.
+Expansion-Animations is deliberately not loaded; Expansion AI supplies its own AI animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22 (the two-wheel role is covered by the vanilla motorbikes); an existing subscription is harmless and is no longer loaded.
 
 ## Install
 
@@ -280,6 +278,10 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `AILimits.MaxCampItems` | `64` | Item cap per camp. |
 | `AILimits.WorldSeed` | `18473` | Deterministic world-selection seed. |
 | `AILimits.MaxObservedAI` | `1024` | Observed AI record cap. |
+| `AILimits.CautionRangeM` | `30` | Metres within which an AI warns a player holding a raised weapon (1-100). |
+| `AILimits.CautionHostileRangeM` | `60` | Reserved: no effect since the caution grace (2026-11-22); hostile factions engage at once with no caution range. Kept so older configs still load (1-100). |
+| `AILimits.CautionGunfireRangeM` | `80` | Same range after recent gunfire (1-100). |
+| `AILimits.CautionGraceSeconds` | `3` | Seconds a non-hostile AI faces and shouts at a player raising a weapon between 40 m and 80 m before it turns hostile; lowering the weapon in time de-escalates (1-30). |
 
 ### Performance, situations and camp theft profiles
 
@@ -297,6 +299,9 @@ These registry prefixes identify separate owners, not nested objects in `HollowC
 | `W38Situations.MaxIncidentItems` | `16` | Existing items exposed per incident. |
 | `W38Situations.PhysicalScanObjects` | `64` | Native object scan cap. |
 | `W38Situations.PhysicalScanCargo` | `16` | Native cargo scan cap. |
+| `W38Situations.RefillCooldownSeconds` | `10800` | Seconds before an emptied, ruined or missing police stock barrel is refilled or replaced (600 to 604800). |
+| `W38Situations.ContainerLifetimeSeconds` | `604800` | Age after which a police stock barrel is drained and replaced with fresh loot (3600 to 2592000). |
+| `W38Situations.RefillClearRadius` | `50` | No refill or replacement while a player is within this many metres (10 to 200). |
 | `W38Situations.MaxRaidMeters` | `600` | Maximum raid approach in metres. |
 | `W38Situations.ShelterMeters` | `20` | Shelter proximity in metres. |
 | `Performance.EnableSharedSaves` | `true` | Shared save scheduler preference; false refuses dependent owners before startup. |
@@ -856,12 +861,12 @@ Shared save scheduling and retained world facts/leads/scenes; EnableSharedSaves=
 
 #### SearchLimits: `search-limits.json`
 
-Search retries, refresh records and journal maintenance; EnableSearch=false opts out. Work alternates within the shared tick budget.
+Search refresh records and journal maintenance (the retry keys are reserved, see below); EnableSearch=false opts out. Work alternates within the shared tick budget.
 
 | Key | Default | Allowed range |
 | :--- | :--- | :--- |
-| `RetryDelayMs` | `10000` | 1000–60000 |
-| `RetryAttempts` | `3` | 1–12 |
+| `RetryDelayMs` | `10000` | 1000–60000; reserved: no effect since the interiors pilot retirement (2026-11-22) |
+| `RetryAttempts` | `3` | 1–12; reserved: no effect since the interiors pilot retirement (2026-11-22) |
 | `RefreshRecordsPerMinute` | `32` | 1–32 |
 | `RefreshMaxRecords` | `4096` | 1–4096 |
 | `RefreshMinSeconds` | `172800` | 60–2592000 |
@@ -1638,7 +1643,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | Consumer ID | Constant | Work |
 | :--- | :--- | :--- |
 | 0 | `HC_WORK_INFECTED` | Infected sampling. |
-| 1 | `HC_WORK_INTERIORS` | Interior lock expiry. |
+| 1 | `HC_WORK_INTERIORS` | Interiors template pack loading and furnishing placement slices. |
 | 2 | `HC_WORK_SEARCH_BIND` | Search binding. |
 | 3 | `HC_WORK_SEARCH_MAINT` | Search maintenance and coverage reporting. |
 | 4 | `HC_WORK_SEARCH_REFRESH` | Revisit refresh. |

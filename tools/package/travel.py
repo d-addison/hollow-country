@@ -41,13 +41,8 @@ NATIVE_FAMILIES = {
     'VehicleBoat': ('Boat_01_Black', 'Boat_01_Blue', 'Boat_01_Camo', 'Boat_01_Orange'),
     'VehicleTruck01': ('Truck_01_Covered', 'Truck_01_Covered_Blue', 'Truck_01_Covered_Orange'),
 }
-BICYCLE_WHEELS = {**dict.fromkeys(('Old_Bike', 'Old_Bike_White', 'Old_Bike_Red', 'Old_Bike_Green',
-                                 'Old_Bike_Blue', 'Old_Bike_Pink'), 'bicycle_wheel'),
-                  **dict.fromkeys(('Lady_Bicycle', 'Lady_Bicycle_Purple'), 'ladybicycle_wheel')}
-VEHICLE_CLASSES = {n.casefold() for names in NATIVE_FAMILIES.values() for n in names} | {
-    n.casefold() for n in BICYCLE_WHEELS}
+VEHICLE_CLASSES = {n.casefold() for names in NATIVE_FAMILIES.values() for n in names}
 CANONICAL_VEHICLES = {n.casefold(): n for names in NATIVE_FAMILIES.values() for n in names}
-CANONICAL_VEHICLES.update({n.casefold(): n for n in BICYCLE_WHEELS})
 
 
 def repair_parts(vehicle):
@@ -60,8 +55,6 @@ def repair_parts(vehicle):
     vehicle = CANONICAL_VEHICLES.get(vehicle.casefold(), '')
     if not vehicle:
         return None
-    if vehicle in BICYCLE_WHEELS:
-        return Counter({BICYCLE_WHEELS[vehicle]: 2})
     for base, wheel, panels in (
             ('CivilianSedan', 'CivSedanWheel', ('CivSedanDoors_Driver', 'CivSedanDoors_CoDriver',
               'CivSedanDoors_BackLeft', 'CivSedanDoors_BackRight', 'CivSedanHood', 'CivSedanTrunk')),
@@ -133,9 +126,8 @@ def roster(source=SOURCE):
 def expansion_repairs(vehicle):
     """Authored repair subset of installed Expansion CfgVehicles attachment slots.
 
-    config.bin has no source lines. Evidence: 2291785437 vehicles_ground_landrover,
-    vehicles_ground_uaz, vehicles_air_gyro, vehicles_air_hatchbird,
-    vehicles_water_zodiac; 2116157322 vehicles_ground_bus, vehicles_ground_tractor,
+    config.bin has no source lines. Evidence: 2291785437 vehicles_ground_uaz,
+    vehicles_air_gyro, vehicles_air_hatchbird, vehicles_water_zodiac; 2116157322 vehicles_ground_bus, vehicles_ground_tractor,
     vehicles_air_mh6, vehicles_air_uh1h, vehicles_air_merlin, vehicles_water_utility.
     Four road/rotor wheels are authored, without spare/dummy Niva wheel slots.
     These are source policy multiplicities, never a claim about live attachments.
@@ -143,11 +135,6 @@ def expansion_repairs(vehicle):
     road = Counter({'CarBattery': 1, 'CarRadiator': 1, 'SparkPlug': 1})
     air = Counter({'ExpansionHelicopterBattery': 1, 'ExpansionIgniterPlug': 1,
                    'ExpansionHydraulicHoses': 1})
-    if vehicle.startswith('Expansion_Landrover'):
-        road.update({'Expansion_Landrover_Wheel': 4})
-        road.update({'Expansion_Landrover_' + panel: 1 for panel in
-                     ('Driverdoor', 'Codriverdoor', 'Left', 'Right', 'Trunk', 'Hood')})
-        return road
     if vehicle.startswith('ExpansionUAZ'):
         road.update({'ExpansionUAZWheel': 4})
         panels = ['Driver', 'CoDriver', 'Hood']

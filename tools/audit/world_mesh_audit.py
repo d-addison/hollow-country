@@ -2,15 +2,13 @@
 import argparse
 from collections import defaultdict
 from dataclasses import dataclass
-import io
 import itertools
 import json
 import math
-import os
 from pathlib import Path
 import re
 
-from tools.audit import pbo_config as pbo
+from tools.audit import odol56, pbo_config as pbo
 from tools.package import interior_points_gen as gen, map_overlay
 from tools.package.loot_reach_audit import collision_triangles, cross, dot, lod_for, subtract
 from tools.release.ship_inputs import ADDONS
@@ -32,7 +30,7 @@ CLASS_CATALOG = 'config/map-overlays/classes.json'
 SHELTER_PROPS = ('StaticObj_Furniture_fireplace_grill', 'StaticObj_Misc_Chair_Camp1',
                  'StaticObj_Furniture_PaperBox_01_small_closed')
 WIRING = ('Not wired into preland. A future preland adapter must invoke this module, '
-          'supply full-client --addons and pinned --reader (or HC_GENERATED_READER), '
+          'supply full-client --addons (models decode with tools.audit.odol56), '
           'retain the JSON report, and use --require-installed to refuse SKIPs. '
           'Native placement, terrain contact and action checks remain separate.')
 
@@ -287,8 +285,7 @@ def bounds_update(result, catalog):
 
 class Installed:
     """All installed PBOs, indexed and read in place; no extracted assets."""
-    def __init__(self, addons, reader):
-        self.reader = gen.Reader(reader)
+    def __init__(self, addons):
         self.classes, self.members = {}, {}
         self.visual_available = not ((addons.parent / 'DayZServer_x64.exe').is_file()
                                      and not (addons.parent / 'DayZ_x64.exe').is_file())
@@ -311,8 +308,8 @@ class Installed:
             return None
         archive, index, member = self.members[path]
         try:
-            model = self.reader.module.ODOL_File.read(io.BytesIO(pbo.read_member(archive, index, member)))
-        except self.reader.module.ODOL_Error:
+            model = odol56.read_odol(pbo.read_member(archive, index, member))
+        except odol56.OdolError:
             raise ValueError('ODOL model decode failed') from None
         # Match existing reach/support tools: building raw vertices are already
         # in the CE/model frame; standalone prop vertices restore bounding_center.
@@ -531,7 +528,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, default=ROOT)
     parser.add_argument('--addons', type=Path, default=ADDONS)
-    parser.add_argument('--reader', type=Path, default=os.environ.get('HC_GENERATED_READER'))
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--report', type=Path, help='JSON destination; defaults to stdout')
     parser.add_argument('--bounds-out', type=Path,
                         help='write the proposed measured-bounds update for the class catalogue')
@@ -545,14 +542,12 @@ def main(argv=None):
             catalog = read_json(catalog_path)['classes']
         proposal = None
         missing = []
-        if args.reader is None or not args.reader.is_dir():
-            missing.append('PINNED_READER_UNAVAILABLE')
         if not args.addons.is_dir() or not any(args.addons.glob('*.pbo')):
             missing.append('INSTALLED_ADDONS_UNAVAILABLE')
         if missing:
             result = report(rows, skips=[{'reason': reason} for reason in missing])
         else:
-            result = audit(rows, Installed(args.addons, args.reader), catalog)
+            result = audit(rows, Installed(args.addons), catalog)
             proposal = bounds_update(result, catalog)
     except Exception:
         # External reader/PBO diagnostics can contain private filesystem paths.

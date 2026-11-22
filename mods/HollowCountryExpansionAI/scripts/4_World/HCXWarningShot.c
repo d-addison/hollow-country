@@ -43,10 +43,10 @@ class HCXWarningShot
         if (!weapon.CanFire(muzzle) || weapon.IsChamberEmpty(muzzle) || weapon.IsChamberFiredOut(muzzle)) { return false; }
         // Refuse explosive/projectile launchers rather than trusting a miss
         // offset to protect the player from splash damage. Native Game.c:524
-        // ConfigGetFloat; EnString.c:240 IndexOf. Ordinary bullets only.
+        // ConfigGetFloat behind HCConfigHelper; EnString.c:240 IndexOf. Ordinary bullets only.
         string ammo = weapon.GetChamberAmmoTypeName(muzzle);
         string configPath = "CfgAmmo " + ammo;
-        if (ammo.IndexOf("Bullet_") != 0 || GetGame().ConfigGetFloat(configPath + " indirectHit") > 0 || GetGame().ConfigGetFloat(configPath + " indirectHitRange") > 0)
+        if (ammo.IndexOf("Bullet_") != 0 || HCConfigHelper.GetFloat(configPath + " indirectHit", 0) > 0 || HCConfigHelper.GetFloat(configPath + " indirectHitRange", 0) > 0)
         {
             Print("[HollowCountry] Stance warning_shot fallback=unsafe_ammunition");
             return false;

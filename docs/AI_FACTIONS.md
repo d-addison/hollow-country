@@ -77,6 +77,25 @@ lowering a weapon outside 40 m clears cached aggression; surrender still uses
 the existing classifier. A lowered weapon does not prevent proximity engagement
 inside 40 m.
 
+Raised-weapon caution band table (caution grace; non-hostile relation, weapon
+raised; observed contacts only). The grace band is the same 40-80 m span where
+raised-weapon hostility applies; it is `AILimits.CautionGraceSeconds` long
+(default 3, 1-30). `CautionRangeM` / `CautionGunfireRangeM` still drive
+`HCStancePolicy.Evaluate` but no longer bound the grace; the first-warn log line
+reports `in_caution_range=`. `CautionHostileRangeM` is reserved: no effect since
+the caution grace (2026-11-22); it is kept so older configs still load.
+
+| Distance, weapon raised | Behaviour |
+| --- | --- |
+| <= 40 m | hostile at once (unchanged) |
+| 40 m < d <= 80 m | grace: stays non-hostile, faces the player, shouts via the shared `HCXWarnPlayer` admission, holds fire (`HCXWarningBlocked`), keeps its own weapon up, no stop gesture and no warning shot; after the grace, still raised: hostile |
+| d > 80 m | de-escalated (unchanged) |
+| hostile faction, any distance | hostile at once, no grace (unchanged) |
+
+One grace per actor-group/player pair per 45 s (a re-raise inside the cooldown
+after the grace ends is hostile at once); lowering the weapon de-escalates as
+before. A budget or table refusal keeps today's hostile behaviour.
+
 The shot uses native `Weapon.Fire` with an explicit trajectory toward terrain
 12 m perpendicular to the observed player's approach. It does not call
 Expansion's target-based ballistic solver. Terrain must be 1–8 m below the

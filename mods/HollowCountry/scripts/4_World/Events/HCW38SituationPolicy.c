@@ -19,6 +19,10 @@ class HCW38SituationPolicy
     int PhysicalScanCargo = 16;
     // Additive police settings; older complete policies retain these defaults.
     int PoliceSlowRetrySeconds = 300;
+    // Police stock container lifecycle (owner 2026-11-22); older policies keep these defaults.
+    int RefillCooldownSeconds = 10800;
+    int ContainerLifetimeSeconds = 604800;
+    float RefillClearRadius = 50;
     ref array<string> PoliceRecoveryClasses = {"PersonalRadio", "Binoculars"};
     ref array<string> PoliceDeliveryClasses = {"PoliceCap"};
     ref array<string> PoliceSalvageClasses = {"Handcuffs", "HandcuffKeys"};
@@ -46,6 +50,9 @@ class HCW38SituationPolicy
             HCW38SituationPolicy defaults = new HCW38SituationPolicy;
             if (!JsonFileLoader<HCW38SituationPolicy>.LoadData(encoded, policy, error)) { HCInvalid(); return null; }
             if (!HCJsonFields.Has(encoded, "PoliceSlowRetrySeconds")) { policy.PoliceSlowRetrySeconds = defaults.PoliceSlowRetrySeconds; }
+            if (!HCJsonFields.Has(encoded, "RefillCooldownSeconds")) { policy.RefillCooldownSeconds = defaults.RefillCooldownSeconds; }
+            if (!HCJsonFields.Has(encoded, "ContainerLifetimeSeconds")) { policy.ContainerLifetimeSeconds = defaults.ContainerLifetimeSeconds; }
+            if (!HCJsonFields.Has(encoded, "RefillClearRadius")) { policy.RefillClearRadius = defaults.RefillClearRadius; }
             if (!HCJsonFields.Has(encoded, "PoliceRecoveryClasses")) { policy.PoliceRecoveryClasses = defaults.PoliceRecoveryClasses; }
             if (!HCJsonFields.Has(encoded, "PoliceDeliveryClasses")) { policy.PoliceDeliveryClasses = defaults.PoliceDeliveryClasses; }
             if (!HCJsonFields.Has(encoded, "PoliceSalvageClasses")) { policy.PoliceSalvageClasses = defaults.PoliceSalvageClasses; }
@@ -98,6 +105,9 @@ class HCW38SituationPolicy
         // has an explicit guard; partial/zero/NaN policies never uncap work.
         if (!policy || policy.Version != 1 || policy.ScanRows < 1 || policy.ScanRows > 32) { return false; }
         if (policy.PoliceSlowRetrySeconds < 60 || policy.PoliceSlowRetrySeconds > 3600) { return false; }
+        if (policy.RefillCooldownSeconds < 600 || policy.RefillCooldownSeconds > 604800) { return false; }
+        if (policy.ContainerLifetimeSeconds < 3600 || policy.ContainerLifetimeSeconds > 2592000) { return false; }
+        if (policy.RefillClearRadius != policy.RefillClearRadius || policy.RefillClearRadius < 10 || policy.RefillClearRadius > 200) { return false; }
         if (!PoliceClassesValid(policy.PoliceRecoveryClasses) || !PoliceClassesValid(policy.PoliceDeliveryClasses) || !PoliceClassesValid(policy.PoliceSalvageClasses)) { return false; }
         if (policy.MaxConcurrent != 1 || policy.MaxThreats < 1 || policy.MaxThreats > 6) { return false; }
         if (policy.MaxMembers < 1 || policy.MaxMembers > 6 || policy.MaxRouteNodes < 2 || policy.MaxRouteNodes > 64) { return false; }
@@ -125,6 +135,9 @@ class HCW38SituationPolicy
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PhysicalScanObjects", policy.PhysicalScanObjects)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PhysicalScanCargo", policy.PhysicalScanCargo)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PoliceSlowRetrySeconds", policy.PoliceSlowRetrySeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("W38Situations.RefillCooldownSeconds", policy.RefillCooldownSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("W38Situations.ContainerLifetimeSeconds", policy.ContainerLifetimeSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("W38Situations.RefillClearRadius", policy.RefillClearRadius)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.MaxRaidMeters", policy.MaxRaidMeters)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.ShelterMeters", policy.ShelterMeters)) { return false; }
         return true;

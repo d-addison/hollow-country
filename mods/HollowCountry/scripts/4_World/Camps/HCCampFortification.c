@@ -89,7 +89,7 @@ class HCCampFortification
     static void HCPathgraphSummary()
     {
         if (s_PathgraphMarked + s_PathgraphSkipped == 0) { return; }
-        Print("" + "[HC Pathgraph] domain=camp_fortification marked=" + s_PathgraphMarked.ToString() + " regions=" + s_PathgraphRegions.ToString() + " skipped_no_geom=" + s_PathgraphSkipped.ToString());
+        Print("" + "[HC Pathgraph] domain=camp_fortification marked=" + s_PathgraphMarked.ToString() + " affected=" + s_PathgraphRegions.ToString() + " skipped_no_geom=" + s_PathgraphSkipped.ToString());
     }
 }
 

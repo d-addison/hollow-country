@@ -114,12 +114,52 @@ class ValidateContent(Base):
         with self.assertRaisesRegex(wp.PublishError, 'hollowcountryanims.pbo has no matching .bisign'):
             wp.validate_content(self.mod)
 
-    def test_animation_pbo_is_refused_in_the_addon_item(self):
+    def addon_mod(self, extras=(), unsigned=()):
+        """A synthetic addon-item folder carrying its main PBO plus the named signed extra PBOs."""
         mod = make_mod(tempfile.mkdtemp(dir=self.tmp), name='@HollowCountryExpansionAI', meta=None)
         (mod / 'addons' / 'hollowcountry.pbo').unlink()
         (mod / 'addons' / ('hollowcountry.pbo.%s.bisign' % KEY)).unlink()
-        (mod / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'synthetic-addon-pbo')
-        (mod / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % KEY)).write_bytes(b'synthetic-signature')
+        for name in (wp.ADDON_PBO_NAME, *extras):
+            (mod / 'addons' / name).write_bytes(b'synthetic-addon-pbo')
+            if name not in unsigned:
+                (mod / 'addons' / ('%s.%s.bisign' % (name, KEY))).write_bytes(b'synthetic-signature')
+        return mod
+
+    def test_addon_item_requires_the_base_compat_pbo_and_allows_slot_pbos(self):
+        spec = wp.item_spec('addon')
+        required = spec['required_extra_pbos']
+        self.assertEqual((wp.COMPAT_PBO_NAME,), required)
+        self.assertTrue(set(required) | set(spec['optional_pbos']) <= set(spec['extra_pbos']))
+        with self.assertRaisesRegex(wp.PublishError, '%s is missing' % re.escape(wp.COMPAT_PBO_NAME)):
+            wp.validate_content(self.addon_mod(), 'addon')
+        self.assertTrue(wp.validate_content(self.addon_mod(required), 'addon')['files'])
+        every = (*required, *spec['optional_pbos'])
+        files = wp.validate_content(self.addon_mod(every), 'addon')['files']
+        for name in every:
+            self.assertIn('addons/' + name, files)
+            self.assertIn('addons/%s.%s.bisign' % (name, KEY), files)
+
+    def test_compat_slot_pbos_are_optional_but_must_be_signed_when_present(self):
+        spec = wp.item_spec('addon')
+        slot = spec['optional_pbos'][0]
+        base = spec['required_extra_pbos']
+        wp.validate_content(self.addon_mod(base), 'addon')
+        with self.assertRaisesRegex(wp.PublishError, '%s has no matching .bisign' % re.escape(slot)):
+            wp.validate_content(self.addon_mod((*base, slot), unsigned=(slot,)), 'addon')
+        with self.assertRaisesRegex(wp.PublishError, '%s has no matching .bisign' % re.escape(base[0])):
+            wp.validate_content(self.addon_mod(base, unsigned=base), 'addon')
+
+    def test_compat_pbos_are_refused_in_the_base_item(self):
+        for name in (wp.COMPAT_PBO_NAME, wp.COMPAT_SLOT_PBO_NAMES[0]):
+            with self.subTest(name=name):
+                mod = make_mod(tempfile.mkdtemp(dir=self.tmp), meta=META)
+                (mod / 'addons' / name).write_bytes(b'x')
+                (mod / 'addons' / ('%s.%s.bisign' % (name, KEY))).write_bytes(b'x')
+                with self.assertRaisesRegex(wp.PublishError, 'not allowed'):
+                    wp.validate_content(mod)
+
+    def test_animation_pbo_is_refused_in_the_addon_item(self):
+        mod = self.addon_mod(wp.item_spec('addon')['required_extra_pbos'])
         wp.validate_content(mod, 'addon')
         (mod / 'addons' / 'hollowcountryanims.pbo').write_bytes(b'synthetic-anim-pbo')
         (mod / 'addons' / ('hollowcountryanims.pbo.%s.bisign' % KEY)).write_bytes(b'synthetic-signature')
@@ -454,8 +494,10 @@ def make_addon(root, name='@HollowCountryExpansionAI', meta=ADDON_META, mod_cpp=
     mod = Path(root) / name
     (mod / 'addons').mkdir(parents=True)
     (mod / 'keys').mkdir()
-    (mod / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'synthetic-addon-pbo')
-    (mod / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % key)).write_bytes(b'synthetic-addon-sig')
+    # The base compat PBO is always built and shipped beside the addon PBO.
+    for pbo_name in (wp.ADDON_PBO_NAME, wp.COMPAT_PBO_NAME):
+        (mod / 'addons' / pbo_name).write_bytes(b'synthetic-addon-pbo')
+        (mod / 'addons' / ('%s.%s.bisign' % (pbo_name, key))).write_bytes(b'synthetic-addon-sig')
     (mod / 'keys' / (key + '.bikey')).write_bytes(b'synthetic-public-key')
     if mod_cpp:
         (mod / 'mod.cpp').write_text('name = "Hollow Country Expansion AI";\n')
@@ -475,10 +517,10 @@ class AddonItem(Base):
 
     def test_good_addon_lists_exactly_the_allowlisted_files(self):
         info = wp.validate_content(self.addon, item='addon')
-        self.assertEqual(sorted(info['files']), [
-            'addons/hollowcountryexpansionai.pbo',
-            'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
-            'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
+        self.assertEqual(sorted(info['files']), sorted([
+            'addons/' + wp.ADDON_PBO_NAME, 'addons/%s.%s.bisign' % (wp.ADDON_PBO_NAME, ADDON_KEY),
+            'addons/' + wp.COMPAT_PBO_NAME, 'addons/%s.%s.bisign' % (wp.COMPAT_PBO_NAME, ADDON_KEY),
+            'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp']))
 
     def test_mod_cpp_and_meta_cpp_are_optional_for_the_addon(self):
         (self.addon / 'meta.cpp').unlink()
@@ -579,9 +621,10 @@ class AddonItem(Base):
         self.prepare_addon()
         staged = Path(self.vdf()['contentfolder'])
         files = sorted(p.relative_to(staged).as_posix() for p in staged.rglob('*') if p.is_file())
-        self.assertEqual(files, ['addons/hollowcountryexpansionai.pbo',
-                                 'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
-                                 'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
+        self.assertEqual(files, sorted([
+            'addons/' + wp.ADDON_PBO_NAME, 'addons/%s.%s.bisign' % (wp.ADDON_PBO_NAME, ADDON_KEY),
+            'addons/' + wp.COMPAT_PBO_NAME, 'addons/%s.%s.bisign' % (wp.COMPAT_PBO_NAME, ADDON_KEY),
+            'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp']))
 
     def test_addon_published_id_flag_and_recorded_id_are_used(self):
         self.assertEqual(self.prepare_addon('--published-id', '3900000001')[0], 0)

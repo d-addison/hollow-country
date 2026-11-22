@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from tools.testing import discovery
 from tools.testing.automation import load_catalog, plan
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,7 +42,11 @@ class PortableCatalogTests(unittest.TestCase):
 
     def test_prerequisites_never_create_pass_and_evidence_is_preserved(self):
         self.assertEqual(self.manifest["catalog_id"], self.catalog["catalog_id"])
-        self.assertEqual(set(self.caps.values()), {"unknown"})
+        # Discovery can only observe repository seams; every other capability must stay unknown.
+        observed = discovery.inventory(ROOT)["capabilities"]
+        self.assertEqual(self.caps, discovery.planner_capabilities({"capabilities": observed}))
+        for name in discovery.DEFERRED_CAPABILITIES:
+            self.assertEqual(self.caps.get(name, "unknown"), "unknown")
         self.assertEqual(set(self.caps),
                          {c for r in self.catalog["tests"] for c in r["requires"]})
         for state in ("unknown", "available"):

@@ -181,6 +181,100 @@ class FinisherTests(unittest.TestCase):
         mlod.validate(mlod.Asset({mlod.GEOMETRY: lod}))
 
 
+class TestCubeRecipeTests(unittest.TestCase):
+    """The checked-in HC_TestCube recipe feeds finisher and asset_lint end to end.
+
+    No Blender runs: the neutral mesh is the cube fixture renamed from the
+    recipe's own selection and memory-point names, so the recipe drives the test.
+    """
+
+    def setUp(self):
+        path = provenance.ROOT / 'assets_src/test/hc_testcube.ops.json'
+        self.recipe = ops_runner.validate(provenance.load_json(path.read_bytes()))
+
+    def ops(self, kind):
+        return [op for op in self.recipe['ops'] if op['op'] == kind]
+
+    def test_recipe_is_source_text_with_bounded_unit_cube(self):
+        self.assertEqual(self.recipe['schema'], 'ops.v1')
+        self.assertEqual(len(self.ops('primitive')), 1)
+        self.assertEqual(self.ops('primitive')[0]['size'], [1, 1, 1])
+        directory = provenance.ROOT / 'assets_src/test'
+        self.assertEqual({p.suffix for p in directory.iterdir()}, {'.json'})
+
+    def test_recipe_names_flow_through_finisher_and_lint(self):
+        from tools.assets.model_cfg import emit_model_cfg
+        from tools.validate import asset_lint
+        selections = [op['name'] for op in self.ops('named-selection')]
+        points = {op['name']: op['position'] for op in self.ops('memory-point')}
+        mesh = cube()
+        mesh['selections'] = {selections[0]: mesh['selections']['body']}
+        mesh['points'] = points
+        faces = sum(len(f['vertices']) - 2 for f in mesh['faces'])
+        asset = finisher.finish({0: mesh}, budgets={0: faces})
+        paths = {p for lod in asset.lods.values() for f in lod.faces for p in (f.texture, f.material) if p}
+        paths |= {op['material'] for op in self.ops('material-slot') if op['material']}
+        config = 'class Cube { hiddenSelections[]={%s}; memoryPoint="%s"; };' % (
+            ','.join('"%s"' % n for n in selections), sorted(points)[0])
+        result = asset_lint.lint(asset, model_cfg=emit_model_cfg('HC_TestCube', selections),
+                                 config=config, sources=paths)
+        self.assertTrue(result['valid'], result)
+
+
+class FinisherGuardAuditTests(unittest.TestCase):
+    """One test per mandatory guard: repair_zero, thin-shell, Hausdorff gate."""
+
+    def test_zero_area_triangles_never_reach_normals(self):
+        base = finisher.clean(cube())
+        mesh = cube()
+        mesh['vertices'].append([-.5, -.5, 0])  # on the edge between vertices 0 and 1
+        mesh['faces'] += [{'vertices': [0, 8, 1], 'uv': [[0, 0]]*3, 'texture': '', 'material': ''},
+                          {'vertices': [0, 0, 1, 1], 'uv': [[0, 0]]*4, 'texture': '', 'material': ''}]
+        # A sliver below the merge distance is also discarded, not normalised.
+        mesh['vertices'].append([-.5, -.5, 1e-9])
+        mesh['faces'].append({'vertices': [0, 9, 8], 'uv': [[0, 0]]*3, 'texture': '', 'material': ''})
+        result = finisher.clean(mesh, closed=False)
+        self.assertEqual(len(result.faces), len(base.faces))
+        for face in result.faces:
+            self.assertAlmostEqual(math.hypot(*face.normals[0]), 1)
+            self.assertTrue(all(math.isfinite(v) for n in face.normals for v in n))
+
+    def test_all_degenerate_mesh_is_refused(self):
+        mesh = cube()
+        mesh['faces'] = [{'vertices': [0, 0, 1], 'uv': [[0, 0]]*3, 'texture': '', 'material': ''}]
+        mesh['selections'] = {}
+        with self.assertRaisesRegex(ValueError, 'empty_mesh'):
+            finisher.clean(mesh)
+
+    def test_thin_shell_guard_threshold_tracks_min_thickness(self):
+        thin = cube((1, 1, 0.01))
+        self.assertTrue(finisher.clean(thin, min_thickness=0.005).faces)
+        with self.assertRaisesRegex(ValueError, 'thin_shell'):
+            finisher.clean(thin, min_thickness=0.05)
+        # finish() applies the guard to every LOD, not only the first.
+        with self.assertRaisesRegex(ValueError, 'thin_shell'):
+            finisher.finish({0: cube(), 1: cube((1, 1, 0.00001))}, budgets={0: 12, 1: 12}, lod_distance=100)
+
+    def test_hausdorff_survives_collapsed_triangles(self):
+        lod = finisher.clean(cube())
+        flat = replace(lod, faces=lod.faces + (mlod.Face((0, 0, 1), ((0, 0),)*3),))
+        report = finisher.hausdorff(lod, flat)
+        self.assertTrue(all(math.isfinite(report[k]) for k in ('lower', 'upper')))
+        point = replace(lod, faces=(mlod.Face((0, 0, 0), ((0, 0),)*3),))
+        self.assertTrue(math.isfinite(finisher.hausdorff(lod, point)['upper']))
+
+    def test_every_lower_lod_is_distance_gated_and_points_must_agree(self):
+        faces = len(finisher.clean(cube()).faces)
+        budgets = {0: faces, 1: faces, 2: faces}
+        far = cube((3, 3, 3))
+        with self.assertRaisesRegex(ValueError, 'lod_distance'):
+            finisher.finish({0: cube(), 1: cube(), 2: far}, budgets=budgets)
+        moved = cube()
+        moved['points'] = {'center': [0, 0, 1]}
+        with self.assertRaisesRegex(ValueError, 'inconsistent_memory_points'):
+            finisher.finish({0: cube(), 1: moved}, budgets={0: faces, 1: faces})
+
+
 class ImageTests(unittest.TestCase):
     def test_tga_roundtrip_and_origins(self):
         pixels = bytes(range(4*3*4))

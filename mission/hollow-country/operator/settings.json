@@ -63,7 +63,11 @@
     "MaxCamps": 32,
     "MaxCampItems": 64,
     "WorldSeed": 18473,
-    "MaxObservedAI": 1024
+    "MaxObservedAI": 1024,
+    "CautionRangeM": 30,
+    "CautionHostileRangeM": 60,
+    "CautionGunfireRangeM": 80,
+    "CautionGraceSeconds": 3
   },
   "MaxFamiliarityRows": 0,
   "SearchDensityScale": 0,

@@ -194,7 +194,7 @@ class HCHeliPolicy
         int kind = 0;
         if (s_Kinds.Find(typeName, kind)) { return kind == 1; }
         string vehicleClass = "";
-        GetGame().ConfigGetText("CfgVehicles " + typeName + " vehicleClass", vehicleClass);
+        vehicleClass = HCConfigHelper.GetText("CfgVehicles " + typeName + " vehicleClass", "");
         kind = 2;
         if (HCClassMatch(s_Config.VehicleClasses, vehicleClass)) { kind = 1; }
         // Operators may select a provider base instead of its editor category.

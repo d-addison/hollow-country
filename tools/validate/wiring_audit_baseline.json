@@ -1155,14 +1155,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCInteriorSearchSession",
-      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "line": 21,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCInteriorSourceLookup",
       "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
       "line": 2,
@@ -1667,14 +1659,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCSearchBindingReview",
-      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
-      "line": 13,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCSearchLimitsRegistry",
       "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
       "line": 9,
@@ -1718,14 +1702,6 @@
       "subject": "HCSearchPreviewSite",
       "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
       "line": 12,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCSearchRefreshPilotJournal",
-      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 1104,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -3411,166 +3387,6 @@
     },
     {
       "id": "W007",
-      "subject": "Expansion_Landrover",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3321,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 504,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Codriverdoor",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3331,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Codriverdoor",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 514,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Driverdoor",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3343,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Driverdoor",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 526,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Green",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3355,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Green",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 538,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Hood",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3365,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Hood",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 548,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Left",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3377,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Left",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 560,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Right",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3389,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Right",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 572,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Trunk",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3401,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Trunk",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 584,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Wheel",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3413,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Wheel",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 596,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Yellow",
-      "file": "mission/hollow-country/ce/types.xml",
-      "line": 3425,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
-      "subject": "Expansion_Landrover_Yellow",
-      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
-      "line": 608,
-      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
-      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
-    },
-    {
-      "id": "W007",
       "subject": "Expansion_Mh6_Door_1_1",
       "file": "mission/hollow-country/ce/types.xml",
       "line": 3435,
@@ -3707,14 +3523,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCConfigHelper",
-      "file": "mods/HollowCountry/scripts/3_Game/Core/HCConfigHelper.c",
-      "line": 8,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "W4-07 guarded config reader; callers land with the ConfigGet adoption follow-up (wb-jsonschema R2). Reviewed 2026-11-22."
-    },
-    {
-      "id": "W004",
       "subject": "HCMigrationProbeStep",
       "file": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
       "line": 44,
@@ -3728,6 +3536,70 @@
       "line": 17,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W003",
+      "subject": "SearchLimits.RetryAttempts",
+      "file": "tools/validate/shared_settings.json",
+      "line": 1,
+      "why": "Registered key has no resolved getter-key, member or owning-class field read",
+      "reason": "Reviewed (legacy interiors pilot retirement): the only consumer was the retired pilot supply-bind retry loop. The key stays registered so existing search-limits.json files keep validating; removing it needs a registry, README and operator-file follow-up."
+    },
+    {
+      "id": "W003",
+      "subject": "SearchLimits.RetryDelayMs",
+      "file": "tools/validate/shared_settings.json",
+      "line": 1,
+      "why": "Registered key has no resolved getter-key, member or owning-class field read",
+      "reason": "Reviewed (legacy interiors pilot retirement): the only consumer was the retired pilot supply-bind retry loop. The key stays registered so existing search-limits.json files keep validating; removing it needs a registry, README and operator-file follow-up."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchSupplyPlan",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
+      "line": 30,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type of HCSearchSupplyProvider; its only outside caller was the retired pilot binding. Reviewed, kept with the provider until the supply layer is retired."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchJournalJob",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 773,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local HCSaveJob for the search journal (journal P003 on HCSaveScheduler); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXCautionRow",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c",
+      "line": 27,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support row type for caution observation; same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceGeneration",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 24,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 59,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoliceIdWatch",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 69,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type for the police barrel lifecycle (generation receipts and persistent-id probe); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
     }
   ]
 }

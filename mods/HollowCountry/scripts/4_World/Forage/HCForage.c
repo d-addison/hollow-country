@@ -74,7 +74,7 @@ class HCForageConfig
         array<string> hcFloraClasses = this.FloraClasses;
         foreach (string hcFloraClassesEntry : hcFloraClasses)
         {
-            if (hcFloraClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcFloraClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcFloraClassesEntry + " scope") != 2)
+            if (hcFloraClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcFloraClassesEntry) || HCConfigHelper.GetInt("CfgVehicles " + hcFloraClassesEntry + " scope", 0) != 2)
             { this.FloraClasses = defaults.FloraClasses; invalid = true; break; }
         }
         if (!HCJsonFields.Has(text, "BerryClasses")) { this.BerryClasses = defaults.BerryClasses; }
@@ -82,7 +82,7 @@ class HCForageConfig
         array<string> hcBerryClasses = this.BerryClasses;
         foreach (string hcBerryClassesEntry : hcBerryClasses)
         {
-            if (hcBerryClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcBerryClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcBerryClassesEntry + " scope") != 2)
+            if (hcBerryClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcBerryClassesEntry) || HCConfigHelper.GetInt("CfgVehicles " + hcBerryClassesEntry + " scope", 0) != 2)
             { this.BerryClasses = defaults.BerryClasses; invalid = true; break; }
         }
         if (!HCJsonFields.Has(text, "MushroomClasses")) { this.MushroomClasses = defaults.MushroomClasses; }
@@ -90,7 +90,7 @@ class HCForageConfig
         array<string> hcMushroomClasses = this.MushroomClasses;
         foreach (string hcMushroomClassesEntry : hcMushroomClasses)
         {
-            if (hcMushroomClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcMushroomClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcMushroomClassesEntry + " scope") != 2)
+            if (hcMushroomClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcMushroomClassesEntry) || HCConfigHelper.GetInt("CfgVehicles " + hcMushroomClassesEntry + " scope", 0) != 2)
             { this.MushroomClasses = defaults.MushroomClasses; invalid = true; break; }
         }
         return invalid;

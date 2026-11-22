@@ -102,26 +102,6 @@
   {
    "kind": "magazine",
    "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 1,
-    "min": 1,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
-   "class": "GCGN_M249_Mag"
-  },
-  {
-   "kind": "magazine",
-   "role": "support",
    "tier": "uncommon",
    "set": {
     "nominal": 1,
@@ -3150,102 +3130,6 @@
     "Tier4"
    ],
    "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
-   "class": "SNAFU_M249Stock",
-   "slot": "SNAFUM249Stock",
-   "fits": [
-    "GCGN_M249"
-   ]
-  },
-  {
-   "kind": "attachment",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
-   "class": "SNAFU_M249Grip",
-   "slot": "SNAFUM249Grip",
-   "fits": [
-    "GCGN_M249"
-   ]
-  },
-  {
-   "kind": "attachment",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
-   "class": "SNAFU_M249HG",
-   "slot": "SNAFUM249HG",
-   "fits": [
-    "GCGN_M249"
-   ]
-  },
-  {
-   "kind": "attachment",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
-   "class": "SNAFU_M249Bipod",
-   "slot": "SNAFUM249Bipod",
-   "fits": [
-    "GCGN_M249"
-   ]
-  },
-  {
-   "kind": "attachment",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4,
-    "lifetime": 14400,
-    "restock": 0
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
    "class": "SA58_Stock",
    "slot": "weaponButtstockFal",
    "fits": [
@@ -3280,7 +3164,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "ACR_Gun",
     "HK416_Gun",
     "SNHK417_Gun",
@@ -5348,7 +5231,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "AA12_Gun",
     "ACR_Gun",
     "HK416_Gun",
@@ -6121,7 +6003,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_Vityaz",
     "AA12_Gun",
     "ACR_Gun",
@@ -6399,7 +6280,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -6899,7 +6779,6 @@
    "class": "SNAFU_PEQ1_Laser",
    "slot": "SNAFUPEQLASER",
    "fits": [
-    "GCGN_M249",
     "SNAFU_ADAR_Modular16_GUN",
     "SNAFU_AR15_Modular16_GUN",
     "SNAFU_LVOA556_GUN",
@@ -7036,7 +6915,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -7164,7 +7042,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -7368,7 +7245,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -7496,7 +7372,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -7828,7 +7703,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -7956,7 +7830,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8084,7 +7957,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8212,7 +8084,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8340,7 +8211,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8513,7 +8383,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8641,7 +8510,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8821,7 +8689,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -8949,7 +8816,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -9077,7 +8943,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -9205,7 +9070,6 @@
     "GCGN_M110_Black",
     "GCGN_M110_Green",
     "GCGN_M110_Tan",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_MP7",
     "GCGN_Vepr",
@@ -9483,7 +9347,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -9783,7 +9646,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -10113,7 +9975,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -10413,7 +10274,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -10713,7 +10573,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -11013,7 +10872,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -11313,7 +11171,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -11613,7 +11470,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -11913,7 +11769,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -12076,7 +11931,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -12239,7 +12093,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -12402,7 +12255,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -12565,7 +12417,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -12960,7 +12811,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -13123,7 +12973,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -13560,7 +13409,6 @@
     "GCGN_M200_Tan",
     "SNAFU_M200Green",
     "SNAFU_M200SNOW",
-    "GCGN_M249",
     "GCGN_M700",
     "GCGN_M82_Barret",
     "GCGN_MP7",
@@ -14152,34 +14000,6 @@
    "magazines": [
     "GCGN_M200_Mag",
     "SNAFU_M300Mag"
-   ]
-  },
-  {
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 1,
-    "min": 1,
-    "lifetime": 7200,
-    "restock": 1800
-   },
-   "usage": [
-    "Military"
-   ],
-   "value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; owner 2026-11-21 default multiplier 2; runtime pending.",
-   "class": "GCGN_M249",
-   "vanilla_ammo": [
-    "Ammo_556x45",
-    "Ammo_556x45Tracer"
-   ],
-   "snafu_ammo": [],
-   "magazines": [
-    "GCGN_M249_Mag"
    ]
   },
   {
@@ -19454,6 +19274,18 @@
   {
    "group": "SN_AKM_TESTBED",
    "reason": "Diagnostic testbed; excluded from gameplay CE."
+  },
+  {
+   "group": "M249",
+   "classes": [
+    "GCGN_M249",
+    "GCGN_M249_Mag",
+    "SNAFU_M249Bipod",
+    "SNAFU_M249Grip",
+    "SNAFU_M249HG",
+    "SNAFU_M249Stock"
+   ],
+   "reason": "Owner 2026-11-22: Expansion AI weapon-event crash with the M249 is unreproduced; removed from CE loot (types, spawnabletypes) until a sanitised crash capture exists. Nominal not redistributed; other LMGs stay. Re-admit by restoring the rows."
   }
  ],
  "optics": {
@@ -19486,12 +19318,6 @@
     "unit_rounds": 1,
     "parts": [],
     "class": "GCGN_M200_Mag"
-   },
-   {
-    "family": "snafu-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "GCGN_M249_Mag"
    },
    {
     "family": "snafu-magazine",
@@ -20368,30 +20194,6 @@
     "unit_rounds": 1,
     "parts": [],
     "class": "SNAFU_M200B_BK"
-   },
-   {
-    "family": "snafu-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "SNAFU_M249Stock"
-   },
-   {
-    "family": "snafu-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "SNAFU_M249Grip"
-   },
-   {
-    "family": "snafu-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "SNAFU_M249HG"
-   },
-   {
-    "family": "snafu-magazine",
-    "unit_rounds": 1,
-    "parts": [],
-    "class": "SNAFU_M249Bipod"
    },
    {
     "family": "snafu-magazine",
@@ -21477,12 +21279,6 @@
     "family": "snafu-weapon",
     "unit_rounds": 1,
     "parts": [],
-    "class": "GCGN_M249"
-   },
-   {
-    "family": "snafu-weapon",
-    "unit_rounds": 1,
-    "parts": [],
     "class": "GCGN_M700"
    },
    {
@@ -22496,7 +22292,6 @@
    "GCGN_HK416_Mag": "21857dbf64011e81c76a28814e38abb7c0bace2ac5f2a1b0a860786d1fd93a59",
    "GCGN_M110_Mag": "479f163a6b9f488d16b111bcd708194e4b9ae2996fb968124bcff5f80d2b4cdc",
    "GCGN_M200_Mag": "8822acad2f2c62e78e627423c19eaa288721308eada496a438a5f2da7589b09f",
-   "GCGN_M249_Mag": "01c9f9500b0b07c59c90f1e95bfd94c3bd00107ff04cf6b48d2246921260d60b",
    "GCGN_M700_Mag": "3cc381b954a71af57bfd77ca4df699f2ba98cedd9735ba255b263dae25b93efa",
    "GCGN_M82_Mag": "cb42c23b6fde1108210983812a33cc71b0f02bc0bfbb7507069804a4c1b4741d",
    "GCGN_MP7_40Rnd": "035d1145b2dd8450e3251adca0fcd8ae0856841264cdbcbf1159ca69645f5ad9",
@@ -22643,10 +22438,6 @@
    "SNAFU_M200S_Green": "63492a00fe54b5df0f99b16800f7633f45065594372d0e764e1ca325c1866146",
    "SNAFU_M200S_Snow": "51fb442ffe25e59d616299ab916acd6d9266defa2b4778fb1e44262052ea3ee0",
    "SNAFU_M200B_BK": "d46bbbea34f1cb82f7475b68deaeec6e1ee9409254d65072a1e081f793c47133",
-   "SNAFU_M249Stock": "dbfb81e715f2907742743274e88ba8edae0b22432fae859398578a324260eeeb",
-   "SNAFU_M249Grip": "b4d8a876191f436186b77c02bc0035764904da13176e09c05a239dfd2fa29bf2",
-   "SNAFU_M249HG": "99fb5b87a1935f410a3c617104c915d8d14e4e1939cbdc6b522c93894c08f3c6",
-   "SNAFU_M249Bipod": "b347672a5b006536067f7c4fe6730747439eb232174692df0babad5990288447",
    "SA58_Stock": "293f1c1fbdc346961633ac0613b64a82e28f251c918a254eecf9627fd706a45c",
    "SA58_FGrip": "a5adb8c6217ab7e1d6514556d8e4009f001ba15efa3cfaa540d5289df90f05ec",
    "SNAFU_AK19_Stock": "46cd5970a3433d656a9edff278f14ff4d9890df89d4e2ef4c6cd7d8b4b21a3b7",
@@ -22827,7 +22618,6 @@
    "GCGN_M200_Tan": "89b8d9a062cc5812301622e870dfcb665c56c655d53c8e223a1b873769197387",
    "SNAFU_M200Green": "94667f4ff96e2c2c59f01a08339bd460658e1af067b21ee3bd08356afa675efa",
    "SNAFU_M200SNOW": "7086c33f846f302691a8a37ed17265d500f62daaa73425d8c791300ed460a766",
-   "GCGN_M249": "53e50c48cf000d837f8dfd48b71e58d13769f1e90403fb88833f4c8207d2e19b",
    "GCGN_M700": "0f1cee27d0704fe8f9dadf93143f3ac66dd5f9ffa9f70138ffd5fb59d7b539ed",
    "GCGN_M82_Barret": "ed9473039fd3af74357065a065d7ed317d84f4ddd42824dafc751749691ebfe3",
    "GCGN_MP7": "fc5536c155a20fa27706e96492a1b671e492ff46b4b5d39d15ece26670a1bb89",

@@ -1,5 +1,62 @@
 {
   "schema": 1,
-  "_doc": "Our own wording for GUI keys that a dependency references but never defines. Each row is {\"key\": \"STR_...\", \"text\": \"...\"}; the text is written by us, never copied from a dependency. The key list comes from native RPT evidence (python3 -B -m tools.package.compat_stringtable --rpt <RPT> lists uncovered keys); it is empty until the lead fills it. See docs/tools/COMPAT_ADDON.md.",
-  "strings": []
+  "_doc": "Our own wording for GUI keys that a dependency references but never defines. Each row is {\"key\": \"STR_...\", \"text\": \"...\"}; the text is written by us, never copied from a dependency. The key list comes from native RPT evidence (python3 -B -m tools.package.compat_stringtable --rpt <RPT> lists uncovered keys). Reviewed 2026-11-22 against the newest local server RPT: 14 dependency or item keys are covered here. The other 28 uncovered keys are vanilla engine UI keys (connection, loading, save, date and time, display-name and controller strings); a dedicated server does not load them and defining them here would override vanilla client text, so they are deliberately not provided. See docs/tools/COMPAT_ADDON.md.",
+  "strings": [
+    {
+      "key": "STR_EXPANSION_SATCHEL_EXPLOSIVE",
+      "text": "Satchel charge"
+    },
+    {
+      "key": "STR_EXPANSION_SPRAYCAN_LightGreen_NAME",
+      "text": "Light green spray can"
+    },
+    {
+      "key": "STR_EXPANSION_SPRAYCAN_YellowBrightRust_NAME",
+      "text": "Bright rust yellow spray can"
+    },
+    {
+      "key": "STR_EXPANSION_VEHICLE_COVER",
+      "text": "Vehicle cover"
+    },
+    {
+      "key": "STR_Hatchback_02_Wheel0",
+      "text": "Hatchback wheel"
+    },
+    {
+      "key": "STR_TF_Pouch_Buttpack",
+      "text": "Butt pack pouch"
+    },
+    {
+      "key": "STR_VestBackpack6sh112",
+      "text": "Vest backpack"
+    },
+    {
+      "key": "STR_weaponButtstockAK100",
+      "text": "AK-100 series buttstock"
+    },
+    {
+      "key": "STR_weaponButtstockAKM",
+      "text": "AKM buttstock"
+    },
+    {
+      "key": "STR_weaponButtstockSVDS",
+      "text": "SVD-S buttstock"
+    },
+    {
+      "key": "STR_weaponHandguardAK12",
+      "text": "AK-12 handguard"
+    },
+    {
+      "key": "STR_weaponHandguardSVD",
+      "text": "SVD handguard"
+    },
+    {
+      "key": "STR_weaponOpticsMagnifer",
+      "text": "Optic magnifier"
+    },
+    {
+      "key": "STR_Zenit_RK4_Grip",
+      "text": "Zenit RK-4 grip"
+    }
+  ]
 }

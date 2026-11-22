@@ -5,6 +5,11 @@
 // checks ConfigIsExisting and ConfigGetType first and returns the caller's
 // fallback instead. Callers pass a fallback equal to their documented default,
 // so a missing entry never silently zeroes a setting.
+// Not wrapped, so callers keep the raw native with their own guard: child iteration
+// (ConfigGetChildrenCount/ChildName/BaseName), ConfigGetTextRaw/Out, vector and
+// int/float arrays, and inventorySlot/attachments reads, whose entries may be a
+// scalar string or an array and are validated natively by the taped-light and
+// wreck-salvage gates (a CT_ARRAY-only reader would change their result).
 class HCConfigHelper
 {
     // Longest accepted path and text value; refuses runaway dynamic strings.

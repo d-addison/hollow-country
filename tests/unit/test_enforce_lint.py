@@ -1,4 +1,6 @@
 """Synthetic dependency-boundary fixtures; no engine behaviour claims."""
+import json
+import tempfile
 import unittest
 
 from tools.validate import enforce_lint as lint
@@ -383,8 +385,6 @@ class DependencyBridgeRule(unittest.TestCase):
                 self.assertTrue(self.findings(text, support, path=lint._COT_BRIDGE))
 
     def test_baseline_data_round_trips_without_dependency_injection(self):
-        import json
-        import tempfile
         baseline = lint.load_baseline()
         with tempfile.TemporaryDirectory() as folder:
             path = lint.Path(folder) / 'baseline.json'
@@ -392,13 +392,17 @@ class DependencyBridgeRule(unittest.TestCase):
             self.assertEqual(baseline, lint.load_baseline(path))
             path.write_text('{"entries": []}', encoding='utf-8')
             self.assertEqual({'entries': []}, lint.load_baseline(path))
-        entries = [entry for entry in baseline['entries'] if entry['rule'] == 'HC-E027']
-        self.assertTrue(entries)
-        for entry in entries:
+        # Any E027 rows that remain must still name their file (the original sites were
+        # migrated to the bridge, so an empty set is a valid state, not a failure).
+        for entry in (e for e in baseline['entries'] if e['rule'] == 'HC-E027'):
             self.assertIn(lint.Path(entry['path']).stem, entry['review'])
-            self.assertIn('Wave 2 migrates', entry['review'])
-            self.assertIn('HCXExpansionBridge.HCGetTimestamp', entry['review'])
-
+        # A synthetic E027 row survives the round trip unchanged and keeps its identity.
+        synthetic = {'entries': [{'rule': 'HC-E027', 'path': W + 'Probe.c', 'symbol': 'HCProbe.Run',
+                                  'key': 'Call()', 'count': 1, 'review': 'Probe: reviewed'}]}
+        with tempfile.TemporaryDirectory() as folder:
+            path = lint.Path(folder) / 'synthetic.json'
+            path.write_text(json.dumps(synthetic), encoding='utf-8')
+            self.assertEqual(synthetic, lint.load_baseline(path))
 
 
 class NativeCompileRetroRules(unittest.TestCase):
@@ -761,3 +765,103 @@ class FreshArgumentOwnershipTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WorkflowDefectRules(unittest.TestCase):
+    """WD-L1..L5, L9, the ConfigGet rule and the unordered head Remove rule."""
+    path = 'mods/HollowCountry/scripts/4_World/Probe.c'
+
+    def check(self, text, rule):
+        return lint.lint([lint.es.Source(self.path, text)], rules=(rule,))
+
+    def rules(self, text, rule):
+        return [f.rule for f in self.check(text, rule)]
+
+    def body(self, text, extra=''):
+        return extra + 'class HCProbe { void Run() {\n' + text + '\n} }'
+
+    def test_every_new_rule_id_is_documented_once(self):
+        for rule in ('HC-E031', 'HC-E032', 'HC-E033', 'HC-E034', 'HC-E035', 'HC-E036', 'HC-E037', 'HC-E038'):
+            self.assertIn(rule, lint.RULES)
+        self.assertEqual(len(set(lint.RULES)), len(lint.RULES))
+
+    def test_config_get_needs_a_guard_or_the_sanctioned_helper(self):
+        bare = self.body('float v = GetGame().ConfigGetFloat("CfgAmmo X y");')
+        guarded = self.body('if (GetGame().ConfigIsExisting("CfgAmmo X y")) { float v = GetGame().ConfigGetFloat("CfgAmmo X y"); }')
+        helper = self.body('float v = HCConfigHelper.HCGetFloat("CfgAmmo X y", 1.0); float w = GetGame().ConfigGetFloat("CfgAmmo X z");')
+        self.assertEqual(['HC-E031'], self.rules(bare, lint.rule_config_get))
+        self.assertEqual([], self.rules(guarded, lint.rule_config_get))
+        self.assertEqual([], self.rules(helper, lint.rule_config_get))
+
+    def test_config_get_helper_class_and_enumerators_are_exempt(self):
+        helper = 'class HCConfigHelper { static float Read() { return GetGame().ConfigGetFloat("A b"); } }'
+        self.assertEqual([], self.rules(helper, lint.rule_config_get))
+        enumerate_children = self.body('int n = GetGame().ConfigGetChildrenCount("CfgWorlds"); string c; GetGame().ConfigGetChildName("CfgWorlds", 0, c);')
+        self.assertEqual([], self.rules(enumerate_children, lint.rule_config_get))
+
+    def test_findpath_output_must_be_allocated(self):
+        for bad in ('array<vector> out; ai.FindPath(a, b, f, out);', 'array<vector> out = null; ai.FindPath(a, b, f, out);',
+                    'ai.FindPath(a, b, f, null);'):
+            with self.subTest(bad=bad):
+                self.assertEqual(['HC-E032'], self.rules(self.body(bad), lint.rule_findpath_output))
+        for good in ('array<vector> out = new array<vector>; ai.FindPath(a, b, f, out);',
+                     'array<vector> out; out = new array<vector>; ai.FindPath(a, b, f, out);'):
+            with self.subTest(good=good):
+                self.assertEqual([], self.rules(self.body(good), lint.rule_findpath_output))
+
+    def test_navmesh_filter_needs_set_flags(self):
+        bad = self.body('PGFilter f = new PGFilter; ai.SampleNavmeshPosition(p, 5, f, q);')
+        inline = self.body('ai.FindPath(a, b, new PGFilter, out);')
+        good = self.body('PGFilter f = new PGFilter; f.SetFlags(PGPolyFlags.WALK, PGPolyFlags.NONE, PGPolyFlags.NONE); ai.SampleNavmeshPosition(p, 5, f, q);')
+        self.assertEqual(['HC-E033'], self.rules(bad, lint.rule_navmesh_filter_flags))
+        self.assertEqual(['HC-E033'], self.rules(inline, lint.rule_navmesh_filter_flags))
+        self.assertEqual([], self.rules(good, lint.rule_navmesh_filter_flags))
+
+    def test_delete_group_needs_a_living_member_check(self):
+        bad = self.body('world.DeleteGroup(group);')
+        good = self.body('if (group.Count() == 0) { world.DeleteGroup(group); }')
+        self.assertEqual(['HC-E034'], self.rules(bad, lint.rule_delete_group))
+        self.assertEqual([], self.rules(good, lint.rule_delete_group))
+
+    def test_script_inst_on_an_infected_is_flagged_but_the_command_object_path_is_not(self):
+        infected = 'class ZombieBase {}\nclass HCZ : ZombieBase { void Run() { StartCommand_ScriptInst(HCCmd, 1); } }'
+        other = 'class HCOther { void Run() { StartCommand_ScriptInst(HCCmd, 1); } }'
+        sanctioned = 'class ZombieBase {}\nclass HCZ : ZombieBase { void Run() { StartCommand_Script(new HCPoseCommand(this)); } }'
+        self.assertEqual(['HC-E035'], self.rules(infected, lint.rule_infected_script_inst))
+        self.assertEqual([], self.rules(other, lint.rule_infected_script_inst))
+        self.assertEqual([], self.rules(sanctioned, lint.rule_infected_script_inst))
+
+    def test_new_object_argument_needs_an_owner(self):
+        support = ('class HCKeep { ref HCThing m_Kept; void Take(HCThing t) { m_Kept = t; } }\n'
+                   'class HCForward { HCThing m_Kept; void Take(HCThing t) { Inner(t); } void Inner(HCThing t) { m_Kept = t; } }\n'
+                   'class HCDrop { void Take(HCThing t) { Print(t); } }\n'
+                   'class HCThing {}\n')
+        use = ('class HCProbe { ref HCKeep m_Keep; ref HCForward m_Forward; ref HCDrop m_Drop; ref array<ref HCThing> m_List;\n'
+               'void Run() { %s } }')
+        for call, flagged in (('m_Keep.Take(new HCThing);', False), ('m_Forward.Take(new HCThing);', False),
+                              ('m_Drop.Take(new HCThing);', True), ('m_List.Insert(new HCThing);', False)):
+            with self.subTest(call=call):
+                found = self.rules(support + use % call, lint.rule_new_argument)
+                self.assertEqual(['HC-E036'] if flagged else [], found)
+
+    def test_flat_pathgraph_refresh_is_flagged(self):
+        self.assertEqual(['HC-E037'], self.rules(self.body('g.UpdatePathgraphRegionByObject(obj);'), lint.rule_flat_pathgraph))
+        self.assertEqual([], self.rules(self.body('HCPathgraphRefresh.Run(obj);'), lint.rule_flat_pathgraph))
+
+    def test_unordered_head_remove_on_arrays_only(self):
+        fields = 'class HCProbe { ref array<string> m_Queue; ref TStringArray m_Names; ref map<int, string> m_Map; void Run() {\n%s\n} }'
+        rule = lint.rule_unordered_head_remove
+        self.assertEqual(['HC-E038'], self.rules(fields % 'm_Queue.Remove(0);', rule))
+        self.assertEqual(['HC-E038'], self.rules(fields % 'm_Names.Remove(0);', rule))
+        self.assertEqual([], self.rules(fields % 'm_Queue.RemoveOrdered(0);', rule))
+        self.assertEqual([], self.rules(fields % 'm_Queue.Remove(i);', rule))
+        self.assertEqual([], self.rules(fields % 'm_Map.Remove(0);', rule))
+
+    def test_unordered_head_remove_waiver_on_same_or_previous_line(self):
+        fields = 'class HCProbe { ref array<string> m_Queue; void Run() {\n%s\n} }'
+        rule = lint.rule_unordered_head_remove
+        marker = '// HC-ORDER: unordered ok'
+        self.assertEqual([], self.rules(fields % f'm_Queue.Remove(0); {marker}', rule))
+        self.assertEqual([], self.rules(fields % f'{marker}\nm_Queue.Remove(0);', rule))
+        self.assertEqual(['HC-E038'], self.rules(fields % f'{marker}\nFoo();\nm_Queue.Remove(0);', rule))
+        self.assertEqual(['HC-E038'], self.rules(fields % 'm_Queue.Remove(0); // unordered', rule))

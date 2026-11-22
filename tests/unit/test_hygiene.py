@@ -9,6 +9,7 @@ import tracemalloc
 import unittest
 from unittest import mock
 
+from tools.package.inventory_sources import BANNED
 from tools.validate import hygiene
 
 
@@ -60,6 +61,64 @@ class HygieneTests(unittest.TestCase):
         self.assertFalse(report["license"]["publication_authorized"])
         self.assertEqual("pending-human-review", report["license"]["third_party_rights"])
         self.assertEqual(report, self.check())
+
+    def banned_findings(self, report):
+        return [e for e in report["errors"] if e["code"] == "banned_text"]
+
+    def test_banned_token_in_packaged_text_fails_with_path_and_line_only(self):
+        for token in BANNED:
+            with self.subTest(token=token):
+                relative = "mods/Example/scripts/banned.c"
+                self.put(relative, "// clean\nstring name = \"x_%s_y\";\n" % token.upper())
+                report = self.check()
+                self.assertFalse(report["valid"])
+                self.assertEqual([{"code": "banned_text", "path": relative, "line": 2}],
+                                 self.banned_findings(report))
+                self.assertNotIn(token, json.dumps(report).lower())
+
+    def test_banned_token_in_a_packaged_file_name_fails_and_other_roots_are_exempt(self):
+        token = BANNED[0]
+        for root in hygiene.BANNED_ROOTS:
+            with self.subTest(root=root):
+                self.put("%sdata/%s.json" % (root, token), "{}\n")
+                self.assertTrue(self.banned_findings(self.check()))
+                os.unlink(self.root / ("%sdata/%s.json" % (root, token)))
+        self.put("docs/%s.md" % token, "# mentions %s\n" % token)
+        self.put("tests/unit/%s.py" % token, "# %s\n" % token)
+        self.assertEqual([], self.banned_findings(self.check()))
+
+    def test_banned_scan_matches_text_split_by_separators(self):
+        for separator in (" ", "-", "_", "."):
+            with self.subTest(separator=separator):
+                self.put("config/example.json", json.dumps({"k": separator.join(BANNED[0])}))
+                self.assertTrue(self.banned_findings(self.check()))
+
+    def test_digest_file_exempts_keys_only(self):
+        token = BANNED[0]
+        path = hygiene.DIGEST_KEYS_FILE
+        self.put(path, json.dumps({"artefacts": {token + "_optional": {"inputs": {"tools/%s.py" % token: "0" * 64}}}}))
+        self.assertEqual([], self.banned_findings(self.check()))
+        self.assertTrue(self.check()["valid"])
+        self.put(path, json.dumps({"artefacts": {"ok": {"inputs": {"tools/a.py": "uses " + token}}}}))
+        self.assertEqual([path], [e["path"] for e in self.banned_findings(self.check())])
+        # Unparseable JSON gets no exemption at all.
+        self.put(path, '{"%s": ' % token)
+        self.assertEqual([path], [e["path"] for e in self.banned_findings(self.check())])
+
+    def test_summary_cli_reports_findings_and_verdict_without_the_json_report(self):
+        self.put("mods/Example/a.c", "// %s\n" % BANNED[0])
+        result = subprocess.run([sys.executable, "-B", "-m", "tools.validate.hygiene", "--root", str(self.root),
+                                 "--summary"], cwd=Path(hygiene.__file__).resolve().parents[2],
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("hygiene: banned_text mods/Example/a.c:1", result.stdout)
+        self.assertIn("hygiene: FAIL", result.stdout)
+        self.assertNotIn(BANNED[0], result.stdout.lower())
+        self.assertNotIn('"inventory"', result.stdout)
+
+    def test_committed_packaged_roots_are_free_of_banned_text(self):
+        report = hygiene.check_repository(Path(hygiene.__file__).resolve().parents[2])
+        self.assertEqual([], self.banned_findings(report))
 
     def test_public_visibility_does_not_change_rights_or_make_scan_a_publication_approval(self):
         notice = (self.root / "LICENSE.md").read_text()

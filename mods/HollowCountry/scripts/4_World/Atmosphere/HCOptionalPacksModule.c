@@ -4,7 +4,7 @@
 // 3_Game/gameplay.c:636 GetGame() returns the installed DayZGame singleton.
 // 1_Core/proto/EnDebug.c:96 Print(void var).
 // Config keys inspected in the operator's installed README / events.xml:
-// Ambient Animals Pack Animal_Otter; DayZ-Bicycle Old_Bike. No pack source ships.
+// Ambient Animals Pack Animal_Otter. No pack source ships. DayZ-Bicycle is retired.
 // Gate verdicts are diagnostic only; EnableAmbientLife controls startup.
 class HCOptionalPacksModule : HCModule
 {
@@ -30,13 +30,9 @@ class HCOptionalPacksModule : HCModule
         if (m_Started || !IsEnabled(settings) || !GetGame() || !GetGame().IsServer()) return;
         m_Started = true;
         Print(HCV2Admission.Line("AmbientAnimals", true, "EXP-A4", HCV2Gates.Qualified("EXP-A4")));
-        Print(HCV2Admission.Line("Bicycles", true, "EXP-T3", HCV2Gates.Qualified("EXP-T3")));
         string animalsLoaded = "0";
-        string bicyclesLoaded = "0";
         if (GetGame().ConfigIsExisting("CfgVehicles Animal_Otter")) animalsLoaded = "1";
-        if (GetGame().ConfigIsExisting("CfgVehicles Old_Bike")) bicyclesLoaded = "1";
         Print("[HollowCountry] V2 optional pack AmbientAnimals loaded=" + animalsLoaded);
-        Print("[HollowCountry] V2 optional pack Bicycles loaded=" + bicyclesLoaded);
         HCReached.Mark("optional_packs.config_probed");
     }
 

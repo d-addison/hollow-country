@@ -121,24 +121,6 @@
       "publish": false
     },
     {
-      "id": "2918418331",
-      "name": "Survivor Animations",
-      "folder": "@SurvivorAnimations",
-      "rank": 76,
-      "side": "client",
-      "group": "living_packs",
-      "publish": false
-    },
-    {
-      "id": "2971190303",
-      "name": "DayZ-Bicycle",
-      "folder": "@DayZ-Bicycle",
-      "rank": 78,
-      "side": "client",
-      "group": "living_packs",
-      "publish": false
-    },
-    {
       "id": "3841628320",
       "name": "Hollow Country",
       "folder": "@HollowCountry",
@@ -155,6 +137,22 @@
       "side": "client",
       "group": "pve_patrols",
       "publish": true
+    }
+  ],
+  "retired": [
+    {
+      "id": "2918418331",
+      "name": "Survivor Animations",
+      "folder": "@SurvivorAnimations",
+      "retired": "2026-11-22",
+      "reason": "Its player_main.asi references about 130 clips in a SurvivorAnimsExtras addon that the author does not ship, so every boot logs one missing-clip error per slot; the licence forbids repacking or patching it and no config override can remove the references. Its only consumer here was DayZ-Bicycle. Owner decision 2026-11-22."
+    },
+    {
+      "id": "2971190303",
+      "name": "DayZ-Bicycle",
+      "folder": "@DayZ-Bicycle",
+      "retired": "2026-11-22",
+      "reason": "Hard-requires Survivor Animations (CfgPatches requiredAddons) and keeps its rider animations in that mod's graph, so it cannot run without it. Motorbikes remain the two-wheel option. Owner decision 2026-11-22."
     }
   ]
 }

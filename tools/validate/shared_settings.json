@@ -346,7 +346,11 @@
       "MaxCamps": 32,
       "MaxCampItems": 64,
       "WorldSeed": 18473,
-      "MaxObservedAI": 1024
+      "MaxObservedAI": 1024,
+      "CautionRangeM": 30,
+      "CautionHostileRangeM": 60,
+      "CautionGunfireRangeM": 80,
+      "CautionGraceSeconds": 3
     },
     "min": null,
     "max": null,
@@ -545,6 +549,38 @@
     "owner": "HCAILimits"
   },
   {
+    "key": "AILimits.CautionRangeM",
+    "type": "int",
+    "default": 30,
+    "min": 1,
+    "max": 100,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.CautionHostileRangeM",
+    "type": "int",
+    "default": 60,
+    "min": 1,
+    "max": 100,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.CautionGunfireRangeM",
+    "type": "int",
+    "default": 80,
+    "min": 1,
+    "max": 100,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.CautionGraceSeconds",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 30,
+    "owner": "HCAILimits"
+  },
+  {
     "key": "MaxFamiliarityRows",
     "type": "int",
     "default": 0,
@@ -646,6 +682,30 @@
     "default": 300,
     "min": 60,
     "max": 3600,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.RefillCooldownSeconds",
+    "type": "int",
+    "default": 10800,
+    "min": 600,
+    "max": 604800,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.ContainerLifetimeSeconds",
+    "type": "int",
+    "default": 604800,
+    "min": 3600,
+    "max": 2592000,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.RefillClearRadius",
+    "type": "float",
+    "default": 50,
+    "min": 10,
+    "max": 200,
     "owner": "HCW38SituationPolicy"
   },
   {

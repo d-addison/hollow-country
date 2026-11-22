@@ -145,6 +145,23 @@ step that changes behaviour is registered until a plan names the schema change;
 with none registered the runner only prints the line below and a self-test
 receipt. Native behaviour is `runtime=PENDING` until the lead's boot check.
 
+Step contract: one step per target file, compared case-folded (a second step on
+the same target is refused at registration as `duplicate_target`, and a second
+step reusing an id on another target as `duplicate_id`; both close the step's
+store on every boot until the build changes, because the registry is rebuilt
+from the code at each server start). Registering the same id on the same target
+twice is a no-op. A step's declared store must be the one the recovery gate maps
+its target to (a store file declared ungated or gated by another store is refused
+as `step_invalid_store`), and targets with `.`/`..` segments are refused as
+`step_invalid_target`.
+A schema change on a file that already has a step edits that step: `current` is
+what this build writes and `old` widens to every earlier schema. The step's
+classifier must return unknown for every torn prefix of any text it calls
+current or old, and for an empty file; this is the load-bearing invariant the
+torn-commit recovery below relies on. A step with no store gate (`""`) is never
+deferred; if the runner's own self-test fails, every registered step is refused
+and its store closed for that boot.
+
 Per step, with target `T`, scratch image `P` (`T.mig-<id>.tmp`) and backup `B`
 (`T.pre-<id>.bak`, then `.bak2`..`.bak4` when a slot holds other bytes):
 
@@ -163,15 +180,74 @@ that step's store for this boot through the shared quarantine line
 Deferred steps then finish one per tick, so the next boot is clean. No file is
 deleted or wiped to make a refusal go away.
 
+A leftover `P` is deleted only when it is provably ours: beside a current `T` an
+empty file or one identical to `T`; beside an old `T` an empty file, a torn prefix
+of the image about to be written, a copy of `T`, or an image a retained backup
+slot reproduces through the transform. A complete current `P` without that proof
+may be the only newest copy (for example after you restored an older `T`), so it
+is kept and the step refuses. Any other `P` is kept and the step refuses
+(`pending_conflicts_current`, `pending_conflicts_old`). If `P` cannot be deleted
+after a verified commit the store is closed for that boot (`pending_delete_failed`).
+The next boot removes it only if the delete then succeeds (`current_pending_removed`);
+if it still fails the step refuses as `current_pending_cleanup_failed` and the store
+stays closed on every boot until you remove `P` by hand.
+
 | Interruption | Next boot |
 | --- | --- |
 | Before or during the backup copy | `T` is still old; a torn backup slot is skipped, a fresh slot is used |
 | After backup, before or during `P` | `T` is old; stale `P` is deleted and recomputed, an identical backup is reused |
 | After `P`, before deleting `T` | Same as above |
 | After deleting `T`, before the copy | `T` absent and `P` present: `P` is restored only if a backup slot proves it descends from that backup (old class plus the deterministic transform reproduces `P`) -> `recovered_missing_target` |
-| During the copy over `T` | `T` is an empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other content is refused as `target_schema_unknown` |
+| During the copy over `T` | `T` is a readable empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other readable content is refused as `target_schema_unknown`; an unreadable or oversize `T` is refused as `target_unreadable` and never replaced |
 | After the copy, before deleting `P` | `T` is current; the stale `P` is removed (`current_pending_removed`) |
 | Newer schema on disk (a rollback of the mod without the saves) | `refused reason=newer_schema`; install the matching mod version, or restore the matching `B` by hand with the server stopped |
+
+Operator steps for a refusal (server stopped, every file kept until you decide):
+
+- `backup_slots_full`: all four `.pre-<id>.bak*` slots hold other bytes. Compare
+  them with `T`; move the ones you no longer need out of the profile folder (do
+  not delete the only copy of anything), then start the server again.
+- `pending_provenance_missing`: `P` exists but no backup slot proves it descends
+  from an old file. Do not copy `P` over `T`. If `T` is intact and old, move `P`
+  aside; the next boot recomputes it. If `T` is missing or torn, restore the
+  matching `.pre-<id>.bak*` over `T` by hand, move `P` aside, and start again.
+- `target_schema_unknown` with `P` present: `T` is not a prefix of `P`. Keep both,
+  restore `T` from the matching backup (or from your own snapshot), move `P`
+  aside and start again. Never copy `P` over an unrecognised `T`.
+- `target_schema_unknown` without `P`: `T` is not a format this build knows;
+  restore the matching backup or the matching mod version.
+- `pending_conflicts_current` / `pending_conflicts_old`: `P` is not the image this
+  build would write. Inspect it, move it aside, start again. If `P` is a complete
+  image newer than `T` (you restored an older `T`), keep `P` and decide by hand
+  which of the two you want before starting again.
+- `target_unreadable` with `P` present: `T` is oversize or cannot be opened, so it
+  is evidence and is never replaced from `P`. Check the file size, permissions and
+  whether another program holds it; fix that or restore `T` from a backup, keep
+  `P`, and start again. Do not delete either file to clear the refusal.
+- `pending_image_invalid`: `P` is empty, unreadable or does not classify as current
+  (a torn or foreign scratch image). If `T` is intact move `P` aside and start
+  again; if `T` is missing or torn restore the matching `.pre-<id>.bak*` over `T`
+  first.
+- `commit_failed_pending_kept`: the copy of `P` over `T` or its readback failed
+  (disk full, a lock, antivirus). `P` and `B` are kept and `T` may be missing or
+  partial. Free space or remove the lock and start again: a missing or torn `T` is
+  recovered from `P` automatically. If it repeats, restore `B` over `T` by hand and
+  move `P` aside.
+- `pending_cleanup_failed`: a stale `P` beside an old `T` is ours but could not be
+  deleted, so nothing was migrated. `T` is untouched. Remove the lock or fix the
+  folder permissions, or delete that one `P` by hand, and start again.
+- `current_pending_cleanup_failed`: `T` is current and an identical or empty `P`
+  could not be deleted. The store stays closed on every boot until `P` is gone;
+  delete that one `P` by hand (or fix the permissions) and start again.
+- `duplicate_target` / `duplicate_id` / `step_invalid_*`: a defect in the build's
+  step list, not in your data. The affected store stays closed on every boot until
+  the build changes; no file edit helps. Install the build that fixes it or the
+  previous release.
+- `selftest_failed`: the runner's own file IO on its scratch probe files failed
+  (read-only or full profile folder, a lock). Every registered step is refused and
+  its store closed for that boot. Read the
+  `[HC SelfTest] name=migration_runner pass=false detail=<d>` line, fix the folder
+  problem, remove any `migrate-selftest.probe*` scratch files, and start again.
 
 To undo a migration by hand with the server stopped, copy the `.pre-<id>.bak`
 file back over the target and install the previous PBOs. `storage_*` (the DayZ
@@ -244,6 +320,64 @@ promoted by recovery. Incomplete/unrecognized bootstrap ownership or corrupted
 authoritative state is deliberately refused; preserve it for manual inspection.
 No active package is modified before initialization completes.
 
+## Search house journal crash points
+
+The house-search journal is per-record JSON, one file per step under its own
+root (`entry_`, `claim_`, `attempt_`, `result_` and `compact_` with the slot
+number, plus the retired-supply archive). Since Wave C every write and delete
+runs through the shared save scheduler, one native call per stage (the first
+stage of a new file also makes two existence probes), in strict first-in
+first-out queue order (queue pops are ordered removals; the engine's plain
+array remove would move the last element forward and break the order). The bytes on disk are unchanged: a journal written by an older
+build loads as is, and an older build reads a journal written by this one. A
+new file is created directly at its final name (no rename step) and read back
+and byte-compared; an existing name is never overwritten. Entry, claim,
+attempt and result writes are synchronous barriers: the caller does not
+proceed until the file is verified. The compact intent, the five compaction
+removals and the removal of old `spent_*` tombstones are routine staged work.
+No journal file is ever deleted by a recovery decision except as the last
+step of a completed compaction. Nothing here is a world wipe, and none of
+these states needs operator action unless the table says the journal is
+preserved.
+
+| Crash point (process dies after) | State on disk | Next boot |
+| --- | --- | --- |
+| Entry create started, file partial | `entry_<n>` torn, nothing else for the slot | Self-repair: the torn entry is removed and the slot is free; the supply was never handed out. A torn entry that has any claim, attempt, result or compact file beside it is not this case and faults with a reason |
+| Entry create finished | `entry_<n>` complete | Row restored as available (phase 0) |
+| Claim create started, partial | `entry_<n>` plus torn `claim_<n>` | Claim does not match: row restored as quarantined, never searchable again |
+| Claim complete, no attempt | `entry_<n>`, `claim_<n>` | Intent without result: row restored as quarantined (spent for good) |
+| Attempt partial or complete, no result | claim plus torn or complete `attempt_<n>` | Quarantined, as above |
+| Result partial or missing after the native move | claim, attempt, torn or no `result_<n>` | Quarantined; a result that does not match its claim is never trusted |
+| Torn `entry_<n>` while the directory listing missed a claim, attempt, result or compact file | torn entry plus a sibling the listing did not show | Boot probes each sibling by exact name before deleting; if any exists the journal faults with a reason and deletes nothing, so a possibly handed-out supply is never freed |
+| Torn `compact_<n>` whose entry is invalid, or whose supply is already in the archive | `compact_<n>` unreadable, entry failing a boot check or its supply recorded | The torn intent is removed only after the entry passes every boot check and its supply is not recorded. Otherwise the journal faults with a reason and `compact_<n>` is kept, so a transient read failure retries on the next boot |
+| Result complete | claim, attempt, `result_<n>` phase 2, 3 or 4 | Restored as spent, quarantined or no-transfer as recorded, except that phase 2 without an `attempt_<n>` is restored as quarantined |
+| Compact intent queued, not yet created | terminal slot files only | Nothing lost; the slot is compacted again by the normal pass |
+| Compact intent created, file partial | torn `compact_<n>` plus the slot files | Self-repair: removals and the archive checkpoint are queued only after the intent was read back, so the slot is untouched. The torn intent is removed and the row is restored as terminal (never available) and compacted again later. Only an unreadable intent with an unreadable or missing entry faults and is preserved |
+| Compact intent complete, retirement archive not yet checkpointed | `compact_<n>` plus all slot files | Boot re-runs the cleanup: archive checkpoint first, then the removals below |
+| Archive checkpointed, no removal done | `compact_<n>` plus all slot files, supply listed in the archive | Boot repeats the same removals; the archive entry is idempotent |
+| Removal of `claim_<n>`, `attempt_<n>`, `result_<n>` or `entry_<n>` done, others pending | `compact_<n>` and a subset of the slot files | Boot finishes the remaining removals (missing files are accepted); a half-removed slot is never restored as an entry |
+| All four removed, `compact_<n>` not yet removed | `compact_<n>` only | Boot removes it; slot becomes free |
+| Compact intent removed | slot empty | Slot free for reuse; the supply stays known through the archive |
+| Legacy `spent_<supply>` removal pending or interrupted | old tombstone still present, supply also in the archive | Supply still counts as known; the tombstone is migrated and removed again in the background |
+| Slot reused: removals of the old slot done, new `entry_<n>` partial | torn `entry_<n>`, no `compact_<n>` (it is removed before the create starts) | Torn-entry self-repair above: slot free, nothing handed out |
+| Slot reused: crash while the old slot's removals are still queued | `compact_<n>` and a subset of the old slot files; the new entry was never started | Boot finishes the old compaction first; the reuse is simply retried later |
+| Queue full (no crash) | whatever was already verified | Routine producers stop at 16 queued operations (at most 3 creates), so a claim barrier normally finds room and drains at most about 70 native calls. If the queue is ever full, the barrier drains it before enqueueing; it never faults the claim. Routine work waits and retries |
+| Writer failure (no crash) | whatever was already verified | A failed barrier write refuses the caller with a reason and the journal is preserved rather than guessed. The journal reports this itself and does not make the world save module report not ready |
+
+Slot reuse is safe because the queue is first in, first out (ordered pops): the
+removals of a slot's previous files, `compact_<n>` last, always precede the next
+create for that slot, so a crash leaves either the old slot still compactable or
+the new entry alone. Legacy `spent_<supply>` names are indexed once at boot (up
+to 65,536). Past that the index is incomplete: boot checks the exact tombstone
+file for each live entry instead of the index, and until the legacy files have
+drained (32 per minute) every supply not already recorded in a journal row or
+the archive is treated as known, so no new supply is bound while draining.
+The index is dropped only after two consecutive empty directory scans, and a
+legacy file is removed only when the archive image holding its supply has
+committed. Nothing
+about this table is proven in game; it follows from the code and from the
+recovery rules above, which are unchanged. Runtime acceptance stays PENDING.
+
 ## Validation and limits
 
 Run the behavioral suite on disposable temporary directories:
@@ -297,18 +431,41 @@ Workshop items; never repack, modify or redistribute them.
 | RaG_Core | 3556131153 | `@RaG_Core` |
 | RaG Immersive Vehicles | 3105330157 | `@RaG_Immersive_Vehicles` |
 | Ambient Animals Pack | 3114410963 | `@AmbientAnimals` |
-| Survivor Animations | 2918418331 | `@SurvivorAnimations` |
-| DayZ-Bicycle | 2971190303 | `@DayZ-Bicycle` |
 | Hollow Country | 3841628320 | `@HollowCountry` |
 | Hollow Country Expansion AI | 3841637854 | `@HollowCountryExpansionAI` |
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22 (see the upgrade note in INSTALL_ROLLBACK.md); an existing subscription is harmless and is no longer loaded.
+
+### Upgrade note: Survivor Animations and DayZ-Bicycle retired (2026-11-22)
+
+Both Workshop items are dropped. Survivor Animations references about 130 animation
+files its own package does not ship, and DayZ-Bicycle needs it; the owner chose to
+drop both rather than patch third-party content. The vanilla motorbikes stay.
+
+Upgrading an existing server needs no wipe. Bikes and bicycle parts that players left in
+the world, in inventories or in tents are dropped by the engine when the world loads once the
+mods are gone; no Hollow Country data references them. This has not been observed yet and is
+checked at the first retail boot after the upgrade. Ask players to empty bike cargo before the
+upgrade so nothing of value is inside a bike that disappears.
+
+- Remove `@SurvivorAnimations` and `@DayZ-Bicycle` from the server and client `-mod` lines.
+- `workshop_sync` keeps both folders in a `retired` list in `tools/setup/workshop_mods.json`,
+  so an older receipt that names them still loads; sync no longer downloads or loads them.
+- The friend installer removes what the Workshop receipt recorded for the retired folders:
+  their files and their copied `.bikey` files in `keys/`. A file that changed since the
+  install is left in place and listed. `workshop_sync rollback` removes the same files.
+  A key the receipt does not record is not touched; delete it from `keys/` by hand.
+- An existing install that carried the bicycle overlay upgrades the normal way: the friend
+  installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
+  receipt (it does not depend on the current pack list), then `bundle-apply` installs the
+  stack without any bicycle events or spawns. Do the same by hand with `bundle-rollback`
+  followed by `bundle-apply` when not using the installer.
+- Unsubscribing in Steam is optional; a leftover subscription is never loaded.
 
 COT owner roles stay private in the server profile; see [COT permissions](COT_PERMISSIONS.md).
 Admin ids are never written to git.
 
-The manifest's `living_packs` group contains both RaG items, Ambient Animals, Survivor Animations
-and Bicycle. COT and Navigation are in `pve_patrols`. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
+The manifest's `living_packs` group contains both RaG items and Ambient Animals. COT and Navigation are in `pve_patrols`. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
 stack. The friend bundle selects these groups by default. Copy public `.bikey`
 files to the server `keys` directory. Keep signing private keys outside the bundle.
 
@@ -353,7 +510,7 @@ python -m tools.package.optional_overlays bundle-apply --mission /private/server
 `bundle-plan` previews the authored merge. `bundle-apply` requires the default
 living-pack sources plus Navigation and RaG_Core, rehearses the merge and travel/optional plans on scratch,
 then writes a backup receipt before any mission file mutation. It installs the
-base merge, travel CE and Bicycle/Ambient/RaG/GPS overlays, then the loot boost last. Each installer
+base merge, travel CE and Ambient/RaG/GPS overlays, then the loot boost last. Each installer
 has its own receipt, including the first installation. Unknown existing overlay
 files and conflicting edited values refuse. Interrupted installs remain reversible
 using those receipts; preserve every receipt and backup. No stock mission is
@@ -489,5 +646,5 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```

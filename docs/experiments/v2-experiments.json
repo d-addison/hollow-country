@@ -125,7 +125,7 @@
     },
     {
       "Id": "EXP-T3",
-      "Question": "DayZ-Bicycle on 1.30: spawn, ride, light, repair, persistence across restart (two-client sync deferred)",
+      "Question": "RETIRED 2026-11-22 (owner): DayZ-Bicycle and Survivor Animations are dropped, so the fallback applies and no experiment will run. Original question: DayZ-Bicycle on 1.30: spawn, ride, light, repair, persistence across restart (two-client sync deferred)",
       "Method": "LC-T008: diag/CE probe overlay on the local server, then a client run",
       "Required": "Client observation, restart check",
       "Fallback": "No bikes; motorbikes up",

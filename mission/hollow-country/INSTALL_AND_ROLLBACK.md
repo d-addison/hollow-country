@@ -96,7 +96,7 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
   multiplies the day value. Check it with an in-game clock during local acceptance.
 - Mods: the server and every client use the same `-mod` list in the launcher's order.
   With Expansion AI, load CF, Dabs Framework, Expansion-Core, Expansion-AI, the weapons packs,
-  Ambient Animals Pack, Survivor Animations, DayZ-Bicycle, then @HollowCountry,
+  Ambient Animals Pack, then @HollowCountry,
   then @HollowCountryExpansionAI. Players subscribe
   to HollowCountryExpansionAI when the server uses it; both peers need its faction
   registrations and optional news target binding. The current manifest has no
@@ -416,7 +416,7 @@ rollback changes configuration, not world history: existing items and persisted
 entities are not silently deleted. Use the verified full stopped profile/storage
 backup when a tested save rollback is needed. Never wipe a live save as a shortcut.
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22 and are no longer loaded.
 
 Friend bundles contain overlays and minimal merge patches only. Use the included
 `tools.package.optional_overlays bundle-apply` installer against your own stock

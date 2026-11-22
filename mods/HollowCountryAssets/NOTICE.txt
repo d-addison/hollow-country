@@ -1,0 +1,14 @@
+HollowCountryAssets - notice
+
+This addon is an authored-assets package. It contains only original Hollow Country
+meshes, textures and animation clips, each admitted with a recorded provenance
+verdict. No vanilla DayZ files are copied into it.
+
+Config inheritance from DayZ classes (for example through requiredAddons and class
+parents), and any data derived from DayZ content, remain subject to the DayZ EULA
+and the Bohemia Interactive Arma Public License Share Alike (ADPL-SA) terms where
+those terms apply. This notice does not claim ownership of Bohemia Interactive's
+games, tools, APIs, data or assets, and grants no rights to them.
+
+Original material in this package is (c) 2026 David Addison, all rights reserved,
+as set out in the repository LICENSE.md and docs/PROVENANCE_AND_LICENSES.md.

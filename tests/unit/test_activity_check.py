@@ -2,6 +2,7 @@
 from contextlib import redirect_stdout
 from io import StringIO
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -166,6 +167,61 @@ class UseActivityTests(unittest.TestCase):
         result = self.report([ready(m) for m in modules] + [use(m, 'shared_feature', i) for i, m in enumerate(modules)])
         self.assertEqual({r['module'] for r in result['features']}, set(modules))
         self.assertEqual({r['module'] for r in result['features'] if r['status'] == 'INERT'}, set(modules[:1]))
+
+
+class NavAggregateTests(unittest.TestCase):
+    SOURCE = Path(audit.__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c'
+    report = UseActivityTests.report
+
+    def c_members(self):
+        """(aggregate module, feature) -> member module tokens, read from the C aggregate block."""
+        text = self.SOURCE.read_text(encoding='utf-8')
+        constants = dict(re.findall(r'static const string (HC_NAV_\w+) = "(\w+)";', text))
+        body = text[text.index('string HCNavMembers('):text.index('int HCNavSum(')]
+        found = {}
+        module = None
+        for line in body.splitlines():
+            head = re.search(r'module == (HC_NAV_\w+)\)', line)
+            if head:
+                module = constants[head[1]]
+            row = re.search(r'feature == "(\w+)"\) \{ return "([^"]+)"', line)
+            if row and module:
+                found[(module, row[1])] = {part.split('/')[0] for part in row[2].split('+')}
+        return found
+
+    def test_aggregate_table_matches_c_members(self):
+        members = self.c_members()
+        self.assertEqual(set(members), set(audit.NAV_AGGREGATE_OWNERS))
+        for key, owners in audit.NAV_AGGREGATE_OWNERS.items():
+            self.assertTrue(set(owners) <= members[key], key)
+
+    def test_aggregate_admitted_through_owner_and_inert_at_zero(self):
+        result = self.report([ready('HordeMigration'), ready('InfectedDoors'),
+                              use('NavInf', 'route_advance', 4), use('NavInf', 'door_action', 0)])
+        rows = {(row['module'], row['feature']): row for row in result['features']}
+        self.assertEqual(rows[('NavInf', 'route_advance')]['status'], 'ACTIVE')
+        self.assertEqual(rows[('NavInf', 'door_action')]['status'], 'INERT')
+
+    def test_aggregate_ignored_without_enabled_owner(self):
+        result = self.report([ready('HordeMigration', False), ready('World'),
+                              use('World', 'row', 1), use('NavInf', 'route_advance', 0),
+                              use('NavXai', 'routes', 9), use('NavInf', 'unknown_feature', 3)])
+        self.assertEqual([row['module'] for row in result['features']], ['World'])
+
+    def test_aggregate_does_not_register_its_owner(self):
+        result = self.report([ready('InfectedReach'), use('NavInf', 'vault_started', 2)])
+        rows = {(row['module'], row['feature']): row for row in result['features']}
+        self.assertEqual(rows[('InfectedReach', 'unregistered')]['status'], 'INERT')
+
+    def test_catalogue_rows_name_real_aggregates(self):
+        data = json.loads(audit.DEFAULT_EXPECTATIONS.read_text(encoding='utf-8'))
+        audit.load_expectations()
+        rows = [row for row in data['features'] if row['feature'].startswith('nav-')]
+        self.assertTrue(rows)
+        for row in rows:
+            match = re.search(r'module=(\w+) feature=(\w+) ', row['signal']['regex'])
+            self.assertIn((match[1], match[2]), audit.NAV_AGGREGATE_OWNERS)
+            self.assertIn(row['module'], audit.NAV_AGGREGATE_OWNERS[(match[1], match[2])])
 
 
 class ActivityCLITests(unittest.TestCase):

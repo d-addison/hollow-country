@@ -447,7 +447,7 @@ class HCWreckSalvageModule : HCModule
         array<string> parts = {"SparkPlug", "CarBattery", "CarRadiator", "HeadlightH7", "HatchbackWheel", "Hatchback_02_Wheel", "CivSedanWheel", "Sedan_02_Wheel", "MetalPlate", "Wrench", "Screwdriver", "Pliers"};
         foreach (string part : parts)
         {
-            if (!GetGame().ConfigIsExisting("CfgVehicles " + part) || GetGame().ConfigGetInt("CfgVehicles " + part + " scope") != 2) { Fault(); return; }
+            if (!GetGame().ConfigIsExisting("CfgVehicles " + part) || HCConfigHelper.GetInt("CfgVehicles " + part + " scope", 0) != 2) { Fault(); return; }
         }
         bool wheelsFit = HCWreckSalvage.HCWheelFits("HatchbackWheel", "OffroadHatchback");
         wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("Hatchback_02_Wheel", "Hatchback_02");

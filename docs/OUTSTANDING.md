@@ -113,7 +113,7 @@ synthetic fixtures and older successful boots do not establish current gameplay.
 - **One client:** sight-safe world changes, infected perception/audio, gunfire,
   smoke/light/leaf visibility, native door state, wearable beams, group membership,
   own markers/pings/death pins, reconnect, radio eligibility,
-  camp attendance/theft/raids, bicycles, shelters, scenes and wildlife clues.
+  camp attendance/theft/raids, shelters, scenes and wildlife clues.
 - **Administration:** Pause access, COT live grant/revoke and unavailable service,
   allowlist recovery, all kit commands, destination safety, Map tab Run/ack,
   running-query refusal, retained loot marks and bounded snapshot notices.
@@ -179,8 +179,8 @@ actual acceptance is recorded; an operational `ready` line does not replace it.
 - Historical wave review issues #191–#197 retain their native checks. Raw read
   caps, weapon receipt admission, trade-log recovery and snapshot notice fixes
   landed; no old refusal should be treated as evidence of the current code.
-- The reported Expansion-Animations / Survivor Animations conflict remains
-  unverified locally. Expansion-Animations stays outside the stack.
+- Survivor Animations and DayZ-Bicycle were retired on 2026-11-22. Expansion-Animations
+  stays outside the stack.
 - Installer rollback and path comparison still need server-platform checks
   ([#163](https://github.com/d-addison/hollow-country/issues/163)).
 

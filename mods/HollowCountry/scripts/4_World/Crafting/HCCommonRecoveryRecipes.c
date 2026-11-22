@@ -51,12 +51,12 @@ class HCCommonRecoveryPolicy
         int count = HCCommonRecoveryPolicy.HCSourceCount(recipeName);
         if (count == 0 || !GetGame())
             return false;
-        if (!GetGame().ConfigIsExisting("CfgVehicles Rag") || GetGame().ConfigGetInt("CfgVehicles Rag scope") != 2)
+        if (!GetGame().ConfigIsExisting("CfgVehicles Rag") || HCConfigHelper.GetInt("CfgVehicles Rag scope", 0) != 2)
         {
             Print("[HollowCountry] HC-30 refusal=HC30_RESULT_CONFIG_MISSING recipe=" + recipeName);
             return false;
         }
-        if (GetGame().ConfigGetFloat("CfgVehicles Rag varQuantityMax") < 1)
+        if (HCConfigHelper.GetFloat("CfgVehicles Rag varQuantityMax", 0) < 1)
         {
             Print("[HollowCountry] HC-30 refusal=HC30_RESULT_CAPACITY recipe=" + recipeName);
             return false;
@@ -64,17 +64,17 @@ class HCCommonRecoveryPolicy
         for (int i = 0; i < count; i++)
         {
             string path = "CfgVehicles " + HCCommonRecoveryPolicy.HCSourceAt(recipeName, i);
-            if (!GetGame().ConfigIsExisting(path) || GetGame().ConfigGetInt(path + " scope") != 2)
+            if (!GetGame().ConfigIsExisting(path) || HCConfigHelper.GetInt(path + " scope", 0) != 2)
             {
                 Print("[HollowCountry] HC-30 refusal=HC30_SOURCE_CONFIG_MISSING recipe=" + recipeName);
                 return false;
             }
-            if (GetGame().ConfigGetFloat(path + " ragQuantity") > 0)
+            if (HCConfigHelper.GetFloat(path + " ragQuantity", 0) > 0)
             {
                 Print("[HollowCountry] HC-30 refusal=HC30_NATIVE_RAG_ROUTE recipe=" + recipeName);
                 return false;
             }
-            float capacity = GetGame().ConfigGetFloat(path + " varQuantityMax");
+            float capacity = HCConfigHelper.GetFloat(path + " varQuantityMax", 0);
             if (recipeName == "HCRecoverFabricRag" && capacity < 1)
             {
                 Print("[HollowCountry] HC-30 refusal=HC30_SOURCE_QUANTITY_DRIFT recipe=" + recipeName);
@@ -90,7 +90,7 @@ class HCCommonRecoveryPolicy
         for (int toolIndex = 0; toolIndex < toolCount; toolIndex++)
         {
             string toolPath = "CfgVehicles " + HCSalvageTools.ToolAt("KitchenKnife", toolIndex);
-            if (!GetGame().ConfigIsExisting(toolPath) || GetGame().ConfigGetInt(toolPath + " scope") != 2)
+            if (!GetGame().ConfigIsExisting(toolPath) || HCConfigHelper.GetInt(toolPath + " scope", 0) != 2)
             {
                 Print("[HollowCountry] HC-30 refusal=HC30_TOOL_CONFIG_MISSING recipe=" + recipeName);
                 return false;

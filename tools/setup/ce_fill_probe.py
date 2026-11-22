@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from tools.setup import probe_runtime as rt, ce_site_probe, friend_bundle, friend_install
 from tools.package import (optional_overlays as overlays, loot_boost, travel, map_overlay,
                            infected_variety, hc_events, tactical_flava_optional as tf,
-                           snafu_optional as sf, weapon_pack_guards)
+                           snafu_optional as sf, weapon_pack_guards, xml_text)
 
 PLAN_NAME = 'ce-fill-probe-plan.json'
 CATALOG_NAME = 'ce-fill-type-catalog.json'
@@ -349,7 +349,7 @@ def apply_variants(mission, variants):
                             counts[field + '_after'] += new
                             changed |= new != old
                         counts['edited_rows'] += int(changed)
-            after = ET.tostring(root, encoding='utf-8', xml_declaration=True) if counts['edited_rows'] else before
+            after = xml_text.document(root) if counts['edited_rows'] else before
             (mission / name).write_bytes(after)
             report['files'].append(dict(path=name, before_sha256=rt.sha256(before),
                                         after_sha256=rt.sha256(after), **counts))

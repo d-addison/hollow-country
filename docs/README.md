@@ -41,7 +41,7 @@ reference](../README.md#server-settings-reference) lists shared and module tunin
 | Preference | Default | Server scope |
 | :--- | :--- | :--- |
 | `EnableGrade` | `true` | Grade/lighting admission diagnostics and weather-day profiles |
-| `EnableAmbientLife` | `true` | Optional animal/bicycle presence diagnostics and polish admission diagnostics |
+| `EnableAmbientLife` | `true` | Optional animal presence diagnostics and polish admission diagnostics |
 | `EnableSignsOfLife` | `true` | Signs-of-life server module |
 | `EnableTravel` | `true` | Shelters, wreck salvage and travel discovery pins |
 | `EnableWorld` | `true` | World ledger, escalation, settlement decay, infected memory, horde migration and loot refresh |
@@ -91,7 +91,7 @@ run and save, rather than all being created at every startup.
 | `world.json`, `escalation.json` | World ledger and persistent escalation epoch |
 | `settlement-decay.json`, `infected-memory.json` | Settlement history and infected clues |
 | `leads.json`, `morse-rates.json` | Group leads, note/body reservations, radio channels and Morse rate limits |
-| `holdouts.json`, `pickers.json`, `dead-drops.json`, `CacheMoves/` | Encounter state and real-item transfer journals |
+| `holdouts.json`, `pickers.json`, `dead-drops.json`, legacy `CacheMoves/` (v1-test-5..9 only; old files left on a server are orphaned and harmless) | Encounter state and real-item transfer journals |
 | `camps.json` | Camps, tiers, visitors, mailbox receipts, theft journal and probes |
 | `scene-chains.json` | Scene stage and expiry state |
 | `wreck-salvage.json`, `search-refresh.json` | Finite wreck supplies and search revisit history |
@@ -110,17 +110,16 @@ Server and clients use the [required stack](../README.md#required-mod-stack),
 ordered by [the dependency manifest](../tools/setup/workshop_mods.json): CF, COT,
 Dabs Framework, Expansion-Core, Expansion-Licensed, Expansion-Vehicles,
 Expansion-AI, Expansion-Navigation, the weapons packs, RaG_Core, RaG Immersive
-Vehicles, Ambient Animals Pack, Survivor Animations, DayZ-Bicycle,
+Vehicles, Ambient Animals Pack,
 `@HollowCountry`, then `@HollowCountryExpansionAI`. Licensed and Vehicles are
 active dependencies. The 23 added Expansion vehicle types and finite repair parts
 are event-owned; four rare aircraft share the air budget. The landing incident
 hook lives in the Expansion AI addon after the vehicle scripts.
 
-Expansion-Animations is intentionally not loaded. Its reported conflict with
-Survivor Animations remains unverified locally. DayZ-Bicycle requires Survivor
-Animations; Expansion-AI supplies its own AI animations.
+Expansion-Animations is intentionally not loaded; Expansion-AI supplies its own AI
+animations. Survivor Animations and DayZ-Bicycle were retired on 2026-11-22.
 
-Bicycle and Ambient Animals overlays apply by default during friend-bundle install.
+The Ambient Animals overlay applies by default during friend-bundle install.
 The original Workshop items remain separate subscriptions; no third-party file is
 repacked or distributed. Install-time CE changes do not establish gameplay acceptance.
 

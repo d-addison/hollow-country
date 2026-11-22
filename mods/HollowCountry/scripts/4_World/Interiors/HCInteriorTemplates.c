@@ -748,10 +748,10 @@ class HCInteriorTemplates
         return true;
     }
 
-    static bool LegacyConflict(HCInteriorConfig legacy)
+    static bool RoomsConflict()
 
     {
-        // Section 9 requires both room owners to refuse when this legacy
+        // Section 9 requires both room owners to refuse when the production-room
         // document and a pack coexist, even before its bindings are published.
         if (s_ProductionRooms)
 
@@ -765,30 +765,11 @@ class HCInteriorTemplates
         {
             return true;
         }
-        if (!legacy || !legacy.Candidates || legacy.Candidates.Count() > 12)
-
-        {
-            return false;
-        }
-        foreach (HCInteriorCandidate candidate : legacy.Candidates)
-
-        {
-            if (candidate)
-
-            {
-                HCInteriorTemplateClassRow row = FindClass(candidate.Type);
-                if (row && Covered(row))
-
-                {
-                    return true;
-                }
-            }
-        }
         return false;
     }
 
     // Begin once at boot. The owning module advances this retained job on ticks.
-    static void EnsureLoaded(HCInteriorConfig legacy, int maxProps = 5)
+    static void EnsureLoaded(int maxProps = 5)
     {
         if (s_Attempted) { return; }
         s_Attempted = true;
@@ -835,14 +816,9 @@ class HCInteriorTemplates
         return " load_ticks=" + loadTicks.ToString() + " load_ms=" + loadMs.ToString();
     }
 
-    static int HCLoadStepLimit(HCInteriorConfig config)
+    static int HCLoadStepLimit()
     {
-        // Missing legacy int fields are zero-filled by JsonFileLoader.
-        if (!config || config.TemplateLoadStepsPerTick < 1 || config.TemplateLoadStepsPerTick > 64)
-        {
-            return HCInteriorTemplates.DEFAULT_PACK_LOAD_STEPS;
-        }
-        return config.TemplateLoadStepsPerTick;
+        return HCInteriorTemplates.DEFAULT_PACK_LOAD_STEPS;
     }
 
     // Native EnScript.c:400 array.Get, :380 Count (installed 1.30.164289).
@@ -868,7 +844,7 @@ class HCInteriorTemplates
     static HCInteriorPackJob HCPackJob() { return s_Job; }
 
     // 1 budget exhausted; 3 metadata page merged (caller may take another step).
-    static int HCLoadStep(HCInteriorConfig legacy, HCWorkBudget budget)
+    static int HCLoadStep(HCWorkBudget budget)
     {
         if (!s_Attempted || s_Loaded || s_Reason != "") { return 0; }
         int status = HCInteriorPackIndex.HCStep(s_Job, budget);
@@ -887,9 +863,9 @@ class HCInteriorTemplates
             if (s_LoadChunk >= index.ClassFiles.Count())
             {
                 if (s_Classes.Count() < 1) { Refuse("house_denominator"); return 2; }
-                if (LegacyConflict(legacy))
+                if (RoomsConflict())
                 {
-                    if (s_Source == "pbo") { Print("[HC Interiors] shipped pack yields to legacy room owner"); }
+                    if (s_Source == "pbo") { Print("[HC Interiors] shipped pack yields to the production-room owner"); }
                     Refuse("rooms_conflict");
                     return 2;
                 }
@@ -1172,7 +1148,7 @@ class HCInteriorTemplates
 // on the base HCInteriorsModule; no call depends on a later modded link's methods.
 // The existing template extension begins the load after super.OnStart returns.
 // Shared module ticks (runtime contract) advance metadata/leaves before that
-// extension's instance guard, including when the optional legacy pilot is absent.
+// extension's instance guard.
 modded class HCInteriorsModule
 {
     protected bool m_PackLoading;
@@ -1199,11 +1175,6 @@ modded class HCInteriorsModule
                 reason = HCInteriorTemplates.HCAdmissionReason();
             }
         }
-        if (m_Ready && s_Instance == this && !HCInteriorTemplates.HCLoadFinished() && !m_PackLoading)
-        {
-            state = "ready";
-            reason = "legacy_pilot_admitted_runtime_pending";
-        }
         m_PackStatus.HCPublish(state, reason);
         return m_PackStatus;
     }
@@ -1211,11 +1182,9 @@ modded class HCInteriorsModule
     // Search readiness (journal open) runs on the tick after the load finishes, so the
     // finishing slice never also pays for it.
     protected bool m_PackCompletePending;
-    protected bool m_LegacyPilotPresent;
 
     override void OnStart(HCSettings settings)
     {
-        m_LegacyPilotPresent = FileExist("$profile:HollowCountry/interiors.json");
         super.OnStart(settings);
         m_PackLoading = GetGame().IsServer() && IsEnabled(settings);
     }
@@ -1231,7 +1200,7 @@ modded class HCInteriorsModule
         if (!m_PackLoading || !GetGame().IsServer()) { return; }
         HCSettings settings = HCServer.Get().GetSettings();
         if (!IsEnabled(settings)) { this.OnStop(); return; }
-        int stepLimit = HCInteriorTemplates.HCLoadStepLimit(m_Config);
+        int stepLimit = HCInteriorTemplates.HCLoadStepLimit();
         if (!HCInteriorTemplates.HCLoadFinished())
         {
             m_PackBudget.HCReset(stepLimit);
@@ -1244,7 +1213,6 @@ modded class HCInteriorsModule
         {
             s_Instance = this;
             HCInteriorTemplatePlacement.Place(this, settings, m_Objects, -1);
-            if (!m_LegacyPilotPresent) { Print("[HC Interiors] legacy pilot absent; template path in use"); }
         }
         m_PackCompletePending = true;
     }
@@ -1257,7 +1225,7 @@ modded class HCInteriorsModule
         int status = 0;
         while (slice < stepLimit && !HCInteriorTemplates.HCLoadFinished())
         {
-            status = HCInteriorTemplates.HCLoadStep(m_Config, m_PackBudget);
+            status = HCInteriorTemplates.HCLoadStep(m_PackBudget);
             if (status == 1) { return false; }
             slice = slice + 1;
         }

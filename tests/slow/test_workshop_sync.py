@@ -4,6 +4,7 @@ steamcmd is never run: subprocess.run is patched (to fail the test, or to a reco
 tests). Nothing here establishes DayZ behaviour, the real Workshop layout beyond addons/ and keys/, or
 a real server install.
 """
+import argparse
 import contextlib
 import hashlib
 import io
@@ -20,13 +21,14 @@ from tools.setup import workshop_sync as ws
 
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
-IDS = {'cf': '1559212036', 'cot': '1564026768', 'navigation': '2792984722', 'rag_core': '3556131153', 'rag_vehicles': '3105330157', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963', 'survivor': '2918418331', 'bicycle': '2971190303',
+GENERATED_DIGESTS = REPO / 'config/generated-digests.json'
+IDS = {'cf': '1559212036', 'cot': '1564026768', 'navigation': '2792984722', 'rag_core': '3556131153', 'rag_vehicles': '3105330157', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963',
        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942', 'licensed': '2116157322', 'vehicles': '2291785437'}
 HC_ID = '3841628320'
 AI_ID = '3900000002'
 AI_REAL_ID = '3841637854'
 FULL_MOD = ('-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;'
-            '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI')
+            '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI')
 RECEIPT = 'hollow-country-workshop-receipt.json'
 MARKER = 'S3CRET-MARKER-9f2'
 
@@ -101,6 +103,23 @@ class Base(unittest.TestCase):
 
 
 class Manifest(unittest.TestCase):
+    def test_retired_items_are_listed_but_never_selected_or_launched(self):
+        data = ws.load_manifest()
+        self.assertEqual({m['id'] for m in data['retired']}, {'2918418331', '2971190303'})
+        self.assertTrue(all(m['reason'] and m['id'] not in {a['id'] for a in data['mods']} for m in data['retired']))
+        mod_line = next(line for line in ws.launch_lines(ws.select(data, ws.GROUPS)) if line.startswith('-mod='))
+        self.assertNotIn('Survivor', mod_line)
+        self.assertNotIn('Bicycle', mod_line)
+
+    def test_a_retired_item_may_not_also_be_active(self):
+        data = json.loads(MANIFEST.read_text())
+        data['retired'].append(dict(data['retired'][0], id='3114410963', folder='@AmbientAnimals'))
+        path = Path(tempfile.mkdtemp()) / 'manifest.json'
+        self.addCleanup(shutil.rmtree, path.parent, True)
+        path.write_text(json.dumps(data))
+        with self.assertRaises(ws.SyncError):
+            ws.load_manifest(path)
+
     def setUp(self):
         self.data = json.loads(MANIFEST.read_text())
         self.mods = {m['folder']: m for m in self.data['mods']}
@@ -123,7 +142,7 @@ class Manifest(unittest.TestCase):
     def test_load_order_is_the_documented_one(self):
         order = [m['folder'] for m in sorted(self.data['mods'], key=lambda m: m['rank'])]
         self.assertEqual(order, ['@CF', '@COT', '@DabsFramework', '@Expansion-Core', '@Expansion-Licensed', '@Expansion-Vehicles',
-                                 '@Expansion-AI', '@Expansion-Navigation', '@SnafuWeapons', '@TacticalFlava', '@RaG_Core', '@RaG_Immersive_Vehicles', '@AmbientAnimals', '@SurvivorAnimations', '@DayZ-Bicycle', '@HollowCountry',
+                                 '@Expansion-AI', '@Expansion-Navigation', '@SnafuWeapons', '@TacticalFlava', '@RaG_Core', '@RaG_Immersive_Vehicles', '@AmbientAnimals', '@HollowCountry',
                                  '@HollowCountryExpansionAI'])
         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
 
@@ -144,6 +163,8 @@ class Manifest(unittest.TestCase):
         for folder in ('config', 'mission', 'mods'):
             for path in (REPO / folder).rglob('*'):
                 if path.is_file() and path.suffix.lower() in {'.json', '.md', '.xml', '.cpp', '.c'}:
+                    if path == GENERATED_DIGESTS:
+                        continue  # lists tool file paths as digest inputs; it holds no mod content or ids
                     data = path.read_bytes().lower()
                     self.assertNotIn(IDS['tf'].encode(), data, path)
                     self.assertNotIn(b'snafu', data, path)
@@ -719,6 +740,22 @@ class ReceiptScope(Base):
         self.assertEqual(code, 1)
         self.assertIn('not created', err)
         self.assertFalse((self.root / RECEIPT).exists())
+
+    def test_an_older_receipt_naming_a_retired_mod_folder_still_rolls_back(self):
+        """Survivor Animations and DayZ-Bicycle left the manifest on 2026-11-22; a receipt written
+        by an older release still names their folders and must stay reversible."""
+        retired = [m['folder'] for m in ws.load_manifest()['retired']]
+        self.assertEqual(retired, ['@SurvivorAnimations', '@DayZ-Bicycle'])
+        old = self.root / retired[1] / 'addons' / 'old.pbo'
+        old.parent.mkdir(parents=True)
+        old.write_bytes(b'old bicycle')
+        self.data['dirs'] += [retired[1], retired[1] + '/addons']
+        self.data['files'].append({'path': retired[1] + '/addons/old.pbo', 'sha256': sha(old), 'size': 11, 'item': 'old'})
+        self.receipt.write_text(json.dumps(self.data))
+        self.assertTrue(set(retired) <= ws.managed_folders(argparse.Namespace(manifest=None)))
+        code, _, err = self.rollback()
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.root / retired[1]).exists())
 
     def test_normal_install_then_rollback_still_works(self):
         self.assertEqual(self.rollback()[0], 0)

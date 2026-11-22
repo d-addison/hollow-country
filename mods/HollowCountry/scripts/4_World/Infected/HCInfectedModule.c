@@ -1353,7 +1353,7 @@ class HCInfectedModule : HCModule
             while (voices > 0 && m_Voices.Count() > 0)
             {
                 HCInfectedVoice voice = m_Voices[0];
-                m_Voices.Remove(0);
+                m_Voices.RemoveOrdered(0);
                 HCInfectedActor actor = FindActor(voice.Emitter);
                 if (actor && actor.InfectedEntity && actor.InfectedEntity.IsAlive() && voice.Clue.IsLive(m_Now))
                     actor.Clue = voice.Clue;

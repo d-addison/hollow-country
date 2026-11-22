@@ -123,8 +123,21 @@ class ExpectedSpec(Case):
                     # Generated at package time from Workshop configs; no source folder.
                     self.assertEqual(weapon_pack_guards.PBO_NAME, name)
                     continue
+                if prefix.startswith(pbo.COMPAT_PREFIX):
+                    # Generated at bundle time by tools.package.compat_addon; no source folder.
+                    self.assertEqual(pbo.pbo_file_name(prefix), name)
+                    continue
                 self.assertEqual(prefix.lower() + '.pbo', name)
                 self.assertTrue((ROOT / 'mods' / prefix).is_dir())
+
+    def test_compat_pbos_map_to_their_own_prefixes_and_only_slots_are_optional(self):
+        spec = pm.expected_spec('expansionai')
+        self.assertEqual(pbo.COMPAT_PREFIX, spec['prefixes'][workshop_publish.COMPAT_PBO_NAME])
+        for slot in pbo.COMPAT_SLOTS:
+            self.assertEqual(pbo.COMPAT_PREFIX + '-' + slot, spec['prefixes'][pbo.compat_slot_pbo(slot)])
+        self.assertEqual(set(workshop_publish.COMPAT_SLOT_PBO_NAMES), set(spec['optional']))
+        self.assertNotIn(workshop_publish.COMPAT_PBO_NAME, spec['optional'])
+        self.assertEqual((), pm.expected_spec('base')['optional'])
 
     def test_unknown_kind_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -145,6 +158,27 @@ class Findings(Case):
         mod = make_mod(self.tmp / 'a', kind='expansionai', signed=True)
         vdf = write_vdf(self.tmp / 'item.vdf', item_id=ADDON_ID)
         self.assertEqual(self.check(mod, 'expansionai', signed=True, vdf=vdf), [])
+
+    def test_optional_compat_slot_pbos_may_be_absent_but_the_base_compat_pbo_may_not(self):
+        spec = pm.expected_spec('expansionai')
+        slots = [f'addons/{name}' for name in spec['optional']]
+        mod = make_mod(self.tmp / 'a', kind='expansionai', signed=True, drop=[
+            *slots, *(f'{s}.hc_test.bisign' for s in slots)])
+        self.assertEqual(self.check(mod, 'expansionai', signed=True), [])
+        base = f'addons/{workshop_publish.COMPAT_PBO_NAME}'
+        mod = make_mod(self.tmp / 'b', kind='expansionai', drop=[base])
+        found = self.check(mod, 'expansionai')
+        self.assertEqual(['missing_pbo'], codes(found))
+        self.assertIn(workshop_publish.COMPAT_PBO_NAME, found[0].detail)
+
+    def test_present_optional_slot_pbo_must_be_signed(self):
+        spec = pm.expected_spec('expansionai')
+        slot = spec['optional'][0]
+        mod = make_mod(self.tmp / 'a', kind='expansionai', signed=True,
+                       drop=[f'addons/{slot}.hc_test.bisign'])
+        found = self.check(mod, 'expansionai', signed=True)
+        self.assertEqual(['missing_signature'], codes(found))
+        self.assertIn(slot, found[0].detail)
 
     def test_missing_anims_pbo_fails_missing_pbo(self):
         mod = make_mod(self.tmp / 'a', drop=('addons/hollowcountryanims.pbo',))
@@ -254,6 +288,10 @@ class RealUnsignedPbos(Case):
             if prefix == pbo.GUARD_PREFIX:
                 # weapon_pack_guards builds this one from installed Workshop configs.
                 (mod / 'addons' / name).write_bytes(b'synthetic stand-in for the generated guard PBO')
+                continue
+            if prefix.startswith(pbo.COMPAT_PREFIX):
+                # compat_addon builds these at bundle time.
+                (mod / 'addons' / name).write_bytes(b'synthetic stand-in for a generated compat PBO')
                 continue
             files = pbo.collect_addon(ROOT / 'mods' / prefix, prefix)
             (mod / 'addons' / name).write_bytes(pbo.pack(files, prefix))

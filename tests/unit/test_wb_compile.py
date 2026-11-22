@@ -265,5 +265,23 @@ class DriverTests(unittest.TestCase):
         self.assertNotIn('taskkill', script)
 
 
+class PathHelperTests(unittest.TestCase):
+    def test_drive_paths_round_trip_without_wslpath(self):
+        with patch.object(wb.subprocess, 'run', side_effect=AssertionError('no subprocess')):
+            windows = wb.windows_path(Path('/mnt/d/Dir With Space/profile'))
+            self.assertEqual(windows, 'D:\\Dir With Space\\profile')
+            self.assertEqual(wb.linux_path(windows), Path('/mnt/d/Dir With Space/profile'))
+
+    def test_non_drive_and_traversal_paths_are_refused(self):
+        for path in ('/tmp/scratch', '/mnt/d/../x', '/mnt/d/bad:name'):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                wb.windows_path(Path(path))
+
+    def test_powershell_quote_escapes_apostrophes_and_refuses_control(self):
+        self.assertEqual(wb.quote_ps("it's"), "'it''s'")
+        with self.assertRaises(ValueError):
+            wb.quote_ps('a\nb')
+
+
 if __name__ == '__main__':
     unittest.main()

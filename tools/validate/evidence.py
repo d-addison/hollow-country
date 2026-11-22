@@ -54,6 +54,20 @@ hash_mismatch, artifact_reference, observation_tests, two_clients,
 performance_reference. CLI exits 0 for valid, 1 for invalid (including IO/JSON
 errors), 2 for command-line usage errors. Only usage errors go to stderr.
 
+Strict store rules (spec 002 AV-T006, additive; validate(path) is unchanged):
+validate_strict(path, store_root=..., pins=...) runs validate(path) and then
+validate_store(), which checks the evidence store manifest written by
+tools.testing.artifacts: every artifact present, nonempty, hash-exact, unaliased
+(one role per hash, no hard links) and free of credential material; every method
+pin current; every task's attempts numbered 1..n with a hash chain so a failed
+retry cannot be overwritten; and actor rules (a bot, diagnostic or server actor,
+or a zero-client native run, is never a real client and never accepted runtime
+evidence; raw zero-client reports are a separate role). Strict codes: store_manifest,
+artifact_missing, aliased_artifact, stale_pin, unknown_producer, retry_overwritten,
+unlisted_artifact, credential_material, actor_mismatch, zero_client_accepted,
+raw_zero_client_in_runtime, multiplayer_claim, task_missing, attempt_record.
+Messages never contain credential bytes, only the rule kind and a path.
+
 All unit-test artifacts are explicitly synthetic T0 inputs, never runtime proof.
 """
 
@@ -82,6 +96,51 @@ _TEST_ID = re.compile(r"[A-Z][A-Z0-9]*-[0-9]{3}")
 # Explicit multiplayer tests from the handoff test catalog. Prefixes AUD/NET
 # independently require two-client acceptance even when impacts is omitted.
 _MULTIPLAYER_TESTS = {"INT-006", "INT-007", "CRF-004", "AI-012", "HOR-006"}
+
+
+STORE_MANIFEST = "store.json"
+STORE_SCHEMA = 1
+CREDENTIAL_SCAN_BYTES = 8 * 1024 * 1024
+STORE_ROLES = ("driver_log", "evidence_record", "zero_client_report", "runtime_client_log", "server_log")
+# Raw zero-client reports are kept apart: a runtime record may never cite one.
+RUNTIME_FORBIDDEN_ROLES = ("zero_client_report",)
+ACTORS = ("offline", "server", "diagnostic", "bot", "real_client")
+PRESENTATIONS = ("offline_framework", "zero_client_native", "real_client")
+STORE_OUTCOMES = ("PASS", "FAIL", "BLOCKED", "NOTRUN")
+_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,159}")
+_HEX64 = re.compile(r"[a-f0-9]{64}")
+_PRIVATE_BLOCK = re.compile(
+    r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|\Z)", re.S)
+_KEY_FILE = re.compile(r"[^\s\"'<>|]*\.biprivatekey\b", re.I)
+_PASSWORD = re.compile(
+    r"(?i)\b([A-Za-z0-9_.-]*(?:password|passwd|secret|token|api[_-]?key))(\s*[=:]\s*)"
+    r"(?!\[REDACTED)(\"[^\"]*\"|'[^']*'|[^\s,;&]+)")
+
+
+def credential_kinds(data):
+    """Names of the credential rules that match; never the matched material."""
+    text = data.decode("latin-1") if isinstance(data, (bytes, bytearray)) else str(data)
+    kinds = []
+    for kind, pattern in (("private_key", _PRIVATE_BLOCK), ("biprivatekey", _KEY_FILE), ("password", _PASSWORD)):
+        if pattern.search(text):
+            kinds.append(kind)
+    return kinds
+
+
+def redact_credentials(text):
+    """Return (redacted text, sorted rule kinds hit). The material is replaced, never reported."""
+    kinds = set()
+
+    def mark(kind, replacement):
+        def swap(match):
+            kinds.add(kind)
+            return replacement(match)
+        return swap
+
+    text = _PRIVATE_BLOCK.sub(mark("private_key", lambda m: "[REDACTED:private_key]"), text)
+    text = _KEY_FILE.sub(mark("biprivatekey", lambda m: "[REDACTED:biprivatekey]"), text)
+    text = _PASSWORD.sub(mark("password", lambda m: m.group(1) + m.group(2) + "[REDACTED:password]"), text)
+    return text, sorted(kinds)
 
 
 class _UnsafeArtifact(ValueError):
@@ -488,6 +547,274 @@ def validate(path):
         "valid": not checker.errors,
         "errors": sorted(checker.errors, key=lambda error: (error["code"], error["field"], error["message"])),
     }
+
+
+def entry_digest(entry):
+    """sha256 over the canonical entry without its own digest; chains attempts per task."""
+    body = {key: value for key, value in entry.items() if key != "entry_sha256"}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True, allow_nan=False).encode("utf-8")).hexdigest()
+
+
+class _StoreChecker:
+    def __init__(self, root, pins):
+        self.root = root
+        self.pins = pins
+        self.errors = []
+        self.tasks = {}
+
+    def error(self, code, field, message):
+        self.errors.append({"code": code, "field": field, "message": message})
+
+    def read(self, name):
+        """(sha256, size, identity, head bytes for the credential scan) of one stored file."""
+        digest = hashlib.sha256()
+        size = 0
+        head = b""
+        with _artifact_stream(self.root, name) as stream:
+            info = os.fstat(stream.fileno())
+            while True:
+                block = stream.read(1024 * 1024)
+                if not block:
+                    break
+                size += len(block)
+                digest.update(block)
+                if len(head) < CREDENTIAL_SCAN_BYTES:
+                    head += block
+        return digest.hexdigest(), size, (info.st_dev, info.st_ino), head[:CREDENTIAL_SCAN_BYTES]
+
+    def attempt(self, index, entry, seen_hash, seen_identity, listed):
+        field = f"attempts[{index}]"
+        keys = {"task", "task_slug", "attempt", "dir", "driver", "actor", "presented_as", "client_count",
+                "method_pin", "outcome", "reason", "previous", "artifacts", "entry_sha256"}
+        if not isinstance(entry, dict) or set(entry) != keys:
+            self.error("store_manifest", field, "Attempt entry fields do not match the store schema.")
+            return
+        task, slug, number = entry["task"], entry["task_slug"], entry["attempt"]
+        if not isinstance(task, str) or not task or not isinstance(slug, str) or not _SLUG.fullmatch(slug) \
+                or slug in {".", ".."} or type(number) is not int or number < 1:
+            self.error("store_manifest", field, "Task, slug or attempt number is invalid.")
+            return
+        if self.tasks.setdefault(slug, task) != task:
+            self.error("retry_overwritten", field + ".task", "Two task IDs share one attempt directory.")
+        if entry["dir"] != f"attempts/{slug}/attempt-{number:03d}":
+            self.error("store_manifest", field + ".dir", "Attempt directory does not follow the store layout.")
+        if entry["entry_sha256"] != entry_digest(entry):
+            self.error("store_manifest", field + ".entry_sha256", "Attempt entry digest does not match its content.")
+        driver, pin = entry["driver"], entry["method_pin"]
+        if entry["outcome"] not in STORE_OUTCOMES or not isinstance(entry["reason"], str) or not entry["reason"]:
+            self.error("store_manifest", field + ".outcome", "Attempt is not finished with an outcome and reason.")
+        if not isinstance(pin, str) or not _HEX64.fullmatch(pin):
+            self.error("store_manifest", field + ".method_pin", "Expected a SHA-256 method pin.")
+        elif self.pins is None or driver not in self.pins:
+            self.error("unknown_producer", field + ".driver", "Producer driver is not in the trusted registry.")
+        elif self.pins[driver] != pin:
+            self.error("stale_pin", field + ".method_pin", "Method pin differs from the current driver method.")
+        actor, presented, clients = entry["actor"], entry["presented_as"], entry["client_count"]
+        if actor not in ACTORS or presented not in PRESENTATIONS or type(clients) is not int or clients < 0:
+            self.error("store_manifest", field, "Actor, presentation or client count is invalid.")
+            return
+        real = presented == "real_client"
+        if real and (actor != "real_client" or clients < 1):
+            self.error("actor_mismatch", field + ".actor",
+                       "A bot, diagnostic, server or zero-client actor cannot be presented as a real client.")
+        if not real and (clients != 0 or actor == "real_client"):
+            self.error("actor_mismatch", field + ".presented_as", "Client count or actor does not match the presentation.")
+        artifacts = entry["artifacts"]
+        if not isinstance(artifacts, list) or not artifacts:
+            self.error("empty_artifact", field + ".artifacts", "Attempt has no artifacts.")
+            return
+        roles = set()
+        for position, item in enumerate(artifacts):
+            afield = f"{field}.artifacts[{position}]"
+            if not isinstance(item, dict) or set(item) != {"path", "role", "sha256", "size", "redactions"}:
+                self.error("store_manifest", afield, "Artifact entry fields do not match the store schema.")
+                continue
+            name, role, digest, size = item["path"], item["role"], item["sha256"], item["size"]
+            if (not isinstance(name, str) or any(part in {"", ".", ".."} for part in name.split("/"))
+                    or "\\" in name or not name.startswith(entry["dir"] + "/")
+                    or any(ord(char) < 32 for char in name)):
+                self.error("unsafe_path", afield + ".path", "Artifact is not a canonical path inside its attempt.")
+                continue
+            if role not in STORE_ROLES or not isinstance(digest, str) or not _HEX64.fullmatch(digest) or type(size) is not int:
+                self.error("store_manifest", afield, "Artifact role, hash or size is invalid.")
+                continue
+            if name in listed:
+                self.error("duplicate", afield + ".path", "Artifact path is listed twice.")
+                continue
+            listed[name] = (index, role, digest)
+            roles.add(role)
+            try:
+                actual, length, identity, head = self.read(name)
+            except _UnsafeArtifact:
+                self.error("unsafe_path", afield + ".path", "Artifact path contains a symlink or changed its target.")
+                continue
+            except (OSError, ValueError, RuntimeError):
+                self.error("artifact_missing", afield + ".path", "Artifact is missing or not a readable regular file.")
+                continue
+            if length == 0:
+                self.error("empty_artifact", afield + ".path", "Artifact must contain evidence bytes.")
+            elif actual != digest or length != size:
+                self.error("hash_mismatch", afield + ".sha256", "Artifact bytes differ from the manifest snapshot.")
+            if actual in seen_hash and seen_hash[actual] != role:
+                self.error("aliased_artifact", afield + ".sha256", "The same bytes appear under two roles.")
+            seen_hash.setdefault(actual, role)
+            if identity in seen_identity and identity[1]:
+                self.error("aliased_artifact", afield + ".path", "Artifact aliases another stored file (hard link).")
+            seen_identity.add(identity)
+            if credential_kinds(head):
+                self.error("credential_material", afield + ".path", "Artifact holds credential or private-key material.")
+        if real and "runtime_client_log" not in roles:
+            self.error("actor_mismatch", field + ".artifacts", "A real-client attempt needs a runtime_client_log artifact.")
+        if not real and "runtime_client_log" in roles:
+            self.error("actor_mismatch", field + ".artifacts", "Only a real-client attempt may hold a runtime_client_log artifact.")
+
+    def record(self, index, entry, listed):
+        """Strict rules for the attempt's evidence-v1 record on top of validate()."""
+        field = f"attempts[{index}]"
+        names = [item["path"] for item in entry["artifacts"]
+                 if isinstance(item, dict) and item.get("role") == "evidence_record"]
+        if len(names) != 1:
+            self.error("attempt_record", field, "Each attempt needs exactly one evidence_record artifact.")
+            return
+        base = validate(self.root / names[0])
+        for error in base["errors"]:
+            self.error(error["code"], field + ".record." + error["field"], error["message"])
+        try:
+            data = _load_json(self.root / names[0])
+        except (OSError, ValueError, RuntimeError, RecursionError):
+            return
+        if not isinstance(data, dict):
+            return
+        prefix = names[0].rsplit("/", 1)[0] + "/"
+        runtime = data.get("status") in _RUNTIME
+        cited = data.get("artifacts") if isinstance(data.get("artifacts"), list) else []
+        for position, item in enumerate(cited):
+            if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+                continue
+            hit = listed.get(prefix + item["path"])
+            if hit is None or hit[0] != index or str(item.get("sha256", "")).lower() != hit[2]:
+                self.error("artifact_missing", f"{field}.record.artifacts[{position}]",
+                           "Record artifact is not a snapshot of this attempt.")
+            elif runtime and hit[1] in RUNTIME_FORBIDDEN_ROLES:
+                self.error("raw_zero_client_in_runtime", f"{field}.record.artifacts[{position}]",
+                           "A raw zero-client report cannot back a runtime claim.")
+        if entry["presented_as"] != "real_client" or entry["actor"] != "real_client":
+            if data.get("status") == "accepted":
+                self.error("zero_client_accepted", field + ".record.status",
+                           "A zero-client, bot, diagnostic or server run can never become accepted runtime evidence.")
+            elif runtime:
+                self.error("actor_mismatch", field + ".record.status",
+                           "Runtime evidence needs a real-client attempt.")
+        recorded = data.get("client_count")
+        if runtime and type(recorded) is int and recorded > entry["client_count"]:
+            self.error("two_clients", field + ".record.client_count",
+                       "The record claims more clients than the attempt observed.")
+        if entry["client_count"] < 2:
+            text = " ".join(str(data.get(key, "")) for key in ("method", "observation"))
+            text = re.sub(r"(?i)\b(?:never|not|no|non)[ -]multiplayer", "", text)
+            if re.search(r"(?i)multiplayer", text):
+                self.error("multiplayer_claim", field + ".record", "Autotest evidence never proves multiplayer.")
+
+
+def validate_store(root, *, pins, expected_tasks=None, manifest_sha256=None):
+    """Strict check of one evidence store; returns the same report shape as validate()."""
+    root = Path(root).absolute()
+    checker = _StoreChecker(root, pins)
+    manifest_path = root / STORE_MANIFEST
+    data = None
+    try:
+        with _regular_stream(manifest_path) as stream:
+            raw = stream.read()
+        if manifest_sha256 is not None and hashlib.sha256(raw).hexdigest() != manifest_sha256:
+            checker.error("hash_mismatch", "$", "Store manifest differs from the hash recorded for the run.")
+        data = _json_bytes(raw)
+    except (OSError, RuntimeError):
+        checker.error("store_manifest", "$", "Store manifest is missing or not a readable file.")
+    except (UnicodeError, ValueError, RecursionError):
+        checker.error("store_manifest", "$", "Store manifest must be strict UTF-8 JSON.")
+    if isinstance(data, dict):
+        _check_manifest(checker, data, expected_tasks)
+    elif data is not None:
+        checker.error("store_manifest", "$", "Store manifest must be an object.")
+    return {
+        "report_version": 1, "path": str(manifest_path), "capability_id": None, "status": None,
+        "valid": not checker.errors,
+        "errors": sorted(checker.errors, key=lambda error: (error["code"], error["field"], error["message"])),
+    }
+
+
+def _check_manifest(checker, data, expected_tasks):
+    keys = {"schema_version", "run_id", "evidence_label", "acceptance", "attempts"}
+    if set(data) != keys or type(data["schema_version"]) is not int or data["schema_version"] != STORE_SCHEMA \
+            or not isinstance(data["run_id"], str) or not isinstance(data["attempts"], list):
+        checker.error("store_manifest", "$", "Store manifest fields do not match the store schema.")
+        return
+    if data["acceptance"] != "not_evaluated" or "multiplayer" in str(data["evidence_label"]):
+        checker.error("multiplayer_claim", "$", "A store never evaluates acceptance or labels evidence multiplayer.")
+    listed, seen_hash, seen_identity, previous = {}, {}, set(), {}
+    counts = {}
+    for index, entry in enumerate(data["attempts"]):
+        checker.attempt(index, entry, seen_hash, seen_identity, listed)
+        if not isinstance(entry, dict) or not isinstance(entry.get("task_slug"), str):
+            continue
+        slug = entry["task_slug"]
+        counts[slug] = counts.get(slug, 0) + 1
+        if entry.get("attempt") != counts[slug] or entry.get("previous") != previous.get(slug):
+            checker.error("retry_overwritten", f"attempts[{index}]",
+                          "Attempts for a task must be numbered 1..n and hash-chained; none may be replaced or removed.")
+        previous[slug] = entry.get("entry_sha256")
+    for index, entry in enumerate(data["attempts"]):
+        if isinstance(entry, dict) and isinstance(entry.get("artifacts"), list) and entry.get("dir"):
+            if any(isinstance(item, dict) and item.get("role") == "evidence_record" for item in entry["artifacts"]):
+                if set(entry) >= {"actor", "presented_as", "client_count", "artifacts"}:
+                    checker.record(index, entry, listed)
+            else:
+                checker.error("attempt_record", f"attempts[{index}]", "Each attempt needs exactly one evidence_record artifact.")
+    present = set(checker.tasks.values())
+    for task in sorted(expected_tasks or ()):
+        if task not in present:
+            checker.error("task_missing", "attempts", "Expected task has no attempt in the store: " + task)
+    try:
+        for current, directories, files in os.walk(checker.root, followlinks=False):
+            base = Path(current)
+            for name in directories:
+                if (base / name).is_symlink():
+                    checker.error("unsafe_path", str((base / name).relative_to(checker.root)), "Symlink inside the evidence store.")
+            for name in files:
+                relative = (base / name).relative_to(checker.root).as_posix()
+                if relative != STORE_MANIFEST and relative not in listed:
+                    checker.error("unlisted_artifact", relative, "File is not part of the manifest snapshot.")
+    except OSError:
+        checker.error("store_manifest", "$", "Evidence store directory cannot be listed.")
+
+
+def validate_strict(path, *, store_root, pins, manifest_sha256=None, expected_tasks=None):
+    """validate(path) plus the strict store rules; the original report shape is preserved."""
+    report = validate(path)
+    errors = list(report["errors"])
+    store = validate_store(store_root, pins=pins, expected_tasks=expected_tasks, manifest_sha256=manifest_sha256)
+    errors.extend({"code": e["code"], "field": "store." + e["field"], "message": e["message"]} for e in store["errors"])
+    try:
+        relative = Path(report["path"]).relative_to(Path(store_root).resolve()).as_posix()
+    except ValueError:
+        relative = None
+        errors.append({"code": "store_manifest", "field": "$", "message": "Record is outside the evidence store."})
+    if relative is not None and not any(
+            relative == item.get("path") and item.get("role") == "evidence_record"
+            for entry in _manifest_attempts(store_root) for item in entry.get("artifacts", []) if isinstance(item, dict)):
+        errors.append({"code": "artifact_missing", "field": "$", "message": "Record is not a manifest evidence_record."})
+    report = dict(report, valid=not errors,
+                  errors=sorted(errors, key=lambda error: (error["code"], error["field"], error["message"])))
+    return report
+
+
+def _manifest_attempts(store_root):
+    try:
+        data = _load_json(Path(store_root) / STORE_MANIFEST)
+        return [e for e in data["attempts"] if isinstance(e, dict)]
+    except (OSError, ValueError, RuntimeError, KeyError, TypeError, RecursionError):
+        return []
 
 
 def main(argv=None):

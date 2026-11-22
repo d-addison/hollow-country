@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "rules_sha256": "24c8dd317c166293bbc98ec2edb565d3faeb1a0c43921fe5cb09ddb9143064b7",
+  "rules_sha256": "a40c26d248ed103e822400473ac96d84c11a3ef52e47e7a3a2710fb5be6f814d",
   "generator_sha256": {
     "inventory_sizes.py": "368651e2fb42baace7ad78bca1f120e74c1f6122af044562cc2417e4aa155557",
-    "inventory_sources.py": "4d24545e4d366484932380c980afc3e208b517268b51a1fc58d21e0d2f9a9df7"
+    "inventory_sources.py": "d0a32a81ac53b0b9a77dceb55fb7c2b6cbe704a1045100099e7e9b2a8ab5ae9d"
   },
   "overrides": [
     {
@@ -4737,19 +4737,7 @@
       "already_within_scale": 0,
       "missing_reference": 0
     },
-    "@SurvivorAnimations": {
-      "scanned_attachments": 0,
-      "shrunk": 0,
-      "already_within_scale": 0,
-      "missing_reference": 0
-    },
     "@AmbientAnimals": {
-      "scanned_attachments": 0,
-      "shrunk": 0,
-      "already_within_scale": 0,
-      "missing_reference": 0
-    },
-    "@DayZ-Bicycle": {
       "scanned_attachments": 0,
       "shrunk": 0,
       "already_within_scale": 0,

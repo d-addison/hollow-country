@@ -41,7 +41,7 @@ import subprocess
 import sys
 import tempfile
 
-from tools.package import ce_coverage
+from tools.package import ce_coverage, compat_addon
 from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.setup.friend_install import normalize_profile, globals_upgrade_problem, globals_recovery
@@ -61,8 +61,9 @@ BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowl
                 'interior_catalog.py', 'search_context.py', 'essential_routes.json', 'interior_prop_boxes.json',
                 'loot_reach_audit.py', 'interior_points_gen.py', 'loot_support_audit.py', 'ce_slot_pressure.py')
 # Other repo files the shipped tools import or read at install time (wiring audit W010 bundle closure).
-BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
+BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/audit/odol56.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
                       'tools/setup/diagnostic_mission.py', 'tools/setup/probe_runtime.py',
+                      'tools/setup/probe_core.py', 'tools/release/host_lock.py',
                       'config/loot-dispositions.json', 'config/military-loot.json')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'
@@ -79,7 +80,6 @@ PROFILE_INCLUDE = (
     'HollowCountry/Infected/lod.json',
     'HollowCountry/settings.json',
     'HollowCountry/stamina.json',
-    'HollowCountry/interiors.json',
     'HollowCountry/interiors-measured-profile.json',
     'HollowCountry/measured-interiors/**',
     'HollowCountry/templates/**',
@@ -221,8 +221,7 @@ def _profile_allowed(rel):
     return False
 
 
-# Template packs replace legacy interiors and room owners in a fresh release.
-TEMPLATE_INDEX = 'HollowCountry/templates/index.json'
+# The retired interiors.json pilot is never shipped; an installed copy is left alone and the server ignores it.
 
 
 # No runtime state is deliberately carried between servers. Additions require an exact path
@@ -292,8 +291,6 @@ def repo_profile_sources():
         sources['ExpansionMod/Loadouts/' + path.name] = path
     for path in sorted((SOURCE / 'interiors/templates').rglob('*.json')):
         sources['HollowCountry/templates/' + path.relative_to(SOURCE / 'interiors/templates').as_posix()] = path
-    if TEMPLATE_INDEX not in sources:
-        sources['HollowCountry/interiors.json'] = SOURCE / 'interiors/interiors.json'
     sources.update({rel: (json.dumps(data, indent=4) + '\n').encode('utf-8')
                     for rel, data in BASELINE_PROFILES.items()})
     return sources
@@ -318,7 +315,6 @@ def profile_files(profiles):
 PROFILE_SOURCES = {
     'HollowCountry/settings.json': ('config/hollow-country-settings.json',),
     'HollowCountry/stamina.json': ('config/hollow-country-stamina.json',),
-    'HollowCountry/interiors.json': ('mission/hollow-country/interiors/interiors.json',),
     'HollowCountry/expansion-ai-sites.json': (
         'mission/hollow-country/ai/sites.json',
         'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'),
@@ -490,7 +486,7 @@ def readme(items, template, addon):
         '  @HollowCountryExpansionAI uses Community Framework (CF), COT, Dabs Framework, Expansion-Core, Expansion-AI and Expansion Navigation (GPS).',
         '  RaG_Core and RaG Immersive Vehicles are default subscribed dependencies after the weapons packs.',
         '  COT permissions stay in the server profile; see docs/COT_PERMISSIONS.md. Admin ids are never written to git.',
-        '  Ambient Animals Pack, Survivor Animations and DayZ-Bicycle are default subscriptions.',
+        '  Ambient Animals Pack is a default subscription. Survivor Animations and DayZ-Bicycle are retired; an existing subscription is harmless and is not loaded.',
         '  Load the listed dependencies before @HollowCountry, then @HollowCountryExpansionAI on every peer.',
         '  Review current Workshop terms and the optional-overlay instructions below before installing.',
         '',
@@ -815,6 +811,13 @@ def build(args):
                 raise Refused('weapon-pack guard receipt differs from addon plan')
             if guard_files and hashlib.sha256(overlays.read(guard_files[0])).hexdigest() != guard.get('sha256'):
                 raise Refused('weapon-pack guard receipt hash differs from addon plan')
+        compat = json.loads(release).get('compat_addon')
+        if compat is not None:
+            # The compat PBO(s) are built at bundle time; the receipt must match the addon plan.
+            present = {dest: hashlib.sha256(source if isinstance(source, bytes) else overlays.read(source)).hexdigest()
+                       for dest, source in plan if dest.lower().endswith('.pbo')}
+            if compat_addon.check_receipt(compat, present):
+                raise Refused('compat addon receipt differs from addon plan')
         plan.append(('BUILD_MANIFEST.json', release))
     else:
         print('build manifest: legacy input; PBO build provenance unverified')

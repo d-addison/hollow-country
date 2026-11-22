@@ -7,7 +7,6 @@ reviewed evidence records; nothing is measured here and nothing is guessed:
 
   evidence/house-candidates.json  native pose observation (run 060 real-house acquisition)
   pack-profile.json               epoch/seed/slot choices (the only authored decisions)
-  interiors.json                  HCInteriorConfig, derived from the two files above
   interiors-measured-profile.json + measured-interiors/*   only after a reviewed native survey
   evidence/room-survey.json, evidence/house-classes.json + Infected/production-rooms.json
                                   only after a native room survey and House-class census
@@ -20,8 +19,9 @@ the runtime acceptance of every component stays pending.
 Install and rollback target a stopped server's <profiles>/HollowCountry directory. Install
 records an intent receipt and backups of replaced files first, never writes through a symlink or
 hard link, and refuses to touch a different file unless --replace is given. Rollback restores
-the exact prior bytes, refuses drift, and never deletes files it does not own. It never touches
-interiors_s1_e<epoch> journals.
+the exact prior bytes, refuses drift, and never deletes files it does not own. The retired
+interiors.json pilot config is neither derived, shipped nor installed; a copy already in a
+profile is left alone and the server ignores it.
 """
 import argparse
 import hashlib
@@ -60,8 +60,6 @@ PROFILE_TEXT_LIMIT = 262144
 EVIDENCE_BUILDS = (BUILD, BUILD + '.70')
 LAYOUTS = tuple((row[0], row[1]) for row in catalog.PILOT)
 DISPOSITIONS = ('unmeasured', 'not_enterable', 'path_pending', 'door_pending', 'unsupported_geometry')
-CONFIG_KEYS = ('SchemaVersion', 'MapName', 'Build', 'Epoch', 'Seed', 'InitializeNewEpoch', 'MigrateLegacyJournal',
-               'DiagnosticPlacementTrial', 'DiagnosticSearchTrial', 'Candidates')
 CANDIDATE_KEYS = ('SlotId', 'Type', 'Position', 'Orientation')
 PROFILE_KEYS = ('SchemaVersion EnableTrustedExperiment TrustedExternalValidation WorldName Build TrustedAddonSha256 '
                 'TrustedValidatorSha256 SourceSha256 ExpectedRecordText ExpectedCandidateText ExpectedPolicyText '
@@ -71,7 +69,7 @@ MEASURED_FILES = ('measured-interiors/measured-record.json', 'measured-interiors
 MEASURED_PROFILE = 'interiors-measured-profile.json'
 ROOMS_FILE = 'Infected/production-rooms.json'
 ROOM_SOURCES = ('evidence/room-survey.json', 'evidence/house-classes.json')
-CORE_FILES = ('pack.json', 'pack-profile.json', 'interiors.json', 'evidence/house-candidates.json')
+CORE_FILES = ('pack.json', 'pack-profile.json', 'evidence/house-candidates.json')
 ALLOWED = set(CORE_FILES) | set(ROOM_SOURCES) | {ROOMS_FILE, MEASURED_PROFILE, *MEASURED_FILES}
 PENDING = 'pending-measurement'
 PRESENT = 'present-pending-native-acceptance'
@@ -321,7 +319,7 @@ def evidence_house(evidence, building_class, position, orientation):
     return None
 
 
-# ---- interiors.json ----------------------------------------------------------------------------
+# ---- candidate plan (derived in memory; no interiors.json is written, shipped or installed) ----
 
 def derive_config(profile, evidence):
     houses = {h['id']: h for h in evidence['houses']}
@@ -332,44 +330,30 @@ def derive_config(profile, evidence):
         candidates.append({'SlotId': slot['slot_id'], 'Type': house['building_class'],
                            'Position': [f32(v) for v in house['position']],
                            'Orientation': [f32(v) + 0.0 for v in house['orientation']]})
-    return {'SchemaVersion': 1, 'MapName': WORLD, 'Build': BUILD, 'Epoch': profile['epoch'], 'Seed': profile['seed'],
-            'InitializeNewEpoch': profile['initialize_new_epoch'], 'MigrateLegacyJournal': False,
-            'DiagnosticPlacementTrial': False, 'DiagnosticSearchTrial': False, 'Candidates': candidates}
+    return {'Epoch': profile['epoch'], 'Seed': profile['seed'], 'Candidates': candidates}
 
 
 def check_config(config, evidence):
-    """Mirror HCInteriorsModule.ValidateConfig for review, and bind every candidate to native pose evidence."""
-    config_keys = CONFIG_KEYS
-    if 'TemplateLoadStepsPerTick' in config:
-        config_keys += ('TemplateLoadStepsPerTick',)
-        load_steps = config['TemplateLoadStepsPerTick']
-        require(type(load_steps) is int and 0 <= load_steps <= 64,
-                'interiors.json: TemplateLoadStepsPerTick must be 0 (legacy default) or 1..64')
-    exact_keys(config, config_keys, 'interiors.json')
-    require(config['SchemaVersion'] == 1 and type(config['SchemaVersion']) is int, 'interiors.json: schema/map/build mismatch')
-    require(config['MapName'] == WORLD and config['Build'] == BUILD, 'interiors.json: schema/map/build mismatch')
-    require(type(config['Epoch']) is int and 1 <= config['Epoch'] <= 899999, 'interiors.json: epoch outside supported bounds')
-    require(type(config['Seed']) is int and 1 <= config['Seed'] <= 1000000, 'interiors.json: seed outside supported bounds')
-    require(type(config['InitializeNewEpoch']) is bool, 'interiors.json: InitializeNewEpoch must be boolean')
-    for key in ('MigrateLegacyJournal', 'DiagnosticPlacementTrial', 'DiagnosticSearchTrial'):
-        require(config[key] is False, f'interiors.json: {key} must be false in a shipped pack')
+    """Check the derived candidate plan and bind every candidate to native pose evidence."""
+    require(type(config['Epoch']) is int and 1 <= config['Epoch'] <= 899999, 'pack-profile.json: epoch outside supported bounds')
+    require(type(config['Seed']) is int and 1 <= config['Seed'] <= 1000000, 'pack-profile.json: seed outside supported bounds')
     candidates = config['Candidates']
-    require(isinstance(candidates, list) and 1 <= len(candidates) <= 12, 'interiors.json: 1..12 candidates required')
+    require(isinstance(candidates, list) and 1 <= len(candidates) <= 12, 'pack-profile.json: 1..12 candidates required')
     slots, keys = set(), set()
     for candidate in candidates:
-        exact_keys(candidate, CANDIDATE_KEYS, 'interiors.json candidate')
-        require(type(candidate['SlotId']) is int and 0 <= candidate['SlotId'] < 12, 'interiors.json: invalid stable slot')
-        require(candidate['Type'] == BUILDING, 'interiors.json: unsupported building class')
-        position = vec(candidate['Position'], 20000, 'interiors.json position')
-        orientation = vec(candidate['Orientation'], 360, 'interiors.json orientation')
-        require(orientation[1] == 0 and orientation[2] == 0, 'interiors.json: tilted building unsupported by yaw-only pilot')
+        exact_keys(candidate, CANDIDATE_KEYS, 'pack-profile.json candidate')
+        require(type(candidate['SlotId']) is int and 0 <= candidate['SlotId'] < 12, 'pack-profile.json: invalid stable slot')
+        require(candidate['Type'] == BUILDING, 'pack-profile.json: unsupported building class')
+        position = vec(candidate['Position'], 20000, 'pack-profile.json position')
+        orientation = vec(candidate['Orientation'], 360, 'pack-profile.json orientation')
+        require(orientation[1] == 0 and orientation[2] == 0, 'pack-profile.json: tilted building unsupported by yaw-only pilot')
         key = transform_key(position, orientation)
-        require(candidate['SlotId'] not in slots and key not in keys, 'interiors.json: duplicate slot/quantised building identity')
+        require(candidate['SlotId'] not in slots and key not in keys, 'pack-profile.json: duplicate slot/quantised building identity')
         slots.add(candidate['SlotId'])
         keys.add(key)
         require(evidence_house(evidence, candidate['Type'], position, orientation) is not None,
-                'interiors.json: candidate has no matching native pose evidence (exact float32 pose required)')
-    require([c['SlotId'] for c in candidates] == sorted(slots), 'interiors.json: candidates must be listed in slot order')
+                'pack-profile.json: candidate has no matching native pose evidence (exact float32 pose required)')
+    require([c['SlotId'] for c in candidates] == sorted(slots), 'pack-profile.json: candidates must be listed in slot order')
 
 
 # ---- infected production rooms -----------------------------------------------------------------
@@ -475,7 +459,7 @@ def derive_measured(spec, config, evidence):
     context = record['Context']
     require(any(same_pose(c['Position'], c['Orientation'], context['BuildingPosition'], context['BuildingOrientation'])
                 and c['Type'] == record['BuildingType'] for c in config['Candidates']),
-            'measured: record house is not an interiors.json candidate (exact float32 pose required)')
+            'measured: record house is not a pack-profile.json candidate (exact float32 pose required)')
     for name, data in files.items():
         require(len(data) <= MEASURED_TEXT_LIMIT, f'measured: {name} exceeds the native 32767 byte read limit')
     texts = {n: files[n].decode('utf-8') for n in ('measured-record.json', 'interior-layouts.candidate.json',
@@ -525,7 +509,7 @@ def check_measured(raw, config, current_sources=True):
     context = record['Context']
     require(any(same_pose(c['Position'], c['Orientation'], context['BuildingPosition'], context['BuildingOrientation'])
                 and c['Type'] == record['BuildingType'] for c in config['Candidates']),
-            'measured: record house is not an interiors.json candidate (exact float32 pose required)')
+            'measured: record house is not a pack-profile.json candidate (exact float32 pose required)')
     if current_sources and ENFORCE_SOURCES.is_dir():
         now = {n: sha((ENFORCE_SOURCES / n).read_bytes()) for n in catalog.SOURCE_NAMES}
         require(record['SourceSha256'] == now, 'measured: record was built against different Enforce sources; re-review and regenerate')
@@ -542,7 +526,7 @@ def derive_manifest(raw, config, profile):
         layout_id, history = selected_layout(candidate, config['Seed'])
         instances.append({'slot_id': candidate['SlotId'], 'house': houses[candidate['SlotId']], 'instance_id': iid,
                           'storage_site_id': iid + '_storage_v1', 'layout_id': layout_id, 'history': history})
-    order = ['interiors.json', MEASURED_PROFILE, *MEASURED_FILES, ROOMS_FILE]
+    order = [MEASURED_PROFILE, *MEASURED_FILES, ROOMS_FILE]
     files = {n: sha(raw[n]) for n in order if n in raw}
     sources = {n: sha(raw[n]) for n in ('pack-profile.json', 'evidence/house-candidates.json', *ROOM_SOURCES) if n in raw}
     has_measured, has_rooms = MEASURED_PROFILE in raw, ROOMS_FILE in raw
@@ -600,7 +584,7 @@ def generate(pack, rooms_input=None, classes_input=None, measured=None):
     profile, evidence = load_profile(profile_raw), load_evidence(evidence_raw)
     config = derive_config(profile, evidence)
     check_config(config, evidence)
-    raw = {'pack-profile.json': profile_raw, 'evidence/house-candidates.json': evidence_raw, 'interiors.json': encode(config)}
+    raw = {'pack-profile.json': profile_raw, 'evidence/house-candidates.json': evidence_raw}
     require((rooms_input is None) == (classes_input is None), 'room survey and house-class census must be supplied together')
     if rooms_input is not None:
         raw.update(derive_rooms(rooms_input, classes_input, evidence))
@@ -681,12 +665,9 @@ def validate(pack):
     if profile is None or evidence is None:
         return {'errors': errors, 'pending': [], 'files': {}}
     derived = guard(derive_config, profile, evidence)
-    actual = guard(parse, raw['interiors.json'], 'interiors.json', 65536)
-    if actual is not None:
-        guard(check_config, actual, evidence)
-        if derived is not None and actual != derived:
-            errors.append('interiors.json differs from the config derived from pack-profile.json and the evidence (regenerate)')
-    config = derived if derived is not None else actual
+    if derived is not None:
+        guard(check_config, derived, evidence)
+    config = derived
     rooms = [n for n in (*ROOM_SOURCES, ROOMS_FILE) if n in raw]
     if rooms:
         if len(rooms) != 3:
@@ -763,14 +744,11 @@ def install(pack, target, replace=False, *, _templates=False):
         report = validate(pack)
         require(not report['errors'], 'pack invalid: ' + (report['errors'][0] if report['errors'] else ''))
         manifest = parse((pack / 'pack.json').read_bytes(), 'pack.json', 65536)
-        config = parse((pack / 'interiors.json').read_bytes(), 'interiors.json', 65536)
-        pack_raw, epoch, managed_name = (pack / 'pack.json').read_bytes(), config['Epoch'], MANAGED
+        profile = load_profile((pack / 'pack-profile.json').read_bytes())
+        pack_raw, epoch, managed_name = (pack / 'pack.json').read_bytes(), profile['epoch'], MANAGED
     target = _target(target, must_exist=False)
     managed = child(target, managed_name)
     require(not os.path.lexists(managed), 'already installed or interrupted installation; inspect/rollback first')
-    if not _templates:
-        journal = child(target, f'interiors_s1_e{epoch}')
-        require(not os.path.lexists(journal), 'an interiors journal already exists for this epoch; a changed pack needs an explicit new epoch')
     rows, created_dirs, planned = [], [], set()
     if not target.exists():
         created_dirs.append('.')

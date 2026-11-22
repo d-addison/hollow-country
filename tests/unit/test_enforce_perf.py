@@ -336,3 +336,34 @@ class BaselineRatchetTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CallbackRootTests(unittest.TestCase):
+    """B-14: CallLater targets that repeat or re-arm are tick roots."""
+    TEXT = '''
+class HCProbe
+{
+    void Start() { %s }
+    void Work() { FileHandle h = OpenFile("$profile:x.json", FileMode.READ); CloseFile(h); %s }
+}
+'''
+
+    def keys(self, schedule, rearm=''):
+        return [f.key for f in findings(self.TEXT % (schedule, rearm), 'HC-P003')]
+
+    def test_repeating_call_later_target_is_a_root(self):
+        self.assertEqual(['OpenFile#1'], self.keys('GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, true);'))
+
+    def test_one_shot_call_later_target_is_not_a_root(self):
+        self.assertEqual([], self.keys('GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, false);'))
+        self.assertEqual([], self.keys('GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000);'))
+
+    def test_self_rearming_one_shot_is_a_root(self):
+        schedule = 'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, false);'
+        self.assertEqual(['OpenFile#1'], self.keys(schedule, schedule))
+
+    def test_call_later_by_name_uses_the_string_callback(self):
+        self.assertEqual(['OpenFile#1'], self.keys(
+            'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLaterByName(this, "Work", 1000, true);'))
+        self.assertEqual([], self.keys(
+            'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLaterByName(this, "Work", 1000, false);'))

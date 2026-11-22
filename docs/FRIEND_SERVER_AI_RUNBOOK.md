@@ -16,8 +16,8 @@ a log line appeared.
   code.** The human operator types them into steamcmd themselves. You may run
   steamcmd in the operator's own terminal and wait.
 - Never repack, modify, rename inside, or redistribute third-party Workshop mods
-  (CF, COT, Dabs, Expansion, SNAFU, Tactical Flava, RaG, Ambient Animals,
-  Survivor Animations, DayZ-Bicycle). Copy them as downloaded.
+  (CF, COT, Dabs, Expansion, SNAFU, Tactical Flava, RaG, Ambient Animals).
+  Copy them as downloaded.
 - Never modify the signed Hollow Country PBOs or their `.bisign` files; a changed
   byte breaks the signature and kicks every player.
 - Keep `verifySignatures = 2` and BattlEye on. Do not disable either to "fix"
@@ -269,11 +269,12 @@ Players must subscribe to both **Expansion-Licensed** (2116157322) and
 load exactly this order:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```
 
-Do **not** add `@Expansion-Animations`: it conflicts with Survivor Animations,
-which DayZ-Bicycle needs. Expansion-AI brings its own AI animations.
+Do **not** add `@Expansion-Animations`: Expansion-AI brings its own AI animations.
+Survivor Animations and DayZ-Bicycle are retired (2026-11-22); remove `@SurvivorAnimations`
+and `@DayZ-Bicycle` from any older `-mod` line.
 
 ## 6. Install the Hollow Country mods from the bundle
 
@@ -397,8 +398,8 @@ py -3 -m tools.package.optional_overlays bundle-plan --mission "$MISSION"
 py -3 -m tools.package.optional_overlays bundle-apply --mission "$MISSION" --workshop-dir "$CONTENT"
 ```
 
-Read the plan output before applying. `bundle-apply` needs the Ambient Animals,
-Survivor Animations and Bicycle downloads under `CONTENT`; it rehearses on
+Read the plan output before applying. `bundle-apply` needs the Ambient Animals
+download under `CONTENT`; it rehearses on
 scratch, writes backup receipts, then installs the base merge, travel CE and the
 living-pack overlays. Success ends with
 `HC bundle bundle-apply complete; runtime acceptance pending`. Keep every
@@ -617,6 +618,28 @@ hand with the server stopped:
 5. Start the server and look for the absence of the refusal line. The recovery path is
    source-built only; no native or soak evidence exists for it.
 
+### `[HC Expansion AI] loadout default refused ... reason=torn_preserve_slots_full`
+
+A shipped loadout file in `profiles\ExpansionMod\Loadouts\` that the server wrote and
+that was torn by a crash (half-written, with our `<name>.json.hcdefault.tmp` intent still
+beside it) is copied aside before it is replaced. The copy goes to the first free slot
+`<name>.json.hcdefault.torn-0` to `.torn-4`. The server never deletes these copies, so
+after five recoveries of the same loadout every later start refuses that loadout with the
+reason above and the loadout stays missing. The other loadouts and the rest of the boot
+are not affected. Clean up by hand with the server stopped:
+
+1. Look at the `.torn-N` files for that loadout (size and modified time). They are
+   evidence of earlier crashes; keep them outside the profile if you want them.
+2. Delete (or move out of the `Loadouts` folder) the `<name>.json.hcdefault.torn-0` to
+   `.torn-4` files for the refused loadout only. Do not touch `<name>.json` if it is a
+   whole file, and do not touch files that are not ours.
+3. Start the server. The loadout is recreated from the shipped default and the log shows
+   `loadout default provisioned`. If it is refused again, a crash is tearing the write
+   each start: report the RPT instead of cleaning up again.
+
+An older build wrote a single `<name>.json.hcdefault.torn` file (no number). The current
+build ignores it; it can be deleted at any time.
+
 ## Turning features off
 
 - A V2 feature: set its `Enable*` value to `false` in
@@ -706,7 +729,7 @@ What v1-test-14 does once, the first time a police event runs at that site:
   use up the repair):
   `[HC Events] police grant orphan repaired; <site>; runtime=PENDING`
   followed by
-  `[HC Events] police cache created; <site>; stock=finite; refill=never runtime=PENDING`
+  `[HC Events] police cache created; <site>; stock=finite_until_depleted; refill=after_cooldown runtime=PENDING`
 
 The `.repair` marker means the one-time repair allowance is used. It never repeats,
 so a repaired site cannot hand out a second barrel. If the server stops after the

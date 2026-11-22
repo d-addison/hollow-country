@@ -36,6 +36,18 @@ USE_LINE = re.compile(r'\[HC Use\] module=([A-Za-z0-9_.-]{1,64}) '
                       r'feature=([A-Za-z0-9_.-]{1,64}) count=([0-9]{1,10})(?=\s|$)')
 FIXTURE_SUFFIX = re.compile(r' fixture=([0-9]{1,10})(?=\s|$)')
 RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED')
+# World P1.3 navigation aggregates (HCModuleReadiness HCNav*): NavInf/NavXai have no
+# [HC Ready] marker of their own, so each row is admitted through the owner modules that
+# produce its member counters. Key: (aggregate module, feature); value: owner modules.
+NAV_AGGREGATE_OWNERS = {
+    ('NavInf', 'route_advance'): ('HordeMigration',),
+    ('NavInf', 'pathgraph_refresh'): ('Interiors', 'Shelters'),
+    ('NavInf', 'door_action'): ('InfectedDoors',),
+    ('NavInf', 'vault_started'): ('InfectedReach',),
+    ('NavXai', 'routes'): ('optional-expansion-human-ai',),
+    ('NavXai', 'stuck_recovery'): ('optional-expansion-human-ai',),
+}
+NAV_AGGREGATE_MODULES = frozenset(module for module, _ in NAV_AGGREGATE_OWNERS)
 
 
 class UseActivity:
@@ -98,13 +110,20 @@ class UseActivity:
         for (module, feature), count in sorted(self.counts.items()):
             # Server registration declares ClientUI, which has no HCModule slot.
             # Other unknown/disabled module counters cannot establish admission.
-            if not self.modules.get(module, module == 'ClientUI'):
+            if module in NAV_AGGREGATE_MODULES:
+                owners = NAV_AGGREGATE_OWNERS.get((module, feature), ())
+                if not any(self.modules.get(owner) for owner in owners):
+                    continue
+            elif not self.modules.get(module, module == 'ClientUI'):
                 continue
             reason = RELEASE_WAIVERS.get((module, feature)) if count == 0 else None
             status = 'ACTIVE' if count else 'WAIVED' if reason else 'INERT'
             features.append(dict(module=module, feature=feature, count=count,
                                  status=status, reason=reason, fixture=self.fixtures.get((module, feature), 0)))
         registered = {row['module'] for row in features}
+        # An aggregate row stands in for its owner modules' registration only when
+        # the owner itself has a registered counter; it never hides an unregistered one.
+        registered -= NAV_AGGREGATE_MODULES
         # An enabled owner with no registration must fail closed, even if an
         # older addon emits readiness but has not yet adopted the use API.
         for module, enabled in sorted(self.modules.items()):

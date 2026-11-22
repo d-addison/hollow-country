@@ -177,8 +177,29 @@ class HCSaveJob
     }
     bool HCInFlight;
     bool HCUrgent; // durable continuation, including when routine scheduling is off
+    // Crash-safe publish chain whose caller waits on it (event journal). Dispatched before
+    // every other job, including other urgent ones, at stage boundaries (issue #333).
+    bool HCPreempt;
     bool HCFaulted;
     int HCPeakTicks;   // slowest stage logged so far; the [HC Save] line prints only on a new peak
+    // Checkpoint counters for the [HC Save] summary, per job so a parked job keeps its own.
+    int HCStatStages;
+    int HCStatStageMax;
+    int HCStatStageMaxIndex;
+    string HCStatStageMaxOperation;
+    int HCStatTotalTicks;
+    int HCStatJobTicks;
+    int HCStatMaxPerTick;
+    void HCResetStats()
+    {
+        HCStatStages = 0;
+        HCStatStageMax = 0;
+        HCStatStageMaxIndex = 0;
+        HCStatStageMaxOperation = "";
+        HCStatTotalTicks = 0;
+        HCStatJobTicks = 0;
+        HCStatMaxPerTick = 0;
+    }
     string HCName() { return "job"; }
     // Snapshot owners may have newer requests after a committed image.
     bool HCPendingCheckpoint() { return false; }
@@ -186,14 +207,24 @@ class HCSaveJob
 }
 
 // Bound: <=32 registered stores examined (operator may lower), SaveStagesPerTick
-// stages under the cooperative SaveStageTargetMs deadline. Only ONE job advances per tick;
-// staged jobs retain ownership across ticks, never interleaved with another job.
+// stages under the cooperative SaveStageTargetMs deadline. Only ONE job advances per dispatch.
+// Issue #333: dispatch picks by priority (HCPreempt journal, then HCUrgent, then routine) at
+// stage boundaries, so a higher-priority job parks a retained lower one that resumes where it
+// stopped; jobs own their cursors and handles, so a parked job is exactly a job that waited.
+// Urgent and preempt jobs are also dispatched once per frame (SYSTEM update queue, at most
+// HC_FRAME_MS per frame); routine jobs advance on the 1 Hz module tick only. On the tick a
+// preempt job still ranks first, then an in-flight or due routine job, then plain urgent work
+// (which already has the frame drive), so a perpetually urgent image cannot starve routine saves.
+// Preempt and urgent jobs are always scanned (<= SaveJobLimit entries); only the routine scan is
+// bounded by SaveScanLimit, and its start cursor rotates so no routine job is left outside the window.
+// Known and benign (kept): a job parked mid-image resumes at the next dispatch of its own class, so a
+// parked routine image can wait a tick or more; stats and dispatch counts are per dispatch (tick or frame).
 // Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; the time target is cooperative.
 // Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..
 // slowest_stage=.. op=.. runtime=PENDING' in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line);
 // slowest_stage is the 1-based stage that took max_stage_ticks (issue #138 round 2).
-// scheduler_ticks counts this checkpoint's dispatches; max_stages_per_tick records
+// scheduler_ticks counts this checkpoint's dispatches (tick or frame); max_stages_per_tick records
 // actual throughput. Peak-only logging is unchanged; counters reset per checkpoint.
 class HCSaveScheduler : HCModule
 {
@@ -203,14 +234,22 @@ class HCSaveScheduler : HCModule
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref HCSaveStageBudget m_StageBudget = new HCSaveStageBudget;
     protected int m_TickStages;
-    protected int m_JobTicks;
-    protected int m_MaxStagesPerTick;
     protected HCSaveJob m_Active;
-    protected int m_Stages;
-    protected int m_StageMax;
-    protected int m_StageMaxIndex;
-    protected string m_StageMaxOperation;
-    protected int m_TotalTicks;
+    protected int m_SelectIndex;
+    protected bool m_InDispatch;      // set for the whole of a dispatch; still set on entry = the last one aborted
+    protected int m_TickDispatchMs = -1; // GetTime() of the last module-tick dispatch (one dispatch per frame)
+    protected string m_DispatchedName;
+    // Per-60 s window of the frame-driven dispatches, printed as [HC Step] owner=WorldSavesFrame so the
+    // release R2 gate (worst_tick_ticks) sees the cost that bypasses the module tick sample.
+    protected float m_FrameWindow;
+    protected int m_FrameSeq;
+    protected int m_FrameCount;
+    protected int m_FrameWorst;
+    protected int m_FrameWorstStages;
+    protected string m_FrameWorstJob;
+    // Per-frame urgent dispatch budget (ms, cooperative); routine jobs never run per frame.
+    static const int HC_FRAME_MS = 2;
+    protected bool m_FrameInstalled;
     protected bool m_Started;
     protected string m_Fault;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -239,10 +278,25 @@ class HCSaveScheduler : HCModule
         m_Fault = "";
         HCWorldRuntimeConfig.HCGet();
         m_Started = true;
-        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=" + HCWorldRuntimeConfig.HCGet().SaveStagesPerTick.ToString() + " target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages cooperative_only=1 runtime=PENDING");
+        if (!m_FrameInstalled)
+        {
+            m_FrameInstalled = true;
+            GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Insert(HCFrame);
+        }
+        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=" + HCWorldRuntimeConfig.HCGet().SaveStagesPerTick.ToString() + " target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages frame_ms=" + HC_FRAME_MS.ToString() + " frame_scope=urgent_preempt cooperative_only=1 runtime=PENDING");
     }
 
-    override void OnStop() { m_Started = false; }
+    override void OnStop()
+    {
+        m_Started = false;
+        if (m_FrameInstalled && GetGame())
+        {
+            GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Remove(HCFrame);
+        }
+        m_FrameInstalled = false;
+        m_InDispatch = false;
+        m_TickDispatchMs = -1;
+    }
 
     static void HCRegister(HCSaveJob job)
     {
@@ -286,6 +340,9 @@ class HCSaveScheduler : HCModule
         // Journal shutdown drains need room for three capped immutable images,
         // their prior checks and pruning, even with a low routine operator limit.
         if (job.HCName() == "EventJournal") { flushLimit = Math.Max(flushLimit, 3 * HCStagedSaveImage.HC_MAX_STAGES + 128); }
+        // Search journal barrier: up to 256 queued ops (HCSearchJournalJob.MAX_OPS) at <=12 stages each
+        // (a record is <=8192 bytes). A literal: a cross-class constant expression read as 0 natively.
+        if (job.HCName() == "SearchJournal") { flushLimit = Math.Max(flushLimit, 3136); }
         if (custodyBarrier && flushLimit == 4096) { flushLimit = 2 * HCStagedSaveImage.HC_MAX_STAGES + 64; }
         while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < flushLimit)
         {
@@ -300,6 +357,8 @@ class HCSaveScheduler : HCModule
         if (result != HCSaveJob.STEP_DONE || job.HCPendingCheckpoint())
         {
             job.HCFaulted = true;
+            // A faulted job is never dispatched again; release its scheduler slot.
+            HCUnregister(job);
             Print("[HC WorldRuntime] save_flush_failed job=" + job.HCName() + " stages=" + guard.ToString() + " runtime=PENDING");
             return false;
         }
@@ -351,13 +410,13 @@ class HCSaveScheduler : HCModule
         int started = TickCount(0);
         int result = job.HCStep();
         int ticks = TickCount(started);
-        m_Stages = m_Stages + 1;
-        m_TotalTicks = m_TotalTicks + ticks;
-        if (ticks > m_StageMax)
+        job.HCStatStages = job.HCStatStages + 1;
+        job.HCStatTotalTicks = job.HCStatTotalTicks + ticks;
+        if (ticks > job.HCStatStageMax)
         {
-            m_StageMax = ticks;
-            m_StageMaxIndex = m_Stages;
-            m_StageMaxOperation = HCSaveJob.HCOperation;
+            job.HCStatStageMax = ticks;
+            job.HCStatStageMaxIndex = job.HCStatStages;
+            job.HCStatStageMaxOperation = HCSaveJob.HCOperation;
         }
         if (result == HCSaveJob.STEP_MORE)
         {
@@ -373,12 +432,12 @@ class HCSaveScheduler : HCModule
             if (!job.HCDirty) { job.HCUrgent = false; }
             job.HCCommitted(now);
             HCModuleReadiness.HCUse("WorldSaves", "stage_written");
-            if (m_StageMax > job.HCPeakTicks)
+            if (job.HCStatStageMax > job.HCPeakTicks)
             {
-                job.HCPeakTicks = m_StageMax;
-                string timing = "[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString();
-                timing += " scheduler_ticks=" + m_JobTicks.ToString() + " max_stages_per_tick=" + m_MaxStagesPerTick.ToString();
-                timing += " slowest_stage=" + m_StageMaxIndex.ToString() + " op=" + m_StageMaxOperation + " runtime=PENDING";
+                job.HCPeakTicks = job.HCStatStageMax;
+                string timing = "[HC Save] job=" + job.HCName() + " stages=" + job.HCStatStages.ToString() + " max_stage_ticks=" + job.HCStatStageMax.ToString() + " total_ticks=" + job.HCStatTotalTicks.ToString();
+                timing += " scheduler_ticks=" + job.HCStatJobTicks.ToString() + " max_stages_per_tick=" + job.HCStatMaxPerTick.ToString();
+                timing += " slowest_stage=" + job.HCStatStageMaxIndex.ToString() + " op=" + job.HCStatStageMaxOperation + " runtime=PENDING";
                 Print("" + timing);
             }
         }
@@ -387,71 +446,207 @@ class HCSaveScheduler : HCModule
             // Faulted writer preserves its intent; no every-tick retry.
             job.HCFaulted = true;
             HCUnregister(job);
-            // Events owns journal admission/failure readiness; an unrelated
-            // store must not become unready because this one candidate failed.
-            if (job.HCName() != "EventJournal") { m_Fault = "save_job_write_faulted"; }
-            else { Print("[HC Save] job=EventJournal state=failed reason=job_local runtime=PENDING"); }
+            // Events and the search journal own their journal admission/failure readiness (the search
+            // journal reports through HCJobFailed); an unrelated store must not become unready because
+            // this one candidate failed.
+            if (job.HCName() == "EventJournal" || job.HCName() == "SearchJournal") { Print("[HC Save] job=" + job.HCName() + " state=failed reason=job_local runtime=PENDING"); }
+            else { m_Fault = "save_job_write_faulted"; }
         }
-        m_Stages = 0;
-        m_StageMax = 0;
-        m_StageMaxIndex = 0;
-        m_TotalTicks = 0;
-        m_JobTicks = 0;
-        m_MaxStagesPerTick = 0;
+        job.HCResetStats();
     }
 
     // Check both limits between stages; one atomic native operation may overrun.
-    protected void HCRunStages(HCSaveJob job, float now)
+    // budgetMs 0 = the configured SaveStageTargetMs; a smaller value only tightens it.
+    protected void HCRunStages(HCSaveJob job, float now, int budgetMs = 0)
     {
-        m_StageBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
-        m_JobTicks = m_JobTicks + 1;
+        int targetMs = HCPerfConfig.HCGet().SaveStageTargetMs;
+        if (budgetMs > 0) { targetMs = Math.Min(targetMs, budgetMs); }
+        m_StageBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, targetMs);
+        // A job not in flight starts a new checkpoint; a flush may have left old counters.
+        if (!job.HCInFlight) { job.HCResetStats(); }
+        job.HCStatJobTicks = job.HCStatJobTicks + 1;
         while (m_StageBudget.HCContinue())
         {
             m_TickStages = m_TickStages + 1;
-            if (m_TickStages > m_MaxStagesPerTick) { m_MaxStagesPerTick = m_TickStages; }
+            if (m_TickStages > job.HCStatMaxPerTick) { job.HCStatMaxPerTick = m_TickStages; }
             HCRunStep(job, now);
             HCReached.Mark("world_saves.stage");
             if (!m_Active) { break; }
         }
     }
 
-    override void OnTick(float deltaTime)
+    protected static int HCPriority(HCSaveJob job)
+    {
+        if (job.HCPreempt) { return 2; }
+        if (job.HCUrgent) { return 1; }
+        return 0;
+    }
+
+    // Highest ranked dispatchable job. Rank: preempt 8; routine mode: due/in-flight routine 4, plain urgent 0;
+    // frame mode (routine=false): urgent 4, routine never. Ties keep the active job (+2), then any in-flight
+    // job (+1), then ring order from m_Next. Preempt and urgent jobs are scanned without the scan cap;
+    // routine positions are bounded by SaveScanLimit and examined reports how many ring positions were
+    // covered (count when the routine scan was not cut). No allocation.
+    protected HCSaveJob HCSelect(float now, bool routine, out int examined)
+    {
+        HCSaveJob best = null;
+        int bestRank = -1;
+        int count = s_Jobs.Count();
+        bool routineCut = false;
+        int scanned = 0;
+        examined = count;
+        while (scanned < count)
+        {
+            int index = (m_Next + scanned) % count;
+            scanned = scanned + 1;
+            HCSaveJob job = s_Jobs[index];
+            int priority = HCPriority(job);
+            if (priority == 0)
+            {
+                if (!routine) { continue; }
+                if (!routineCut && !m_Budget.HCContinue())
+                {
+                    routineCut = true;
+                    examined = scanned - 1;
+                }
+                if (routineCut) { continue; }
+            }
+            if (job.HCFaulted || (!job.HCDirty && !job.HCInFlight)) { continue; }
+            if (priority == 0 && !job.HCInFlight && (now < job.HCDue || (job.HCHasCommitted && now < job.HCLastCommitSeconds + job.HCInterval()))) { continue; }
+            int rank = 4;
+            if (priority == 2) { rank = 8; }
+            else if (priority == 1 && routine) { rank = 0; }
+            if (job == m_Active) { rank = rank + 2; }
+            else if (job.HCInFlight) { rank = rank + 1; }
+            if (rank > bestRank)
+            {
+                bestRank = rank;
+                best = job;
+                m_SelectIndex = index;
+            }
+        }
+        return best;
+    }
+
+    // Diagnostic hook after every dispatch (tick or frame); HCPerfSaveSlices overrides it.
+    protected void HCAfterDispatch() {}
+
+    // The previous dispatch never reached its end (a throwing stage aborts the script call): drop the job
+    // that was running instead of repeating the exception every frame.
+    protected void HCDispatchAborted()
+    {
+        HCSaveJob bad = m_Active;
+        string name = "unknown";
+        m_InDispatch = false;
+        m_Active = null;
+        if (bad)
+        {
+            name = bad.HCName();
+            bad.HCFaulted = true;
+            bad.HCInFlight = false;
+            HCUnregister(bad);
+            if (name != "EventJournal" && name != "SearchJournal") { m_Fault = "save_job_write_faulted"; }
+        }
+        Print("[HC Save] job=" + name + " state=failed reason=dispatch_aborted runtime=PENDING");
+    }
+
+    protected void HCDispatch(float now, bool routine, int budgetMs)
     {
         m_TickStages = 0;
-        if (s_Jobs.Count() == 0) { return; }
-        float now = GetGame().GetTickTime();
+        m_DispatchedName = "";
+        int count = s_Jobs.Count();
+        if (count == 0) { return; }
+        if (m_InDispatch)
+        {
+            HCDispatchAborted();
+            return;
+        }
+        m_InDispatch = true;
         if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0))
         {
-            // Completed or abandoned outside the scheduler (barrier write, stop): its partial stage
-            // counts must not be reported as part of the next job's save.
+            // Completed or abandoned outside the scheduler (barrier write, stop).
             m_Active = null;
-            m_Stages = 0;
-            m_StageMax = 0;
-            m_StageMaxIndex = 0;
-            m_TotalTicks = 0;
-            m_JobTicks = 0;
-            m_MaxStagesPerTick = 0;
         }
-        if (m_Active)
+        if (routine)
         {
-            HCRunStages(m_Active, now);
-            return;
+            HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+            m_Budget.HCReset(config.SaveScanLimit, config.SaveScanSliceMs);
         }
-        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
-        m_Budget.HCReset(config.SaveScanLimit, config.SaveScanSliceMs);
-        int examined = 0;
-        while (examined < s_Jobs.Count() && m_Budget.HCContinue())
+        int examined = count;
+        HCSaveJob job = HCSelect(now, routine, examined);
+        bool cut = examined < count;
+        if (routine)
         {
-            if (m_Next >= s_Jobs.Count()) { m_Next = 0; }
-            HCSaveJob job = s_Jobs[m_Next];
-            m_Next = m_Next + 1;
-            examined = examined + 1;
-            if (job.HCFaulted || !job.HCDirty) { continue; }
-            if (!job.HCUrgent && (now < job.HCDue || (job.HCHasCommitted && now < job.HCLastCommitSeconds + job.HCInterval()))) { continue; }
-            HCRunStages(job, now);
-            return;
+            // Rotate the routine window so jobs outside SaveScanLimit are reached on later ticks.
+            if (cut) { m_Next = (m_Next + examined) % count; }
+            else if (job && !job.HCInFlight) { m_Next = (m_SelectIndex + 1) % count; }
         }
-        m_Budget.HCDeferred(GetName(), s_Jobs.Count() - examined);
+        if (job)
+        {
+            m_Active = job;
+            m_DispatchedName = job.HCName();
+            HCRunStages(job, now, budgetMs);
+            HCAfterDispatch();
+        }
+        else if (routine) { m_Budget.HCDeferred(GetName(), count - examined); }
+        m_InDispatch = false;
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        m_TickDispatchMs = GetGame().GetTime();
+        HCDispatch(GetGame().GetTickTime(), true, 0);
+    }
+
+    // Cheap flag scan (<= SaveJobLimit entries, no clock, no budget) so an idle frame costs almost nothing.
+    protected bool HCHasFrameWork()
+    {
+        if (m_InDispatch) { return true; }
+        int i = 0;
+        while (i < s_Jobs.Count())
+        {
+            HCSaveJob job = s_Jobs[i];
+            i = i + 1;
+            if (job.HCFaulted || (!job.HCPreempt && !job.HCUrgent)) { continue; }
+            if (job.HCDirty || job.HCInFlight) { return true; }
+        }
+        return false;
+    }
+
+    protected void HCFrameSummary()
+    {
+        m_FrameWindow = 0;
+        if (m_FrameCount == 0) { return; }
+        m_FrameSeq = m_FrameSeq + 1;
+        // Same field shape as HCStepTimer lines so tick_cost_report counts worst_tick_ticks toward R2.
+        Print("[HC Step] owner=WorldSavesFrame window=" + m_FrameSeq.ToString() + " ticks=" + m_FrameCount.ToString() + " worst_tick_ticks=" + m_FrameWorst.ToString() + " worst_tick_items=" + m_FrameWorstStages.ToString() + " save_dispatch=" + m_FrameWorst.ToString() + " other=0 heaviest_item_ticks=0 heaviest=" + m_FrameWorstJob + " deferred_n=0 deferred_max_ticks=0; raw TickCount units; runtime acceptance pending");
+        m_FrameCount = 0;
+        m_FrameWorst = 0;
+        m_FrameWorstStages = 0;
+        m_FrameWorstJob = "";
+    }
+
+    // Issue #333: one bounded urgent/preempt dispatch per frame. The module tick is 1 Hz, which made
+    // every journal image take ~31 s at 8 stages per tick. Routine jobs are not driven here.
+    void HCFrame(float timeslice)
+    {
+        if (!m_Started) { return; }
+        m_FrameWindow = m_FrameWindow + timeslice;
+        if (m_FrameWindow >= 60) { HCFrameSummary(); }
+        // The call queue runs the module tick and then this update queue in the same frame.
+        if (GetGame().GetTime() == m_TickDispatchMs) { return; }
+        if (!HCHasFrameWork()) { return; }
+        int started = TickCount(0);
+        HCDispatch(GetGame().GetTickTime(), false, HC_FRAME_MS);
+        int ticks = TickCount(started);
+        if (m_TickStages == 0) { return; }
+        m_FrameCount = m_FrameCount + 1;
+        if (ticks > m_FrameWorst)
+        {
+            m_FrameWorst = ticks;
+            m_FrameWorstStages = m_TickStages;
+            m_FrameWorstJob = m_DispatchedName;
+        }
     }
 
     // Each owner flushes BEFORE releasing its state in OnStop, irrespective of

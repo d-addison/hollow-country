@@ -11,7 +11,6 @@ import argparse
 from collections import Counter, deque
 import copy
 import hashlib
-import importlib.util
 import io
 import json
 import math
@@ -22,6 +21,7 @@ import sys
 import types
 import xml.etree.ElementTree as ET
 
+from tools.audit import odol56
 from tools.audit import pbo_config as pbo
 from tools.package import loot_boost as loot
 
@@ -281,6 +281,8 @@ def interior_area(name, group, context, templates):
     return round(cells[2] * FLOOR_STEP * FLOOR_STEP, 2) if cells else None
 
 
+# Legacy output provenance: the shipped overlays embed these identifiers, so they stay
+# fixed to keep regenerated files byte-identical. Decoding now uses tools.audit.odol56.
 READER_REVISION = 'e272780131dc10fe798bad321dca2c96894e993e'
 READER_HASHES = {
     'data_p3d_odol.py': '275fb16b687d91920a5b024cbd96f6507c475b1d6a510efb55cb3293f9cd8252',
@@ -456,17 +458,15 @@ class CollisionTops:
 
 
 class Reader:
-    def __init__(self, folder):
-        folder = Path(folder)
-        for filename, digest in READER_HASHES.items():
-            if sha((folder / filename).read_bytes()) != digest:
-                raise ValueError('ODOL reader source pin mismatch: ' + filename)
-        package = types.ModuleType('_hc_interior_odol')
-        package.__path__ = [str(folder.absolute())]
-        sys.modules[package.__name__] = package
-        spec = importlib.util.spec_from_file_location(package.__name__ + '.data_p3d_odol', folder / 'data_p3d_odol.py')
-        self.module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.module)
+    """ODOL access for the audits: the in-repo clean-room reader (tools.audit.odol56).
+
+    ``folder`` is accepted and ignored so older callers keep working; no external
+    reader is needed any more. ``module`` exposes ``ODOL_File`` and ``ODOL_Error``
+    in the shape the audits already use.
+    """
+
+    def __init__(self, folder=None):
+        self.module = types.SimpleNamespace(ODOL_File=odol56.OdolFile, ODOL_Error=odol56.OdolError)
 
     def mesh(self, data, restore_center=True):
         return Mesh(self.module.ODOL_File.read(io.BytesIO(data)), restore_center)
@@ -1238,7 +1238,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--addons', type=Path, required=True)
     parser.add_argument('--stock-proto', type=Path, required=True)
-    parser.add_argument('--reader', type=Path, required=True, help='external pinned ODOL reader directory (see docs/LOOT_POINTS.md)')
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored: tools.audit.odol56 is built in
     parser.add_argument('--map-pos', type=Path, help='stock mapgrouppos.xml for instance counts')
     parser.add_argument('--partition', nargs=2, type=int, metavar=('INDEX', 'COUNT'),
                         help='scan disjoint sorted stock-group partition (0-based index; count <= 32)')

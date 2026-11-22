@@ -8,8 +8,8 @@ class HCInfectedVarietyPolicy
     static bool HCIsPosedType(string typeName)
     {
         string path = "CfgVehicles " + typeName + " hcSpawnPose";
-        if (!GetGame().ConfigIsExisting(path)) { return false; }
-        int kind = GetGame().ConfigGetInt(path);
+        if (!HCConfigHelper.Has(path)) { return false; }
+        int kind = HCConfigHelper.GetInt(path, 0);
         return kind >= 1 && kind <= 4;
     }
 

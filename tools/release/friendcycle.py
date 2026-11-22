@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tools.package import compat_addon
 from tools.package.weapon_pack_guards import WORKSHOP, PBO_NAME, declared
 from tools.release.release import (ADDONS, TEMPLATES_REL, build, build_number, digest,
                                    native_compile_gate, resolve_commit, run, worktree)
@@ -110,10 +111,19 @@ def cycle(args):
                         or manifest['files'].get(guard_path) != guard.get('sha256')))
                 or (not wanted and (guard.get('status') != 'absent' or guard_path in actual))):
             raise ValueError('Release weapon-pack guard differs from declared stack; rebuild required')
+        # The compat PBO(s) are built at bundle time and ship in the HCX addons folder; the signed
+        # directory must carry exactly the PBOs the build receipt lists, with the receipt's hashes.
+        shipped = {rel: sha for rel, sha in manifest['files'].items() if rel.lower().endswith('.pbo')}
+        if compat_addon.check_receipt(manifest.get('compat_addon'), shipped):
+            raise ValueError('Release compat addon differs from its receipt; rebuild required')
         if not built:
             # Reusing signed artifacts must not bypass today's available gate.
             # The manifest is outside its own hashed file inventory.
             manifest['compile_gate'] = native_compile_gate(tree, sha, args.workshop)
+            if (manifest['compile_gate'].get('passed') is True
+                    and compat_addon.check_hashes(manifest.get('compat_addon'),
+                                                  manifest['compile_gate'].get('compat_sha256'))):
+                raise ValueError('Compile gate compat PBOs differ from the release receipt; rebuild required')
             manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         command = [sys.executable, '-B', '-m', 'tools.setup.friend_bundle', 'build']
         help_text = run([*command, '--help'], tree)

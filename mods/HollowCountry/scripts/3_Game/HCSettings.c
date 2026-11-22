@@ -245,6 +245,10 @@ class HCOperatorSettingsRegistry
         HCAdd("AILimits.MaxCampItems", "int", 64, 1, 128, "HCAILimits");
         HCAdd("AILimits.WorldSeed", "int", 18473, 0, 1000003, "HCAILimits");
         HCAdd("AILimits.MaxObservedAI", "int", 1024, 1, 8192, "HCAILimits");
+        HCAdd("AILimits.CautionRangeM", "int", 30, 1, 100, "HCAILimits");
+        HCAdd("AILimits.CautionHostileRangeM", "int", 60, 1, 100, "HCAILimits");
+        HCAdd("AILimits.CautionGunfireRangeM", "int", 80, 1, 100, "HCAILimits");
+        HCAdd("AILimits.CautionGraceSeconds", "int", 3, 1, 30, "HCAILimits");
         HCAdd("MaxFamiliarityRows", "int", 0, 0, 128, "HCSettings");
         HCAdd("SearchDensityScale", "float", 0, 0.5, 2, "HCSettings");
         HCAdd("W38Situations.Version", "int", 1, 1, 1, "HCW38SituationPolicy");
@@ -258,6 +262,9 @@ class HCOperatorSettingsRegistry
         HCAdd("W38Situations.PhysicalScanObjects", "int", 64, 1, 128, "HCW38SituationPolicy");
         HCAdd("W38Situations.PhysicalScanCargo", "int", 16, 1, 64, "HCW38SituationPolicy");
         HCAdd("W38Situations.PoliceSlowRetrySeconds", "int", 300, 60, 3600, "HCW38SituationPolicy");
+        HCAdd("W38Situations.RefillCooldownSeconds", "int", 10800, 600, 604800, "HCW38SituationPolicy");
+        HCAdd("W38Situations.ContainerLifetimeSeconds", "int", 604800, 3600, 2592000, "HCW38SituationPolicy");
+        HCAdd("W38Situations.RefillClearRadius", "float", 50, 10, 200, "HCW38SituationPolicy");
         HCAdd("W38Situations.MaxRaidMeters", "float", 600, 1, 1000, "HCW38SituationPolicy");
         HCAdd("W38Situations.ShelterMeters", "float", 20, 1, 50, "HCW38SituationPolicy");
         HCAdd("CampTheft.Version", "int", 1, 1, 1, "HCTheftConfig");
@@ -712,6 +719,10 @@ class HCSettings
         if (HCLogNonDefault("AILimits.MaxCampItems", AILimits.MaxCampItems.ToString(), defaults.AILimits.MaxCampItems.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.WorldSeed", AILimits.WorldSeed.ToString(), defaults.AILimits.WorldSeed.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.MaxObservedAI", AILimits.MaxObservedAI.ToString(), defaults.AILimits.MaxObservedAI.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CautionRangeM", AILimits.CautionRangeM.ToString(), defaults.AILimits.CautionRangeM.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CautionHostileRangeM", AILimits.CautionHostileRangeM.ToString(), defaults.AILimits.CautionHostileRangeM.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CautionGunfireRangeM", AILimits.CautionGunfireRangeM.ToString(), defaults.AILimits.CautionGunfireRangeM.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CautionGraceSeconds", AILimits.CautionGraceSeconds.ToString(), defaults.AILimits.CautionGraceSeconds.ToString())) { changed++; }
         if (HCLogNonDefault("MaxFamiliarityRows", MaxFamiliarityRows.ToString(), defaults.MaxFamiliarityRows.ToString())) { changed++; }
         float effectiveSearchDensityScale = HCEffectiveSearchDensity();
         float defaultSearchDensityScale = defaults.HCEffectiveSearchDensity();
