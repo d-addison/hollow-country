@@ -121,14 +121,23 @@ class HCWorldStore
         return !mismatch;
     }
 
-    protected static bool s_CeilingCountPrinted;
+    protected static bool s_CeilingRawCountPrinted;
+    protected static bool s_CeilingStringCountPrinted;
 
     protected static void CeilingUnexpectedCount(bool rawFallback)
     {
-        if (s_CeilingCountPrinted) { return; }
-        s_CeilingCountPrinted = true;
         string action = "retain_retry";
-        if (rawFallback) { action = "string_fallback raw_compare=disabled"; }
+        if (rawFallback)
+        {
+            if (s_CeilingRawCountPrinted) { return; }
+            s_CeilingRawCountPrinted = true;
+            action = "string_fallback raw_compare=disabled";
+        }
+        else
+        {
+            if (s_CeilingStringCountPrinted) { return; }
+            s_CeilingStringCountPrinted = true;
+        }
         Print("[HC WorldStore] custody_ceiling_read reason=unexpected_count action=" + action);
     }
 
@@ -242,6 +251,8 @@ class HCWorldStore
     // One-time native qualification before the first raw comparison. Fixtures
     // are disposable, actor-free profile files.
     // Printable bytes avoid depending on native NUL-to-string conversion.
+    // This qualifies chunk counts/equality, NOT embedded-NUL handling; the
+    // lead's binary custody_read_probe covers that separately (MODULE_STATUS).
     protected static void HCTestRawRead()
     {
         s_RawTested = true;
@@ -652,7 +663,10 @@ class HCWorldIntentRecovery
         if (copyTextMismatch || copyRawMismatch)
         {
             // Our own copy is wrong; remove it so the next boot retries with a free slot.
-            DeleteFile(rejected);
+            if (FileExist(rejected) && !DeleteFile(rejected))
+            {
+                return RotationFailed(source, "copy_mismatch_cleanup_failed");
+            }
             return RotationFailed(source, "copy_mismatch");
         }
         string reason = "verified_copy";

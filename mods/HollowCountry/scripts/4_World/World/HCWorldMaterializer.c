@@ -797,9 +797,9 @@ class HCWorldMaterializer : HCModule
             bool restoringOlder = priorWins && newlyRetained;
             // Persisted relocation is unsafe until the active store has its own
             // committed history; this classification survives process restart.
-            bool forwardedBackup = m_CustodyForwardedPath == backup;
-            bool priorWithoutHistory = priorWins && !forwardedBackup;
-            if (priorWithoutHistory && !FileExist(backup + ".bak"))
+            // The forwarding marker identifies the active path, never its next
+            // backup. Only priorWins determines rollback at this depth.
+            if (priorWins && !FileExist(backup + ".bak"))
             {
                 if (!FileExist(backup + ".tmp")) { m_CustodyReseedUnsafe = true; }
             }

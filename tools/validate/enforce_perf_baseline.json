@@ -3176,6 +3176,16 @@
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
       "native": false,
       "reason": "w6-persist-fu P3-2: deletes our own mismatched staged-rejection copy before returning copy_mismatch so the next boot retries into a free slot; source stays intact. Boot/retry-only, at most one call per rejected source per load; bounded."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 666,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
+      "native": false,
+      "reason": "w7-persist-p3: one existence probe before cleaning our own definitely mismatched final rejection copy; source remains intact and failed deletion returns copy_mismatch_cleanup_failed. At most one probe per Reject invocation, outside the eight-slot scan/rotation loops; no extra reads, copies or retries. Existing boot/retry-only bounds remain; native crash/latency evidence pending."
     }
   ]
 }
