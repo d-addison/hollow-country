@@ -7,6 +7,71 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class StaticConstLiteralRule(unittest.TestCase):
+    def findings(self, text):
+        return lint.lint_texts({W + 'Constants.c': text},
+                               rules=(lint.rule_static_const_literals,))
+
+    def test_single_literals_pass(self):
+        for kind, values in (
+            ('int', ('0', '16512', '-8', '+8', '0xFF')),
+            ('float', ('0.0', '-1.25', '+.5', '2.', '1e-3')),
+            ('bool', ('true', 'false')),
+            ('string', ('""', '"hello;,+world"', r'"quote\" and slash\\"')),
+        ):
+            for value in values:
+                with self.subTest(kind=kind, value=value):
+                    self.assertEqual([], self.findings(
+                        f'class Constants {{ static const {kind} VALUE = {value}; }}'))
+
+    def test_cross_class_and_local_references_fail(self):
+        for value in ('HCGroupIO.HC_RAW_READ_CAP', 'OTHER', 'int.MAX'):
+            with self.subTest(value=value):
+                findings = self.findings(f'class Constants {{ static const int VALUE = {value}; }}')
+                self.assertEqual(['HC-E028'], [f.rule for f in findings])
+                self.assertIn('initializer must be a literal', findings[0].message)
+                self.assertIn('build 169', findings[0].message)
+
+    def test_arithmetic_and_other_expressions_fail(self):
+        for kind, value in (('int', '8 * (HCGroupIO.HC_RAW_READ_CAP / HC_CHUNK_BYTES) + 128'),
+                            ('int', '8 * 2048 + 128'), ('float', '1.0 + 2.0'),
+                            ('bool', '!false'), ('string', '"a" + "b"'),
+                            ('int', '(16512)'), ('int', 'GetValue()')):
+            with self.subTest(kind=kind, value=value):
+                self.assertEqual(['HC-E028'], [f.rule for f in self.findings(
+                    f'class Constants {{ static const {kind} VALUE = {value}; }}')])
+
+    def test_comments_strings_and_nonstatic_constants_are_ignored(self):
+        self.assertEqual([], self.findings('''
+            // static const int BAD = 1 + 2;
+            /* static const int BAD = Other.VALUE; */
+            class Constants {
+                string Example = "static const int BAD = 1 + 2;";
+                const int INSTANCE = 1 + 2;
+                static int MUTABLE = 1 + 2;
+                static /* comment */ const int GOOD = - /* comment */ 8;
+                static const string TEXT = "Other.VALUE + 2";
+            }
+        '''))
+
+    def test_multiline_and_grouped_declarations(self):
+        findings = self.findings('''
+            class Constants {
+                static const int GOOD = 1, BAD = Other.VALUE;
+                static const float BAD_FLOAT =
+                    2 * 4.0;
+                const static bool BAD_BOOL = !true;
+            }
+        ''')
+        self.assertEqual(['BAD', 'BAD_FLOAT', 'BAD_BOOL'], [f.symbol for f in findings])
+        self.assertTrue(all(f.rule == 'HC-E028' for f in findings))
+
+    def test_rule_is_enabled_by_default(self):
+        findings = lint.lint_texts({W + 'Constants.c':
+                                   'class Constants { static const int VALUE = 1 + 2; }'})
+        self.assertIn('HC-E028', [f.rule for f in findings])
+
+
 class ExpansionBridgeRule(unittest.TestCase):
     def findings(self, text, support='', path=W + 'Caller.c'):
         files = {path: text}

@@ -542,13 +542,24 @@ class HCSceneChainStore
             remainingStages++;
             if (SaveStep(state) == HCSaveJob.STEP_FAILED) { return false; }
         }
-        if (SaveInFlight()) { return false; }
+        if (SaveInFlight())
+        {
+            Print("[HC Persistence] owner=HCSceneChainStore guard=save_remaining_stage_guard steps=" + remainingStages.ToString());
+            SaveFailed();
+            return false;
+        }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
         while (result == HCSaveJob.STEP_MORE && guard < HCStagedSaveImage.HC_MAX_STAGES + 3)
         {
             result = SaveStep(state);
             guard = guard + 1;
+        }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            Print("[HC Persistence] owner=HCSceneChainStore guard=save_stage_guard steps=" + guard.ToString());
+            SaveFailed();
+            return false;
         }
         return result == HCSaveJob.STEP_DONE;
     }

@@ -98,6 +98,7 @@ legacy code stays in the baseline until its WP converts it.
 | HC-E005 | an earlier modded link calls a method only a later link declares (load order = mod, then path) | boot 021, `HCHordeMigration` → `HCVarietyWalkerHerd` |
 | HC-E006 | `Substring` without a `Length()` bound or a checked `IndexOf` | boot 023, `DisabledXmlRoot` |
 | HC-E007 | a method named like a visible type and called unqualified | boot 026, `HCXGrudge.Slot` |
+| HC-E028 | primitive `static const` initializer is not a single literal (signed numbers, quoted strings and booleans allowed); references and arithmetic are forbidden | build 169: `HCStagedSaveImage.HC_MAX_STAGES` cross-class expression read as 0 natively; Leads exhausted a 6-step save guard |
 | HC-L001 | `Print(variable)` logs `string name = '...'` instead of the text; print an expression such as `"" + line` | boot 032 RPT, `[HC XAI] live` and `[HC InfectedLOD] stats` lines; member access (`obj.m_X`) and `PrintToRPT`/`ErrorEx` are not observed and not flagged |
 | HC-S001 | silent early `return;` in a server commit point | issue A |
 | HC-S002 | silent `return false;` in a gate | issue A/B |

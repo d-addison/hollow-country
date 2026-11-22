@@ -25,7 +25,8 @@ class HCBuildingClaimConfig
     static const int DEFAULT_VERSION = 1;
     static const int DEFAULT_EXPIRY_DAYS = 30;
     static const float DEFAULT_VISIT_RADIUS_METERS = 25.0; // 1000m / 40
-    static const float DEFAULT_ACTION_REACH_METERS = UAMaxDistances.DEFAULT;
+    // UAMaxDistances.DEFAULT = 2.0 in the installed 1.30 scripts; literal for native static initialization.
+    static const float DEFAULT_ACTION_REACH_METERS = 2.0;
     int Version = DEFAULT_VERSION;
     int ExpiryDays = DEFAULT_EXPIRY_DAYS; // provisional owner-tunable default
     // 25m = 1/40 of the approx 1000m vanilla network/gunshot scale. Presence

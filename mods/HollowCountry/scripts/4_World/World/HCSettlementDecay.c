@@ -177,8 +177,10 @@ class HCSettlementDecay : HCModule
     static const float VISUAL_FOOTPRINT_RADIUS = 4.25;
     static const float VISUAL_CLEARANCE = 5.0;
     static const float VISUAL_BUILDING_STANDOFF = 8.0;
-    static const float VISUAL_QUERY_RADIUS = VISUAL_FOOTPRINT_RADIUS + VISUAL_CLEARANCE + 1;
-    static const float VISUAL_BOX_EDGE = 2 * (VISUAL_FOOTPRINT_RADIUS + VISUAL_BUILDING_STANDOFF);
+    // VISUAL_FOOTPRINT_RADIUS 4.25 + VISUAL_CLEARANCE 5.0 + 1.
+    static const float VISUAL_QUERY_RADIUS = 10.25;
+    // 2 * (VISUAL_FOOTPRINT_RADIUS 4.25 + VISUAL_BUILDING_STANDOFF 8.0).
+    static const float VISUAL_BOX_EDGE = 24.5;
     static const float VISUAL_BOX_HEIGHT = 4.0;
     static const int VISUAL_QUERY_CAP = 64;
     protected int m_MaxQueryTicks;
