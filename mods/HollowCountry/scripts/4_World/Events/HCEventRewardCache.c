@@ -26,6 +26,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     void HCRepairOrphan(string siteId, bool barrelPresent)
     {
         if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return; }
+        // A barrel seen by any later scan revokes eligibility granted by an earlier empty scan.
+        int pending = m_RepairPending.Find(siteId);
+        if (barrelPresent && pending >= 0) { m_RepairPending.Remove(pending); }
         if (m_RepairChecked.Find(siteId) >= 0 || !m_IO || m_Fault || !m_IO.Ensure()) { return; }
         m_RepairChecked.Insert(siteId);
         if (m_Granted.Find(siteId) >= 0 || !m_IO.Exists(siteId + ".txt") || m_IO.Exists(siteId + ".pos") || m_IO.Exists(siteId + ".repair")) { return; }

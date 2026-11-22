@@ -675,10 +675,14 @@ What v1-test-14 does once, the first time a police event runs at that site:
   followed by
   `[HC Events] police cache created; <site>; stock=finite; refill=never runtime=PENDING`
 
-The `.repair` marker means the repair has already happened. It never repeats, so a
-repaired site cannot hand out a second barrel. The repair runs only when a police
-event at that site needs a new barrel (no usable police stock is lying nearby), so
-it may happen minutes or hours after the upgrade, or not at all while stock lasts.
+The `.repair` marker means the one-time repair allowance is used. It never repeats,
+so a repaired site cannot hand out a second barrel. If the server stops after the
+marker is written but before the barrel exists, or the barrel cannot be created
+(`police_cache_create_failed`), the allowance is still used and no barrel follows.
+The repair runs only when a police event at that site needs a new barrel (no usable
+police stock is lying nearby), so it may happen minutes or hours after the upgrade,
+or not at all while stock lasts. A barrel seen near the site at any point before
+the grant cancels the repair for that server run.
 
 Report to the owner: whether the server stays up past 10 minutes, and any of the
 lines above from the server RPT (site ids only, no player names).
