@@ -17,7 +17,7 @@ PREFIX = 'HollowCountry'
 # The weapon-pack guard ships beside the HCX PBO in the same mod folder, so it needs its own
 # nested prefix: two PBOs with one prefix in one folder crash the native server at load.
 GUARD_PREFIX = 'HollowCountryExpansionAI\\weapon-pack-guards'
-PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX)
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX, 'HollowCountryExpansionAI\\compat')
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024
@@ -101,7 +101,8 @@ MISSION_FILES.update({'vehicles/vehexp-eventspawns.xml', 'vehicles/vehexp-types.
 # Native site measurements: install-time input to the generated HC event positions.
 MISSION_FILES.add('ce/hc-site-measurements.json')
 # Regional road source pages for the paged route catalog.
-MISSION_FILES.add('travel/gapcode_routes_source-pages.json')
+MISSION_FILES.update({'travel/gapcode_routes_source-pages.json',
+                      'travel/routes-manifest.json', 'ai/road-graph.compact.json'})
 # Named-locality catalogue for clue direction/distance wording (Leads).
 MISSION_FILES.add('leads/localities.json')
 MISSION_FILES.update({
