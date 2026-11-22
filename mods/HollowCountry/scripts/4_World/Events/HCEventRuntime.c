@@ -569,7 +569,8 @@ class HCEventRuntime
         else
         {
             if (!Retain(candidate)) { return HCEventCode.LIMIT; }
-            int result = HCEventDirector.Propose(candidate.Director, context, HCEventRuntimePolicy.Definition(mission));
+            HCEventDefinition definition = HCEventRuntimePolicy.Definition(mission);
+            int result = HCEventDirector.Propose(candidate.Director, context, definition);
             if (result != HCEventCode.OK) { return result; }
             run = new HCEventRun;
             run.EventId = candidate.Director.NextId - 1;
@@ -961,7 +962,21 @@ class HCEventRuntime
         }
         else
         {
-            evidence = m_Observer.Observe(m_Store.Clone(m_State).Runs[sub.EventId - m_State.Director.PrunedThrough - 1], sub.Player, context.Now);
+            HCEventRuntimeState observedState = m_Store.Clone(m_State);
+            if (!observedState || !observedState.Director || !observedState.Runs)
+            {
+                m_Busy = false;
+                Print("[HC Events] observation refused reason=clone-unavailable");
+                return;
+            }
+            int observedIndex = sub.EventId - observedState.Director.PrunedThrough - 1;
+            if (observedIndex < 0 || observedIndex >= observedState.Runs.Count() || !observedState.Runs[observedIndex])
+            {
+                m_Busy = false;
+                Print("[HC Events] observation refused reason=clone-run-unavailable");
+                return;
+            }
+            evidence = m_Observer.Observe(observedState.Runs[observedIndex], sub.Player, context.Now);
         }
         m_Busy = false;
         if (!evidence || !evidence.Observed || evidence.Lease != expectedLease || evidence.Session != record.Session)

@@ -556,7 +556,8 @@ class HCXAIFormationController
         int now = GetGame().GetTickTime();
         if (now < m_ObserveAt) { return; }
         m_ObserveAt = now + HCXAIFormationController.OBSERVE_SECONDS;
-        m_Owner.HCObserve(m_Requested, HCGetOperationalStatus(), GetGame().GetTickTime());
+        HCOperationalStatus status = HCGetOperationalStatus();
+        m_Owner.HCObserve(m_Requested, status, GetGame().GetTickTime());
         int cap = 0;
         if (m_Config) { cap = m_Config.GroupsPerTick; }
         string exception = "bounded_cursor";

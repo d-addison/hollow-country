@@ -99,7 +99,11 @@ class HCEventRPC
                 {
                     return existing;
                 }
-                if (m_Module.Runtime()) { m_Module.Runtime().Disconnect(existing.Player, m_Module.Context()); }
+                if (m_Module.Runtime())
+                {
+                    HCEventContext context = m_Module.Context();
+                    m_Module.Runtime().Disconnect(existing.Player, context);
+                }
                 m_Peers.Remove(index);
             }
             index = index - 1;
@@ -220,7 +224,8 @@ class HCEventRPC
             {
                 if (m_Module.Runtime())
                 {
-                    m_Module.Runtime().Disconnect(peer.Player, m_Module.Context());
+                    HCEventContext context = m_Module.Context();
+                    m_Module.Runtime().Disconnect(peer.Player, context);
                 }
                 m_Peers.Remove(index);
             }

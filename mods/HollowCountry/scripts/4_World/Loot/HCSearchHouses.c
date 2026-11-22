@@ -296,7 +296,8 @@ class HCSearchHouses
                 if (fallback < 0) fallback = index;
                 // A changed/out-of-range/full-size first item must not hide a usable
                 // later row. Never rebind, replace or consume the skipped supply.
-                if (m_Registry.CanTransfer(EntryOf(row), player)) return index;
+                HCSearchEntry transferEntry = EntryOf(row);
+                if (m_Registry.CanTransfer(transferEntry, player)) return index;
             }
             index++;
         }
@@ -318,7 +319,8 @@ class HCSearchHouses
 
     bool CanStart(PlayerBase player, ActionTarget target)
     {
-        if (!Admit(player, Resolve(player, target)))
+        HCSearchHouseHit resolvedHit = Resolve(player, target);
+        if (!Admit(player, resolvedHit))
         {
             ReportRefusal(player, target);
             return false;
@@ -769,7 +771,8 @@ class HCSearchHouses
             return;
         }
         HCSearchHouseRow entry = m_Journal.Row(row);
-        if (!m_Registry.CanTransfer(EntryOf(entry), data.m_Player))
+        HCSearchEntry transferEntry = EntryOf(entry);
+        if (!m_Registry.CanTransfer(transferEntry, data.m_Player))
         {
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply or inventory room changed.");
             return;

@@ -144,7 +144,9 @@ modded class HCSearchHouses
         session.Row = rowIndex;
         site.SlotId = rowIndex;
         HCSearchHouseRow row = m_Journal.Row(rowIndex);
-        if (!row || !m_Registry.CanTransfer(EntryOf(row), actor) || !HCReservationAuthorized(session))
+        HCSearchEntry transferEntry;
+        if (row) { transferEntry = EntryOf(row); }
+        if (!row || !m_Registry.CanTransfer(transferEntry, actor) || !HCReservationAuthorized(session))
         {
             HCReleasePicker(session);
             return null;

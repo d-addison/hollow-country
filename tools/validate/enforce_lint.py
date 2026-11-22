@@ -1075,6 +1075,23 @@ class _Ownership:
             self.declarations[key] = self.sources[key].local_declarations(method)
         return self.declarations[key]
 
+    def parameters(self, method):
+        # Parameter commas inside generic types do not separate parameters.
+        parts, start, depth = [], 0, 0
+        for index, char in enumerate(method.params):
+            depth += (char == '<') - (char == '>')
+            if char == ',' and depth == 0:
+                parts.append(method.params[start:index])
+                start = index + 1
+        parts.append(method.params[start:])
+        bindings = {}
+        for part in parts:
+            match = re.fullmatch(r'(?:(?:out|inout|ref|notnull|const)\s+)*(.+?)\s+(\w+)',
+                                 part.split('=')[0].strip())
+            if match:
+                bindings[match[2]] = match[1]
+        return bindings
+
     def kind(self, text):
         return self.project.resolve_typedef(re.sub(r'\s+', '', text))
 
@@ -1097,7 +1114,7 @@ class _Ownership:
         bindings = dict(fields)
         if method.owner:
             bindings.update(this=method.owner.name, super=method.owner.base)
-        bindings.update(_locals(method.params + ')'))
+        bindings.update(self.parameters(method))
         bindings.update({name: kind for name, kind, start, end in self.locals(method)
                          if start <= offset < end})
         kind = bindings.get(first, first if first in self.project.links else '')
@@ -1144,6 +1161,90 @@ class _Ownership:
             candidates = [m for item in self.project.sources for m in item.functions if m.name == name]
         return candidates, kind, name
 
+    def passed_as_output(self, name, body):
+        # Unknown calls may bind an out argument. Do not infer ownership through
+        # them merely because an earlier assignment borrowed retained storage.
+        for match in _ANY_CALL.finditer(body):
+            if match[1] in _KEYWORDS:
+                continue
+            opening = body.find('(', match.start())
+            closing = es.matching_paren(body, opening)
+            for index, argument in enumerate(es.split_top(body[opening + 1:closing], ',')):
+                if argument.strip() != name:
+                    continue
+                candidates = self.project.methods.get(match[1], ())
+                if not candidates or any(len(m.parameters()) <= index or m.parameters()[index][2]
+                                         for m in candidates):
+                    return True
+        return False
+
+    def borrowed_expression(self, value, method, offset, seen=frozenset()):
+        """Prove an alias to retained storage; temporaries and unknown calls stay unknown."""
+        value = value.strip()
+        source = self.sources[id(method)]
+        body = source.body(method)
+        # A cast preserves ownership; collection Get aliases an existing slot.
+        cast = re.fullmatch(r'\w+\.Cast\((.*)\)', value, re.S)
+        if cast:
+            return self.borrowed_expression(cast[1], method, offset, seen)
+        call = self.call(value, method, offset)
+        if call:
+            # Installed 1.30: PlayerBase.c GetItemInHands delegates to
+            # GetEntityInHands; EntityAI.c FindAttachmentBySlotName delegates to
+            # inventory.FindAttachment. Both return inventory-owned entities.
+            # An authored override must still be summarized, never allowlisted.
+            inventory_getters = {'PlayerBase': {'GetItemInHands', 'FindAttachmentBySlotName'},
+                                 'EntityAI': {'FindAttachmentBySlotName'}}
+            if not call[0] and call[2] in inventory_getters.get(call[1], set()):
+                return True
+            opening = value.rfind('(')
+            head = es.split_top(value[:opening], '.')
+            if call[2] == 'Get' and len(head) > 1 and re.match(r'^(array|map|set)<', call[1]):
+                return self.borrowed_expression('.'.join(head[:-1]), method, offset, seen)
+            return False
+        # Indexing/member access cannot allocate. Its root must itself be retained.
+        chain = re.fullmatch(r'(\w+)((?:\.\w+|\[[^\[\]]+\])*)', value)
+        if not chain:
+            return False
+        root = chain[1]
+        if root in seen:
+            return False
+        locals_ = [d for d in self.locals(method) if d[0] == root and d[2] <= offset < d[3]]
+        if locals_:
+            if self.passed_as_output(root, body):
+                return False
+            declaration = locals_[-1]
+            writes = list(re.finditer(r'(?<![\w.])' + re.escape(root) + r'\s*=(?!=)\s*([^;]+);', body))
+            if writes:
+                return all(self.borrowed_expression(w[1], method, method.body_start + w.start(),
+                                                    seen | {root}) for w in writes)
+            # A foreach variable aliases its iterable, never a newly allocated value.
+            prefix = source.code[method.body_start:declaration[2]]
+            if re.search(r'foreach\s*\(\s*$', prefix):
+                header = source.code[declaration[2]:]
+                match = re.match(r'[^:;{}]+:\s*([^;{}]+?)\)', header)
+                if match:
+                    return self.borrowed_expression(match[1], method, declaration[2], seen | {root})
+            return False  # out-parameter initialization is not a borrowed value
+        parameters = self.parameters(method)
+        if root in parameters:
+            if self.passed_as_output(root, body):
+                return False
+            writes = list(re.finditer(r'(?<![\w.])' + re.escape(root) + r'\s*=(?!=)\s*([^;]+);', body))
+            return all(self.borrowed_expression(w[1], method, method.body_start + w.start(),
+                                                seen | {root}) for w in writes)
+        fields = self.project.receiver_members(method.owner.name, source.layer)[1] if method.owner else {}
+        if root in fields or root == 'this':
+            return True
+        # Installed 1.30 PluginRecipesManager.c:42 owns ref array<ref RecipeBase>.
+        # Preserve this exact native-field fact when CI has no extracted scripts.
+        if method.owner and method.owner.name == 'PluginRecipesManager' and root == 'm_RecipeList':
+            return True
+        # A qualified static member is retained by its class.
+        parts = es.split_top(value, '.')
+        return (len(parts) > 1 and root in self.project.links
+                and parts[1].split('[')[0] in self.project.receiver_members(root, source.layer)[1])
+
     def summary(self, method, visiting=frozenset()):
         key = id(method)
         if key in self.cache:
@@ -1163,6 +1264,9 @@ class _Ownership:
                 continue
             if re.match(r'^new\s+', value):
                 states.append('fresh')
+                continue
+            if self.borrowed_expression(value, method, offset):
+                states.append('borrowed')
                 continue
             if re.fullmatch(r'\w+', value):
                 locals_ = [d for d in self.locals(method)

@@ -664,18 +664,21 @@ class HCEventModule : HCModule
         m_NativeObserver.RevokeDelivery(item);
         // No previous carrier means no actor can be attributed; skip Context().
         if (!previousCarrier) { return; }
-        m_Runtime.ItemDelivered(item, previousCarrier, destination, Context());
+        HCEventContext context = Context();
+        m_Runtime.ItemDelivered(item, previousCarrier, destination, context);
     }
     void InfectedKilled(ZombieBase infected, PlayerBase participant)
     {
         if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
-        m_Runtime.InfectedKilled(infected, participant, Context());
+        HCEventContext context = Context();
+        m_Runtime.InfectedKilled(infected, participant, context);
     }
     void PlayerDisconnected(PlayerBase player)
     {
         if (m_Runtime)
         {
-            m_Runtime.Disconnect(player, Context());
+            HCEventContext context = Context();
+            m_Runtime.Disconnect(player, context);
         }
     }
     override void OnStop()
@@ -700,7 +703,8 @@ class HCEventModule : HCModule
             m_Stopping = true;
             s_CleanupOwner = this;
             m_CleanupAttempts = m_CleanupAttempts + 1;
-            if (!m_Runtime.Stop(Context()))
+            HCEventContext context = Context();
+            if (!m_Runtime.Stop(context))
             {
                 if (m_CleanupAttempts == 1)
                 {

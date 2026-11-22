@@ -313,7 +313,8 @@ class HCSearchHouseJournal
         {
             if (FileExist(PathFor(index, "compact")))
             {
-                if (!FinishCompaction(index, LoadRecord(index, "compact"))) { return false; }
+                HCSearchRecord compactedRecord = LoadRecord(index, "compact");
+                if (!FinishCompaction(index, compactedRecord)) { return false; }
             }
             if (!FileExist(PathFor(index, "entry")))
             {
@@ -409,7 +410,9 @@ class HCSearchHouseJournal
         row.ItemClass = itemClass;
         int index = m_Rows.Find(null);
         if (index < 0) { index = m_Rows.Count(); }
-        if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "entry"), Record(siteId, supplyId, itemClass, BIND_ACTOR, 0), 8192)) return Fail("entry write/readback failed; no retries");
+        string entryPath = PathFor(index, "entry");
+        HCSearchRecord entryRecord = Record(siteId, supplyId, itemClass, BIND_ACTOR, 0);
+        if (!HCSearchJson<HCSearchRecord>.WriteNew(entryPath, entryRecord, 8192)) return Fail("entry write/readback failed; no retries");
         Track(row);
         return true;
     }
@@ -425,7 +428,9 @@ class HCSearchHouseJournal
         }
         else if (phase != 1) return Fail("invalid intent phase");
         if (!HCSearchRules.TextValid(actorId, 128)) return Fail("invalid actor id");
-        if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, kind), Record(row.SiteId, row.SupplyId, row.ItemClass, actorId, phase), 8192)) return Fail("write/readback failed; no retries");
+        string writePath = PathFor(index, kind);
+        HCSearchRecord writeRecord = Record(row.SiteId, row.SupplyId, row.ItemClass, actorId, phase);
+        if (!HCSearchJson<HCSearchRecord>.WriteNew(writePath, writeRecord, 8192)) return Fail("write/readback failed; no retries");
         return true;
     }
 
