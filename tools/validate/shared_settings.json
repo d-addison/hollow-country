@@ -3165,7 +3165,7 @@
     "key": "Events.MissionZoneOffsetFraction",
     "type": "float",
     "default": 0.35,
-    "min": 0,
+    "min": 0.15,
     "max": 0.6,
     "owner": "HCMissionBeaconConfig"
   },
@@ -3188,56 +3188,56 @@
   {
     "key": "Events.MissionRadiusRecovery",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusDelivery",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusInvestigation",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusSalvage",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusEncounter",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusPresence",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },
   {
     "key": "Events.MissionRadiusInfectedClear",
     "type": "int",
-    "default": 0,
-    "min": 0,
+    "default": 250,
+    "min": 50,
     "max": 1500,
     "owner": "HCMissionBeaconConfig"
   },

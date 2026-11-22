@@ -29,15 +29,15 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Events.MissionMapMarkers", "bool", 1, 0, 1, "HCMissionBeaconConfig");
         HCAdd("Events.MissionNotifications", "bool", 1, 0, 1, "HCMissionBeaconConfig");
         HCAdd("Events.MissionZoneRadiusMeters", "int", 250, 50, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionZoneOffsetFraction", "float", 0.35, 0, 0.6, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionZoneOffsetFraction", "float", 0.35, 0.15, 0.6, "HCMissionBeaconConfig");
         HCAdd("Events.MissionNotificationSeconds", "int", 10, 3, 30, "HCMissionBeaconConfig");
         HCAdd("Events.MissionMapMaxRows", "int", 8, 1, 16, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusRecovery", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusDelivery", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusInvestigation", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusSalvage", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusEncounter", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusPresence", "int", 0, 0, 1500, "HCMissionBeaconConfig");
-        HCAdd("Events.MissionRadiusInfectedClear", "int", 0, 0, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusRecovery", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusDelivery", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusInvestigation", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusSalvage", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusEncounter", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusPresence", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MissionRadiusInfectedClear", "int", 250, 50, 1500, "HCMissionBeaconConfig");
     }
 }

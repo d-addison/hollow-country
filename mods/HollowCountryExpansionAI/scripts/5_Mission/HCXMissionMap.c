@@ -169,10 +169,11 @@ class HCXMissionMapLayer
         HCXProjectDiscs();
     }
 
-    protected bool HCXEnsureSlot(int slot, int budget)
+    protected bool HCXEnsureSlot(int slot, inout int budget)
     {
         if (slot < mHCXMarkers.Count()) return true;
         if (mHCXCreateFailed || budget <= 0) return false;
+        budget--;
         HCXMissionMapMarker created = new HCXMissionMapMarker(mHCXRoot, mHCXMap);
         if (!created.GetLayoutRoot())
         {
@@ -252,7 +253,7 @@ class HCXMissionMapLayer
 
     // Disc geometry follows the map's pan/zoom: radius in pixels from one extra
     // projection per zone. Hidden when the centre is off the map or the size is
-    // implausible; a disc overhanging the map edge is allowed (translucent).
+    // implausible; a disc that would overhang the map edge is shrunk to fit inside it.
     protected void HCXProjectDiscs()
     {
         if (mHCXActive < 1 || !mHCXRoot) return;
@@ -273,7 +274,19 @@ class HCXMissionMapLayer
             vector edge = mHCXMap.MapToScreen(Vector(world[0] + mHCXRadii[slot], 0, world[2]));
             float pixels = Math.AbsFloat(edge[0] - centre[0]);
             bool inside = centre[0] >= mapLeft && centre[0] <= mapLeft + mapWidth && centre[1] >= mapTop && centre[1] <= mapTop + mapHeight;
-            if (!inside || !(pixels >= 3 && pixels <= 4000))
+            if (!inside || !(pixels >= 3 && pixels <= 20000))
+            {
+                disc.Show(false);
+                continue;
+            }
+            // Never larger than fits inside the map rectangle around the zone centre, so a
+            // zoomed-in disc cannot cover the Expansion side panels or toolbar.
+            float room = centre[0] - mapLeft;
+            room = Math.Min(room, mapLeft + mapWidth - centre[0]);
+            room = Math.Min(room, centre[1] - mapTop);
+            room = Math.Min(room, mapTop + mapHeight - centre[1]);
+            if (pixels > room) pixels = room;
+            if (pixels < 3)
             {
                 disc.Show(false);
                 continue;
