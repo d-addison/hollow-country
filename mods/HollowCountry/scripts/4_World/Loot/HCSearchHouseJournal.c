@@ -578,7 +578,12 @@ class HCSearchHouseJournal
             // supply is archived the intent was durable and merely failed to read, so compact_<n> is KEPT
             // (nothing deleted, the next boot retries) rather than turned into a permanent fault.
             HCSearchHouseRow intentRow;
-            if (!compactedRecord && HCRestorePresent(index, "entry")) { intentRow = HCValidEntryRow(LoadRecord(index, "entry")); }
+            HCSearchRecord intentEntry;
+            if (!compactedRecord && HCRestorePresent(index, "entry"))
+            {
+                intentEntry = LoadRecord(index, "entry");
+                intentRow = HCValidEntryRow(intentEntry);
+            }
             bool entryIntact = intentRow != null;
             if (entryIntact && HCRestoreKnown(intentRow.SupplyId)) { return Fail("compact intent unreadable and supply already recorded; preserve journal"); }
             if (compactedRecord || !entryIntact)
