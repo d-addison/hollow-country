@@ -50,6 +50,7 @@ modded class HCModuleReadiness
         if (module == "v2-expansion-living-world")
         {
             HCRegisterUse("v2-expansion-living-world", "actor_admitted");
+            HCRegisterUse("v2-expansion-living-world", "caution_warn");
             return;
         }
     }

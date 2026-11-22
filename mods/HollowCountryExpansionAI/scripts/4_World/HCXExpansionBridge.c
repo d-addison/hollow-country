@@ -324,6 +324,13 @@ class HCXExpansionBridge
         value.RaiseWeapon(up);
     }
 
+    // Expansion eAIBase.LookAtPosition (ai_scripts eAIBase.c:9937) only stores a look target.
+    static void HCBaseLookAtPosition(eAIBase value, vector worldPosition)
+    {
+        if (!HCEntity(value, "HCBaseLookAtPosition", true)) { return; }
+        value.LookAtPosition(worldPosition);
+    }
+
     static bool HCBaseServerDropEntity(eAIBase value, EntityAI item)
     {
         if (!HCEntity(value, "HCBaseServerDropEntity", true)) { return false; }
@@ -1023,6 +1030,9 @@ modded class eAIPlayerTargetInformation
         float distance = vector.Distance(HCXExpansionBridge.HCBaseGetPosition(ai), player.GetPosition());
         bool raised = HCXStance.RaisedWeapon(player);
         int relation = HCXStance.Relation(ai, player);
+        // Raised-weapon caution: observed contacts only (LOS and fresh ray above).
+        // Never changes threat; Expansion's own logic below owns any escalation.
+        HCXCautionObservation.Observe(ai, player, distance, raised, relation);
         // Hostile factions skip the warning sequence. Non-hostile contacts engage
         // at 40m or on aiming, with no elapsed-time escalation at a safe distance.
         if (relation < 0 || distance <= 40 || (raised && distance <= 80))

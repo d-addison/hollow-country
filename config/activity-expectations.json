@@ -1082,6 +1082,23 @@
       "needs_player": true,
       "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c",
       "scope": "runtime"
+    },
+    {
+      "module": "v2-expansion-living-world",
+      "feature": "caution_warn",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=v2-expansion-living-world feature=caution_warn count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c",
+      "scope": "runtime"
     }
   ]
 }

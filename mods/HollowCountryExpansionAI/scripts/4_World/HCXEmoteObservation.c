@@ -125,6 +125,7 @@ class HCXEmoteObservation
         s_StoreRefused = false;
         s_ControlRefused = false;
         HCSignalCooldown.Reset();
+        HCXCautionObservation.Reset();
         s_Store = new HCXBetrayalStore();
         HCXAISitePolicy policy = HCXAISiteDirector.LoadPolicy();
         s_MaxWork = 8;
@@ -182,6 +183,7 @@ class HCXEmoteObservation
         s_Frame = -1;
         s_EventMinute = -1;
         HCSignalCooldown.Reset();
+        HCXCautionObservation.Reset();
     }
     static bool ControlReady()
     {
@@ -299,6 +301,15 @@ class HCXEmoteObservation
             else { HCXEmoteObservation.RefuseControl("emote_failed"); }
         }
         return serial;
+    }
+    // Raised-weapon caution gesture. The caller (HCXCautionObservation) owns the
+    // pair cooldown and the shared Work() admission; this only drives the provider.
+    static bool CautionGesture(eAIBase actor)
+    {
+        if (!HCXEmoteObservation.ControlReady() || !actor) { return false; }
+        if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_HOLD)) { return true; }
+        HCXEmoteObservation.RefuseControl("emote_failed");
+        return false;
     }
     static bool Warn(eAIBase actor, PlayerBase player)
     {
