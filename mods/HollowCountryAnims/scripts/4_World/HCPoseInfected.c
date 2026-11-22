@@ -307,8 +307,7 @@ modded class ZombieBase
 		if (m_HCBindState != 0)
 			return m_HCBindState > 0;
 		m_HCBindState = -1;
-		string graph;
-		g_Game.ConfigGetText("CfgVehicles " + GetType() + " enfanimsys graphname", graph);
+		string graph = HCConfigHelper.GetText("CfgVehicles " + GetType() + " enfanimsys graphname", "");
 		graph.ToLower();
 		if (!graph.Contains(ZombieBase.HC_POSE_GRAPH))
 			return HCPreflightFailed("graph_not_hc");

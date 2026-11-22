@@ -204,8 +204,8 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         TStringArray lightSlots = new TStringArray;
         string configRoot = "CfgWeapons";
         if (row.HostClass == "Mich2001Helmet" || row.HostClass == "TortillaBag") { configRoot = "CfgVehicles"; }
-        GetGame().ConfigGetTextArray(configRoot + " " + row.HostClass + " attachments", hostSlots);
-        GetGame().ConfigGetTextArray("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
+        HCConfigHelper.GetTextList(configRoot + " " + row.HostClass + " attachments", hostSlots);
+        HCConfigHelper.GetTextList("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
         if (hostSlots.Find(row.SlotName) < 0 || lightSlots.Find(row.SlotName) < 0) { return null; }
         if (row.PrerequisiteSlot != "")
         {

@@ -31,8 +31,8 @@ class HCTapedHelmetMounts : HCModule
         if (!HCBuildIdentity.Matches(HCBuildIdentity.SeenBuild())) { return false; }
         TStringArray hostSlots = new TStringArray;
         TStringArray lightSlots = new TStringArray;
-        GetGame().ConfigGetTextArray("CfgVehicles Mich2001Helmet attachments", hostSlots);
-        GetGame().ConfigGetTextArray("CfgVehicles UniversalLight inventorySlot", lightSlots);
+        HCConfigHelper.GetTextList("CfgVehicles Mich2001Helmet attachments", hostSlots);
+        HCConfigHelper.GetTextList("CfgVehicles UniversalLight inventorySlot", lightSlots);
         return hostSlots.Find("helmetFlashlight") >= 0 && lightSlots.Find("helmetFlashlight") >= 0;
     }
 

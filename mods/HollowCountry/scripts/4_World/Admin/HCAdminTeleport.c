@@ -361,13 +361,11 @@ class HCAdminTeleport
                     m_Cursor = m_Cursor + 1;
                     if (!childFound) { continue; }
                     string root = m_Names + " " + child;
-                    string kind;
-                    GetGame().ConfigGetText(root + " type", kind);
+                    string kind = HCConfigHelper.GetText(root + " type", "");
                     if (kind != "NameCityCapital" && kind != "NameCity" && kind != "NameVillage") { continue; }
-                    string title;
-                    GetGame().ConfigGetText(root + " name", title);
+                    string title = HCConfigHelper.GetText(root + " name", "");
                     array<float> coordinates = new array<float>;
-                    GetGame().ConfigGetFloatArray(root + " position", coordinates);
+                    HCConfigHelper.GetFloatList(root + " position", coordinates);
                     if (coordinates.Count() == 2) { HCAdd(title, Vector(coordinates[0], 0, coordinates[1])); }
                     continue;
                 }

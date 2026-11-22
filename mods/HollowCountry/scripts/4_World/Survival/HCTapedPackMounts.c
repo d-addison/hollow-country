@@ -106,8 +106,8 @@ class HCTapedPackMounts : HCModule
         string slotName = HCTapedPackCatalog.SlotName(pairId);
         TStringArray hostSlots = new TStringArray;
         TStringArray lightSlots = new TStringArray;
-        GetGame().ConfigGetTextArray("CfgVehicles TortillaBag attachments", hostSlots);
-        GetGame().ConfigGetTextArray("CfgVehicles UniversalLight inventorySlot", lightSlots);
+        HCConfigHelper.GetTextList("CfgVehicles TortillaBag attachments", hostSlots);
+        HCConfigHelper.GetTextList("CfgVehicles UniversalLight inventorySlot", lightSlots);
         return hostSlots.Find(slotName) >= 0 && lightSlots.Find(slotName) >= 0;
     }
 
@@ -235,8 +235,8 @@ class HCTapedPackMounts : HCModule
         if (!HCBuildIdentity.Matches(HCBuildIdentity.SeenBuild())) { return false; }
         TStringArray hostSlots = new TStringArray;
         TStringArray lightSlots = new TStringArray;
-        GetGame().ConfigGetTextArray("CfgWeapons " + row.HostClass + " attachments", hostSlots);
-        GetGame().ConfigGetTextArray("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
+        HCConfigHelper.GetTextList("CfgWeapons " + row.HostClass + " attachments", hostSlots);
+        HCConfigHelper.GetTextList("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
         return hostSlots.Find(row.SlotName) >= 0 && lightSlots.Find(row.SlotName) >= 0;
     }
 

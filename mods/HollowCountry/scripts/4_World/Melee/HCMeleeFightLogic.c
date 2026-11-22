@@ -39,7 +39,8 @@ class HCMeleeWeaponWeight
         float kg;
         if (!s_Kg.Find(type, kg))
         {
-            kg = Math.Max(0, item.ConfigGetFloat("weight") / 1000.0);
+            kg = 0;
+            if (item.ConfigIsExisting("weight")) { kg = Math.Max(0, item.ConfigGetFloat("weight") / 1000.0); }
             s_Kg.Set(type, kg);
         }
         return Math.Clamp(settings.WeightStaminaBase + settings.WeightStaminaPerKg * kg, settings.WeightStaminaMin, settings.WeightStaminaMax);

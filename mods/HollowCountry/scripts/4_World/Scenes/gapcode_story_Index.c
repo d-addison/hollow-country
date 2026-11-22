@@ -351,7 +351,8 @@ class HCGapcodeStoryIndex : Managed
         if (!owner.SiteAvailable(placement.Position)) { return; }
         array<vector> positions;
         int variant;
-        if (!HCSceneKits.Preflight(HCSceneKits.Find(candidate.Kit), placement, positions, variant))
+        HCSceneKit candidateKit = HCSceneKits.Find(candidate.Kit);
+        if (!HCSceneKits.Preflight(candidateKit, placement, positions, variant))
         {
             owner.PreflightRefused("HC42-index", HCSceneKits.Refusal());
             return;
@@ -394,7 +395,8 @@ class HCGapcodeStoryIndex : Managed
         if (!m_Owner || !m_Owner.SiteAvailable(pinnedSite.Position)) { return null; }
         array<vector> pinPositions;
         int pinVariant;
-        if (!HCSceneKits.Preflight(HCSceneKits.Find(selected.Kit), pinnedSite, pinPositions, pinVariant))
+        HCSceneKit selectedKit = HCSceneKits.Find(selected.Kit);
+        if (!HCSceneKits.Preflight(selectedKit, pinnedSite, pinPositions, pinVariant))
         {
             m_Owner.PreflightRefused("HC42-index", HCSceneKits.Refusal());
             return null;

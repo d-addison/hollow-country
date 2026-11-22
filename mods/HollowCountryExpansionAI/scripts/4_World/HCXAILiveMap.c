@@ -110,7 +110,8 @@ class HCXAILive
         {
             int index = (m_Base + offset + step) % total;
             step++;
-            HCXAILive.Emit(snapshot, HCXExpansionBridge.HCBaseGet(index));
+            eAIBase actor = HCXExpansionBridge.HCBaseGet(index);
+            HCXAILive.Emit(snapshot, actor);
         }
     }
 

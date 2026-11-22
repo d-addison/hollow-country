@@ -51,10 +51,9 @@ class HCGroupPlaces
             string child;
             if (!GetGame().ConfigGetChildName(root, i, child)) return null;
             string entry = root + " " + child;
-            string title;
-            GetGame().ConfigGetText(entry + " name", title);
+            string title = HCConfigHelper.GetText(entry + " name", "");
             array<float> coords = new array<float>();
-            GetGame().ConfigGetFloatArray(entry + " position", coords);
+            HCConfigHelper.GetFloatList(entry + " position", coords);
             if (title == "" || coords.Count() != 2) continue;
             HCGroupPlace place = new HCGroupPlace;
             place.Id = child;

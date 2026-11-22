@@ -74,7 +74,7 @@ class HCTapedLightPermit
         // same arrays; native 3_Game/Global/Game.c:558 ConfigGetTextArray.
         string root = "CfgVehicles";
         if (Weapon_Base.Cast(host)) { root = "CfgWeapons"; }
-        GetGame().ConfigGetTextArray(root + " " + host.GetType() + " attachments", slots);
+        HCConfigHelper.GetTextList(root + " " + host.GetType() + " attachments", slots);
         if (pistolLight) { return slots.Find("pistolFlashlight") >= 0; }
         if (slots.Find("weaponFlashlight") >= 0) { return true; }
         return !host.IsKindOf("TortillaBag") && slots.Find("helmetFlashlight") >= 0;

@@ -7,9 +7,9 @@
 // so a missing entry never silently zeroes a setting.
 // Not wrapped, so callers keep the raw native with their own guard: child iteration
 // (ConfigGetChildrenCount/ChildName/BaseName), ConfigGetTextRaw/Out, vector and
-// int/float arrays, and inventorySlot/attachments reads, whose entries may be a
-// scalar string or an array and are validated natively by the taped-light and
-// wreck-salvage gates (a CT_ARRAY-only reader would change their result).
+// int arrays. inventorySlot/attachments reads, whose entries may be a scalar string
+// or an array, go through GetTextList / GetFloatList: presence-guarded, then the
+// native array conversion unchanged (a CT_ARRAY-only reader would change their result).
 class HCConfigHelper
 {
     // Longest accepted path and text value; refuses runaway dynamic strings.
@@ -50,6 +50,29 @@ class HCConfigHelper
         string value;
         if (!GetGame().ConfigGetText(path, value)) { return fallback; }
         return value;
+    }
+
+    // Presence-guarded native array read for entries that may be a scalar or an
+    // array (inventorySlot, attachments): `values` is cleared first, an absent
+    // path returns false without touching the engine, otherwise the native
+    // conversion fills it unchanged and the call returns true.
+    static bool GetTextList(string path, out TStringArray values)
+    {
+        if (!values) { values = new TStringArray; }
+        values.Clear();
+        if (!Has(path)) { return false; }
+        GetGame().ConfigGetTextArray(path, values);
+        return true;
+    }
+
+    // Same contract as GetTextList for float arrays (map position entries).
+    static bool GetFloatList(string path, out TFloatArray values)
+    {
+        if (!values) { values = new TFloatArray; }
+        values.Clear();
+        if (!Has(path)) { return false; }
+        GetGame().ConfigGetFloatArray(path, values);
+        return true;
     }
 
     // Fills `values` (cleared first) and returns true only for a real array

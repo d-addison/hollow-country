@@ -61,7 +61,8 @@ class HCJsonFields
 {
     static bool KeyMatches(string text, int start, int stop, string key)
     {
-        return HCJsonFields.KeyMatchesAt(new HCTextWindow(text), start, stop, key);
+        HCTextWindow window = new HCTextWindow(text);
+        return HCJsonFields.KeyMatchesAt(window, start, stop, key);
     }
 
     static bool KeyMatchesAt(HCTextWindow text, int start, int stop, string key)

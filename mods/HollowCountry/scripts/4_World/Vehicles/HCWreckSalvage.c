@@ -216,8 +216,8 @@ class HCWreckSalvage
     {
         array<string> slots = new array<string>;
         array<string> attachments = new array<string>;
-        GetGame().ConfigGetTextArray("CfgVehicles " + wheel + " inventorySlot", slots);
-        GetGame().ConfigGetTextArray("CfgVehicles " + vehicle + " attachments", attachments);
+        HCConfigHelper.GetTextList("CfgVehicles " + wheel + " inventorySlot", slots);
+        HCConfigHelper.GetTextList("CfgVehicles " + vehicle + " attachments", attachments);
         if (slots.Count() > HC_MAX_WHEEL_SLOTS || attachments.Count() > HC_MAX_VEHICLE_ATTACHMENTS) return false;
         map<string, bool> attachmentIndex = new map<string, bool>;
         foreach (string attachment : attachments) { attachmentIndex.Set(attachment, true); }

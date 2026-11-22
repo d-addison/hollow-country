@@ -167,11 +167,10 @@ class HCEcologyCycle
         m_NameCursor++;
         if (!GetGame().ConfigGetChildName(m_Names, index, child)) { return; }
         string path = m_Names + " " + child;
-        string type;
-        GetGame().ConfigGetText(path + " type", type);
+        string type = HCConfigHelper.GetText(path + " type", "");
         if (type != "NameCityCapital" && type != "NameCity" && type != "NameVillage") { return; }
         array<float> xy = new array<float>;
-        GetGame().ConfigGetFloatArray(path + " position", xy);
+        HCConfigHelper.GetFloatList(path + " position", xy);
         if (m_Towns.Count() >= 64 || xy.Count() != 2) { return; }
         vector point = Vector(xy[0], 0, xy[1]);
         if (!InWorld(point)) { return; }
