@@ -881,7 +881,7 @@ class HCXExpansionBridge
     static bool HCHoldSame(HCXAIGroupHold hold, eAIGroup group)
     {
         if (!hold || !group) { return false; }
-        return hold.Group == group;
+        return hold.HCIsGroup(group);
     }
 
     static bool HCHoldAlive(HCXAIGroupHold hold)
@@ -1000,7 +1000,8 @@ class HCXExpansionBridge
 // up is deleted, plus a settle window for the provider's queued DeleteGroup call.
 class HCXAIGroupHold
 {
-    ref eAIGroup Group;
+    // Never read outside this file: HCResolve and the HCHold* bridge calls are the only way in.
+    protected ref eAIGroup Group;
     ref array<DayZPlayerImplement> Members;
     int SettledAtMs;
     int SettledSeenMs;
@@ -1024,6 +1025,19 @@ class HCXAIGroupHold
     void ~HCXAIGroupHold()
     {
         HCXExpansionBridge.HCHandleDropped();
+    }
+    // Pointer identity only; never dereferences the group, works in any bridge state.
+    bool HCIsGroup(eAIGroup group)
+    {
+        return Group != null && Group == group;
+    }
+    bool HCSameGroup(HCXAIGroupHold other)
+    {
+        return other != null && Group != null && Group == other.Group;
+    }
+    bool HCHasGroup()
+    {
+        return Group != null;
     }
     // Null when the bridge is not READY, the hold is from an older epoch or retired, or the
     // provider no longer knows the group. A null result is a normal outcome.
@@ -1086,14 +1100,14 @@ class HCXAIGroupHolds
     static void Retire(HCXAIGroupHold hold)
     {
         // At shutdown (destructors) there is no game: never re-create the static list then.
-        if (!hold || !hold.Group || !GetGame()) { return; }
+        if (!hold || !hold.HCHasGroup() || !GetGame()) { return; }
         hold.Retired = true;
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
         // One retired hold per group: a group retired again (leases, jobs, replans) merges its
         // members into the existing hold, so the list is bounded by groups, not by events.
         foreach (HCXAIGroupHold retired : s_Retired)
         {
-            if (retired && retired.Group == hold.Group)
+            if (retired && retired.HCSameGroup(hold))
             {
                 retired.Absorb(hold);
                 if (!retired.Settled())
@@ -1129,7 +1143,7 @@ class HCXAIGroupHolds
     // Returns the hold for group and tracks its members; a hold on another group is retired.
     static HCXAIGroupHold Follow(HCXAIGroupHold hold, eAIGroup group)
     {
-        if (hold && hold.Group == group)
+        if (hold && hold.HCIsGroup(group))
         {
             hold.TrackGroup();
             return hold;

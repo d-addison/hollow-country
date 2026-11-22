@@ -389,11 +389,10 @@ class HCXAIStyleFormation : eAIFormation
 }
 
 // Per-group runtime record, kept on the site state. Members and the formation are
-// weak. eAIGroup is not Managed, so GroupRef is a raw handle that is valid only
-// while Hold exists (retired when the style is forgotten or destroyed).
+// weak. eAIGroup is not Managed, so the group is reached only through Hold
+// (retired when the style is forgotten or destroyed).
 class HCXAIGroupStyle
 {
-    eAIGroup GroupRef;
     ref HCXAIGroupHold Hold;
     HCXAIStyleFormation FormRef;
     ref array<eAIBase> Halted = new array<eAIBase>();
@@ -548,7 +547,7 @@ class HCXAIFormationController
             if (!state || state.Completed || !state.Patrol || !state.Patrol.m_Group) { continue; }
             HCXAIGroupStyle style = state.HCStyle;
             if (!style || !style.Styled || style.Foreign) { continue; }
-            if (style.GroupRef != state.Patrol.m_Group) { continue; }
+            if (!HCXExpansionBridge.HCHoldSame(style.Hold, state.Patrol.m_Group)) { continue; }
             live++;
         }
         return live;
@@ -632,8 +631,7 @@ class HCXAIFormationController
     protected bool HoldEnded(HCXAIGroupStyle style, int now)
     {
         if (now >= style.PauseUntil) { return true; }
-        eAIGroup group = style.GroupRef;
-        if (!group || HCXExpansionBridge.HCGroupIsInCombat(group)) { return true; }
+        if (!HCXExpansionBridge.HCHoldAlive(style.Hold) || HCXExpansionBridge.HCHoldIsInCombat(style.Hold)) { return true; }
         for (int i = 0; i < style.Halted.Count(); i++)
         {
             eAIBase ai = style.Halted[i];
@@ -696,12 +694,13 @@ class HCXAIFormationController
         DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(group);
         if (!leader || !leader.IsAlive()) { return; }
         HCXAIGroupStyle style = state.HCStyle;
-        if (!style || style.GroupRef != group)
+        if (!style || !HCXExpansionBridge.HCHoldSame(style.Hold, group))
         {
             ForgetStyle(state);
+            HCXAIGroupHold hold = HCXAIGroupHolds.Follow(null, group);
+            if (!hold) { return; }
             HCXAIGroupStyle fresh = new HCXAIGroupStyle();
-            fresh.GroupRef = group;
-            fresh.Hold = HCXAIGroupHolds.Follow(null, group);
+            fresh.Hold = hold;
             string identity = state.ProposalId;
             if (identity == "" && state.Site) { identity = state.Site.Id; }
             fresh.Seed = HCXAIFormationRules.SeedOf(identity);

@@ -34,8 +34,7 @@ class HCXConvoyRun
     string mHCPhase = "seek";
     string mHCReason;
     string mHCNote;
-    eAIGroup mHCGroup;
-    // #334: eAIGroup is not Managed; the hold keeps mHCGroup valid for the run's life.
+    // #334: the run reaches its group only through this bridge handle, for the run's life.
     protected ref HCXAIGroupHold m_HCHold;
     eAIBase mHCLeader;
     CarScript mHCCar;
@@ -65,8 +64,8 @@ class HCXConvoyRun
     {
         if (!group || !policy) { return false; }
         mHCId = id;
-        mHCGroup = group;
-        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, mHCGroup);
+        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, group);
+        if (!m_HCHold) { return false; }
         mHCPolicy = policy;
         mHCLeader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetFormationLeader(group));
         if (!mHCLeader) { return false; }
@@ -146,10 +145,10 @@ class HCXConvoyRun
     int HCSeatedCrew()
     {
         int seated = 0;
-        int count = HCXExpansionBridge.HCGroupCount(mHCGroup);
+        int count = HCXExpansionBridge.HCHoldCount(m_HCHold);
         for (int index = 0; index < count; index++)
         {
-            DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(mHCGroup, index);
+            DayZPlayerImplement member = HCXExpansionBridge.HCHoldGetMember(m_HCHold, index);
             if (!member) { continue; }
             if (!member.IsAlive()) { continue; }
             if (member.GetParent() == mHCCar) { seated++; }
@@ -159,10 +158,10 @@ class HCXConvoyRun
 
     void HCExitCrew()
     {
-        int count = HCXExpansionBridge.HCGroupCount(mHCGroup);
+        int count = HCXExpansionBridge.HCHoldCount(m_HCHold);
         for (int index = 0; index < count; index++)
         {
-            DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(mHCGroup, index);
+            DayZPlayerImplement member = HCXExpansionBridge.HCHoldGetMember(m_HCHold, index);
             if (!member) { continue; }
             if (!member.IsAlive()) { continue; }
             if (member.GetParent() != mHCCar) { continue; }
@@ -179,10 +178,10 @@ class HCXConvoyRun
     int HCMembers()
     {
         int alive = 0;
-        int count = HCXExpansionBridge.HCGroupCount(mHCGroup);
+        int count = HCXExpansionBridge.HCHoldCount(m_HCHold);
         for (int index = 0; index < count; index++)
         {
-            DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(mHCGroup, index);
+            DayZPlayerImplement member = HCXExpansionBridge.HCHoldGetMember(m_HCHold, index);
             if (member && member.IsAlive()) { alive++; }
         }
         return alive;
@@ -191,10 +190,10 @@ class HCXConvoyRun
     int HCAboard()
     {
         int seated = 0;
-        int count = HCXExpansionBridge.HCGroupCount(mHCGroup);
+        int count = HCXExpansionBridge.HCHoldCount(m_HCHold);
         for (int index = 0; index < count; index++)
         {
-            DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(mHCGroup, index);
+            DayZPlayerImplement member = HCXExpansionBridge.HCHoldGetMember(m_HCHold, index);
             if (!member) { continue; }
             if (!member.IsAlive()) { continue; }
             if (member.GetParent() == mHCCar) { seated++; }
@@ -275,9 +274,9 @@ class HCXConvoyRun
         mHCCar = car;
         mHCDoor = HCDoor(car);
         // A one-point HALT is a native walking request to the driver door.
-        HCXExpansionBridge.HCGroupClearWaypoints(mHCGroup);
-        HCXExpansionBridge.HCGroupAddWaypoint(mHCGroup, mHCDoor);
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(mHCGroup, eAIWaypointBehavior.HALT);
+        HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
+        HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, mHCDoor);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, eAIWaypointBehavior.HALT);
         HCPhase("approach", now);
         Print("[HC Convoy] vehicle_selected id=" + mHCId + " runtime=PENDING");
     }
@@ -293,7 +292,7 @@ class HCXConvoyRun
         if (now - mHCPhaseAt > mHCPolicy.ApproachSeconds * 1000) { HCWalk("CONVOY_APPROACH_TIMEOUT"); return; }
         if (HCXConvoyRoute.HCFlat(HCXExpansionBridge.HCBaseGetPosition(mHCLeader), mHCDoor) > mHCPolicy.BoardMeters) { return; }
         if (mHCRoute.mHCPhase != "ready") { return; }
-        if (HCXExpansionBridge.HCGroupGetFormationState(mHCGroup) != eAIGroupFormationState.IN) { HCWalk("CONVOY_FORMATION_NOT_IN"); return; }
+        if (HCXExpansionBridge.HCHoldGetFormationState(m_HCHold) != eAIGroupFormationState.IN) { HCWalk("CONVOY_FORMATION_NOT_IN"); return; }
         if (!HCXExpansionBridge.HCBaseExpansion_IsAnimationIdle(mHCLeader)) { return; }
         // The leader stands at the door; the installed command handler plays
         // the native get-in. Followers board through Expansion's own FSM.
@@ -304,7 +303,7 @@ class HCXConvoyRun
     void HCBoard(int now)
     {
         if (!HCAlive() || !mHCCar) { HCStop("CONVOY_BOARD_LOST", now); return; }
-        if (HCXExpansionBridge.HCGroupIsInCombat(mHCGroup)) { HCStop("CONVOY_CONTACT", now); return; }
+        if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { HCStop("CONVOY_CONTACT", now); return; }
         if (now - mHCPhaseAt > mHCPolicy.BoardSeconds * 1000) { HCStop("CONVOY_BOARD_TIMEOUT", now); return; }
         if (mHCCar.CrewMember(0) != mHCLeader) { return; }
         if (HCAboard() < HCMembers()) { return; }
@@ -325,7 +324,7 @@ class HCXConvoyRun
             if (!crew) { continue; }
             DayZPlayerImplement rider = DayZPlayerImplement.Cast(crew);
             if (!rider) { return true; }
-            if (HCXExpansionBridge.HCDayZPlayerImplementGetGroup(rider) != mHCGroup) { return true; }
+            if (!HCXExpansionBridge.HCHoldSame(m_HCHold, HCXExpansionBridge.HCDayZPlayerImplementGetGroup(rider))) { return true; }
         }
         return false;
     }
@@ -338,7 +337,7 @@ class HCXConvoyRun
         if (mHCCar.CrewMember(0) != mHCLeader) { return "CONVOY_DRIVER_LOST"; }
         if (mHCCar.IsFlipped()) { return "CONVOY_VEHICLE_FLIPPED"; }
         if (!mHCCar.EngineIsOn() && !mHCCar.CheckOperationalState()) { return "CONVOY_VEHICLE_NOT_OPERATIONAL"; }
-        if (HCXExpansionBridge.HCGroupIsInCombat(mHCGroup)) { return "CONVOY_CONTACT"; }
+        if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { return "CONVOY_CONTACT"; }
         if (HCForeignCrew()) { return "CONVOY_FOREIGN_CREW"; }
         return "";
     }
@@ -440,15 +439,15 @@ class HCXConvoyRun
     {
         mHCReason = reason;
         mHCPhase = "walk";
-        if (!mHCGroup) { return; }
-        HCXExpansionBridge.HCGroupClearWaypoints(mHCGroup);
-        if (mHCDrove) { HCXExpansionBridge.HCGroupAddWaypoint(mHCGroup, HCDestination()); }
+        if (!m_HCHold) { return; }
+        HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
+        if (mHCDrove) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, HCDestination()); }
         else
         {
             array<vector> walk = mHCWalk;
-            foreach (vector point : walk) { HCXExpansionBridge.HCGroupAddWaypoint(mHCGroup, point); }
+            foreach (vector point : walk) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, point); }
         }
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(mHCGroup, mHCBehaviour);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, mHCBehaviour);
     }
 
     void HCRelease(int now)
@@ -642,8 +641,8 @@ class HCXConvoyRuntime
     static bool HCOffer(HCW38SituationBinding binding)
     {
         HCXConvoyService service = HCXConvoyService.HCGet();
-        if (!service || !binding) { return false; }
-        return service.HCOffer(binding.Id, binding.Profile, binding.Group);
+        if (!service || !binding || !binding.Hold) { return false; }
+        return service.HCOffer(binding.Id, binding.Profile, binding.Hold.HCResolve());
     }
 
     static void HCRelease(string id)

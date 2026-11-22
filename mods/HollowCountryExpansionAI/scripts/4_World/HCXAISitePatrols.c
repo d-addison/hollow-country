@@ -149,9 +149,9 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected void HCHoldGroup(eAIGroup group, DayZPlayerImplement member)
     {
         if (!group) { return; }
-        if (m_HCHold && m_HCHold.Group != group)
+        if (m_HCHold && !HCXExpansionBridge.HCHoldSame(m_HCHold, group))
         {
-            if (m_Group && m_HCHold.Group == m_Group) { return; }
+            if (m_Group && HCXExpansionBridge.HCHoldSame(m_HCHold, m_Group)) { return; }
             this.HCReleaseHold();
         }
         if (!m_HCHold) { m_HCHold = new HCXAIGroupHold(group); }

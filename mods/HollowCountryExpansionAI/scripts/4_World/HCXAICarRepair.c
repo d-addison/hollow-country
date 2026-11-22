@@ -66,8 +66,7 @@ class HCXAICarStep
 
 class HCXAICarJob
 {
-    // Raw handle (eAIGroup is not Managed): valid only while Hold exists, from the offer until HCEnd.
-    eAIGroup Group;
+    // eAIGroup is not Managed: the job reaches its group only through Hold, from the offer until HCEnd.
     ref HCXAIGroupHold Hold;
     int GroupId = 0;
     CarScript Subject;
@@ -242,12 +241,18 @@ class HCXAICarRepair
         s_NextAt.Set(groupId, now + config.CooldownSeconds);
         if (!pick || !pick.Subject) { HCRefuse("carfix_no_known_car"); return false; }
         HCXAICarJob job = new HCXAICarJob();
-        job.Group = group;
+        job.Hold = HCXAIGroupHolds.Follow(null, group);
+        if (!job.Hold) { HCRefuse("carfix_group_handle_refused"); return false; }
         job.GroupId = groupId;
         job.Subject = pick.Subject;
         string plan = HCPlan(job, pick, leader, home);
-        if (plan != "") { HCRefuse(plan); return false; }
-        job.Hold = HCXAIGroupHolds.Follow(null, group);
+        if (plan != "")
+        {
+            HCXAIGroupHolds.Retire(job.Hold);
+            job.Hold = null;
+            HCRefuse(plan);
+            return false;
+        }
         if (!HCTakeStash(job, leader)) { HCEnd(job, "carfix_stash_take_refused", false); return false; }
         if (!HCWalk(job, pick.Pos)) { HCEnd(job, "carfix_route_refused", false); return false; }
         pick.Subject.m_HCCarClaimGroup = groupId;
@@ -516,7 +521,9 @@ class HCXAICarRepair
         array<EntityAI> carried = new array<EntityAI>();
         array<EntityAI> stashed = new array<EntityAI>();
         array<EntityAI> used = new array<EntityAI>();
-        HCCollect(job.Group, leader, home, carried, stashed);
+        eAIGroup party = job.Hold.HCResolve();
+        if (!party) { return "carfix_group_lost"; }
+        HCCollect(party, leader, home, carried, stashed);
         int haveWheels = 0;
         int haveMask = 0;
         int wheelCount = car.WheelCount();
@@ -591,39 +598,41 @@ class HCXAICarRepair
     // Real walking: the existing group waypoint port, prior patrol restored on end.
     protected static bool HCWalk(HCXAICarJob job, vector goal)
     {
-        eAIGroup group = job.Group;
-        array<vector> previous = HCXExpansionBridge.HCGroupGetWaypoints(group);
+        if (!HCXExpansionBridge.HCHoldAlive(job.Hold)) { return false; }
+        array<vector> previous = HCXExpansionBridge.HCHoldGetWaypoints(job.Hold);
         if (previous && previous.Count() > HCConfig().MaxRouteNodes) { return false; }
         if (previous)
         {
             array<vector> saved = previous;
             foreach (vector node : saved) { job.Route.Insert(node); }
         }
-        job.Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
+        job.Behaviour = HCXExpansionBridge.HCHoldGetWaypointBehaviour(job.Hold);
         job.RouteSaved = true;
-        HCXExpansionBridge.HCGroupClearWaypoints(group);
-        HCXExpansionBridge.HCGroupAddWaypoint(group, goal);
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCHoldClearWaypoints(job.Hold);
+        HCXExpansionBridge.HCHoldAddWaypoint(job.Hold, goal);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(job.Hold, eAIWaypointBehavior.ONCE);
         return true;
     }
 
     protected static void HCRestoreRoute(HCXAICarJob job)
     {
-        if (!job.RouteSaved || !job.Group) { return; }
+        if (!job.RouteSaved || !job.Hold) { return; }
         job.RouteSaved = false;
-        HCXExpansionBridge.HCGroupClearWaypoints(job.Group);
+        HCXExpansionBridge.HCHoldClearWaypoints(job.Hold);
         array<vector> route = job.Route;
-        foreach (vector point : route) { HCXExpansionBridge.HCGroupAddWaypoint(job.Group, point); }
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(job.Group, job.Behaviour);
+        foreach (vector point : route) { HCXExpansionBridge.HCHoldAddWaypoint(job.Hold, point); }
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(job.Hold, job.Behaviour);
     }
 
     protected static void HCStep(HCXAICarJob job, int now)
     {
         eAIBase leader = null;
-        if (job.Group) { leader = HCLeader(job.Group); }
+        eAIGroup party = null;
+        if (job.Hold) { party = job.Hold.HCResolve(); }
+        if (party) { leader = HCLeader(party); }
         if (!leader) { HCEnd(job, "carfix_group_lost", false); return; }
         if (!job.Subject || job.Subject.IsPendingDeletion()) { HCEnd(job, "carfix_car_lost", false); return; }
-        if (HCXExpansionBridge.HCGroupIsInCombat(job.Group)) { HCEnd(job, "carfix_combat", false); return; }
+        if (HCXExpansionBridge.HCHoldIsInCombat(job.Hold)) { HCEnd(job, "carfix_combat", false); return; }
         if (job.Subject.m_HCCarClaimGroup != job.GroupId) { HCEnd(job, "carfix_claim_lost", false); return; }
         HCXAICarRepairConfig config = HCConfig();
         if (job.Phase == 0)
@@ -658,9 +667,9 @@ class HCXAICarRepair
         vector goal = job.Subject.GetPosition();
         job.Phase = 0;
         job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(HCXExpansionBridge.HCBaseGetPosition(leader), goal), config.WalkMetersPerSecond, config.WalkSlackSeconds);
-        HCXExpansionBridge.HCGroupClearWaypoints(job.Group);
-        HCXExpansionBridge.HCGroupAddWaypoint(job.Group, goal);
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(job.Group, eAIWaypointBehavior.ONCE);
+        HCXExpansionBridge.HCHoldClearWaypoints(job.Hold);
+        HCXExpansionBridge.HCHoldAddWaypoint(job.Hold, goal);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(job.Hold, eAIWaypointBehavior.ONCE);
     }
 
     // Custody and proximity revalidated before every commit: the carrier must be
@@ -669,7 +678,7 @@ class HCXAICarRepair
     protected static string HCCarrierGate(HCXAICarJob job, EntityAI item, eAIBase leader, float reachSq)
     {
         eAIBase carrier = eAIBase.Cast(item.GetHierarchyRootPlayer());
-        bool member = carrier && HCXExpansionBridge.HCBaseIsAlive(carrier) && HCXExpansionBridge.HCDayZPlayerImplementGetGroup(carrier) == job.Group;
+        bool member = carrier && HCXExpansionBridge.HCBaseIsAlive(carrier) && HCXExpansionBridge.HCHoldSame(job.Hold, HCXExpansionBridge.HCDayZPlayerImplementGetGroup(carrier));
         float workerSq = vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(leader), job.Subject.GetPosition());
         float carrierSq = reachSq + 1.0;
         if (carrier) { carrierSq = vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(carrier), job.Subject.GetPosition()); }
