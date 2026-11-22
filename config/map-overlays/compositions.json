@@ -17,8 +17,9 @@
       "layout_notes": "Road runs along z, with a seven metre central passage. Sheds face inward and the nest covers the +z arrival; wrecks remain on the shoulders.",
       "pieces": [
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -12.0,
+          "dy": 0.29,
           "dz": -6.0,
           "loot": "proto",
           "yaw": 90.0
@@ -26,6 +27,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 12.0,
+          "dy": 0.29,
           "dz": 8.0,
           "loot": "proto",
           "yaw": 180.0
@@ -96,6 +98,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -20.0,
+          "dy": -0.12,
           "dz": -7.0,
           "loot": "none",
           "yaw": 0
@@ -181,6 +184,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 27.0,
+          "dy": 0.19,
           "dz": 15.0,
           "loot": "proto",
           "yaw": 180.0
@@ -188,6 +192,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -13.0,
+          "dy": 0.29,
           "dz": 14.0,
           "loot": "proto",
           "yaw": 180.0
@@ -244,6 +249,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 20.0,
+          "dy": -0.12,
           "dz": 5.0,
           "loot": "none",
           "yaw": 0
@@ -251,6 +257,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 24.0,
+          "dy": -0.12,
           "dz": 7.0,
           "loot": "none",
           "yaw": 12.0
@@ -329,6 +336,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -13.0,
+          "dy": 0.29,
           "dz": 13.0,
           "loot": "proto",
           "yaw": 180.0
@@ -336,13 +344,15 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 20.0,
+          "dy": 0.19,
           "dz": -14.0,
           "loot": "proto",
           "yaw": 175.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -13.0,
+          "dy": 0.29,
           "dz": -10.0,
           "loot": "proto",
           "yaw": 90.0
@@ -406,6 +416,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 22.0,
+          "dy": -0.12,
           "dz": 7.0,
           "loot": "none",
           "yaw": 0
@@ -510,8 +521,9 @@
           "yaw": 90.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 8.5,
+          "dy": 0.29,
           "dz": 1,
           "loot": "proto",
           "yaw": -90.0
@@ -553,8 +565,8 @@
         },
         {
           "class": "StaticObj_Misc_Razorwire",
-          "dx": -10,
-          "dz": -5,
+          "dx": -10.8,
+          "dz": -5.0,
           "loot": "none",
           "yaw": 90.0
         },
@@ -566,8 +578,9 @@
           "yaw": 0.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -19,
+          "dy": 0.29,
           "dz": -18,
           "loot": "proto",
           "yaw": 90
@@ -616,8 +629,9 @@
           "yaw": 0.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 9,
+          "dy": 0.29,
           "dz": 3,
           "loot": "proto",
           "yaw": -90.0
@@ -673,14 +687,15 @@
         },
         {
           "class": "StaticObj_Misc_Razorwire",
-          "dx": -6,
-          "dz": 15,
+          "dx": -6.19,
+          "dz": 16.08,
           "loot": "none",
           "yaw": 0.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 21,
+          "dy": 0.29,
           "dz": -21,
           "loot": "proto",
           "yaw": 180
@@ -710,6 +725,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 15.0,
+          "dy": 0.19,
           "dz": -16.0,
           "loot": "proto",
           "yaw": 165.0
@@ -759,6 +775,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 24.0,
+          "dy": -0.12,
           "dz": 9.0,
           "loot": "none",
           "yaw": 33.0
@@ -997,8 +1014,9 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 13.0,
+          "dy": 0.29,
           "dz": 6.0,
           "loot": "proto",
           "yaw": -90.0
@@ -1006,6 +1024,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -12.0,
+          "dy": 0.29,
           "dz": 17.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1111,6 +1130,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -21.0,
+          "dy": -0.12,
           "dz": 7.0,
           "loot": "none",
           "yaw": 0
@@ -1175,6 +1195,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 16.0,
+          "dy": 0.29,
           "dz": 14.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1294,6 +1315,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 24.0,
+          "dy": -0.12,
           "dz": 4.0,
           "loot": "none",
           "yaw": 0
@@ -1343,105 +1365,106 @@
       "pieces": [
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -9,
+          "dx": -11.96,
           "dz": -10,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -3,
+          "dx": -5.46,
           "dz": -10,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 3,
+          "dx": 1.04,
           "dz": -10,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 9,
+          "dx": 7.54,
           "dz": -10,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -12,
-          "dz": -6,
+          "dx": -11.1,
+          "dz": -3.15,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -12,
-          "dz": 0,
+          "dx": -11.1,
+          "dz": 3.35,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -12,
-          "dz": 6,
+          "dx": -11.1,
+          "dz": 9.85,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 12,
-          "dz": -6,
+          "dx": 11.1,
+          "dz": -3.15,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 12,
-          "dz": 0,
+          "dx": 11.1,
+          "dz": 3.35,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 12,
-          "dz": 6,
+          "dx": 11.1,
+          "dz": 9.85,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": -8,
-          "dz": 10,
+          "dx": -10.46,
+          "dz": 12.3,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_HBarrier_6m",
-          "dx": 8,
-          "dz": 10,
+          "dx": 6.05,
+          "dz": 12.3,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "Land_Mil_GuardTower",
-          "dx": -8,
-          "dz": 6,
+          "dx": -13.25,
+          "dy": 0.47,
+          "dz": 6.0,
           "loot": "proto",
           "yaw": 0.0
         },
         {
           "class": "Land_Mil_Tent_Big2_2",
-          "dx": -3,
-          "dz": -4,
+          "dx": -4.5,
+          "dz": 5,
           "loot": "proto",
           "yaw": 0.0
         },
         {
           "class": "StaticObj_Mil_CamoNet_Side_east",
-          "dx": 6,
+          "dx": 0,
           "dz": -4,
           "loot": "none",
           "yaw": 0.0
@@ -1462,8 +1485,8 @@
         },
         {
           "class": "StaticObj_Misc_BagFence_3m",
-          "dx": -6,
-          "dz": 3,
+          "dx": -5.75,
+          "dz": 3.75,
           "loot": "none",
           "yaw": 90.0
         },
@@ -1476,22 +1499,22 @@
         },
         {
           "class": "Land_Roadblock_WoodenCrate",
-          "dx": 10,
-          "dz": -8,
+          "dx": 9.75,
+          "dz": -8.0,
           "loot": "none",
           "yaw": 0.0
         },
         {
           "class": "Land_Roadblock_WoodenCrate",
-          "dx": 10,
+          "dx": 9.5,
           "dz": -6.5,
           "loot": "none",
           "yaw": 90.0
         },
         {
           "class": "StaticObj_Tank_Small_Rusty",
-          "dx": -10,
-          "dz": -8,
+          "dx": -6.75,
+          "dz": -6.5,
           "loot": "none",
           "yaw": 0.0
         },
@@ -1539,8 +1562,9 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -13.0,
+          "dy": 0.29,
           "dz": 6.0,
           "loot": "proto",
           "yaw": 90.0
@@ -1548,6 +1572,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 28.0,
+          "dy": 0.19,
           "dz": 14.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1710,6 +1735,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 27.0,
+          "dy": 0.19,
           "dz": 16.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1717,6 +1743,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -24.0,
+          "dy": 0.29,
           "dz": 20.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1808,6 +1835,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 29.0,
+          "dy": -0.12,
           "dz": 3.0,
           "loot": "none",
           "yaw": 0
@@ -1872,13 +1900,15 @@
         {
           "class": "Land_Wreck_Lada_Green",
           "dx": 17.0,
+          "dy": 0.12,
           "dz": -9.0,
           "loot": "proto",
           "yaw": 170.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 10.0,
+          "dy": 0.29,
           "dz": 11.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2096,8 +2126,8 @@
         },
         {
           "class": "StaticObj_Misc_Razorwire",
-          "dx": -49.0,
-          "dz": 22.0,
+          "dx": -49.13,
+          "dz": 22.48,
           "loot": "none",
           "yaw": 90.0
         },
@@ -2305,6 +2335,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 0,
+          "dy": 0.29,
           "dz": 0,
           "loot": "proto",
           "yaw": 0.0
@@ -2373,8 +2404,9 @@
           "yaw": 90.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -19,
+          "dy": 0.29,
           "dz": -15,
           "loot": "proto",
           "yaw": 90
@@ -2404,6 +2436,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 12.0,
+          "dy": 0.29,
           "dz": 15.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2438,8 +2471,8 @@
         },
         {
           "class": "StaticObj_Misc_Table_Camp",
-          "dx": -14.0,
-          "dz": -2.0,
+          "dx": -14.04,
+          "dz": -2.03,
           "loot": "none",
           "yaw": 0
         },
@@ -2452,7 +2485,7 @@
         },
         {
           "class": "StaticObj_Misc_Chair_Camp1",
-          "dx": -14.0,
+          "dx": -13.6,
           "dz": 0.0,
           "loot": "none",
           "yaw": 180.0
@@ -2467,6 +2500,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -24.0,
+          "dy": -0.12,
           "dz": -3.0,
           "loot": "none",
           "yaw": 0
@@ -2559,6 +2593,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 19.0,
+          "dy": 0.19,
           "dz": -12.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2571,8 +2606,9 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -14.0,
+          "dy": 0.29,
           "dz": 12.0,
           "loot": "proto",
           "yaw": 90.0
@@ -2608,6 +2644,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -21.0,
+          "dy": -0.12,
           "dz": 5.0,
           "loot": "none",
           "yaw": 0
@@ -2721,6 +2758,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -14.0,
+          "dy": 0.29,
           "dz": 13.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2728,6 +2766,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 24.0,
+          "dy": 0.19,
           "dz": 17.0,
           "loot": "proto",
           "yaw": 25.0
@@ -2748,8 +2787,8 @@
         },
         {
           "class": "StaticObj_Misc_Razorwire",
-          "dx": -28.0,
-          "dz": 5.0,
+          "dx": -28.13,
+          "dz": 5.48,
           "loot": "none",
           "yaw": 90.0
         },
@@ -2826,6 +2865,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -22.0,
+          "dy": -0.12,
           "dz": -8.0,
           "loot": "none",
           "yaw": 0
@@ -2888,8 +2928,9 @@
           "yaw": -170.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -13.0,
+          "dy": 0.29,
           "dz": 8.0,
           "loot": "proto",
           "yaw": 90.0
@@ -2981,6 +3022,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 23.0,
+          "dy": -0.12,
           "dz": 2.0,
           "loot": "none",
           "yaw": 0
@@ -3022,8 +3064,9 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -12.0,
+          "dy": 0.29,
           "dz": 10.0,
           "loot": "proto",
           "yaw": 90.0
@@ -3177,8 +3220,9 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 13.0,
+          "dy": 0.29,
           "dz": 2.0,
           "loot": "proto",
           "yaw": -90.0
@@ -3186,6 +3230,7 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -12.0,
+          "dy": 0.29,
           "dz": 16.0,
           "loot": "proto",
           "yaw": 180.0
@@ -3256,6 +3301,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -20.0,
+          "dy": -0.12,
           "dz": 6.0,
           "loot": "none",
           "yaw": 0
@@ -3496,13 +3542,15 @@
         {
           "class": "Land_Mil_Fortified_Nest_Small",
           "dx": -10.0,
+          "dy": 0.29,
           "dz": 10.0,
           "loot": "proto",
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_GuardShed",
+          "class": "Land_Mil_Fortified_Nest_Small",
           "dx": 10.0,
+          "dy": 0.29,
           "dz": -4.0,
           "loot": "proto",
           "yaw": -90.0
@@ -3580,6 +3628,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 16.0,
+          "dy": -0.12,
           "dz": -6.0,
           "loot": "none",
           "yaw": 0
@@ -3637,6 +3686,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 23.0,
+          "dy": 0.19,
           "dz": 15.0,
           "loot": "proto",
           "yaw": 180.0
@@ -3672,6 +3722,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": -9.0,
+          "dy": -0.12,
           "dz": 11.0,
           "loot": "none",
           "yaw": -15.0
@@ -3693,6 +3744,7 @@
         {
           "class": "StaticObj_Furniture_metalcrate",
           "dx": 18.0,
+          "dy": -0.12,
           "dz": 21.0,
           "loot": "none",
           "yaw": 10.0

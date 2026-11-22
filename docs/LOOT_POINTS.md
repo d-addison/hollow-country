@@ -71,7 +71,7 @@ resolvable installed models, 127 with furniture proxies; only 104 yielded
 admissible new points. Blindly lifting floor coordinates, using optional props,
 or counting absent classes would not establish surface support. More coverage
 needs measured baked-in shelves, beds, window sills, loft beams and other actual
-surfaces. These remain deferred, as do per-point categories and point-specific
+surfaces. These are not done, as are per-point categories and point-specific
 fit dimensions. The fixed loader range/height (0.30/0.50 m) particularly needs
 native checking on narrow cupboard and locker tops.
 

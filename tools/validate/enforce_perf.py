@@ -37,7 +37,19 @@ operations and the method advances a field of its own class. StepCost follows st
 structure: sequential statements add, if/else takes the larger arm, an arm that always
 returns excludes the code after it, any loop that can reach file I/O is unbounded, a
 ReadFile counts only with a constant length <= STAGE_READ_BYTES, and a recursive call into
-I/O-reaching code is unbounded. The stage boundaries above cost one operation.
+I/O-reaching code is unbounded. The stage boundaries above cost one operation. An
+OpenFile into a local handle plus the first constant-length ReadFile of that handle (not
+repeated by a loop that excludes the open) is one file visit and costs one operation. A
+write to a declared field of a class-typed parameter (`job.Phase = 2;`) advances state like a
+field of the method's own class.
+Budget loops (budget_loops): a for/foreach/while whose head or first-statement
+`if (!b.HCContinue()) { return; }` guard tests an HCWorkBudget, or whose body hands an
+HCWorkBudget to a callee that tests `!p.HCContinue()` and returns before any file work
+(gated_budget_params), is bounded by that budget's unit cap and deadline: the P003 walk does
+not follow calls or count file operations inside it.
+Slow polls (slow_polls): a callback whose every CallLater/CallLaterByName repeats at a
+constant interval >= SLOW_POLL_MS, and whose StepCost is at most SLOW_POLL_OPS, is not a
+tick root; an unbounded or larger callback, or any faster scheduling, keeps it one.
 Exact-field dispatch (Model.concrete_type): a field whose initializer and every write
 (anywhere in its class lineage, never through a qualifier elsewhere) is `new T` or null
 with a single T dispatches only to T's lineage instead of every override of its declared
@@ -974,6 +986,10 @@ def raw_budget_calls(model, i):
 # Per-visit file operation budget of a staged step, and the byte ceiling of one read.
 STAGE_OPS = 1
 STAGE_READ_BYTES = 65536
+# A repeating CallLater at or above this constant interval, whose callback does at most
+# SLOW_POLL_OPS finite file operations, is a slow poll rather than a per-tick root.
+SLOW_POLL_MS = 5000
+SLOW_POLL_OPS = 4
 # Constant-trip loops that cannot make a startup pass "multi-file": per loop and per nest.
 TRIP_LOOP_CAP = 16
 TRIP_PRODUCT_CAP = 64
@@ -1118,7 +1134,7 @@ class StepCost:
     def __init__(self, model, edges, ios, boundary, skipped, io_reaching):
         self.model, self.edges, self.ios = model, edges, ios
         self.boundary, self.skipped, self.io_reaching = boundary, skipped, io_reaching
-        self.memo, self.parsed, self.seqmemo = {}, {}, {}
+        self.memo, self.parsed, self.seqmemo, self.pairs = {}, {}, {}, {}
         self.at = [{} for _ in model.nodes]
         for i, pairs in enumerate(edges):
             for offset, target in pairs:
@@ -1145,6 +1161,33 @@ class StepCost:
             self.memo[i] = cost
         return cost
 
+    def paired_reads(self, i):
+        """ReadFile offsets that complete a one-file visit started by a local OpenFile.
+
+        A local handle is assigned from OpenFile and the first later ReadFile on that handle
+        reads the file just opened; no loop may contain the read without also containing the
+        open, so a repeated read of one handle is never folded into the open. Such a pair is
+        one bounded file visit and costs one operation (the OpenFile)."""
+        if i not in self.pairs:
+            s, m = self.model.nodes[i]
+            spans = list(loops(s, m))
+            handles, found = {}, set()
+            for offset, name in self.ios[i]:
+                if name == 'OpenFile':
+                    head = re.search(rf'({_IDENT})\s*=\s*$', s.code[max(m.body_start, offset - 80):offset])
+                    if head and not self.model.field_of(m.owner.name if m.owner else '', head.group(1)):
+                        handles[head.group(1)] = offset
+                elif name == 'ReadFile' and handles:
+                    opening = s.code.find('(', offset)
+                    args = es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',')
+                    handle = args[0].strip() if args else ''
+                    opened = handles.get(handle)
+                    if opened is not None and not any(a <= offset < b and not a <= opened < b for a, b in spans):
+                        found.add(offset)
+                        del handles[handle]
+            self.pairs[i] = found
+        return self.pairs[i]
+
     def span(self, s, i, start, end, stack):
         cost = 0
         for offset, name in self.ios[i]:
@@ -1156,6 +1199,8 @@ class StepCost:
                     limit = self.model.const_int(args[2]) if len(args) >= 3 else None
                     if limit is None or limit > STAGE_READ_BYTES:
                         weight = UNBOUNDED
+                    elif offset in self.paired_reads(i):
+                        weight = 0
                 cost += weight
         for offset, targets in self.at[i].items():
             if start <= offset < end and self.live(i, offset):
@@ -1210,7 +1255,143 @@ def advances_state(model, i):
         if name not in local and model.field_of(m.owner.name, name) and not re.search(
                 rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{name}\s*[=;]', s.body(m)):
             return True
+    return writes_parameter_field(model, i)
+
+
+def writes_parameter_field(model, i):
+    """True when the method assigns a declared field of a class-typed parameter.
+
+    A static step keeps its cursor in the job object the caller owns; `job.Phase = 2;`
+    advances that state exactly as a write to a field of the method's own class does."""
+    s, m = model.nodes[i]
+    body = s.body(m)
+    for typ, name, _ in m.parameters():
+        if typ not in model.classes:
+            continue
+        for write in re.finditer(rf'(?<![\w.]){re.escape(name)}\s*\.\s*({_IDENT})\s*(?:=(?!=)|\+=|-=|\+\+)', body):
+            if model.field_of(typ, write.group(1)):
+                return True
     return False
+
+
+def _call_args(s, offset):
+    """Top-level argument expressions of the call that starts at offset."""
+    opening = s.code.find('(', offset)
+    return [a.strip() for a in es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',')]
+
+
+def gated_budget_params(model, edges, ios, io_reaching, i, memo, stack=()):
+    """Indexes of HCWorkBudget parameters that method i tests before any file work.
+
+    The method has a top-level `if (... !p.HCContinue() ...) { ... return ...; }` and no
+    file operation or I/O-reaching call precedes the end of that guard, except a call that
+    hands p on to a callee gating that parameter in the same way. Every I/O the method
+    does is then admitted by the budget p, whose unit cap and deadline bound the visit:
+    an exhausted or never-reset budget makes the method return before any file work."""
+    if i in memo:
+        return memo[i]
+    if i in stack:
+        return frozenset()
+    s, m = model.nodes[i]
+    code = s.code
+    budgets = [(k, name) for k, (typ, name, _) in enumerate(m.parameters()) if typ == 'HCWorkBudget']
+    gated = set()
+    for node in (_statements(s, m.body_start + 1, m.body_end) if budgets else ()):
+        if node[0] != 'if' or node[3] is not None or not _leaves(s, node[2]):
+            continue
+        tested = [(k, name) for k, name in budgets if re.search(
+            rf'!\s*{re.escape(name)}\s*\.\s*HCContinue\s*\(', code[node[1][0] + 1:node[1][1]])]
+        if not tested:
+            continue
+        pos = node[1][1] + 1
+        while code[pos].isspace():
+            pos += 1
+        end = es.matching_brace(code, pos) + 1 if code[pos] == '{' else code.find(';', pos) + 1
+        if any(offset < end for offset, _ in ios[i]):
+            continue
+        clean = True
+        for offset, target in edges[i]:
+            if offset >= end or target not in io_reaching:
+                continue
+            args = _call_args(s, offset)
+            handed = gated_budget_params(model, edges, ios, io_reaching, target, memo, stack + (i,))
+            if not any(q in handed and args[q] in {name for _, name in tested} for q in range(len(args))):
+                clean = False
+        if clean:
+            gated.update(k for k, _ in tested)
+    memo[i] = frozenset(gated)
+    return memo[i]
+
+
+def budget_loops(model, i, edges, ios, io_reaching, memo):
+    """Spans of loops in method i that a shared HCWorkBudget bounds on every visit.
+
+    The loop is a for/foreach/while that either tests HCContinue on an HCWorkBudget in its
+    head or in a first-statement `if (!recv.HCContinue()) { ... return; }` guard, or
+    whose body passes an HCWorkBudget to a callee that gates that parameter before any file
+    work (gated_budget_params). The budget's unit cap and millisecond deadline, not the
+    loop's own count, then bound the file work a visit does in the loop."""
+    s, m = model.nodes[i]
+    code = s.code
+    spans = []
+    for a, b in loops(s, m):
+        keyword = re.compile(r'(?:for|foreach|while)\s*\(').match(code, a)
+        if not keyword:
+            continue
+        opening = keyword.end() - 1
+        closing = es.matching_paren(code, opening)
+        first = _statement_at(s, closing + 1, b)[0]
+        if first and first[0] == 'block' and first[1]:
+            first = first[1][0]
+        tests = [(code[opening + 1:closing], r'(?<!!)(?<!!\s)')]
+        if first and first[0] == 'if' and _leaves(s, first[2]) and not first[3]:
+            tests.append((code[first[1][0] + 1:first[1][1]], r'!\s*'))
+        tested = any(model.type_of(re.sub(r'\s+', '', call.group(1)), model.envs[i]) == 'HCWorkBudget'
+                     for text, prefix in tests
+                     for call in re.finditer(rf'(?<![\w.]){prefix}({_CHAIN})\s*\.\s*HCContinue\s*\(', text))
+        handed = False
+        for offset, target in edges[i]:
+            if a <= offset < b and target in io_reaching:
+                gated = gated_budget_params(model, edges, ios, io_reaching, target, memo)
+                args = _call_args(s, offset)
+                handed = handed or any(q in gated and model.type_of(re.sub(r'\s+', '', arg), model.envs[i]) == 'HCWorkBudget'
+                                       for q, arg in enumerate(args))
+        if tested or handed:
+            spans.append((a, b))
+    return spans
+
+
+def slow_polls(model, cost):
+    """Callback methods that only ever run as a slow, bounded poll.
+
+    Every CallLater/CallLaterByName naming the method repeats at a constant interval of at
+    least SLOW_POLL_MS, and one call does at most SLOW_POLL_OPS file operations (a loop or
+    an unbounded read makes StepCost unbounded, so such a callback is never a slow poll)."""
+    verdict = {}
+    for i, (s, m) in enumerate(model.nodes):
+        for call in _CALL_LATER.finditer(s.code, m.body_start, m.body_end):
+            opening = s.code.find('(', call.start(), call.end())
+            arguments = es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',')
+            if call.group(1) == 'CallLater':
+                if not arguments or not arguments[0].strip():
+                    continue
+                targets, at = model.targets(i, arguments[0]), 1
+            else:
+                if len(arguments) < 2:
+                    continue
+                raw = es.split_top(s.text[opening + 1:es.matching_paren(s.code, opening)], ',')[1].strip().strip('"')
+                owner = re.sub(r'\s+', '', arguments[0])
+                typ = (m.owner.name if m.owner else '') if owner == 'this' else model.type_of(owner, model.envs[i])
+                targets = sorted({t for ancestor in model.lineage(typ) if typ
+                                  for t in model.index.get((ancestor, raw), [])}) if re.fullmatch(_IDENT, raw) else []
+                at = 2
+            slow = False
+            if len(arguments) > at + 1 and re.sub(r'\s+', '', arguments[at + 1]) == 'true':
+                interval = model.const_int(arguments[at])
+                slow = interval is not None and interval >= SLOW_POLL_MS
+            for target in targets:
+                verdict[target] = verdict.get(target, True) and slow
+    return {t for t, slow in verdict.items() if slow and cost.method(t) <= SLOW_POLL_OPS}
 
 
 def reaching(model, edges, ios, boundary):
@@ -1463,15 +1644,17 @@ def check(sources, root=ROOT):
     roots.extend(i for i in sorted(callback_roots(model, edges)) if i not in roots and not boundary(i))
     staged = set()
 
-    def walk(skipped, prune_staged=False, cut_stop=False, avoid=lambda i: False):
+    def walk(skipped, prune_staged=False, cut_stop=False, avoid=lambda i: False, budgeted=None, polls=()):
         """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only.
 
         With prune_staged, a staged step is neither a root nor entered by a call that runs
         at most once per visit (a call inside a loop still enters it). With cut_stop, calls
         into a lifecycle OnStop override are not followed (shutdown, not tick work). A
-        method for which avoid(i) holds is neither a root nor traversed."""
+        method for which avoid(i) holds is neither a root nor traversed. budgeted maps a
+        method to its HCWorkBudget loop spans: calls inside them are not followed. polls
+        are slow-poll callbacks, which are not roots (still traversed from other roots)."""
         queue = deque((i, (i,)) for i in roots
-                      if not (prune_staged and i in staged) and not avoid(i))
+                      if not (prune_staged and i in staged) and not avoid(i) and i not in polls)
         reached = {i: chain for i, chain in queue}
         while queue:
             i, chain = queue.popleft()
@@ -1480,6 +1663,8 @@ def check(sources, root=ROOT):
                 continue
             for offset, target in edges[i]:
                 if any(a <= offset < b for a, b in skipped.get(i, ())):
+                    continue
+                if budgeted and any(a <= offset < b for a, b in budgeted.get(i, ())):
                     continue
                 if prune_staged and target in staged and not any(a <= offset < b for a, b in loop_spans[i]):
                     continue
@@ -1540,9 +1725,11 @@ def check(sources, root=ROOT):
             tick_counts[key] = tick_counts.get(key, 0) + 1
             findings.append(Finding(rule, s.rel, s.line_of(offset), symbol(m),
                                     f'{operation}#{tick_counts[key]}', message))
-    for i, chain in walk(skipped, True, True).items():
+    gates = {}
+    sliced = {i: budget_loops(model, i, edges, ios, cost.io_reaching, gates) for i in range(len(model.nodes))}
+    for i, chain in walk(skipped, True, True, budgeted=sliced, polls=slow_polls(model, cost)).items():
         s, m = model.nodes[i]
-        live = lambda offset: not any(a <= offset < b for a, b in skipped.get(i, ()))
+        live = lambda offset: not any(a <= offset < b for a, b in list(skipped.get(i, ())) + sliced[i])
         counts = {}
         for offset, operation in ios[i]:
             if not live(offset):

@@ -60,7 +60,7 @@
     },
     "licensed_authenticated_rendered_client_pair": {
       "status": "unverified",
-      "evidence": "deferred_owner_2026-11-22: two licensed clients (AV-T017/AV-T018)"
+      "evidence": "in_scope_not_built: two licensed clients (AV-T017/AV-T018)"
     },
     "native_ce_accounting": {
       "status": "unverified",
@@ -80,7 +80,7 @@
     },
     "paired_rendered_audio_capture": {
       "status": "unverified",
-      "evidence": "deferred_owner_2026-11-22: rendered audio capture and judgement (AV-T019)"
+      "evidence": "in_scope_not_built: rendered audio capture and judgement (AV-T019)"
     },
     "pinned_inputs": {
       "status": "known",
@@ -100,7 +100,7 @@
     },
     "qualified_network_fault_driver": {
       "status": "unverified",
-      "evidence": "deferred_owner_2026-11-22: network fault adapter (AV-T018)"
+      "evidence": "in_scope_not_built: network fault adapter (AV-T018)"
     },
     "qualified_persistence_fault_driver": {
       "status": "unverified",
@@ -136,7 +136,7 @@
     },
     "separate_six_and_ninety_player_load": {
       "status": "unverified",
-      "evidence": "deferred_owner_2026-11-22: co-op-6 and public-90 load qualification (AV-T022)"
+      "evidence": "in_scope_not_built: co-op-6 and public-90 load qualification (AV-T022)"
     },
     "signed_package": {
       "status": "unverified",
@@ -148,7 +148,7 @@
     },
     "synchronized_client_capture": {
       "status": "unverified",
-      "evidence": "deferred_owner_2026-11-22: two licensed clients (AV-T017)"
+      "evidence": "in_scope_not_built: two licensed clients (AV-T017)"
     },
     "validated_policy_bounds": {
       "status": "unverified",

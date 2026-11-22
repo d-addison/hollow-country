@@ -71,7 +71,7 @@
     {
       "name": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED",
       "disposition": "pending",
-      "reason": "HCVisualSeasons remains the sole season-clock owner; HC-14 does not sample it because no supported CE child mutation is demonstrated. No second clock is added. Winter substitution awaits restart-bound integration and qualification."
+      "reason": "HCVisualSeasons remains the sole season-clock owner; no live CE child mutation is demonstrated, so the running server never changes CE children. Winter medic outfits are placed restart-bound by install --season (see seasonal_rebalance); no second clock is added."
     },
     {
       "name": "CE_RUNTIME_DISABLE_UNAVAILABLE",
@@ -907,7 +907,7 @@
     {
       "event": "InfectedMedic",
       "from": "ZmbF_ParamedicNormal_Blue",
-      "to": "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue",
+      "to": "HC_ZmbF_Sitter_ZmbF_ParamedicNormal_Blue",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -915,7 +915,7 @@
     {
       "event": "InfectedMedic",
       "from": "ZmbF_ParamedicNormal_Green",
-      "to": "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green",
+      "to": "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Green",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -923,7 +923,7 @@
     {
       "event": "InfectedMedic",
       "from": "ZmbF_PatientOld",
-      "to": "HC_ZmbF_Sitter_ZmbF_PatientOld",
+      "to": "HC_ZmbF_Crawler_ZmbF_PatientOld",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -931,7 +931,7 @@
     {
       "event": "InfectedMedic",
       "from": "ZmbM_DoctorFat",
-      "to": "HC_ZmbM_Sitter_ZmbM_DoctorFat",
+      "to": "HC_ZmbM_Riser_ZmbM_DoctorFat",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -939,7 +939,7 @@
     {
       "event": "InfectedMedic",
       "from": "ZmbM_NBC_Yellow",
-      "to": "HC_ZmbM_Riser_ZmbM_NBC_Yellow",
+      "to": "HC_ZmbM_Sitter_ZmbM_NBC_Yellow",
       "share": 1,
       "min_delta": 0,
       "max_delta": 0
@@ -2278,8 +2278,8 @@
     {
       "class": "ZmbF_NurseFat_Winter",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "disposition": "kept",
+      "reason": "restart_bound_seasonal_substitution; season=winter via install --season; LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED applies to live CE only; runtime_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
@@ -2349,8 +2349,8 @@
     {
       "class": "ZmbF_PatientOld_Winter",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "disposition": "kept",
+      "reason": "restart_bound_seasonal_substitution; season=winter via install --season; LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED applies to live CE only; runtime_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
@@ -3617,8 +3617,8 @@
     {
       "class": "ZmbM_DoctorFat_Winter",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "disposition": "kept",
+      "reason": "restart_bound_seasonal_substitution; season=winter via install --season; LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED applies to live CE only; runtime_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
@@ -4716,8 +4716,8 @@
     {
       "class": "ZmbM_PatientSkinny_Winter",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "disposition": "kept",
+      "reason": "restart_bound_seasonal_substitution; season=winter via install --season; LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED applies to live CE only; runtime_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
@@ -5056,8 +5056,8 @@
     {
       "class": "ZmbM_eastSoldier_normal_Navy",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "disposition": "kept",
+      "reason": "restart_bound_share_substitution; coastal tiers only (InfectedCityTier1, InfectedVillageTier1); runtime_PENDING",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
@@ -6348,15 +6348,63 @@
         "from": "ZmbM_PatrolNormal_PautRev",
         "to": "ZmbF_SoldierNormal",
         "share": 2
+      },
+      {
+        "event": "InfectedCityTier1",
+        "from": "ZmbM_SkaterYoung_Blue",
+        "to": "ZmbM_eastSoldier_normal_Navy",
+        "share": 2
+      },
+      {
+        "event": "InfectedVillageTier1",
+        "from": "ZmbM_JoggerSkinny_Red",
+        "to": "ZmbM_eastSoldier_normal_Navy",
+        "share": 2
       }
     ],
     "outside_mix_review": {
       "MotobikerFat_Blue": "one city share; stock public class and same model family",
       "ZmbF_SoldierNormal": "two normal army shares; stock public class",
-      "winter_medics": "deferred: no winter mission or restart-bound seasonal selector",
-      "male_navy_soldiers": "deferred: no navy-specific coastal event; do not widen heavy armour distribution"
+      "winter_medics": "placed restart-bound: seasonal_rebalance.winter moves 2 shares each from the matching non-winter outfit to the four stock winter medic outfits inside InfectedMedic (8/100); only when the install names winter",
+      "male_navy_soldiers": "placed in the coastal tiers only: 2 shares each in InfectedCityTier1 and InfectedVillageTier1 (2/100 per event) for the normal male navy class; the heavy navy classes stay excluded and no other event gains armour weight"
     },
     "runtime_acceptance": "PENDING"
+  },
+  "seasonal_rebalance": {
+    "issue": 316,
+    "selector": "restart_bound; tools.package.infected_variety install --season winter, or --season-profile reading the persisted HCVisualSeasons clock (phase 3); recorded in the receipt; a season change needs rollback then install",
+    "after": "palette_rebalance",
+    "basis": "each winter outfit replaces shares of its own non-winter stock outfit inside the stock medic event; weights are zero-sum, caps and loot values are donor-inherited, no class is zeroed",
+    "seasons": {
+      "winter": {
+        "transfers": [
+          {
+            "event": "InfectedMedic",
+            "from": "ZmbF_NurseFat",
+            "to": "ZmbF_NurseFat_Winter",
+            "share": 2
+          },
+          {
+            "event": "InfectedMedic",
+            "from": "ZmbF_PatientOld",
+            "to": "ZmbF_PatientOld_Winter",
+            "share": 2
+          },
+          {
+            "event": "InfectedMedic",
+            "from": "ZmbM_DoctorFat",
+            "to": "ZmbM_DoctorFat_Winter",
+            "share": 2
+          },
+          {
+            "event": "InfectedMedic",
+            "from": "ZmbM_PatientSkinny",
+            "to": "ZmbM_PatientSkinny_Winter",
+            "share": 2
+          }
+        ]
+      }
+    }
   },
   "accessories": {
     "schema_version": 1,
@@ -6476,10 +6524,10 @@
       "HC_ZmbM_Feeder_ZmbM_HandymanNormal_Beige": "ZmbM_HandymanNormal_Beige",
       "HC_ZmbF_Sleeper_ZmbF_DoctorSkinny": "ZmbF_DoctorSkinny",
       "HC_ZmbF_Feeder_ZmbF_NurseFat": "ZmbF_NurseFat",
-      "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Blue": "ZmbF_ParamedicNormal_Blue",
-      "HC_ZmbF_Crawler_ZmbF_ParamedicNormal_Green": "ZmbF_ParamedicNormal_Green",
-      "HC_ZmbF_Sitter_ZmbF_PatientOld": "ZmbF_PatientOld",
-      "HC_ZmbM_Sitter_ZmbM_DoctorFat": "ZmbM_DoctorFat",
+      "HC_ZmbF_Sitter_ZmbF_ParamedicNormal_Blue": "ZmbF_ParamedicNormal_Blue",
+      "HC_ZmbF_Riser_ZmbF_ParamedicNormal_Green": "ZmbF_ParamedicNormal_Green",
+      "HC_ZmbF_Crawler_ZmbF_PatientOld": "ZmbF_PatientOld",
+      "HC_ZmbM_Riser_ZmbM_DoctorFat": "ZmbM_DoctorFat",
       "HC_ZmbM_Sleeper_ZmbM_ParamedicNormal_Black": "ZmbM_ParamedicNormal_Black",
       "HC_ZmbM_Feeder_ZmbM_ParamedicNormal_Blue": "ZmbM_ParamedicNormal_Blue",
       "HC_ZmbM_Crawler_ZmbM_PatientSkinny": "ZmbM_PatientSkinny",

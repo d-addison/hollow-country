@@ -204,6 +204,7 @@ class HCInteriorResolveCursor
     protected ref array<ref RaycastRVResult> m_RayHits;
     // Classes whose single native resolve call measured >= HEAVY_MS this boot (bounded, never persisted).
     protected static ref array<string> s_HeavyClasses = new array<string>;
+    protected static ref array<string> s_InspectHeavy = new array<string>;
     protected ref HCInteriorResolveEntry m_Entry;
     protected ref HCInteriorResolvedBuilding m_Binding;
     protected int m_RayAttempts;
@@ -552,6 +553,27 @@ class HCInteriorResolveCursor
         vector orientation = candidate.GetOrientation();
         if (!HCInteriorRules.SaneVector(orientation, 360)) { return false; }
         return HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES);
+    }
+
+    // The slot inspect is the same indivisible sphere as the resolve query, so a building that is
+    // heavy for resolve (listed, or measured this boot) is heavy for inspect. A class whose one
+    // inspect call measures >= HEAVY_MS joins s_InspectHeavy; its remaining slots skip the native
+    // call (HCInteriorModule.InspectOwnedProp). The first measured call still pays once.
+    static bool HCInspectHeavy(string buildingClass)
+    {
+        if (HCRayHeavy(buildingClass)) { return true; }
+        if (s_HeavyClasses.Find(buildingClass) >= 0) { return true; }
+        return s_InspectHeavy.Find(buildingClass) >= 0;
+    }
+
+    static void HCNoteInspectCost(string buildingClass, int ticks)
+    {
+        if (ticks < HCHeavyTicks()) { return; }
+        HCModuleReadiness.HCUse("Interiors", "inspect_query_heavy");
+        if (s_InspectHeavy.Find(buildingClass) >= 0 || s_InspectHeavy.Count() >= HEAVY_CLASS_CAP) { return; }
+        s_InspectHeavy.Insert(buildingClass);
+        float heavyMs = ticks / HCWorkBudget.HCTicksPerMs();
+        Print("[HC Interiors] heavy inspect query skipped for later slots class=" + buildingClass + " ms=" + heavyMs.ToString());
     }
 
     // Raw TickCount units for HEAVY_MS, from the shared calibrated clock rate.

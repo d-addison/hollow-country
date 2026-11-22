@@ -79,6 +79,28 @@ class HCInteriorsModule : HCModule
         }
     }
 
+    // Heavy-building variant of InspectProp: no native query. The sphere at a slot inside a
+    // heavy building costs the building's proxy count (soak 176: one call 14.7 to 29 ms on
+    // Land_Tenement_Small), so it cannot be split or shrunk. Only the props this module created in
+    // this process are compared (m_Objects, bounded by MaxFurnishedProps); a foreign object at the
+    // slot is not seen here. Same decision codes as InspectProp via OrphanDecision.
+    int InspectOwnedProp(vector point, vector orientation, string type, out Object reusable)
+    {
+        reusable = null;
+        int matches;
+        bool exact = true;
+        foreach (Object owned : m_Objects)
+        {
+            if (!owned || vector.DistanceSq(owned.GetPosition(), point) >= 0.0625 || owned.GetType() != type) continue;
+            matches++;
+            reusable = owned;
+            if (HCInteriorRules.TransformKey(owned.GetPosition(), owned.GetOrientation()) != HCInteriorRules.TransformKey(point, orientation)) exact = false;
+        }
+        int decision = HCInteriorRules.OrphanDecision(true, matches, matches, exact);
+        if (decision != 1) reusable = null;
+        return decision;
+    }
+
     int InspectProp(vector point, vector orientation, string type, out Object reusable)
     {
         reusable = null;

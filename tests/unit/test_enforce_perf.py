@@ -767,3 +767,174 @@ class M
         text = (self.TEXT % ('ref Job m_Job = new QuietJob;', 'm_Job')).replace(
             'class M\n', 'class Elsewhere { ref Job m_Job; void Put() { m_Job = new FileJob; } }\nclass M\n')
         self.assertEqual([f.key for f in findings(text, 'HC-P009')], [])
+
+class PairedReadTests(unittest.TestCase):
+    """OpenFile plus the first bounded ReadFile on that local handle is one file visit."""
+    TEXT = '''
+class Job
+{
+    int m_Cursor;
+    ref array<string> m_Rows;
+    string Load(string path)
+    {
+        %s
+    }
+    void HCStep() { m_Cursor++; Load("$profile:a"); }
+}
+'''
+
+    def keys(self, body):
+        return [f.key for f in findings(self.TEXT % body, 'HC-P003')]
+
+    def test_open_then_bounded_read_of_one_handle_is_one_stage(self):
+        body = 'FileHandle h = OpenFile(path, FileMode.READ); string c; ReadFile(h, c, 1024); CloseFile(h); return c;'
+        self.assertEqual([], self.keys(body))
+
+    def test_second_read_of_the_handle_is_counted(self):
+        body = ('FileHandle h = OpenFile(path, FileMode.READ); string c; ReadFile(h, c, 1024); ReadFile(h, c, 1024); '
+                'CloseFile(h); return c;')
+        self.assertEqual(['OpenFile#1', 'ReadFile#1', 'ReadFile#2'], self.keys(body))
+
+    def test_read_of_a_handle_opened_outside_the_loop_is_counted(self):
+        body = ('FileHandle h = OpenFile(path, FileMode.READ); string c; '
+                'for (int i = 0; i < m_Rows.Count(); i++) { ReadFile(h, c, 1024); } CloseFile(h); return c;')
+        self.assertEqual(['OpenFile#1', 'ReadFile#1'], self.keys(body))
+
+    def test_unbounded_read_is_not_paired(self):
+        body = 'FileHandle h = OpenFile(path, FileMode.READ); string c; ReadFile(h, c, m_Cursor); CloseFile(h); return c;'
+        self.assertEqual(['OpenFile#1', 'ReadFile#1'], self.keys(body))
+
+    def test_read_of_a_field_handle_is_not_paired(self):
+        text = self.TEXT.replace('int m_Cursor;', 'int m_Cursor; FileHandle h;')
+        body = 'h = OpenFile(path, FileMode.READ); string c; ReadFile(h, c, 1024); return c;'
+        self.assertEqual(['OpenFile#1', 'ReadFile#1'], [f.key for f in findings(text % body, 'HC-P003')])
+
+
+class ParameterStateStepTests(unittest.TestCase):
+    """A static step that advances a field of its class-typed job parameter is a stage."""
+    TEXT = '''
+class JobState { int Phase; }
+class Reader
+{
+    static void Read() { FileExist("$profile:a"); }
+    static void HCStep(JobState job, int count) { %s Read(); }
+}
+'''
+
+    def keys(self, body):
+        return [f.key for f in findings(self.TEXT % body, 'HC-P003')]
+
+    def test_field_write_through_the_job_parameter_is_a_stage(self):
+        self.assertEqual([], self.keys('job.Phase = 2;'))
+        self.assertEqual([], self.keys('job.Phase++;'))
+
+    def test_step_without_a_state_write_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys(''))
+
+    def test_write_to_an_undeclared_member_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('job.Missing = 2;'))
+
+    def test_assignment_to_a_primitive_parameter_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('count = 2;'))
+
+
+class BudgetLoopTests(unittest.TestCase):
+    """File work inside a loop an HCWorkBudget bounds is the budget's slice, not an unbounded drain."""
+    TEXT = '''
+class HCWorkBudget { void HCReset(int limit, float ms = 4) {} bool HCContinue() { return true; } }
+class Gauge { bool HCContinue() { return true; } }
+class Unit
+{
+    bool Step(HCWorkBudget budget) { %s return true; }
+}
+class Pump
+{
+    ref HCWorkBudget m_Work = new HCWorkBudget;
+    ref Gauge m_Gauge = new Gauge;
+    ref Unit m_Unit = new Unit;
+    ref array<string> m_Rows;
+    int m_Skips;
+    void Read() { FileExist("$profile:a"); }
+    void HCStep() { m_Work.HCReset(4, 2); %s }
+}
+'''
+
+    def keys(self, loop, gate='if (!budget.HCContinue()) { return false; } FileExist("$profile:b");'):
+        return [f.key for f in findings(self.TEXT % (gate, loop), 'HC-P003')]
+
+    def test_loop_headed_by_the_budget_is_bounded(self):
+        self.assertEqual([], self.keys('while (m_Work.HCContinue()) { Read(); }', 'FileExist("$profile:b");'))
+        self.assertEqual([], self.keys('while (m_Skips < 9 && m_Work.HCContinue()) { Read(); FileExist("$profile:c"); }'))
+
+    def test_first_statement_guard_that_returns_bounds_the_loop(self):
+        self.assertEqual([], self.keys('for (int i = 0; i < m_Rows.Count(); i++) { if (!m_Work.HCContinue()) { return; } Read(); }'))
+
+    def test_guard_that_falls_through_does_not_bound_the_loop(self):
+        self.assertEqual(['FileExist#1'], self.keys(
+            'for (int i = 0; i < m_Rows.Count(); i++) { if (!m_Work.HCContinue()) { m_Skips++; } Read(); }'))
+
+    def test_loop_without_a_budget_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('for (int i = 0; i < m_Rows.Count(); i++) { Read(); }'))
+
+    def test_receiver_that_is_not_a_work_budget_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('while (m_Gauge.HCContinue()) { Read(); }'))
+
+    def test_negated_head_is_not_a_budget_loop(self):
+        self.assertEqual(['FileExist#1'], self.keys('while (!m_Work.HCContinue()) { Read(); }'))
+
+    def test_callee_that_gates_the_budget_before_file_work_bounds_the_loop(self):
+        self.assertEqual([], self.keys('for (int i = 0; i < 8; i++) { m_Unit.Step(m_Work); }'))
+
+    def test_callee_with_file_work_before_the_gate_stays_flagged(self):
+        late = 'FileExist("$profile:b"); if (!budget.HCContinue()) { return false; }'
+        self.assertIn('FileExist#1', self.keys('for (int i = 0; i < 8; i++) { m_Unit.Step(m_Work); }', late))
+
+    def test_callee_that_never_tests_the_budget_stays_flagged(self):
+        self.assertIn('FileExist#1', self.keys('for (int i = 0; i < 8; i++) { m_Unit.Step(m_Work); }', 'FileExist("$profile:b");'))
+
+    def test_budget_not_handed_to_the_callee_stays_flagged(self):
+        self.assertIn('FileExist#1', self.keys('for (int i = 0; i < 8; i++) { m_Unit.Step(null); }'))
+
+    def test_work_outside_the_budget_loop_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('while (m_Work.HCContinue()) { Read(); } FileExist("$profile:z");'))
+
+
+class SlowPollTests(unittest.TestCase):
+    """A repeating CallLater at a constant slow interval with a few finite file operations is no tick root."""
+    TEXT = '''
+class HCProbe
+{
+    ref array<string> m_Rows;
+    void Start() { %s }
+    void Other() { %s }
+    void Work() { FileExist("$profile:a"); %s }
+}
+'''
+    SLOW = 'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 30000, true);'
+
+    def keys(self, schedule, other='', body=''):
+        return [f.key for f in findings(self.TEXT % (schedule, other, body), 'HC-P003')]
+
+    def test_slow_constant_poll_is_not_a_root(self):
+        self.assertEqual([], self.keys(self.SLOW))
+        self.assertEqual([], self.keys('GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLaterByName(this, "Work", 30000, true);'))
+        self.assertEqual([], self.keys(f'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, {perf.SLOW_POLL_MS}, true);'))
+
+    def test_fast_poll_stays_a_root(self):
+        fast = f'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, {perf.SLOW_POLL_MS - 1}, true);'
+        self.assertEqual(['FileExist#1'], self.keys(fast))
+
+    def test_non_constant_interval_stays_a_root(self):
+        self.assertEqual(['FileExist#1'], self.keys('GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, m_Rows.Count(), true);'))
+
+    def test_any_fast_scheduling_keeps_the_root(self):
+        fast = 'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 50, true);'
+        self.assertEqual(['FileExist#1'], self.keys(self.SLOW, fast))
+
+    def test_slow_poll_with_unbounded_file_work_stays_a_root(self):
+        looped = 'for (int i = 0; i < m_Rows.Count(); i++) { FileExist("$profile:b"); }'
+        self.assertIn('FileExist#2', self.keys(self.SLOW, '', looped))
+
+    def test_slow_poll_with_more_operations_than_the_cap_stays_a_root(self):
+        many = 'FileExist("$profile:b"); ' * perf.SLOW_POLL_OPS
+        self.assertIn('FileExist#1', self.keys(self.SLOW, '', many))

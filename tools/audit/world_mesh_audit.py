@@ -26,6 +26,7 @@ POLICY = {
     'path_step_over_m': 0.20, 'path_sample_step_m': 0.10, 'stair_min_slope': 0.30,
 }
 GEOMETRY, VIEW_GEOMETRY, PATHS = 1e13, 6e15, 4e15
+COMPONENT = re.compile(r'component\d+', re.IGNORECASE)
 CLASS_CATALOG = 'config/map-overlays/classes.json'
 SHELTER_PROPS = ('StaticObj_Furniture_fireplace_grill', 'StaticObj_Misc_Chair_Camp1',
                  'StaticObj_Furniture_PaperBox_01_small_closed')
@@ -45,6 +46,11 @@ class Placement:
     scale: float = 1.
     host: str = ''
     terrain: bool = False
+    # Terrain height the row is meant to stand on (overlay site height, native row height);
+    # None for rows without a ground reference (interior slots, live-terrain shelter props).
+    ground_y: float = None
+    # True when the data attaches loot/actions to this object (overlay loot rows).
+    interactive: bool = False
 
 
 def read_json(path):
@@ -69,9 +75,15 @@ def discover(repo):
         if errors:
             raise ValueError('invalid overlay compositions')
         for layer in source.layers:
+            site_y = {site['id']: site['pos'][1] for site in layer.get('sites') or []
+                      if isinstance(site, dict) and 'id' in site and 'pos' in site}
             for item in map_overlay.expand_layer(source, layer):
+                # A composition piece stands on its site's terrain height; piece dy is the
+                # authored compensation that the contact check measures against it.
+                ground = site_y.get(item.get('site'), item['pos'][1])
                 rows.append(Placement('overlay:' + layer['id'], item['id'], item['class'],
-                                      tuple(item['pos']), (item['yaw'], 0., 0.)))
+                                      tuple(item['pos']), (item['yaw'], 0., 0.),
+                                      ground_y=float(ground), interactive=item.get('loot', 'none') != 'none'))
     template_dir = repo / 'mission/hollow-country/interiors/templates'
     for path in sorted(template_dir.glob('t-*.json')):
         doc = read_json(path)
@@ -94,7 +106,8 @@ def discover(repo):
             continue
         for index, item in enumerate(doc['Objects']):
             rows.append(Placement(path.relative_to(repo).as_posix(), str(index), item['name'],
-                                  tuple(item['pos']), tuple(item['ypr']), item.get('scale', 1.) or 1.))
+                                  tuple(item['pos']), tuple(item['ypr']), item.get('scale', 1.) or 1.,
+                                  ground_y=float(item['pos'][1])))
     identities = [(r.group, r.key) for r in rows]
     if len(set(identities)) != len(identities):
         raise ValueError('duplicate placement identity')
@@ -132,8 +145,115 @@ def placed_box(box, row):
 
 
 def overlaps(a, b):
+    """AABB overlap beyond the contact tolerance; only the fast pre-filter for the real test."""
     return all(min(a[1][i], b[1][i]) - max(a[0][i], b[0][i]) > POLICY['contact_epsilon_m']
                for i in range(3))
+
+
+def convex_parts(model, lod):
+    """Geometry LOD convex components as [(points, faces)] in the placement frame.
+
+    P3D Geometry components (named selections component00, component01, ...) are convex by
+    authoring rule, so each is one convex part: points carry the model's bounding-centre
+    restore like geometry(), faces index into points. Proxy marker faces are excluded. A
+    LOD without component selections is one part; for a non-convex mesh that part is its
+    convex hull, which can only over-report.
+    """
+    markers = {index for selection in lod.named_selections
+               if selection.name.lower().startswith('proxy:') for index in selection.faces}
+    center = model.bounding_center
+    selections = [s for s in sorted(lod.named_selections, key=lambda s: s.name) if COMPONENT.fullmatch(s.name)]
+    groups = [[i for i in s.faces if i not in markers] for s in selections]
+    if not any(groups):
+        groups = [[i for i in range(len(lod.faces)) if i not in markers]]
+    parts = []
+    for group in groups:
+        faces = [lod.faces[i] for i in group if len(lod.faces[i]) >= 3]
+        used = sorted({v for face in faces for v in face})
+        if not used:
+            continue
+        local = {v: n for n, v in enumerate(used)}
+        parts.append((tuple(tuple(lod.vertices[v][a] + center[a] for a in range(3)) for v in used),
+                      tuple(tuple(local[v] for v in face) for face in faces)))
+    return parts
+
+
+def place_parts(parts, row):
+    """The convex parts moved by the row's scale, orientation and position."""
+    return [(tuple(tuple(row.position[a] + rotate(tuple(v * row.scale for v in point),
+                                                  row.orientation)[a] for a in range(3))
+                   for point in points), faces) for points, faces in parts]
+
+
+def _unit(vector):
+    length = math.sqrt(dot(vector, vector))
+    return None if length < 1e-9 else tuple(c / length for c in vector)
+
+
+def _directions(points, faces):
+    """Distinct unit face normals and edge directions of one convex part (sign-free)."""
+    normals, edges = {}, {}
+
+    def keep(table, vector):
+        unit = _unit(vector)
+        if unit is None:
+            return
+        lead = next(c for c in unit if abs(c) > 1e-6)
+        unit = tuple(-c for c in unit) if lead < 0 else unit
+        table.setdefault(tuple(round(c, 4) for c in unit), unit)
+
+    for face in faces:
+        normal = (0., 0., 0.)
+        for i, index in enumerate(face):
+            a, b = points[index], points[face[(i + 1) % len(face)]]
+            normal = (normal[0] + (a[1] - b[1]) * (a[2] + b[2]), normal[1] + (a[2] - b[2]) * (a[0] + b[0]),
+                      normal[2] + (a[0] - b[0]) * (a[1] + b[1]))
+            keep(edges, subtract(b, a))
+        keep(normals, normal)
+    return list(normals.values()), list(edges.values())
+
+
+def part_penetration(a, b):
+    """Separating-axis test of two convex parts: penetration depth in metres along the
+    axis of least overlap, or the (non-positive or contact-sized) overlap of a separating
+    axis. Axes are the face normals of both parts and the cross products of their edge
+    directions, the complete set for convex polyhedra. Touching or sliding contact within
+    contact_epsilon_m is not an intersection.
+    """
+    normals_a, edges_a = _directions(*a)
+    normals_b, edges_b = _directions(*b)
+    axes = normals_a + normals_b
+    for ea in edges_a:
+        for eb in edges_b:
+            product = cross(ea, eb)  # unit edge directions: skip (near-)parallel pairs
+            if dot(product, product) > 1e-8:
+                axes.append(_unit(product))
+    depth = math.inf
+    for axis in axes:
+        low_a, high_a = (f(dot(axis, p) for p in a[0]) for f in (min, max))
+        low_b, high_b = (f(dot(axis, p) for p in b[0]) for f in (min, max))
+        depth = min(depth, min(high_a, high_b) - max(low_a, low_b))
+        if depth <= POLICY['contact_epsilon_m']:
+            return depth
+    return depth
+
+
+def parts_box(part):
+    return bounds(part[0])
+
+
+def pieces_penetration(parts_a, parts_b):
+    """Deepest component-pair penetration of two placed pieces; 0 when no pair crosses the tolerance."""
+    deepest = 0.
+    boxes_b = [parts_box(part) for part in parts_b]
+    for part_a in parts_a:
+        box_a = parts_box(part_a)
+        for part_b, box_b in zip(parts_b, boxes_b):
+            if overlaps(box_a, box_b):
+                depth = part_penetration(part_a, part_b)
+                if depth > POLICY['contact_epsilon_m']:
+                    deepest = max(deepest, depth)
+    return deepest
 
 
 def triangle_box(triangle, box):
@@ -311,9 +431,13 @@ class Installed:
             model = odol56.read_odol(pbo.read_member(archive, index, member))
         except odol56.OdolError:
             raise ValueError('ODOL model decode failed') from None
-        # Match existing reach/support tools: building raw vertices are already
-        # in the CE/model frame; standalone prop vertices restore bounding_center.
-        if host or classname.startswith('Land_'):
+        # Hosts (interior templates, shelter buildings) use the raw vertices: those are
+        # the CE/model frame the native floor points were matched against. Every placed
+        # standalone class, Land_ included, restores the bounding centre: an auto-centred
+        # model stores its vertices around that centre, and only the restored frame puts
+        # the visible bottom on the placement origin (a model with autocenter=0 has a zero
+        # centre, so the same rule leaves it unchanged).
+        if host:
             model.bounding_center = (0., 0., 0.)
         return model
 
@@ -328,6 +452,20 @@ def geometry(model):
     # from host-solid intersection tests.
     points = [tuple(v[a] + model.bounding_center[a] for a in range(3)) for v in lod.vertices]
     return bounds(points), triangles
+
+
+def contact_box(model):
+    """(bounds, source) of the shape that meets the ground: the nearest visual LOD vertices,
+    the Geometry LOD only for a model with no decoded visual vertices.
+
+    Geometry can reach below the visible mesh (collision skirts, buried foundations), so
+    its lowest point says nothing about a visible gap or a hidden base.
+    """
+    visual = [lod for lod in model.lods if 0 <= lod.resolution < 1000 and lod.vertices]
+    if visual:
+        lod = min(visual, key=lambda l: (l.resolution, l.index))
+        return bounds(tuple(v[a] + model.bounding_center[a] for a in range(3)) for v in lod.vertices), 'visual'
+    return geometry(model)[0], 'geometry'
 
 
 def doors(model):
@@ -365,8 +503,9 @@ def doors(model):
 
 def audit(rows, installed, catalog=()):
     """Audit placements; catalogue classes without placements only get measured bounds."""
-    findings, skips, metrics, hosts = [], [], [], []
+    findings, skips, metrics, hosts, models = [], [], [], [], []
     catalog_bounds = {}
+    contacts, parts, view_ok = {}, {}, {}
     class_rows = defaultdict(list)
     for row in rows:
         class_rows[row.classname].append(row)
@@ -374,6 +513,9 @@ def audit(rows, installed, catalog=()):
 
     def record(target, name, code, **detail):
         target.append(dict(classname=name, reason=code, **detail))
+
+    def fact(name, code, **detail):
+        models.append(dict(classname=name, fact=code, **detail))
 
     unplaced = sorted(set(catalog) - set(class_rows))
     for name in sorted(set(class_rows) | set(unplaced)):
@@ -402,18 +544,23 @@ def audit(rows, installed, catalog=()):
                 record(skips, name, 'GEOMETRY_LOD_EMPTY_OR_MISSING')
             else:
                 boxes[name] = box
+                parts[name] = convex_parts(model, lod_for(model, GEOMETRY))
+                contacts[name] = contact_box(model)
                 center = tuple((box[0][i]+box[1][i])/2 for i in range(3))
-                metric.update(geometry_bounds=box, geometry_center=center, lowest_y_m=box[0][1])
+                metric.update(geometry_bounds=box, geometry_center=center, lowest_y_m=box[0][1],
+                              components=len(parts[name]), contact_lowest_y_m=contacts[name][0][0][1],
+                              contact_source=contacts[name][1])
+                # Facts about the vanilla model, not defects: whether a placement depends on
+                # them is decided per placed row below (ground contact, interaction).
                 if math.dist(center, (0, 0, 0)) > POLICY['pivot_offset_m']:
-                    record(findings, name, 'PIVOT_OFFSET', center_m=center)
+                    fact(name, 'PIVOT_OFFSET', center_m=center)
                 if abs(box[0][1]) > POLICY['origin_y_tolerance_m']:
-                    record(findings, name, 'FLOATING_ORIGIN' if box[0][1] > 0 else 'SINKING_ORIGIN',
+                    fact(name, 'FLOATING_ORIGIN' if box[0][1] > 0 else 'SINKING_ORIGIN',
                            lowest_y_m=box[0][1])
-            # Conservative superset: every placed prop is checked, including
-            # classes whose action availability is decided by runtime scripts.
             view = lod_for(model, VIEW_GEOMETRY)
-            if view is None or not view.vertices or not view.faces:
-                record(findings, name, 'VIEW_GEOMETRY_EMPTY_OR_MISSING')
+            view_ok[name] = bool(view is not None and view.vertices and view.faces)
+            if not view_ok[name]:
+                fact(name, 'VIEW_GEOMETRY_EMPTY_OR_MISSING')
             visual = [lod for lod in model.lods if 0 <= lod.resolution < 1000]
             if not installed.visual_available:
                 record(skips, name, 'FULL_CLIENT_VISUALS_REQUIRED')
@@ -446,15 +593,37 @@ def audit(rows, installed, catalog=()):
         if row.terrain:
             record(skips, row.classname, 'LIVE_TERRAIN_AND_SHELTER_RETRIES_REQUIRED', group=row.group, key=row.key)
     for group, pieces in sorted(grouped.items()):
-        # Sweep along X: avoid comparing distant pieces of large authored layers.
-        active = []
+        # Sweep along X: avoid comparing distant pieces of large authored layers. The
+        # AABB overlap only selects candidates; the verdict is the convex-component test.
+        active, placed = [], {}
         for row, box in sorted(pieces, key=lambda p: (p[1][0][0], p[0].key)):
             active = [(other, bb) for other, bb in active if bb[1][0] > box[0][0]]
             for other, bb in active:
                 if overlaps(box, bb):
-                    record(findings, row.classname, 'PIECE_AABB_OVERLAP', group=group, key=row.key,
-                           other_class=other.classname, other_key=other.key)
+                    for item in (row, other):
+                        if item.key not in placed:
+                            placed[item.key] = place_parts(parts[item.classname], item)
+                    depth = pieces_penetration(placed[row.key], placed[other.key])
+                    if depth:
+                        record(findings, row.classname, 'PIECE_GEOMETRY_INTERSECTION', group=group, key=row.key,
+                               other_class=other.classname, other_key=other.key, penetration_m=round(depth, 3))
             active.append((row, box))
+    for row in rows:
+        # Ground contact and interaction are checked on what each placement does with the
+        # model facts, for rows that stand on terrain (not host-relative or live-terrain rows).
+        if row.classname not in contacts or row.ground_y is None or row.host or row.terrain:
+            continue
+        detail = dict(group=row.group, key=row.key)
+        offset = placed_box(contacts[row.classname][0], row)[0][1] - row.ground_y
+        tolerance = POLICY['origin_y_tolerance_m']
+        # A visible gap under any prop is a defect. A dug-in base is the vanilla convention
+        # (the model origin is the ground plane) unless the row carries loot or actions:
+        # their reachable surface must not be buried.
+        if offset > tolerance or (row.interactive and offset < -tolerance):
+            record(findings, row.classname, 'FLOATING_PLACEMENT' if offset > 0 else 'SINKING_PLACEMENT',
+                   offset_m=round(offset, 3), contact=contacts[row.classname][1], **detail)
+        if row.interactive and not view_ok[row.classname]:
+            record(findings, row.classname, 'INTERACTION_WITHOUT_VIEW_GEOMETRY', **detail)
     host_rows = defaultdict(list)
     for row in rows:
         if row.host:
@@ -503,6 +672,7 @@ def audit(rows, installed, catalog=()):
             if hit[False]:
                 record(findings, row.classname, 'PATH_LOD_INTERSECTION', segments=hit[False], **detail)
     result = report(rows, metrics, findings, skips)
+    result['models'] = sorted(models, key=lambda m: (m['classname'], m['fact']))
     result['hosts'] = sorted(hosts, key=lambda h: h['classname'])
     result['catalog_bounds'] = {n: catalog_bounds[n] for n in sorted(catalog_bounds)}
     return result
@@ -514,9 +684,10 @@ def report(rows, metrics=(), findings=(), skips=()):
             'placements': len(rows), 'findings': ordered(findings), 'skipped': ordered(skips),
             'classes': ordered(metrics), 'policy': POLICY, 'reader_revision': gen.READER_REVISION,
             'reader_sha256': gen.READER_HASHES, 'wiring_needed': WIRING,
-            'runtime_acceptance': 'pending', 'hosts': [], 'catalog_bounds': {},
-            'limitations': ['AABB overlap is a conservative review finding, not proven mesh clipping.',
-                            'Origin Y is model-relative; no terrain support or runtime grounding verdict.',
+            'runtime_acceptance': 'pending', 'hosts': [], 'models': [], 'catalog_bounds': {},
+            'limitations': ['Piece intersection is a separating-axis test of the Geometry LOD convex components with a 5 mm contact tolerance, not engine collision.',
+                            'Ground contact compares the lowest visible vertex with the site terrain height; slopes and live terrain are not modelled.',
+                            'Model facts (pivot, origin height, missing View Geometry) are informational; only placements that depend on them are findings.',
                             'Door leaf selection planes approximate the closed-door threshold.',
                             'All placed props receive the View Geometry check as an interaction superset.',
                             'Shelter slots inventory the base layout; live terrain and retry variants are skipped.',

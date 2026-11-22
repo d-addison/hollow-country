@@ -184,18 +184,21 @@ actual acceptance is recorded; an operational `ready` line does not replace it.
 - Installer rollback and path comparison still need server-platform checks
   ([#163](https://github.com/d-addison/hollow-country/issues/163)).
 
-## Owner decisions and deferred questions
+## Owner decisions and open questions
 
 Current decisions are 3–6 players, source/package work before client join,
 default-on features with opt-outs, native server boots plus at most one client
 for acceptance, and no invented runtime evidence. Claim
 expiry is implemented as 30 running-server days, renewed by member visits;
 camp respawn is enabled. Older 14-day expiry and larger-load assumptions are
-superseded.
+superseded. The autonomous-client validation spec (002) is not up for
+retirement: the owner decided on 2026-11-22 that it is built in full, including
+the two-client, network-fault, audio and load tasks (T017, T018, T019, T022).
+Those tasks are in scope and not yet built or run; the local native lane reports
+them NOTRUN (see [automation](tools/AUTOMATION.md)).
 
 Remaining choices: optics dependency; wipe/story
-pacing; whether to retire the autonomous-client validation spec; treatment of
-the remaining cold/wet overlay; and whether perceived-gunfire caution should
+pacing; treatment of the remaining cold/wet overlay; and whether perceived-gunfire caution should
 change. An Expansion M249 crash still needs a sanitised class/version/stack
 capture; any upstream public report requires separate authorisation. Private
 source work does not authorise public or Workshop publication.

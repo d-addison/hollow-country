@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from tools.release.acceptance_targets import load_targets
+from tools.validate import json_loader_caps
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / 'tools/validate/shared_settings.json'
@@ -28,7 +29,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
 
 
 def find_apply(source, key, target, decoded, text):
@@ -258,7 +259,7 @@ def check_search_limits(rows):
 
 def check_local_policy(rows):
     """W7 optional profile files: defaults, bounds and compiled metadata."""
-    prefixes = ('SignsOfLife.', 'LeatherTailoring.', 'Signals.')
+    prefixes = ('SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.')
     scoped = [r for r in rows if r['key'].startswith(prefixes)]
     registry = (ROOT / 'mods/HollowCountry/scripts/3_Game/gapcode_localpolicy_SettingsRegistry.c').read_text()
     compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
@@ -269,6 +270,7 @@ def check_local_policy(rows):
         'HCSignsConfig': ('Atmosphere/HCSignsOfLife.c', 'SignsOfLife.'),
         'HCAuditLeatherConfig': ('Crafting/auditleather_recipes.c', 'LeatherTailoring.'),
         'HCSignalConfig': ('Actions/HCActionAskForNews.c', 'Signals.'),
+        'HCMissionBeaconConfig': ('Events/HCMissionBeacon.c', 'Events.'),
     }
     for owner, (relative, prefix) in owners.items():
         source = (ROOT / 'mods/HollowCountry/scripts/4_World' / relative).read_text()
@@ -285,6 +287,24 @@ def check_local_policy(rows):
                 errors.append(f'{owner} missing-field guard differs for {key}')
             if row['type'] != 'bool' and f'HCOperatorSettingsRegistry.HCValid("{prefix}{key}",' not in dto:
                 errors.append(f'{owner} validation binding differs for {key}')
+    return errors
+
+
+def check_retired_settings(source, images, rules, fields):
+    """Retired top-level HCSettings keys: declared in HCApplyLegacy, ignored, never shipped.
+
+    `images` is [(label, parsed shipped/profile JSON)]; every shipped operator
+    profile is scanned for each declared retired key (top level or nested)."""
+    retired = set(re.findall(r'^        HCRetiredKey\(content, "(\w+)"\);', source, re.M))
+    errors = []
+    if retired and 'static void HCRetiredKey(string content, string key)' not in source:
+        errors.append('Retired settings keys are declared but HCRetiredKey is not defined')
+    for key in sorted(retired & (set(fields) | {k.split('.')[-1] for k in rules})):
+        errors.append(f'Retired settings key {key} must be ignored, not registered or decoded')
+    for label, image in images:
+        names = {k.split('.')[-1] for k in flatten(image)}
+        for key in sorted(retired & names):
+            errors.append(f'{label}: retired key {key} must not ship')
     return errors
 
 
@@ -419,7 +439,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_local_policy(rows))
     errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
     errors.extend(check_zone_guards([r for r in rows if r['key'].startswith('HCZoneGuards.')]))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
@@ -441,6 +461,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
         r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
     top_rules = {key: row for key, row in rules.items() if '.' not in key and row['type'] != 'object'}
+    errors.extend(check_retired_settings(source, images, rules, fields))
     for key in fields.keys() - top_rules.keys(): errors.append(f'Unregistered native field {key}')
     for key, row in top_rules.items():
         if fields.get(key) != (row['type'], row['default']):
@@ -545,6 +566,7 @@ def main():
         errors = check_consistency() + check_profile_mirrors()
         size_errors, warnings = check_profile_default_sizes()
         errors.extend(size_errors)
+        errors.extend(json_loader_caps.check()[0])
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]
     print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors, 'warnings': warnings,

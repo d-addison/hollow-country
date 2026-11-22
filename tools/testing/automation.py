@@ -22,7 +22,7 @@ import subprocess
 import sys
 import time
 
-from tools.testing import artifacts, discovery, drivers
+from tools.testing import artifacts, discovery, drivers, native_probe, native_server
 from tools.validate import evidence
 
 MAX_INPUT_BYTES = 1_048_576
@@ -41,9 +41,9 @@ ADAPTERS = {
     "runtime": "Offline configuration checks; run through tools.testing.drivers",
     "hygiene": "Offline repository checks; run through tools.testing.drivers",
 }
-# Owner decision 2026-11-22: two licensed clients, audio judgement and load qualification
-# are deferred. They stay traceable here as NOTRUN and are never claimed.
-DEFERRED_REASON = "deferred_owner_2026-11-22"
+# Owner 2026-11-22: spec 002 is fully in scope; these tasks are not built yet and stay NOTRUN,
+# never claimed.
+DEFERRED_REASON = "in_scope_not_built"
 DEFERRED_DRIVER = "deferred.task"
 DEFERRED_TASKS = {
     "AV-T017": "Distinct two-client barriers, observation and races",
@@ -650,8 +650,12 @@ LANE_RULES = (
     "and the caller names it with automation run --trust",
     "this report never launches DayZ, DayZDiag or Workbench and never reports PASS",
 )
-LANE_UNIMPLEMENTED = ("native adapters of AV-T007 and later (orchestration, faults, geometry/data, client access, "
+LANE_UNIMPLEMENTED = ("native adapters of AV-T009 and later (orchestration, faults, geometry/data, client access, "
                       "audio/perf) are not implemented; none is registered")
+
+# AV-T007 and AV-T008: the server and probe adapters register here, once, beside the base registry.
+for _adapter in (native_server.driver(), *native_probe.drivers_for()):
+    drivers.DRIVERS.setdefault(_adapter.id, _adapter)
 
 
 def hosted_ci(environ=None):

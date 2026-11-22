@@ -124,7 +124,7 @@ beam sub-classes) of vanilla and third-party base classes. The schema forbids ne
 rule's parent must be proven upstream, so no safe inheritance-only rule can be derived from those
 rows. The slot stays empty until a row names a top-level class whose parent and defining addon are
 verified from the installed config; the generator and the provider path are ready for it. This
-remainder is tracked as a deferred row in `docs/MODULE_STATUS.md` (compat addon section).
+remainder is tracked as an open row in `docs/MODULE_STATUS.md` (compat addon section).
 
 ## Compat stringtable
 
@@ -152,4 +152,4 @@ and are deliberately not provided here: shadowing vanilla text is not a compat f
 - The compile gate with the compat PBO(s) staged and a one-server boot have not been run for this
   change; the lead runs them. The sha comparison paths in release and friendcycle, and the gate's
   provider stack loading, are exercised offline only.
-- Nested `No entry` rows (see "No dependency rules yet") are deferred, not accepted.
+- Nested `No entry` rows (see "No dependency rules yet") are open, not accepted.
