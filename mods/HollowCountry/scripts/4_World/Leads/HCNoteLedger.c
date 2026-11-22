@@ -54,10 +54,24 @@ class HCNoteEntities
 
     static void Loaded(Paper paper)
     {
-        if (!paper || !paper.GetWrittenNoteData() || paper.GetWrittenNoteData().GetNoteText() == "") { return; }
+        if (!paper || paper.GetType() != "Paper" || !paper.GetWrittenNoteData() || paper.GetWrittenNoteData().GetNoteText() == "") { return; }
         if (!s_Loaded) { s_Loaded = new array<Paper>(); }
         if (s_Loaded.Count() >= 32) { return; }
         s_Loaded.Insert(paper);
+    }
+
+    // A lead note is an exact-type "Paper" that the ledger assigned, or one that
+    // still carries written text (vanilla 1.30 registers no write action, so only
+    // HC writes such a Paper; a writable-notes pack replaces the Paper instead).
+    // Never matches a Paper subclass, so a player note with identical text is not a lead.
+    static bool IsLead(Object object)
+    {
+        Paper paper = Paper.Cast(object);
+        if (!paper) { return false; }
+        if (paper.HCNoteId() != "") { return true; }
+        if (paper.GetType() != "Paper") { return false; }
+        WrittenNoteData data = paper.GetWrittenNoteData();
+        return data && data.GetNoteText() != "";
     }
 
     static array<Paper> TakeLoaded()
@@ -403,8 +417,30 @@ modded class Paper
     string HCNoteId() { return m_HCNoteId; }
     void HCAssignNote(string id)
     {
+        // Only the exact vanilla type can be a lead note; a pack subclass never is.
+        if (id != "" && GetType() != "Paper") { return; }
         m_HCNoteId = id;
         HCNoteEntities.Track(this);
+        if (id != "") { HCNotesCompat.LeadProtected("assigned"); }
+    }
+
+    // Lead notes are read-only on the server whatever a client or a writable-notes
+    // pack sends: the write/read note RPCs for such a Paper are dropped before any
+    // layer can change its text. Everything else passes through unchanged.
+    override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !GetGame().IsMultiplayer() || (rpc_type != ERPCs.RPC_WRITE_NOTE_CLIENT && rpc_type != ERPCs.RPC_WRITE_NOTE && rpc_type != ERPCs.RPC_READ_NOTE))
+        {
+            super.OnRPC(sender, rpc_type, ctx);
+            return;
+        }
+        if (HCNoteEntities.IsLead(this))
+        {
+            HCNotesCompat.LeadProtected("rpc");
+            return;
+        }
+        super.OnRPC(sender, rpc_type, ctx);
+        if (rpc_type == ERPCs.RPC_WRITE_NOTE_CLIENT) { HCNotesCompat.Written(); }
     }
 
     override void AfterStoreLoad()
@@ -426,6 +462,22 @@ modded class Paper
     }
 }
 
+// Writing needs a registered action (vanilla 1.30 has none; a writable-notes pack
+// adds one). The server re-runs this condition at action start, so a lead note is
+// never an accepted write target or write item.
+modded class ActionWritePaper
+{
+    override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+    {
+        if (HCNoteEntities.IsLead(item) || (target && HCNoteEntities.IsLead(target.GetObject())))
+        {
+            if (GetGame() && GetGame().IsServer()) { HCNotesCompat.LeadProtected("write_action"); }
+            return false;
+        }
+        return super.ActionCondition(player, target, item);
+    }
+}
+
 modded class ActionReadPaper
 {
     override void OnStartServer(ActionData action_data)
@@ -444,5 +496,9 @@ modded class ActionConstructor
     {
         super.RegisterActions(actions);
         if (actions.Find(ActionReadPaper) < 0) { actions.Insert(ActionReadPaper); }
+        // A writable-notes pack inserts the same two actions; duplicate entries would
+        // construct duplicate action instances (a double read credit). Keep one each.
+        HCNotesCompat.DedupeAction(actions, ActionReadPaper);
+        HCNotesCompat.DedupeAction(actions, ActionWritePaper);
     }
 }

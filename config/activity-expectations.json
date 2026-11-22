@@ -1260,6 +1260,60 @@
       "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
       "scope": "runtime",
       "note": "Aggregate nav_xai row: stuck-recovery ladder steps taken."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes-lead-protected",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NotesCompat feature=notes_lead_protected count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c",
+      "scope": "runtime",
+      "note": "Lead notes kept read-only with the writable-notes pack loaded (assigned, restored, or a write/crafting attempt refused). Module is enabled only when the pack is present."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes-written",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NotesCompat feature=notes_written count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c",
+      "scope": "runtime",
+      "note": "A player note write accepted by the server with the writable-notes pack loaded."
+    },
+    {
+      "module": "FoodCompat",
+      "feature": "food-compat-guard",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=FoodCompat feature=food_compat_guard count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c",
+      "scope": "runtime",
+      "note": "Pack food passed the 1.30 temperature-init contract guard. Module is enabled only when the food pack is present."
     }
   ]
 }
