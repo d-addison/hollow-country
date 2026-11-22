@@ -269,7 +269,7 @@ Players must subscribe to both **Expansion-Licensed** (2116157322) and
 load exactly this order:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@MoreFoodV2;@CookZ;@UncuepasCivilianClothing;@WindstridesClothingPack;@AdditionalMedicSupplies;@dzr_notes;@BuildingFortifications;@gebsfish;@TacticalFlava;@RaG_Core;@RaG_BaseBuilding;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```
 
 Do **not** add `@Expansion-Animations`: Expansion-AI brings its own AI animations.

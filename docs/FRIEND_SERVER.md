@@ -196,7 +196,7 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@MoreFoodV2;@CookZ;@UncuepasCivilianClothing;@WindstridesClothingPack;@AdditionalMedicSupplies;@dzr_notes;@BuildingFortifications;@gebsfish;@TacticalFlava;@RaG_Core;@RaG_BaseBuilding;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI
 ```
 
 ## Release notes (2026-11-19 persistence recovery)

@@ -62,8 +62,11 @@ ADDON_TITLE = 'Hollow Country Expansion AI (server)'
 DEPENDENCY_DESCRIPTION = (
     'Default dependencies, loaded on server and every client in order: Community Framework / CF, '
     'Community Online Tools / COT, Dabs Framework, Expansion-Core, Expansion-Licensed, Expansion-Vehicles, Expansion-AI, Expansion Navigation (GPS), '
-    'the two weapons packs, RaG_Core, RaG Immersive Vehicles, Ambient Animals Pack, '
+    'the two weapons packs, nine variety packs (food, cooking, two clothing packs, medical supplies, notes, '
+    'building fortifications, fishing), RaG_Core, RaG BaseBuilding, RaG Immersive Vehicles, Ambient Animals Pack, '
     '@HollowCountry, @HollowCountryExpansionAI. '
+    'The friend bundle start-server.bat carries the exact -mod order. '
+    'Survivor Animations and DayZ-Bicycle are retired. '
     'Expansion-Animations is intentionally not loaded; Expansion-AI brings its own AI animations. '
     'Subscribe through the Workshop required-items links; third-party content is never bundled or repacked. ')
 DESCRIPTION = (

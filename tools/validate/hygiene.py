@@ -293,6 +293,28 @@ def _markdown_links(text):
         yield number, target, None
 
 
+def _expected_mod_line(root):
+    """The full -mod line the friend bundle writes (every manifest group, rank order)."""
+    from tools.setup import workshop_sync as ws
+    manifest = ws.load_manifest(Path(root) / "tools" / "setup" / "workshop_mods.json")
+    lines = [line for line in ws.launch_lines(ws.select(manifest, ws.GROUPS)) if line.startswith("-mod=")]
+    return lines[0] if lines else None
+
+
+def stale_mod_lines(root, documents):
+    """(path, line) for every documented full -mod list that differs from workshop_mods.json."""
+    documented = []
+    for relative, text in documents.items():
+        for number, raw in enumerate(text.splitlines(), 1):
+            line = raw.strip().strip("`")
+            if line.startswith("-mod=@CF;"):
+                documented.append((relative, number, line))
+    if not documented:
+        return []
+    expected = _expected_mod_line(root)  # a documented list needs a readable manifest
+    return [(relative, number) for relative, number, line in documented if line != expected]
+
+
 def check_repository(root=ROOT):
     root = Path(root).absolute()
     errors, inventory, documents, inspected, aliases = [], [], {}, {}, {}
@@ -450,6 +472,11 @@ def check_repository(root=ROOT):
                     error("documentation_target", relative, line)
             except ValueError:
                 error("documentation_path", relative, line)
+    try:
+        for relative, line in stale_mod_lines(root, documents):
+            error("stale_mod_line", relative, line)
+    except Exception:  # an unreadable manifest is its own failure, never a silent pass
+        error("mod_manifest", "tools/setup/workshop_mods.json")
     return report()
 
 
