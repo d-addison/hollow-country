@@ -176,12 +176,11 @@ class HCModuleReadiness
             s_LegacyUses.Insert("InfectedMemory", "heat_recorded");
             s_LegacyUses.Insert("Infected", "actor_bound");
             s_LegacyUses.Insert("CellarSampler", "class_measured");
-            s_LegacyUses.Insert("Interiors", "prop_placed,search_completed");
+            s_LegacyUses.Insert("Interiors", "prop_placed");
             s_LegacyUses.Insert("BodyStories", "body_observed");
             s_LegacyUses.Insert("Leads", "lead_received");
             s_LegacyUses.Insert("Notes", "note_read");
             s_LegacyUses.Insert("Radio", "report_delivered");
-            s_LegacyUses.Insert("SearchBinding", "supply_bound");
             s_LegacyUses.Insert("LootRefresh", "timer_rearmed");
             s_LegacyUses.Insert("Melee", "hit_processed");
             s_LegacyUses.Insert("Polish", "hint_shown,sound_played");

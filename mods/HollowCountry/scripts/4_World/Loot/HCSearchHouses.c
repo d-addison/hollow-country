@@ -13,8 +13,7 @@
 //   ActionTarget: GetObject, GetParent, GetComponentIndex, GetCursorHitPos
 //   3_Game/Global/Game.c:1120 IsServer; GetTickTime
 // Whether the cursor on baked building geometry yields a usable ActionTarget is CAP-09 and
-// unobserved: if it does not, only placed props are searchable (the pilot path), and that is
-// the documented fallback. Runtime acceptance stays pending.
+// unobserved. Runtime acceptance stays pending.
 class HCSearchHouseHit
 {
     Object Structure;
@@ -159,8 +158,8 @@ class HCSearchHouses
         return building;
     }
 
-    // The pilot cabinets (HCInteriorCatalog.SearchType) also inherit House. The pilot sees
-    // them first, so they are never House targets.
+    // Furniture props (HCInteriorCatalog.SearchType) also inherit House; they are never
+    // House targets.
     static bool IsHouseTarget(ActionTarget target)
     {
         House building = HouseOf(target);
@@ -973,16 +972,10 @@ modded class HCActionSearchInterior
         if (HCSearchHouses.IsHouseTarget(action_data.m_Target)) action.HCActivityKind = "house";
         HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_attempts");
         HCSearchRefreshModule.HCRecordAttempt();
-        HCInteriorsModule module = HCInteriorsModule.Get();
-        bool depletedCabinet = module && action.HCActivityKind == "cabinet" && module.HCActivityCabinetEmpty(action_data);
         super.OnStartServer(action_data);
         action.HCActivityStarted = action.Site && action.Site.Owner == action_data;
         if (action.HCActivityStarted) HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_started");
-        else
-        {
-            HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_begin");
-            if (depletedCabinet) HCSearchHouses.HCActivity().Add("cabinet_empty");
-        }
+        else HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_begin");
     }
 
     override void OnFinishProgressServer(ActionData action_data)

@@ -1155,14 +1155,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCInteriorSearchSession",
-      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "line": 21,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCInteriorSourceLookup",
       "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
       "line": 2,
@@ -1667,14 +1659,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCSearchBindingReview",
-      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
-      "line": 13,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCSearchLimitsRegistry",
       "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
       "line": 9,
@@ -1718,14 +1702,6 @@
       "subject": "HCSearchPreviewSite",
       "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
       "line": 12,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCSearchRefreshPilotJournal",
-      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 1104,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -3728,6 +3704,30 @@
       "line": 17,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W003",
+      "subject": "SearchLimits.RetryAttempts",
+      "file": "tools/validate/shared_settings.json",
+      "line": 1,
+      "why": "Registered key has no resolved getter-key, member or owning-class field read",
+      "reason": "Reviewed (legacy interiors pilot retirement): the only consumer was the retired pilot supply-bind retry loop. The key stays registered so existing search-limits.json files keep validating; removing it needs a registry, README and operator-file follow-up."
+    },
+    {
+      "id": "W003",
+      "subject": "SearchLimits.RetryDelayMs",
+      "file": "tools/validate/shared_settings.json",
+      "line": 1,
+      "why": "Registered key has no resolved getter-key, member or owning-class field read",
+      "reason": "Reviewed (legacy interiors pilot retirement): the only consumer was the retired pilot supply-bind retry loop. The key stays registered so existing search-limits.json files keep validating; removing it needs a registry, README and operator-file follow-up."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchSupplyPlan",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
+      "line": 30,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type of HCSearchSupplyProvider; its only outside caller was the retired pilot binding. Reviewed, kept with the provider until the supply layer is retired."
     }
   ]
 }

@@ -114,9 +114,7 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    observation. Positive blend requires actual sun/elevation and excludes native
    underground. Stay conscious; keep menus closed long enough for a saved unseen
    contextual hint: **Polish/hint_shown**. Three-minute hint limiter can overlap.
-4. [ ] Find an actually furnished bound cabinet, empty hands -> hold **Search
-   storage** six seconds until **Search complete**: **Interiors/search_completed**.
-   Binding must already report **SearchBinding/supply_bound**. Pause -> Economy
+4. [ ] Pause -> Economy
    -> **loot**, wait next normal refresh tick: **LootRefresh/timer_rearmed**.
    At a supported roadside wreck, hold `Wrench` -> **Salvage wreck**, finish and
    inspect the created part: **WreckSalvage/part_created**. Decorative furniture,
@@ -401,7 +399,6 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:663`.
 - [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:812`.
 - [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c:121`.
-- [ ] `Interiors/search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c:693`.
 - [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433`.
 - [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176`.
 - [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.
@@ -420,7 +417,6 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `Progression/familiarity_gained` — `client_action`; `mods/HollowCountry/scripts/4_World/Progression/HCProgression.c:484`.
 - [ ] `Radio/report_delivered` — `admin_action`; `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:503`.
 - [ ] `Scenes/scene_placed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:590`.
-- [ ] `SearchBinding/supply_bound` — `server_soak`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:324`.
 - [ ] `SignsOfLife/flies_created` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:260`.
 - [ ] `SignsOfLife/light_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:258`.
 - [ ] `SignsOfLife/smoke_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:259`.

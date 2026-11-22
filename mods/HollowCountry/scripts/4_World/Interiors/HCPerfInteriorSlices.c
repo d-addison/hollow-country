@@ -39,7 +39,7 @@ modded class HCInteriorsModule
         int sliceStart = TickCount(0);
         HCPerfConfig config = HCPerfConfig.HCGet();
         m_PrepareBudget.HCReset(config.InteriorPackUnitsPerTick, HCPackSliceMs());
-        int stepLimit = HCInteriorTemplates.HCLoadStepLimit(m_Config);
+        int stepLimit = HCInteriorTemplates.HCLoadStepLimit();
         bool more = true;
         // Each load step spends at least one outer unit, so the unit cap ends this loop.
         while (more && m_PackLoading && !HCInteriorTemplates.HCLoadFinished())

@@ -267,19 +267,11 @@ stays zero. With the shipped base budgets, the effective caps are:
 | `MaxFurnishedProps` | 750 | 1500 | 2000 | 2000 |
 
 These are admission budgets, not promised observed locations. Existing authored
-catalog and pilot bounds still apply (currently five props per furnished house,
-1500 template props, and twelve legacy pilot candidates). Callers hard-cap the
-interior budgets at 5 props per house, 1500 template props and 12 pilot
-candidates, so a scale above 1 barely changes interiors; it mainly raises
-`MaxBoundSearchSites` and the active-house cap. A scale below 1 can lower
-`MaxActiveInteriors` under the pilot candidate count: the server then trims the
-legacy pilot to the lowest stable slots (deterministic order) and logs
-`[HC Interiors] density trimmed legacy pilot candidates kept=N dropped=M cap=C`
-instead of refusing the whole pilot. Choose the scale before the first boot that
-writes `interiors_s1_e<Epoch>/manifest.json`: a later change that alters the
-trimmed count no longer matches the saved layout, and the pilot is then
-refused with `legacy layout identity changed` (state is kept, nothing is
-deleted). The setting changes
+catalog bounds still apply (currently five props per furnished house and 1500
+template props). Callers hard-cap the interior budgets at 5 props per house and
+1500 template props, so a scale above 1 barely changes interiors; it mainly raises
+`MaxBoundSearchSites` and the active-house cap. The retired `interiors.json` pilot no
+longer takes part in these caps. The setting changes
 neither search yield nor CE inventory, and never creates replacement loot.
 Feature preferences and native clearance/provider gates remain authoritative.
 Runtime acceptance and performance at 3–6 players remain pending.
@@ -299,8 +291,7 @@ python3 -B -m tools.validate.runtime /path/to/profile/HollowCountry/settings.jso
 Startup prints one `[HC Settings] summary SchemaVersion=<version> nondefault_count=<count>`
 plus `[HC Settings] effective <key>=<value>` for each non-default scalar setting;
 Non-default density budgets show their scaled caps, and a non-default
-`SearchDensityScale` shows its resolved multiplier. The Interiors readiness reason distinguishes admitted
-templates from an admitted legacy pilot; admission still requires native testing.
+`SearchDensityScale` shows its resolved multiplier. The Interiors readiness reason reports the template pack state; admission still requires native testing.
 
 **Gunfire and AI caution.** This is deliberate: any audible shot within 80 m of
 an AI widens its caution range to 80 m for 10 s. A firefight nearby makes groups

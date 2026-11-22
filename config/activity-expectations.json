@@ -503,7 +503,7 @@
       "floor": 1,
       "window_minutes": 60,
       "needs_player": false,
-      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatePlacement.c",
       "note": "Build 117 newest RPT finishes 1500 template props about 43 minutes after first readiness; allow 60 minutes for bounded incremental placement. This is audit policy, not performance acceptance."
     },
     {
@@ -759,23 +759,6 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c",
-      "scope": "runtime"
-    },
-    {
-      "module": "SearchBinding",
-      "feature": "supply-bound",
-      "signal": {
-        "tag": "[HC Reached]",
-        "regex": "feature=search_binding\\.supply_bound first_s=(?P<first_s>\\d+(?:\\.\\d+)?)\\b",
-        "fields": [
-          "first_s"
-        ]
-      },
-      "comparison": "present",
-      "floor": 1,
-      "window_minutes": 30,
-      "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
       "scope": "runtime"
     },
     {

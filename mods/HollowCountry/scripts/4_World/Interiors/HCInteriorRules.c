@@ -132,9 +132,8 @@ class HCInteriorRules
         return false;
     }
 
-    // Placement and search ship default-on. BindSearchEconomy is called by
-    // HCSearchBinding; missing optional legacy pilot data does not disable the
-    // template house path. Native placement/transfer acceptance remains pending.
+    // Placement and search ship default-on through the template house path.
+    // Native placement/transfer acceptance remains pending.
     static bool PlacementOptIn()
     {
         return !FileExist("$profile:HollowCountry/acceptance/interior_placement.disable");
@@ -243,13 +242,6 @@ class HCActivityWindow
 
 modded class HCInteriorsModule
 {
-    bool HCActivityCabinetEmpty(ActionData data)
-    {
-        if (!data || !data.m_Target) return false;
-        HCInteriorSite site = FindSite(data.m_Target.GetObject());
-        return site && site.Phase == 2;
-    }
-
     override void OnStart(HCSettings settings)
     {
         HCInteriorRules.HCActivity();

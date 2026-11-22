@@ -28,8 +28,8 @@ class HCInteriorCatalog
     static const string BUILDING = "Land_House_1W01";
     static const int VERSION = 1;
 
-    // Native config classes verified; relative coordinates are UNMEASURED TRIALS.
-    // No claim of safe fit, cabinet selection or door clearance. Production gated.
+    // Native config classes verified; relative coordinates are UNMEASURED TRIALS used only by
+    // the DIAG storage probe and the offline measured-record tool. No claim of safe fit.
     static HCInteriorLayout Get(int index)
     {
         HCInteriorLayout layout = new HCInteriorLayout;
@@ -56,24 +56,6 @@ class HCInteriorCatalog
         }
         else return null;
         return layout;
-    }
-
-    // Measured selection is instance-bound. The authored Get() remains an
-    // explicitly unmeasured fixture/diagnostic source, never normal fallback.
-    static HCInteriorLayout GetFor(int index, HCInteriorCandidate candidate, bool allowUnmeasuredTrial = false)
-    {
-        HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
-        if (HCInteriorMeasuredCatalog.MeasuredRequested())
-        {
-            return HCInteriorMeasuredCatalog.MeasuredSelect(index, candidate);
-        }
-        #ifdef DIAG_DEVELOPER
-        if (allowUnmeasuredTrial)
-        {
-            return Get(index);
-        }
-        #endif
-        return null;
     }
 
     static bool SearchType(string type)
@@ -115,12 +97,6 @@ class HCInteriorConfig
     bool InitializeNewEpoch = false;
     // Explicit one-way journal migration only. Never rerolls layouts or allocations.
     bool MigrateLegacyJournal = false;
-    bool DiagnosticPlacementTrial = false;
-    bool DiagnosticSearchTrial = false;
-    // HC-24 provisional load steps per tick. Native missing ints deserialize as 0;
-    // the reader resolves 0 to DEFAULT_PACK_LOAD_STEPS (8), even without a pilot.
-    int TemplateLoadStepsPerTick = 8;
-    ref array<ref HCInteriorCandidate> Candidates = new array<ref HCInteriorCandidate>;
 }
 
 class HCInteriorAssignment

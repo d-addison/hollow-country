@@ -343,16 +343,6 @@
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; EnableInfectedVariety; available body/pose capacity; fallback dormant queue only at an eligible authored site."
     },
     {
-      "module": "Interiors",
-      "feature": "search_completed",
-      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c:693",
-      "trigger": "Bound interior search economy returns result=2; Search complete is shown.",
-      "exercise": "client_action",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], find a furnished, bound cabinet with empty hands. 2. Aim within action reach -> hold Search storage for six seconds. 3. Require Search complete and counter, not generic loose pickup.",
-      "est_minutes": 2,
-      "prerequisites": "EnableInteriors/Search; finite binding ready; compatible template/site, supply and output capacity; no decorative cabinet substitute."
-    },
-    {
       "module": "Leads",
       "feature": "lead_received",
       "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433",
@@ -528,16 +518,6 @@
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], use Map snapshot to identify nearby scene context. 2. Pause -> World & Events -> scene -> Run. 3. Move away from placement area and out of LOS normally. 4. Wait for placement completion and scene_placed.",
       "est_minutes": 3,
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; scenes/world/event economy, free scene lease/cap and reviewed site; all native placement checks retained."
-    },
-    {
-      "module": "SearchBinding",
-      "feature": "supply_bound",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:324",
-      "trigger": "Finite native supply BindSearchEconomy succeeds and transfers registry ownership.",
-      "exercise": "server_soak",
-      "steps": "1. Boot installed mission with finite search manifests. 2. Connect at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] and allow nearby normal binding/retry queues to settle. 3. Require supply_bound before cabinet exercise.",
-      "est_minutes": 3,
-      "prerequisites": "EnableSearch; valid supply provider/manifests/registry and uncorrupted journals. Missing inventory binding is a blocker; restart is not a repair for uncertain state."
     },
     {
       "module": "SignsOfLife",
