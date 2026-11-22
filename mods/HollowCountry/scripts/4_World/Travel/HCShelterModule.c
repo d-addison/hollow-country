@@ -61,9 +61,12 @@ class HCShelterModule : HCModule
     protected float m_RegionalSummarySeconds;
     protected ref map<string, int> m_RegionalRefusals = new map<string, int>;
     protected ref map<string, int> m_RegionalCandidateRefusals = new map<string, int>;
-    // Original 20 anchors first, then 15 interleaved anchors in the SAME yard.
-    // One transaction per budget grant; no widening of authored safety bounds.
-    static const int HC_REGIONAL_LAYOUTS = 35;
+    protected string m_RegionalFailedSites;
+    protected ref map<string, int> m_RegionalSideRefusals = new map<string, int>;
+    // Preserve all authored-side attempts before trying the other three sides.
+    // Each side retains the same finite yard envelope and per-grant substeps.
+    static const int HC_REGIONAL_LAYOUTS_PER_SIDE = 35;
+    static const int HC_REGIONAL_LAYOUTS = 140;
     protected ref HCShelterRegionalScene m_RegionalScene;
     // One retained regional transaction: resolve/layout, one prop substep, or one
     // pathgraph update per SHELTER admission. Publish the anchor only at end.
@@ -339,6 +342,8 @@ class HCShelterModule : HCModule
         m_RegionalSummarySeconds = 0;
         m_RegionalRefusals.Clear();
         m_RegionalCandidateRefusals.Clear();
+        m_RegionalSideRefusals.Clear();
+        m_RegionalFailedSites = "";
         m_RegionalCursor = 0;
         m_RegionalScene = null;
     }
@@ -583,6 +588,7 @@ class HCShelterModule : HCModule
 
     protected vector HCRegionalShift(int variant)
     {
+        variant = variant % HC_REGIONAL_LAYOUTS_PER_SIDE;
         int row = variant / 5;
         int lateral = variant % 5;
         float outward = 3 * row;
@@ -603,6 +609,49 @@ class HCShelterModule : HCModule
         if (lateral == 3) { shiftZ = farShift; }
         if (lateral == 4) { shiftZ = -farShift; }
         return Vector(-outward, 0, shiftZ);
+    }
+
+    // Side 0=-X (authored), 1=+X, 2=-Z, 3=+Z. Rotate the
+    // slot pattern and preserve its distance from the measured building edge,
+    // rather than rotating a rectangular building's X edge into its Z edge.
+    protected vector HCRegionalRotate(vector point, int side)
+    {
+        if (side == 1) { return Vector(-point[0], point[1], -point[2]); }
+        if (side == 2) { return Vector(-point[2], point[1], point[0]); }
+        if (side == 3) { return Vector(point[2], point[1], -point[0]); }
+        return point;
+    }
+
+    protected vector HCRegionalSidePoint(HCShelterRegionalScene scene, vector point, int variant)
+    {
+        int side = variant / HC_REGIONAL_LAYOUTS_PER_SIDE;
+        if (side == 0) { return point; }
+        vector low = HCInteriorTemplates.AsVector(scene.ClipMin);
+        vector high = HCInteriorTemplates.AsVector(scene.ClipMax);
+        vector center = (low + high) * 0.5;
+        vector relative = Vector(point[0] - low[0], point[1], point[2] - center[2]);
+        vector rotated = HCRegionalRotate(relative, side);
+        if (side == 1) { return rotated + Vector(high[0], 0, center[2]); }
+        if (side == 2) { return rotated + Vector(center[0], 0, low[2]); }
+        return rotated + Vector(center[0], 0, high[2]);
+    }
+
+    // A quarter turn/mirror reverses some corner coordinates. Reorder both
+    // opposite corners before passing the axis-aligned box to SlotClear.
+    protected void HCRegionalBox(HCInteriorTemplateBox box, vector first, vector second)
+    {
+        vector low = first;
+        vector high = second;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            if (first[axis] > second[axis])
+            {
+                low[axis] = second[axis];
+                high[axis] = first[axis];
+            }
+        }
+        box.Min = Coordinates(low);
+        box.Max = Coordinates(high);
     }
 
     // SlotClear deliberately receives only the authored exterior yard and its
@@ -1006,6 +1055,12 @@ class HCShelterModule : HCModule
         string line = "[HC Shelters] regional_summary placed=" + m_RegionalPlaced.ToString() + " refused=" + m_RegionalFailed.ToString() + " pending=" + m_RegionalRemaining.ToString();
         line += " retry=nearby retry_count=" + m_RegionalNearbyRetries.ToString();
         line += " layouts_per_site=" + HC_REGIONAL_LAYOUTS.ToString() + " refused_by_reason=" + refusedReasons + " candidate_refused_by_reason=" + candidateReasons;
+        string sideReasons = "";
+        foreach (string sideKey, int sideCount : m_RegionalSideRefusals)
+        {
+            sideReasons += sideKey + ":" + sideCount.ToString() + ",";
+        }
+        line += " candidate_refused_by_side=" + sideReasons;
         string statusLine = line + " runtime=PENDING";
         // First receipt, changed content, or one unchanged heartbeat per 30 minutes.
         float statusNow = GetGame().GetTickTime();
@@ -1013,6 +1068,7 @@ class HCShelterModule : HCModule
         {
             Print("" + "[HC Pathgraph] domain=shelters marked=" + m_PathgraphMarked.ToString() + " regions=" + m_PathgraphRegions.ToString() + " skipped_no_geom=" + m_PathgraphSkipped.ToString());
             Print("" + statusLine);
+            if (m_RegionalFailed > 0) { Print("[HC Shelters] degraded reason=regional_scene_placement_failed sites=" + m_RegionalFailedSites); }
             m_StatusLogLine = statusLine;
             m_StatusLogAt = statusNow;
         }
@@ -1021,6 +1077,8 @@ class HCShelterModule : HCModule
     protected void HCRegionalRefuse(HCShelterEntry entry, string reason)
     {
         m_RegionalFailed++;
+        if (m_RegionalFailedSites != "") { m_RegionalFailedSites += ","; }
+        m_RegionalFailedSites += entry.Scene.Id;
         m_RegionalRemaining--;
         m_RegionalRefusals.Set(reason, m_RegionalRefusals.Get(reason) + 1);
         Print("[HC Shelters] regional_refused=" + entry.Scene.Id + " reason=" + reason + " variant=" + entry.PlacementVariant.ToString() + " rise=" + m_GroundRise.ToString() + " rise_limit=0.25 runtime=PENDING");
@@ -1063,6 +1121,9 @@ class HCShelterModule : HCModule
             return;
         }
         m_RegionalCandidateRefusals.Set(m_RefusalReason, m_RegionalCandidateRefusals.Get(m_RefusalReason) + 1);
+        int refusedSide = entry.PlacementVariant / HC_REGIONAL_LAYOUTS_PER_SIDE;
+        string sideKey = refusedSide.ToString();
+        m_RegionalSideRefusals.Set(sideKey, m_RegionalSideRefusals.Get(sideKey) + 1);
         bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water" || m_RefusalReason == "keepout";
         if (retryable && entry.PlacementVariant + 1 < HC_REGIONAL_LAYOUTS)
         {
@@ -1137,8 +1198,12 @@ class HCShelterModule : HCModule
             HCInteriorTemplate layout = new HCInteriorTemplate;
             HCInteriorTemplateRoom yard = new HCInteriorTemplateRoom;
             yard.Id = 1;
-            yard.Min = scene.YardMin;
-            yard.Max = scene.YardMax;
+            HCInteriorTemplateBox yardBox = new HCInteriorTemplateBox;
+            vector yardFirst = HCRegionalSidePoint(scene, HCInteriorTemplates.AsVector(scene.YardMin), entry.PlacementVariant);
+            vector yardSecond = HCRegionalSidePoint(scene, HCInteriorTemplates.AsVector(scene.YardMax), entry.PlacementVariant);
+            HCRegionalBox(yardBox, yardFirst, yardSecond);
+            yard.Min = yardBox.Min;
+            yard.Max = yardBox.Max;
             layout.Rooms.Insert(yard);
             vector accessMinimum = HCInteriorTemplates.AsVector(scene.AccessMin);
             vector accessMaximum = HCInteriorTemplates.AsVector(scene.AccessMax);
@@ -1180,6 +1245,8 @@ class HCShelterModule : HCModule
         foreach (Object regionalProp : m_RegionalBatch) { m_Objects.Insert(regionalProp); }
         entry.PlacementAnchor = m_RegionalBatch.Get(0);
         entry.Placed = true;
+        int placedSide = entry.PlacementVariant / HC_REGIONAL_LAYOUTS_PER_SIDE;
+        Print("[HC Shelters] regional_placed=" + entry.Scene.Id + " variant=" + entry.PlacementVariant.ToString() + " side=" + placedSide.ToString() + " runtime=PENDING");
         HCModuleReadiness.HCUse("Shelters", "shelter_placed");
         m_Placed = m_Placed + 1;
         m_RegionalPlaced++;
@@ -1220,7 +1287,8 @@ class HCShelterModule : HCModule
             m_CollisionCount = 0;
             m_GroundRise = 0;
             m_RefusalReason = "";
-            vector offset = HCInteriorTemplates.AsVector(entry.Scene.Slots[propSlot]) + HCRegionalShift(entry.PlacementVariant);
+            vector authoredOffset = HCInteriorTemplates.AsVector(entry.Scene.Slots[propSlot]) + HCRegionalShift(entry.PlacementVariant);
+            vector offset = HCRegionalSidePoint(entry.Scene, authoredOffset, entry.PlacementVariant);
             m_RegionalPoint = m_RegionalHouse.ModelToWorld(offset);
             m_RegionalPoint[1] = GetGame().SurfaceY(m_RegionalPoint[0], m_RegionalPoint[2]);
             m_RefusalPoint = m_RegionalPoint;
@@ -1295,7 +1363,12 @@ class HCShelterModule : HCModule
         if (m_RegionalPropStep == HCShelterPropStage.ORIENT)
         {
             m_StepKind = "orient";
-            m_RegionalProp.SetOrientation(m_RegionalHouse.GetOrientation());
+            vector orientation = m_RegionalHouse.GetOrientation();
+            int side = entry.PlacementVariant / HC_REGIONAL_LAYOUTS_PER_SIDE;
+            if (side == 1) { orientation[0] = orientation[0] + 180; }
+            if (side == 2) { orientation[0] = orientation[0] - 90; }
+            if (side == 3) { orientation[0] = orientation[0] + 90; }
+            m_RegionalProp.SetOrientation(orientation);
             m_RegionalPropStep = HCShelterPropStage.SPAWN_SNAP;
             return;
         }
@@ -1374,8 +1447,10 @@ class HCShelterModule : HCModule
             slot.Orientation = Coordinates("0 0 0");
             slot.Bounds = new HCInteriorTemplateBox;
             vector localPoint = HCInteriorTemplates.AsVector(slot.Position);
-            slot.Bounds.Min = Coordinates(localPoint + m_RegionalMin);
-            slot.Bounds.Max = Coordinates(localPoint + m_RegionalMax);
+            int boundsSide = entry.PlacementVariant / HC_REGIONAL_LAYOUTS_PER_SIDE;
+            vector firstCorner = localPoint + HCRegionalRotate(m_RegionalMin, boundsSide);
+            vector secondCorner = localPoint + HCRegionalRotate(m_RegionalMax, boundsSide);
+            HCRegionalBox(slot.Bounds, firstCorner, secondCorner);
             if (!HCInteriorTemplates.SlotClear(m_RegionalLayout, slot))
             {
                 m_KeepoutCheck = HCRegionalKeepoutCheck(m_RegionalLayout, slot);

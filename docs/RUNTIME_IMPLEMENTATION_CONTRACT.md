@@ -179,3 +179,40 @@ admission. Modern rows retain normal validity and geometry review. Settlement de
 logs a town only when changed, and one receipt per completed cursor pass with towns,
 changed and saved. Saved counts completed routine checkpoints since the prior pass;
 a newly dirty row can be checkpointed during the next pass. HC Use is unchanged.
+
+### Regional shelter side fallback (build 167 follow-up; implemented-unverified)
+
+`HCShelterModule.HCRegionalShift` retains the original 35 nearby layouts on the
+authored −X side, then tries the same pattern on +X, −Z and +Z (`side=0..3`).
+The fixed total is 140 layouts per site (`layouts_per_site=140`). The transformed
+slots and yard preserve distance from each measured clipping edge; Z-end layouts
+rotate the slot offsets and prop orientation by a quarter turn. Prop bounds are
+rotated back into the building frame for the yard/access test. The original full
+roof plus access box stays fixed on every side. All observer, occupied, collision,
+ground support, water and four-corner terrain checks remain authoritative, including
+the 0.25 m maximum footprint rise. Each retained substep and rollback deletion still
+requires its existing SHELTER admission; no loop attempts multiple variants in one
+grant. Observation defers the current variant without consuming it.
+
+A successful transaction emits `regional_placed=<id> variant=<n> side=<n>`.
+`regional_summary` retains its existing keys and adds `candidate_refused_by_side`
+(counts by side number). Exhaustion still emits `regional_refused`; any terminal
+site failure still degrades the module. The bounded summary also prints
+`[HC Shelters] degraded reason=regional_scene_placement_failed sites=<ids>`.
+There is no engine evidence that the four build-167 failures are unplaceable on
+all sides, nor evidence supporting a one/two-site readiness waiver.
+
+The AdditionalScenes generator is `tools/audit/gapcov_habitats.py`. It has stock
+building positions and measured class envelopes, but no site terrain/occupancy
+samples from which to choose a flatter side. Its data is unchanged: the runtime
+derives all four candidate yards from those envelopes and validates each on site.
+No offline terrain or allowed-side acceptance is inferred.
+
+Regional props use `ECE_NOPERSISTENCY_WORLD` (installed CentralEconomy contract:
+“do not save this object in world”). Placement state is in-memory only, reset at
+startup, and owned props are deleted on stop. Earlier-build regional props use the
+same flags: upgrade reconstructs the scenes fresh, with no stored placement to
+migrate or duplicate. Rollback removes partial candidates before another variant.
+Native compile-to-Mission, retail placement receipts (especially Bor, Nagornoye,
+Orlovets and Tisy military), one-client access/rain checks and restart verification
+remain pending with the lead. Offline validation does not establish placement.
