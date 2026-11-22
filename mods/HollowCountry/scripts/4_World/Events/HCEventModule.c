@@ -51,6 +51,7 @@ class HCEventModule : HCModule
     protected int m_RosterBlockedAnnounce;
     protected int m_RosterRefreshes;
     protected int m_RosterAdmitted;
+    protected int m_RosterSummarySeq;
     protected ref HCEventMission m_Announcing;
     protected int m_AnnouncingSlot;
     protected bool m_AnnouncingPolice;
@@ -356,6 +357,7 @@ class HCEventModule : HCModule
         m_RosterBlockedAnnounce = 0;
         m_RosterRefreshes = 0;
         m_RosterAdmitted = 0;
+        m_RosterSummarySeq = 0;
         m_BindContinuing = false;
         m_StartupSweep = true;
         m_PoliceRetryReady = false;
@@ -446,6 +448,7 @@ class HCEventModule : HCModule
             // A retained journal gets this tick to itself. Transport can revoke
             // peers next tick, still before any new objective observations.
             bool journalTick = m_Runtime.HCPublishPending();
+            bool journalAtStart = m_Runtime.HCJournalPending();
             if (m_EventRPC && !journalTick)
             {
                 int transportStarted = TickCount(0);
@@ -466,7 +469,10 @@ class HCEventModule : HCModule
             }
             if (journalTick || m_Runtime.HCJournalPending())
             {
-                m_RosterBlockedPublish = m_RosterBlockedPublish + 1;
+                // blocked_publish_pending counts only ticks with an unpublished journal image; a
+                // retained announce stage without one is blocked_announce.
+                if (journalAtStart || m_Runtime.HCJournalPending()) { m_RosterBlockedPublish = m_RosterBlockedPublish + 1; }
+                else { m_RosterBlockedAnnounce = m_RosterBlockedAnnounce + 1; }
                 return;
             }
             if (m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned())
@@ -492,7 +498,8 @@ class HCEventModule : HCModule
         m_RosterWindow = m_RosterWindow + deltaTime;
         if (m_RosterWindow < 60) { return; }
         m_RosterWindow = 0;
-        Print("[HC Events] roster summary window_s=60 blocked_publish_pending=" + m_RosterBlockedPublish.ToString() + " blocked_announce=" + m_RosterBlockedAnnounce.ToString() + " refreshes=" + m_RosterRefreshes.ToString() + " admitted=" + m_RosterAdmitted.ToString() + " runtime=PENDING");
+        m_RosterSummarySeq = m_RosterSummarySeq + 1;
+        Print("[HC Events] roster summary window=" + m_RosterSummarySeq.ToString() + " window_s=60 blocked_publish_pending=" + m_RosterBlockedPublish.ToString() + " blocked_announce=" + m_RosterBlockedAnnounce.ToString() + " refreshes=" + m_RosterRefreshes.ToString() + " admitted=" + m_RosterAdmitted.ToString() + " runtime=PENDING");
         m_RosterBlockedPublish = 0;
         m_RosterBlockedAnnounce = 0;
         m_RosterRefreshes = 0;
