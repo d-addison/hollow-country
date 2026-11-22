@@ -49,6 +49,9 @@ class HCXZoneGuards : HCModule
     protected ref array<ref HCXZoneGuardsRuntime> m_Zones = new array<ref HCXZoneGuardsRuntime>;
     protected ref map<string, HCXZoneGuardsRuntime> m_BySite = new map<string, HCXZoneGuardsRuntime>;
     protected ref HCPerfSlices m_Work = new HCPerfSlices("ZoneGuards");
+    // Own plain budget for the urgent save pump: HCPerfSlices clamps its profile to one unit and
+    // the routine slice, so it can never allow HC_URGENT_STAGES stages within HC_FRAME_MS.
+    protected ref HCWorkBudget m_UrgentWork = new HCWorkBudget;
     protected ref HCXZoneGuardsDebug m_Debug;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Started;
@@ -355,8 +358,8 @@ class HCXZoneGuards : HCModule
     protected void PumpUrgentSave()
     {
         if (!m_Save.HCUrgent || !m_Save.HCDirty || (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_Save))) { return; }
-        m_Work.HCReset(HC_URGENT_STAGES, HCSaveScheduler.HC_FRAME_MS);
-        while (m_Save.HCUrgent && m_Save.HCDirty && !m_Save.HCFaulted && !m_Save.Fault && m_Work.HCContinue())
+        m_UrgentWork.HCReset(HC_URGENT_STAGES, HCSaveScheduler.HC_FRAME_MS);
+        while (m_Save.HCUrgent && m_Save.HCDirty && !m_Save.HCFaulted && !m_Save.Fault && m_UrgentWork.HCContinue())
         {
             HCSaveScheduler.HCPumpFallback(m_Save);
         }
@@ -384,7 +387,8 @@ class HCXZoneGuards : HCModule
         HCXZoneGuardsRuntime zone = m_Zones[index];
         // One site-creation stage per tick (admit, bind, qualify or create), inside the
         // single HC_WORK_ZONE_GUARDS unit taken above. A tick that ran a stage does no
-        // overrun spawn and no state change, so its cost is one stage and nothing else.
+        // overrun spawn; the daily escalation below still proceeds on it (Change() only
+        // marks the journal), so a stage tick costs one stage plus that bounded check.
         bool staged = director.HCZoneService(zone);
         zone.Initialised = true;
         if (zone.Site && zone.Site.Failed) { m_Refusal = "zone_route_refused_" + zone.Zone.id; return; }

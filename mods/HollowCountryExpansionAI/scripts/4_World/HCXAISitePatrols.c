@@ -207,6 +207,19 @@ class HCXAISitePatrol : HCXExpansionPatrol
 }
 class HCXAISitePatrols : HCXAISiteSurvey
 {
+    // Create() refusal prints: once per site and reason (a changed reason prints again), at most
+    // 64 lines per session, so a zone retried every minute never fills the log in a soak.
+    protected ref map<string, string> m_HCCreateRefusalLogged = new map<string, string>;
+    protected int m_HCCreateRefusalLogs;
+    protected void HCCreateRefused(string siteId, string reason, string line)
+    {
+        string logged;
+        if (m_HCCreateRefusalLogged.Find(siteId, logged) && logged == reason) { return; }
+        if (m_HCCreateRefusalLogs >= 64) { return; }
+        m_HCCreateRefusalLogged.Set(siteId, reason);
+        m_HCCreateRefusalLogs++;
+        Print("" + line);
+    }
     override protected int HCLocalityPageCount()
     {
         int count = 0;
@@ -596,13 +609,13 @@ class HCXAISitePatrols : HCXAISiteSurvey
         if (providerIssue == "") { providerIssue = HCXAIRules.PatrolProblem(config, state.PatrolPoints); }
         if (providerIssue != "")
         {
-            Print("[HollowCountry] Living AI admission refused: " + site.Id + ": " + providerIssue);
+            this.HCCreateRefused(site.Id, providerIssue, "[HollowCountry] Living AI admission refused: " + site.Id + ": " + providerIssue);
             return;
         }
         HCXAISitePatrol patrol = HCXExpansionBridge.HCCreatePatrol(config, vector.Zero);
         if (!patrol)
         {
-            Print("[HC Expansion AI] site " + site.Id + " native patrol setup refused");
+            this.HCCreateRefused(site.Id, "native_patrol_setup", "[HC Expansion AI] site " + site.Id + " native patrol setup refused");
             return;
         }
         patrol.m_HCSiteId = site.Id;
