@@ -7,7 +7,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Runtime,
-    [ValidateSet('ce-probe', 'ce-site-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler', 'infected-competence-probe')]
+    [ValidateSet('ce-fill-probe', 'ce-probe', 'ce-site-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler', 'infected-competence-probe')]
     [string]$Kind = 'ce-probe',
     [ValidateRange(0, 120)]
     [int]$TimeoutMinutes = 0
@@ -109,6 +109,7 @@ Assert-NoReparsePoints -Path $install -AncestorsOnly
 # Each probe kind maps to a fixed plan file, profile directory and output file; nothing here
 # is read from the plan, so a tampered plan cannot redirect the sentinel or output paths.
 $probes = @{
+    'ce-fill-probe' = @{ Plan = 'ce-fill-probe-plan.json'; Directory = 'HCCEFillProbe'; Output = 'complete.txt' }
     'ce-site-probe' = @{ Plan = 'ce-site-probe-plan.json'; Directory = 'HCCESiteProbe'; Output = 'complete.txt' }
     'ce-probe' = @{ Plan = 'ce-probe-plan.json'; Directory = 'HCCEProbe'; Output = 'census.json' }
     'taped-light-probe' = @{ Plan = 'taped-light-probe-plan.json'; Directory = 'HCTapedLightProbe'; Output = 'observations.json' }
@@ -123,6 +124,43 @@ $mission = "$root\mpmissions\dayzOffline.chernarusplus"
 $expectedArguments = @('-ip=127.0.0.1', '-port=2302',
     "-config=$root\serverDZ.cfg", "-mission=$mission",
     "-storage=$root\storage", "-profiles=$root\profiles", "-BEpath=$root\battleye", '-doLogs', '-adminLog')
+# Only this experiment admits the friend's full, in-place mod set. Every PBO
+# and the exact inventory are pinned; the plan cannot introduce arbitrary switches.
+if ($Kind -eq 'ce-fill-probe') {
+    $seenMods = @{}
+    $switches = @($plan.mods.PSObject.Properties)
+    if ($switches.Count -lt 1 -or $switches.Count -gt 2) { throw 'Missing fill-probe mod list.' }
+    foreach ($property in $switches) {
+        if ($property.Name -cne '-mod' -and $property.Name -cne '-serverMod') { throw 'Unexpected mod switch.' }
+        $paths = @()
+        foreach ($mod in @($property.Value)) {
+            if ($mod.path -cnotmatch '^E:\\HollowCountryLocal\\friend-local-1\\@[A-Za-z0-9_-]+$' -or
+                $seenMods.ContainsKey($mod.path.ToLowerInvariant())) { throw 'Unexpected friend mod directory.' }
+            $seenMods[$mod.path.ToLowerInvariant()] = $true
+            Assert-NoReparsePoints -Path $mod.path
+            $pins = @{}
+            foreach ($pbo in @($mod.pbos)) {
+                if ($pbo.path -notmatch '^[A-Za-z0-9_./ -]+\.pbo$' -or $pbo.path -match '(^|/)\.\.(/|$)|^/' -or
+                    $pbo.sha256 -cnotmatch '^[a-f0-9]{64}$' -or $pins.ContainsKey($pbo.path.ToLowerInvariant())) {
+                    throw 'Invalid PBO pin.'
+                }
+                $local = Join-Path $mod.path ($pbo.path -replace '/', '\')
+                if ((Read-Sha256 $local) -cne $pbo.sha256) { throw 'Friend mod PBO drift; restage the experiment.' }
+                $pins[$pbo.path.ToLowerInvariant()] = $true
+            }
+            $actual = @([System.IO.Directory]::GetFiles($mod.path, '*', [System.IO.SearchOption]::AllDirectories) |
+                Where-Object { [System.IO.Path]::GetExtension($_) -ieq '.pbo' })
+            if ($pins.Count -lt 1 -or $pins.Count -gt 4096 -or $actual.Count -ne $pins.Count) { throw 'Friend mod PBO inventory drift.' }
+            foreach ($path in $actual) {
+                $relative = $path.Substring($mod.path.Length + 1).Replace('\', '/').ToLowerInvariant()
+                if (-not $pins.ContainsKey($relative)) { throw 'Unlisted friend mod PBO.' }
+            }
+            $paths += $mod.path
+        }
+        if ($paths.Count -eq 0) { throw 'Empty mod switch.' }
+        $expectedArguments += $property.Name + '=' + ($paths -join ';')
+    }
+}
 if ($plan.status -ne 'staged-only-not-launched' -or $plan.kind -ne $Kind -or $plan.runtime_root -ne $root -or
     $plan.server_exe -ne $exe -or $plan.working_directory -ne $install -or $plan.mission -ne $mission -or
     $plan.port -ne 2302 -or $plan.server_exe_sha256 -ne $exeSha256 -or
@@ -141,7 +179,9 @@ foreach ($path in [System.IO.Directory]::GetFiles($root, '*', [System.IO.SearchO
     if (-not $staged.ContainsKey($path.ToLowerInvariant())) { throw "Unexpected probe runtime file (stage a fresh runtime): $path" }
 }
 foreach ($directory in @("$root\storage", "$root\profiles")) {
-    if (-not [System.IO.Directory]::Exists($directory) -or [System.IO.Directory]::GetFileSystemEntries($directory).Count -ne 0) {
+    if (-not [System.IO.Directory]::Exists($directory) -or
+        (($Kind -ne 'ce-fill-probe' -or $directory -eq "$root\storage") -and
+         [System.IO.Directory]::GetFileSystemEntries($directory).Count -ne 0)) {
         throw 'storage and profiles must be empty for a fresh probe run.'
     }
 }

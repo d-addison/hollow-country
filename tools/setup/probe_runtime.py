@@ -585,12 +585,53 @@ def windows_runtime_root(path, wsl_parent=None):
     return str(parts)
 
 
-def server_arguments(windows_root):
+def server_arguments(windows_root, mods=None):
     """The exact argument list Start-CEProbeServer.ps1 requires (including battleye and logs)."""
     mission = f"{windows_root}\\mpmissions\\{MISSION_NAME}"
-    return ["-ip=127.0.0.1", f"-port={PORT}", f"-config={windows_root}\\serverDZ.cfg", f"-mission={mission}",
+    arguments = ["-ip=127.0.0.1", f"-port={PORT}", f"-config={windows_root}\\serverDZ.cfg", f"-mission={mission}",
             f"-storage={windows_root}\\storage", f"-profiles={windows_root}\\profiles",
             f"-BEpath={windows_root}\\battleye", "-doLogs", "-adminLog"]
+    if mods:
+        validate_mods(mods)
+        arguments.extend(key + "=" + ";".join(row["path"] for row in rows)
+                         for key, rows in mods.items())
+    return arguments
+
+
+def validate_mods(mods, verify=False):
+    """Admit only pinned friend-install mod directories; never copy their content."""
+    if not isinstance(mods, dict) or not mods or set(mods) - {'-mod', '-serverMod'}:
+        raise ValueError('invalid optional mod list')
+    seen = set()
+    for rows in mods.values():
+        if not isinstance(rows, list) or not rows:
+            raise ValueError('empty optional mod switch')
+        for row in rows:
+            path = row['path']
+            prefix = 'E:\\HollowCountryLocal\\friend-local-1\\'
+            leaf = path[len(prefix):] if path.startswith(prefix) else ''
+            if not re.fullmatch(r'@[A-Za-z0-9_-]+', leaf) or path.casefold() in seen:
+                raise ValueError('mod must be a unique installed friend directory')
+            seen.add(path.casefold())
+            pbos = row['pbos']
+            if not isinstance(pbos, list) or not pbos or len(pbos) > 4096:
+                raise ValueError('invalid PBO inventory')
+            listed = set()
+            for entry in pbos:
+                name = entry['path']
+                if (not re.fullmatch(r'[A-Za-z0-9_./ -]+\.pbo', name, re.I)
+                        or name.startswith('/') or '..' in name.split('/')
+                        or name.casefold() in listed or not re.fullmatch('[a-f0-9]{64}', entry['sha256'])):
+                    raise ValueError('invalid PBO pin')
+                listed.add(name.casefold())
+            if verify:
+                root = Path('/mnt/e/HollowCountryLocal/friend-local-1') / leaf
+                actual = {n.casefold(): n for n in dm.walk_plain(root) if n.lower().endswith('.pbo')}
+                if set(actual) != listed:
+                    raise ValueError('mod PBO inventory drift')
+                for entry in pbos:
+                    if _hash_file(root / actual[entry['path'].casefold()])[0] != entry['sha256']:
+                        raise ValueError('mod PBO hash drift')
 
 
 # ---------------------------------------------------------------------------
@@ -792,25 +833,30 @@ def plan_header(kind, now, *, before=None, after=None):
     return header
 
 
-def plan_runtime_fields(context, built):
+def plan_runtime_fields(context, built, mods=None):
     """Server, paths, exact arguments and source provenance shared by every probe plan."""
     root = context["windows_root"]
     mission = f"{root}\\mpmissions\\{MISSION_NAME}"
-    return {
+    fields = {
         "server_exe": SERVER_EXE, "server_exe_sha256": SERVER_EXE_SHA256, "working_directory": SERVER_INSTALL,
         "port": PORT, "requested_bind": f"127.0.0.1:{PORT}",
         "runtime_root": root, "mission": mission,
         "storage": root + "\\storage", "profiles": root + "\\profiles", "battleye": root + "\\battleye",
-        "arguments": server_arguments(root),
+        "arguments": server_arguments(root, mods),
         "source": {"runtime_wsl_path": str(context["source_runtime"]),
                    "launch_plan_sha256": context["source"]["launch_plan_sha256"],
                    "config_sha256": built["staged_hash"]["serverDZ.cfg"],
                    "battleye_sha256": context["battleye_sha256"]},
     }
 
+    if mods:
+        fields["mods"] = mods
+    return fields
+
 
 # What the launcher fixes per probe kind; nothing is read from the plan to choose these.
-LAUNCHER_PROBES = {"ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
+LAUNCHER_PROBES = {"ce-fill-probe": ("ce-fill-probe-plan.json", "HCCEFillProbe", "complete.txt"),
+                   "ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
                    "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json"),
                    "weather-probe": ("weather-probe-plan.json", "HCWeatherProbe", "observations.json"),
                    "interior-sampler": ("interior-sampler-plan.json", "HCInteriorSampler", "census.json"),
@@ -827,7 +873,10 @@ def launcher_problems(plan, destination, plan_name):
         problems.append("kind and plan file name are not a launcher probe")
     if plan.get("status") != "staged-only-not-launched":
         problems.append("status")
-    if plan.get("arguments") != server_arguments(root):
+    mods = plan.get("mods") if kind == "ce-fill-probe" else None
+    if mods:
+        validate_mods(mods, verify=True)
+    if plan.get("arguments") != server_arguments(root, mods):
         problems.append("arguments differ from the launcher list")
     if (plan.get("server_exe"), plan.get("working_directory"), plan.get("port"), plan.get("server_exe_sha256"),
             plan.get("mission")) != (SERVER_EXE, SERVER_INSTALL, PORT, SERVER_EXE_SHA256,
