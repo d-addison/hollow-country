@@ -445,7 +445,8 @@ def check_profile_default_sizes():
     # Keep renamed AI defaults as well as same-path mission mirrors in coverage.
     mission_root = ROOT / 'mission/hollow-country'
     for default in defaults:
-        relative = Path(*default.parts[default.parts.index('defaults') + 1:])
+        parts = default.relative_to(ROOT).parts
+        relative = Path(*parts[parts.index('defaults') + 1:])
         candidates = [mission_root / relative]
         if default.name.startswith('expansion-ai-'):
             candidates.append(mission_root / 'ai' / default.name.removeprefix('expansion-ai-'))

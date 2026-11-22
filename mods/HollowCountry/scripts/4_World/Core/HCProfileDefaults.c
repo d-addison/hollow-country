@@ -27,7 +27,7 @@ class HCProfileDefaults
         return true;
     }
 
-    static string ReadText(string path)
+    static string ReadText(string path, bool reportTooLarge = true)
     {
         // Open once: an absent/unreadable file already fails here. Callers
         // require the completed text synchronously, including loadout readback.
@@ -46,7 +46,7 @@ class HCProfileDefaults
             if (prefix >= 0) { relative = path.Substring(prefix + 14, path.Length() - prefix - 14); }
             else if (path.IndexOf(PROFILE_ROOT) == 0) { relative = path.Substring(PROFILE_ROOT.Length(), path.Length() - PROFILE_ROOT.Length()); }
             else if (path.IndexOf(missionRoot) == 0) { relative = path.Substring(missionRoot.Length(), path.Length() - missionRoot.Length()); }
-            Print("[HollowCountry] profile default refused reason=too_large path=" + relative + " bytes=" + count.ToString());
+            if (reportTooLarge) { Print("[HollowCountry] profile default refused reason=too_large path=" + relative + " bytes=" + count.ToString()); }
             return "";
         }
         if (count < 1 || text.Length() < 1) { return ""; }
@@ -134,22 +134,22 @@ class HCProfileDefaults
             string intent = ReadText(provisionPath);
             if (profile == text)
             {
-                if (intent == text)
+                if (FileExist(temporary) && ReadText(temporary) == text)
                 {
-                    if (FileExist(temporary) && !DeleteFile(temporary))
+                    if (!DeleteFile(temporary))
                     {
                         Print("[HollowCountry] profile default refused file=" + relative + " reason=tmp_delete");
                         return false;
                     }
-                    if (!DeleteFile(provisionPath))
-                    {
-                        Print("[HollowCountry] profile default refused file=" + relative + " reason=provision_delete");
-                        return false;
-                    }
+                }
+                if (!DeleteFile(provisionPath))
+                {
+                    Print("[HollowCountry] profile default refused file=" + relative + " reason=provision_delete");
+                    return false;
                 }
                 return true;
             }
-            if (intent != text) { return true; }
+            if (intent == "") { return true; }
             repair = profile == "";
             if (repair)
             {
@@ -164,9 +164,9 @@ class HCProfileDefaults
                 CloseFile(emptyHandle);
                 if (emptyBytes != 0) { return true; }
             }
-            if (!repair && profile.Length() < text.Length())
+            if (!repair && profile.Length() < intent.Length())
             {
-                repair = text.Substring(0, profile.Length()) == profile;
+                repair = intent.Substring(0, profile.Length()) == profile;
             }
             if (!repair) { return true; }
         }
@@ -190,6 +190,14 @@ class HCProfileDefaults
         if (exists && !DeleteFile(target))
         {
             Print("[HollowCountry] profile default refused file=" + relative + " reason=target_delete");
+            return false;
+        }
+        // After deleting the torn target, refresh an older marker before the
+        // new copy. A crash while refreshing leaves an absent target, so the
+        // next boot can safely provision again even if the marker is torn.
+        if (repair && !WriteText(provisionPath, text))
+        {
+            Print("[HollowCountry] profile default refused file=" + relative + " reason=intent_readback");
             return false;
         }
         if (!CopyFile(temporary, target) || ReadText(target) != text)
