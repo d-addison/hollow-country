@@ -13,11 +13,13 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   supply quantities, so firearms, ammunition, magazines and attachments stay at the scarcity the owner chose.
   The default-on strict floor policy separately retags every loaded equipment row, including these classes
   and optional-pack rows, to route equipment to evidenced shelves and bounded military weapon
-  exceptions; unmatched receiver capacity is reported in the receipt.
+  exceptions; bulky Motorbike lootdispatch wheels retain native routes. Unmatched receiver capacity
+  is reported in the receipt.
 * ``db/globals.xml``: ``RespawnTypes`` (types refilled per CE respawn cycle) is multiplied so a persistent
   storage reaches the larger nominals; every other knob is left alone and reported.
 * ``mapgroupproto.xml``: group/container ``lootmax`` (defaults included) are multiplied, weapons-only
   containers keep their effective lootmax (written explicitly when they inherited a default), and the
+  emitted group/container limits are clamped to their physical point capacity. The
   committed contextual points overlay (``mission/hollow-country/loot-points/additions.json``) adds
   ``lootHCFloor``/``lootHCSurface`` containers to buildings whose stock group still matches its pin.
 
@@ -531,6 +533,53 @@ def _limits(mission):
     return ({c.get('name') for c in root.iter('category')}, {t.get('name') for t in root.iter('tag')})
 
 
+def _proto_defaults(root):
+    return {d.get('name'): int(d.get('lootmax', '0')) for d in root.iter('default')
+            if d.get('name') in ('group', 'container')}
+
+
+def _clamp_proto(data):
+    """Bound effective CE limits by physical points, preserving all other XML bytes."""
+    root = economy.xml(data, 'prototype')
+    defaults = _proto_defaults(root)
+    text = data.decode('utf-8-sig')
+    masked = _mask(text)
+    edits = []
+    groups = iter(root.iter('group'))
+    for opening in re.finditer(r'<group\b[^>]*>', masked):
+        group = next(groups)
+        capacity = 0
+        containers = iter(group.findall('container'))
+        close = opening.end() if opening.group(0).endswith('/>') else masked.find('</group>', opening.end())
+        for cm in re.finditer(r'<container\b[^>]*>', masked[opening.end():close]):
+            container = next(containers)
+            limit = int(container.get('lootmax', str(defaults.get('container', 0))))
+            bounded = min(limit, len(container.findall('point')))
+            capacity += bounded
+            if bounded != limit:
+                start = opening.end() + cm.start()
+                edits.append((start, start + len(cm.group(0)), _with_lootmax(cm.group(0), bounded)))
+        limit = int(group.get('lootmax', str(defaults.get('group', 0))))
+        if limit > capacity:
+            edits.append((opening.start(), opening.end(), _with_lootmax(opening.group(0), capacity)))
+    return _encode(_apply(text, edits), data)
+
+
+def _verify_proto_caps(root):
+    """Fail closed on the limits checked by CE SpawnRandomLoot."""
+    defaults = _proto_defaults(root)
+    for group in root.iter('group'):
+        capacity = 0
+        for container in group.findall('container'):
+            limit = int(container.get('lootmax', str(defaults.get('container', 0))))
+            points = len(container.findall('point'))
+            if limit > points:
+                raise ValueError('prototype container lootmax exceeds points: ' + group.get('name', ''))
+            capacity += min(limit, points)
+        if int(group.get('lootmax', str(defaults.get('group', 0)))) > capacity:
+            raise ValueError('prototype group lootmax exceeds container capacity: ' + group.get('name', ''))
+
+
 def scale_proto(data, multiplier, overlay=None, limits=None):
     """Return (bytes, report) for mapgroupproto with lootmax scaled and overlay containers appended."""
     root = economy.xml(data, 'prototype')
@@ -653,6 +702,7 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
             edits.append((opening.start(), opening.end(), _with_lootmax(tag, group_scaled)))
             report['groups_scaled'] += 1
     output = _encode(_apply(text, edits), data)
+    output = _clamp_proto(output)
     _verify_proto(data, output, applied)
     report['stale'].sort()
     return output, report
@@ -660,6 +710,7 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
 
 def _verify_proto(before, after, applied):
     old, new = economy.xml(before, 'prototype'), economy.xml(after, 'prototype')
+    _verify_proto_caps(new)
     old_groups, new_groups = list(old.iter('group')), list(new.iter('group'))
     if [g.get('name') for g in old_groups] != [g.get('name') for g in new_groups]:
         raise ValueError('mapgroupproto verification failed: groups changed')
