@@ -181,7 +181,7 @@ accept the final source or any missing native experiment.
 | --- | --- | --- |
 | Shared runtime | Server lifecycle, 16 KiB configuration reader, module registry, real elapsed time; actual compiler/core script-VM self-test/initialization under Wine. Native Windows vanilla join, movement, inventory and reconnect passed on 2026-11-17 | Final-source addon compilation, native Windows addon loading, diagnostic and signed loading gates |
 | Economy | Stock audit, conservative profile/delta tooling, isolated install and exact rollback; pinned measured-export candidate preparation | Verified apartment/barracks coverage correction; observed engine merge/eligibility; measured contextual routes and budgets |
-| Interiors | Stable identities, three two-prop trial layouts/two histories, immutable manifest, bounded startup placement; conservative journal migration and orphan quarantine. Bounded measured-catalog import binds exact reviewed documents, live house identity and contextual item groups; 15 synthetic checks and native run 054 compilation. Run 060 read an existing house's native pose, bounds and coordinate transforms. HC-24 now admits schema-2 and paged schema-3 packs through one retained startup job, shared tick budgets and atomic publication; stop/refusal clears the job. #138 adds a bounded building-position resolve cache (cleared on stop), preserving resolve/#q diagnostics, and cancels deferred interior pathgraph calls on stop; synthetic regressions pass, runtime acceptance pending | Complete measured catalog and layout fit, navigation/collision/replication, native parser/import/migration/recovery trials. Normal-build placement and search remain hard-gated; measurements and imported metadata do not prove fit |
+| Interiors | Legacy `interiors.json` pilot retired (owner, 2026-11-22): the module is the core host for template packs, measured catalog, pathgraph, coverage and perf slices; a stale profile `interiors.json` is ignored with one `[HC Interiors] legacy pilot retired: interiors.json ignored` line and is neither required nor deleted; pilot-only search, placement, config fields and the `search_completed` and `supply_bound` counters are gone (House search runs through the lazy House service). Offline measured-record import binds exact reviewed documents, live house identity and contextual item groups; 15 synthetic checks and native run 054 compilation. Run 060 read an existing house's native pose, bounds and coordinate transforms. HC-24 now admits schema-2 and paged schema-3 packs through one retained startup job, shared tick budgets and atomic publication; stop/refusal clears the job. #138 adds a bounded building-position resolve cache (cleared on stop), preserving resolve/#q diagnostics, and cancels deferred interior pathgraph calls on stop; synthetic regressions pass, runtime acceptance pending Interiors R2 (wc-interiors-r2): the build 174 soak spike (24 ms, one native sphere query on a heavy tenement-class building) is addressed by two further geometry ray probes after the vertical one, each on its own grant, a scan of all ray hits, and routing of any class listed as heavy or measured at 10 ms or more to the four-tile path; `house_search_completed` is the live House search counter (one item committed). | Complete measured catalog and layout fit, navigation/collision/replication, native parser/import/migration/recovery trials. Normal-build placement and search remain hard-gated; measurements and imported metadata do not prove fit; R2 at or under 20 ms at boot and steady state needs the next soak (the first occurrence of an unseen heavy class still pays one call), ray-probe hit rate and tile cost unmeasured |
 | Search | Native continuous action, server-owned target/range/LOS/time/lock checks, shared finite allocation pool and actor-bound reservation/attempt/result journal on the shared save scheduler (byte-compatible; crash points in INSTALL_ROLLBACK.md) | Shared CE allocator/reconciliation and proven durable inventory/ledger commit. Native UI/audio/races/restart unobserved. Normal-build search is hard-gated |
 | Crafting | Three native salvage recipes, fixed yields, ownership/type/condition checks, tool wear, null-spawn and completion guards. All 36 audited cutting-tool classes share registration, eligibility and completion rules. Native run 055 compiled with crafting enabled and passed registered-definition/config checks | Native inventory/ground behavior, tool wear, concurrency/crash safety, balance and compatible rifle wrap observation. The broader justified recipe scope remains under review |
 | Full item audit and utility extensions | Whole-source recipe census; chunked in-engine configuration exporter preserves native type variants and unresolved fields; unhooked fuel arithmetic with binary32 no-creation checks. Run 035 enumerated all 7,389 classes across four roots/15 chunks. Bounded flashlight matrix retains every class; its raw-artifact shape exercise emitted 47,888 candidate pairs | Complete item/recipe/action and usefulness audit, broad justified crafting scope, native fuel action and durable conservation, taped flashlight mounting/switching/geometry and client qualification. Candidates do not establish compatible geometry or gameplay |
@@ -527,15 +527,6 @@ Additional settings/survival regressions: `python3 -B -m unittest tests.unit.tes
 → `Ran 12 tests`; `OK`. `git diff --check` passed. Changed Enforce files have
 at most 8 plus operators per statement. No commit/push or game execution was run;
 Banso's writer owns the eventual local commit.
-||||||| parent of 0de6dbc (Integrate HC-24 staged template pack admission and fix paging limits)
-[Operator keys](../mission/hollow-country/ai/README.md) and
-[cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
-save compatibility, invalid-key fallback logs, deterministic world-seed sizing
-and all deferred checks. HC-10 custody persistence was applied as a separate
-prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
-is source/policy verification only; DayZDiag, normal PBO/server, single-client
-visibility/audio/replication checks remain pending. Target-load budgets are provisional and outside acceptance.
-Budgets are provisional until measured; production enablement is not established.
 [Operator keys](../mission/hollow-country/ai/README.md) and
 [cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
 save compatibility, invalid-key fallback logs, deterministic world-seed sizing
@@ -677,7 +668,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | InfectedMemory | `heat_recorded` |
 | InfectedReach | `strike_landed`, `vault_started`, `vehicle_battered` |
 | InfectedVariety | `actor_woken` |
-| Interiors | `prop_placed`, `search_completed`, `pathgraph_refresh` (native routing verification pending) |
+| Interiors | `prop_placed`, `pathgraph_refresh`, `house_search_completed` (native routing verification pending), plus resolve diagnostics `resolve_ray_hit`, `resolve_ray_hit_alt`, `resolve_ray_fallback`, `resolve_tiled_routed`, `resolve_query_heavy`, `resolve_tile_slow` |
 | Leads | `lead_received` |
 | Lighting | `blend_applied` |
 | LootRefresh | `timer_rearmed` |
@@ -692,7 +683,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Progression | `familiarity_gained` |
 | Radio | `report_delivered` |
 | Scenes | `scene_placed`; `retire_retry_cap` is a fault-path counter, lazily registered on first hit |
-| SearchBinding | `supply_bound` |
+| SearchBinding | `house_bound` |
 | SettlementDecay | `prop_placed` |
 | Shelters | `shelter_placed`, `pathgraph_refresh` (native routing verification pending) |
 | SignsOfLife | `flies_created`, `light_observed`, `smoke_observed` |

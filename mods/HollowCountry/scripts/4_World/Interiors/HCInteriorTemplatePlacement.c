@@ -277,7 +277,7 @@ class HCInteriorTemplatePlacement
 
     {
         Object reusable;
-        // Same orphan refusal as pilot placement. Never adopt a foreign prop or
+        // Same orphan refusal as the shared InspectProp check. Never adopt a foreign prop or
         // duplicate a possible persistent object at the intended slot.
         return module.InspectProp(position, orientation, type, reusable) == 0;
     }

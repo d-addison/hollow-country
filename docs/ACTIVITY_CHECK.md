@@ -287,7 +287,7 @@ Full non-ACTIVE list (`none` means no valid in-window observation, not zero):
 | Progression | forage-familiarity | WAITING | none | 0 |
 | Radio | reports-received | INERT | 0 | 1 |
 | Scenes | runtime-activity | NO_SIGNAL | none | 0 |
-| SearchBinding | runtime-activity | NO_SIGNAL | none | 0 |
+| SearchBinding | house-bound | WAITING | none | 0 |
 | SettlementDecay | towns-changed | WAITING | none | 0 |
 | SignsOfLife | area-sampled | SILENT | none | 0 |
 | SurvivalAlignment | runtime-activity | NO_SIGNAL | none | 0 |

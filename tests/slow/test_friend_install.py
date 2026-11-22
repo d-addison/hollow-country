@@ -1333,6 +1333,17 @@ class ProfileUpgradeTests(InstallerCase):
         self.assertEqual(snapshot(self.server), before)
 
 
+    def test_a_retired_interiors_json_from_an_older_install_is_left_alone_and_never_fails_the_upgrade(self):
+        # The pilot config is no longer shipped; the server ignores a copy left by an older release.
+        retired = put(self.server, 'profiles/HollowCountry/interiors.json', b'{"synthetic_release": 52}')
+        before = retired.read_bytes()
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(retired.read_bytes(), before)
+        self.assertNotIn('profiles/HollowCountry/interiors.json',
+                         json.loads((self.server / fi.RECEIPT).read_text())['files'])
+
+
 class CheckTests(InstallerCase):
     def setUp(self):
         super().setUp()

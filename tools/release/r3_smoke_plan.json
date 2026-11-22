@@ -344,13 +344,23 @@
     },
     {
       "module": "Interiors",
-      "feature": "search_completed",
-      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c#HCInteriorsModule.CommitSearch",
-      "trigger": "Bound interior search economy returns result=2; Search complete is shown.",
+      "feature": "house_search_completed",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c#HCSearchHouses.HCCommitReservation",
+      "trigger": "A House search commit moves one stock item to the player (journal phase 2); empty, refused or interrupted searches earn nothing.",
       "exercise": "client_action",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], find a furnished, bound cabinet with empty hands. 2. Aim within action reach -> hold Search storage for six seconds. 3. Require Search complete and counter, not generic loose pickup.",
-      "est_minutes": 2,
-      "prerequisites": "EnableInteriors/Search; finite binding ready; compatible template/site, supply and output capacity; no decorative cabinet substitute."
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_search_completed.",
+      "est_minutes": 3,
+      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; a House site with stock CE items inside its sphere."
+    },
+    {
+      "module": "SearchBinding",
+      "feature": "house_bound",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound",
+      "trigger": "The House search service commits one search and HCSearchBinding records that the House target was bound to a found item (the same commit as Interiors/house_search_completed); empty, refused or interrupted searches earn nothing.",
+      "exercise": "client_action",
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_bound; it fires on the same commit as house_search_completed.",
+      "est_minutes": 1,
+      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; the same House search as Interiors/house_search_completed (one search counts for both)."
     },
     {
       "module": "Leads",
@@ -528,16 +538,6 @@
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], use Map snapshot to identify nearby scene context. 2. Pause -> World & Events -> scene -> Run. 3. Move away from placement area and out of LOS normally. 4. Wait for placement completion and scene_placed.",
       "est_minutes": 3,
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; scenes/world/event economy, free scene lease/cap and reviewed site; all native placement checks retained."
-    },
-    {
-      "module": "SearchBinding",
-      "feature": "supply_bound",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.Attempt",
-      "trigger": "Finite native supply BindSearchEconomy succeeds and transfers registry ownership.",
-      "exercise": "server_soak",
-      "steps": "1. Boot installed mission with finite search manifests. 2. Connect at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] and allow nearby normal binding/retry queues to settle. 3. Require supply_bound before cabinet exercise.",
-      "est_minutes": 3,
-      "prerequisites": "EnableSearch; valid supply provider/manifests/registry and uncorrupted journals. Missing inventory binding is a blocker; restart is not a repair for uncertain state."
     },
     {
       "module": "SignsOfLife",

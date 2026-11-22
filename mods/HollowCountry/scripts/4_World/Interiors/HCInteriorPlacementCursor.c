@@ -163,6 +163,10 @@ class HCInteriorResolvedBuilding
 // One resolve chunk per admitted HCWorkBudget visit. Cold misses first try one
 // vertical ray, then the existing sphere. Measured-heavy circle fallbacks cover the
 // original 0.75 m circle with four overlapping 0.531 m circles, one per tick.
+// Rows ray-miss up to RAY_ATTEMPTS times (vertical, then two horizontal probes, each on its own
+// grant) before any sphere. The sphere is one indivisible native call (build 174 soak: 24 ms on
+// Land_Tenement_Small), so a class listed in HCQuerySliced, or whose sphere/circle call measured
+// >= HEAVY_MS, skips it and takes the four-tile path for every later row (one native call per grant).
 // Each circle covers a quadrant's 0.75 x 0.75 m bounding square (half diagonal
 // sqrt(2)*0.375). Merge drops overlap and origins outside the original circle;
 // exact 3D/class/ambiguity/tilt checks below still decide placement. Native
@@ -173,10 +177,18 @@ class HCInteriorResolvedBuilding
 class HCInteriorResolveCursor
 {
     static const int CANDIDATES_PER_STEP = 8;
+    static const int RAY_ATTEMPTS = 3;
+    static const int RAY_HITS_SCANNED = 8;
+    static const int HEAVY_CLASS_CAP = 64;
+    static const float HEAVY_MS = 10;
+    static const float RAY_SIDE_M = 20;
+    static const float RAY_SIDE_HEIGHT_M = 1.5;
     protected static int s_SphereFrame = -1;
+    // Classes whose single native resolve call measured >= HEAVY_MS this boot (bounded, never persisted).
+    protected static ref array<string> s_HeavyClasses = new array<string>;
     protected ref HCInteriorResolveEntry m_Entry;
     protected ref HCInteriorResolvedBuilding m_Binding;
-    protected bool m_RayAttempted;
+    protected int m_RayAttempts;
     protected bool m_TrySphere;
     protected bool m_Sphere;
     protected bool m_Fresh;
@@ -227,6 +239,11 @@ class HCInteriorResolveCursor
                 return true;
             }
             m_TrySphere = HCInteriorQueryConfig.HCGet().UseSphereLookup;
+            if (m_TrySphere && HCQueryTiled(row.BuildingClass))
+            {
+                m_TrySphere = false;
+                HCModuleReadiness.HCUse("Interiors", "resolve_tiled_routed");
+            }
         }
         if (!m_Entry)
         {
@@ -236,12 +253,15 @@ class HCInteriorResolveCursor
             if (m_Entry) { m_QueryComplete = true; m_Sphere = m_Entry.Sphere; }
             else
             {
-                if (!m_RayAttempted)
+                if (m_RayAttempts < RAY_ATTEMPTS)
                 {
                     if (!HCNativeQueryAdmitted(row, mark)) { return false; }
-                    m_RayAttempted = true;
-                    Object rayHouse = HCRayBuilding(position, row.BuildingClass);
+                    int rayIndex = m_RayAttempts;
+                    m_RayAttempts = m_RayAttempts + 1;
+                    Object rayHouse = HCRayBuilding(position, row.BuildingClass, rayIndex);
                     int raySize = 0;
+                    string rayPhase = "ray";
+                    if (rayIndex > 0) { rayPhase = "ray" + rayIndex.ToString(); }
                     if (rayHouse)
                     {
                         // Private single-hit entry: never publish it as a complete
@@ -253,11 +273,15 @@ class HCInteriorResolveCursor
                         m_QueryComplete = true;
                         raySize = 1;
                         HCModuleReadiness.HCUse("Interiors", "resolve_ray_hit");
+                        if (rayIndex > 0) { HCModuleReadiness.HCUse("Interiors", "resolve_ray_hit_alt"); }
                     }
-                    else { HCModuleReadiness.HCUse("Interiors", "resolve_ray_fallback"); }
-                    HCInteriorTemplatePlacement.HCRecordResolve(row, raySize, "ray", TickCount(mark));
-                    // A miss leaves the existing sphere and tiled paths intact,
-                    // starting on their own grants; never two native queries here.
+                    else
+                    {
+                        if (m_RayAttempts >= RAY_ATTEMPTS) { HCModuleReadiness.HCUse("Interiors", "resolve_ray_fallback"); }
+                    }
+                    HCInteriorTemplatePlacement.HCRecordResolve(row, raySize, rayPhase, TickCount(mark));
+                    // A miss leaves the next probe, the sphere and the tiled paths intact,
+                    // each starting on its own grant; never two native queries here.
                     return false;
                 }
                 if (m_TrySphere)
@@ -268,7 +292,9 @@ class HCInteriorResolveCursor
                     m_Entry.Sphere = true;
                     // Installed Game.c:930, sphere encloses every admissible
                     // origin (<=0.75 m in the unchanged exact filter).
+                    int sphereMark = TickCount(0);
                     GetGame().GetObjectsAtPosition3D(position, 0.75, m_Entry.Objects, null);
+                    HCNoteQueryCost(row.BuildingClass, TickCount(sphereMark));
                     m_Entry.QuerySize = m_Entry.Objects.Count();
                     if (m_Entry.QuerySize > 256) { m_Entry.Objects.Clear(); }
                     HCInteriorTemplatePlacement.HCStoreResolveObjects(m_Entry);
@@ -277,9 +303,11 @@ class HCInteriorResolveCursor
                     HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query3d", TickCount(mark));
                     return false;
                 }
-                if (!HCQuerySliced(row.BuildingClass))
+                if (!HCQueryTiled(row.BuildingClass))
                 {
+                    int plainMark = TickCount(0);
                     m_Entry = HCInteriorTemplatePlacement.HCResolveObjects(position, m_Fresh);
+                    HCNoteQueryCost(row.BuildingClass, TickCount(plainMark));
                     m_QueryComplete = true;
                     HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query", TickCount(mark));
                     return false;
@@ -295,7 +323,10 @@ class HCInteriorResolveCursor
             HCQueryStep(position);
             int querySize = m_Entry.QuerySize;
             if (phase != "merge") { querySize = m_QueryObjects.Count(); }
-            HCInteriorTemplatePlacement.HCRecordResolve(row, querySize, phase, TickCount(mark));
+            int phaseTicks = TickCount(mark);
+            // Evidence only: a slow tile cannot be split further, so count it for the soak.
+            if (phaseTicks >= HCHeavyTicks()) { HCModuleReadiness.HCUse("Interiors", "resolve_tile_slow"); }
+            HCInteriorTemplatePlacement.HCRecordResolve(row, querySize, phase, phaseTicks);
             return false;
         }
         bool done = HCFilter(position, row.BuildingClass);
@@ -350,21 +381,46 @@ class HCInteriorResolveCursor
     // Installed scripts-1.30.164289: 3_Game/Global/DayZPhysics.c:49-92
     // RaycastRVParams (zero radius, NEARESTCONTACT); :98-107 hit obj/parent;
     // :208 RaycastRVProxy reports those handles, including landscape proxies.
-    // One 66 m vertical segment through the recorded building origin. A roof
-    // outside this bound, an occluder or no geometry at that X/Z falls back.
-    // This bounds requests, not native latency: ray cost needs retail soak evidence.
-    protected Object HCRayBuilding(vector position, string buildingClass)
+    // Probe 0 is one 66 m vertical segment through the recorded building origin; probes 1 and 2
+    // are 40 m horizontal segments at RAY_SIDE_HEIGHT_M along X and Z through the origin, which
+    // reach a wall when the roof probe misses. A roof outside the bound, an occluder or no
+    // geometry on that line falls through to the next probe. Every hit (bounded) is checked, since
+    // a proxy hierarchy can return more than one result; only a unique exact class/position
+    // match binds, so a wrong or ambiguous hit never places anything. This bounds requests, not
+    // native latency: ray cost needs retail soak evidence.
+    protected Object HCRayBuilding(vector position, string buildingClass, int probe)
     {
-        RaycastRVParams ray = new RaycastRVParams(position + "0 64 0", position + "0 -2 0");
+        vector rayStart = position + "0 64 0";
+        vector rayEnd = position + "0 -2 0";
+        if (probe == 1)
+        {
+            rayStart = position + Vector(-RAY_SIDE_M, RAY_SIDE_HEIGHT_M, 0);
+            rayEnd = position + Vector(RAY_SIDE_M, RAY_SIDE_HEIGHT_M, 0);
+        }
+        if (probe == 2)
+        {
+            rayStart = position + Vector(0, RAY_SIDE_HEIGHT_M, -RAY_SIDE_M);
+            rayEnd = position + Vector(0, RAY_SIDE_HEIGHT_M, RAY_SIDE_M);
+        }
+        RaycastRVParams ray = new RaycastRVParams(rayStart, rayEnd);
         ray.type = ObjIntersectGeom;
         array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
         if (!DayZPhysics.RaycastRVProxy(ray, hits)) { return null; }
-        if (hits.Count() != 1) { return null; }
-        RaycastRVResult hit = hits[0];
-        if (!hit) { return null; }
-        if (HCRayObjectMatches(hit.obj, position, buildingClass)) { return hit.obj; }
-        if (HCRayObjectMatches(hit.parent, position, buildingClass)) { return hit.parent; }
-        return null;
+        Object matched;
+        int hitStop = Math.Min(hits.Count(), RAY_HITS_SCANNED);
+        int hitIndex = 0;
+        while (hitIndex < hitStop)
+        {
+            RaycastRVResult hit = hits[hitIndex];
+            hitIndex = hitIndex + 1;
+            if (!hit) { continue; }
+            Object candidate = hit.obj;
+            if (!HCRayObjectMatches(candidate, position, buildingClass)) { candidate = hit.parent; }
+            if (!HCRayObjectMatches(candidate, position, buildingClass)) { continue; }
+            if (matched && matched != candidate) { return null; }
+            matched = candidate;
+        }
+        return matched;
     }
 
     // Installed 3_Game/Entities/Object.c:287/305 position/orientation;
@@ -377,6 +433,31 @@ class HCInteriorResolveCursor
         vector orientation = candidate.GetOrientation();
         if (!HCInteriorRules.SaneVector(orientation, 360)) { return false; }
         return HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES);
+    }
+
+    // Raw TickCount units for HEAVY_MS, from the shared calibrated clock rate.
+    protected static float HCHeavyTicks()
+    {
+        return HCWorkBudget.HCTicksPerMs() * HEAVY_MS;
+    }
+
+    // A class whose one native resolve call took >= HEAVY_MS is remembered for the boot; its
+    // remaining rows are routed to the sliced path. The first occurrence still pays once.
+    protected static void HCNoteQueryCost(string buildingClass, int ticks)
+    {
+        if (ticks < HCHeavyTicks()) { return; }
+        HCModuleReadiness.HCUse("Interiors", "resolve_query_heavy");
+        if (s_HeavyClasses.Find(buildingClass) >= 0 || s_HeavyClasses.Count() >= HEAVY_CLASS_CAP) { return; }
+        s_HeavyClasses.Insert(buildingClass);
+        float heavyMs = ticks / HCWorkBudget.HCTicksPerMs();
+        Print("[HC Interiors] heavy resolve query routed to sliced path class=" + buildingClass + " ms=" + heavyMs.ToString());
+    }
+
+    // Measured-heavy this boot, or in the build 131 list below.
+    protected bool HCQueryTiled(string buildingClass)
+    {
+        if (HCQuerySliced(buildingClass)) { return true; }
+        return s_HeavyClasses.Find(buildingClass) >= 0;
     }
 
     // Build 131's five heaviest query-labelled classes. Avoid multiplying

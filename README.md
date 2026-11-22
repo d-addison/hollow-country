@@ -864,8 +864,8 @@ Search retries, refresh records and journal maintenance; EnableSearch=false opts
 
 | Key | Default | Allowed range |
 | :--- | :--- | :--- |
-| `RetryDelayMs` | `10000` | 1000–60000 |
-| `RetryAttempts` | `3` | 1–12 |
+| `RetryDelayMs` | `10000` | 1000–60000; reserved: no effect since the interiors pilot retirement (2026-11-22) |
+| `RetryAttempts` | `3` | 1–12; reserved: no effect since the interiors pilot retirement (2026-11-22) |
 | `RefreshRecordsPerMinute` | `32` | 1–32 |
 | `RefreshMaxRecords` | `4096` | 1–4096 |
 | `RefreshMinSeconds` | `172800` | 60–2592000 |
@@ -1642,7 +1642,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | Consumer ID | Constant | Work |
 | :--- | :--- | :--- |
 | 0 | `HC_WORK_INFECTED` | Infected sampling. |
-| 1 | `HC_WORK_INTERIORS` | Interior lock expiry. |
+| 1 | `HC_WORK_INTERIORS` | Interiors template pack loading and furnishing placement slices. |
 | 2 | `HC_WORK_SEARCH_BIND` | Search binding. |
 | 3 | `HC_WORK_SEARCH_MAINT` | Search maintenance and coverage reporting. |
 | 4 | `HC_WORK_SEARCH_REFRESH` | Revisit refresh. |

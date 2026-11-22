@@ -57,8 +57,9 @@ refill finite stock, or replace a missing exercise with a probe.
   zero VMEs, no R2 >20 ms, no crash/stall or enabled ready=false. Check all
   `[HC SelfTest] name=<name> pass=<true|false> detail=<short text>` lines; false
   fails. Do not treat absence of player activity as success. Start/observe
-  SearchBinding, distant conflict, dead-drop maintenance, optional CE spawns and
-  cellar survey now; AI activation may still require the subsequent client.
+  distant conflict, dead-drop maintenance, optional CE spawns and cellar survey
+  now (SearchBinding has its own player-driven counter, `SearchBinding/house_bound`, in
+  the House search step below); AI activation may still require the subsequent client.
 - [ ] Keep same-window server and client RPTs. Client counters stay local:
   `HCModuleReadiness.c#HCModuleReadiness.HCRegisterUse..HCUse` prints locally; no counter-forwarding RPC is present.
   Audit with `python3 -B -m tools.release.activity_check <server.RPT> --release
@@ -114,13 +115,15 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    observation. Positive blend requires actual sun/elevation and excludes native
    underground. Stay conscious; keep menus closed long enough for a saved unseen
    contextual hint: **Polish/hint_shown**. Three-minute hint limiter can overlap.
-4. [ ] Find an actually furnished bound cabinet, empty hands -> hold **Search
-   storage** six seconds until **Search complete**: **Interiors/search_completed**.
-   Binding must already report **SearchBinding/supply_bound**. Pause -> Economy
+4. [ ] Pause -> Economy
    -> **loot**, wait next normal refresh tick: **LootRefresh/timer_rearmed**.
    At a supported roadside wreck, hold `Wrench` -> **Salvage wreck**, finish and
    inspect the created part: **WreckSalvage/part_created**. Decorative furniture,
    unsupported wrecks and empty/unbound searches can refuse; do not count refusal.
+   In a House with a template search site, stand within 2.5 m of the site, run the
+   native search action to its commit and take the found item:
+   **Interiors/house_search_completed; SearchBinding/house_bound** (one commit counts for both).
+   Empty, refused or interrupted searches do not count.
 5. [ ] On clear flat ground use Infected -> **sitter**; let pose settle, then
    approach/noise/hit to produce a real wake: **InfectedVariety/actor_woken**.
    Land an ordinary close melee hit on an infected:
@@ -401,10 +404,10 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.ClimbStarted`.
 - [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.CountBatter`.
 - [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c#HCInfectedVarietyModule.HCRecordWake`.
-- [ ] `Interiors/search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c#HCInteriorsModule.CommitSearch`.
+- [ ] `Interiors/house_search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c#HCSearchHouses.HCCommitReservation`.
 - [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c#HCLeadModule.ReceivePlayer`.
 - [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c#HCLightingClient.Tick`.
-- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.RecycleReadyTimer`.
+- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.OnTick`.
 - [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c#HCGroupPins.Collect`.
 - [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c#HCWorldMaterializer.HCArchiveCustodyFile`.
 - [ ] `MaterializerBridge/party_materialized` — `admin_action` **implemented-unverified**, command `fx_materialize`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c#HCXMaterializerBridge.SiteSpawned`.
@@ -420,7 +423,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `Progression/familiarity_gained` — `client_action`; `mods/HollowCountry/scripts/4_World/Progression/HCProgression.c#HCProgressionModule.HCAwardForage`.
 - [ ] `Radio/report_delivered` — `admin_action`; `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c#HCRadioChatter.OnTick`.
 - [ ] `Scenes/scene_placed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c#HCScenesModule.Work`.
-- [ ] `SearchBinding/supply_bound` — `server_soak`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.Attempt`.
+- [ ] `SearchBinding/house_bound` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound`.
 - [ ] `SignsOfLife/flies_created` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.
 - [ ] `SignsOfLife/light_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.
 - [ ] `SignsOfLife/smoke_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.

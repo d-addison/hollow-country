@@ -463,8 +463,8 @@ class HCSearchRefreshRow
     int SearchedUtc;
     int IntervalSeconds;
     bool Ready;
-    // Once a pilot container enters the refresh path, its new finite rows own
-    // subsequent actions. Never rewind its original immutable manifest/journal.
+    // Durable routing history: set when a timer first becomes ready again. Persisted rows
+    // from earlier releases may carry it (and a "pilot" scope); both stay inert.
     bool Revisited;
 }
 
@@ -696,7 +696,6 @@ class HCSearchRefreshModule : HCModule
 
     protected ref HCSearchRefreshState m_State;
     protected ref map<string, int> m_Index = new map<string, int>;
-    protected ref HCSearchRefreshPilotHouses m_Pilot;
     protected int m_Next;
     protected int m_Pending;
     protected int m_LastWaitSeconds;
@@ -704,7 +703,6 @@ class HCSearchRefreshModule : HCModule
     // Rows still owed to the current minute's batch (shared-budget resume) and whether it changed any.
     protected int m_BatchLeft;
     protected bool m_BatchChanged;
-    protected bool m_CompactPilot;
     protected string m_Refusal;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
@@ -773,8 +771,6 @@ class HCSearchRefreshModule : HCModule
             m_Store.Fault();
             return;
         }
-        m_Pilot = new HCSearchRefreshPilotHouses;
-        m_Pilot.Start(settings);
         m_SaveJob = new HCSearchRefreshSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
@@ -830,13 +826,6 @@ class HCSearchRefreshModule : HCModule
         return row && row.Ready && !s_Instance.HCCheckpointPending();
     }
 
-    static bool Revisited(string scope, string siteId)
-    {
-        if (!s_Instance) return false;
-        HCSearchRefreshRow row = s_Instance.FindRow(scope, siteId);
-        return row && row.Revisited && !s_Instance.HCCheckpointPending();
-    }
-
     bool RecycleReadyTimer()
     {
         int readyIndex = m_State.Rows.Count() - 1;
@@ -845,7 +834,7 @@ class HCSearchRefreshModule : HCModule
             HCSearchRefreshRow readyRow = m_State.Rows[readyIndex];
             if (readyRow.Ready && !readyRow.Revisited)
             {
-                // Revisited is durable pilot routing history, not disposable timer
+                // Revisited is durable routing history, not disposable timer
                 // metadata. Never evict it to make room; the fixed cap fails closed.
                 RemoveReadyTimer(readyRow);
                 Print("[HC Search Houses] expired refresh timer recycled");
@@ -859,7 +848,7 @@ class HCSearchRefreshModule : HCModule
     // Only after all active transfer rows for a ready site have been compacted.
     // The immutable per-supply tombstones belong to the journal, not this timer.
     // Keep Revisited rows in the persisted ledger: clearing the route can strand
-    // a pilot after compaction/restart. At MAX_RECORDS new timer enrollment refuses.
+    // a site after compaction/restart. At MAX_RECORDS new timer enrollment refuses.
     static void ForgetCompacted(string scope, string siteId)
     {
         if (!s_Instance || !s_Instance.Active()) { return; }
@@ -885,12 +874,6 @@ class HCSearchRefreshModule : HCModule
         m_Next = 0;
     }
 
-    static HCSearchRefreshPilotHouses Pilot()
-    {
-        if (!s_Instance || !s_Instance.Active()) return null;
-        return s_Instance.m_Pilot;
-    }
-
     protected void HCReportActivity(bool force = false)
     {
         int timers = -1;
@@ -909,7 +892,6 @@ class HCSearchRefreshModule : HCModule
         HCSaveScheduler.HCPumpFallback(m_SaveJob);
         HCSearchHouses retirementOwner = HCSearchBinding.Houses();
         if (retirementOwner) { retirementOwner.HCPumpRetirement(); }
-        if (m_Pilot && m_Pilot != retirementOwner) { m_Pilot.HCPumpRetirement(); }
         m_Minute += deltaTime;
         HCReached.Mark("search_refresh.tick");
         if (m_Minute >= 60.0 && m_BatchLeft < 1)
@@ -917,11 +899,7 @@ class HCSearchRefreshModule : HCModule
             // Discard excess dt rather than doing catch-up bursts. Cursor survives
             // batches; UTC still counts all real downtime between process boots.
             m_Minute = 0.0;
-            // Retirement previously had no caller. Alternate owners so a busy
-            // house journal cannot starve the pilot's replay-safe cleanup.
             HCSearchHouses compactOwner = HCSearchBinding.Houses();
-            if (m_CompactPilot || !compactOwner) { compactOwner = m_Pilot; }
-            m_CompactPilot = !m_CompactPilot;
             if (compactOwner) { compactOwner.CompactSettled(); }
             if (HCGroupClock.Utc() < m_State.LastUtc) { m_Store.Fault(); return; }
             int limit = HCSearchLimits.HCGet().RefreshRecordsPerMinute;
@@ -987,7 +965,6 @@ class HCSearchRefreshModule : HCModule
             m_SaveJob = null;
         }
         m_RefreshReservations.Clear();
-        if (m_Pilot) m_Pilot.Stop();
         if (s_Instance == this) s_Instance = null;
         m_BatchLeft = 0;
         m_BatchChanged = false;
@@ -1086,23 +1063,6 @@ modded class HCSearchHouseJournal
         HCSearchHouseRow row = Row(index);
         if (row && Healthy() && kind == "claim") HCSearchRefreshModule.Mark(RefreshScope(), row.SiteId);
         return super.Write(index, kind, actorId, phase);
-    }
-}
-
-modded class HCSearchEconomy
-{
-    override bool Open(HCSearchManifest expected, HCSearchSupplyRegistry source, bool initializeNewEpoch)
-    {
-        if (!super.Open(expected, source, initializeNewEpoch)) return false;
-        HCSearchRefreshPilotCatalog.PinOriginal(m_Manifest);
-        return true;
-    }
-
-    override HCSearchRecord Record(int index, string actorId, int phase)
-    {
-        HCSearchRecord result = super.Record(index, actorId, phase);
-        if (phase == 1) HCSearchRefreshModule.Mark(m_Manifest.WorldName + "/" + m_Manifest.SourcePin, result.SiteId);
-        return result;
     }
 }
 
@@ -1213,253 +1173,6 @@ modded class HCSearchHouses
             if (HCSearchRefreshModule.HCRefreshReserved(scope, hit.SiteId)) { return -1; }
         }
         return super.Prepare(slot, hit, player);
-    }
-}
-
-// The legacy pilot's immutable one-supply manifest is not rewritten. Its reviewed
-// volume/context is handed to the same lazy finite-supply path after the cooldown.
-class HCSearchRefreshPilotSite
-{
-    HCInteriorSite Site;
-    ref HCSearchSiteVolume Volume;
-    ref HCInteriorSearchContext Context;
-}
-
-class HCSearchRefreshPilotCatalog
-{
-    protected static ref array<ref HCSearchRefreshPilotSite> s_Sites = new array<ref HCSearchRefreshPilotSite>;
-    protected static ref array<string> s_OriginalSupplies = new array<string>;
-
-    static void Clear()
-    {
-        s_Sites.Clear();
-        s_OriginalSupplies.Clear();
-    }
-
-    static void PinOriginal(HCSearchManifest manifest)
-    {
-        s_OriginalSupplies.Clear();
-        array<ref HCSearchEntry> entryRows = manifest.Entries;
-        foreach (HCSearchEntry entry : entryRows)
-        {
-            if (entry.SupplyId != "") s_OriginalSupplies.Insert(entry.SupplyId);
-        }
-    }
-
-    static bool OriginalSupply(string supplyId) { return s_OriginalSupplies.Find(supplyId) >= 0; }
-
-    static void Remember(HCInteriorSite site, HCSearchSiteVolume volume, HCInteriorSearchContext context)
-    {
-        if (!site || !volume || !context || s_Sites.Count() >= 12) return;
-        HCSearchRefreshPilotSite record = new HCSearchRefreshPilotSite;
-        record.Site = site;
-        record.Volume = volume;
-        record.Context = context;
-        s_Sites.Insert(record);
-    }
-
-    static HCSearchRefreshPilotSite Find(string siteId)
-    {
-        foreach (HCSearchRefreshPilotSite row : s_Sites)
-        {
-            if (row.Site && row.Site.Id == siteId) return row;
-        }
-        return null;
-    }
-}
-
-modded class HCSearchBinding
-{
-    override bool BuildInputs()
-    {
-        if (!super.BuildInputs()) return false;
-        HCSearchRefreshPilotCatalog.Clear();
-        // Index the sites by id once; each volume then reads only its own sites (same order as the old rescan).
-        map<string, ref array<HCInteriorSite>> sitesById = new map<string, ref array<HCInteriorSite>>;
-        array<ref HCInteriorSite> siteRows = m_Sites;
-        foreach (HCInteriorSite site : siteRows)
-        {
-            array<HCInteriorSite> sameId;
-            if (!sitesById.Find(site.Id, sameId))
-            {
-                sameId = new array<HCInteriorSite>;
-                sitesById.Set(site.Id, sameId);
-            }
-            sameId.Insert(site);
-        }
-        int index;
-        while (index < m_Volumes.Count())
-        {
-            array<HCInteriorSite> matching;
-            if (sitesById.Find(m_Volumes[index].SiteId, matching))
-            {
-                foreach (HCInteriorSite matched : matching)
-                {
-                    HCSearchRefreshPilotCatalog.Remember(matched, m_Volumes[index], m_Contexts[index]);
-                }
-            }
-            index++;
-        }
-        return true;
-    }
-
-    override void OnStop()
-    {
-        HCSearchRefreshPilotCatalog.Clear();
-        super.OnStop();
-    }
-}
-
-// Separate lazy registry/journal for pilot volumes. It needs the measured pin,
-// not a template pack: legacy-only installations must not require templates.
-class HCSearchRefreshPilotJournal : HCSearchHouseJournal
-{
-    override string HCRecoveryScope() { return "pilot"; }
-    override bool SupplyKnown(string supplyId)
-    {
-        // The original manifest stays authoritative even if its spent item was
-        // absent at boot and is later dropped back into the reviewed volume.
-        return super.SupplyKnown(supplyId) || HCSearchRefreshPilotCatalog.OriginalSupply(supplyId);
-    }
-}
-
-class HCSearchRefreshPilotHouses : HCSearchHouses
-{
-    protected string m_PilotPin;
-
-    override HCSearchHouseHit Resolve(PlayerBase player, ActionTarget target)
-    {
-        HCInteriorsModule interiors = HCInteriorsModule.Get();
-        if (!interiors || !Gate(player)) return null;
-        return interiors.ResolveRefreshPilot(player, target);
-    }
-
-    override HCInteriorSearchContext BuildContext(HCSearchHouseHit hit)
-    {
-        HCSearchRefreshPilotSite row = HCSearchRefreshPilotCatalog.Find(hit.SiteId);
-        if (!row) return null;
-        return row.Context;
-    }
-
-    override HCSearchSiteVolume BuildVolume(HCSearchHouseHit hit)
-    {
-        HCSearchRefreshPilotSite row = HCSearchRefreshPilotCatalog.Find(hit.SiteId);
-        if (!row) return null;
-        return row.Volume;
-    }
-
-    void SetPin(string pin) { m_PilotPin = pin; }
-
-    override bool OpenJournal()
-    {
-        if (!HCSearchRules.PinValid(m_PilotPin)) return false;
-        if (m_Journal) return m_Journal.Healthy();
-        // Cache both success and refusal; initialization is once per owner lifetime.
-        m_Journal = new HCSearchRefreshPilotJournal;
-        if (m_Fault) return false;
-        if (!m_Journal.Open("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
-        {
-            m_Fault = true;
-            Print("[HC Search Refresh] pilot journal refused; pilot house search stays refused");
-            return false;
-        }
-        return m_Journal.Healthy();
-    }
-
-    override bool EnsureJournal()
-    {
-        if (!OpenJournal())
-        {
-            m_Refusal = HCRefusal.STORAGE;
-            return false;
-        }
-        if (m_Registry) return true;
-        if (m_Fault)
-        {
-            m_Refusal = HCRefusal.STORAGE;
-            return false;
-        }
-        HCSearchSupplyRegistry registry = new HCSearchSupplyRegistry;
-        if (!registry.BindLazySource("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
-        {
-            m_Fault = true;
-            Print("[HC Search Refresh] pilot registry refused; pilot house search stays refused");
-            m_Refusal = HCRefusal.STORAGE;
-            return false;
-        }
-        m_Registry = registry;
-        return true;
-    }
-}
-
-modded class HCInteriorsModule
-{
-    HCSearchHouseHit ResolveRefreshPilot(PlayerBase player, ActionTarget target)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (!service || !target || !m_Ready || !m_SearchProof || !m_Store || !m_Store.Healthy() || !m_Economy || !m_Economy.Serving()) return null;
-        HCInteriorSite site = FindSite(target.GetObject());
-        if (!site || site.Owner || site.Phase == 0 || !ValidateTarget(player, target, site)) return null;
-        HCSearchRefreshPilotSite reviewed = HCSearchRefreshPilotCatalog.Find(site.Id);
-        if (!reviewed || reviewed.Site != site) return null;
-        string scope = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()) + "/" + reviewed.Context.SourcePin;
-        HCSearchRefreshModule.Mark(scope, site.Id, true);
-        if (!HCSearchRefreshModule.Revisited(scope, site.Id)) return null;
-        service.SetPin(reviewed.Context.SourcePin);
-        HCSearchHouseHit hit = new HCSearchHouseHit;
-        hit.Structure = site.Target;
-        hit.InstanceId = reviewed.Context.InstanceId;
-        hit.SiteId = site.Id;
-        hit.Center = reviewed.Volume.Center;
-        hit.Radius = reviewed.Volume.Radius;
-        return hit;
-    }
-
-    override bool CanStart(PlayerBase player, ActionTarget target)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (service && ResolveRefreshPilot(player, target)) return service.CanStart(player, target);
-        return super.CanStart(player, target);
-    }
-
-    override void BeginSearch(ActionData data)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (service && data && ResolveRefreshPilot(data.m_Player, data.m_Target))
-        {
-            service.Begin(data);
-            return;
-        }
-        super.BeginSearch(data);
-    }
-
-    override bool CanContinue(ActionData data)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (service && service.OwnsAction(data)) return service.CanContinue(data);
-        return super.CanContinue(data);
-    }
-
-    override void CommitSearch(ActionData data)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (service && service.OwnsAction(data))
-        {
-            service.Commit(data);
-            return;
-        }
-        super.CommitSearch(data);
-    }
-
-    override void EndSearch(ActionData data)
-    {
-        HCSearchRefreshPilotHouses service = HCSearchRefreshModule.Pilot();
-        if (service && service.OwnsAction(data))
-        {
-            service.End(data);
-            return;
-        }
-        super.EndSearch(data);
     }
 }
 

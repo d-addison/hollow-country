@@ -73,7 +73,7 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  'economy-profiles/diagnostic.json', 'gameplay-profiles/hollow-country-v1.json',
                  'gear/hardscrabble.json',
                  # Interiors data pack (W1.1): one evidenced house; measured layouts and rooms stay pending.
-                 'interiors/pack.json', 'interiors/pack-profile.json', 'interiors/interiors.json',
+                 'interiors/pack.json', 'interiors/pack-profile.json',
                  'interiors/evidence/house-candidates.json',
                  # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
                  'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json',

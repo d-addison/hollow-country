@@ -8,12 +8,13 @@ Owner decisions (2026-11-17): search on CE points in every class; furniture only
 template passes clearance (≤1,500 props); sampler data is provisional room evidence; classes that
 can't be measured stay vanilla with an exclusion reason.
 
-This replaces the single-house pilot gates (`HCInteriorCatalog.BUILDING`,
+This replaced the single-house pilot gates (`HCInteriorCatalog.BUILDING`,
 `HCInteriorMeasuredCatalog`) with class-level templates in the model frame. Templates bind
 lazily to each instance through `Object.ModelToWorld`/`WorldToModel` (native
-`3_Game/Entities/Object.c#Object.ModelToWorld`, `#Object.WorldToModel`). The legacy files keep loading unchanged: `interiors.json`,
-`interiors-measured-profile.json` and `measured-interiors/*`. The new pack is additive and lives
-in its own directory.
+`3_Game/Entities/Object.c#Object.ModelToWorld`, `#Object.WorldToModel`). The legacy `interiors.json` pilot is retired (owner,
+2026-11-22): the server ignores an existing `interiors.json` and prints exactly one
+`[HC Interiors] legacy pilot retired: interiors.json ignored` line; the file is neither
+required nor deleted. The pack lives in its own directory.
 
 ## 1. Files under `$profile:HollowCountry/`
 
@@ -53,7 +54,8 @@ length for one file of each kind.
 (stock = (z, y, −x)). A class with no verdict is excluded as `frame_unverified`.
 
 **Instances.** Furnish rows copy `mapgrouppos.xml` `pos`/`a`. At runtime, exactly one live object
-of the class must lie within 0.75 m (`HCInteriorsModule.ResolveBuilding`). Orientation comes from the live object and must be yaw-only. Nonzero
+of the class must lie within 0.75 m (the template placement resolver in
+`HCInteriorTemplatePlacement.c`). Orientation comes from the live object and must be yaw-only. Nonzero
 pitch or roll refuses with `tilted`.
 
 **Pins (in `index.json`).** `Sources` maps names to SHA-256: `mapgroupproto`, `mapgrouppos`,

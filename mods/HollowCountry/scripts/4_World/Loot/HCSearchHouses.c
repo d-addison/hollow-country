@@ -13,8 +13,7 @@
 //   ActionTarget: GetObject, GetParent, GetComponentIndex, GetCursorHitPos
 //   3_Game/Global/Game.c:1120 IsServer; GetTickTime
 // Whether the cursor on baked building geometry yields a usable ActionTarget is CAP-09 and
-// unobserved: if it does not, only placed props are searchable (the pilot path), and that is
-// the documented fallback. Runtime acceptance stays pending.
+// unobserved. Runtime acceptance stays pending.
 class HCSearchHouseHit
 {
     Object Structure;
@@ -54,7 +53,7 @@ class HCSearchHouses
     protected static ref HCActivityWindow s_Activity;
     static HCActivityWindow HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted cabinet_attempts cabinet_started cabinet_completed cabinet_empty cabinet_refused_begin cabinet_refused_commit cabinet_interrupted");
+        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted");
         return s_Activity;
     }
 
@@ -159,8 +158,8 @@ class HCSearchHouses
         return building;
     }
 
-    // The pilot cabinets (HCInteriorCatalog.SearchType) also inherit House. The pilot sees
-    // them first, so they are never House targets.
+    // Furniture props (HCInteriorCatalog.SearchType) also inherit House; they are never
+    // House targets.
     static bool IsHouseTarget(ActionTarget target)
     {
         House building = HouseOf(target);
@@ -775,9 +774,7 @@ class HCSearchHouses
         if (row < 0)
         {
             // Count the action's empty outcome, not background binding probes.
-            string kind = "house";
-            if (!IsHouseTarget(data.m_Target)) kind = "cabinet";
-            HCActivity().Add(kind + "_empty");
+            HCActivity().Add("house_empty");
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.NOTHING, "Nothing here to search.");
             return;
         }
@@ -930,7 +927,14 @@ class HCSearchHouses
             m_Busy = false;
         }
         site.Phase = 3;
-        if (phase == 2) site.Phase = 2;
+        if (phase == 2)
+        {
+            site.Phase = 2;
+            // The pilot's search counters are retired; this is the only live House search completion.
+            // The window's house_completed is counted once at the action boundary below.
+            HCModuleReadiness.HCUse("Interiors", "house_search_completed");
+            HCSearchBinding.NoteHouseBound();
+        }
         return phase == 2;
     }
 
@@ -951,7 +955,7 @@ class HCSearchHouses
     }
 }
 
-// Action boundary wraps all existing house, cabinet and refresh dispatch hooks.
+// Action boundary wraps the House search dispatch hooks.
 // Never count ActionCondition polling as a player attempt. Completion requires a
 // phase transition in this callback; repeated finish callbacks cannot count twice.
 modded class HCInteriorActionData
@@ -969,20 +973,14 @@ modded class HCActionSearchInterior
         if (!action) { super.OnStartServer(action_data); return; }
         action.HCActivityStarted = false;
         action.HCActivityCompleted = false;
-        action.HCActivityKind = "cabinet";
-        if (HCSearchHouses.IsHouseTarget(action_data.m_Target)) action.HCActivityKind = "house";
+        // Only House targets pass the action condition since the pilot cabinet search was retired.
+        action.HCActivityKind = "house";
         HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_attempts");
         HCSearchRefreshModule.HCRecordAttempt();
-        HCInteriorsModule module = HCInteriorsModule.Get();
-        bool depletedCabinet = module && action.HCActivityKind == "cabinet" && module.HCActivityCabinetEmpty(action_data);
         super.OnStartServer(action_data);
         action.HCActivityStarted = action.Site && action.Site.Owner == action_data;
         if (action.HCActivityStarted) HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_started");
-        else
-        {
-            HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_begin");
-            if (depletedCabinet) HCSearchHouses.HCActivity().Add("cabinet_empty");
-        }
+        else HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_begin");
     }
 
     override void OnFinishProgressServer(ActionData action_data)

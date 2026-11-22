@@ -446,8 +446,8 @@ else:
         self.assertNotIn('profiles/HollowCountry/Events/state/commit-1.json', got)
 
     def test_legacy_room_owners_stay_out_when_the_template_pack_ships(self):
-        # HCInteriorTemplates refuses the whole pack (rooms_conflict) when the pilot interiors.json or the
-        # legacy production-rooms.json sits beside it, so a bundle with templates must not carry them.
+        # The pilot interiors.json is retired (the server ignores a stale copy) and HCInteriorTemplates refuses the
+        # whole pack (rooms_conflict) beside the legacy production-rooms.json, so a bundle must carry neither.
         put(self.profiles, 'HollowCountry/Infected/production-rooms.json', '{}')
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)

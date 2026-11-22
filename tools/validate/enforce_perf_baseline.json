@@ -216,7 +216,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "line": 359,
+      "line": 80,
       "symbol": "HCInteriorsModule.InspectProp",
       "key": "m_Objects.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -903,86 +903,6 @@
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
       "reason": "W1-11 legacy budget caller: HCCellarSampler.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 166,
-      "symbol": "HCInteriorStore.ReconcileAll",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 170,
-      "symbol": "HCInteriorStore.ReconcileAll",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 170,
-      "symbol": "HCInteriorStore.ReconcileAll",
-      "key": "FileExist#3",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 170,
-      "symbol": "HCInteriorStore.ReconcileAll",
-      "key": "FileExist#4",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 170,
-      "symbol": "HCInteriorStore.ReconcileAll",
-      "key": "FileExist#5",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 242,
-      "symbol": "HCInteriorStore.ReadRecoverySite",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 243,
-      "symbol": "HCInteriorStore.ReadRecoverySite",
-      "key": "FileExist#2",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "line": 244,
-      "symbol": "HCInteriorStore.ReadRecoverySite",
-      "key": "FileExist#3",
-      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
-      "native": false,
-      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
     },
     {
       "rule": "HC-P010",
@@ -4051,66 +3971,6 @@
     },
     {
       "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 61,
-      "symbol": "HCSearchEconomyStore.Open",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 63,
-      "symbol": "HCSearchEconomyStore.Open",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 66,
-      "symbol": "HCSearchEconomyStore.Open",
-      "key": "FileExist#3",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 108,
-      "symbol": "HCSearchEconomyStore.Recover",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 109,
-      "symbol": "HCSearchEconomyStore.Recover",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
-      "line": 110,
-      "symbol": "HCSearchEconomyStore.Recover",
-      "key": "FileExist#3",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
       "line": 219,
       "symbol": "HCSearchHouseJournal.Open",
@@ -4188,16 +4048,6 @@
       "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore",
       "native": false,
       "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.Restore probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
-      "line": 291,
-      "symbol": "HCSearchSupplyProvider.Prepare",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCSearchSupplyProvider.Prepare",
-      "native": false,
-      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchSupplyProvider.Prepare probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
     },
     {
       "rule": "HC-P003",

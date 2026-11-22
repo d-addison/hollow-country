@@ -4,9 +4,7 @@
   "world": "chernarusplus",
   "build": "1.30.164289",
   "runtime_acceptance": "pending",
-  "files": {
-    "interiors.json": "6f027406d799de163bda4cc60ac6a5309170158d522856804d508ee715c91b3f"
-  },
+  "files": {},
   "sources": {
     "pack-profile.json": "5957d59bd87e0428c4539c48edefda7015811b7b64d592a665d708347107934f",
     "evidence/house-candidates.json": "9ab3a86f4ca266e8f238b9d74ae4c1e5d705faba2124bb561ee08cd57d5a89fc"
