@@ -4,6 +4,8 @@ The validators accept either the HCJsonFields.Has gate or an HCJsonSchema.HCAppl
 call, and refuse a binding that has neither or lacks its registry gate. Establishes
 nothing about DayZ behaviour.
 """
+import json
+import re
 import unittest
 
 from tools.validate import enforce_json, settings_consistency as sc
@@ -43,6 +45,44 @@ class PresenceKeyTests(unittest.TestCase):
 
     def test_loaders_include_the_schema_loader(self):
         self.assertTrue(enforce_json.LOAD.search('HCJsonSchemaLoader<HCHearthConfig>.HCLoadData(text, decoded, error)'))
+
+
+RETIRED_SOURCE = (
+    'class HCSettings {\n'
+    '    static void HCRetiredKey(string content, string key) {}\n'
+    '    static void HCApplyLegacy(string content, HCSettings settings)\n    {\n'
+    '        HCRetiredKey(content, "OldFlag");\n    }\n}\n')
+
+
+class RetiredSettingsTests(unittest.TestCase):
+    def check(self, images, source=RETIRED_SOURCE, rules=(), fields=()):
+        return sc.check_retired_settings(source, images, dict.fromkeys(rules), dict.fromkeys(fields))
+
+    def test_clean_profiles_pass(self):
+        self.assertEqual([], self.check([('operator', {'A': 1, 'AILimits': {'B': 2}})]))
+
+    def test_retired_key_in_a_shipped_profile_is_flagged_at_any_depth(self):
+        errors = self.check([('operator', {'OldFlag': True}), ('config', {'AILimits': {'OldFlag': 1}}), ('ok', {})])
+        self.assertEqual(['operator: retired key OldFlag must not ship', 'config: retired key OldFlag must not ship'], errors)
+
+    def test_retired_key_must_not_be_registered_or_decoded(self):
+        self.assertEqual(1, len(self.check([], rules=['OldFlag'])))
+        self.assertEqual(1, len(self.check([], rules=['Scope.OldFlag'])))
+        self.assertEqual(1, len(self.check([], fields=['OldFlag'])))
+
+    def test_declaration_requires_the_logging_helper(self):
+        source = RETIRED_SOURCE.replace('static void HCRetiredKey(string content, string key) {}', '')
+        self.assertEqual(['Retired settings keys are declared but HCRetiredKey is not defined'], self.check([], source))
+
+    def test_no_declaration_means_nothing_is_retired(self):
+        self.assertEqual([], self.check([('operator', {'OldFlag': 1})], 'class HCSettings {}'))
+
+    def test_the_real_tree_declares_and_does_not_ship_its_retired_keys(self):
+        source = sc.NATIVE.read_text()
+        keys = set(re.findall(r'^        HCRetiredKey\(content, "(\w+)"\);', source, re.M))
+        self.assertTrue(keys)
+        for path in sc.SHIPPED:
+            self.assertEqual([], [k for k in keys if k in sc.flatten(json.loads(path.read_text()))])
 
 
 if __name__ == '__main__':

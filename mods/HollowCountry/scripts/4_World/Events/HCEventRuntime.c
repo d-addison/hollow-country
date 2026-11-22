@@ -844,6 +844,69 @@ class HCEventRuntime
         }
         return false;
     }
+    // Public mission read model for the map beacon: committed current-session records
+    // that are announced or active with an open run and time left. Reads only the last
+    // committed state (at most the retained records), never clones, never mutates.
+    // Returns how many public missions exist; fills at most limit of them.
+    int HCPublicMissions(array<ref HCEventBeaconSource> into, int limit, int now)
+    {
+        if (!m_Ready || !m_State || !m_State.Director || !into) { return 0; }
+        int found = 0;
+        foreach (HCEventRecord record : m_State.Director.Records)
+        {
+            HCEventRun run = HCPublicRun(record, now);
+            if (!run) { continue; }
+            found = found + 1;
+            if (into.Count() >= limit) { continue; }
+            HCEventBeaconSource source = new HCEventBeaconSource;
+            source.Id = record.Definition.Id;
+            source.Family = run.Objective.Family;
+            source.Cache = run.Objective.RewardCache;
+            source.Source = run.Objective.Source;
+            source.Expires = record.Expires;
+            into.Insert(source);
+        }
+        return found;
+    }
+    // The committed run behind a currently public record, else null.
+    protected HCEventRun HCPublicRun(HCEventRecord record, int now)
+    {
+        if (!record || !record.Definition || record.Session != m_State.Director.Session) { return null; }
+        if (record.Status != HCEventStatus.ANNOUNCED && record.Status != HCEventStatus.ACTIVE) { return null; }
+        if (record.Expires <= now) { return null; }
+        HCEventRun run = HCRunAt(m_State, record.Id);
+        if (!run || !run.Objective) { return null; }
+        if (run.Phase == HCEventRunPhase.CLEANUP || run.Phase == HCEventRunPhase.CLOSED) { return null; }
+        return run;
+    }
+
+    // True while any committed record of this mission id is public; the beacon decides
+    // removal with this, never by membership of a truncated HCPublicMissions list.
+    bool HCIsPublic(string missionId, int now)
+    {
+        if (!m_Ready || !m_State || !m_State.Director) { return false; }
+        foreach (HCEventRecord record : m_State.Director.Records)
+        {
+            if (!record || !record.Definition || record.Definition.Id != missionId) { continue; }
+            if (HCPublicRun(record, now)) { return true; }
+        }
+        return false;
+    }
+
+    // Short public reason a mission left the public set, from the committed record.
+    string HCMissionOutcome(string missionId)
+    {
+        if (!m_State || !m_State.Director) { return "closed"; }
+        foreach (HCEventRecord record : m_State.Director.Records)
+        {
+            if (!record || !record.Definition || record.Session != m_State.Director.Session || record.Definition.Id != missionId) { continue; }
+            if (record.Status == HCEventStatus.COMPLETED || record.Status == HCEventStatus.RESOLVING) { return "completed"; }
+            if (record.Status == HCEventStatus.EXPIRED) { return "expired"; }
+            if (record.Status == HCEventStatus.CANCELLED) { return "cancelled"; }
+            return "closed";
+        }
+        return "closed";
+    }
     void ItemDelivered(ItemBase item, PlayerBase participant, EntityAI destination, HCEventContext context)
     {
         if (!HCReadAllowed(context) || !item) { return; }

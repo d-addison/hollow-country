@@ -55,7 +55,10 @@ def derive(stock, policy, classes):
         raise ValueError('stock events hash differs from policy')
     legacy = [r for r in policy['substitutions'] if not r['to'].startswith('HC_')]
     outgoing = Counter()
-    for r in legacy + policy.get('palette_rebalance', {}).get('transfers', []):
+    # Seasonal rows are reserved for every season so no season can exhaust an HC donor.
+    seasonal = [r for block in policy.get('seasonal_rebalance', {}).get('seasons', {}).values()
+                for r in block.get('transfers', [])]
+    for r in legacy + policy.get('palette_rebalance', {}).get('transfers', []) + seasonal:
         outgoing[r['event'], r['from']] += r['share']
     canonical = {n.casefold(): n for n in classes}
     rows, coverage = [], {}

@@ -247,7 +247,7 @@ class HCOperatorSettingsRegistry
         HCAdd("AILimits.WorldSeed", "int", 18473, 0, 1000003, "HCAILimits");
         HCAdd("AILimits.MaxObservedAI", "int", 1024, 1, 8192, "HCAILimits");
         HCAdd("AILimits.CautionRangeM", "int", 30, 1, 100, "HCAILimits");
-        HCAdd("AILimits.CautionHostileRangeM", "int", 60, 1, 100, "HCAILimits");
+        HCAdd("AILimits.CautionHostileRangeM", "int", 40, 40, 80, "HCAILimits");
         HCAdd("AILimits.CautionGunfireRangeM", "int", 80, 1, 100, "HCAILimits");
         HCAdd("AILimits.CautionGraceSeconds", "int", 3, 1, 30, "HCAILimits");
         HCAdd("MaxFamiliarityRows", "int", 0, 0, 128, "HCSettings");
@@ -559,9 +559,18 @@ class HCSettings
 
     ref HCAILimits AILimits = new HCAILimits;
 
+    // Retired top-level keys stay harmless in an old operator file: the loader
+    // ignores them (no DTO field, no registry row) and logs each present key once
+    // per load. Declare each with one HCRetiredKey(content, "Key") call below.
+    static void HCRetiredKey(string content, string key)
+    {
+        if (HCJsonFields.Has(content, key)) { Print("[HC Settings] retired key ignored key=" + key + " (no effect; safe to remove from settings.json)"); }
+    }
+
     static void HCApplyLegacy(string content, HCSettings settings)
     {
         HCSettings defaults = new HCSettings;
+        HCRetiredKey(content, "EnableMealBuffs");
         if (!HCJsonFields.Has(content, "EnableGrade")) { settings.EnableGrade = defaults.EnableGrade; }
         if (!HCJsonFields.Has(content, "ClientPresentationMask")) { settings.ClientPresentationMask = defaults.ClientPresentationMask; }
         if (!HCJsonFields.Has(content, "EnableAmbientLife")) { settings.EnableAmbientLife = defaults.EnableAmbientLife; }

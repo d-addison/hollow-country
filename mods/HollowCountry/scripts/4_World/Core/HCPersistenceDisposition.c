@@ -161,15 +161,22 @@ class HCPersistenceDisposition
         if (!HCGroupIO.HCReadRaw(path, limit, original)) { return false; }
         // Retire a legacy backlog before the bounded byte-identity search.
         if (!HCPruneArchives(path, ".consumed-")) { return false; }
+        // Only the HC_ARCHIVES_KEEP newest archives can match (the one just consumed is the
+        // newest). Older names are skipped without counting, so a backlog that the capped prune
+        // has not finished retiring can never push the newest archive out of the scan.
+        string prefix = receiptName + ".consumed-";
+        int floor = HCArchiveFloor(path + ".consumed-*", prefix);
         string filename;
         FileAttr attr;
         FindFileHandle handle = FindFile(path + ".consumed-*", filename, attr, FindFileFlags.DIRECTORIES);
         if (!handle) { return false; }
         bool found = filename != "";
         int scanned = 0;
-        while (found && scanned < 64)
+        int stamp;
+        while (found && scanned < HCPersistenceDisposition.HC_ARCHIVES_KEEP)
         {
-            if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && HCConsumedName(filename, receiptName))
+            stamp = HCArchiveStamp(filename, prefix);
+            if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && stamp > 0 && stamp >= floor)
             {
                 scanned++;
                 if (HCGroupIO.HCReadRaw("$profile:HollowCountry/" + filename, limit, archived) && archived == original)
@@ -178,8 +185,7 @@ class HCPersistenceDisposition
                     return true;
                 }
             }
-            found = false;
-            if (scanned < 64) { found = FindNextFile(handle, filename, attr); }
+            found = FindNextFile(handle, filename, attr);
         }
         CloseFindFile(handle);
         return false;
@@ -201,22 +207,15 @@ class HCPersistenceDisposition
         return 0;
     }
 
-    // Startup/transaction cleanup only; no recurring scan. Streaming passes
-    // retain eight timestamps and at most eight deletion names in memory.
-    // EnScript.c:380/385/389/399/407 array Count/Clear/Set/Get/Insert;
-    // EnString.c:253 LastIndexOf; EnSystem.c:520-528 file API.
-    // Finish enumeration before deleting so iterator mutation is not assumed.
-    static bool HCPruneArchives(string path, string archiveKind)
+    // Smallest timestamp among the HC_ARCHIVES_KEEP newest archives matching `pattern`, or 0 when
+    // fewer than that many exist (every archive is kept). One streaming pass: eight timestamps in
+    // memory. Archives with a timestamp below the floor are the retention surplus.
+    static int HCArchiveFloor(string pattern, string prefix)
     {
-        if (archiveKind != ".consumed-" && archiveKind != ".quarantined-") { return false; }
-        int split = path.LastIndexOf("/") + 1;
-        if (split < 1 || split >= path.Length()) { return false; }
-        string root = path.Substring(0, split);
-        string prefix = path.Substring(split, path.Length() - split) + archiveKind;
         string filename;
         FileAttr attr;
-        FindFileHandle handle = FindFile(path + archiveKind + "*", filename, attr, FindFileFlags.DIRECTORIES);
-        if (!handle) { return true; }
+        FindFileHandle handle = FindFile(pattern, filename, attr, FindFileFlags.DIRECTORIES);
+        if (!handle) { return 0; }
         ref array<int> newest = new array<int>;
         bool found = filename != "";
         int stamp;
@@ -243,7 +242,7 @@ class HCPersistenceDisposition
             found = FindNextFile(handle, filename, attr);
         }
         CloseFindFile(handle);
-        if (newest.Count() < HCPersistenceDisposition.HC_ARCHIVES_KEEP) { return true; }
+        if (newest.Count() < HCPersistenceDisposition.HC_ARCHIVES_KEEP) { return 0; }
         int floor = newest.Get(0);
         index = 1;
         while (index < newest.Count())
@@ -251,12 +250,35 @@ class HCPersistenceDisposition
             if (newest.Get(index) < floor) { floor = newest.Get(index); }
             index++;
         }
+        return floor;
+    }
+
+    // Startup/transaction cleanup only; no recurring scan. Streaming passes
+    // retain eight timestamps and at most eight deletion names in memory.
+    // EnScript.c:380/385/389/399/407 array Count/Clear/Set/Get/Insert;
+    // EnString.c:253 LastIndexOf; EnSystem.c:520-528 file API.
+    // Finish enumeration before deleting so iterator mutation is not assumed.
+    static bool HCPruneArchives(string path, string archiveKind)
+    {
+        if (archiveKind != ".consumed-" && archiveKind != ".quarantined-") { return false; }
+        int split = path.LastIndexOf("/") + 1;
+        if (split < 1 || split >= path.Length()) { return false; }
+        string root = path.Substring(0, split);
+        string prefix = path.Substring(split, path.Length() - split) + archiveKind;
+        int floor = HCArchiveFloor(path + archiveKind + "*", prefix);
+        if (floor < 1) { return true; }
+        string filename;
+        FileAttr attr;
+        FindFileHandle handle;
+        int stamp;
+        bool found;
         // Close the directory iterator before deleting each bounded batch.
+        // At most 8 passes of at most HC_ARCHIVES_KEEP (8) deletions: 64 deletes
+        // per call. Archives beyond that stay on disk (they are retention
+        // surplus, never state) and the next Open/Load call continues the prune.
         ref array<string> obsolete = new array<string>;
-        bool removed = true;
-        while (removed)
+        for (int sweep = 0; sweep < 8; sweep++)
         {
-            removed = false;
             handle = FindFile(path + archiveKind + "*", filename, attr, FindFileFlags.DIRECTORIES);
             if (!handle) { return true; }
             found = filename != "";
@@ -271,14 +293,16 @@ class HCPersistenceDisposition
                 found = FindNextFile(handle, filename, attr);
             }
             CloseFindFile(handle);
-            foreach (string obsoletePath : obsolete)
+            if (obsolete.Count() < 1) { return true; }
+            for (int victim = 0; victim < 8; victim++)
             {
+                if (victim >= obsolete.Count()) { break; }
+                string obsoletePath = obsolete.Get(victim);
                 if (!DeleteFile(obsoletePath) || FileExist(obsoletePath))
                 {
                     Print("[HC Plan] HC-28 recovery=archive_prune_refused reason=archive_delete_failed runtime=PENDING");
                     return false;
                 }
-                removed = true;
             }
         }
         return true;

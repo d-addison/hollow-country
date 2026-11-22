@@ -83,7 +83,7 @@
     "Land_Mil_GuardShed": {
       "cfg_parent": "HouseNoDestruct",
       "cfg_scope": 1,
-      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "collision_notes": "Not placed by any composition: the installed model has an empty View Geometry LOD, so loot placed in it could be seen and reached through its walls. Compositions use Land_Mil_Fortified_Nest_Small (same reserve) for the shed slot. Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
       "footprint_reserve_m": [
         8,
         10

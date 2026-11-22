@@ -190,6 +190,8 @@ class HCc2SeasonTuning
 class HCc2PresentationConfig
 {
     static const int READ_LIMIT = 8192;
+    // One byte past READ_LIMIT so an oversized file is detected instead of truncated.
+    static const int PRESENTATION_READ_PROBE = 8193;
     int GradeDefaultPercent = 60;
     float GradeDawnHour = 8;
     float GradeDawnBlendHours = 2;
@@ -252,13 +254,25 @@ class HCc2PresentationConfig
         string image;
         string error;
         HCc2PresentationConfig loaded;
-        if (!HCGroupIO.Read(path, HCc2PresentationConfig.READ_LIMIT, image) || !JsonFileLoader<HCc2PresentationConfig>.LoadData(image, loaded, error) || !loaded)
+        if (!HCReadTuning(path, image) || !JsonFileLoader<HCc2PresentationConfig>.LoadData(image, loaded, error) || !loaded)
         {
             Print("[HC Config] atmosphere-presentation reason=read_or_json defaults_retained runtime=PENDING");
             return defaults;
         }
         defaults.HCApply(image, loaded);
         return defaults;
+    }
+
+    // The tuning file is polled every 30 s on the server: one open, one read of at most
+    // PRESENTATION_READ_PROBE bytes and one close. The path is not a recovery-gated store,
+    // so this is the same bounded read the shared store reader performs for it.
+    protected static bool HCReadTuning(string path, out string image)
+    {
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, image, HCc2PresentationConfig.PRESENTATION_READ_PROBE);
+        CloseFile(handle);
+        return count > 0 && count <= HCc2PresentationConfig.READ_LIMIT && image.Length() > 0 && image.Length() <= HCc2PresentationConfig.READ_LIMIT;
     }
 
     void HCApply(string image, HCc2PresentationConfig loaded)

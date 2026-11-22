@@ -229,6 +229,9 @@ class HCShelterModule : HCModule
         {
             m_HeaviestTicks = stepTicks;
             m_HeaviestStep = m_StepKind;
+            // The shared resolve cursor records the building class, query size and phase of its last
+            // native call (soak 176: a 29 ms resolve with no class named).
+            if (m_StepKind == "resolve") { m_HeaviestStep = m_StepKind + ":" + HCInteriorTemplatePlacement.HCLastType(); }
         }
     }
 

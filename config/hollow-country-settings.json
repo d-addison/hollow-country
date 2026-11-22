@@ -65,7 +65,7 @@
     "WorldSeed": 18473,
     "MaxObservedAI": 1024,
     "CautionRangeM": 30,
-    "CautionHostileRangeM": 60,
+    "CautionHostileRangeM": 40,
     "CautionGunfireRangeM": 80,
     "CautionGraceSeconds": 3
   },

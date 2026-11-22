@@ -83,19 +83,21 @@ class HCProfileDefaults
         if (relative.Length() > 160) { return false; }
         string root = "$profile:HollowCountry";
         if (!FileExist(root) && !MakeDirectory(root)) { return false; }
-        int length = relative.Length();
-        int index = 0;
-        string folder = "";
-        while (index < length)
+        // At most 8 nested folders: a constant-trip loop, one
+        // FileExist (and at most one MakeDirectory) per level. A deeper path is
+        // refused, never silently truncated.
+        int from = 0;
+        for (int level = 0; level < 8; level++)
         {
-            if (relative.Get(index) == "/")
-            {
-                folder = root + "/" + relative.Substring(0, index);
-                if (!FileExist(folder) && !MakeDirectory(folder)) { return false; }
-            }
-            index = index + 1;
+            int slash = relative.IndexOfFrom(from, "/");
+            if (slash < 0) { return true; }
+            string folder = root + "/" + relative.Substring(0, slash);
+            if (!FileExist(folder) && !MakeDirectory(folder)) { return false; }
+            from = slash + 1;
         }
-        return true;
+        if (relative.IndexOfFrom(from, "/") < 0) { return true; }
+        Print("[HC Profile] default parent folders refused reason=path_too_deep max_levels=8 relative_chars=" + relative.Length().ToString());
+        return false;
     }
 
     // The path a reader should open: the operator's profile file when present,

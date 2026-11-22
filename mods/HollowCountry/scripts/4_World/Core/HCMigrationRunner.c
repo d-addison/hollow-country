@@ -94,6 +94,928 @@ class HCMigrationProbeStep : HCMigrationStep
     }
 }
 
+// One migration step as a resumable machine. Every HCStep() call performs AT MOST ONE native
+// file operation (EnSystem.c:397 FileExist, :417 OpenFile, :425 ReadFile, :443 CloseFile, :462
+// FPrint, :528 DeleteFile, :531 CopyFile) and returns, so the server tick that drives it never
+// blocks on more than one call. The boot pass drives the same machine in a bounded loop
+// (HCMigrationRunner.HCRunStep), so there is a single implementation of the protocol.
+//
+// Protocol (unchanged on disk, per step for target T, scratch image P, backup slot B):
+//   verified backup B -> verified full new image P -> delete T, copy P to T, read T back == P
+//   -> delete P. State lives only in the data; a stopped machine (halt, shutdown, crash) leaves
+//   exactly the on-disk states the recovery cases of HCMigrationRunner already classify.
+// Transfers use 4 KiB chunks over one retained handle: native string/FPrint transfer is capped
+// below 8 KiB per call (HCStagedSaveImage, build 113), which also bounds one op to 4 KiB.
+// A handle is only ever open between a successful open stage and its close stage; a failing
+// stage still runs the close stage before the machine reports a result.
+class HCMigrationJob
+{
+    static const int STEP_DONE = 0;
+    static const int STEP_MORE = 1;
+    // Largest legitimate step: a handful of reads/writes of the 8 MiB cap in 4 KiB chunks
+    // (<= 4 * 2048 reads + 3 * 2048 writes + provenance reads). A literal, like HC_MAX_STAGES.
+    static const int HC_MAX_STEPS = 65536;
+    static const int HC_CHUNK_BYTES = 4096;
+    static const int HC_MAX_HOPS = 64;
+
+    static const int OP_NONE = 0;
+    static const int OP_EXISTS = 1;
+    static const int OP_DELETE = 2;
+    static const int OP_COPY = 3;
+    static const int OP_OPEN_READ = 4;
+    static const int OP_OPEN_WRITE = 5;
+    static const int OP_READ = 6;
+    static const int OP_WRITE = 7;
+    static const int OP_CLOSE = 8;
+
+    static const int SUB_NONE = 0;
+    static const int SUB_READ = 1;
+    static const int SUB_WRITE = 2;
+    static const int SUB_DELETE = 3;
+
+    static const int PH_START = 0;
+    static const int PH_HAS_PENDING = 1;
+    static const int PH_HAS_TARGET = 2;
+    static const int PH_CLASSIFY = 3;
+    static const int PH_CUR_LEFTOVER = 4;
+    static const int PH_CUR_DELETED = 5;
+    static const int PH_MIG = 6;
+    static const int PH_MIG_PENDING = 7;
+    static const int PH_MIG_STALE = 8;
+    static const int PH_MIG_PROVED = 9;
+    static const int PH_MIG_DELETE = 10;
+    static const int PH_MIG_DELETED = 11;
+    static const int PH_BACKUP = 12;
+    static const int PH_BK_SLOT = 13;
+    static const int PH_BK_EXISTS = 14;
+    static const int PH_BK_COPIED = 15;
+    static const int PH_BK_VERIFY = 16;
+    static const int PH_BK_OCCUPANT = 17;
+    static const int PH_WRITE = 18;
+    static const int PH_W_EXISTS = 19;
+    static const int PH_W_WRITTEN = 20;
+    static const int PH_W_VERIFY = 21;
+    static const int PH_REC = 22;
+    static const int PH_REC_READ = 23;
+    static const int PH_REC_PROVED = 24;
+    static const int PH_PROV = 25;
+    static const int PH_PV_SLOT = 26;
+    static const int PH_PV_EXISTS = 27;
+    static const int PH_PV_READ = 28;
+    static const int PH_COMMIT = 29;
+    static const int PH_C_TARGET = 30;
+    static const int PH_C_DELETED = 31;
+    static const int PH_C_COPY = 32;
+    static const int PH_C_COPIED = 33;
+    static const int PH_C_RETRY = 34;
+    static const int PH_C_RETRY_DELETED = 35;
+    static const int PH_C_VERIFY = 36;
+    static const int PH_C_READBACK = 37;
+    static const int PH_C_CLEANED = 38;
+    static const int PH_C_CHECKED = 39;
+
+    // The operation the next HCExec performs and its operands.
+    protected int m_Op;
+    protected string m_PathA;
+    protected string m_PathB;
+    protected string m_Chunk;
+    protected int m_Count;
+    protected bool m_Flag;
+    protected FileHandle m_Handle;
+    protected bool m_HandleOpen;
+    protected int m_Steps;
+
+    // Sub-routine (chunked read, chunked create-write, delete-and-verify) registers.
+    protected int m_Sub;
+    protected int m_SubStage;
+    protected int m_Ret;
+    protected string m_SubPath;
+    protected string m_SubData;
+    protected int m_SubLimit;
+    protected bool m_SubEmpty;
+    protected bool m_SubVerify;
+    protected int m_SubBytes;
+    protected bool m_SubFail;
+    protected bool m_SubOk;
+    protected string m_SubText;
+
+    // Program registers.
+    protected HCMigrationStep m_Step;
+    protected int m_Phase;
+    protected string m_Id;
+    protected string m_Target;
+    protected string m_Pending;
+    protected int m_Limit;
+    protected bool m_HasPending;
+    protected bool m_Readable;
+    protected string m_Text;
+    protected string m_Migrated;
+    protected string m_Image;
+    protected bool m_RecReadable;
+    protected string m_RecTarget;
+    protected string m_OkReason;
+    protected int m_Slot;
+    protected int m_PvSlot;
+    protected int m_ProvRet;
+    protected bool m_ProvOk;
+    protected string m_ProvImage;
+    protected bool m_Copied;
+    protected bool m_CopyRetried;
+    protected bool m_PendingDeleteFailed;
+    protected bool m_Interleaved;
+    protected bool m_Finished;
+    protected int m_Result;
+    protected string m_Reason;
+
+    void ~HCMigrationJob() { HCAbort(); }
+
+    // The step must already have passed HCMigrationRunner.HCStepInvalid.
+    void HCBegin(HCMigrationStep step)
+    {
+        m_Step = step;
+        m_Phase = PH_START;
+        m_Finished = false;
+        m_Result = HCMigrationRunner.RESULT_REFUSED;
+        m_Reason = "";
+        m_Op = OP_NONE;
+        m_Sub = SUB_NONE;
+        m_Steps = 0;
+        m_PendingDeleteFailed = false;
+        m_CopyRetried = false;
+        m_Id = step.HCId();
+        m_Target = step.HCTarget();
+        m_Limit = step.HCLimit();
+        m_Pending = HCMigrationRunner.HCPendingPath(m_Target, m_Id);
+    }
+
+    // A tick-driven job shares the profile with the rest of the server between its steps: it
+    // re-reads the target right before deleting it (see PH_C_TARGET). The synchronous boot pass
+    // and self-test drivers do not need the extra read.
+    void HCSetInterleaved() { m_Interleaved = true; }
+
+    bool HCFinished() { return m_Finished; }
+    int HCResult() { return m_Result; }
+    string HCReason() { return m_Reason; }
+    bool HCPendingDeleteFailed() { return m_PendingDeleteFailed; }
+    // Calls made so far (every HCStep call, including the one that reported the result).
+    int HCCalls() { return m_Steps; }
+
+    // True when the last step changed a file (create, write, copy or delete): the points at
+    // which a crash leaves a different on-disk state.
+    bool HCMutated() { return m_Op == OP_DELETE || m_Op == OP_COPY || m_Op == OP_OPEN_WRITE || m_Op == OP_WRITE; }
+
+    // Stops a machine that will not be resumed (halt, guard). Never deletes a file: the files
+    // it leaves are a state the next boot classifies, exactly like a crash at this point.
+    void HCAbort()
+    {
+        if (m_HandleOpen)
+        {
+            CloseFile(m_Handle);
+            m_HandleOpen = false;
+        }
+        m_Finished = true;
+    }
+
+    // One step: plan the next operation from the previous result (no file access), then perform
+    // that single operation. Returns STEP_MORE while operations remain, STEP_DONE with the
+    // result readable through HCResult/HCReason.
+    int HCStep()
+    {
+        m_Steps = m_Steps + 1;
+        if (m_Finished) { return STEP_DONE; }
+        m_Op = OP_NONE;
+        HCPlan();
+        if (m_Finished) { return STEP_DONE; }
+        HCExec();
+        return STEP_MORE;
+    }
+
+    // Exactly one native file operation per arm.
+    protected void HCExec()
+    {
+        if (m_Op == OP_EXISTS) { m_Flag = FileExist(m_PathA); return; }
+        if (m_Op == OP_DELETE) { m_Flag = DeleteFile(m_PathA); return; }
+        if (m_Op == OP_COPY) { m_Flag = CopyFile(m_PathA, m_PathB); return; }
+        if (m_Op == OP_OPEN_READ)
+        {
+            m_Handle = OpenFile(m_PathA, FileMode.READ);
+            m_Flag = true;
+            if (!m_Handle) { m_Flag = false; }
+            m_HandleOpen = m_Flag;
+            return;
+        }
+        if (m_Op == OP_OPEN_WRITE)
+        {
+            m_Handle = OpenFile(m_PathA, FileMode.WRITE);
+            m_Flag = true;
+            if (!m_Handle) { m_Flag = false; }
+            m_HandleOpen = m_Flag;
+            return;
+        }
+        if (m_Op == OP_READ)
+        {
+            string piece;
+            m_Count = ReadFile(m_Handle, piece, HC_CHUNK_BYTES);
+            m_Chunk = piece;
+            return;
+        }
+        if (m_Op == OP_WRITE) { FPrint(m_Handle, m_Chunk); return; }
+        if (m_Op == OP_CLOSE)
+        {
+            CloseFile(m_Handle);
+            m_HandleOpen = false;
+            m_Flag = true;
+            return;
+        }
+    }
+
+    // Pure: advances the program until it requests an operation or finishes.
+    protected void HCPlan()
+    {
+        for (int hop = 0; hop < HC_MAX_HOPS; hop++)
+        {
+            if (m_Op != OP_NONE || m_Finished) { return; }
+            if (m_Sub != SUB_NONE) { HCSubPlan(); }
+            else { HCProgram(); }
+        }
+        if (m_Op == OP_NONE && !m_Finished) { HCFinish(HCMigrationRunner.RESULT_REFUSED, "machine_fault"); }
+    }
+
+    protected void HCFinish(int result, string reason)
+    {
+        m_Finished = true;
+        m_Result = result;
+        m_Reason = reason;
+    }
+
+    protected void HCRefuse(string reason) { HCFinish(HCMigrationRunner.RESULT_REFUSED, reason); }
+
+    protected void HCGo(int phase) { m_Phase = phase; }
+
+    // Single-operation requests: the result is in m_Flag when phase `next` runs.
+    protected void HCAsk(int op, string pathA, string pathB, int next)
+    {
+        m_Op = op;
+        m_PathA = pathA;
+        m_PathB = pathB;
+        m_Phase = next;
+    }
+
+    protected void HCExists(string path, int next) { HCAsk(OP_EXISTS, path, "", next); }
+    protected void HCCopy(string from, string to, int next) { HCAsk(OP_COPY, from, to, next); }
+
+    // Sub-routine calls: the result is in m_SubOk (and m_SubText for a read) when phase `next` runs.
+    protected void HCCall(int sub, string path, string data, int limit, bool allowEmpty, int next)
+    {
+        m_Sub = sub;
+        m_SubStage = 0;
+        m_SubPath = path;
+        m_SubData = data;
+        m_SubLimit = limit;
+        m_SubEmpty = allowEmpty;
+        m_SubVerify = false;
+        m_SubBytes = 0;
+        m_SubFail = false;
+        m_SubOk = false;
+        m_SubText = "";
+        m_Ret = next;
+    }
+
+    protected void HCCallRead(string path, bool allowEmpty, int next) { HCCall(SUB_READ, path, "", m_Limit, allowEmpty, next); }
+
+    // Chunked comparison of a file with `expected`: each chunk is compared to the matching slice
+    // as it arrives and nothing is accumulated. m_SubOk is true only for an identical file.
+    protected void HCCallVerify(string path, string expected, bool allowEmpty, int next)
+    {
+        HCCall(SUB_READ, path, expected, m_Limit, allowEmpty, next);
+        m_SubVerify = true;
+    }
+
+    protected void HCCallDelete(string path, int next) { HCCall(SUB_DELETE, path, "", 0, false, next); }
+
+    protected void HCSubEnd(bool ok)
+    {
+        m_SubOk = ok;
+        m_Sub = SUB_NONE;
+        m_Phase = m_Ret;
+    }
+
+    protected void HCClose(int stage)
+    {
+        m_Op = OP_CLOSE;
+        m_SubStage = stage;
+    }
+
+    protected void HCSubPlan()
+    {
+        if (m_Sub == SUB_READ) { HCSubRead(); return; }
+        if (m_Sub == SUB_WRITE) { HCSubWrite(); return; }
+        HCSubDelete();
+    }
+
+    // Chunked read of the whole file; ends when the file reports 0 bytes. 0: open, 1: opened,
+    // 2: a chunk arrived, 3: closed. Refused when it exceeds the limit or is empty (unless allowed).
+    protected void HCSubRead()
+    {
+        if (m_SubStage == 0)
+        {
+            m_Op = OP_OPEN_READ;
+            m_PathA = m_SubPath;
+            m_SubStage = 1;
+            return;
+        }
+        if (m_SubStage == 1)
+        {
+            if (!m_Flag) { HCSubEnd(false); return; }
+            m_Op = OP_READ;
+            m_SubStage = 2;
+            return;
+        }
+        if (m_SubStage == 2)
+        {
+            if (m_Count < 0 || m_Count != m_Chunk.Length()) { m_SubFail = true; }
+            else
+            {
+                if (m_SubBytes + m_Count > m_SubLimit) { m_SubFail = true; }
+                else if (!m_SubVerify) { m_SubText = m_SubText + m_Chunk; }
+                else if (m_SubBytes + m_Count > m_SubData.Length()) { m_SubFail = true; }
+                else if (m_Count > 0 && m_SubData.Substring(m_SubBytes, m_Count) != m_Chunk) { m_SubFail = true; }
+                m_SubBytes = m_SubBytes + m_Count;
+            }
+            if (m_SubFail || m_Count == 0) { HCClose(3); return; }
+            m_Op = OP_READ;
+            return;
+        }
+        bool ok = !m_SubFail;
+        if (ok && m_SubVerify) { ok = m_SubBytes == m_SubData.Length(); }
+        else if (ok) { ok = m_SubText.Length() == m_SubBytes; }
+        if (m_SubBytes < 1 && !m_SubEmpty) { ok = false; }
+        if (!ok) { m_SubText = ""; }
+        HCSubEnd(ok);
+    }
+
+    // Chunked create-write of m_SubData. 0: open, 1: opened, 2: write chunks, 3: closed.
+    // FPrint reports nothing: callers verify by reading the file back.
+    protected void HCSubWrite()
+    {
+        if (m_SubStage == 0)
+        {
+            m_Op = OP_OPEN_WRITE;
+            m_PathA = m_SubPath;
+            m_SubStage = 1;
+            return;
+        }
+        if (m_SubStage == 1)
+        {
+            if (!m_Flag) { HCSubEnd(false); return; }
+            m_SubStage = 2;
+        }
+        if (m_SubStage == 2)
+        {
+            int remaining = m_SubData.Length() - m_SubBytes;
+            if (remaining < 1) { HCClose(3); return; }
+            int length = remaining;
+            if (length > HC_CHUNK_BYTES) { length = HC_CHUNK_BYTES; }
+            string piece = m_SubData.Substring(m_SubBytes, length);
+            if (piece.Length() != length)
+            {
+                m_SubFail = true;
+                HCClose(3);
+                return;
+            }
+            m_Chunk = piece;
+            m_SubBytes = m_SubBytes + length;
+            m_Op = OP_WRITE;
+            return;
+        }
+        HCSubEnd(!m_SubFail);
+    }
+
+    // Delete, then verify the file is gone. 0: delete, 1: deleted, 2: existence probed.
+    protected void HCSubDelete()
+    {
+        if (m_SubStage == 0)
+        {
+            m_Op = OP_DELETE;
+            m_PathA = m_SubPath;
+            m_SubStage = 1;
+            return;
+        }
+        if (m_SubStage == 1)
+        {
+            if (!m_Flag) { HCSubEnd(false); return; }
+            m_Op = OP_EXISTS;
+            m_PathA = m_SubPath;
+            m_SubStage = 2;
+            return;
+        }
+        HCSubEnd(!m_Flag);
+    }
+
+    // Pure program counter: each phase consumes the previous result and requests the next
+    // operation, calls a sub-routine, or finishes.
+    protected void HCProgram()
+    {
+        if (m_Phase == PH_START)
+        {
+            HCExists(m_Pending, PH_HAS_PENDING);
+            return;
+        }
+        if (m_Phase == PH_HAS_PENDING)
+        {
+            m_HasPending = m_Flag;
+            HCExists(m_Target, PH_HAS_TARGET);
+            return;
+        }
+        if (m_Phase == PH_HAS_TARGET)
+        {
+            if (m_Flag)
+            {
+                HCCallRead(m_Target, true, PH_CLASSIFY);
+                return;
+            }
+            if (!m_HasPending)
+            {
+                HCFinish(HCMigrationRunner.RESULT_SKIPPED, "target_absent");
+                return;
+            }
+            // Crash between deleting the target and copying the verified image over it.
+            m_RecReadable = false;
+            m_RecTarget = "";
+            m_OkReason = "recovered_missing_target";
+            HCGo(PH_REC);
+            return;
+        }
+        if (m_Phase < PH_MIG) { HCProgramClassify(); return; }
+        if (m_Phase < PH_REC) { HCProgramMigrate(); return; }
+        HCProgramRecover();
+    }
+
+    // Classification of the target and the scratch image that sits beside a CURRENT one.
+    protected void HCProgramClassify()
+    {
+        if (m_Phase == PH_CLASSIFY)
+        {
+            m_Readable = m_SubOk;
+            m_Text = m_SubText;
+            int state = HCMigrationStep.STATE_UNKNOWN;
+            if (m_Readable) { state = m_Step.HCClassify(m_Text); }
+            if (state == HCMigrationStep.STATE_CURRENT)
+            {
+                if (!m_HasPending)
+                {
+                    HCFinish(HCMigrationRunner.RESULT_SKIPPED, "current");
+                    return;
+                }
+                // A scratch image beside a CURRENT target is a finished commit only when it is the
+                // same text. A torn prefix that misclassified CURRENT is recovered; anything else
+                // is not ours to delete: refuse and keep both files. An empty scratch file (a crash
+                // right after creating it) is ours and removable.
+                HCCallRead(m_Pending, true, PH_CUR_LEFTOVER);
+                return;
+            }
+            if (state == HCMigrationStep.STATE_NEWER)
+            {
+                HCRefuse("newer_schema");
+                return;
+            }
+            if (state == HCMigrationStep.STATE_UNKNOWN)
+            {
+                if (m_HasPending && m_Readable)
+                {
+                    // Crash while copying the image over the target: a torn prefix of it, or empty.
+                    // An unreadable (oversize or unopenable) target is evidence and never replaced.
+                    m_RecReadable = true;
+                    m_RecTarget = m_Text;
+                    m_OkReason = "recovered_torn_commit";
+                    HCGo(PH_REC);
+                    return;
+                }
+                if (m_Readable) { HCRefuse("target_schema_unknown"); }
+                else { HCRefuse("target_unreadable"); }
+                return;
+            }
+            if (state != HCMigrationStep.STATE_OLD)
+            {
+                HCRefuse("classify_invalid");
+                return;
+            }
+            HCGo(PH_MIG);
+            return;
+        }
+        if (m_Phase == PH_CUR_LEFTOVER)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("pending_conflicts_current");
+                return;
+            }
+            if (m_SubText.Length() > 0 && m_SubText != m_Text)
+            {
+                if (HCMigrationRunner.HCHasPrefix(m_SubText, m_Text))
+                {
+                    m_RecReadable = true;
+                    m_RecTarget = m_Text;
+                    m_OkReason = "recovered_torn_commit";
+                    HCGo(PH_REC);
+                    return;
+                }
+                HCRefuse("pending_conflicts_current");
+                return;
+            }
+            // A scratch image that stays beside a store that later writes a newer target is
+            // dangerous (a torn swap could be "recovered" from it): refuse, which closes the store.
+            HCCallDelete(m_Pending, PH_CUR_DELETED);
+            return;
+        }
+        // PH_CUR_DELETED
+        if (!m_SubOk)
+        {
+            HCRefuse("current_pending_cleanup_failed");
+            return;
+        }
+        HCFinish(HCMigrationRunner.RESULT_SKIPPED, "current_pending_removed");
+    }
+
+    // OLD target: transform, clear a provably-ours scratch image, back up, write and commit.
+    protected void HCProgramMigrate()
+    {
+        if (m_Phase == PH_MIG)
+        {
+            string migrated;
+            string why;
+            if (!m_Step.HCTransform(m_Text, migrated, why))
+            {
+                if (why == "") { why = "transform_refused"; }
+                HCRefuse(why);
+                return;
+            }
+            if (migrated.Length() < 1 || migrated.Length() > m_Limit || m_Step.HCClassify(migrated) != HCMigrationStep.STATE_CURRENT)
+            {
+                HCRefuse("transform_not_current");
+                return;
+            }
+            m_Migrated = migrated;
+            // A scratch image beside an OLD target was never committed and is recomputed. Delete it
+            // only if it is provably ours: empty, identical to the target (or a torn prefix of the
+            // image about to be written), or an image a retained backup reproduces through the
+            // transform. A complete CURRENT image without that proof may be the only newest copy
+            // (for example after the operator restored an older target): refuse and keep both.
+            HCExists(m_Pending, PH_MIG_PENDING);
+            return;
+        }
+        if (m_Phase == PH_MIG_PENDING)
+        {
+            if (m_Flag) { HCCallRead(m_Pending, true, PH_MIG_STALE); }
+            else { HCGo(PH_BACKUP); }
+            return;
+        }
+        if (m_Phase == PH_MIG_STALE)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("pending_conflicts_old");
+                return;
+            }
+            if (HCMigrationRunner.HCHasPrefix(m_Migrated, m_SubText) || m_SubText == m_Text)
+            {
+                HCGo(PH_MIG_DELETE);
+                return;
+            }
+            m_ProvImage = m_SubText;
+            m_ProvRet = PH_MIG_PROVED;
+            HCGo(PH_PROV);
+            return;
+        }
+        if (m_Phase == PH_MIG_PROVED)
+        {
+            if (!m_ProvOk)
+            {
+                HCRefuse("pending_conflicts_old");
+                return;
+            }
+            HCGo(PH_MIG_DELETE);
+            return;
+        }
+        if (m_Phase == PH_MIG_DELETE)
+        {
+            HCCallDelete(m_Pending, PH_MIG_DELETED);
+            return;
+        }
+        if (m_Phase == PH_MIG_DELETED)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("pending_cleanup_failed");
+                return;
+            }
+            HCGo(PH_BACKUP);
+            return;
+        }
+        if (m_Phase < PH_WRITE) { HCProgramBackup(); return; }
+        HCProgramWrite();
+    }
+
+    // Reuse a slot already holding exactly this image; otherwise fill the first free slot.
+    // An occupied slot with other bytes is evidence and is never touched.
+    protected void HCProgramBackup()
+    {
+        if (m_Phase == PH_BACKUP)
+        {
+            m_Slot = 1;
+            HCGo(PH_BK_SLOT);
+            return;
+        }
+        if (m_Phase == PH_BK_SLOT)
+        {
+            if (m_Slot > HCMigrationRunner.HC_BACKUP_SLOTS)
+            {
+                HCRefuse("backup_slots_full");
+                return;
+            }
+            HCExists(HCMigrationRunner.HCBackupPath(m_Target, m_Id, m_Slot), PH_BK_EXISTS);
+            return;
+        }
+        string backup = HCMigrationRunner.HCBackupPath(m_Target, m_Id, m_Slot);
+        if (m_Phase == PH_BK_EXISTS)
+        {
+            if (m_Flag)
+            {
+                HCCallVerify(backup, m_Text, false, PH_BK_OCCUPANT);
+                return;
+            }
+            HCCopy(m_Target, backup, PH_BK_COPIED);
+            return;
+        }
+        if (m_Phase == PH_BK_COPIED)
+        {
+            if (!m_Flag)
+            {
+                HCRefuse("backup_failed");
+                return;
+            }
+            HCCallVerify(backup, m_Text, false, PH_BK_VERIFY);
+            return;
+        }
+        if (m_Phase == PH_BK_VERIFY)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("backup_failed");
+                return;
+            }
+            HCGo(PH_WRITE);
+            return;
+        }
+        // PH_BK_OCCUPANT
+        if (m_SubOk)
+        {
+            HCGo(PH_WRITE);
+            return;
+        }
+        m_Slot = m_Slot + 1;
+        HCGo(PH_BK_SLOT);
+    }
+
+    // Create-only write of the scratch image, then a readback that must be identical.
+    protected void HCProgramWrite()
+    {
+        if (m_Phase == PH_WRITE)
+        {
+            if (m_Migrated.Length() < 1 || m_Migrated.Length() > m_Limit)
+            {
+                HCRefuse("pending_write_failed");
+                return;
+            }
+            HCExists(m_Pending, PH_W_EXISTS);
+            return;
+        }
+        if (m_Phase == PH_W_EXISTS)
+        {
+            if (m_Flag)
+            {
+                HCRefuse("pending_write_failed");
+                return;
+            }
+            HCCall(SUB_WRITE, m_Pending, m_Migrated, m_Limit, false, PH_W_WRITTEN);
+            return;
+        }
+        if (m_Phase == PH_W_WRITTEN)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("pending_write_failed");
+                return;
+            }
+            HCCallVerify(m_Pending, m_Migrated, false, PH_W_VERIFY);
+            return;
+        }
+        // PH_W_VERIFY
+        if (!m_SubOk)
+        {
+            HCRefuse("pending_write_failed");
+            return;
+        }
+        m_Image = m_Migrated;
+        m_OkReason = "migrated";
+        HCGo(PH_COMMIT);
+    }
+
+    // Recovery of a stopped commit, provenance of an image, and the commit itself.
+    protected void HCProgramRecover()
+    {
+        if (m_Phase == PH_REC)
+        {
+            HCCallRead(m_Pending, false, PH_REC_READ);
+            return;
+        }
+        if (m_Phase == PH_REC_READ)
+        {
+            if (!m_SubOk || m_Step.HCClassify(m_SubText) != HCMigrationStep.STATE_CURRENT)
+            {
+                HCRefuse("pending_image_invalid");
+                return;
+            }
+            m_Image = m_SubText;
+            // Only a torn prefix (or an empty file) of our own image may be replaced.
+            if (m_RecReadable && !HCMigrationRunner.HCHasPrefix(m_Image, m_RecTarget))
+            {
+                HCRefuse("target_schema_unknown");
+                return;
+            }
+            m_ProvImage = m_Image;
+            m_ProvRet = PH_REC_PROVED;
+            HCGo(PH_PROV);
+            return;
+        }
+        if (m_Phase == PH_REC_PROVED)
+        {
+            if (!m_ProvOk)
+            {
+                HCRefuse("pending_provenance_missing");
+                return;
+            }
+            HCGo(PH_COMMIT);
+            return;
+        }
+        if (m_Phase < PH_COMMIT) { HCProgramProvenance(); return; }
+        HCProgramCommit();
+    }
+
+    // A pending image may replace the target only when some backup slot proves it descends from
+    // that backup: the slot classifies OLD and the deterministic transform reproduces the image.
+    protected void HCProgramProvenance()
+    {
+        if (m_Phase == PH_PROV)
+        {
+            m_ProvOk = false;
+            m_PvSlot = 1;
+            HCGo(PH_PV_SLOT);
+            return;
+        }
+        if (m_Phase == PH_PV_SLOT)
+        {
+            if (m_PvSlot > HCMigrationRunner.HC_BACKUP_SLOTS)
+            {
+                HCGo(m_ProvRet);
+                return;
+            }
+            HCExists(HCMigrationRunner.HCBackupPath(m_Target, m_Id, m_PvSlot), PH_PV_EXISTS);
+            return;
+        }
+        if (m_Phase == PH_PV_EXISTS)
+        {
+            if (m_Flag)
+            {
+                HCCallRead(HCMigrationRunner.HCBackupPath(m_Target, m_Id, m_PvSlot), false, PH_PV_READ);
+                return;
+            }
+            m_PvSlot = m_PvSlot + 1;
+            HCGo(PH_PV_SLOT);
+            return;
+        }
+        // PH_PV_READ
+        if (m_SubOk && m_Step.HCClassify(m_SubText) == HCMigrationStep.STATE_OLD)
+        {
+            string old = m_SubText;
+            string migrated;
+            string why;
+            if (m_Step.HCTransform(old, migrated, why) && migrated == m_ProvImage)
+            {
+                m_ProvOk = true;
+                HCGo(m_ProvRet);
+                return;
+            }
+        }
+        m_PvSlot = m_PvSlot + 1;
+        HCGo(PH_PV_SLOT);
+    }
+
+    // Replace target with the verified pending image. Not atomic: the pending image and the
+    // backup stay on disk until readback succeeds, which is what the recovery paths rely on.
+    protected void HCProgramCommit()
+    {
+        if (m_Phase == PH_COMMIT)
+        {
+            HCExists(m_Target, PH_C_TARGET);
+            return;
+        }
+        if (m_Phase == PH_C_TARGET)
+        {
+            if (!m_Flag) { HCGo(PH_C_COPY); return; }
+            // Tick-driven: other server code ran since this job read the target. Delete it only
+            // if it still holds exactly the text this job classified (empty if it was absent).
+            if (m_Interleaved) { HCCallVerify(m_Target, m_Text, true, PH_C_CHECKED); }
+            else { HCCallDelete(m_Target, PH_C_DELETED); }
+            return;
+        }
+        if (m_Phase == PH_C_CHECKED)
+        {
+            if (!m_SubOk)
+            {
+                // Nothing is deleted: target, scratch image and backup stay for the next boot.
+                HCRefuse("target_changed");
+                return;
+            }
+            HCCallDelete(m_Target, PH_C_DELETED);
+            return;
+        }
+        if (m_Phase == PH_C_DELETED)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("target_delete_failed");
+                return;
+            }
+            HCGo(PH_C_COPY);
+            return;
+        }
+        if (m_Phase == PH_C_COPY)
+        {
+            // Installed EnSystem.c:531 CopyFile does not document overwrite, so never rely on it:
+            // the target is absent here, and a failed first copy that left a partial file is
+            // deleted before the single retry.
+            m_CopyRetried = false;
+            HCCopy(m_Pending, m_Target, PH_C_COPIED);
+            return;
+        }
+        if (m_Phase == PH_C_COPIED)
+        {
+            m_Copied = m_Flag;
+            if (!m_Copied && !m_CopyRetried)
+            {
+                m_CopyRetried = true;
+                HCExists(m_Target, PH_C_RETRY);
+                return;
+            }
+            HCGo(PH_C_VERIFY);
+            return;
+        }
+        if (m_Phase == PH_C_RETRY)
+        {
+            if (m_Flag) { HCCallDelete(m_Target, PH_C_RETRY_DELETED); }
+            else { HCCopy(m_Pending, m_Target, PH_C_COPIED); }
+            return;
+        }
+        if (m_Phase == PH_C_RETRY_DELETED)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("target_delete_failed");
+                return;
+            }
+            HCCopy(m_Pending, m_Target, PH_C_COPIED);
+            return;
+        }
+        if (m_Phase == PH_C_VERIFY)
+        {
+            if (!m_Copied)
+            {
+                HCRefuse("commit_failed_pending_kept");
+                return;
+            }
+            HCCallVerify(m_Target, m_Image, false, PH_C_READBACK);
+            return;
+        }
+        if (m_Phase == PH_C_READBACK)
+        {
+            if (!m_SubOk)
+            {
+                HCRefuse("commit_failed_pending_kept");
+                return;
+            }
+            HCCallDelete(m_Pending, PH_C_CLEANED);
+            return;
+        }
+        // PH_C_CLEANED. The target is committed and verified, but a scratch image that cannot be
+        // deleted leaves the step unfinished: the runner closes the store for this boot. The next
+        // boot sees a CURRENT target with an identical scratch image and tries to remove it again;
+        // if that also fails it refuses as current_pending_cleanup_failed (store closed).
+        if (!m_SubOk) { m_PendingDeleteFailed = true; }
+        HCFinish(HCMigrationRunner.RESULT_APPLIED, m_OkReason);
+    }
+}
+
 class HCMigrationRunner
 {
     static const int RESULT_APPLIED = 1;
@@ -102,8 +1024,10 @@ class HCMigrationRunner
     static const int HC_BACKUP_SLOTS = 4;
     static const int HC_BOOT_STEP_CAP = 8;
     static const float HC_BOOT_BUDGET_MS = 250;
-    static const float HC_TICK_BUDGET_MS = 4;
+    // First continuation after the boot pass, and the pause between the single file operations
+    // of a deferred step (one HCMigrationJob.HCStep per call).
     static const int HC_TICK_INTERVAL_MS = 1000;
+    static const int HC_STEP_INTERVAL_MS = 25;
     static const string HC_PREFIX = "$profile:HollowCountry/";
 
     protected static ref array<ref HCMigrationStep> s_Steps = new array<ref HCMigrationStep>;
@@ -120,6 +1044,9 @@ class HCMigrationRunner
     protected static bool s_SelfTested;
     protected static bool s_SelfTestPassed;
     protected static bool s_Scheduled;
+    // The deferred step in flight (tick driver only) and the registry entry it runs.
+    protected static ref HCMigrationJob s_Job;
+    protected static HCMigrationStep s_JobStep;
     protected static bool s_WorldEnabled = true;
     protected static int s_Next;
     protected static int s_Applied;
@@ -255,7 +1182,7 @@ class HCMigrationRunner
                 HCReceipt(deferred.HCId(), HCMigrationRunner.RESULT_SKIPPED, "deferred_budget");
                 index++;
             }
-            HCSchedule();
+            HCSchedule(HCMigrationRunner.HC_TICK_INTERVAL_MS);
             return;
         }
         HCSummary();
@@ -282,6 +1209,10 @@ class HCMigrationRunner
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCTick);
         }
         s_Scheduled = false;
+        // A deferred step stopped mid-way leaves a state the next boot classifies, like a crash.
+        if (s_Job) { s_Job.HCAbort(); }
+        s_Job = null;
+        s_JobStep = null;
         s_Next = 0;
         s_Applied = 0;
         s_Skipped = 0;
@@ -291,29 +1222,72 @@ class HCMigrationRunner
         s_BlockGroups = "";
     }
 
-    protected static void HCSchedule()
+    protected static void HCSchedule(int delayMs)
     {
         if (s_Scheduled || !GetGame()) { return; }
         s_Scheduled = true;
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCTick, HCMigrationRunner.HC_TICK_INTERVAL_MS, false);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCTick, delayMs, false);
     }
 
-    // At most one step per tick (cap 1). The time budget is only checked before a step starts;
-    // one step is not preemptible and costs up to a read, a backup copy, a scratch write, a
-    // commit copy and a readback of the 8 MiB raw cap, so the 4 ms is a target, not a bound.
+    // Deferred steps run as one HCMigrationJob at a time, ONE job.HCStep() per call: at most one
+    // native file operation (a read or write chunk is at most 4 KiB), so no tick pays for a whole
+    // step. The boot pass (HCRunStep) drives the same machine to completion instead.
     protected static void HCTick()
     {
         s_Scheduled = false;
-        if (s_Next >= s_Queue.Count()) { return; }
-        s_Budget.HCReset(1, HCMigrationRunner.HC_TICK_BUDGET_MS);
-        while (s_Next < s_Queue.Count() && s_Budget.HCContinue())
+        if (!s_Job && !HCTickBegin()) { return; }
+        int status = s_Job.HCStep();
+        if (status == HCMigrationJob.STEP_MORE)
         {
-            HCRunOne(s_Queue.Get(s_Next));
-            s_Next++;
+            HCSchedule(HCMigrationRunner.HC_STEP_INTERVAL_MS);
+            return;
         }
+        HCTickEnd();
+    }
+
+    // Pure: takes the next queued step that needs file work. Steps that refuse before any file is
+    // touched (world disabled, malformed) are recorded here. False when the queue is finished.
+    protected static bool HCTickBegin()
+    {
+        while (s_Next < s_Queue.Count())
+        {
+            HCMigrationStep step = s_Queue.Get(s_Next);
+            string invalid = HCStepInvalid(step);
+            if (HCWorldSkips(step))
+            {
+                HCRecord(step, HCMigrationRunner.RESULT_SKIPPED, "world_disabled");
+                s_Next++;
+            }
+            else if (invalid != "")
+            {
+                HCRecord(step, HCMigrationRunner.RESULT_REFUSED, invalid);
+                s_Next++;
+            }
+            else
+            {
+                s_Job = new HCMigrationJob;
+                s_Job.HCBegin(step);
+                s_Job.HCSetInterleaved();
+                s_JobStep = step;
+                return true;
+            }
+        }
+        HCSummary();
+        return false;
+    }
+
+    // Pure: books the finished job and schedules the next queued step.
+    protected static void HCTickEnd()
+    {
+        HCMigrationStep step = s_JobStep;
+        HCNoteJob(step, s_Job);
+        HCRecord(step, s_Job.HCResult(), s_Job.HCReason());
+        s_Job = null;
+        s_JobStep = null;
+        s_Next++;
         if (s_Next < s_Queue.Count())
         {
-            HCSchedule();
+            HCSchedule(HCMigrationRunner.HC_STEP_INTERVAL_MS);
             return;
         }
         HCSummary();
@@ -351,12 +1325,18 @@ class HCMigrationRunner
         Print("[HC Migrate] id=" + id + " action=" + action + " reason=" + reason);
     }
 
+    // True when the step's store is switched off with the world module, so it must not touch files.
+    protected static bool HCWorldSkips(HCMigrationStep step)
+    {
+        string store = step.HCStore();
+        return !s_WorldEnabled && (store == "world" || store == "escalation");
+    }
+
     protected static void HCRunOne(HCMigrationStep step)
     {
         string reason;
         int result;
-        string store = step.HCStore();
-        if (!s_WorldEnabled && (store == "world" || store == "escalation"))
+        if (HCWorldSkips(step))
         {
             result = HCMigrationRunner.RESULT_SKIPPED;
             reason = "world_disabled";
@@ -365,8 +1345,24 @@ class HCMigrationRunner
         {
             result = HCRunStep(step, reason);
         }
-        HCCount(store, result, reason);
+        HCRecord(step, result, reason);
+    }
+
+    protected static void HCRecord(HCMigrationStep step, int result, string reason)
+    {
+        HCCount(step.HCStore(), result, reason);
         HCReceipt(step.HCId(), result, reason);
+    }
+
+    // The target is committed and verified, but a scratch image that cannot be deleted leaves the
+    // step unfinished: close the store for this boot. The next boot sees a CURRENT target with an
+    // identical scratch image and tries to remove it again; if that also fails it refuses as
+    // current_pending_cleanup_failed (store closed) until the file is removed.
+    protected static void HCNoteJob(HCMigrationStep step, HCMigrationJob job)
+    {
+        if (!job.HCPendingDeleteFailed()) { return; }
+        HCBlock(step.HCStore(), "pending_delete_failed");
+        Print("[HC Migrate] id=runner action=skipped reason=pending_delete_failed");
     }
 
     // Per-boot counters; a refusal (including a failed scratch cleanup) closes the step's store.
@@ -382,7 +1378,7 @@ class HCMigrationRunner
     }
 
     // Returns "" when the step is well formed, otherwise a refusal token.
-    protected static string HCStepInvalid(HCMigrationStep step)
+    static string HCStepInvalid(HCMigrationStep step)
     {
         string id = step.HCId();
         string target = step.HCTarget();
@@ -405,150 +1401,8 @@ class HCMigrationRunner
         return "";
     }
 
-    protected static string HCPendingPath(string target, string id) { return target + ".mig-" + id + ".tmp"; }
-
-    protected static string HCBackupSuffix(string id, int slot)
-    {
-        string suffix = ".pre-" + id + ".bak";
-        if (slot > 1) { suffix = suffix + slot.ToString(); }
-        return suffix;
-    }
-
-    protected static string HCBackupPath(string target, string id, int slot) { return target + HCBackupSuffix(id, slot); }
-
-    // Classify and, if needed, repair one step. Pure of receipts; the caller prints them.
-    static int HCRunStep(HCMigrationStep step, out string reason)
-    {
-        reason = HCStepInvalid(step);
-        if (reason != "") { return HCMigrationRunner.RESULT_REFUSED; }
-        string id = step.HCId();
-        string target = step.HCTarget();
-        int limit = step.HCLimit();
-        string pending = HCPendingPath(target, id);
-        bool hasPending = FileExist(pending);
-        if (!FileExist(target))
-        {
-            if (!hasPending)
-            {
-                reason = "target_absent";
-                return HCMigrationRunner.RESULT_SKIPPED;
-            }
-            // Crash between deleting the target and copying the verified image over it.
-            return HCRecover(step, target, pending, limit, false, "", "recovered_missing_target", reason);
-        }
-        string text;
-        // Empty is readable (a torn or truncated target); oversize or unopenable is not.
-        bool readable = HCPersistenceDisposition.HCReadArchive(target, limit, text, true);
-        int state = HCMigrationStep.STATE_UNKNOWN;
-        if (readable) { state = step.HCClassify(text); }
-        if (state == HCMigrationStep.STATE_CURRENT)
-        {
-            reason = "current";
-            if (hasPending)
-            {
-                // A scratch image beside a CURRENT target is a finished commit only when it is the
-                // same text. A torn prefix that misclassified CURRENT is recovered; anything else
-                // is not ours to delete: refuse and keep both files.
-                // An empty scratch file (a crash right after creating it) is ours and removable.
-                string leftover;
-                if (!HCPersistenceDisposition.HCReadArchive(pending, limit, leftover, true)) { reason = "pending_conflicts_current"; return HCMigrationRunner.RESULT_REFUSED; }
-                if (leftover.Length() > 0 && leftover != text)
-                {
-                    if (HCHasPrefix(leftover, text)) { return HCRecover(step, target, pending, limit, true, text, "recovered_torn_commit", reason); }
-                    reason = "pending_conflicts_current";
-                    return HCMigrationRunner.RESULT_REFUSED;
-                }
-                // A scratch image that stays beside a store that later writes a newer target is
-                // dangerous (a torn swap could be "recovered" from it): refuse, which closes the store.
-                if (!DeleteFile(pending) || FileExist(pending))
-                {
-                    reason = "current_pending_cleanup_failed";
-                    return HCMigrationRunner.RESULT_REFUSED;
-                }
-                reason = "current_pending_removed";
-            }
-            return HCMigrationRunner.RESULT_SKIPPED;
-        }
-        if (state == HCMigrationStep.STATE_NEWER)
-        {
-            reason = "newer_schema";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (state == HCMigrationStep.STATE_UNKNOWN)
-        {
-            if (hasPending && readable)
-            {
-                // Crash while copying the image over the target: a torn prefix of it, or empty.
-                // An unreadable (oversize or unopenable) target is evidence and is never replaced.
-                return HCRecover(step, target, pending, limit, true, text, "recovered_torn_commit", reason);
-            }
-            reason = "target_unreadable";
-            if (readable) { reason = "target_schema_unknown"; }
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (state != HCMigrationStep.STATE_OLD)
-        {
-            reason = "classify_invalid";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        return HCMigrate(step, target, pending, text, limit, reason);
-    }
-
-    protected static int HCMigrate(HCMigrationStep step, string target, string pending, string text, int limit, out string reason)
-    {
-        string id = step.HCId();
-        string migrated;
-        string why;
-        if (!step.HCTransform(text, migrated, why))
-        {
-            reason = why;
-            if (reason == "") { reason = "transform_refused"; }
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (migrated.Length() < 1 || migrated.Length() > limit || step.HCClassify(migrated) != HCMigrationStep.STATE_CURRENT)
-        {
-            reason = "transform_not_current";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        // A scratch image beside an OLD target was never committed and is recomputed. Delete it
-        // only if it is provably ours: empty, identical to the target (or a torn prefix of the
-        // image about to be written), or an image a retained backup reproduces through the
-        // transform. A complete CURRENT image without that proof may be the only newest copy
-        // (for example after the operator restored an older target): refuse and keep both.
-        if (FileExist(pending))
-        {
-            string stale;
-            if (!HCPersistenceDisposition.HCReadArchive(pending, limit, stale, true))
-            {
-                reason = "pending_conflicts_old";
-                return HCMigrationRunner.RESULT_REFUSED;
-            }
-            bool ours = HCHasPrefix(migrated, stale) || stale == text;
-            if (!ours) { ours = HCProvenance(step, target, limit, stale); }
-            if (!ours)
-            {
-                reason = "pending_conflicts_old";
-                return HCMigrationRunner.RESULT_REFUSED;
-            }
-            if (!DeleteFile(pending) || FileExist(pending))
-            {
-                reason = "pending_cleanup_failed";
-                return HCMigrationRunner.RESULT_REFUSED;
-            }
-        }
-        if (!HCBackup(target, id, text, limit, reason)) { return HCMigrationRunner.RESULT_REFUSED; }
-        if (!HCPersistenceDisposition.HCWriteRawNew(pending, migrated, limit))
-        {
-            reason = "pending_write_failed";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (!HCCommit(step.HCStore(), target, pending, migrated, limit, reason)) { return HCMigrationRunner.RESULT_REFUSED; }
-        reason = "migrated";
-        return HCMigrationRunner.RESULT_APPLIED;
-    }
-
-    // True when part is empty or a leading slice of whole.
-    protected static bool HCHasPrefix(string whole, string part)
+    // True when part is a prefix of whole (an empty part is a prefix of everything).
+    static bool HCHasPrefix(string whole, string part)
     {
         int count = part.Length();
         if (count > whole.Length()) { return false; }
@@ -556,117 +1410,44 @@ class HCMigrationRunner
         return whole.Substring(0, count) == part;
     }
 
-    // Reuse a slot already holding exactly this image; otherwise fill the first free slot.
-    // An occupied slot with other bytes is evidence and is never touched.
-    protected static bool HCBackup(string target, string id, string text, int limit, out string reason)
+    static string HCPendingPath(string target, string id) { return target + ".mig-" + id + ".tmp"; }
+
+    static string HCBackupSuffix(string id, int slot)
     {
-        reason = "backup_slots_full";
-        string existing;
-        string path;
-        for (int slot = 1; slot <= HCMigrationRunner.HC_BACKUP_SLOTS; slot++)
-        {
-            path = HCBackupPath(target, id, slot);
-            if (!FileExist(path))
-            {
-                if (!HCPersistenceDisposition.HCArchive(target, HCBackupSuffix(id, slot), limit))
-                {
-                    reason = "backup_failed";
-                    return false;
-                }
-                reason = "";
-                return true;
-            }
-            if (HCGroupIO.HCReadRaw(path, limit, existing) && existing == text)
-            {
-                reason = "";
-                return true;
-            }
-        }
-        return false;
+        string suffix = ".pre-" + id + ".bak";
+        if (slot > 1) { suffix = suffix + slot.ToString(); }
+        return suffix;
     }
 
-    // A pending image may replace the target only when some backup slot proves it descends from
-    // that backup: the slot classifies OLD and the deterministic transform reproduces the image.
-    protected static bool HCProvenance(HCMigrationStep step, string target, int limit, string imageText)
-    {
-        string old;
-        string migrated;
-        string why;
-        string path;
-        for (int slot = 1; slot <= HCMigrationRunner.HC_BACKUP_SLOTS; slot++)
-        {
-            path = HCBackupPath(target, step.HCId(), slot);
-            if (FileExist(path) && HCGroupIO.HCReadRaw(path, limit, old) && step.HCClassify(old) == HCMigrationStep.STATE_OLD)
-            {
-                if (step.HCTransform(old, migrated, why) && migrated == imageText) { return true; }
-            }
-        }
-        return false;
-    }
+    static string HCBackupPath(string target, string id, int slot) { return target + HCBackupSuffix(id, slot); }
 
-    protected static int HCRecover(HCMigrationStep step, string target, string pending, int limit, bool targetReadable, string targetText, string okReason, out string reason)
+    // Classify and, if needed, repair one step. Pure of receipts; the caller prints them.
+    // Synchronous driver of the same HCMigrationJob the tick drives one operation at a time:
+    // used by the boot pass (stores open right after, so their migration must be settled) and by
+    // the self-test. The guard bounds a machine that never finishes; a stopped machine is the
+    // same on-disk state as a crash at that point and the next boot repairs it.
+    static int HCRunStep(HCMigrationStep step, out string reason)
     {
-        string imageText;
-        if (!HCGroupIO.HCReadRaw(pending, limit, imageText) || step.HCClassify(imageText) != HCMigrationStep.STATE_CURRENT)
+        reason = HCStepInvalid(step);
+        if (reason != "") { return HCMigrationRunner.RESULT_REFUSED; }
+        HCMigrationJob job = new HCMigrationJob;
+        job.HCBegin(step);
+        int status = HCMigrationJob.STEP_MORE;
+        int guard = 0;
+        while (status == HCMigrationJob.STEP_MORE && guard < HCMigrationJob.HC_MAX_STEPS)
         {
-            reason = "pending_image_invalid";
+            status = job.HCStep();
+            guard = guard + 1;
+        }
+        if (status == HCMigrationJob.STEP_MORE)
+        {
+            job.HCAbort();
+            reason = "step_guard_exhausted";
             return HCMigrationRunner.RESULT_REFUSED;
         }
-        // Only a torn prefix (or an empty file) of our own image may be replaced.
-        if (targetReadable && !HCHasPrefix(imageText, targetText))
-        {
-            reason = "target_schema_unknown";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (!HCProvenance(step, target, limit, imageText))
-        {
-            reason = "pending_provenance_missing";
-            return HCMigrationRunner.RESULT_REFUSED;
-        }
-        if (!HCCommit(step.HCStore(), target, pending, imageText, limit, reason)) { return HCMigrationRunner.RESULT_REFUSED; }
-        reason = okReason;
-        return HCMigrationRunner.RESULT_APPLIED;
-    }
-
-    // Replace target with the verified pending image. Not atomic: the pending image and the
-    // backup stay on disk until readback succeeds, which is what the recovery paths rely on.
-    protected static bool HCCommit(string store, string target, string pending, string imageText, int limit, out string reason)
-    {
-        reason = "";
-        if (FileExist(target) && (!DeleteFile(target) || FileExist(target)))
-        {
-            reason = "target_delete_failed";
-            return false;
-        }
-        // Installed EnSystem.c:531 CopyFile does not document overwrite, so never rely on it: the
-        // target is absent here, and a failed first copy that left a partial file is deleted
-        // before the single retry.
-        bool copied = CopyFile(pending, target);
-        if (!copied)
-        {
-            if (FileExist(target) && (!DeleteFile(target) || FileExist(target)))
-            {
-                reason = "target_delete_failed";
-                return false;
-            }
-            copied = CopyFile(pending, target);
-        }
-        string readback;
-        if (!copied || !HCGroupIO.HCReadRaw(target, limit, readback) || readback != imageText)
-        {
-            reason = "commit_failed_pending_kept";
-            return false;
-        }
-        // The target is committed and verified, but a scratch image that cannot be deleted leaves
-        // the step unfinished: close the store for this boot. The next boot sees a CURRENT target
-        // with an identical scratch image and tries to remove it again; if that also fails it
-        // refuses as current_pending_cleanup_failed (store closed) until the file is removed.
-        if (!DeleteFile(pending) || FileExist(pending))
-        {
-            HCBlock(store, "pending_delete_failed");
-            Print("[HC Migrate] id=runner action=skipped reason=pending_delete_failed");
-        }
-        return true;
+        HCNoteJob(step, job);
+        reason = job.HCReason();
+        return job.HCResult();
     }
 
     // Exercises the real IO path on scratch files once per script lifetime: apply, idempotent
@@ -757,6 +1538,82 @@ class HCMigrationRunner
         HCProbeDelete(storePending);
         if (!setup) { detail = "setup_storeclose"; return false; }
         if (!closed) { detail = "storeclose_refused_not_blocked"; return false; }
+        return true;
+    }
+
+    // Stops a fresh migration after its cut-th file-changing operation (the machine's state is
+    // only the files, so an abort is a crash), then runs a new machine: every cut must converge on
+    // the migrated target with no scratch image left. Cuts end when the machine finishes first.
+    protected static bool HCSelfTestCuts(HCMigrationProbeStep probe, out string detail)
+    {
+        string target = HCMigrationProbeStep.PATH;
+        string pending = HCPendingPath(target, probe.HCId());
+        string reason;
+        int result;
+        for (int cut = 1; cut < 32; cut++)
+        {
+            HCProbeClear();
+            if (!HCProbePut(target, "probe-v1:alpha;")) { detail = "setup_cut"; return false; }
+            HCMigrationJob job = new HCMigrationJob;
+            job.HCBegin(probe);
+            job.HCSetInterleaved();
+            int status = HCMigrationJob.STEP_MORE;
+            int mutations = 0;
+            int guard = 0;
+            while (status == HCMigrationJob.STEP_MORE && mutations < cut && guard < HCMigrationJob.HC_MAX_STEPS)
+            {
+                status = job.HCStep();
+                if (job.HCMutated()) { mutations = mutations + 1; }
+                guard = guard + 1;
+            }
+            if (status != HCMigrationJob.STEP_MORE) { return true; }
+            job.HCAbort();
+            result = HCRunStep(probe, reason);
+            if ((result != HCMigrationRunner.RESULT_APPLIED && result != HCMigrationRunner.RESULT_SKIPPED) || !HCProbeIs(target, "probe-v2:alpha;") || FileExist(pending))
+            {
+                detail = "cut_" + cut.ToString() + "_" + reason;
+                return false;
+            }
+        }
+        detail = "cut_unbounded";
+        return false;
+    }
+
+    // A tick-driven job whose target is modified after classification (here: after the backup
+    // copy) must refuse before deleting it and leave the new target untouched; the next run
+    // proves the scratch image from the backup, discards it and migrates the new text.
+    protected static bool HCSelfTestChanged(HCMigrationProbeStep probe, out string detail)
+    {
+        string target = HCMigrationProbeStep.PATH;
+        string pending = HCPendingPath(target, probe.HCId());
+        string reason;
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v1:alpha;")) { detail = "setup_changed"; return false; }
+        HCMigrationJob job = new HCMigrationJob;
+        job.HCBegin(probe);
+        job.HCSetInterleaved();
+        int status = HCMigrationJob.STEP_MORE;
+        int mutations = 0;
+        int guard = 0;
+        while (status == HCMigrationJob.STEP_MORE && mutations < 1 && guard < HCMigrationJob.HC_MAX_STEPS)
+        {
+            status = job.HCStep();
+            if (job.HCMutated()) { mutations = mutations + 1; }
+            guard = guard + 1;
+        }
+        if (status != HCMigrationJob.STEP_MORE) { detail = "changed_early"; return false; }
+        HCProbeDelete(target);
+        if (!HCProbePut(target, "probe-v1:gamma;")) { detail = "setup_changed_put"; return false; }
+        guard = 0;
+        while (status == HCMigrationJob.STEP_MORE && guard < HCMigrationJob.HC_MAX_STEPS)
+        {
+            status = job.HCStep();
+            guard = guard + 1;
+        }
+        if (status == HCMigrationJob.STEP_MORE) { job.HCAbort(); detail = "changed_unfinished"; return false; }
+        if (job.HCResult() != HCMigrationRunner.RESULT_REFUSED || job.HCReason() != "target_changed" || !HCProbeIs(target, "probe-v1:gamma;") || !HCProbeIs(pending, "probe-v2:alpha;")) { detail = "changed_" + job.HCReason(); return false; }
+        int result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:gamma;") || FileExist(pending)) { detail = "changed_rerun_" + reason; return false; }
         return true;
     }
 
@@ -856,6 +1713,10 @@ class HCMigrationRunner
         if (!HCProbePut(target, "probe-v1:alpha;") || !HCProbePut(pending, "probe-v1:alpha;")) { detail = "setup_oldsame"; return false; }
         result = HCRunStep(probe, reason);
         if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:alpha;") || FileExist(pending)) { detail = "oldsame_" + reason; return false; }
+
+        // A crash after every file-changing operation of the machine converges on the next run.
+        if (!HCSelfTestCuts(probe, detail)) { return false; }
+        if (!HCSelfTestChanged(probe, detail)) { return false; }
 
         // A torn-commit recovery only replaces a prefix of its own image, and never an unreadable target.
         HCProbeClear();

@@ -364,3 +364,13 @@ match the pinned hash. Install refuses edited target events and preserves all
 other edits. Off and rollback restore the original bytes. Install also writes a
 receipt, and rollback refuses if that receipt is missing while the mission still
 carries the substitutions.
+
+Two placements are part of the mix. The male navy soldier outfit has 2 shares in each
+coastal tier (`InfectedCityTier1`, `InfectedVillageTier1`) and nowhere else; the heavy
+navy classes stay out. The four winter medic outfits are seasonal: add
+`--season winter`, or `--season-profile "$HC_PROFILE"` to read the season from the
+persisted `HollowCountry/visual-seasons.json` clock, and install moves 2 shares each
+from the matching non-winter medic outfit. The season is recorded in the receipt. CE
+cannot be changed while the server runs, so a season change needs a stop, the
+rollback command, and a new install. An install without a season, or with a missing or
+invalid clock, places no winter outfits.

@@ -78,17 +78,21 @@ the existing classifier. A lowered weapon does not prevent proximity engagement
 inside 40 m.
 
 Raised-weapon caution band table (caution grace; non-hostile relation, weapon
-raised; observed contacts only). The grace band is the same 40-80 m span where
-raised-weapon hostility applies; it is `AILimits.CautionGraceSeconds` long
-(default 3, 1-30). `CautionRangeM` / `CautionGunfireRangeM` still drive
-`HCStancePolicy.Evaluate` but no longer bound the grace; the first-warn log line
-reports `in_caution_range=`. `CautionHostileRangeM` is reserved: no effect since
-the caution grace (2026-11-22); it is kept so older configs still load.
+raised; observed contacts only). The grace band runs from the hostile range
+`AILimits.CautionHostileRangeM` (40-80, default 40) to 80 m, so at the default it is
+the whole 40-80 m span where raised-weapon hostility applies; a larger value turns a
+raised weapon hostile at once out to that range and shortens the grace band. It is
+`AILimits.CautionGraceSeconds` long (default 3, 1-30). `CautionRangeM` /
+`CautionGunfireRangeM` still drive `HCStancePolicy.Evaluate` but do not bound the
+grace; the first-warn log line reports `in_caution_range=`. An older config's
+`CautionHostileRangeM` of 60 (the retired placeholder default) is read as 40 and
+logged once.
 
 | Distance, weapon raised | Behaviour |
 | --- | --- |
 | <= 40 m | hostile at once (unchanged) |
-| 40 m < d <= 80 m | grace: stays non-hostile, faces the player, shouts via the shared `HCXWarnPlayer` admission, holds fire (`HCXWarningBlocked`), keeps its own weapon up, no stop gesture and no warning shot; after the grace, still raised: hostile |
+| 40 m < d <= H (`CautionHostileRangeM`, default 40, so empty) | hostile at once |
+| H < d <= 80 m | grace: stays non-hostile, faces the player, shouts via the shared `HCXWarnPlayer` admission, holds fire (`HCXWarningBlocked`), keeps its own weapon up, no stop gesture and no warning shot; after the grace, still raised: hostile |
 | d > 80 m | de-escalated (unchanged) |
 | hostile faction, any distance | hostile at once, no grace (unchanged) |
 
