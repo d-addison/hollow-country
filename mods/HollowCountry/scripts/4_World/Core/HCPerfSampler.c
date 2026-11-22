@@ -18,7 +18,8 @@
 // The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
-const int HC_PERF_MAX_MODULES = HC_MAX_MODULES;
+// Literal on purpose: a cross-file const initializer reads 0 natively (build 169). Equals HC_MAX_MODULES.
+const int HC_PERF_MAX_MODULES = 128;
 // Per-module [HC Cost] lines per emission (plus the pinned Ecology line when outside the top N);
 // a single [HC CostTotal] line covers all modules.
 const int HC_PERF_COST_TOP = 8;

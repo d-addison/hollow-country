@@ -1,0 +1,6 @@
+class HCCooldown
+{
+    void Wait()
+    {
+    }
+}
