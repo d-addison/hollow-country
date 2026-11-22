@@ -14,5 +14,25 @@
   "target_players_min": 3,
   "target_players_max": 6,
   "budgets_provisional": true,
-  "readiness_max_after_hive_seconds": 30
+  "readiness_max_after_hive_seconds": 30,
+  "rpt_category_ceilings": {
+    "1": 11598,
+    "2": 12742,
+    "3": 1331,
+    "4": 2606,
+    "5": 378,
+    "6": 19,
+    "7": 262,
+    "8": 169,
+    "9": 100,
+    "10": 166,
+    "11": 157,
+    "12": 26,
+    "13": 9,
+    "14": 2,
+    "15": null
+  },
+  "rpt_category_ceilings_doc": "Initial regression ceilings: measured Build 159 counts from framework section 3.5, not acceptance of those defects. Category 15 has no measured count (null blocks release). Lead must rerun the complete taxonomy on current and vanilla RPTs before tightening; final zero/vanilla targets remain pending. Dependency lines count in full. Unclassified diagnostics and oversized lines block release.",
+  "readiness_ratchet_max_after_hive_seconds": 30,
+  "readiness_ratchet_doc": "R4 uses the same-boot vanilla Hive init-finished marker as baseline. Initial ratchet equals the existing owner limit of 30 seconds; tighten after measured boots, never increase to admit a slower boot. Release requires timing evidence and satisfies both the owner limit and this ratchet."
 }

@@ -10,11 +10,19 @@ from unittest.mock import Mock, patch
 from tools.release import compile_gate, release_gate as gate
 from tools.release.host_lock import LockRefused
 from tools.release import acceptance_targets as policy
+from tests.unit.test_rpt_config_audit import SAMPLE_LINES
 
 TARGETS = policy.load_targets()
 
 
 class ReleaseGateTests(unittest.TestCase):
+    def setUp(self):
+        # Synthetic policy measurements; production category 15 is unmeasured.
+        self.targets = dict(TARGETS, rpt_category_ceilings={key: 0 for key in TARGETS['rpt_category_ceilings']})
+        policy_patch = patch.object(gate, 'load_targets', return_value=self.targets)
+        policy_patch.start()
+        self.addCleanup(policy_patch.stop)
+
     def args(self, **kwargs):
         return SimpleNamespace(commit='a' * 40, **kwargs)
 
@@ -99,7 +107,7 @@ class ReleaseGateTests(unittest.TestCase):
     def test_audit_uses_common_summary_and_perf(self):
         with tempfile.TemporaryDirectory() as temp:
             rpt = Path(temp) / 'test.RPT'
-            rpt.write_text('12:00:00 Player connect enabled\n12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
+            rpt.write_text('12:00:00 Player connect enabled\n12:00:00 [CE][Hive] :: Init sequence finished\n12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
             with patch.object(gate, 'perf_rules', return_value=iter([f"perf_rule=R2 ms={TARGETS['perf_r2_max_ms'] + 0.001}"])):
                 with self.assertRaisesRegex(gate.Refused, 'R2'):
                     gate.audit(rpt)
@@ -108,6 +116,70 @@ class ReleaseGateTests(unittest.TestCase):
                 rpt.write_text(line + '\n')
                 with self.assertRaises(gate.Refused):
                     gate.audit(rpt, client=True)
+
+    def test_rpt_ceilings_count_every_category_at_boundary(self):
+        header = ('12:00:00 Player connect enabled\n'
+                  '12:00:00 [CE][Hive] :: Init sequence finished\n'
+                  '12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
+        with tempfile.TemporaryDirectory() as temp:
+            rpt = Path(temp) / 'synthetic.RPT'
+            for category, sample in SAMPLE_LINES.items():
+                with self.subTest(category=category):
+                    measured = sample + '\n'
+                    ceiling = len(measured.splitlines())
+                    targets = dict(self.targets, rpt_category_ceilings={
+                        **self.targets['rpt_category_ceilings'], str(category): ceiling})
+                    rpt.write_text(header + measured)
+                    gate.audit(rpt, targets=targets)
+                    rpt.write_text(header + measured + measured)
+                    with self.assertRaisesRegex(gate.Refused, f'R3 category={category} count='):
+                        gate.audit(rpt, targets=targets)
+                    # Provenance never subtracts dependency-caused diagnostics.
+                    rpt.write_text(header + measured)
+                    targets['rpt_category_ceilings'][str(category)] = 0
+                    with self.assertRaisesRegex(gate.Refused, f'R3 category={category} count='):
+                        gate.audit(rpt, targets=targets)
+
+    def test_missing_ceiling_and_incomplete_census_fail_closed(self):
+        header = ('12:00:00 Player connect enabled\n'
+                  '12:00:00 [CE][Hive] :: Init sequence finished\n'
+                  '12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
+        with tempfile.TemporaryDirectory() as temp:
+            rpt = Path(temp) / 'synthetic.RPT'
+            for key in self.targets['rpt_category_ceilings']:
+                rpt.write_text(header)
+                targets = dict(self.targets, rpt_category_ceilings={
+                    **self.targets['rpt_category_ceilings'], key: None})
+                with self.assertRaisesRegex(gate.Refused, 'ceiling unavailable'):
+                    gate.audit(rpt, targets=targets)
+            for line in ('Unknown synthetic diagnostic', 'x' * (gate.rpt_config_audit.MAX_LINE + 1)):
+                rpt.write_text(header + line + '\n')
+                with self.assertRaisesRegex(gate.Refused, 'R3 incomplete RPT census'):
+                    gate.audit(rpt)
+
+    def test_r4_requires_same_boot_timing_and_enforces_ratchet(self):
+        limit = self.targets['readiness_ratchet_max_after_hive_seconds']
+        def clock(seconds):
+            return f'{int(seconds // 3600):02}:{int(seconds // 60 % 60):02}:{seconds % 60:06.3f}'
+        header = '00:00:00 Player connect enabled\n00:00:00 [CE][Hive] :: Init sequence finished\n'
+        ready = '[HC Ready] module=Core enabled=true ready=true\n'
+        with tempfile.TemporaryDirectory() as temp:
+            rpt = Path(temp) / 'synthetic.RPT'
+            rpt.write_text(header + clock(limit) + ' ' + ready)
+            gate.audit(rpt)
+            rpt.write_text(header + clock(limit + 0.001) + ' ' + ready)
+            with self.assertRaisesRegex(gate.Refused, 'R4'):
+                gate.audit(rpt)
+            rpt.write_text(header + clock(limit) + ' ' + ready)
+            tighter = dict(self.targets, readiness_ratchet_max_after_hive_seconds=limit / 2)
+            with self.assertRaisesRegex(gate.Refused, 'R4'):
+                gate.audit(rpt, targets=tighter)
+            for content in ('Player connect enabled\n' + ready,
+                            header + ready,
+                            header + clock(limit) + ' ' + ready + header):
+                rpt.write_text(content)
+                with self.assertRaisesRegex(gate.Refused, 'R4'):
+                    gate.audit(rpt)
 
     def test_soak_duration_comes_from_targets(self):
         steps = gate.NativeSteps(self.args(client_profiles=Path('client'), bundle=Path('bundle')))
@@ -122,7 +194,7 @@ class ReleaseGateTests(unittest.TestCase):
                  ('missing texture', 'client_max_missing_textures', True)]
         with tempfile.TemporaryDirectory() as temp:
             rpt = Path(temp) / 'test.RPT'
-            header = 'Player connect enabled\n[HC Ready] module=Core enabled=true ready=true\n'
+            header = '12:00:00 Player connect enabled\n12:00:00 [CE][Hive] :: Init sequence finished\n12:00:01 [HC Ready] module=Core enabled=true ready=true\n'
             for line, key, client in cases:
                 with self.subTest(key=key):
                     limit = TARGETS[key]
@@ -131,18 +203,18 @@ class ReleaseGateTests(unittest.TestCase):
                     rpt.write_text(header + (line + '\n') * (limit + 1))
                     with self.assertRaises(gate.Refused):
                         gate.audit(rpt, client=client)
-                    changed = dict(TARGETS, **{key: limit + 1})
+                    changed = dict(self.targets, **{key: limit + 1})
                     with patch.object(gate, 'load_targets', return_value=changed):
                         gate.audit(rpt, client=client)
 
     def test_perf_boundary_comes_from_targets(self):
         with tempfile.TemporaryDirectory() as temp:
             rpt = Path(temp) / 'test.RPT'
-            rpt.write_text('Player connect enabled\n[HC Ready] module=Core enabled=true ready=true\n')
+            rpt.write_text('12:00:00 Player connect enabled\n12:00:00 [CE][Hive] :: Init sequence finished\n12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
             limit = TARGETS['perf_r2_max_ms']
             with patch.object(gate, 'perf_rules', return_value=[f'perf_rule=R2 ms={limit}']):
                 gate.audit(rpt)
-            with patch.object(gate, 'load_targets', return_value=dict(TARGETS, perf_r2_max_ms=limit / 2)), \
+            with patch.object(gate, 'load_targets', return_value=dict(self.targets, perf_r2_max_ms=limit / 2)), \
                     patch.object(gate, 'perf_rules', return_value=[f'perf_rule=R2 ms={limit}']):
                 with self.assertRaises(gate.Refused):
                     gate.audit(rpt)
@@ -259,6 +331,29 @@ class AcceptanceTargetsTests(unittest.TestCase):
             path.write_text('{')
             with self.assertRaisesRegex(policy.TargetsError, 'invalid JSON'):
                 policy.load_targets(path)
+
+    def test_nested_ceilings_and_ratchet_types_are_strict(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'targets.json'
+            for value in (True, -1, 1.5, '1', [], {}, float('inf'), float('nan')):
+                key = next(iter(TARGETS['rpt_category_ceilings']))
+                data = dict(TARGETS, rpt_category_ceilings={**TARGETS['rpt_category_ceilings'], key: value})
+                path.write_text(json.dumps(data))
+                with self.subTest(value=value), self.assertRaises(policy.TargetsError):
+                    policy.load_targets(path)
+            for ceilings in ({}, {**TARGETS['rpt_category_ceilings'], 'unknown': 0}):
+                path.write_text(json.dumps(dict(TARGETS, rpt_category_ceilings=ceilings)))
+                with self.assertRaisesRegex(policy.TargetsError, 'every known RPT category'):
+                    policy.load_targets(path)
+            for value in (True, None, 0, -1, float('nan'), float('inf'),
+                          TARGETS['readiness_max_after_hive_seconds'] + 1):
+                path.write_text(json.dumps(dict(TARGETS, readiness_ratchet_max_after_hive_seconds=value)))
+                with self.subTest(value=value), self.assertRaises(policy.TargetsError):
+                    policy.load_targets(path)
+            # Unmeasured is valid configuration, but never valid release evidence.
+            path.write_text(json.dumps(dict(TARGETS, rpt_category_ceilings={
+                key: None for key in TARGETS['rpt_category_ceilings']})))
+            self.assertTrue(all(value is None for value in policy.load_targets(path)['rpt_category_ceilings'].values()))
 
     def test_preland_settings_rejects_bad_targets_before_other_validation(self):
         from tools.validate import settings_consistency

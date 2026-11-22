@@ -5,10 +5,10 @@ Run with RPT --vanilla-rpt BASELINE and repeatable --ours-pbo, --dependency-pbo,
 Only fixed vocabulary, numbers and per-run diagnostic IDs leave the process: no
 log excerpts, config symbols, resource paths, filenames or exception text.
 
-The supplied brief documents taxonomy rows 1, 4, 7, 9, 11, 12 and 15 only. Missing
-rows remain explicitly unavailable; --category-pattern ID=REGEX can supply their
-local matchers without publishing the private taxonomy. Specific rules run before
-row 4's generic Warning Message fallback. Unknown warnings remain unclassified.
+All 15 framework evidence-table categories have built-in matchers. Local
+--category-pattern ID=REGEX overrides remain available for private diagnostics.
+Specific rules run before row 4's generic Warning Message fallback. Unknown
+diagnostics remain visible as category 0, without serializing their text.
 Config declarations identify candidates, not the author of an engine warning;
 reopenings, missing inputs and ambiguous matches never become proven blame.
 Exit 0 = census written, 2 = input/storage failure (with no partial report).
@@ -29,17 +29,25 @@ MAX_PBOS = 10000
 MAX_SYMBOLS = 1000000
 MAX_DEPTH = 32
 OWNERS = ('ours', 'dependency', 'vanilla')
-# Stable IDs are the evidence-table row numbers, not guessed missing categories.
+# Stable IDs are the framework section 3.5 evidence-table row numbers.
 RULES = {
-    1: ('config_no_entry', r'\bNo entry\b|Trying to access error value'),
+    1: ('config_no_entry', r'\bNo entry\b'),
+    2: ('loot_hard_to_place', r'\[CE\]\[LootRespawner\].*\bhard to place\b'),
+    3: ('config_error_value', r'Trying to access error value'),
     4: ('other_warning_message', r'Warning Message'),
+    5: ('ce_point_removing', r'\[CE\]\[Point\].*\bRemoving\b'),
+    6: ('vehicle_spawn_failure', r'\[CE\]\[VehicleRespawner\].*Failed to spawn'),
     7: ('animation_resource', r'\.anm\b'),
+    8: ('random_loot_mismatch', r'\[CE\]\[SpawnRandomLoot\].*(?:lootmax|containermaxsum)'),
     9: ('inventory_shape', r'Wrong inventory shape'),
+    10: ('convex_components', r'Convex component selection faces are less th[ae]n\b'),
     11: ('unknown_object_class', r'Unknown object class'),
     12: ('localization', r'(?:locali[sz]ation|stringtable|string table).*STR_|STR_.*(?:locali[sz]ation|stringtable|string table|not found)'),
+    13: ('slope_land_contact', r'\bslopelandcontact\b.*\bfailed\b'),
+    14: ('snake_graph', r'snake[\\/]+anims[\\/]+animgraph[\\/]+snake\.agr.*(?:doesn.t have|missing|unknown).*variable'),
     15: ('input_or_skeleton', r'UAGestureSlot.*(?:twice|duplicate|already)|(?:twice|duplicate|already).*UAGestureSlot|ZSUSkeleton.*(?:bone|missing)|(?:bone|missing).*ZSUSkeleton'),
 }
-WARNING = re.compile(r'warning|error|cannot|can.t|missing|not found|unknown|\.anm\b|inserted twice', re.I)
+WARNING = re.compile(r'warning|error|cannot|can.t|missing|not found|unknown|failed|mismatch|not an array|no entry|hard to place|removing|convex component|slopelandcontact|\.anm\b|inserted twice', re.I)
 TOKENS = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 RESOURCE = re.compile(r'[A-Za-z0-9_./\\-]+\.(?:p3d|anm|asi|agr|paa|emat|rvmat|ogg|wav)\b', re.I)
 CONFIG_REF = re.compile(r'\b(Cfg[A-Za-z0-9_]+)[/\\]([A-Za-z_][A-Za-z0-9_]*)', re.I)

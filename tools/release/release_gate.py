@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 
+from tools.audit import rpt_config_audit
 from tools.release import activity_check, checkstart, friendcycle, rpt_summary
 from tools.release.acceptance_targets import load_targets, TargetsError
 from tools.release.host_lock import host_lock, LockRefused
@@ -86,11 +87,43 @@ def audit(path, *, client=False, targets=None):
             if missing_textures > targets['client_max_missing_textures']:
                 raise Refused('client texture error limit exceeded')
     if not client:
+        # Use the audit's exact taxonomy and bounded reader, including lines that
+        # do not contain generic warning/error words. Never serialize raw text.
+        counts, oversized = rpt_config_audit.scan_rpt(path, rpt_config_audit.category_rules())
+        totals = {category: 0 for category in rpt_config_audit.RULES}
+        unclassified = 0
+        for (category, _diagnostic), count in counts.items():
+            if category == 0:
+                unclassified += count
+            else:
+                totals[category] += count
+        if oversized or unclassified:
+            raise Refused(f'R3 incomplete RPT census unclassified={unclassified} oversized={oversized}')
+        for category, count in totals.items():
+            ceiling = targets['rpt_category_ceilings'][str(category)]
+            if ceiling is None:
+                raise Refused(f'R3 category={category} ceiling unavailable; measured count required')
+            if count > ceiling:
+                raise Refused(f'R3 category={category} count={count} ceiling={ceiling}')
+        limit = min(targets['readiness_max_after_hive_seconds'],
+                    targets['readiness_ratchet_max_after_hive_seconds'])
+        timing = summary.readiness_timing.result(limit)
+        if timing['status'] != 'passed' or timing['max_after_hive_seconds'] is None:
+            raise Refused('R4 readiness timing unavailable or exceeds ratchet')
+    if not client:
         for rule in perf_rules(path):
             if 'perf_rule=R2 ' in rule:
                 value = re.search(r'\bms=([0-9.]+)', rule)
                 if value is None or float(value[1]) > targets['perf_r2_max_ms']:
                     raise Refused(f"perf R2 over {targets['perf_r2_max_ms']:g} ms")
+        evidence = dict(rpt_categories={str(key): dict(count=value,
+                        ceiling=targets['rpt_category_ceilings'][str(key)])
+                        for key, value in totals.items()}, readiness_timing=dict(
+                            status=timing['status'],
+                            max_after_hive_seconds=timing['max_after_hive_seconds'],
+                            limit_seconds=timing['limit_seconds']))
+        emit('R3/R4 ' + json.dumps(evidence, sort_keys=True))
+        return evidence
 
 
 def client_profiles():
