@@ -395,9 +395,19 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
                         okReadable = true;
                         state.Ok = lowerOk;
                         state.OkUtc = receipt.Utc;
-                        state.Id = receipt.Id;
-                        state.Prev = receipt.Prev;
-                        state.Adopt = receipt.Adopt;
+                        // Keep the lower ok's time as the anchor but demote its identity: the older
+                        // generation's barrel may already be gone, so its id must come back through
+                        // the rollback path rather than count the live barrel as foreign.
+                        state.Id = "";
+                        if (receipt.Adopt)
+                        {
+                            state.Prev = "";
+                        }
+                        else
+                        {
+                            state.Prev = receipt.Id;
+                        }
+                        state.Adopt = false;
                     }
                     else
                     {
@@ -618,6 +628,8 @@ class HCEventCacheSpawner
     // Containers held by DELIVERY-family targets (weak handles): only those bind a barrel; a stock
     // target in s_PoliceTargets also records its barrel but holds nothing.
     protected static ref array<ItemBase> s_PoliceDeliveryHolds = new array<ItemBase>;
+    // Sticky per process: set when a delivery hold could not be recorded after pruning.
+    protected static bool s_PoliceHoldOverflow = false;
     protected static ref map<string, ref HCPoliceIdWatch> s_PoliceIdWatch;
     protected static ref array<string> s_PoliceCreatedSites = new array<string>;
     protected static int s_PoliceProbeLines;
@@ -986,9 +998,19 @@ class HCEventCacheSpawner
         string matchText = "";
         if (created == 0)
         {
+            // Only match=none means "id unstable": unknown = no receipt state, unrecorded = no id
+            // recorded to compare against.
             string matchState = "none";
             string probeId = PoliceBarrelId(barrel);
-            if (state && probeId != "")
+            if (!state)
+            {
+                matchState = "unknown";
+            }
+            else if (state.ExpectedId() == "" && state.ExpectedPrev() == "")
+            {
+                matchState = "unrecorded";
+            }
+            else if (probeId != "")
             {
                 if (probeId == state.ExpectedId()) { matchState = "current"; }
                 else if (probeId == state.ExpectedPrev()) { matchState = "prev"; }
@@ -1047,7 +1069,13 @@ class HCEventCacheSpawner
         string prev = state.ExpectedPrev();
         if (expected == "" && prev == "") { return POLICE_OWN_NONE; }
         string id = PoliceBarrelId(barrel);
-        if (id == "") { return POLICE_OWN_UNREADABLE; }
+        if (id == "")
+        {
+            // Only a recorded current id makes a zero read suspicious; with just prev set the
+            // barrel degrades to refill-only.
+            if (expected != "") { return POLICE_OWN_UNREADABLE; }
+            return POLICE_OWN_NONE;
+        }
         if (id == expected)
         {
             if (state.ExpectedAdopt()) { return POLICE_OWN_ADOPTED; }
@@ -1108,7 +1136,11 @@ class HCEventCacheSpawner
             {
                 Barrel_Green like = job.NearBarrels[likeIndex];
                 if (!like || like.IsSetForDeletion() || like.GetHierarchyParent()) { continue; }
-                if (PoliceCargoCount(like) > 0 && PoliceCargoRefusal(like, plan) == "")
+                if (PoliceCargoCount(like) <= 0) { continue; }
+                // item_reserved: a stage-1 cargo scan reserved this HC barrel's plan item through
+                // RememberPolice; the barrel is never changed on this path, so it is still plan-like.
+                string likeRefusal = PoliceCargoRefusal(like, plan);
+                if (likeRefusal == "" || likeRefusal == "item_reserved")
                 {
                     PoliceLogOnce(siteId, "foreign_plan_like");
                     return like;
@@ -1135,6 +1167,8 @@ class HCEventCacheSpawner
     static bool PoliceContainerBound(Barrel_Green barrel)
     {
         if (!barrel) { return false; }
+        // Sticky overflow: a hold that could not be recorded fails closed (refuse replaces).
+        if (s_PoliceHoldOverflow) { return true; }
         return s_PoliceDeliveryHolds.Find(barrel) >= 0;
     }
     static bool PoliceInPlan(HCEventRewardPlan plan, string className)
@@ -1562,7 +1596,15 @@ class HCEventCacheSpawner
         {
             // Bounded: drop deleted handles before the list can grow past 64.
             if (s_PoliceDeliveryHolds.Count() >= 64) { PrunePoliceHolds(); }
-            if (s_PoliceDeliveryHolds.Count() < 64 && s_PoliceDeliveryHolds.Find(container) < 0) { s_PoliceDeliveryHolds.Insert(container); }
+            if (s_PoliceDeliveryHolds.Count() < 64)
+            {
+                if (s_PoliceDeliveryHolds.Find(container) < 0) { s_PoliceDeliveryHolds.Insert(container); }
+            }
+            else if (!s_PoliceHoldOverflow)
+            {
+                s_PoliceHoldOverflow = true;
+                Print("[HC Police] site=" + mission.SiteId + " action=hold_overflow reason=delivery_holds_full_replaces_refused");
+            }
         }
         if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>; }
         s_PoliceTargets.Insert(supply);
