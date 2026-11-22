@@ -61,7 +61,7 @@ BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowl
                 'interior_catalog.py', 'search_context.py', 'essential_routes.json', 'interior_prop_boxes.json',
                 'loot_reach_audit.py', 'interior_points_gen.py', 'loot_support_audit.py', 'ce_slot_pressure.py')
 # Other repo files the shipped tools import or read at install time (wiring audit W010 bundle closure).
-BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
+BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/audit/odol56.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
                       'tools/setup/diagnostic_mission.py', 'tools/setup/probe_runtime.py',
                       'tools/setup/probe_core.py', 'tools/release/host_lock.py',
                       'config/loot-dispositions.json', 'config/military-loot.json')

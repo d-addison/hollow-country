@@ -3560,6 +3560,22 @@
       "line": 30,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type of HCSearchSupplyProvider; its only outside caller was the retired pilot binding. Reviewed, kept with the provider until the supply layer is retired."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchJournalJob",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 773,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local HCSaveJob for the search journal (journal P003 on HCSaveScheduler); same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXCautionRow",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c",
+      "line": 27,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support row type for caution observation; same-file references intentionally do not satisfy W004. Reviewed 2026-11-22."
     }
   ]
 }
