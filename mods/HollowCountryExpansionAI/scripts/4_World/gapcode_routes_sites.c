@@ -5,10 +5,18 @@
 // hashing, native FindPath qualification, actor caps, sight and materialisation
 // to HCXAISiteDirector. Source citations live in gapcode_routes_catalog.c and
 // the inherited HCXAISites.c. No actors/items/leases are created here.
+class HCStartupRoutes : HCStartupOwner
+{
+    HCXAISiteDirector Director;
+    override bool HCNeedsWork() { return Director && Director.HCStartupRoutesPending(); }
+    override void HCSlice() { if (Director && Director.HCStartupRoutesPending()) { Director.HCStartupRoutesSlice(); } }
+}
+
 modded class HCXAISiteDirector
 {
     protected ref HCGapcodeRoutesCatalog m_GapcodeRoutes;
     protected bool m_HCRouteCatalogTurn;
+    protected ref HCStartupRoutes m_StartupRoutes;
 
     override void Start()
     {
@@ -20,7 +28,15 @@ modded class HCXAISiteDirector
         }
         m_GapcodeRoutes = new HCGapcodeRoutesCatalog;
         m_GapcodeRoutes.HCOpen();
+        m_StartupRoutes = new HCStartupRoutes;
+        m_StartupRoutes.Director = this;
+        HCStartupPump.HCRegister(m_StartupRoutes, "routes_catalog");
     }
+    bool HCStartupRoutesPending()
+    {
+        return m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused";
+    }
+    void HCStartupRoutesSlice() { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); }
     override void Step()
     {
         // A source-page hash remains atomic because Expansion's hasher is
@@ -35,6 +51,7 @@ modded class HCXAISiteDirector
     }
     override void Stop()
     {
+        HCStartupPump.HCFinish(m_StartupRoutes);
         if (m_GapcodeRoutes) { m_GapcodeRoutes.HCStop(); m_GapcodeRoutes = null; }
         super.Stop();
     }

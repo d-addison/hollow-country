@@ -81,7 +81,14 @@ class HCGapcodeStoryCandidate
     string NativeReceipt;
 }
 
-class HCGapcodeStoryIndex
+class HCStartupStoryIndex : HCStartupOwner
+{
+    HCGapcodeStoryIndex Index;
+    override bool HCNeedsWork() { return Index && Index.HCLoading(); }
+    override void HCSlice() { if (Index && Index.HCLoading()) { Index.HCStep(null); } }
+}
+
+class HCGapcodeStoryIndex : Managed
 {
     protected ref HCGapcodeStoryLimits m_Limits;
     protected FileHandle m_Input;
@@ -95,6 +102,7 @@ class HCGapcodeStoryIndex
     protected bool m_RowComma;
     protected bool m_HaveRow;
     protected HCScenesModule m_Owner;
+    protected ref HCStartupStoryIndex m_StartupIndex;
     protected ref map<string, ref HCGapcodeStorySite> m_Sites = new map<string, ref HCGapcodeStorySite>;
     protected ref array<ref HCGapcodeStoryCandidate> m_Pairs = new array<ref HCGapcodeStoryCandidate>;
     protected ref map<string, bool> m_Ids = new map<string, bool>;
@@ -113,8 +121,8 @@ class HCGapcodeStoryIndex
     string HCReason() { return m_Reason; }
     bool HCOff() { return m_Off; }
     bool HCHasSelectedPlan() { return m_Selected != null; }
-    // Loading parses the cached source. Selection only caches a candidate and
-    // reads native clearance; neither path mutates scene/save state.
+    // Loading parses the cached source. The startup adapter only enters while
+    // loading; selection and native clearance remain on scene ticks.
     bool HCLoading() { return m_Loading; }
     bool HCNeedsStep() { return m_Loading || (m_Complete && m_Qualified > 0 && !m_Selected); }
     // Operational readiness is source admission, independent of transient
@@ -134,6 +142,9 @@ class HCGapcodeStoryIndex
         // the whole index before STORY_INDEX can account for its work.
         m_Reading = true;
         m_Loading = true;
+        m_StartupIndex = new HCStartupStoryIndex;
+        m_StartupIndex.Index = this;
+        HCStartupPump.HCRegister(m_StartupIndex, "story_index");
         Print(HCV2Admission.Line("HC-42 indexed stories", true, "HC42_KIT_SITE_SURVEY", false) + " runtime=PENDING");
     }
 
@@ -246,16 +257,17 @@ class HCGapcodeStoryIndex
     // they create no native objects and mutate no persisted scene state.
     void HCStep(HCScenesModule owner)
     {
-        m_Owner = owner;
+        if (owner) { m_Owner = owner; }
         if (m_Loading)
         {
-            // One shared unit per batch of ReadLinesPerTick lines: the shared budget is usually spent
+            // On normal ticks, one shared unit per batch; frame catch-up instead
+            // uses the shared frame deadline and the same line/time caps. The tick pool is usually spent
             // by earlier consumers, and one unit per line read the 1075-line index at ~1 line/s.
             // STORY_INDEX, not SITUATIONS: Events claims that slot's starved take every tick.
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
+            if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
             m_LoadBatches++;
             // Retain the configured row ceiling; leave room for the final JSON row.
-            m_Work.HCReset(m_Limits.ReadLinesPerTick, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+            m_Work.HCReset(m_Limits.ReadLinesPerTick, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
             string line;
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
             {
@@ -298,7 +310,7 @@ class HCGapcodeStoryIndex
             }
             return;
         }
-        if (!m_Complete || m_Qualified < 1 || m_Selected) { return; }
+        if (!owner || !m_Complete || m_Qualified < 1 || m_Selected) { return; }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
         if (m_Cursor >= m_Pairs.Count()) { m_Cursor = 0; }
         HCGapcodeStoryCandidate candidate = m_Pairs[m_Cursor];

@@ -3760,6 +3760,30 @@
       "line": 71,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local resumable stage state for the staged tick consumer (p-spikes2); same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStartupRoutes",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_sites.c",
+      "line": 8,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its loader."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStartupRoads",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 69,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its loader."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStartupStoryIndex",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 84,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local startup catch-up adapter; registered with HCStartupPump in the same file and held by its loader."
     }
   ]
 }

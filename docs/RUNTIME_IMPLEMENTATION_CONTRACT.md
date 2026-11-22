@@ -118,3 +118,62 @@ is insufficient: some families return true without a physical source.
 Native compilation, readiness/late-update ordering, time values, overflow shutdown
 summary and actual marker paths still require an engine run; offline lint does not
 establish those behaviours.
+
+### Shared startup catch-up (implemented, retail verification pending)
+
+`HCStartupPump` registers bounded startup owners through `HCStartupOwner` and uses
+one SYSTEM update callback for routes source-pin/resolve, HC-42 source parsing,
+Interiors template packs and the shared Expansion road graph. Native API inspection:
+`scripts-1.30.164289/3_Game/Global/Game.c:1552`, `3_Game/DayZGame.c:3027`,
+`2_GameLib/tools.c:115-124`; raw counter: `1_Core/proto/EnSystem.c:106`.
+Core probes `$profile:HollowCountry/acceptance/startup_catchup.disable` once before
+starting modules. Present means normal tick cadence for all four owners, including
+road loading and the former 100 ms Interiors pump.
+
+The settings registry owns `Performance.StartupFrameMs` (default 4, range 1–4 ms)
+and `Performance.StartupDeadlineSeconds` (default 30, range 1–300 seconds per owner
+since registration). The persistent round-robin cursor shares one raw-counter
+frame deadline, using HCWorkBudget's existing counter conversion. Each owner
+receives at most the remaining frame time and its existing slice cap; at most
+32 slices and 32 retained registrations are allowed. Finished registrations stay
+bounded until core stop; the callback detaches when all finish. Deadline, failure,
+stop and opt-out end catch-up; normal tick drivers remain. One receipt per owner:
+`[HC Startup] owner=... catchup_s=... frames=... slices=... ms_max=...`.
+`frames` counts frames served; `ms_max` is the largest measured owner slice.
+
+Startup registrations use small adapters with non-owning back pointers; the story,
+routes and roads loaders do not inherit pump bookkeeping fields. Inside a pump
+slice, `HCStartupPump.HCInSlice()` replaces tick-pool admission for AI_ROUTES,
+STORY_INDEX loading, INTERIORS pack loading and ROADS loading with the shared frame
+deadline. Normal tick admission is unchanged, including story observer selection.
+Each loader retains its unit/line cap and slice clock; roads only loads on its own
+round-robin turn during catch-up. Story loading preserves its scene owner when
+called without one, and source parsing/refusal/logging never dereferences it.
+
+No slice can preempt an atomic engine operation. Existing row/line limits,
+READS_PER_UNIT, page length checks, sampling policy and hash context isolation are unchanged. The existing hasher
+processes 128-byte parts with private saved context and restores Expansion's incoming
+global context before every return; the pump never retains that global state. Routes, story and Interiors retain their 2 ms slice ceilings; road
+loading retains 4 ms and its existing line ceiling. No new trusted cache exists.
+The earlier road-only frame pump in `HCXAICaravanAdapter.c` joins this budget
+because routes also wait for `roads.Phase == "loading"`. Locality site paging
+continues normally: `HCXAISites.StepWait` publishes `run` before its incremental
+locality survey; it is not another startup source-load readiness wait. HC-42
+observer selection and actual site/actor qualification remain on their own ticks.
+
+At the existing provisional 10,000 raw ticks/ms, `resolve_ticks_max=826` is
+0.0826 ms and the source-page guard of 40,000 ticks is 4 ms (a diagnostic guard,
+not a proven worst case). A 4 ms shared allowance plus a final non-preemptible
+4 ms source-pin operation suggests about 8 ms of catch-up frame work at that guard,
+excluding normal server work. About 1 s CPU needs roughly 250 full 4 ms frame
+allowances: 4.2 s at 60 FPS, 8.3 s at 30 FPS or 25 s at 10 FPS, before contention
+and atomic overhead. These estimates do not establish readiness by vanilla +30 s
+or R2 <=20 ms. The lead must measure both on retail, including deadline/opt-out
+fallback, default-on readiness and upgrade recovery.
+
+Legacy route rows without ValidityKey are filtered in one bounded boot-image pass,
+with one aggregate count and one shared-save dirty notification after provider
+admission. Modern rows retain normal validity and geometry review. Settlement decay
+logs a town only when changed, and one receipt per completed cursor pass with towns,
+changed and saved. Saved counts completed routine checkpoints since the prior pass;
+a newly dirty row can be checkpointed during the next pass. HC Use is unchanged.

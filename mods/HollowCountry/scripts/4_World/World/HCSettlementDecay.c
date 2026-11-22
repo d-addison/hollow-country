@@ -175,6 +175,9 @@ class HCSettlementDecay : HCModule
     protected ref HCSettlementSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected int m_Cursor;
+    protected int m_PassTowns;
+    protected int m_PassChanged;
+    protected int m_PassSaved;
     protected float m_Elapsed;
     protected ref array<string> m_RefusalReasons = new array<string>;
     protected bool m_Started;
@@ -327,6 +330,7 @@ class HCSettlementDecay : HCModule
         if (!m_Store.SaveInFlight()) { m_CheckpointRevision = m_StateRevision; }
         int result = m_Store.SaveStep(m_State);
         if (result == HCSaveJob.STEP_DONE && m_CheckpointRevision != m_StateRevision) { return HCSaveJob.STEP_MORE; }
+        if (result == HCSaveJob.STEP_DONE) { m_PassSaved++; }
         if (result == HCSaveJob.STEP_FAILED) { Fail(); }
         return result;
     }
@@ -451,8 +455,18 @@ class HCSettlementDecay : HCModule
             m_State.SavedUtc = now;
             m_StateRevision++;
             m_SaveJob.HCDirty = true;
-            int towns = m_State.Towns.Count();
-            Print("[HollowCountry] V2 settlement decay towns=" + towns.ToString() + " changed=" + changed.ToString());
+            if (changed > 0) { Print("[HollowCountry] V2 settlement decay town=" + town.Id + " changed=" + changed.ToString()); }
+        }
+        m_PassTowns++;
+        m_PassChanged += changed;
+        if (m_Cursor == 0)
+        {
+            // Saved counts completed routine checkpoints since the last pass receipt;
+            // dirty rows still use the shared scheduler and may finish in the next pass.
+            Print("[HollowCountry] V2 settlement decay towns=" + m_PassTowns.ToString() + " changed=" + m_PassChanged.ToString() + " saved=" + m_PassSaved.ToString());
+            m_PassTowns = 0;
+            m_PassChanged = 0;
+            m_PassSaved = 0;
         }
         Visual(index, now);
     }

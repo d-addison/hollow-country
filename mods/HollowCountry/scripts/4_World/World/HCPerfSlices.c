@@ -7,6 +7,8 @@ class HCPerfConfig
 {
     bool EnableSharedSaves = true;
     int SliceMs = 4;
+    int StartupFrameMs = 4;
+    int StartupDeadlineSeconds = 30;
     int SaveStageTargetMs = 10;
     int EcologyRowsPerTick = 4;
     int InteriorStepsPerTick = 1;
@@ -127,6 +129,8 @@ class HCPerfConfig
         if (HCJsonFields.Has(text, "TickWeight_ZONE_GUARDS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ZONE_GUARDS", decoded.TickWeight_ZONE_GUARDS)) { TickWeight_ZONE_GUARDS = decoded.TickWeight_ZONE_GUARDS; }
         if (HCJsonFields.Has(text, "TickWeight_AI_ROUTE_CACHE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTE_CACHE", decoded.TickWeight_AI_ROUTE_CACHE)) { TickWeight_AI_ROUTE_CACHE = decoded.TickWeight_AI_ROUTE_CACHE; }
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
+        if (HCJsonFields.Has(text, "StartupFrameMs") && HCOperatorSettingsRegistry.HCValid("Performance.StartupFrameMs", decoded.StartupFrameMs)) { StartupFrameMs = decoded.StartupFrameMs; }
+        if (HCJsonFields.Has(text, "StartupDeadlineSeconds") && HCOperatorSettingsRegistry.HCValid("Performance.StartupDeadlineSeconds", decoded.StartupDeadlineSeconds)) { StartupDeadlineSeconds = decoded.StartupDeadlineSeconds; }
         if (HCJsonFields.Has(text, "SliceMs") && HCOperatorSettingsRegistry.HCValid("Performance.SliceMs", decoded.SliceMs)) { SliceMs = decoded.SliceMs; }
         if (HCJsonFields.Has(text, "SaveStageTargetMs") && HCOperatorSettingsRegistry.HCValid("Performance.SaveStageTargetMs", decoded.SaveStageTargetMs)) { SaveStageTargetMs = decoded.SaveStageTargetMs; }
         if (HCJsonFields.Has(text, "EcologyRowsPerTick") && HCOperatorSettingsRegistry.HCValid("Performance.EcologyRowsPerTick", decoded.EcologyRowsPerTick)) { EcologyRowsPerTick = decoded.EcologyRowsPerTick; }

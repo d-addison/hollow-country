@@ -412,12 +412,12 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
-        // ROADS has its own fair admission and one 4 ms loading slice per frame.
+        // ROADS shares the startup frame budget and retains its 4 ms slice cap.
         // Pump independently of AI_ROUTES so source checks and node parsing overlap.
         HCXAICaravanRoads roads = this.HCGraph();
         if (!roads || m_Phase == "failed") { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
-        if (roads.Phase == "loading") { roads.HCStep(); }
+        if (roads.Phase == "loading" && !HCStartupPump.HCInSlice()) { roads.HCStep(); }
         // #275: the owner visits every other core tick. One row per visit
         // paced 88 cheap bindings over 176 s even after the graph was loaded
         // (131: graph 33.496 s, source checks ~71 s). Admit one bounded page,
@@ -426,9 +426,9 @@ class HCGapcodeRoutesCatalog
         // without waiting another two seconds per 64 reads. Never run a second
         // completed page digest in this visit or combine it with candidate work.
         int limit = Data.limits.page_size;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
+        if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
         // Half-slice headroom for the final non-preemptible hash block.
-        m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+        m_Work.HCReset(limit, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
         m_Slices++;
         int hashedBefore = m_Hashed;
         while (m_Work.HCContinue())

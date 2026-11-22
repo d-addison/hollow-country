@@ -242,3 +242,13 @@ class HCUnitBudget
         m_WindowElapsed = 0;
     }
 }
+
+// Reuse the same validated counter conversion as every HCWorkBudget slice.
+class HCStartupFrameBudget : HCWorkBudget
+{
+    float HCRemainingMs()
+    {
+        return Math.Max(0, m_Deadline * 1000 - TickCount(m_SliceStart) / m_SliceTicksPerMs);
+    }
+    float HCMilliseconds(int ticks) { return ticks / m_SliceTicksPerMs; }
+}
