@@ -304,8 +304,12 @@ class HCGapcodeRoutesCatalog
         { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_SITES_DRIFT"); return false; }
         if (manifest.Files[2].Sha256 != Data.sources.localities_sha256)
         { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_LOCALITIES_DRIFT"); return false; }
-        if (manifest.CatalogPath != "$mission:hollow-country/travel/gapcov-roads/index.json" || manifest.CatalogSha256.Length() != 64 || Data.identity_sha256.Length() != 64 || manifest.CatalogIdentitySha256 != Data.identity_sha256 || !manifest.CatalogPages || manifest.CatalogPages.Count() != Data.pages.Count())
-        { this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
+        // Native compile refuses long || chains ("Formula too complex"): one test per line.
+        bool catalogOk = manifest.CatalogPath == "$mission:hollow-country/travel/gapcov-roads/index.json";
+        if (catalogOk) { catalogOk = manifest.CatalogSha256.Length() == 64 && Data.identity_sha256.Length() == 64; }
+        if (catalogOk) { catalogOk = manifest.CatalogIdentitySha256 == Data.identity_sha256; }
+        if (catalogOk) { catalogOk = manifest.CatalogPages && manifest.CatalogPages.Count() == Data.pages.Count(); }
+        if (!catalogOk) { this.HCRefuse("ROUTE_MANIFEST_CATALOG_DRIFT"); return false; }
         int totalRows = 0;
         for (int pageIndex = 0; pageIndex < Data.pages.Count(); pageIndex++)
         {
@@ -314,12 +318,26 @@ class HCGapcodeRoutesCatalog
             string suffix = pageIndex.ToString();
             if (pageIndex < 10) { suffix = "00" + suffix; }
             else { suffix = "0" + suffix; }
-            if (!page || !pinned || page.Path != "$mission:hollow-country/travel/gapcov-roads/page-" + suffix + ".json" || page.Bytes < 1 || page.Bytes > 32768 || page.Rows < 1 || page.Rows > 64 || page.Sha256.Length() != 64 || page.IdentitySha256.Length() != 64 || pinned.IdentitySha256 != page.IdentitySha256 || pinned.Path != page.Path || pinned.Bytes != page.Bytes || pinned.Rows != page.Rows || pinned.Sha256 != page.Sha256)
-            { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
+            string expected = "$mission:hollow-country/travel/gapcov-roads/page-";
+            expected += suffix;
+            expected += ".json";
+            if (!HCPageMatches(page, pinned, expected)) { this.HCRefuse("ROUTE_MANIFEST_PAGE_DRIFT"); return false; }
             totalRows += page.Rows;
         }
         if (totalRows != Data.row_count) { this.HCRefuse("ROUTE_PAGE_ROW_TOTAL"); return false; }
         return true;
+    }
+    // Split page identity checks; the native compiler rejects one long condition.
+    static bool HCPageMatches(HCGapcodeRoutesPageIdentity page, HCGapcodeRoutesPageIdentity pinned, string expected)
+    {
+        if (!page || !pinned) { return false; }
+        if (page.Path != expected) { return false; }
+        if (page.Bytes < 1 || page.Bytes > 32768) { return false; }
+        if (page.Rows < 1 || page.Rows > 64) { return false; }
+        if (page.Sha256.Length() != 64 || page.IdentitySha256.Length() != 64) { return false; }
+        if (pinned.IdentitySha256 != page.IdentitySha256 || pinned.Path != page.Path) { return false; }
+        if (pinned.Bytes != page.Bytes || pinned.Rows != page.Rows) { return false; }
+        return pinned.Sha256 == page.Sha256;
     }
     bool HCSourcePath(int index, string path)
     {
