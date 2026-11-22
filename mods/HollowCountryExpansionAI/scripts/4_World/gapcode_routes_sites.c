@@ -39,10 +39,8 @@ modded class HCXAISiteDirector
     void HCStartupRoutesSlice() { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); }
     override void Step()
     {
-        // A source-page hash remains atomic because Expansion's hasher is
-        // global. Isolate one page/unit from site native qualification; never
-        // retain that global hash state across ticks. Time the atomic page.
-        if (m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
+        // Pump owns catch-up; ordinary ticks only advance after its deadline.
+        if (m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && (!m_StartupRoutes || m_StartupRoutes.Finished) && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
         {
             m_HCRouteCatalogTurn = !m_HCRouteCatalogTurn;
             if (m_HCRouteCatalogTurn) { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); return; }
@@ -107,7 +105,7 @@ modded class HCXAISiteDirector
                     array<vector> points = route.Points;
                     foreach (vector roadWaypoint : points) { candidateSite.Waypoints.Insert(roadWaypoint); }
                     state.Site = candidateSite;
-                    Print("[HC Routes] bound site=" + candidateSite.Id + " candidate=" + route.id + " qualification=native_pending runtime=PENDING");
+                    HCModuleReadiness.HCUse("optional-expansion-human-ai", "manifest_route_binding");
                 }
                 else
                 {

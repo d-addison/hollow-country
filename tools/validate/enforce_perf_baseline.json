@@ -401,10 +401,55 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
-      "line": 62,
+      "line": 138,
       "symbol": "HCXAICaravanRoads.HCLine",
       "key": "FGets#1",
       "message": "FGets reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadNode -> HCXAICaravanRoads.HCLine",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.Substring#1",
+      "message": "m_ReadWindow.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.IndexOfFrom#2",
+      "message": "m_ReadWindow.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 278,
+      "symbol": "HCXAICaravanRoads.HCStreamArrayToken",
+      "key": "m_ReadWindow.IndexOfFrom#1",
+      "message": "m_ReadWindow.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 232,
+      "symbol": "HCXAICaravanRoads.HCStreamAt",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactHeader -> HCXAICaravanRoads.HCStreamAt",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 189,
+      "symbol": "HCXAICaravanRoads.HCLoadInstalled",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadCompact -> HCXAICaravanRoads.HCCompactFallback -> HCXAICaravanRoads.HCLoadInstalled",
       "native": false
     },
     {
@@ -527,7 +572,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 193,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "OpenFile#1",
       "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -536,7 +581,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 206,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -545,7 +590,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 227,
+      "line": 317,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#2",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",

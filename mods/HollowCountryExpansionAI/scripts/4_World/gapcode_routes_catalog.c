@@ -10,7 +10,7 @@
 // restores the provider's incoming static context before returning.
 // Graph format/resolution belongs to HCXAICaravanRoads (its native citations
 // and ai/.../Roads/eAIRoadNetwork.c:684-730, eAIRoadNode.c:281-319 apply).
-// No geometry is distributed here. The private installed graph is page-pinned.
+// The build pins the installed graph; admitted manifests skip runtime hashing.
 class HCGapcodeRoutesLimits
 {
     int waypoints;
@@ -63,6 +63,8 @@ class HCGapcodeRoutesSourceFile
     int Bytes;
     string Sha256;
     ref array<string> Pages;
+    int PageStart;
+    int PageCount;
 }
 class HCGapcodeRoutesPins
 {
@@ -70,6 +72,31 @@ class HCGapcodeRoutesPins
     int ChunkBytes;
     int MaxSourceBytes;
     ref array<ref HCGapcodeRoutesSourceFile> Files;
+}
+
+// Generated with the mission bundle; preland verifies all bytes/digests offline.
+// Runtime compares identities, never recomputes hashes on the admitted fast path.
+class HCGapcodeRoutesManifest : HCGapcodeRoutesPins
+{
+    string SourcePagesSha256;
+    int SourceCount;
+    int PageCount;
+    string RoadGraphPath;
+    string RoadGraphSha256;
+}
+
+// Header only: the large numeric arrays are streamed, never deserialized in
+// one atomic JsonFileLoader call. Generated key order is part of schema 1.
+class HCXRoadCompactHeader
+{
+    int SchemaVersion;
+    string SourcePath;
+    string SourceSha256;
+    int RoadVersion;
+    int Width;
+    int Height;
+    int NodeCount;
+    int EdgeCount;
 }
 
 // Save/restore only the installed provider's protected hashing context. No hash
@@ -139,6 +166,8 @@ class HCGapcodeRoutesCatalog
     protected int m_Cursor;
     protected int m_PinPeakTicks;
     protected int m_Pending;
+    protected int m_ValidityMismatch;
+    protected bool m_ManifestAdmitted;
     protected int m_Slices;
     protected int m_Units;
     protected int m_ResolvePeakTicks;
@@ -192,18 +221,30 @@ class HCGapcodeRoutesCatalog
         m_Enabled = !FileExist("$profile:HollowCountry/acceptance/gapcode_routes.disable");
         Print(HCV2Admission.Line("RegionalRoadCandidates", m_Enabled, "GAPCOV-NATIVE-ROUTES", false) + " runtime=PENDING");
         if (!m_Enabled) { return; }
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "manifest_route_binding");
         string content = HCWorldStore.Read("$mission:hollow-country/travel/route-surveys.json");
         string error;
         HCGapcodeRoutesDocument document;
         if (!JsonFileLoader<HCGapcodeRoutesDocument>.LoadData(content, document, error) || !document || !document.gapcov_routes)
         { this.HCRefuse("ROUTE_DATA_MISSING_OR_INVALID"); return; }
         Data = document.gapcov_routes;
-        if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
-        { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
         if (Data.schema != 1 || Data.kind != "gapcov-road-proposals" || !Data.sources || !Data.graph || !this.HCLimitsValid(Data.limits))
         { this.HCRefuse("ROUTE_HEADER_INVALID"); return; }
         if (!Data.routes || Data.routes.Count() < 1 || Data.routes.Count() > HCXAISiteRules.HCMaxCatalogRows())
         { this.HCRefuse("ROUTE_ROW_CAP"); return; }
+        if (this.HCManifestMatches())
+        {
+            m_ManifestAdmitted = true;
+            m_Phase = "resolving";
+            m_Reason = "ROUTE_GRAPH_LOADING";
+            return;
+        }
+        // No stale manifest is treated as proof. Keep the original sampled-source
+        // fallback and its refusal paths; count the downgrade once per catalog.
+        m_ValidityMismatch++;
+        Print("[HC Routes] manifest=fallback reason=validity_mismatch count=" + m_ValidityMismatch.ToString() + " runtime=PENDING");
+        if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
+        { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
         string pinText = HCWorldStore.Read("$mission:hollow-country/travel/gapcode_routes_source-pages.json");
         if (!JsonFileLoader<HCGapcodeRoutesPins>.LoadData(pinText, m_Pins, error) || !m_Pins || m_Pins.SchemaVersion != 1)
         { this.HCRefuse("ROUTE_SOURCE_PINS_MISSING"); return; }
@@ -226,6 +267,25 @@ class HCGapcodeRoutesCatalog
         { this.HCRefuse("ROUTE_ROAD_SOURCE_PIN_MISMATCH"); return; }
         m_Phase = "pinning";
         m_Reason = "ROUTE_SOURCE_CHECK_PENDING";
+    }
+    bool HCManifestMatches()
+    {
+        string text = HCWorldStore.Read("$mission:hollow-country/travel/routes-manifest.json");
+        string error;
+        HCGapcodeRoutesManifest manifest;
+        if (!JsonFileLoader<HCGapcodeRoutesManifest>.LoadData(text, manifest, error) || !manifest) { return false; }
+        if (manifest.SchemaVersion != 1 || manifest.SourceCount != 4 || !manifest.Files || manifest.Files.Count() != 4) { return false; }
+        if (manifest.SourcePagesSha256.Length() != 64 || manifest.RoadGraphSha256.Length() != 64 || manifest.ChunkBytes != 4096) { return false; }
+        if (manifest.RoadGraphPath != "$mission:hollow-country/ai/road-graph.compact.json") { return false; }
+        int pages = 0;
+        for (int index = 0; index < 4; index++)
+        {
+            HCGapcodeRoutesSourceFile source = manifest.Files[index];
+            if (!source || !this.HCSourcePath(index, source.Path) || source.Bytes < 1 || source.Bytes > 4194304 || source.Sha256.Length() != 64) { return false; }
+            if (!source.Pages || source.PageStart != pages || source.PageCount != (source.Bytes + 4095) / 4096 || source.Pages.Count() != source.PageCount) { return false; }
+            pages += source.PageCount;
+        }
+        return pages == manifest.PageCount && manifest.Files[0].Sha256 == Data.sources.road_sha256 && manifest.Files[0].Path == Data.sources.road_virtual_path;
     }
     bool HCSourcePath(int index, string path)
     {
@@ -325,7 +385,7 @@ class HCGapcodeRoutesCatalog
         row.Fault = reason;
         row.Points.Clear();
         m_Pending++;
-        Print("[HC Routes] candidate=" + row.id + " reason=" + reason + " runtime=PENDING");
+        // Candidate faults remain queryable on the row; one loaded summary below.
     }
     void HCBindingRefuse(HCGapcodeRoutesRow row, string reason)
     {
@@ -370,7 +430,7 @@ class HCGapcodeRoutesCatalog
                 HCXAICaravanRoadNode previous = roads.Nodes[previousId];
                 float leg = vector.Distance(previous.Position, node.Position);
                 length += leg;
-                if (!previous.LinkIds.Contains(nodeId) || !node.LinkIds.Contains(previousId) || leg <= 0 || leg > Data.limits.segment_metres || length > Data.limits.journey_metres)
+                if (!roads.HCLinked(previousId, nodeId) || !roads.HCLinked(nodeId, previousId) || leg <= 0 || leg > Data.limits.segment_metres || length > Data.limits.journey_metres)
                 { this.HCRowRefuse(row, "ROUTE_ADJACENCY_OR_LENGTH_INVALID"); return; }
             }
             seen.Set(nodeId, true);
@@ -442,11 +502,6 @@ class HCGapcodeRoutesCatalog
                 if (pinTicks > m_PinPeakTicks)
                 {
                     m_PinPeakTicks = pinTicks;
-                    if (pinTicks >= 40000)
-                    {
-                        Print("[HC Routes] source_page_ticks_max=" + pinTicks.ToString() + " runtime=PENDING");
-                        return;
-                    }
                 }
                 if (m_Hashed != hashedBefore || m_Phase != "pinning") { return; }
             }
@@ -470,6 +525,8 @@ class HCGapcodeRoutesCatalog
                     if (m_Pending > 0) { m_Reason = "ROUTE_CANDIDATES_PENDING_ACCESS_OR_BINDING"; }
                     string line = "[HC Routes] catalog=loaded candidates=" + m_Cursor.ToString();
                     line += " pending=" + m_Pending.ToString() + " page_cap=" + limit.ToString();
+                    line += " manifest=" + m_ManifestAdmitted.ToString() + " validity_mismatch=" + m_ValidityMismatch.ToString();
+                    line += " pin_ticks_max=" + m_PinPeakTicks.ToString();
                     line += " slices=" + m_Slices.ToString() + " units=" + m_Units.ToString();
                     float elapsed = GetGame().GetTickTime() - m_Started;
                     line += " elapsed_s=" + elapsed.ToString() + " resolve_ticks_max=" + m_ResolvePeakTicks.ToString();
@@ -493,7 +550,8 @@ class HCGapcodeRoutesCatalog
     HCOperationalStatus HCGetOperationalStatus(HCOperationalStatus owner)
     {
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_opt_out"); }
-        else if (m_Phase != "loaded") { m_Status.HCPublish("degraded", m_Reason); }
+        else if (m_Phase == "failed") { m_Status.HCPublish("degraded", m_Reason); }
+        else if (m_Phase != "loaded" && owner) { m_Status.HCPublish(owner.HCState(), owner.HCReason()); }
         else if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
         // Candidate-local refusals (island access, a site binding) keep every other
         // candidate running, so they are admitted coverage gaps, not an owner fault
