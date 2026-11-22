@@ -172,6 +172,7 @@ class HCMigrationJob
     static const int PH_C_VERIFY = 36;
     static const int PH_C_READBACK = 37;
     static const int PH_C_CLEANED = 38;
+    static const int PH_C_CHECKED = 39;
 
     // The operation the next HCExec performs and its operands.
     protected int m_Op;
@@ -192,6 +193,7 @@ class HCMigrationJob
     protected string m_SubData;
     protected int m_SubLimit;
     protected bool m_SubEmpty;
+    protected bool m_SubVerify;
     protected int m_SubBytes;
     protected bool m_SubFail;
     protected bool m_SubOk;
@@ -220,6 +222,7 @@ class HCMigrationJob
     protected bool m_Copied;
     protected bool m_CopyRetried;
     protected bool m_PendingDeleteFailed;
+    protected bool m_Interleaved;
     protected bool m_Finished;
     protected int m_Result;
     protected string m_Reason;
@@ -244,6 +247,11 @@ class HCMigrationJob
         m_Limit = step.HCLimit();
         m_Pending = HCMigrationRunner.HCPendingPath(m_Target, m_Id);
     }
+
+    // A tick-driven job shares the profile with the rest of the server between its steps: it
+    // re-reads the target right before deleting it (see PH_C_TARGET). The synchronous boot pass
+    // and self-test drivers do not need the extra read.
+    void HCSetInterleaved() { m_Interleaved = true; }
 
     bool HCFinished() { return m_Finished; }
     int HCResult() { return m_Result; }
@@ -365,6 +373,7 @@ class HCMigrationJob
         m_SubData = data;
         m_SubLimit = limit;
         m_SubEmpty = allowEmpty;
+        m_SubVerify = false;
         m_SubBytes = 0;
         m_SubFail = false;
         m_SubOk = false;
@@ -373,6 +382,15 @@ class HCMigrationJob
     }
 
     protected void HCCallRead(string path, bool allowEmpty, int next) { HCCall(SUB_READ, path, "", m_Limit, allowEmpty, next); }
+
+    // Chunked comparison of a file with `expected`: each chunk is compared to the matching slice
+    // as it arrives and nothing is accumulated. m_SubOk is true only for an identical file.
+    protected void HCCallVerify(string path, string expected, bool allowEmpty, int next)
+    {
+        HCCall(SUB_READ, path, expected, m_Limit, allowEmpty, next);
+        m_SubVerify = true;
+    }
+
     protected void HCCallDelete(string path, int next) { HCCall(SUB_DELETE, path, "", 0, false, next); }
 
     protected void HCSubEnd(bool ok)
@@ -418,15 +436,19 @@ class HCMigrationJob
             if (m_Count < 0 || m_Count != m_Chunk.Length()) { m_SubFail = true; }
             else
             {
+                if (m_SubBytes + m_Count > m_SubLimit) { m_SubFail = true; }
+                else if (!m_SubVerify) { m_SubText = m_SubText + m_Chunk; }
+                else if (m_SubBytes + m_Count > m_SubData.Length()) { m_SubFail = true; }
+                else if (m_Count > 0 && m_SubData.Substring(m_SubBytes, m_Count) != m_Chunk) { m_SubFail = true; }
                 m_SubBytes = m_SubBytes + m_Count;
-                if (m_SubBytes > m_SubLimit) { m_SubFail = true; }
-                else { m_SubText = m_SubText + m_Chunk; }
             }
             if (m_SubFail || m_Count == 0) { HCClose(3); return; }
             m_Op = OP_READ;
             return;
         }
-        bool ok = !m_SubFail && m_SubText.Length() == m_SubBytes;
+        bool ok = !m_SubFail;
+        if (ok && m_SubVerify) { ok = m_SubBytes == m_SubData.Length(); }
+        else if (ok) { ok = m_SubText.Length() == m_SubBytes; }
         if (m_SubBytes < 1 && !m_SubEmpty) { ok = false; }
         if (!ok) { m_SubText = ""; }
         HCSubEnd(ok);
@@ -719,7 +741,7 @@ class HCMigrationJob
         {
             if (m_Flag)
             {
-                HCCallRead(backup, false, PH_BK_OCCUPANT);
+                HCCallVerify(backup, m_Text, false, PH_BK_OCCUPANT);
                 return;
             }
             HCCopy(m_Target, backup, PH_BK_COPIED);
@@ -732,12 +754,12 @@ class HCMigrationJob
                 HCRefuse("backup_failed");
                 return;
             }
-            HCCallRead(backup, false, PH_BK_VERIFY);
+            HCCallVerify(backup, m_Text, false, PH_BK_VERIFY);
             return;
         }
         if (m_Phase == PH_BK_VERIFY)
         {
-            if (!m_SubOk || m_SubText != m_Text)
+            if (!m_SubOk)
             {
                 HCRefuse("backup_failed");
                 return;
@@ -746,7 +768,7 @@ class HCMigrationJob
             return;
         }
         // PH_BK_OCCUPANT
-        if (m_SubOk && m_SubText == m_Text)
+        if (m_SubOk)
         {
             HCGo(PH_WRITE);
             return;
@@ -785,11 +807,11 @@ class HCMigrationJob
                 HCRefuse("pending_write_failed");
                 return;
             }
-            HCCallRead(m_Pending, false, PH_W_VERIFY);
+            HCCallVerify(m_Pending, m_Migrated, false, PH_W_VERIFY);
             return;
         }
         // PH_W_VERIFY
-        if (!m_SubOk || m_SubText != m_Migrated)
+        if (!m_SubOk)
         {
             HCRefuse("pending_write_failed");
             return;
@@ -900,8 +922,22 @@ class HCMigrationJob
         }
         if (m_Phase == PH_C_TARGET)
         {
-            if (m_Flag) { HCCallDelete(m_Target, PH_C_DELETED); }
-            else { HCGo(PH_C_COPY); }
+            if (!m_Flag) { HCGo(PH_C_COPY); return; }
+            // Tick-driven: other server code ran since this job read the target. Delete it only
+            // if it still holds exactly the text this job classified (empty if it was absent).
+            if (m_Interleaved) { HCCallVerify(m_Target, m_Text, true, PH_C_CHECKED); }
+            else { HCCallDelete(m_Target, PH_C_DELETED); }
+            return;
+        }
+        if (m_Phase == PH_C_CHECKED)
+        {
+            if (!m_SubOk)
+            {
+                // Nothing is deleted: target, scratch image and backup stay for the next boot.
+                HCRefuse("target_changed");
+                return;
+            }
+            HCCallDelete(m_Target, PH_C_DELETED);
             return;
         }
         if (m_Phase == PH_C_DELETED)
@@ -958,12 +994,12 @@ class HCMigrationJob
                 HCRefuse("commit_failed_pending_kept");
                 return;
             }
-            HCCallRead(m_Target, false, PH_C_READBACK);
+            HCCallVerify(m_Target, m_Image, false, PH_C_READBACK);
             return;
         }
         if (m_Phase == PH_C_READBACK)
         {
-            if (!m_SubOk || m_SubText != m_Image)
+            if (!m_SubOk)
             {
                 HCRefuse("commit_failed_pending_kept");
                 return;
@@ -1231,6 +1267,7 @@ class HCMigrationRunner
             {
                 s_Job = new HCMigrationJob;
                 s_Job.HCBegin(step);
+                s_Job.HCSetInterleaved();
                 s_JobStep = step;
                 return true;
             }
@@ -1519,6 +1556,7 @@ class HCMigrationRunner
             if (!HCProbePut(target, "probe-v1:alpha;")) { detail = "setup_cut"; return false; }
             HCMigrationJob job = new HCMigrationJob;
             job.HCBegin(probe);
+            job.HCSetInterleaved();
             int status = HCMigrationJob.STEP_MORE;
             int mutations = 0;
             int guard = 0;
@@ -1539,6 +1577,44 @@ class HCMigrationRunner
         }
         detail = "cut_unbounded";
         return false;
+    }
+
+    // A tick-driven job whose target is modified after classification (here: after the backup
+    // copy) must refuse before deleting it and leave the new target untouched; the next run
+    // proves the scratch image from the backup, discards it and migrates the new text.
+    protected static bool HCSelfTestChanged(HCMigrationProbeStep probe, out string detail)
+    {
+        string target = HCMigrationProbeStep.PATH;
+        string pending = HCPendingPath(target, probe.HCId());
+        string reason;
+        HCProbeClear();
+        if (!HCProbePut(target, "probe-v1:alpha;")) { detail = "setup_changed"; return false; }
+        HCMigrationJob job = new HCMigrationJob;
+        job.HCBegin(probe);
+        job.HCSetInterleaved();
+        int status = HCMigrationJob.STEP_MORE;
+        int mutations = 0;
+        int guard = 0;
+        while (status == HCMigrationJob.STEP_MORE && mutations < 1 && guard < HCMigrationJob.HC_MAX_STEPS)
+        {
+            status = job.HCStep();
+            if (job.HCMutated()) { mutations = mutations + 1; }
+            guard = guard + 1;
+        }
+        if (status != HCMigrationJob.STEP_MORE) { detail = "changed_early"; return false; }
+        HCProbeDelete(target);
+        if (!HCProbePut(target, "probe-v1:gamma;")) { detail = "setup_changed_put"; return false; }
+        guard = 0;
+        while (status == HCMigrationJob.STEP_MORE && guard < HCMigrationJob.HC_MAX_STEPS)
+        {
+            status = job.HCStep();
+            guard = guard + 1;
+        }
+        if (status == HCMigrationJob.STEP_MORE) { job.HCAbort(); detail = "changed_unfinished"; return false; }
+        if (job.HCResult() != HCMigrationRunner.RESULT_REFUSED || job.HCReason() != "target_changed" || !HCProbeIs(target, "probe-v1:gamma;") || !HCProbeIs(pending, "probe-v2:alpha;")) { detail = "changed_" + job.HCReason(); return false; }
+        int result = HCRunStep(probe, reason);
+        if (result != HCMigrationRunner.RESULT_APPLIED || !HCProbeIs(target, "probe-v2:gamma;") || FileExist(pending)) { detail = "changed_rerun_" + reason; return false; }
+        return true;
     }
 
     protected static bool HCSelfTestCases(out string detail)
@@ -1640,6 +1716,7 @@ class HCMigrationRunner
 
         // A crash after every file-changing operation of the machine converges on the next run.
         if (!HCSelfTestCuts(probe, detail)) { return false; }
+        if (!HCSelfTestChanged(probe, detail)) { return false; }
 
         // A torn-commit recovery only replaces a prefix of its own image, and never an unreadable target.
         HCProbeClear();

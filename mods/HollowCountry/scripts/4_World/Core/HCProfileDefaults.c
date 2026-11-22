@@ -95,7 +95,9 @@ class HCProfileDefaults
             if (!FileExist(folder) && !MakeDirectory(folder)) { return false; }
             from = slash + 1;
         }
-        return relative.IndexOfFrom(from, "/") < 0;
+        if (relative.IndexOfFrom(from, "/") < 0) { return true; }
+        Print("[HC Profile] default parent folders refused reason=path_too_deep max_levels=8 relative_chars=" + relative.Length().ToString());
+        return false;
     }
 
     // The path a reader should open: the operator's profile file when present,
