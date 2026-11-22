@@ -108,8 +108,11 @@ class HCAdminTeleportDestination
 class HCAdminTeleport
 {
     static const string CONFIG = "$profile:HollowCountry/admin-teleport.json";
+    static const float AUTO_REFRESH_WAIT_SECONDS = 60;
+    static const int AUTO_REFRESH_LIMIT = 3;
     protected ref HCAdminTeleportConfig m_Config;
     protected ref array<ref HCAdminTeleportDestination> m_Destinations = new array<ref HCAdminTeleportDestination>;
+    protected ref array<ref HCAdminTeleportDestination> m_FrozenDestinations;
     protected ref HCAdminTeleportSites m_Sites;
     protected ref HCEventRuntimeState m_EventSnapshot;
     protected ref HCWorkBudget m_Work = new HCPerfSlices("AdminTeleport");
@@ -117,6 +120,15 @@ class HCAdminTeleport
     protected bool m_Enabled;
     protected bool m_Complete;
     protected bool m_CatalogStarted;
+    protected ref HCStartupAdminTeleport m_StartupCatalog;
+    // At most six stage IDs; automatic rebuilds retain the displayed indices
+    // until a successful explicit list request publishes the rebuilt catalogue.
+    protected ref array<int> m_DeferredStages = new array<int>;
+    protected ref array<int> m_LateStages = new array<int>;
+    protected int m_LateProviderRows;
+    protected int m_Refreshes;
+    protected int m_AutoRefreshes;
+    protected float m_AutoRefreshWait;
     protected int m_Stage;
     protected int m_Cursor;
     protected int m_SiteStride = 1;
@@ -161,6 +173,7 @@ class HCAdminTeleport
         if (!m_Config.HCValid()) { m_Fault = "teleport-config-range"; }
         if (m_Fault != "") { HCRefuse(m_Fault); return; }
         if (!m_Enabled) { return; }
+        HCModuleReadiness.HCRegisterUse("AdminMap", "catalog_auto_refresh");
         string sitesPath = "$profile:HollowCountry/expansion-ai-sites.json";
         if (!FileExist(sitesPath)) { sitesPath = "$mission:hollow-country/ai/sites.json"; }
         if (!HCV2ThreatStore<HCAdminTeleportSites>.Load(sitesPath, m_Config.SiteBytes, m_Sites)) { m_Fault = "teleport-sites-load"; }
@@ -175,12 +188,34 @@ class HCAdminTeleport
         m_CatalogStarted = true;
         m_Names = "CfgWorlds " + GetGame().GetWorldName() + " Names";
         m_NameCount = Math.Clamp(GetGame().ConfigGetChildrenCount(m_Names), 0, m_Config.MaxNameEntries);
+        m_StartupCatalog = new HCStartupAdminTeleport;
+        m_StartupCatalog.Catalog = this;
+        HCStartupPump.HCRegister(m_StartupCatalog, "admin_teleport");
+    }
+
+    bool HCBuilding() { return m_CatalogStarted && m_Enabled && !m_Complete; }
+
+    void HCStop()
+    {
+        m_CatalogStarted = false;
+        HCStartupPump.HCFinish(m_StartupCatalog);
+        if (m_StartupCatalog) { m_StartupCatalog.Catalog = null; }
+    }
+
+    protected void HCComplete()
+    {
+        m_Complete = true;
+        m_AutoRefreshWait = 0;
+        HCStartupPump.HCFinish(m_StartupCatalog);
+        if (m_Destinations.Count() == 0) { m_Fault = "teleport-no-destinations"; HCRefuse(m_Fault); }
+        string line = "[HC AdminTeleport] catalog_complete rows=" + m_Destinations.Count().ToString() + " deferred_providers=" + m_DeferredStages.Count().ToString();
+        Print(line + " late_provider_rows=" + m_LateProviderRows.ToString() + " refreshes=" + m_Refreshes.ToString() + " auto_refreshes=" + m_AutoRefreshes.ToString());
     }
 
     HCOperationalStatus HCGetOperationalStatus()
     {
         string fault = m_Fault;
-        if (m_Enabled && !m_Complete && fault == "") { fault = "teleport-destinations-building"; }
+        if (m_Enabled && !m_Complete && !m_FrozenDestinations && fault == "") { fault = "teleport-destinations-building"; }
         HCModuleReadiness.HCDerive(m_Status, m_Enabled, "", fault, "teleport-server-catalog-built_native_pending");
         return m_Status;
     }
@@ -194,14 +229,31 @@ class HCAdminTeleport
         entry.Label = label;
         entry.Position = position;
         m_Destinations.Insert(entry);
+        if (m_LateStages.Find(m_Stage) >= 0) { m_LateProviderRows++; }
     }
 
     // A refresh keeps indices frozen until the next explicit list request. No
     // client supplied coordinates, entity handles, identity or target player.
-    bool HCRefresh()
+    bool HCRefresh(bool automatic = false)
     {
         if (!m_Enabled || !m_CatalogStarted) { return false; }
-        m_Destinations.Clear();
+        if (automatic && (!m_Complete || m_AutoRefreshes >= AUTO_REFRESH_LIMIT)) { return false; }
+        m_LateStages = m_DeferredStages;
+        m_DeferredStages = new array<int>;
+        m_LateProviderRows = 0;
+        if (automatic)
+        {
+            if (!m_FrozenDestinations && m_Destinations.Count() > 0) { m_FrozenDestinations = m_Destinations; }
+            m_AutoRefreshes++;
+            HCModuleReadiness.HCUse("AdminMap", "catalog_auto_refresh");
+        }
+        else
+        {
+            m_FrozenDestinations = null;
+            if (m_Refreshes < 2147483647) { m_Refreshes++; }
+        }
+        if (m_Fault == "teleport-no-destinations") { m_Fault = ""; }
+        m_Destinations = new array<ref HCAdminTeleportDestination>;
         m_EventSnapshot = null;
         m_Stage = 0;
         m_Cursor = 0;
@@ -209,14 +261,45 @@ class HCAdminTeleport
         return true;
     }
 
+    // Called only by the 1 Hz module tick, never by the startup pump. Snapshot()
+    // clones event state, so use a bounded timeout instead of polling that API.
+    void HCTick(float deltaTime)
+    {
+        if (m_CatalogStarted && m_Enabled && m_Complete && m_DeferredStages.Count() > 0 && m_AutoRefreshes < AUTO_REFRESH_LIMIT)
+        {
+            m_AutoRefreshWait = m_AutoRefreshWait + Math.Max(0, deltaTime);
+            bool available = false;
+            if (m_DeferredStages.Find(2) >= 0)
+            {
+                HCCampModule camps = HCCampModule.Get();
+                if (camps && camps.HCEncounterCount() > 0) { available = true; }
+            }
+            if (m_DeferredStages.Find(3) >= 0)
+            {
+                HCHoldouts homes = HCHoldouts.Get();
+                if (homes && homes.Count() > 0) { available = true; }
+            }
+            if (available || m_AutoRefreshWait >= AUTO_REFRESH_WAIT_SECONDS) { HCRefresh(true); }
+        }
+        HCStep();
+    }
+
+    protected array<ref HCAdminTeleportDestination> HCVisibleDestinations()
+    {
+        if (m_FrozenDestinations) { return m_FrozenDestinations; }
+        return m_Destinations;
+    }
+
     void HCStep()
     {
         if (!m_CatalogStarted || !m_Enabled || m_Complete) { return; }
-        m_Work.HCReset(m_Config.RowsPerTick);
+        // Shared frame admission replaces the tick pool only during startup.
+        // HCPerfSlices retains the configured SliceMs ceiling as well.
+        m_Work.HCReset(m_Config.RowsPerTick, HCStartupPump.HCSliceMs(2));
         while (m_Work.HCContinue())
         {
-            if (!HCServer.Get().HCTickWork().HCTake(1)) { return; }
-            if (m_Destinations.Count() >= m_Config.MaxDestinations) { m_Complete = true; return; }
+            if (!HCStartupPump.HCInSlice() && !HCServer.Get().HCTickWork().HCTake(1)) { return; }
+            if (m_Destinations.Count() >= m_Config.MaxDestinations) { HCComplete(); return; }
             if (m_Stage == 0)
             {
                 HCWorldIncidents incidents;
@@ -238,6 +321,7 @@ class HCAdminTeleport
                 {
                     HCEventModule events = HCEventModule.Get();
                     if (events && events.Runtime()) { m_EventSnapshot = events.Runtime().Snapshot(); }
+                    if (!m_EventSnapshot || !m_EventSnapshot.Runs || m_EventSnapshot.Runs.Count() == 0) { m_DeferredStages.Insert(m_Stage); }
                 }
                 if (m_Config.IncludeActiveSituations && m_EventSnapshot && m_EventSnapshot.Runs && m_Cursor < m_EventSnapshot.Runs.Count())
                 {
@@ -254,6 +338,7 @@ class HCAdminTeleport
             else if (m_Stage == 2)
             {
                 HCCampModule camps = HCCampModule.Get();
+                if (m_Cursor == 0 && (!camps || camps.HCEncounterCount() == 0)) { m_DeferredStages.Insert(m_Stage); }
                 if (camps && m_Cursor < camps.HCEncounterCount())
                 {
                     HCCampRecord camp = camps.HCEncounterTarget(m_Cursor, HCWorldClock.UTC());
@@ -265,6 +350,7 @@ class HCAdminTeleport
             else if (m_Stage == 3)
             {
                 HCHoldouts homes = HCHoldouts.Get();
+                if (m_Cursor == 0 && (!homes || homes.Count() == 0)) { m_DeferredStages.Insert(m_Stage); }
                 if (homes && m_Cursor < homes.Count())
                 {
                     HCWorldHoldout home = homes.Snapshot(m_Cursor);
@@ -295,6 +381,7 @@ class HCAdminTeleport
             }
             else if (m_Stage == 5)
             {
+                if (!m_Sites) { m_DeferredStages.Insert(m_Stage); }
                 // #235: AI sites come last and share the slots the short lists left,
                 // strided across the whole catalogue so every region stays reachable.
                 if (m_Sites && m_Cursor == 0)
@@ -310,8 +397,7 @@ class HCAdminTeleport
                     if (site && site.Waypoints && site.Waypoints.Count() > 0) { HCAdd("AI " + site.Id, site.Waypoints[0]); }
                     continue;
                 }
-                m_Complete = true;
-                if (m_Destinations.Count() == 0) { m_Fault = "teleport-no-destinations"; HCRefuse(m_Fault); }
+                HCComplete();
                 return;
             }
             m_Stage = m_Stage + 1;
@@ -322,14 +408,16 @@ class HCAdminTeleport
     bool HCList(HCAdminReply reply, int page)
     {
         if (!m_Enabled) { reply.Notice = "Teleport disabled"; return false; }
-        if (!m_Complete) { reply.Notice = "Teleport destinations building; retry tplist"; return false; }
-        int pages = Math.Max(1, (m_Destinations.Count() + m_Config.PageSize - 1) / m_Config.PageSize);
+        if (!m_Complete && !m_FrozenDestinations) { reply.Notice = "Teleport destinations building; retry tplist"; return false; }
+        if (m_Complete) { m_FrozenDestinations = null; }
+        array<ref HCAdminTeleportDestination> destinations = HCVisibleDestinations();
+        int pages = Math.Max(1, (destinations.Count() + m_Config.PageSize - 1) / m_Config.PageSize);
         page = Math.Clamp(page, 0, pages - 1);
         int first = page * m_Config.PageSize;
-        int end = Math.Min(first + m_Config.PageSize, m_Destinations.Count());
+        int end = Math.Min(first + m_Config.PageSize, destinations.Count());
         for (int listIndex = first; listIndex < end; listIndex++)
         {
-            reply.Lines.Insert(listIndex.ToString() + ": " + m_Destinations[listIndex].Label);
+            reply.Lines.Insert(listIndex.ToString() + ": " + destinations[listIndex].Label);
         }
         reply.Notice = "tplist page=" + page.ToString() + " pages=" + pages.ToString() + "; tp selects an index; use tprefresh to rebuild; runtime=PENDING";
         return true;
@@ -432,10 +520,11 @@ class HCAdminTeleport
         reason = "restrained";
         if (player.IsRestrained()) { return false; }
         reason = "destination-build-pending-or-empty";
-        if (!m_Complete || m_Destinations.Count() == 0) { return false; }
-        int index = Math.Clamp(requested, 0, m_Destinations.Count() - 1);
+        array<ref HCAdminTeleportDestination> destinations = HCVisibleDestinations();
+        if ((!m_Complete && !m_FrozenDestinations) || destinations.Count() == 0) { return false; }
+        int index = Math.Clamp(requested, 0, destinations.Count() - 1);
         selected = index;
-        vector destination = HCFindGround(m_Destinations[index].Position, player);
+        vector destination = HCFindGround(destinations[index].Position, player);
         reason = "no-safe-ground-or-work-budget";
         if (destination == vector.Zero) { return false; }
         player.SetPosition(destination);
@@ -444,17 +533,19 @@ class HCAdminTeleport
     }
 
     // Read-only catalogue view for the operator tour below.
-    bool HCCatalogReady() { return m_Enabled && m_Complete && m_Destinations.Count() > 0; }
-    int HCDestinationCount() { return m_Destinations.Count(); }
+    bool HCCatalogReady() { return m_Enabled && (m_Complete || m_FrozenDestinations != null) && HCDestinationCount() > 0; }
+    int HCDestinationCount() { return HCVisibleDestinations().Count(); }
     string HCDestinationLabel(int index)
     {
-        if (index < 0 || index >= m_Destinations.Count()) { return ""; }
-        return m_Destinations[index].Label;
+        array<ref HCAdminTeleportDestination> destinations = HCVisibleDestinations();
+        if (index < 0 || index >= destinations.Count()) { return ""; }
+        return destinations[index].Label;
     }
     vector HCDestinationPosition(int index)
     {
-        if (index < 0 || index >= m_Destinations.Count()) { return vector.Zero; }
-        return m_Destinations[index].Position;
+        array<ref HCAdminTeleportDestination> destinations = HCVisibleDestinations();
+        if (index < 0 || index >= destinations.Count()) { return vector.Zero; }
+        return destinations[index].Position;
     }
 }
 
@@ -632,12 +723,13 @@ modded class HCAdminModule
     override void OnTick(float deltaTime)
     {
         super.OnTick(deltaTime);
-        if (m_Running && m_HCTeleport) { m_HCTeleport.HCStep(); }
+        if (m_Running && m_HCTeleport) { m_HCTeleport.HCTick(deltaTime); }
         if (m_Running && m_HCTeleport && m_HCTour) { HCTourTick(deltaTime); }
     }
 
     override void OnStop()
     {
+        if (m_HCTeleport) { m_HCTeleport.HCStop(); }
         m_HCTeleport = null;
         m_HCTour = null;
         super.OnStop();
