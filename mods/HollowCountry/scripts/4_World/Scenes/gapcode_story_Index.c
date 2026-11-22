@@ -88,7 +88,7 @@ class HCStartupStoryIndex : HCStartupOwner
     override void HCSlice() { if (Index && Index.HCLoading()) { Index.HCStep(null); } }
 }
 
-class HCGapcodeStoryIndex
+class HCGapcodeStoryIndex : Managed
 {
     protected ref HCGapcodeStoryLimits m_Limits;
     protected FileHandle m_Input;

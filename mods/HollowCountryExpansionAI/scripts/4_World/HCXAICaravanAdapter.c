@@ -73,7 +73,7 @@ class HCStartupRoads : HCStartupOwner
     override void HCSlice() { if (Roads && Roads.Phase == "loading") { Roads.HCLoadFrame(0); } }
 }
 
-class HCXAICaravanRoads
+class HCXAICaravanRoads : Managed
 {
     protected static ref HCXAICaravanRoads s_Instance;
     protected ref HCStartupRoads m_StartupRoads;
