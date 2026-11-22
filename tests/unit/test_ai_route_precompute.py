@@ -96,12 +96,12 @@ class RoutePrecomputeTests(unittest.TestCase):
                   {'Localities': [{'Id': str(i)} for i in range(count)]})
         self.save('mission/hollow-country/travel/route-surveys.json', {})
         self.save('mission/hollow-country/ai/picker-routes.json', {})
-        self.save('mission/hollow-country/infected/route-surveys.json', {})
+        self.save('mission/hollow-country/infected/route-surveys.json', {'survey_contract': {}})
         # Exercise the full serialized row budget, including punctuation.
         rows = [{'id': str(i), 'padding': ''} for i in range(count)]
         for row in rows:
             row['padding'] = 'x' * (catalog.CATALOG_ROW_BYTES - len(routes.encode(row)) + 1)
-        outputs = catalog.catalog_outputs(self.root, {'routes': rows})
+        outputs = catalog.catalog_outputs(self.root, {'routes': rows, 'sources': {}, 'graph': {}})
         header = json.loads(outputs[str(catalog.MISSION / catalog.CATALOG_INDEX)])
         emitted = []
         for pin in header['pages']:
@@ -121,7 +121,7 @@ class RoutePrecomputeTests(unittest.TestCase):
                          {p['Path'].removeprefix('$mission:hollow-country/') for p in header['pages']})
         rows[0]['padding'] += 'x'
         with self.assertRaises(ValueError):
-            catalog.catalog_outputs(self.root, {'routes': rows})
+            catalog.catalog_outputs(self.root, {'routes': rows, 'sources': {}, 'graph': {}})
 
     def test_manifest_catalog_pins_span_bounded_ordered_pages(self):
         count = routes.MANIFEST_CATALOG_PINS_PER_PAGE * 3 + 1
