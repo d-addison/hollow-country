@@ -14,6 +14,14 @@ Local inline/image/full-reference Markdown file links are checked against admitt
 repository candidates. Remote URLs, heading fragments, shortcut references and
 complex CommonMark constructs require manual review; no URL is fetched.
 
+Packaged roots (mods/, mission/, config/) are also scanned for the banned provider tokens
+in tools.package.inventory_sources.BANNED, in file names and text lines. Findings carry
+rule, path and line only. One narrow exemption exists: the keys of
+config/generated-digests.json are repository file names and generator names that
+legitimately contain a banned token (tools/package/snafu_allowlist.json and similar),
+so only that file's string values are scanned. Renaming the keys would mean renaming
+the tools that own them. Any other banned token in that file still fails.
+
 POSIX reads use anchored no-follow directory descriptors. Other hosts use link/
 reparse checks and before/after file identity checks and require an immutable
 checkout during scanning; this utility is not a hostile-filesystem sandbox.
@@ -28,6 +36,8 @@ import stat
 import subprocess
 import threading
 from urllib.parse import unquote, urlsplit
+
+from tools.package.inventory_sources import safe_text
 
 ROOT = Path(__file__).resolve().parents[2]
 _SPEC_ALIAS = "docs/specs/001-survival-overhaul/spec.md"
@@ -52,6 +62,9 @@ _PRIVATE_DIRECTORIES = {
 }
 _DUMP_NAMES = {"mapgrouppos.xml", "mapgroupproto.xml", "cfgspawnabletypes.xml",
                "cfgrandompresets.xml", "cfgeventspawns.xml"}
+BANNED_ROOTS = ("mods/", "mission/", "config/")
+# Exemption (see module docstring): keys here are repository file names, not shipped data.
+DIGEST_KEYS_FILE = "config/generated-digests.json"
 _SECRET = re.compile(
     r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"
     r"|(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{36}(?![A-Za-z0-9_])"
@@ -213,6 +226,35 @@ def _restricted(relative):
             or path.name in {"id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".netrc"})
 
 
+def _json_strings(value):
+    """Yield string values only; dict keys are skipped."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _json_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _json_strings(item)
+
+
+def banned_text_line(relative, text):
+    """First 1-based line holding a banned token, 0 if clean, None if not applicable."""
+    if not relative.startswith(BANNED_ROOTS):
+        return None
+    if relative == DIGEST_KEYS_FILE:
+        try:
+            values = list(_json_strings(json.loads(text)))
+        except ValueError:
+            values = None  # Unparseable: scan the raw text so nothing is exempt.
+        if values is not None:
+            return 0 if all(safe_text(v) for v in values) else 1
+    for number, line in enumerate(text.splitlines(), 1):
+        if not safe_text(line):
+            return number
+    return 0
+
+
 def _target(token):
     match = re.match(r"\s*(?:<([^>]+)>|(\S+))", token)
     return (match[1] or match[2]) if match else ""
@@ -286,6 +328,9 @@ def check_repository(root=ROOT):
         if _SECRET.search(relative):
             error("credential_path", relative)
             continue
+        if relative.startswith(BANNED_ROOTS) and not safe_text(relative):
+            error("banned_text", relative)
+            continue
         if _restricted(relative) and relative not in pinned:
             error("restricted_path", relative)
             continue
@@ -344,6 +389,11 @@ def check_repository(root=ROOT):
         if match:
             # Emit at most one finding per file; never include bytes or their hash.
             error("credential_content", relative, text.count("\n", 0, match.start()) + 1)
+            continue
+        banned = banned_text_line(relative, text)
+        if banned:
+            # Rule, path and line only; the token itself is never echoed.
+            error("banned_text", relative, banned)
             continue
         home = _LOCAL_HOME.search(text)
         if home:
@@ -406,8 +456,17 @@ def check_repository(root=ROOT):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--summary", action="store_true",
+                        help="print one line per finding and a verdict instead of the JSON report (used by preland)")
     args = parser.parse_args(argv)
     result = check_repository(args.root)
+    if args.summary:
+        for item in result["errors"]:
+            print("hygiene: %s %s:%d" % (item["code"], item["path"], item["line"]))
+        print("hygiene: %s files=%d errors=%d banned_text_roots=%s"
+              % ("PASS" if result["valid"] else "FAIL", len(result["inventory"]), len(result["errors"]),
+                 ",".join(r.rstrip("/") for r in BANNED_ROOTS)))
+        return int(not result["valid"])
     print(json.dumps(result, indent=2, sort_keys=True, ensure_ascii=True))
     return int(not result["valid"])
 

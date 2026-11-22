@@ -9,24 +9,38 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from tools.validate import preland, wiring_audit as wiring
+from tools.validate import mission_sources, preland, wiring_audit as wiring
+
+
+MESH_PASS = 'world_mesh_audit: pass checked=5 findings=0 skipped=0'
+
+
+def key(module, arguments=()):
+    """Check name for a call: the mission_sources modes are the hc_events/ce_slot_pressure gates."""
+    if module.endswith('mission_sources'):
+        return {'--events': 'hc_events', '--ce-slots': 'ce_slot_pressure'}.get(
+            next((a for a in arguments if a in ('--events', '--ce-slots')), ''), 'mission_sources')
+    return module.rsplit('.', 1)[1]
 
 
 class PrelandTests(unittest.TestCase):
-    def invoke(self, args=(), codes=None, missing=(), outputs=None):
+    def invoke(self, args=(), codes=None, missing=(), outputs=None, assets=(('synthetic-asset',),),
+               mission=True, mesh_gap=''):
         calls = []
+        outputs = {'world_mesh_audit': MESH_PASS, **(outputs or {})}
         def run(module, arguments):
             calls.append((module, arguments))
-            return preland.CheckResult((codes or {}).get(module.rsplit('.', 1)[1], 0),
-                                       (outputs or {}).get(module.rsplit('.', 1)[1], ''))
-        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), contextlib.redirect_stdout(io.StringIO()) as out:
-            code = preland.main(list(args))
+            return preland.CheckResult((codes or {}).get(key(module, arguments), 0),
+                                       outputs.get(key(module, arguments), ''))
+        args = list(args) + (['--ce-mission', 'synthetic-mission'] if mission else [])
+        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', return_value=mesh_gap), patch.dict(os.environ, {'HC_CE_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
+            code = preland.main(args)
         return code, calls, out.getvalue()
 
     def test_order_native_argument_and_optional_workbench(self):
         code, calls, _ = self.invoke(['--wb'])
         self.assertEqual(0, code)
-        self.assertEqual([*preland.CHECKS, 'wb_compile'], [m.rsplit('.', 1)[1] for m, _ in calls])
+        self.assertEqual([*preland.CHECKS, 'wb_compile'], [key(m, a) for m, a in calls])
         self.assertEqual(['--native-scripts', str(preland.NATIVE)], calls[0][1])
         self.assertIn(('tools.package.regenerate_all', ['--check']), calls)
         self.assertIn(('tools.package.generated_digests', ['--check']), calls)
@@ -78,7 +92,7 @@ class PrelandTests(unittest.TestCase):
         with patch.object(preland, 'changed_files', return_value=paths):
             code, calls, output = self.invoke(['--changed', 'HEAD'])
         self.assertEqual(0, code)
-        by_name = {m.rsplit('.', 1)[1]: a for m, a in calls}
+        by_name = {key(m, a): a for m, a in calls}
         self.assertEqual([], by_name['enforce_perf'], 'perf ratchet needs a full-project run')
         self.assertEqual(paths, by_name['cfgconvert_check'])
         self.assertEqual([], by_name['layout_lint'])
@@ -103,8 +117,8 @@ class PrelandTests(unittest.TestCase):
     def test_ci_runs_full_offline_subset_and_declares_exclusions(self):
         code, calls, output = self.invoke(['--profile', 'ci'])
         self.assertEqual(0, code)
-        by_name = {m.rsplit('.', 1)[1]: a for m, a in calls}
-        self.assertEqual(set(preland.CHECKS) - {'cfgconvert_check'}, set(by_name))
+        by_name = {key(m, a): a for m, a in calls}
+        self.assertEqual(set(preland.CHECKS) - set(preland.CI_ONLY_EXCLUDED), set(by_name))
         self.assertEqual(['--no-native'], by_name['enforce_lint'])
         self.assertEqual(['--no-texture-index'], by_name['layout_lint'])
         self.assertEqual(['--offline'], by_name['wiring_audit'])
@@ -338,6 +352,121 @@ class PrelandTests(unittest.TestCase):
         with patch.object(preland.importlib.util, 'find_spec', return_value=object()), patch.object(preland, 'run_check', side_effect=OSError()), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(1, preland.main([]))
 
+    def test_wave_c_gates_run_with_their_declared_commands(self):
+        _, calls, output = self.invoke()
+        by_name = {key(m, a): (m, a) for m, a in calls}
+        self.assertEqual(['--summary'], by_name['hygiene'][1])
+        self.assertEqual(['--events'], by_name['hc_events'][1])
+        self.assertEqual(['--ce-slots', str(Path('synthetic-mission'))], by_name['ce_slot_pressure'][1])
+        self.assertEqual('tools.audit.world_mesh_audit', by_name['world_mesh_audit'][0])
+        self.assertEqual('--report', by_name['world_mesh_audit'][1][0])
+        self.assertEqual(['synthetic-asset'], by_name['asset_lint'][1])
+        for name in ('hygiene', 'hc_events', 'ce_slot_pressure', 'world_mesh_audit', 'asset_lint'):
+            self.assertIn(name + ' | pass', output)
+
+    def test_ce_slot_pressure_skips_without_a_staged_mission(self):
+        code, calls, output = self.invoke(mission=False)
+        self.assertEqual(preland.SKIPPED, code)
+        self.assertIn('ce_slot_pressure | skipped: staged CE mission not provided', output)
+        self.assertNotIn('ce_slot_pressure', [key(m, a) for m, a in calls])
+        code, _, output = self.invoke(['--strict'], mission=False)
+        self.assertEqual(1, code)
+        self.assertIn('ce_slot_pressure | FAIL (skipped: ', output)
+        self.assertEqual(1, self.invoke(codes={'ce_slot_pressure': 1})[0])
+
+    def test_world_mesh_audit_skips_cleanly_and_fails_on_findings(self):
+        code, calls, output = self.invoke(mesh_gap='pinned geometry reader unavailable (set HC_GENERATED_READER)')
+        self.assertEqual(preland.SKIPPED, code)
+        self.assertIn('world_mesh_audit | skipped: pinned geometry reader unavailable', output)
+        self.assertNotIn('world_mesh_audit', [key(m, a) for m, a in calls])
+        self.assertEqual(1, self.invoke(['--strict'], mesh_gap='installed vanilla Addons unavailable')[0])
+        partial = 'SKIP INSTALLED_ADDONS_UNAVAILABLE\nworld_mesh_audit: pass checked=0 findings=0 skipped=1'
+        code, _, output = self.invoke(outputs={'world_mesh_audit': partial})
+        self.assertEqual(preland.SKIPPED, code)
+        self.assertIn('skipped: INSTALLED_ADDONS_UNAVAILABLE', output)
+        self.assertEqual(1, self.invoke(['--strict'], outputs={'world_mesh_audit': partial})[0])
+        self.assertEqual(0, self.invoke(['--strict'])[0])
+        failing = 'world_mesh_audit: fail checked=3 findings=2 skipped=0'
+        self.assertEqual(1, self.invoke(codes={'world_mesh_audit': 1}, outputs={'world_mesh_audit': failing})[0])
+        self.assertEqual(1, self.invoke(outputs={'world_mesh_audit': ''})[0], 'a missing summary is not a pass')
+
+    def test_ci_excludes_staged_and_installed_gates_but_keeps_offline_ones(self):
+        code, calls, output = self.invoke(['--profile', 'ci'], mission=False, mesh_gap='unavailable')
+        self.assertEqual(0, code)
+        names = [key(m, a) for m, a in calls]
+        for name in ('hygiene', 'hc_events', 'asset_lint'):
+            self.assertIn(name, names)
+        for name in ('ce_slot_pressure', 'world_mesh_audit'):
+            self.assertNotIn(name, names)
+            self.assertIn(name + ' | excluded: ' + preland.CI_EXCLUSIONS[name], output)
+
+    def test_asset_lint_without_built_assets_is_not_applicable_and_refusals_fail(self):
+        code, calls, output = self.invoke(assets=())
+        self.assertEqual(0, code)
+        self.assertIn('asset_lint | no applicable inputs', output)
+        self.assertNotIn('asset_lint', [key(m, a) for m, a in calls])
+        code, _, output = self.invoke(assets='asset x.p3d lacks its sidecar')
+        self.assertEqual(1, code)
+        self.assertIn('asset_lint | FAIL (asset x.p3d lacks its sidecar)', output)
+        self.assertEqual(1, self.invoke(codes={'asset_lint': 1})[0])
+
+    def test_asset_lint_runs_pair_each_built_asset_with_its_sidecars(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            config = root / 'config.cpp'
+            self.assertEqual([], preland.asset_lint_runs(root / 'none', config))
+            config.write_text('class CfgPatches {};')
+            (root / 'a.p3d').write_bytes(b'')
+            (root / 'b.ir.json').write_text('{}')
+            self.assertIsInstance(preland.asset_lint_runs(root, config), str)
+            for stem in ('a', 'b'):
+                (root / (stem + '.model.cfg')).write_text('')
+                (root / (stem + '.sources.json')).write_text('[]')
+            runs = preland.asset_lint_runs(root, config)
+            self.assertEqual([str(root / 'a.p3d'), str(root / 'b.ir.json')], [r[0] for r in runs])
+            for run in runs:
+                self.assertEqual({'--model-cfg', '--config', '--sources'}, {a for a in run if a.startswith('--')})
+            config.unlink()
+            self.assertIsInstance(preland.asset_lint_runs(root, config), str)
+
+
+class MissionInvariantTests(unittest.TestCase):
+    def run_cli(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = mission_sources.main(list(argv))
+        return code, out.getvalue()
+
+    def test_committed_event_anchors_hold_the_measured_y_invariant(self):
+        code, output = self.run_cli('--events')
+        self.assertEqual(0, code, output)
+        self.assertIn('mission_sources: events PASS', output)
+
+    def test_event_invariant_failure_is_reported_without_a_traceback(self):
+        with patch('tools.package.hc_events.validate', side_effect=ValueError('missing or invalid anchor y: E:site001')):
+            code, output = self.run_cli('--events')
+        self.assertEqual(1, code)
+        self.assertIn('events FAIL missing or invalid anchor y', output)
+
+    def test_ce_slots_requires_inputs_and_gates_on_the_weapon_reservation(self):
+        from tools.package import ce_slot_pressure
+
+        def report(mission, military, limit):
+            return {'status': 'fail' if military else 'pass', 'demand': 10, 'required_with_headroom': 13,
+                    'headroom_deficit': 3, 'placeable_upper_bound': 9, 'deficit': 1}
+        with tempfile.TemporaryDirectory() as raw:
+            self.assertEqual(2, self.run_cli('--ce-slots', raw)[0])
+            for name in ce_slot_pressure.INPUTS:
+                (Path(raw) / name).write_text('')
+            with patch.object(ce_slot_pressure, 'feasibility', side_effect=report):
+                code, output = self.run_cli('--ce-slots', raw)
+            self.assertEqual(1, code)
+            self.assertIn('FAIL military-weapons', output)
+            self.assertIn('info all-categories', output)
+            passing = lambda mission, military, limit: dict(report(mission, military, limit), status='pass')
+            with patch.object(ce_slot_pressure, 'feasibility', side_effect=passing):
+                self.assertEqual(0, self.run_cli('--ce-slots', raw)[0])
+            with patch.object(ce_slot_pressure, 'feasibility', side_effect=ValueError('unreadable')):
+                self.assertEqual(2, self.run_cli('--ce-slots', raw)[0])
 
 class HookTests(unittest.TestCase):
     """Exercise hooks using a Git shim; never mutate repository metadata."""
