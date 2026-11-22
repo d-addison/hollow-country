@@ -31,20 +31,9 @@ except ImportError:  # executed as a script from tools/setup
     import diagnostic_mission as dm  # noqa: F401
     import probe_runtime as rt
 
-# Shared names are re-exported unchanged; the implementations live in probe_runtime.
-SERVER_EXE, SERVER_INSTALL = rt.SERVER_EXE, rt.SERVER_INSTALL
-SERVER_EXE_SHA256, BATTLEYE_SHA256 = rt.SERVER_EXE_SHA256, rt.BATTLEYE_SHA256
-WINDOWS_PARENT, VERIFIED_RUNTIME_NAME = rt.WINDOWS_PARENT, rt.VERIFIED_RUNTIME_NAME
-DEFAULT_SOURCE_RUNTIME, MISSION_NAME, PORT = rt.DEFAULT_SOURCE_RUNTIME, rt.MISSION_NAME, rt.PORT
-MAX_PLAN_BYTES, NAME_RULE, IDENT_RULE, PLAN_PIN_DELTAS = rt.MAX_PLAN_BYTES, rt.NAME_RULE, rt.IDENT_RULE, rt.PLAN_PIN_DELTAS
-ENGINE_TYPE_NAMES, RESERVED_WORDS = rt.ENGINE_TYPE_NAMES, rt.RESERVED_WORDS
-SENSITIVE_PART, ALLOWED_MISSION_DIRS, ALLOWED_MISSION_FILE = rt.SENSITIVE_PART, rt.ALLOWED_MISSION_DIRS, rt.ALLOWED_MISSION_FILE
-sha256, native_type_names, lint_hook = rt.sha256, rt.native_type_names, rt.lint_hook
-_clean, _split_arguments, _parameter_names, _function_bodies = rt._clean, rt._split_arguments, rt._parameter_names, rt._function_bodies
-_read_bounded, _hash_file, _safe_plan_path = rt._read_bounded, rt._hash_file, rt._safe_plan_path
-_check_mission_entry, _new_file = rt._check_mission_entry, rt._new_file
-_MODIFIERS, _DECLARATION, _NOT_TYPES, _FUNCTION = rt._MODIFIERS, rt._DECLARATION, rt._NOT_TYPES, rt._FUNCTION
-_STRING, _EXPONENT, _OUT_CALLS = rt._STRING, rt._EXPONENT, rt._OUT_CALLS
+# Shared names are the one implementation in probe_runtime (same objects, not copies).
+BATTLEYE_SHA256, DEFAULT_SOURCE_RUNTIME, IDENT_RULE = rt.BATTLEYE_SHA256, rt.DEFAULT_SOURCE_RUNTIME, rt.IDENT_RULE
+sha256, native_type_names, lint_hook, _read_bounded = rt.sha256, rt.native_type_names, rt.lint_hook, rt._read_bounded
 
 WSL_PARENT = Path("/mnt/d/HollowCountryLocal")
 PLAN_NAME = "ce-probe-plan.json"

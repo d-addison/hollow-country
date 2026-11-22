@@ -97,6 +97,42 @@ class Emitters(unittest.TestCase):
             with self.subTest(limit=limit), self.assertRaises(ValueError):
                 core.enforce_json_helpers(max_string_bytes=limit)
 
+    def test_sanitizing_helpers_pass_lint_and_follow_their_parameters(self):
+        for style in ('tostring', 'plain'):
+            for limit in (1, 96, 4096):
+                with self.subTest(style=style, limit=limit):
+                    text = core.enforce_sanitizing_json_helpers('HCX', 'm_Quote', 'm_Slash', vector=style,
+                                                                max_string_bytes=limit)
+                    source = ('class HCOfflineProbe {\n    protected string m_Quote = "";\n'
+                              '    protected string m_Slash = "";\n' + text + '\n};')
+                    self.assertEqual(runtime.lint_hook(source, explicit_numbers=style == 'tostring'), [])
+                    self.assertLessEqual(runtime.max_statement_plus(source), runtime.MAX_STATEMENT_PLUS)
+                    for name in ('Key', 'Str', 'Bool', 'Vector'):
+                        self.assertIn('string HCX%s(' % name, text)
+                    self.assertEqual(text.count('.ToString()'), 3 if style == 'tostring' else 0)
+                    self.assertIn('Length() > %d' % limit, text)
+                    self.assertNotIn('@', text)
+
+    def test_sanitizing_helpers_refuse_bad_parameters(self):
+        good = dict(prefix='HCX', quote='m_Quote', slash='m_Slash')
+        for key, value in (('prefix', 'a b'), ('prefix', ''), ('quote', '1x'), ('slash', 'x;y')):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                core.enforce_sanitizing_json_helpers(**{**good, key: value})
+        for kwargs in (dict(vector='num'), dict(max_string_bytes=0), dict(max_string_bytes=True)):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                core.enforce_sanitizing_json_helpers(**good, **kwargs)
+
+    def test_taped_light_hook_embeds_the_shared_helpers(self):
+        from tools.setup import taped_light_probe as taped
+        document = {'kind': taped.CLASSIFICATION_KIND,
+                    'hosts': [{'group': 'slot_host', 'name': 'HostA', 'root': 'RootA'}],
+                    'lights': [{'name': 'LightA', 'probe_role': 'representative', 'group': 'x'}],
+                    'native_light_slots': ['Light']}
+        hook = taped.render_hook(taped.select_targets(document)).decode('ascii')
+        self.assertIn(taped.JSON_HELPERS, hook)
+        self.assertEqual(hook.count('string HCTLStr('), 1)
+        self.assertNotIn('@@', hook)
+
     def test_script_style_runtime_import(self):
         result = subprocess.run([sys.executable, '-B', '-c', 'import probe_runtime'],
                                 cwd=Path(core.__file__).parent, capture_output=True, timeout=10)

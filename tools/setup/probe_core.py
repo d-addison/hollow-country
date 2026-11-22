@@ -169,3 +169,54 @@ def enforce_json_helpers(*, max_string_bytes=96):
         return "[" + HCProbeNum(value[0]) + "," + HCProbeNum(value[1]) + "," + HCProbeNum(value[2]) + "]";
     }
 '''.replace('@LIMIT@', str(max_string_bytes))
+
+
+def enforce_sanitizing_json_helpers(prefix, quote, slash, *, vector='tostring', max_string_bytes=96):
+    """Return the Key/Str/Bool/Vector methods of a sanitizing (lossy) JSON text emitter.
+
+    Unlike ``enforce_json_helpers`` these methods never escape: the string is
+    bounded, then quote characters become an apostrophe and backslashes become a
+    slash, so consumers of existing probe output keep one-token-per-string rows.
+    ``prefix`` names the generated methods (``<prefix>Key`` ...); ``quote`` and
+    ``slash`` name hook members already holding the one-character strings.
+    ``vector`` is ``tostring`` (explicit ``.ToString()`` per component) or ``plain``
+    (implicit conversion). Source only: native compilation stays a lead gate.
+    """
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,63}', prefix):
+        raise ValueError('method prefix must be an identifier')
+    for name in (quote, slash):
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,63}', name):
+            raise ValueError('member names must be identifiers')
+    if vector not in ('tostring', 'plain'):
+        raise ValueError('vector style must be tostring or plain')
+    if type(max_string_bytes) is not int or not 1 <= max_string_bytes <= 4096:
+        raise ValueError('string byte bound must be an integer in 1..4096')
+    suffix = '.ToString()' if vector == 'tostring' else ''
+    parts = ' + "," + '.join('value[%d]%s' % (axis, suffix) for axis in range(3))
+    return r'''    string @P@Key(string name)
+    {
+        return @Q@ + name + @Q@ + ":";
+    }
+
+    string @P@Str(string value)
+    {
+        string text = value;
+        if (text.Length() > @LIMIT@)
+            text = text.Substring(0, @LIMIT@);
+        text.Replace(@Q@, "'");
+        text.Replace(@S@, "/");
+        return @Q@ + text + @Q@;
+    }
+
+    string @P@Bool(bool value)
+    {
+        if (value)
+            return "true";
+        return "false";
+    }
+
+    string @P@Vector(vector value)
+    {
+        return "[" + @VEC@ + "]";
+    }'''.replace('@P@', prefix).replace('@Q@', quote).replace('@S@', slash).replace(
+        '@LIMIT@', str(max_string_bytes)).replace('@VEC@', parts)
