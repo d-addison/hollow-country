@@ -73,7 +73,10 @@ modded class HCXAISiteDirector
     override HCOperationalStatus HCGetOperationalStatus()
     {
         HCOperationalStatus inheritedStatus = super.HCGetOperationalStatus();
-        if (!m_GapcodeRoutes || inheritedStatus.HCState() != "ready") { return inheritedStatus; }
+        if (!m_GapcodeRoutes) { return inheritedStatus; }
+        // Preserve site admission/faults first. Once sites are ready, the catalog's
+        // requested status keeps adapter/HCModuleReadiness ready=false until loaded.
+        if (inheritedStatus.HCState() != "ready") { return inheritedStatus; }
         HCOperationalStatus routeStatus = m_GapcodeRoutes.HCGetOperationalStatus(inheritedStatus);
         // An opted-out supplement leaves the original site's status intact.
         if (routeStatus.HCState() == "off") { return inheritedStatus; }
