@@ -31,14 +31,63 @@ class HCEventDwell
     int Since;
     int Last;
 }
-// Server-owned references only. The one item creation is the single scene-cache fill
-// (HCEventCacheFill); nothing else is created, moved, consumed or deleted.
+// Server-owned references only. The only item creation is the scene-cache fill of a CE-created
+// case (HCEventCacheFill); the case itself and everything else is never created, moved, consumed
+// or deleted here.
 // Targets must be registered from a reviewed server site by the integration.
 class HCEventNativeObserver : HCEventObjectiveProvider
 {
     protected ref array<ref HCEventTarget> m_Targets = new array<ref HCEventTarget>();
     protected ref array<ref HCEventNativeLease> m_Leases = new array<ref HCEventNativeLease>();
     protected ref array<ref HCEventDwell> m_Dwells = new array<ref HCEventDwell>();
+    // The one observer that owns the scene cache re-probe timer (weak: a deleted observer reads null).
+    protected static HCEventNativeObserver s_CacheTicker;
+    protected static int s_CacheTickCursor;
+    static const int CACHE_TICK_MS = 10000;
+
+    void HCEventNativeObserver()
+    {
+        // The scene cache fill counter exists at 0 from module start, so a case that is never
+        // filled shows count=0 in the [HC Use] summary instead of no line.
+        HCEventCacheFill.Start();
+    }
+    // Waiting fills (min spacing, players near, work budget, receipt scan) are re-probed here
+    // without anyone joined: one timer fire probes at most ONE bound case whose own 30 s gate is
+    // due, round robin, so the work stays bounded. The timer ends when no scene cache lease is left.
+    protected void HCStartCacheTimer()
+    {
+        if (s_CacheTicker == this) { return; }
+        s_CacheTicker = this;
+        ScriptCallQueue queue = GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM);
+        queue.Remove(HCEventNativeObserver.HCCacheTimer);
+        queue.CallLater(HCEventNativeObserver.HCCacheTimer, CACHE_TICK_MS, true);
+    }
+    static void HCCacheTimer()
+    {
+        HCEventNativeObserver owner = s_CacheTicker;
+        if (owner && owner.HCTickSceneCaches()) { return; }
+        s_CacheTicker = null;
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCEventNativeObserver.HCCacheTimer);
+    }
+    // False when no scene cache lease remains.
+    bool HCTickSceneCaches()
+    {
+        int total = m_Leases.Count();
+        bool any = false;
+        bool probed = false;
+        for (int offset = 0; offset < total; offset++)
+        {
+            int index = (s_CacheTickCursor + offset) % total;
+            HCEventNativeLease binding = m_Leases[index];
+            if (!binding.SceneCache) { continue; }
+            any = true;
+            if (probed || !binding.Item || binding.CacheFillResolved || GetGame().GetTickTime() < binding.CacheProbeAfter) { continue; }
+            probed = true;
+            s_CacheTickCursor = index + 1;
+            HCBindSceneCache(binding);
+        }
+        return any;
+    }
 
     // Only the three unchanged reviewed recovery definitions use this asynchronous
     // CE route. Operator edits do not gain a new spawn/target capability.
@@ -73,7 +122,8 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         if (GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
         if (binding.Item)
         {
-            // Bound case whose fill is still waiting (min spacing, players near, budget): same 30 s probe.
+            // Bound case whose fill is still waiting (min spacing, players near, budget, receipt
+            // scan): the same 30 s probe, driven by Observe and by HCTickSceneCaches.
             if (binding.CacheFillResolved) { return; }
             binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
             HCFillSceneCache(binding);
@@ -314,6 +364,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         {
             binding.SceneCache = true;
             binding.CacheStartedAt = GetGame().GetTickTime();
+            HCStartCacheTimer();
             HCBindSceneCache(binding);
             Print("[HC Events] scene cache mission opened; " + mission.Id + "; route=normal_ce; timeout_s=" + mission.LifetimeSeconds.ToString() + " runtime=PENDING");
         }

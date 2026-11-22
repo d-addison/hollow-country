@@ -4,6 +4,9 @@
 // EntityAI.c:1413 explicitly says CE/Debug. This is a candidate signal only,
 // not a durable CE allocator receipt. Persisted entities have no new-CE flag;
 // no attempt is made to infer origin from class, persistent ID or CE profile.
+// The flag lives in memory only and is cleared as soon as the item is moved into hands or
+// anywhere under a player hierarchy, so a case a player carried or placed is never a candidate
+// again (the scene cache fill requires it: HCEventCacheFill.Step).
 modded class ItemBase
 {
     protected bool m_HCEventEconomyCandidate;
@@ -15,6 +18,14 @@ modded class ItemBase
     override void EEItemLocationChanged(notnull InventoryLocation oldLoc, notnull InventoryLocation newLoc)
     {
         super.EEItemLocationChanged(oldLoc, newLoc);
+        if (m_HCEventEconomyCandidate && GetGame() && GetGame().IsServer())
+        {
+            EntityAI carrier = newLoc.GetParent();
+            if (newLoc.GetType() == InventoryLocationType.HANDS || (carrier && (PlayerBase.Cast(carrier) || carrier.GetHierarchyRootPlayer())))
+            {
+                m_HCEventEconomyCandidate = false;
+            }
+        }
         if (!GetGame() || !GetGame().IsServer() || !HCEventQualification.Admitted()) { return; }
         HCEventModule module = HCEventModule.Get();
         if (!module) { return; }
