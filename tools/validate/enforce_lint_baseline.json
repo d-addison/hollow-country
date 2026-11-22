@@ -3,15 +3,6 @@
   "scope": "authored mods/*/scripts; reviewed pre-existing findings only",
   "entries": [
     {
-      "rule": "HC-E006",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
-      "symbol": "HCSearchHouseJournal.Open",
-      "key": "m_Root = parent + \"/pin_\" + sourcePin.Substring(0, 16);",
-      "count": 1,
-      "line_at_review": 126,
-      "review": "2026-11-18 WP-3 reviewed: safe, Open admits sourcePin only through HCSearchRules.PinValid (Length() == 64), so Substring(0, 16) is bounded"
-    },
-    {
       "rule": "HC-E026",
       "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
       "symbol": "HCGapcodeStoryIndex.HCStep",

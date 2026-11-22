@@ -331,22 +331,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCCacheMoveJournal",
-      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
-      "line": 84,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "Legacy cache-move seam; HC-34 retired abstract inventory hops."
-    },
-    {
-      "id": "W004",
-      "subject": "HCCacheMoves",
-      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
-      "line": 103,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCCampRaidProfile",
       "file": "mods/HollowCountry/scripts/4_World/Events/HCCampRaidSituation.c",
       "line": 15,
@@ -1491,14 +1475,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCNonPlayerMoves",
-      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
-      "line": 37,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "Legacy abstract inventory-hop helper retired by HC-34."
-    },
-    {
-      "id": "W004",
       "subject": "HCNoteEntities",
       "file": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
       "line": 26,
@@ -1584,14 +1560,6 @@
       "line": 185,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCPickerPolicy",
-      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
-      "line": 20,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "Legacy visit policy retained beside the current finite-trip implementation."
     },
     {
       "id": "W004",

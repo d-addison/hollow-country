@@ -543,8 +543,6 @@ class HCInteriorsModule : HCModule
         return true;
     }
 
-    string SearchRefusal() { return m_SearchRefusal; }
-
     bool CanStart(PlayerBase player, ActionTarget target)
     {
         Object subject;

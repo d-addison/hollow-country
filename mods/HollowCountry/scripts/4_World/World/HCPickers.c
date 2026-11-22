@@ -17,49 +17,6 @@
 // Native evidence: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D, :932 GetWorldName;
 // Inventory.c:138 GetCargo; Cargo.c:28 GetItemCount, :32 GetItem; ItemBase.c:4372 IsTakeable.
 // Runtime acceptance PENDING.
-class HCPickerPolicy
-{
-    static int ChargeAfterVisit(int used, int phase)
-    {
-        if (phase == 2) return used + 1;
-        return used;
-    }
-
-    static bool MayVisit(int used, int recordedDay, int today, bool visited)
-    {
-        return used >= 0 && used < 6 && recordedDay == today && !visited;
-    }
-}
-
-// Shared immutable journal transaction. Entry phase 0 was durably bound by the
-// caller. Phase 1 is installed before callbacks. Neither failure nor restart
-// ever reopens the row. There is exactly one native move and no compensation.
-class HCNonPlayerMoves
-{
-    ref HCSearchHouseJournal m_Journal;
-    ref HCSearchSupplyRegistry m_Registry;
-
-    int CommitMove(HCSearchEntry entry, EntityAI destination, string actorId, int index)
-    {
-        if (!m_Journal || !m_Registry || !m_Journal.Healthy()) return 3;
-        if (!m_Journal.Row(index)) return 3;
-        int prior = m_Journal.Row(index).Phase;
-        if (prior == 2 || prior == 3 || prior == 4) return prior;
-        if (prior != 0) return 3;
-        m_Journal.SetPhase(index, 1);
-        int phase = 3;
-        if (m_Journal.Write(index, "claim", actorId, 1))
-        {
-            if (m_Journal.Write(index, "attempt", actorId, 1))
-            {
-                phase = m_Registry.Transfer(entry, destination, actorId);
-            }
-            if (!m_Journal.Write(index, "result", actorId, phase)) phase = 3;
-        }
-        m_Journal.SetPhase(index, phase);
-        return phase;
-    }
-}
 
 // Compatibility seam for old callers; house stock is no longer moved remotely.
 modded class HCSearchHouses
@@ -75,65 +32,6 @@ modded class HCSearchHouses
     bool V2VisitAvailable()
     {
         return false;
-    }
-}
-
-// A second, finite journal is exclusively for withdrawals from real caches.
-// Different root from template search: same item can make another journaled hop,
-// but no identical source-cache/item pair can ever replay here.
-class HCCacheMoveJournal : HCSearchHouseJournal
-{
-    protected bool m_OpenAttempted;
-    override void HCRefuse(string reason)
-    {
-        if (m_LastRefusal == reason) { return; }
-        m_LastRefusal = reason;
-        Print("[HC Pickers] cache journal inactive: " + reason + " runtime=PENDING");
-    }
-
-    override bool Open(string sourceId, string sourcePin, string worldName, string build)
-    {
-        if (m_Open || m_Fault || !GetGame().IsServer()) return false;
-        if (m_OpenAttempted) { return false; }
-        m_OpenAttempted = true;
-        m_SourceId = sourceId;
-        m_SourcePin = sourcePin;
-        m_WorldName = worldName;
-        m_Build = build;
-        m_Root = "$profile:HollowCountry/CacheMoves";
-        // Restore is now one cooperative unit, not synchronous recovery. This
-        // legacy withdrawal seam has no recovery driver: refuse explicitly,
-        // preserving every journal record until a driver is implemented.
-        return Fail("cache journal recovery unavailable; withdrawals refused");
-    }
-}
-
-class HCCacheMoves
-{
-    protected static ref HCCacheMoves s_Shared;
-
-    static HCCacheMoves Shared()
-    {
-        if (!s_Shared) s_Shared = new HCCacheMoves;
-        return s_Shared;
-    }
-
-    protected ref HCSearchHouseJournal m_Journal;
-    protected ref HCSearchSupplyRegistry m_Registry;
-    protected bool m_Fault;
-    static const string PIN = "cace000100000000000000000000000000000000000000000000000000000000";
-
-    int TakeOne(EntityAI source, EntityAI destination, string actorId, array<string> allowed)
-    {
-        // Legacy shared callers cannot bypass an actual carrier and route.
-        return 4;
-    }
-
-    void Stop()
-    {
-        if (m_Registry) m_Registry.Retire();
-        if (s_Shared == this) s_Shared = null;
-        m_Fault = true;
     }
 }
 
@@ -971,16 +869,6 @@ class HCPickers : HCModule
         m_Trip.m_IO = port;
         m_ProviderLogged = false;
         HCLogProvider();
-        return true;
-    }
-
-    // Addon/integration seam: the shared house reservation bridge. Only between trips.
-    bool HCBindHousePort(HCPickHousePort port)
-    {
-        if (!port || !m_Trip || !m_Trip.m_Ready || m_Trip.m_Busy || !m_Trip.m_State || m_Trip.m_State.Phase != "idle") { return false; }
-        m_Houses = port;
-        if (m_Trip.m_IO) { m_Trip.m_IO.Houses = port; }
-        HCLogRuns();
         return true;
     }
 
