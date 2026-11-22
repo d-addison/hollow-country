@@ -109,14 +109,12 @@ class HCSaveJob
     static string HCOperation; // operation executed by the current scheduler stage
     bool HCDirty;
     float HCDue;
-    // Per-store routine debounce, measured from the last clean commit. Owners
-    // may set this before registration; urgent continuations and flush bypass it.
-    float MinSaveIntervalSeconds;
+    // Routine debounce is measured from the last clean commit.
     float HCLastCommitSeconds;
     bool HCHasCommitted;
     float HCInterval()
     {
-        return Math.Max(HCWorldRuntimeConfig.HCGet().SaveCoalesceSeconds, MinSaveIntervalSeconds);
+        return HCWorldRuntimeConfig.HCGet().SaveCoalesceSeconds;
     }
     void HCCommitted(float now)
     {
@@ -139,8 +137,8 @@ class HCSaveJob
     }
 }
 
-// Bound: <=32 registered stores examined (operator may lower), one save stage per tick,
-// yielding after each stage. Only ONE job advances per tick;
+// Bound: <=32 registered stores examined (operator may lower), SaveStagesPerTick
+// stages under the cooperative SaveStageTargetMs deadline. Only ONE job advances per tick;
 // staged jobs retain ownership across ticks, never interleaved with another job.
 // Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; the time target is cooperative.
@@ -155,6 +153,7 @@ class HCSaveScheduler : HCModule
     protected static string s_RegistrationFault;
     protected int m_Next;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+    protected ref HCSaveStageBudget m_StageBudget = new HCSaveStageBudget;
     protected int m_TickStages;
     protected int m_JobTicks;
     protected int m_MaxStagesPerTick;
@@ -192,7 +191,7 @@ class HCSaveScheduler : HCModule
         m_Fault = "";
         HCWorldRuntimeConfig.HCGet();
         m_Started = true;
-        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=1 target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages cooperative_only=1 runtime=PENDING");
+        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=" + HCWorldRuntimeConfig.HCGet().SaveStagesPerTick.ToString() + " target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages cooperative_only=1 runtime=PENDING");
     }
 
     override void OnStop() { m_Started = false; }
@@ -296,7 +295,6 @@ class HCSaveScheduler : HCModule
             m_StageMaxIndex = m_Stages;
             m_StageMaxOperation = HCSaveJob.HCOperation;
         }
-        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
         if (result == HCSaveJob.STEP_MORE)
         {
             job.HCInFlight = true;
@@ -335,15 +333,19 @@ class HCSaveScheduler : HCModule
         m_MaxStagesPerTick = 0;
     }
 
-    // Exactly one stage per dispatch: every native open/read/write/copy/delete/
-    // close yields to the next tick, even when the time budget has room left.
+    // Check both limits between stages; one atomic native operation may overrun.
     protected void HCRunStages(HCSaveJob job, float now)
     {
+        m_StageBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
         m_JobTicks = m_JobTicks + 1;
-        m_TickStages = 1;
-        if (m_MaxStagesPerTick < 1) { m_MaxStagesPerTick = 1; }
-        HCRunStep(job, now);
-        HCReached.Mark("world_saves.stage");
+        while (m_StageBudget.HCContinue())
+        {
+            m_TickStages = m_TickStages + 1;
+            if (m_TickStages > m_MaxStagesPerTick) { m_MaxStagesPerTick = m_TickStages; }
+            HCRunStep(job, now);
+            HCReached.Mark("world_saves.stage");
+            if (!m_Active) { break; }
+        }
     }
 
     override void OnTick(float deltaTime)
@@ -403,6 +405,9 @@ modded class HCModuleRegistry
 // 462 FPrint, 528 DeleteFile, 531 CopyFile. No rename/fsync API is exposed by this snapshot.
 // Retained handles transfer at most 4 KiB per read/write stage. The .tmp intent stays until
 // primary readback completes; interrupted promotion remains fail-closed.
+// CopyFile is atomic to this scheduler: an image up to the 8 MiB raw cap can
+// occupy one stage. SaveStageTargetMs is checked BETWEEN stages and cannot
+// preempt that copy; the largest current staged store is search refresh (8 MiB).
 class HCStagedSaveImage
 {
     // Build 113 boot: every 64 KiB chunk landed as exactly 8191 bytes (holdouts.json.tmp
@@ -433,7 +438,8 @@ class HCStagedSaveImage
     protected int m_OpenStage;
     protected bool m_SourceAbsent;
     protected bool m_TargetExists;
-    protected bool m_IntentChecked;
+    protected int m_BackupStage;
+    protected bool m_BackupExists;
     protected bool m_Unchanged = true;
     protected bool m_PriorUnchanged;
     protected bool m_PrimaryKnown;
@@ -482,7 +488,15 @@ class HCStagedSaveImage
             Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
             return false;
         }
-        m_IntentChecked = false;
+        // Refuse without latching failure/active state, so owners can recover
+        // stale intents or immutable targets before retrying Begin.
+        if (mode != HC_IMAGE_REMOVE && (FileExist(temporary) || (mode == HC_IMAGE_CREATE && FileExist(path))))
+        {
+            Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
+            return false;
+        }
+        m_BackupStage = 0;
+        m_BackupExists = false;
         m_Unchanged = true;
         m_PriorUnchanged = false;
         m_PrimaryKnown = false;
@@ -538,17 +552,6 @@ class HCStagedSaveImage
             return HCSaveJob.STEP_FAILED;
         }
         if (!Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCFail(); }
-        // Begin performs no file IO: owners commonly call Begin + Step in one
-        // dispatch. Refuse old intents/immutable targets in a separate stage.
-        if (!m_IntentChecked && m_Mode != HC_IMAGE_REMOVE)
-        {
-            m_IntentChecked = true;
-            HCSaveJob.HCOperation = "check_intent";
-            string guarded = m_Temporary;
-            if (m_Mode == HC_IMAGE_CREATE) { guarded = m_Path; }
-            if (FileExist(guarded)) { return HCFail(); }
-            return HCSaveJob.STEP_MORE;
-        }
         if (m_Mode == HC_IMAGE_CREATE && m_Phase == 2)
         {
             m_Phase = -1;
@@ -584,10 +587,34 @@ class HCStagedSaveImage
                 m_PrimaryKnown = true;
                 return HCSaveJob.STEP_MORE;
             }
-            if (m_Backup && m_PrimaryExists && !m_PriorUnchanged)
+            if (m_Backup && m_PrimaryExists)
             {
-                HCSaveJob.HCOperation = "copy_backup";
-                if (!CopyFile(m_Path, m_Path + ".bak")) { return HCFail(); }
+                string backup = m_Path + ".bak";
+                if (m_BackupStage == 0)
+                {
+                    HCSaveJob.HCOperation = "copy_backup_check_target";
+                    m_BackupExists = FileExist(backup);
+                    m_BackupStage = 1;
+                    return HCSaveJob.STEP_MORE;
+                }
+                // An identical primary may keep an existing backup, but must
+                // create one when absent. Retain primary and verified temp
+                // throughout backup rotation: neither is deleted on failure.
+                if (!m_PriorUnchanged || !m_BackupExists)
+                {
+                    if (m_BackupStage == 1)
+                    {
+                        m_BackupStage = 2;
+                        if (m_BackupExists)
+                        {
+                            HCSaveJob.HCOperation = "copy_backup_delete_target";
+                            if (!DeleteFile(backup)) { return HCFail(); }
+                            return HCSaveJob.STEP_MORE;
+                        }
+                    }
+                    HCSaveJob.HCOperation = "copy_backup";
+                    if (!CopyFile(m_Path, backup)) { return HCFail(); }
+                }
             }
             m_Phase = 3;
             return HCSaveJob.STEP_MORE;
