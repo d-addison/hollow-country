@@ -172,6 +172,36 @@ def run_check(module, arguments):
     return CheckResult(result.returncode, result.stdout + "\n" + result.stderr)
 
 
+def anim_lint_step(args, paths):
+    """anim_lint gate for changed animation files: ((name, status, scope), failed, incomplete) or None.
+
+    Deliberately outside CHECKS: it runs only when --changed lists an animation file (tools/anim,
+    mods/HollowCountryAnims, .bvh/.anm) and lints the addon config plus each changed source.
+    """
+    if paths is None:
+        return None
+    from tools.validate import anim_lint
+    files = anim_lint.changed_inputs(paths)
+    if files is None:
+        return None
+    arguments = list(files)
+    addons = Path(args.addons).expanduser()
+    if addons.is_dir() and any(addons.glob('*.pbo')):
+        arguments += ['--addons', str(addons)]
+    if args.strict:
+        arguments.append('--require-installed')
+    print('preland: running anim_lint (changed animation files)', flush=True)
+    try:
+        result = run_check('tools.validate.anim_lint', arguments)
+    except (OSError, subprocess.SubprocessError):
+        return ('anim_lint', 'FAIL (launch/timeout)', 'changed files'), True, False
+    if result.code != 0:
+        return ('anim_lint', 'FAIL (%d)' % result.code, 'changed files'), True, False
+    if 'not run (no installed Addons)' in result.output:
+        return ('anim_lint', 'pass (stock comparison not run)', 'changed files'), False, True
+    return ('anim_lint', 'pass', 'changed files'), False, False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native-scripts', type=Path, default=NATIVE)
@@ -325,6 +355,11 @@ def execute(args, paths, scratch):
             status = 'FAIL (launch/timeout)'
             failed = True
         rows.append((name, status, scope))
+    animation = anim_lint_step(args, paths)
+    if animation is not None:
+        rows.append(animation[0])
+        failed |= animation[1]
+        incomplete |= animation[2]
     print('\nCheck | Result | Scope')
     print('--- | --- | ---')
     for row in rows:

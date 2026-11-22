@@ -150,7 +150,7 @@ class RetargetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'licence.refused'):
                 self.clip()
 
-    def test_provisional_polish(self):
+    def test_loop_polish(self):
         clip = self.clip(loop_frames=len(self.source.frames) // 2)
         for bone in clip.bones:
             self.assertEqual(bone.t.values[0], bone.t.values[-1])
@@ -158,14 +158,18 @@ class RetargetTests(unittest.TestCase):
             self.assertEqual(bone.t.values[-1], bone.t.values[-2])
             self.assertRotation(bone.q.values[0], bone.q.values[-1])
             self.assertRotation(bone.q.values[0], bone.q.values[1])
+
+    def test_foot_lock_is_the_ik_polish_pass(self):
         poses = [rig.rest_pose(self.parents, self.rest, self.bones) for _ in self.source.frames]
         for i, pose in enumerate(poses):
             pose.set_root_pos('Pelvis', rig.vadd(pose.pos('Pelvis'), (i * .001, 0, 0)))
+        report = retarget.lock_feet(poses, self.source.frame_time)
+        self.assertEqual([(0, len(poses) - 1)], report.feet['Left']['intervals'])
         start = poses[0].pos('LeftFoot')
-        retarget.lock_feet(poses, self.source.frame_time)
         for pose in poses:
-            for a, b in zip(pose.pos('LeftFoot'), start):
-                self.assertAlmostEqual(a, b)
+            self.assertLess(rig.vlen(rig.vsub(pose.pos('LeftFoot'), start)), 1e-3)
+        locked = self.clip(foot_lock=True)
+        self.assertEqual(self.clip().frames, locked.frames)
 
     def test_noninteger_fps_resampling(self):
         source = copy.deepcopy(self.source)
