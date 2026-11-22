@@ -260,6 +260,7 @@ class HCInteriorsModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) return;
+        HCInteriorQueryConfig.HCGet();
         #ifdef DIAG_DEVELOPER
         if (!HCInteriorSelfTests.Run())
         {
@@ -758,5 +759,35 @@ modded class HCModuleRegistry
         // The binder must be registered first: Interiors places inside its own OnStart and calls the binder hook there.
         Register(new HCSearchBinding);
         Register(new HCInteriorsModule);
+    }
+}
+
+// Optional startup-only query preference; missing fields retain registry defaults.
+// Native JsonFileLoader.c:69 LoadData; EnSystem.c:397 FileExist.
+class HCInteriorQueryConfig
+{
+    bool UseSphereLookup = true;
+    protected static ref HCInteriorQueryConfig s_Config;
+
+    static HCInteriorQueryConfig HCGet()
+    {
+        if (s_Config) { return s_Config; }
+        HCOperatorSettingsRegistry.HCInteriorQueryInit();
+        s_Config = new HCInteriorQueryConfig;
+        string path = "$profile:HollowCountry/interiors-query.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCInteriorQueryConfig decoded;
+        if (!HCGroupIO.Read(path, 1024, text) || !JsonFileLoader<HCInteriorQueryConfig>.LoadData(text, decoded, error) || !decoded)
+        {
+            Print("[HC Interiors] interiors-query.json unreadable; query defaults retained runtime=PENDING");
+            return s_Config;
+        }
+        if (HCJsonFields.Has(text, "UseSphereLookup") && HCOperatorSettingsRegistry.HCValid("InteriorsQuery.UseSphereLookup", decoded.UseSphereLookup))
+        {
+            s_Config.UseSphereLookup = decoded.UseSphereLookup;
+        }
+        return s_Config;
     }
 }

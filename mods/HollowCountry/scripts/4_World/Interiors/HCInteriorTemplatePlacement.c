@@ -44,6 +44,29 @@ class HCInteriorTemplatePlacement
     protected static ref array<ref HCInteriorResolveEntry> s_ResolveCache = new array<ref HCInteriorResolveEntry>;
     protected static int s_ResolveNext;
 
+    // Lifetime results use validated unique catalog SlotId values (0..1499),
+    // not rounded coordinates. No eviction: one Object/refusal per catalog row.
+    // ResetPlacement deliberately leaves these static-map bindings intact.
+    protected static ref map<int, ref HCInteriorResolvedBuilding> s_Bindings = new map<int, ref HCInteriorResolvedBuilding>;
+
+    static HCInteriorResolvedBuilding HCBinding(HCInteriorFurnishRow row)
+    {
+        HCInteriorResolvedBuilding binding = s_Bindings.Get(row.SlotId);
+        if (!binding)
+        {
+            binding = new HCInteriorResolvedBuilding;
+            s_Bindings.Set(row.SlotId, binding);
+        }
+        return binding;
+    }
+
+    static HCInteriorResolveCursor HCResolver(HCInteriorFurnishRow row)
+    {
+        HCInteriorResolvedBuilding binding = HCBinding(row);
+        if (!binding.Pending) { binding.Pending = new HCInteriorResolveCursor; }
+        return binding.Pending;
+    }
+
     static void ResetPlacement()
     {
         s_TemplateRegion = null;
@@ -141,9 +164,10 @@ class HCInteriorTemplatePlacement
         return null;
     }
 
-    static HCInteriorResolveEntry HCResolveObjects(vector position)
+    static HCInteriorResolveEntry HCResolveObjects(vector position, bool fresh = false)
     {
-        HCInteriorResolveEntry cached = HCFindResolveObjects(position);
+        HCInteriorResolveEntry cached;
+        if (!fresh) { cached = HCFindResolveObjects(position); }
         if (cached) { return cached; }
         HCInteriorResolveEntry entry = new HCInteriorResolveEntry;
         entry.Position = position;
