@@ -76,6 +76,7 @@ class HCLeadStore
     protected int m_Revision;
     protected int m_DurableRevision;
     protected int m_SnapshotRevision;
+    protected int m_OpenRevision = -1;
     protected string m_PendText;
     protected string m_VerifiedText;
     protected string m_Path = "$profile:HollowCountry/leads.json";
@@ -329,10 +330,15 @@ class HCLeadStore
             Data = new HCLeadData;
         }
         m_Healthy = true;
-        if (!Save()) { return false; }
         m_SaveJob = new HCLeadSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
+        // The first image (health probe and legacy-schema migration) is written by the
+        // registered scheduler job, one native step per dispatch, never drained here. Until it
+        // lands the old file is untouched; a crash re-decodes and re-stamps it. A failed job
+        // faults the store and every consumer refuses, as a runtime save failure always did.
+        m_OpenRevision = HCRequestBarrier();
+        if (m_OpenRevision < 0) { return Fault(); }
         if (Data.TraceAfter > 0) { HCPlan("ready", "LEGACY_HISTORY_QUARANTINED_BEFORE_WATERMARK"); }
         return true;
     }
@@ -342,6 +348,23 @@ class HCLeadStore
         m_Healthy = false;
         Print("[HollowCountry] V2 leads persistence fault; feature suspended; files and reservations preserved at=" + m_FaultAt);
         return false;
+    }
+
+    // Reports the scheduler result of the first (open) image once; never retries it here.
+    void HCPollOpenSave()
+    {
+        if (m_OpenRevision < 0) { return; }
+        if (HCDurable(m_OpenRevision))
+        {
+            Print("[HC Leads] open_save state=durable revision=" + m_OpenRevision.ToString());
+            m_OpenRevision = -1;
+            return;
+        }
+        if (!m_Healthy)
+        {
+            Print("[HC Leads] open_save state=failed reason=lead_store_unavailable revision=" + m_OpenRevision.ToString() + " retry=next_boot");
+            m_OpenRevision = -1;
+        }
     }
 
     void HCRequestCheckpoint()

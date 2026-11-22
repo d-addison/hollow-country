@@ -254,6 +254,18 @@ class HCGapcodeRoutesCatalog
     protected float m_ManifestMs;
     protected float m_PageMsMax;
     protected float m_GraphOpenMs;
+    // Catalog page sub-steps (one visit each): read, parse, fields scan 1, fields scan 2, insert.
+    protected int m_PageStage;
+    protected string m_PageText;
+    protected ref HCGapcodeRoutesPage m_PageParsed;
+    protected float m_PageReadMsMax;
+    protected float m_PageParseMsMax;
+    protected float m_PageFieldsMsMax;
+    protected float m_PageInsertMsMax;
+    // Corridor config visits: staged read, parse, open.
+    protected int m_GraphStage;
+    protected string m_GraphText;
+    protected ref HCCaravanCorridor m_GraphCorridor;
     protected int m_Slices;
     protected int m_Units;
     protected int m_ResolvePeakTicks;
@@ -280,6 +292,10 @@ class HCGapcodeRoutesCatalog
         m_Manifest = null;
         m_ManifestHash = null;
         m_ManifestText = "";
+        this.HCPageReset();
+        m_GraphStage = 0;
+        m_GraphText = "";
+        m_GraphCorridor = null;
         if (m_OpenedRoadOwner) { HCXAICaravanRoads.HCClose(); m_OpenedRoadOwner = false; }
         m_Enabled = false;
         m_Phase = "off";
@@ -307,6 +323,7 @@ class HCGapcodeRoutesCatalog
     }
     static const string HEADER_PATH = "$mission:hollow-country/travel/gapcov-roads/index.json";
     static const string MANIFEST_PATH = "$mission:hollow-country/travel/routes-manifest.json";
+    static const string CORRIDOR_PATH = "$mission:hollow-country/ai/caravans.json";
     // One native file call per visit while reading the header; the parse runs on
     // the visit that closes the file (the same 4 KiB parse the old Start did).
     void HCHeaderStep()
@@ -415,23 +432,62 @@ class HCGapcodeRoutesCatalog
         m_Reason = "ROUTE_MANIFEST_PENDING";
         return true;
     }
+    void HCPageReset()
+    {
+        m_PageStage = 0;
+        m_PageText = "";
+        m_PageParsed = null;
+    }
+    // One sub-step per visit, so no visit pays for read, parse, both field scans and the row
+    // insert together. Rows become visible only in the last sub-step (at most page_size <= 8),
+    // after every earlier check passed; the stage survives interleaved work (no re-read).
     void HCLoadCatalogPage()
     {
         HCGapcodeRoutesPageIdentity identity = Data.pages[m_CatalogPage];
-        string content;
-        int state = this.HCReadVisit(identity.Path, identity.Bytes, content);
-        if (state == 0) { return; }
-        if (state < 0 || content.Length() != identity.Bytes)
-        { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_SIZE_OR_MISSING"); return; }
-        string error;
-        HCGapcodeRoutesPage page;
-        if (!JsonFileLoader<HCGapcodeRoutesPage>.LoadData(content, page, error) || !page || page.schema != 1 || page.kind != "gapcov-road-page" || page.identity_sha256 != identity.IdentitySha256 || !page.routes || page.routes.Count() != identity.Rows)
-        { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_INVALID"); return; }
-        if (!HCJsonFields.Every(content, "island", 4, "road_node_ids") || !HCJsonFields.Every(content, "connected_both_directions", 4, "road_node_ids"))
-        { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); return; }
-        foreach (HCGapcodeRoutesRow row : page.routes) { Data.routes.Insert(row); }
+        int stageBegan = TickCount(0);
+        float stageMs;
+        if (m_PageStage == 0)
+        {
+            string content;
+            int state = this.HCReadVisit(identity.Path, identity.Bytes, content);
+            stageMs = (float)TickCount(stageBegan) / HCWorkBudget.HCTicksPerMs();
+            if (stageMs > m_PageReadMsMax) { m_PageReadMsMax = stageMs; }
+            if (state == 0) { return; }
+            if (state < 0 || content.Length() != identity.Bytes)
+            { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_SIZE_OR_MISSING"); this.HCPageReset(); return; }
+            m_PageText = content;
+            m_PageStage = 1;
+            return;
+        }
+        if (m_PageStage == 1)
+        {
+            string error;
+            HCGapcodeRoutesPage page;
+            if (!JsonFileLoader<HCGapcodeRoutesPage>.LoadData(m_PageText, page, error) || !page || page.schema != 1 || page.kind != "gapcov-road-page" || page.identity_sha256 != identity.IdentitySha256 || !page.routes || page.routes.Count() != identity.Rows)
+            { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_INVALID"); this.HCPageReset(); return; }
+            m_PageParsed = page;
+            m_PageStage = 2;
+            stageMs = (float)TickCount(stageBegan) / HCWorkBudget.HCTicksPerMs();
+            if (stageMs > m_PageParseMsMax) { m_PageParseMsMax = stageMs; }
+            return;
+        }
+        if (m_PageStage == 2 || m_PageStage == 3)
+        {
+            bool fieldsOk = true;
+            if (m_PageStage == 2) { fieldsOk = HCJsonFields.Every(m_PageText, "island", 4, "road_node_ids"); }
+            else { fieldsOk = HCJsonFields.Every(m_PageText, "connected_both_directions", 4, "road_node_ids"); }
+            if (!fieldsOk) { this.HCRefuse("ROUTE_ROW_FIELDS_MISSING"); this.HCPageReset(); return; }
+            m_PageStage++;
+            stageMs = (float)TickCount(stageBegan) / HCWorkBudget.HCTicksPerMs();
+            if (stageMs > m_PageFieldsMsMax) { m_PageFieldsMsMax = stageMs; }
+            return;
+        }
+        foreach (HCGapcodeRoutesRow row : m_PageParsed.routes) { Data.routes.Insert(row); }
         m_CatalogRows += identity.Rows;
         m_CatalogPage++;
+        this.HCPageReset();
+        stageMs = (float)TickCount(stageBegan) / HCWorkBudget.HCTicksPerMs();
+        if (stageMs > m_PageInsertMsMax) { m_PageInsertMsMax = stageMs; }
     }
     bool HCManifestMatches(string text)
     {
@@ -701,14 +757,32 @@ class HCGapcodeRoutesCatalog
         if (roads) { return roads; }
         // Open the shared reader after manifest admission. No candidate is
         // resolved/admitted until the shared graph has finished loading.
-        string corridorText = HCWorldStore.Read("$mission:hollow-country/ai/caravans.json");
-        string corridorError;
-        HCCaravanCorridor corridor;
-        if (!JsonFileLoader<HCCaravanCorridor>.LoadData(corridorText, corridor, corridorError) || !corridor)
-        { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return null; }
-        corridor.HCApplyDefaults(corridorText);
-        if (!corridor.HCNetworkValid()) { this.HCRefuse("ROUTE_GRAPH_CONFIG_INVALID"); return null; }
-        HCXAICaravanRoads.HCOpen(corridor);
+        // Three visits: staged read, then parse/validate, then open. No synchronous file read.
+        if (m_GraphStage == 0)
+        {
+            string corridorText;
+            int corridorRead = this.HCReadVisit(CORRIDOR_PATH, 65536, corridorText);
+            if (corridorRead == 0) { return null; }
+            if (corridorRead < 0) { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return null; }
+            m_GraphText = corridorText;
+            m_GraphStage = 1;
+            return null;
+        }
+        if (m_GraphStage == 1)
+        {
+            string corridorError;
+            HCCaravanCorridor corridor;
+            if (!JsonFileLoader<HCCaravanCorridor>.LoadData(m_GraphText, corridor, corridorError) || !corridor)
+            { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return null; }
+            corridor.HCApplyDefaults(m_GraphText);
+            if (!corridor.HCNetworkValid()) { this.HCRefuse("ROUTE_GRAPH_CONFIG_INVALID"); return null; }
+            m_GraphCorridor = corridor;
+            m_GraphText = "";
+            m_GraphStage = 2;
+            return null;
+        }
+        HCXAICaravanRoads.HCOpen(m_GraphCorridor);
+        m_GraphCorridor = null;
         m_OpenedRoadOwner = true;
         return HCXAICaravanRoads.HCGet();
     }
@@ -762,7 +836,11 @@ class HCGapcodeRoutesCatalog
         bool graphWasOpen = HCXAICaravanRoads.HCGet() != null;
         int graphBegan = TickCount(0);
         HCXAICaravanRoads roads = this.HCGraph();
-        if (!graphWasOpen) { m_GraphOpenMs = (float)TickCount(graphBegan) / HCWorkBudget.HCTicksPerMs(); }
+        if (!graphWasOpen)
+        {
+            float graphMs = (float)TickCount(graphBegan) / HCWorkBudget.HCTicksPerMs();
+            if (graphMs > m_GraphOpenMs) { m_GraphOpenMs = graphMs; }
+        }
         if (!roads || m_Phase == "failed" || !graphWasOpen) { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
         if (roads.Phase == "loading" && !HCStartupPump.HCInSlice()) { roads.HCStep(); }
@@ -809,6 +887,10 @@ class HCGapcodeRoutesCatalog
                 line += " manifest_ms=" + m_ManifestMs.ToString();
                 line += " page_ms_max=" + m_PageMsMax.ToString();
                 line += " graph_open_ms=" + m_GraphOpenMs.ToString();
+                line += " page_read_ms_max=" + m_PageReadMsMax.ToString();
+                line += " page_parse_ms_max=" + m_PageParseMsMax.ToString();
+                line += " page_fields_ms_max=" + m_PageFieldsMsMax.ToString();
+                line += " page_insert_ms_max=" + m_PageInsertMsMax.ToString();
                 Print(line + this.HCRefusalSummary() + " runtime=PENDING");
                 return;
             }

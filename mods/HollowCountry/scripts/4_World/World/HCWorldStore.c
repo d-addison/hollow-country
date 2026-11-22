@@ -37,6 +37,7 @@ class HCWorldStore
     protected bool m_KeepBackup;
     protected bool m_Fresh;
     protected bool m_Fault;
+    protected bool m_ReadUnavailable;
     protected string m_VerifiedText;
     protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected int m_SaveStage;
@@ -121,23 +122,25 @@ class HCWorldStore
         return !mismatch;
     }
 
-    protected static bool s_CeilingRawCountPrinted;
-    protected static bool s_CeilingStringCountPrinted;
+    protected static bool s_CeilingCountPrinted;
+    protected static bool s_RawDisabledPrinted;
 
+    // One latched line when raw comparison is off, whichever path turned it off.
+    // Custody RawEqual users then run on the string fallback, so say so once.
+    protected static void NoteRawDisabled(string reason)
+    {
+        if (s_RawDisabledPrinted) { return; }
+        s_RawDisabledPrinted = true;
+        Print("[HC WorldStore] custody_raw_compare_disabled reason=" + reason + " raw_compare=disabled string_fallback=true");
+    }
+
+    // One shared print-once flag for the raw and the string count anomaly.
     protected static void CeilingUnexpectedCount(bool rawFallback)
     {
+        if (s_CeilingCountPrinted) { return; }
+        s_CeilingCountPrinted = true;
         string action = "retain_retry";
-        if (rawFallback)
-        {
-            if (s_CeilingRawCountPrinted) { return; }
-            s_CeilingRawCountPrinted = true;
-            action = "string_fallback raw_compare=disabled";
-        }
-        else
-        {
-            if (s_CeilingStringCountPrinted) { return; }
-            s_CeilingStringCountPrinted = true;
-        }
+        if (rawFallback) { action = "string_fallback"; }
         Print("[HC WorldStore] custody_ceiling_read reason=unexpected_count action=" + action);
     }
 
@@ -163,6 +166,7 @@ class HCWorldStore
                 CloseFile(handle);
                 CeilingUnexpectedCount(true);
                 s_RawEnabled = false;
+                NoteRawDisabled("unexpected_count");
                 return ReadCeilingString(path, text);
             }
             if (count == 0) { break; }
@@ -298,10 +302,10 @@ class HCWorldStore
         if (qualified) { qualified = !HCRawEqual(a, b); }
         if (qualified) { qualified = !HCRawEqual(empty, empty); }
         s_RawEnabled = qualified;
-        DeleteFile(a);
-        DeleteFile(b);
-        DeleteFile(empty);
-        if (!s_RawEnabled) { Print("[HC WorldStore] custody_raw_compare_disabled reason=native_selftest_failed string_fallback=true"); }
+        if (FileExist(a)) { DeleteFile(a); }
+        if (FileExist(b)) { DeleteFile(b); }
+        if (FileExist(empty)) { DeleteFile(empty); }
+        if (!s_RawEnabled) { NoteRawDisabled("native_selftest_failed"); }
         else { Print("[HC WorldStore] custody_raw_compare_selftest pass=true"); }
     }
 
@@ -335,9 +339,23 @@ class HCWorldStore
         return decoded;
     }
 
+    // An existing file that cannot be opened/read is "unavailable" (retry next
+    // boot, files kept), never damage: it must not read as "" and quarantine as
+    // a parse failure or be taken for an absent file.
+    protected bool ReadExisting(string path, out string text)
+    {
+        text = "";
+        if (!FileExist(path)) { return true; }
+        if (ReadChecked(path, text)) { return true; }
+        text = "";
+        m_ReadUnavailable = true;
+        return false;
+    }
+
     bool ReadCurrent()
     {
-        string text = Read(m_Path);
+        string text;
+        if (!ReadExisting(m_Path, text)) { return false; }
         HCWorldData current = Decode(text);
         if (!current || current.Meta.Epoch > HCWorldClock.UTC()) { return false; }
         m_Data = current;
@@ -361,9 +379,11 @@ class HCWorldStore
         // Recovery may delete, copy over or promote the primary behind the writer's back.
         HCStagedSaveImage.HCForget(m_Path);
         m_SaveImage.HCForgetVerified();
-        string intent = Read(m_Temp);
+        string intent;
+        if (!ReadExisting(m_Temp, intent)) { return false; }
         HCWorldData next = Decode(intent);
-        string primaryText = Read(m_Path);
+        string primaryText;
+        if (!ReadExisting(m_Path, primaryText)) { return false; }
         HCWorldData primary = Decode(primaryText);
         if (!next)
         {
@@ -387,7 +407,9 @@ class HCWorldStore
         {
             if (FileExist(m_Backup))
             {
-                HCWorldData previous = Decode(Read(m_Backup));
+                string previousText;
+                if (!ReadExisting(m_Backup, previousText)) { return false; }
+                HCWorldData previous = Decode(previousText);
                 if (!previous || previous.Meta.Epoch != next.Meta.Epoch || previous.Meta.LastTick > next.Meta.LastTick) { return false; }
             }
             if (FileExist(m_Path) && !DeleteFile(m_Path)) { return false; }
@@ -406,10 +428,12 @@ class HCWorldStore
         m_SaveImage.HCForgetVerified();
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
         m_Fault = false;
+        m_ReadUnavailable = false;
         if (!Prepare()) { return Fault(); }
         if (FileExist(m_Temp) && !RecoverIntent())
         {
             m_Fault = true;
+            if (m_ReadUnavailable) { return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable"); }
             return HCPersistenceDisposition.HCQuarantine("world", "world_interrupted_pair");
         }
         if (!FileExist(m_Path) && FileExist(m_Backup))
@@ -427,11 +451,19 @@ class HCWorldStore
         {
             m_Data = null;
             m_Fault = true;
+            if (m_ReadUnavailable) { return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable"); }
             return HCPersistenceDisposition.HCQuarantine("world", "world_parse_or_schema_failure");
         }
         if (FileExist(m_Backup))
         {
-            HCWorldData previous = Decode(Read(m_Backup));
+            string backupText;
+            if (!ReadExisting(m_Backup, backupText))
+            {
+                m_Data = null;
+                m_Fault = true;
+                return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable");
+            }
+            HCWorldData previous = Decode(backupText);
             if (!previous || previous.Meta.Epoch != m_Data.Meta.Epoch || previous.Meta.LastTick > m_Data.Meta.LastTick)
             {
                 m_Data = null;

@@ -608,6 +608,43 @@ class HCEventJournal : HCEventPersistence
     protected string m_InventoryName;
     protected FileAttr m_InventoryAttributes;
     protected string m_NativeOperation = "none";
+    // The three directories were verified (or created) by this journal's earlier save. Cleared by
+    // any stage failure and by an inventory that cannot open, so a directory that vanished is
+    // probed and re-created again before the next enumeration.
+    protected bool m_DirectoriesKnown;
+    // Slowest single save step since the last [HC Events] journal_step_max line.
+    static const float HC_STEP_MAX_PRINT_SECONDS = 300.0;
+    protected int m_StepMaxMs;
+    protected string m_StepMaxStage;
+    protected string m_StepMaxOperation;
+    protected int m_StepMaxRevision;
+    protected float m_StepMaxPrintAt;
+    protected float m_StepSlowPrintAt;
+    int HCPendingRevision()
+    {
+        if (!m_Pending) { return m_Latest; }
+        return m_Pending.Revision;
+    }
+    // Names the native operation of the slowest journal step: one line per boot first, then per five
+    // minutes. The step is one native call (script cannot split it), so this is the attribution.
+    void HCNoteStep(string stage, int ms, int revision)
+    {
+        if (ms > m_StepMaxMs)
+        {
+            m_StepMaxMs = ms;
+            m_StepMaxStage = stage;
+            m_StepMaxOperation = m_NativeOperation;
+            m_StepMaxRevision = revision;
+        }
+        float now = GetGame().GetTickTime();
+        if (m_StepMaxPrintAt <= 0) { m_StepMaxPrintAt = now + HC_STEP_MAX_PRINT_SECONDS; }
+        bool slow = m_StepMaxMs >= 20 && now >= m_StepSlowPrintAt;
+        if ((now < m_StepMaxPrintAt && !slow) || m_StepMaxMs < 1) { return; }
+        m_StepSlowPrintAt = now + 60.0;
+        Print("[HC Events] journal_step_max stage=" + m_StepMaxStage + " op=" + m_StepMaxOperation + " ms=" + m_StepMaxMs.ToString() + " revision=" + m_StepMaxRevision.ToString());
+        m_StepMaxMs = 0;
+        m_StepMaxPrintAt = now + HC_STEP_MAX_PRINT_SECONDS;
+    }
     // Completion bookkeeping and failure cleanup do not request an extra yield.
     // The runtime also requires >=1 ms measured cost; drains ignore this hint.
     bool HCYieldRequested()
@@ -646,6 +683,7 @@ class HCEventJournal : HCEventPersistence
         m_JoinCursor = 0;
         m_NextImage = "";
         m_DirectoryStage = 0;
+        if (m_DirectoriesKnown) { m_DirectoryStage = 6; }
         m_PruneChecked = false;
         m_InventoryCount = 0;
         m_InventoryHighest = 0;
@@ -667,6 +705,7 @@ class HCEventJournal : HCEventPersistence
 
     protected int HCStageFault()
     {
+        m_DirectoriesKnown = false;
         HCCloseHandles();
         m_EncodePages.Clear();
         m_Writer = null;
@@ -709,7 +748,19 @@ class HCEventJournal : HCEventPersistence
             m_NativeOperation = "find_open";
             m_InventoryHandle = FindFile(m_IO.HCPath("*"), m_InventoryName, m_InventoryAttributes, FindFileFlags.ALL);
             m_InventoryStage = 1;
-            if (!m_InventoryHandle) { m_InventoryStage = 3; }
+            if (m_InventoryHandle) { m_DirectoriesKnown = true; }
+            else
+            {
+                m_InventoryStage = 3;
+                // A remembered directory that no longer opens is probed and re-created once
+                // before the save fails.
+                if (m_DirectoriesKnown)
+                {
+                    m_DirectoriesKnown = false;
+                    m_DirectoryStage = 0;
+                    m_InventoryStage = 0;
+                }
+            }
             return HCSaveJob.STEP_MORE;
         }
         if (m_InventoryStage == 1)
@@ -1080,8 +1131,11 @@ class HCEventJournalSaveJob : HCSaveJob
         if (Result != STEP_MORE) { return Result; }
         if (!Journal) { Result = STEP_FAILED; return Result; }
         string stage = Journal.HCStageName();
+        int revision = Journal.HCPendingRevision();
+        int stepStarted = TickCount(0);
         Result = Journal.HCStepSave();
         HCSaveJob.HCOperation = stage + ":" + Journal.HCNativeOperation();
+        Journal.HCNoteStep(stage, TickCount(stepStarted), revision);
         return Result;
     }
 }

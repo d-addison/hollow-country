@@ -156,6 +156,7 @@ class HCWorldMaterializer : HCModule
     protected bool m_CustodyKeepTmp;
     protected int m_CustodyArchiveScans;
     protected bool m_CustodyDepthFault;
+    protected int m_CustodyDepthWarned;
     protected bool m_CustodyRestoredOlder;
     protected bool m_CustodyReseedUnsafe;
     protected string m_CustodyForwardedPath;
@@ -183,7 +184,9 @@ class HCWorldMaterializer : HCModule
             fault = m_CustodyLoadFault;
             if (fault == "") { fault = "custody_unreadable_ai_budget_blocked"; }
         }
-        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", fault, "materializer_custody_loaded");
+        string readyReason = "materializer_custody_loaded";
+        if (m_CustodyDepthWarned >= 4) { readyReason = "materializer_custody_loaded_relocation_depth_warn"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", fault, readyReason);
         return m_Operational;
     }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
@@ -870,6 +873,14 @@ class HCWorldMaterializer : HCModule
     {
         string basePath = "$profile:HollowCountry/ai-custody.json";
         int depth = (m_CustodyPath.Length() - basePath.Length()) / 4;
+        // Early warning: every retained primary moves the active store one level deeper for good,
+        // and the cap blocks the AI. Print from depth 4, once per depth and boot, long before it.
+        if (depth >= 4 && depth < 8 && depth != m_CustodyDepthWarned)
+        {
+            m_CustodyDepthWarned = depth;
+            Print("[HC World] custody_relocation_depth depth=" + depth.ToString() + " cap=8 action=warn");
+            HCModuleReadiness.HCUse(GetName(), "custody_relocation_depth_warn");
+        }
         if (depth < 8) { return true; }
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_relocation_depth_exceeded";
