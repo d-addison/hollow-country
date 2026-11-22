@@ -94,17 +94,53 @@ rules report review candidates, without timing or native acceptance claims:
 | Rule | Candidate | Limits |
 | --- | --- | --- |
 | HC-P001 | Unbounded string scans inside lexical loops | Recognizes small bounds and HCTextWindow; does not track arbitrary string aliases. |
-| HC-P003 | File I/O reachable from tick/save-step roots | Typed authored call graph, shortest BFS witness, at most 24 edges; staged writer boundaries stop traversal except synchronous Finish drains. |
+| HC-P003 | File I/O reachable from tick/save-step roots | Typed authored call graph, shortest BFS witness, at most 24 edges; staged writer boundaries stop traversal except synchronous Finish drains. See "Shapes the P003 walk accepts" below for what counts as bounded. |
 | HC-P004 | Nested array/map/set loops containing equality, or array Find/Contains/IndexOf/Get inside a loop | Skips literal upper bounds <=16; declared receivers only. Indexed Get is included as a broad candidate and may need no change. |
 | HC-P005 | Print inside a lexical loop on a tick path | Uses P003 reachability; cannot infer latches, actual frequency or intentional bounded summaries. |
 | HC-P006 | Literal HC_WORK_* arguments to HCTakeFor/HCCharge shared by different owner classes | Modded definitions share their base class name; computed slots and runtime competition are not resolved. |
 | HC-P007 | Missing consumer profile, weight field/load, settings or report registration, or insufficient HC_WORK_CONSUMERS | Cross-file structural check; HC_WORK_UNBOUNDED is an arithmetic sentinel, not a consumer. |
 | HC-P008 | Save on a declared type ending in Store on a tick path | Uses P003 reachability; review durability barriers manually and prefer dirty state plus HCSaveScheduler for routine work. |
+| HC-P009 | File I/O (open, exist, copy, delete, JSON load or save) inside a loop of unbounded trip count on the OnStart path | A constant trip count within the tool's small cap is bounded; once-only load latches and calls into OnStop overrides are not followed. Queue the files as bounded startup work (HCStartupPump, HCWorkBudget) instead of a synchronous loop. |
+| HC-P010 | Raw `HCTake` on a typed HCUnitBudget or the shared tick budget | Bypasses consumer fairness and attribution; use `HCTakeFor` with an owned `HC_WORK_*` slot. A budget the class owns privately is exempt. |
 
-P002 remains omitted because source-only configured float bounds are ambiguous.
-The tick roots are OnTick, OnUpdate, HCStep* and names containing SaveStage or
-StageSave. Engine callbacks, reflection, function pointers and path feasibility
-are outside the call graph; unseen paths can be missed.
+There is no HC-P002: source-only configured float bounds are ambiguous, so the
+number is deliberately unused. The tick roots are OnTick, OnUpdate, HCStep*, names
+containing SaveStage or StageSave, and repeating or self-rearming CallLater
+callbacks (except the slow polls below). Engine callbacks, reflection, function
+pointers and path feasibility are outside the call graph; unseen paths can be
+missed.
+
+### Shapes the P003 walk accepts
+
+The tool decides each of these from the source alone; none is a name list, a
+comment marker or an allowlist, and the unsafe form of each is still reported.
+
+- Staged step: an `HCStep*`, `*SaveStage*` or `*StageSave*` method whose cost is at
+  most one I/O operation and which advances state is not a root, and a non-loop call
+  into it does not make the caller I/O-reaching. Advancing state means a write to
+  its own field, or to a declared field of a class-typed parameter (a job object
+  handed in by the owner). A loop that reaches I/O is unbounded.
+- Paired read: `h = OpenFile(...)` followed by `ReadFile(h, ...)` on that local
+  handle in the same method is one operation (the open is counted, the read is
+  not), provided no loop contains the read without also containing the open. A
+  read on a field handle, or a read looping over one open, still counts.
+- Budget loop: a `for`, `foreach` or `while` whose head tests `HCContinue()` on an
+  `HCWorkBudget` receiver, or whose first statement is
+  `if (!budget.HCContinue()) { ...; return; }`, is bounded by the budget's unit
+  cap and deadline (the first unit always progresses). A loop that hands the
+  budget to a callee that gates it the same way is bounded too. A negated head,
+  an I/O call before the gate, a budget that is never tested, a non-budget
+  receiver, or work outside the loop does not qualify. The tool does not count
+  I/O per unit; the budget owner keeps that to one operation.
+- Slow poll: a callback whose every `CallLater` scheduling is repeating with a
+  constant interval of at least 5 seconds, and whose cost is at most 4 operations,
+  is not a tick root. A variable interval, any faster scheduling, or a heavier body
+  keeps it a root.
+
+When a native query cannot be split (its cost is the building's proxy count, not
+the radius), do not slice it: skip it for known-heavy classes, learn heavy classes
+from measured calls, or take a cheaper query, and keep the class and phase in the
+`heaviest=` field of the `[HC Step]` line so the next soak names the culprit.
 
 Findings use rule/path/symbol/operation keys with occurrence counters rather
 than line numbers (P007 keys identify the slot and missing piece). The checked-in
