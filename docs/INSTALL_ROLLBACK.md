@@ -455,6 +455,10 @@ upgrade so nothing of value is inside a bike that disappears.
   their files and their copied `.bikey` files in `keys/`. A file that changed since the
   install is left in place and listed. `workshop_sync rollback` removes the same files.
   A key the receipt does not record is not touched; delete it from `keys/` by hand.
+  A root `keys/*.bikey` is also kept when any live `@*/keys` folder (not only the ones the
+  receipt names) or the bundle's own `keys/` folder provides the same key name (compared
+  ignoring case) or the same bytes, so an author key several mods share is never deleted;
+  the plan prints "kept shared key <path>: <reason>".
 - An existing install that carried the bicycle overlay upgrades the normal way: the friend
   installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
   receipt (it does not depend on the current pack list), then `bundle-apply` installs the
@@ -552,9 +556,15 @@ before the writer starts, so the next `--check` says "hard exit inside a mission
 writer". Recovery then refuses with `rollback_pending` and names `--repair`.
 `--apply --repair` (or answering `y` to "repair these (each backed up)? [y/N]" in
 an interactive run) restores the whole mission tree from that run's verified
-backup, keeps a copy of the partial tree in `hard-exit-partial` inside the run
-backup, and then installs normally. Without that explicit step nothing in the tree
-is changed.
+backup and then installs normally. A typed `y` allows that tree restore only: it does
+not turn on `--repair`, so edited mod files, keys and the launcher are still refused
+or kept exactly as they are. Before the restore, a copy of the partial tree is made
+under a temporary name and renamed to `hard-exit-partial-<run id>` inside the run
+backup once it is complete (the path is printed; a later attempt on the same run
+adds `-2`, `-3`, so no stash is ever overwritten, and an unfinished temporary copy
+is removed on the next try). A copy that fails halfway therefore never counts as a
+stash, and the operator's mission edits are still in the tree for the retry. Without
+that explicit step nothing in the tree is changed.
 
 `--rollback <run>` is mostly a pre-restart tool. A run-created folder the server
 has since written into is kept ("kept non-empty folder <path>") and everything else
@@ -573,16 +583,28 @@ without `--repair` still refuses on edited managed files and names the flag. Wit
 with a **Repair receipt** whose rows equal the preview; it is also stored under
 `repairs` in `hollow-country-install-receipt.json`. A second run reports nothing to
 repair. Files the installer does not manage and world saves (`storage_*`) are never
-deleted. An install receipt that cannot be read as JSON is rebuilt under `--repair`
-instead of blocking the install; a receipt with an unknown layout is never rebuilt
-(`receipt_invalid` says so and names the flag). A file the installer did not write
+deleted. An install receipt that is not valid JSON text is rebuilt under `--repair`
+instead of blocking the install (`receipt_invalid`; the old bytes go to the run
+backup). A receipt that cannot be opened at all (locked, permission denied, a folder
+in its place) is never rebuilt: the run refuses with `receipt_unreadable` and the
+reason, and converges on a later run once the cause is fixed. A receipt with an
+unknown layout is never rebuilt (`receipt_invalid` says so). A file the installer did not write
 that `--yes` replaces gets the same preview and receipt row as any repair.
 
-An operator-edited `start-server.bat` is never replaced wholesale. `--repair`
-changes only the `-mod=` and `-serverMod=` values to the bundle's and keeps the
-port, `-profiles`, `-cpuCount` and every other argument; the preview shows the
-changed launcher lines and the old file goes to the run backup. A launcher with no
-`-mod=` argument cannot be merged and stays a refusal. `install-hollow-country.bat`
+An operator-edited `start-server.bat` is never replaced wholesale. `--repair` (and
+`--yes` for a launcher the installer did not write) merges the `-mod=` and `-serverMod=`
+lists and keeps the port, `-profiles`, `-cpuCount` and every other argument. The values
+are read as whole tokens (quoted up to the closing quote, so `"-mod=@A;@Base Building Plus"`
+stays intact; otherwise up to the next whitespace). The merged list is the bundle's
+folders in bundle order, then every entry the installer does not manage in the operator's
+own order (the operator's other mods and an operator `-serverMod=` list are kept); names
+are compared ignoring case, and retired folders (the manifest's `retired` list) are
+removed. The preview names each mod as `added`, `removed` (retired) or `kept`, and the
+old file goes to the run backup. Only the unedited launcher an older bundle wrote is
+replaced as a whole. A launcher that cannot be merged (no `-mod=` argument, not UTF-8
+text, a value built from a `%variable%`, an unclosed quote), recorded or not, is a
+refusal with that reason under `--repair` and `--yes` alike: fix it by hand or move it
+away. `install-hollow-country.bat`
 never passes `--repair`; in an interactive run the installer instead asks "repair
 these (each backed up)? [y/N]" when the preview has blocked rows.
 
@@ -592,7 +614,11 @@ from them as the operator's own, undoes the old boost, applies the new one, then
 re-applies the operator's values (BOM and line endings are preserved; comments are
 kept only where they exist in the new file). A variable the operator removed comes
 back with a WARN. A boosted variable that is back at its pre-boost value counts as
-a reset, not tuning: the installer warns and applies the boost again.
+a reset, not tuning: the installer warns and applies the boost again. The whole file put
+back to its stock bytes is read the same way (every boosted variable is a reset). To keep
+the stock value on purpose, run with `--keep-stock-globals`: the variables that are back at
+stock are recorded as an opt-out in the install receipt (`globals_optout`), the run keeps
+their stock values, and no later run applies the boost to them again (the plan lists them).
 The run lists each carried value and keeps the operator's exact file in the run
 backup. When the receipt or backup cannot prove what the installer wrote, the file
 is left untouched and the run refuses with the reason. After a carry-forward the

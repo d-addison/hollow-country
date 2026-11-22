@@ -447,42 +447,80 @@ def load_receipt(root, managed):
     return data
 
 
-def retired_receipt_rows(receipt, manifest):
-    """Receipt files and folders that belong to retired manifest items: (file rows, folder names).
+def live_key_files(root, retired_keys, extra_dirs=()):
+    """{casefolded name: (label, sha)} for every key file an active mod folder or the bundle provides now: each live
+    @*/keys folder (not only the ones the receipt names) and the extra directories (the bundle's keys folder)."""
+    found = []
+    if root is not None and Path(root).is_dir():
+        for folder in sorted(Path(root).iterdir()):
+            if not folder.name.startswith('@') or folder.name.casefold() in retired_keys or not folder.is_dir():
+                continue
+            for sub in folder.iterdir():
+                if sub.name.casefold() == 'keys' and sub.is_dir():
+                    found += [(folder.name + '/keys/' + key.name, key) for key in sorted(sub.iterdir())]
+    for extra in extra_dirs:
+        if Path(extra).is_dir():
+            found += [('the bundle keys/' + key.name, key) for key in sorted(Path(extra).iterdir())]
+    return [(label, key.name.casefold(), sha256_of(key)) for label, key in found if key.is_file()]
 
-    A server key counts when a retired folder holds the same key bytes and no active folder does.
+
+def split_retired_rows(receipt, manifest, root=None, extra_key_dirs=()):
+    """(file rows to delete, folder names, [(path, reason)] for root keys that are kept).
+
+    A server key counts when a retired folder holds the same key bytes and no active folder does. An author key
+    several mods share is never deleted: before a root keys/*.bikey goes, every live @*/keys folder (not only the
+    receipt rows) and the bundle's keys folder are searched for the same name (case-insensitive) or the same bytes.
     """
     if not receipt:
-        return [], []
-    retired = {m['folder'] for m in manifest['retired']}
+        return [], [], []
+    retired = {m['folder'].casefold() for m in manifest['retired']}
 
     def key_copies(keep):
-        return {(e['path'].split('/')[-1], e['sha256']) for e in receipt['files']
-                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0])}
+        return {(e['path'].split('/')[-1].casefold(), e['sha256']) for e in receipt['files']
+                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0].casefold())}
 
     retired_keys = key_copies(lambda top: top in retired)
     active_keys = key_copies(lambda top: top not in retired)
-    rows = []
+    live = None
+    rows, kept = [], []
     for entry in receipt['files']:
         path = entry['path']
         if path.startswith('@'):
-            if path.split('/')[0] in retired:
+            if path.split('/')[0].casefold() in retired:
                 rows.append(entry)
+            continue
+        key = (path.split('/')[-1].casefold(), entry['sha256'])
+        if key not in retired_keys:
+            continue
+        if key in active_keys:
+            kept.append((path, 'an active mod folder in the receipt carries the same key'))
+            continue
+        if live is None:
+            live = live_key_files(root, retired, extra_key_dirs)
+        shared = next((label for label, name, sha in live if name == key[0] or sha == entry['sha256']), None)
+        if shared is not None:
+            kept.append((path, 'also provided by %s' % shared))
         else:
-            key = (path.split('/')[-1], entry['sha256'])
-            if key in retired_keys and key not in active_keys:
-                rows.append(entry)
-    return rows, sorted(rel for rel in receipt['dirs'] if rel.split('/')[0] in retired)
+            rows.append(entry)
+    dirs = sorted(rel for rel in receipt['dirs'] if rel.split('/')[0].casefold() in retired)
+    return rows, dirs, kept
 
 
-def retire_items(root, receipt, manifest, before_write=None):
+def retired_receipt_rows(receipt, manifest, root=None, extra_key_dirs=()):
+    """Receipt files and folders that belong to retired manifest items: (file rows, folder names). See
+    split_retired_rows for the shared-key rules."""
+    rows, dirs, _kept = split_retired_rows(receipt, manifest, root, extra_key_dirs)
+    return rows, dirs
+
+
+def retire_items(root, receipt, manifest, before_write=None, extra_key_dirs=()):
     """Remove what an earlier install recorded for retired items, keys included, then rewrite the receipt.
 
     Only files whose bytes still match the receipt are deleted; a changed file is left and reported, and
     its folder stays. Both are dropped from the receipt either way, so a second run finds nothing to do.
     Returns (removed paths, left paths).
     """
-    rows, dirs = retired_receipt_rows(receipt, manifest)
+    rows, dirs = retired_receipt_rows(receipt, manifest, root, extra_key_dirs)
     if not rows and not dirs:
         return [], []
     for entry in rows:

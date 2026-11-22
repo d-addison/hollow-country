@@ -474,7 +474,8 @@ class ApplyTests(InstallerCase):
 
     def test_a_modified_installed_file_is_drift_and_refuses_before_any_change(self):
         self.apply()
-        (self.server / 'start-server.bat').write_bytes(b'echo hand edited\r\n')
+        launcher = self.server / 'start-server.bat'
+        launcher.write_bytes(launcher.read_bytes().replace(b'"-mod=@CF;', b'"-mod='))
         before = snapshot(self.server)
         code, out, err = self.apply()
         self.assertEqual(code, 2)
@@ -517,15 +518,19 @@ class ApplyTests(InstallerCase):
         self.assertEqual([p.read_bytes() for p in backed_up], [b'PBO'])
 
     def test_a_different_pre_existing_file_needs_confirmation_then_is_backed_up(self):
-        put(self.server, 'start-server.bat', 'echo my own launcher\r\n')
+        own = b'start x -port=2999 "-mod=@Mine" -dologs\r\n'
+        put(self.server, 'start-server.bat', own)
         code, out, err = self.run_cli('--apply', '--skip', 'workshop,overlay')
         self.assertEqual(code, 2)
         self.assertIn('confirmation_required', err)
-        self.assertEqual((self.server / 'start-server.bat').read_bytes(), b'echo my own launcher\r\n')
+        self.assertEqual((self.server / 'start-server.bat').read_bytes(), own)
         code, out, err = self.apply()
         self.assertEqual(code, 0, out + err)
         backups = list((self.server / fi.BACKUP_DIR).rglob('start-server.bat'))
-        self.assertEqual([p.read_bytes() for p in backups], [b'echo my own launcher\r\n'])
+        self.assertEqual([p.read_bytes() for p in backups], [own])
+        merged = (self.server / 'start-server.bat').read_bytes()
+        self.assertIn(b'-port=2999', merged)  # merged into the operator's file, not replaced
+        self.assertTrue(merged.decode().count('@Mine'), merged)
 
     def test_a_stale_pbo_in_our_mod_folder_is_moved_to_the_backup_not_deleted(self):
         put(self.server, '@HollowCountry/addons/oldname.pbo', b'STALE')
@@ -1656,7 +1661,7 @@ class RunRollbackTests(InstallerCase):
             with self.subTest(step=step):
                 self.server = self.tmp / ('server-' + step)
                 self.mission = self.make_server(self.server)
-                put(self.server, 'start-server.bat', 'OLD LAUNCHER')
+                put(self.server, 'start-server.bat', 'start x "-mod=@Old"\r\n')
                 put(self.server, 'profiles/HollowCountry/settings.json', 'OLD SETTINGS')
                 put(self.server, '@HollowCountry/mod.cpp', 'OLD MOD')
                 put(self.server, '@HollowCountry/addons/retired.pbo', 'OLD SIGNED NAME')
@@ -2076,9 +2081,24 @@ def loot_overlay(calls, multiplier):
     return main
 
 
-def var_values(path):
-    text = re.sub(r'<!--.*?-->', '', Path(path).read_bytes().decode('utf-8-sig'), flags=re.S)
+def values_of(data):
+    text = re.sub(r'<!--.*?-->', '', data.decode('utf-8-sig'), flags=re.S)
     return dict(re.findall(r'<var name="([^"]+)" type="\d+" value="([^"]*)"/>', text))
+
+
+def var_values(path):
+    return values_of(Path(path).read_bytes())
+
+
+def boosted_values(multiplier):
+    """The variable values the real scaler writes for the stock file at that multiplier."""
+    return values_of(fi.loot_boost.scale_globals(GLOBALS_STOCK, multiplier)[0])
+
+
+def var_tag(name, value):
+    """The stock file's tag for one variable with another value (the edit tuple a test applies)."""
+    tag = re.search(rb'<var name="%s" type="\d+" value="[^"]*"/>' % name.encode(), re.sub(rb'<!--.*?-->', b'', GLOBALS_STOCK, flags=re.S)).group(0)
+    return re.sub(rb'value="[^"]*"', b'value="%s"' % str(value).encode(), tag)
 
 
 class SelfHealingTests(InstallerCase):
@@ -2132,7 +2152,7 @@ class SelfHealingTests(InstallerCase):
         values = var_values(path)
         self.assertEqual((values['IdleModeStartup'], values['IdleModeCountdown'], values['RespawnAttempt']),
                          ('0', '90', '5'))
-        self.assertEqual(values['RespawnTypes'], '36')  # untouched by the operator: rescaled by the new boost
+        self.assertEqual(values['RespawnTypes'], boosted_values(3.0)['RespawnTypes'])  # untouched by the operator: rescaled by the new boost
         self.assertEqual(values['RespawnLimit'], '20')
         data = path.read_bytes()
         self.assertTrue(data.startswith(b'\xef\xbb\xbf'))
@@ -2249,7 +2269,7 @@ class SelfHealingTests(InstallerCase):
         self.assertEqual(pbo.read_bytes(), b'PBO')
         self.assertEqual(bikey.read_bytes(), b'KEY')
         # The edited launcher is never replaced wholesale: only the -mod= value comes from the bundle.
-        self.assertEqual(launcher.read_bytes(), bundle_launcher.replace(b'-port=2302', b'-port=2999 -cpuCount=4'))
+        self.assertEqual(launcher.read_bytes(), with_mods(bundle_launcher.replace(b'-port=2302', b'-port=2999 -cpuCount=4'), '@Mine'))
         self.assertFalse(retired.exists())
         self.assertEqual(profile.read_bytes(), b'{"Enabled": 1, "Edited": true}')
         self.assertEqual((self.mission / 'storage_1/data/players.db').read_text(), 'SAVED PLAYERS')
@@ -2405,12 +2425,21 @@ class WaveCRoundTwoTests(InstallerCase):
     def test_rollback_of_another_run_is_refused_while_a_different_run_is_pending(self):
         class Crash(BaseException):
             pass
-        with self.inject_after('launcher', Crash()):
+        self.assertEqual(self.apply()[0], 0)
+        done = self.latest_run()
+        journal = self.server / fi.BACKUP_DIR / done / fi.JOURNAL
+        self.assertEqual(json.loads(journal.read_text())['state'], 'complete')
+        with self.inject_after('overlay', Crash()):
             with self.assertRaises(Crash):
-                self.apply()
-        code, out, err = self.run_cli('--rollback', 'no-such-run', '--apply')
+                self.apply(bundle=self.upgraded_bundle())
+        pending = self.latest_run()
+        self.assertNotEqual(pending, done)
+        before = snapshot(self.server)
+        code, out, err = self.run_cli('--rollback', done, '--apply')
         self.assertEqual(code, 2, out + err)
         self.assertIn('install_interrupted', err)
+        self.assertEqual(snapshot(self.server), before)
+        self.assertEqual(json.loads(journal.read_text())['state'], 'complete')
 
     # P2: --repair merges an edited launcher instead of replacing it
 
@@ -2441,25 +2470,26 @@ class WaveCRoundTwoTests(InstallerCase):
         self.assertEqual(code, 0, preview + err)
         self.assertEqual(snapshot(self.server), before)
         self.assertIn('would repair  edited  start-server.bat', preview)
-        self.assertIn('      - ', preview)
-        self.assertIn('      + ', preview)
-        self.assertIn('-port=2999 -cpuCount=4', preview)
+        self.assertIn('      kept    -mod @Mine (not managed by this installer)', preview)
+        self.assertNotIn('      - ', preview)
         code, applied, err = self.apply('--repair')
         self.assertEqual(code, 0, applied + err)
-        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+        self.assertEqual(launcher.read_bytes(), with_mods(self.operator_launcher(), '@Mine'))
         saved = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('start-server.bat')]
         self.assertEqual(saved, [stale])
         rows = [r for r in self.receipt()['repairs'][-1]['rows'] if r['path'] == 'start-server.bat']
         self.assertEqual([r['kind'] for r in rows], ['edited'])
         self.assertIn('  repaired  edited  start-server.bat: %s' % rows[0]['detail'], applied)
-        self.assertEqual(self.run_cli('--check')[0], 0)
+        code, checked, err = self.run_cli('--check')
+        self.assertEqual(code, 0, checked + err)
+        self.assertIn(', then 1 of your own)', checked)  # the operator's @Mine follows the bundle folders
         # Idempotent: the merged launcher is the operator's, kept on later runs, with or without --repair.
         before = snapshot(self.tmp)
         for extra in ((), ('--repair',)):
             code, again, err = self.apply(*extra)
             self.assertEqual(code, 0, again + err)
             self.assertEqual(snapshot(self.tmp), before)
-        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+        self.assertEqual(launcher.read_bytes(), with_mods(self.operator_launcher(), '@Mine'))
 
     def test_a_launcher_with_the_right_mod_values_and_other_edits_is_kept_without_repair(self):
         self.assertEqual(self.apply()[0], 0)
@@ -2481,7 +2511,7 @@ class WaveCRoundTwoTests(InstallerCase):
         write_manifest(newer)
         code, out, err = self.apply(bundle=newer)
         self.assertEqual(code, 0, out + err)
-        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+        self.assertEqual(launcher.read_bytes(), with_mods(self.operator_launcher(), '@Mine'))
 
     def test_an_unmergeable_edited_launcher_stays_a_refusal_even_with_repair(self):
         self.assertEqual(self.apply()[0], 0)
@@ -2493,7 +2523,7 @@ class WaveCRoundTwoTests(InstallerCase):
         self.assertIn('blocked  launcher  start-server.bat', preview)
         code, out, err = self.apply('--repair')
         self.assertEqual(code, 2)
-        self.assertIn('drift', err)
+        self.assertIn('refused: launcher', err)
         self.assertIn('no -mod= argument', err)
         self.assertEqual(snapshot(self.server), before)
 
@@ -2524,7 +2554,7 @@ class WaveCRoundTwoTests(InstallerCase):
 
     # P2: a hard exit inside a mission writer
 
-    def crash_inside_the_mission_writer(self):
+    def crash_inside_the_mission_writer(self, bundle=None):
         class Crash(BaseException):
             pass
         regular = fi.overlays.main.side_effect
@@ -2548,8 +2578,9 @@ class WaveCRoundTwoTests(InstallerCase):
         with mock.patch.object(fi.overlays, 'main', side_effect=partial), \
                 mock.patch.object(ws, 'write_json_atomic', lost_write):
             with self.assertRaises(Crash):
-                self.apply()
-        journals = list((self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL))
+                self.apply(bundle=bundle)
+        journals = [j for j in (self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL)
+                    if json.loads(j.read_text())['state'] != 'complete']
         self.assertEqual(len(journals), 1)
         rows = [r for r in json.loads(journals[0].read_text())['entries'] if r['kind'] == 'tree']
         self.assertTrue(rows and rows[0].get('writing'), 'the tree writer marker must be journaled before the helper')
@@ -2557,6 +2588,7 @@ class WaveCRoundTwoTests(InstallerCase):
     def test_a_hard_exit_inside_the_mission_writer_needs_repair_and_then_restores_the_whole_tree(self):
         before = live_snapshot(self.server)
         self.crash_inside_the_mission_writer()
+        crashed = self.latest_run()
         code, out, err = self.run_cli('--check')
         self.assertEqual(code, 1, out + err)
         self.assertIn('hard exit', out)
@@ -2574,8 +2606,11 @@ class WaveCRoundTwoTests(InstallerCase):
         self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<economycore/>')
         self.assertFalse((self.mission / 'hollow-country/new').exists())
         self.assertEqual((self.mission / 'storage_1/data/players.db').read_text(), 'SAVED PLAYERS')
-        stash = list((self.server / fi.BACKUP_DIR).rglob('hard-exit-partial'))
-        self.assertEqual(len(stash), 1)
+        stash = list((self.server / fi.BACKUP_DIR).rglob(fi.STASH_PREFIX + '*'))
+        self.assertEqual([s.name for s in stash], [fi.STASH_PREFIX + crashed])
+        self.assertIn('Kept a copy of the cut-off mission folder before restoring it: ', out)
+        self.assertIn(stash[0].name, out)
+        self.assertEqual(list((self.server / fi.BACKUP_DIR).rglob(fi.STASH_TEMP + '*')), [])
         self.assertEqual((stash[0] / 'mpmissions' / MISSION / 'cfgeconomycore.xml').read_text(), '<partial/>')
         self.assertEqual(self.run_cli('--check')[0], 0)
         self.assertNotEqual(live_snapshot(self.server), before)
@@ -2602,9 +2637,17 @@ class WaveCRoundTwoTests(InstallerCase):
 
     # P3
 
+    def reset_edits(self):
+        """The operator puts RespawnTypes back at its stock value (and tunes IdleModeCountdown); every expectation is
+        derived from the real scaler and the stock file."""
+        stock = values_of(GLOBALS_STOCK)['RespawnTypes']
+        first = boosted_values(2.0)['RespawnTypes']
+        self.assertNotEqual(first, stock)
+        return [(var_tag('RespawnTypes', first), var_tag('RespawnTypes', stock)), (b'value="60"', b'value="90"')], stock
+
     def test_a_loot_boosted_variable_back_at_its_stock_value_is_a_reset_and_the_boost_returns(self):
-        stock = (b'<var name="RespawnTypes" type="0" value="24"/>', b'<var name="RespawnTypes" type="0" value="12"/>')
-        path = self.tuned_server([stock, (b'value="60"', b'value="90"')])
+        edits, _stock = self.reset_edits()
+        path = self.tuned_server(edits)
         newer = self.upgraded_bundle()
         code, out, err = self.run_cli(bundle=newer)
         self.assertEqual(code, 0, out + err)
@@ -2612,20 +2655,56 @@ class WaveCRoundTwoTests(InstallerCase):
         self.assertIn('IdleModeCountdown 60 -> 90', out)
         self.assertEqual(self.apply(bundle=newer)[0], 0)
         values = var_values(path)
-        self.assertEqual(values['RespawnTypes'], '36')  # the new boost, not the stock value kept as tuning
+        self.assertEqual(values['RespawnTypes'], boosted_values(3.0)['RespawnTypes'])  # the new boost, not stock kept as tuning
         self.assertEqual(values['IdleModeCountdown'], '90')
 
     def test_a_reset_without_a_new_bundle_gets_the_boost_value_back_with_a_repair_row(self):
-        path = self.tuned_server([(b'<var name="RespawnTypes" type="0" value="24"/>',
-                                   b'<var name="RespawnTypes" type="0" value="12"/>'), (b'value="60"', b'value="90"')])
+        edits, _stock = self.reset_edits()
+        path = self.tuned_server(edits)
         code, out, err = self.apply()
         self.assertEqual(code, 0, out + err)
         values = var_values(path)
-        self.assertEqual((values['RespawnTypes'], values['IdleModeCountdown']), ('24', '90'))
+        self.assertEqual((values['RespawnTypes'], values['IdleModeCountdown']),
+                         (boosted_values(2.0)['RespawnTypes'], '90'))
         self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'globals')
         before = snapshot(self.tmp)
         self.assertEqual(self.apply()[0], 0)
         self.assertEqual(snapshot(self.tmp), before)
+
+    def test_the_whole_file_put_back_to_stock_is_read_like_one_stock_variable(self):
+        # The same reset line and the same outcome as a single variable put back (see the test above): the boost
+        # value returns, every other stock value stays.
+        whole = self.tuned_server([])
+        whole.write_bytes(GLOBALS_STOCK)
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('WARN  globals  RespawnTypes is back at its stock value', out)
+        self.assertNotIn('blocked', out.lower())
+        self.assertEqual(self.apply()[0], 0)
+        expected = dict(values_of(GLOBALS_STOCK), RespawnTypes=boosted_values(2.0)['RespawnTypes'])
+        self.assertEqual(var_values(whole), expected)
+        self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'globals')
+
+    def test_keep_stock_globals_records_an_opt_out_and_the_boost_never_returns_for_that_variable(self):
+        edits, stock = self.reset_edits()
+        path = self.tuned_server(edits)
+        code, out, err = self.apply('--keep-stock-globals')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+        values = var_values(path)
+        self.assertEqual((values['RespawnTypes'], values['IdleModeCountdown']), (stock, '90'))
+        # Later runs, with and without a new overlay bundle and without the flag, keep the stock value.
+        newer = self.upgraded_bundle()
+        code, preview, err = self.run_cli(bundle=newer)
+        self.assertEqual(code, 0, preview + err)
+        self.assertIn('RespawnTypes stays at its stock value: you opted out', preview)
+        self.assertNotIn('is back at its stock value', preview)
+        for bundle in (self.bundle, newer):
+            code, out, err = self.apply(bundle=bundle)
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(var_values(path)['RespawnTypes'], stock)
+            self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+        self.assertEqual(self.run_cli('--check')[0], 0)
 
     def test_a_receipt_with_another_schema_is_never_rebuilt_by_repair(self):
         self.assertEqual(self.apply()[0], 0)
@@ -2650,6 +2729,242 @@ class WaveCRoundTwoTests(InstallerCase):
             self.assertIn('  repaired  %s  %s: %s' % (row['kind'], row['path'], row['detail']), out)
         saved = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('mod.cpp')]
         self.assertEqual(saved, [b'name = "Mine";\n'])
+
+
+    # Round 3: the launcher lists are merged, never replaced or rebuilt
+
+    BUNDLE_LAUNCHER = (b'@echo off\r\nstart "" DayZServer_x64.exe -port=2302 "-mod=@CF;@HollowCountry;@New" '
+                       b'"-serverMod=@S" -dologs\r\n')
+
+    def merged_lists(self, merged):
+        text = merged.decode('utf-8')
+        return {name: fi.launcher_entries(text[start:end]) for name, start, end, _q in fi.launcher_args(text)}
+
+    def test_a_quoted_mod_value_with_spaces_is_one_token_and_is_never_split(self):
+        current = (b'start "" DayZServer_x64.exe "-mod=@CF;@Base Building Plus;@HollowCountry" -profiles=data\r\n')
+        merged, changes = fi.merge_launcher(current, self.BUNDLE_LAUNCHER)
+        bundle_list = fi.parse_mod_list(self.BUNDLE_LAUNCHER.decode())
+        lists = self.merged_lists(merged)
+        self.assertEqual(lists['mod'], bundle_list + ['@Base Building Plus'])
+        self.assertEqual(lists['servermod'], ['@S'])
+        self.assertTrue(merged.startswith(b'start "" DayZServer_x64.exe "-mod='))
+        self.assertTrue(merged.endswith(b' -profiles=data\r\n'))
+        self.assertEqual(fi.merge_launcher(merged, self.BUNDLE_LAUNCHER), (merged, []))
+        # The quote may also follow the equals sign.
+        other = b'start x -mod="@CF;@Base Building Plus;@HollowCountry" -profiles=data\r\n'
+        merged, _changes = fi.merge_launcher(other, self.BUNDLE_LAUNCHER)
+        self.assertEqual(self.merged_lists(merged)['mod'], bundle_list + ['@Base Building Plus'])
+        self.assertIn(b'-mod="@CF;', merged)
+
+    def test_operator_mods_and_the_operator_server_mod_list_are_kept_after_the_bundle_folders(self):
+        operators = ['@Operator%d' % number for number in range(13)]
+        current = ('start "" DayZServer_x64.exe -port=2999 "-mod=@CF;%s;@HollowCountry" "-serverMod=@OperatorServerSide" '
+                   '-cpuCount=4\r\n' % ';'.join(operators)).encode()
+        merged, changes = fi.merge_launcher(current, self.BUNDLE_LAUNCHER)
+        lists = self.merged_lists(merged)
+        bundle_mods = fi.parse_mod_list(self.BUNDLE_LAUNCHER.decode())
+        self.assertEqual(lists['mod'], bundle_mods + operators)
+        self.assertEqual(lists['servermod'], ['@S', '@OperatorServerSide'])
+        self.assertIn(b'-port=2999', merged)
+        self.assertIn(b'-cpuCount=4', merged)
+        shown_lines = fi.launcher_change_lines(changes)
+        for name in operators + ['@OperatorServerSide']:
+            self.assertIn('kept    ' + ('-serverMod ' if name == '@OperatorServerSide' else '-mod ') + name
+                          + ' (not managed by this installer)', shown_lines)
+        self.assertIn('added   -mod @New', shown_lines)
+        self.assertIn('added   -serverMod @S', shown_lines)
+        self.assertEqual(fi.merge_launcher(merged, self.BUNDLE_LAUNCHER), (merged, []))
+
+    def test_retired_folders_are_removed_and_names_match_ignoring_case(self):
+        retired = fi.retired_folders()
+        self.assertTrue(retired)
+        current = ('start x "-mod=@cf;%s;@Mine;@hollowcountry" -dologs\r\n' % ';'.join(retired)).encode()
+        merged, changes = fi.merge_launcher(current, self.BUNDLE_LAUNCHER, retired)
+        bundle_mods = fi.parse_mod_list(self.BUNDLE_LAUNCHER.decode())
+        self.assertEqual(self.merged_lists(merged)['mod'], bundle_mods + ['@Mine'])
+        lines = fi.launcher_change_lines(changes)
+        for name in retired:
+            self.assertIn('removed -mod %s (retired by this bundle)' % name, lines)
+        self.assertNotIn('kept    -mod @cf (not managed by this installer)', lines)
+        # A retired folder the bundle itself lists again is the bundle's, not removed.
+        again, _changes = fi.merge_launcher(current, self.BUNDLE_LAUNCHER.replace(b'@New', retired[0].encode()), retired)
+        self.assertIn(retired[0], self.merged_lists(again)['mod'])
+
+    def test_a_launcher_that_cannot_be_merged_names_the_reason(self):
+        for label, data in (('no mods', b'echo mine\r\n'), ('not utf-8', b'\xff\xfe start -mod=@A'),
+                            ('batch variable', b'start x -mod=%MODS% -dologs\r\n'),
+                            ('unclosed quote', b'start x "-mod=@A -dologs\r\n')):
+            with self.subTest(label):
+                self.assertIsNone(fi.merge_launcher(data, self.BUNDLE_LAUNCHER))
+                self.assertTrue(fi.launcher_problem(data, self.BUNDLE_LAUNCHER))
+
+    def test_repair_and_yes_never_replace_a_launcher_that_cannot_be_merged_recorded_or_not(self):
+        cases = (('no-mods', b'echo mine\r\n'), ('not-utf8', b'\xff\xfe start -mod=@A\r\n'),
+                 ('variable', b'start x -mod=%MODS% -dologs\r\n'), ('unclosed', b'start x "-mod=@A -dologs\r\n'))
+        for recorded in (True, False):
+            for label, data in cases:
+                with self.subTest(recorded=recorded, case=label):
+                    self.server = self.tmp / ('server-%s-%s' % (recorded, label))
+                    self.mission = self.make_server(self.server)
+                    if recorded:
+                        self.assertEqual(self.apply()[0], 0)
+                    (self.server / 'start-server.bat').write_bytes(data)
+                    before = live_snapshot(self.server)
+                    for extra in ((), ('--repair',)):
+                        code, out, err = self.apply(*extra)
+                        self.assertEqual(code, 2, out + err)
+                        self.assertIn('refused: launcher', err)
+                        self.assertIn('never replace a launcher wholesale', err)
+                        self.assertEqual((self.server / 'start-server.bat').read_bytes(), data)
+                        self.assertEqual(live_snapshot(self.server), before)
+
+    # Round 3: a rollback after a retire step restores the retired folders
+
+    def test_a_refusal_after_the_retired_folders_were_removed_restores_them_and_a_later_apply_works(self):
+        retired = ws.load_manifest()['retired']
+        self.assertEqual(self.apply()[0], 0)
+        path = self.server / ws.RECEIPT_NAME
+        receipt = json.loads(path.read_text())
+        files = {e['path']: e for e in receipt['files']}
+        dirs = set(receipt['dirs'])
+        for item in retired:
+            top = item['folder']
+            dirs |= {top, top + '/addons', top + '/keys'}
+            for rel, data in ((top + '/addons/old.pbo', b'OLDPBO-' + item['id'].encode()),
+                              (top + '/keys/old.bikey', b'OLDKEY-' + item['id'].encode()),
+                              (top + '/meta.cpp', b'publishedid = %s;\n' % item['id'].encode())):
+                put(self.server, rel, data)
+                files[rel] = {'path': rel, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data), 'item': item['id']}
+        path.write_bytes(ws.json_bytes(ws.receipt_data(files, dirs)))
+        before = live_snapshot(self.server)
+        self.assertTrue([k for k in before if k.startswith(retired[0]['folder'])])
+        with self.inject_after('weapons', fi.Refused('injected', 'after the retire step')):
+            code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rolled back: the server is as it was before this run', err)
+        self.assertEqual(live_snapshot(self.server), before)
+        for item in retired:
+            self.assertTrue((self.server / item['folder'] / 'addons/old.pbo').is_file())
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        for item in retired:
+            self.assertFalse((self.server / item['folder']).exists())
+
+    # Round 3: a typed y at the hard-exit prompt restores the tree and nothing else
+
+    def test_y_at_the_hard_exit_prompt_does_not_turn_on_repair(self):
+        self.assertEqual(self.apply()[0], 0)
+        newer = self.upgraded_bundle()
+        self.crash_inside_the_mission_writer(bundle=newer)
+        pbo = self.server / '@HollowCountry/addons/hollowcountry.pbo'
+        bikey = self.server / 'keys/hollowcountry.bikey'
+        launcher = self.server / 'start-server.bat'
+        pbo.write_bytes(b'EDITED')
+        bikey.write_bytes(b'MY KEY')
+        stale = self.operator_launcher().replace(b'"-mod=@CF;', b'"-mod=@Mine;@CF;')
+        launcher.write_bytes(stale)
+        asked = []
+
+        def answers(prompt):
+            asked.append(prompt)
+            return 'y' if len(asked) == 1 and 'repair these' in prompt else 'n'
+        code, out, err = self.run_cli('--apply', answers=answers, bundle=newer)
+        self.assertIn('Recovered interrupted install', out)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<economycore/>')
+        self.assertFalse((self.mission / 'hollow-country/new').exists())
+        # Edited files and the launcher are exactly as the operator left them: the y was not --repair.
+        self.assertEqual(pbo.read_bytes(), b'EDITED')
+        self.assertEqual(bikey.read_bytes(), b'MY KEY')
+        self.assertEqual(launcher.read_bytes(), stale)
+        self.assertNotIn('repaired  ', out)
+        self.assertNotIn('repairs', self.receipt())
+
+    # Round 3: the stash is one per attempt, complete before it is named, and a retry loses nothing
+
+    def test_a_stash_copy_that_fails_halfway_leaves_no_stash_and_a_retry_keeps_the_operator_edits(self):
+        self.crash_inside_the_mission_writer()
+        crashed = self.latest_run()
+        root = self.server / fi.BACKUP_DIR / crashed
+        real = shutil.copytree
+
+        def half(src, dst, *args, **kwargs):
+            if fi.STASH_TEMP in str(dst):
+                Path(dst).mkdir(parents=True)
+                (Path(dst) / 'half-copied.txt').write_text('partial')
+                raise OSError('disk full')
+            return real(src, dst, *args, **kwargs)
+        with mock.patch.object(fi.shutil, 'copytree', side_effect=half):
+            code, out, err = self.apply('--repair')
+        self.assertNotEqual(code, 0, out + err)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        self.assertEqual([p for p in root.glob(fi.STASH_PREFIX + '*')], [])
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        stash = root / (fi.STASH_PREFIX + crashed)
+        self.assertEqual((stash / 'mpmissions' / MISSION / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        self.assertFalse((stash / 'half-copied.txt').exists())
+        self.assertEqual(list(root.glob(fi.STASH_TEMP + '*')), [])
+        self.assertIn('Kept a copy of the cut-off mission folder before restoring it: ', out)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<economycore/>')
+
+    def test_each_recovery_attempt_makes_its_own_stash_and_never_replaces_an_earlier_one(self):
+        self.crash_inside_the_mission_writer()
+        crashed = self.latest_run()
+        root = self.server / fi.BACKUP_DIR / crashed
+        with mock.patch.object(fi, 'restore_change', side_effect=OSError('locked')):
+            code, out, err = self.apply('--repair')
+        self.assertNotEqual(code, 0, out + err)
+        first = root / (fi.STASH_PREFIX + crashed)
+        self.assertTrue(first.is_dir())
+        (self.mission / 'cfgeconomycore.xml').write_text('<edited again/>')
+        with mock.patch.object(fi, 'restore_change', side_effect=OSError('locked')):
+            code, out, err = self.apply('--repair')
+        self.assertNotEqual(code, 0, out + err)
+        second = root / (fi.STASH_PREFIX + crashed + '-2')
+        self.assertTrue(second.is_dir())
+        self.assertEqual((first / 'mpmissions' / MISSION / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        self.assertEqual((second / 'mpmissions' / MISSION / 'cfgeconomycore.xml').read_text(), '<edited again/>')
+        self.assertEqual(self.apply('--repair')[0], 0)
+
+    # Round 3: receipts, paths and the journal
+
+    def test_a_receipt_that_cannot_be_opened_is_never_rebuilt_but_a_damaged_one_is(self):
+        self.assertEqual(self.apply()[0], 0)
+        path = self.server / fi.RECEIPT
+        path.unlink()
+        path.mkdir()  # reading it raises an OSError (not a damaged file)
+        before = snapshot(self.server)
+        for extra in ((), ('--repair',)):
+            code, out, err = self.apply(*extra)
+            self.assertEqual(code, 2, out + err)
+            self.assertIn('receipt_unreadable', err)
+            self.assertEqual(snapshot(self.server), before)
+        path.rmdir()
+        path.write_bytes(b'\xff\xfe not text')
+        code, out, err = self.apply()
+        self.assertEqual(code, 2)
+        self.assertIn('receipt_invalid', err)
+        self.assertEqual(self.apply('--repair')[0], 0)
+        self.assertEqual(json.loads(path.read_text())['schema'], fi.SCHEMA)
+        self.assertNotEqual(path.read_bytes(), b'\xff\xfe not text')
+
+    def test_journal_rows_are_found_ignoring_case_and_a_missing_row_is_a_refusal_not_a_stop_iteration(self):
+        row = {'path': 'mpmissions/' + MISSION, 'kind': 'tree', 'written': {}}
+        ctx = mock.Mock(journal={'entries': [row]}, backup_root=self.tmp)
+        self.assertIs(fi.journal_row(ctx, 'MPMissions/' + MISSION.upper()), row)
+        with self.assertRaises(fi.Refused) as caught:
+            fi.journal_row(ctx, 'somewhere/else')
+        self.assertEqual(caught.exception.code, 'journal_invalid')
+        with mock.patch.object(fi, 'track_target'), mock.patch.object(ws, 'write_json_atomic'):
+            fi.record_written(ctx, 'MPMISSIONS/' + MISSION + '/Db/Globals.xml', 'a' * 64)
+        self.assertEqual(row['written'], {'Db/Globals.xml': ['a' * 64]})
+
+
+def with_mods(launcher, *extras):
+    """The launcher bytes with the operator's extra mods appended to the -mod= list the bundle wrote."""
+    listed = ';'.join(fi.parse_mod_list(launcher.decode('utf-8')))
+    assert ('-mod=' + listed).encode() in launcher
+    return launcher.replace(('-mod=' + listed).encode(), ('-mod=' + ';'.join([listed, *extras])).encode(), 1)
 
 
 def live_snapshot_of(rows):

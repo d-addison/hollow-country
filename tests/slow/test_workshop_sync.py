@@ -817,6 +817,79 @@ class ServerDetection(unittest.TestCase):
             self.assertFalse(ws.server_running())
 
 
+class RetiredSharedKeyTests(unittest.TestCase):
+    """A root keys/*.bikey an older install recorded for a retired mod is deleted only when no live mod folder and
+    not the bundle provides the same key (same name ignoring case, or the same bytes)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.root = self.tmp / 'server'
+        self.manifest = ws.load_manifest()
+        self.folder = self.manifest['retired'][0]['folder']
+        self.author = b'author key bytes'
+        self.files = {}
+        for rel in ('%s/keys/Author.bikey' % self.folder, 'keys/Author.bikey'):
+            self.put(rel, self.author)
+            self.files[rel] = {'path': rel, 'sha256': hashlib.sha256(self.author).hexdigest(), 'size': len(self.author),
+                               'item': 'old'}
+        self.receipt = ws.receipt_data(self.files, {self.folder, self.folder + '/keys'})
+
+    def put(self, rel, data):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    def paths(self, **kwargs):
+        rows, dirs, kept = ws.split_retired_rows(self.receipt, self.manifest, self.root, **kwargs)
+        return sorted(r['path'] for r in rows), kept
+
+    def test_a_key_no_live_folder_provides_is_removed_with_the_retired_folder(self):
+        rows, kept = self.paths()
+        self.assertIn('keys/Author.bikey', rows)
+        self.assertEqual(kept, [])
+        removed, left = ws.retire_items(self.root, self.receipt, self.manifest)
+        self.assertIn('keys/Author.bikey', removed)
+        self.assertFalse((self.root / 'keys/Author.bikey').exists())
+
+    def test_a_shared_author_key_a_live_folder_also_carries_is_kept_with_a_reason(self):
+        self.put('@OtherMod/keys/another-name.bikey', self.author)  # not in the receipt; same bytes
+        rows, kept = self.paths()
+        self.assertNotIn('keys/Author.bikey', rows)
+        self.assertEqual([path for path, _reason in kept], ['keys/Author.bikey'])
+        self.assertIn('@OtherMod/keys/another-name.bikey', kept[0][1])
+        removed, left = ws.retire_items(self.root, self.receipt, self.manifest)
+        self.assertNotIn('keys/Author.bikey', removed)
+        self.assertEqual((self.root / 'keys/Author.bikey').read_bytes(), self.author)
+        self.assertFalse((self.root / self.folder).exists())
+
+    def test_a_case_variant_of_the_key_name_in_a_live_folder_is_kept(self):
+        self.put('@OtherMod/Keys/AUTHOR.BIKEY', b'a different key with the same name')
+        rows, kept = self.paths()
+        self.assertNotIn('keys/Author.bikey', rows)
+        self.assertEqual([path for path, _reason in kept], ['keys/Author.bikey'])
+        ws.retire_items(self.root, self.receipt, self.manifest)
+        self.assertEqual((self.root / 'keys/Author.bikey').read_bytes(), self.author)
+
+    def test_a_key_the_bundle_provides_is_kept(self):
+        bundle_keys = self.tmp / 'bundle-keys'
+        bundle_keys.mkdir()
+        (bundle_keys / 'author.bikey').write_bytes(b'bundle copy')
+        rows, kept = ws.split_retired_rows(self.receipt, self.manifest, self.root, extra_key_dirs=[bundle_keys])[::2]
+        self.assertNotIn('keys/Author.bikey', [r['path'] for r in rows])
+        self.assertIn('the bundle keys/author.bikey', kept[0][1])
+
+    def test_a_retired_folder_named_in_another_case_is_still_retired(self):
+        retired = {self.folder.casefold(): self.folder.swapcase()}
+        receipt = json.loads(json.dumps(self.receipt))
+        for entry in receipt['files']:
+            entry['path'] = entry['path'].replace(self.folder, retired[self.folder.casefold()])
+        receipt['dirs'] = [d.replace(self.folder, retired[self.folder.casefold()]) for d in receipt['dirs']]
+        rows, dirs, _kept = ws.split_retired_rows(receipt, self.manifest, self.root)
+        self.assertEqual(len(dirs), 2)
+        self.assertIn(retired[self.folder.casefold()] + '/keys/Author.bikey', [r['path'] for r in rows])
+
+
 class Documentation(unittest.TestCase):
     def test_docs_cover_the_workshop_flow(self):
         text = (REPO / 'docs/FRIEND_SERVER.md').read_text()
