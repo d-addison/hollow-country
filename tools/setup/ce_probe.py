@@ -26,9 +26,10 @@ import xml.etree.ElementTree as ET
 
 try:
     from . import diagnostic_mission as dm  # noqa: F401  (kept importable from this module)
-    from . import probe_runtime as rt
+    from . import probe_core, probe_runtime as rt
 except ImportError:  # executed as a script from tools/setup
     import diagnostic_mission as dm  # noqa: F401
+    import probe_core
     import probe_runtime as rt
 
 # Shared names are the one implementation in probe_runtime (same objects, not copies).
@@ -156,32 +157,7 @@ class HCDisposableDiagnosticMission : CustomMission
 """
 
 HOOK_TAIL = r"""
-    string HCProbeKey(string name)
-    {
-        return m_HCProbeQuote + name + m_HCProbeQuote + ":";
-    }
-
-    string HCProbeStr(string value)
-    {
-        string text = value;
-        if (text.Length() > 96)
-            text = text.Substring(0, 96);
-        text.Replace(m_HCProbeBackslash, "/");
-        text.Replace(m_HCProbeQuote, "'");
-        return m_HCProbeQuote + text + m_HCProbeQuote;
-    }
-
-    string HCProbeBool(bool value)
-    {
-        if (value)
-            return "true";
-        return "false";
-    }
-
-    string HCProbeVector(vector value)
-    {
-        return "[" + value[0] + "," + value[1] + "," + value[2] + "]";
-    }
+@@JSON_HELPERS@@
 
     bool HCProbeBoxUsable(vector lo, vector hi)
     {
@@ -460,6 +436,9 @@ HOOK_TAIL = r"""
     }
 }
 """
+HOOK_TAIL = HOOK_TAIL.replace("@@JSON_HELPERS@@", probe_core.enforce_sanitizing_json_helpers(
+    "HCProbe", "m_HCProbeQuote", "m_HCProbeBackslash", vector="plain", slash_first=True))
+
 
 LOADER_CHUNK = 40
 MIN_EXPORT_DELAY_S, MAX_EXPORT_DELAY_S = 5, 600

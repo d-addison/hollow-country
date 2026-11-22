@@ -63,6 +63,7 @@ BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowl
 # Other repo files the shipped tools import or read at install time (wiring audit W010 bundle closure).
 BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
                       'tools/setup/diagnostic_mission.py', 'tools/setup/probe_runtime.py',
+                      'tools/setup/probe_core.py', 'tools/release/host_lock.py',
                       'config/loot-dispositions.json', 'config/military-loot.json')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'

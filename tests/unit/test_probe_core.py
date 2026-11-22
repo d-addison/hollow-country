@@ -98,27 +98,46 @@ class Emitters(unittest.TestCase):
                 core.enforce_json_helpers(max_string_bytes=limit)
 
     def test_sanitizing_helpers_pass_lint_and_follow_their_parameters(self):
-        for style in ('tostring', 'plain'):
+        for style in ('tostring', 'plain', 'num'):
             for limit in (1, 96, 4096):
                 with self.subTest(style=style, limit=limit):
                     text = core.enforce_sanitizing_json_helpers('HCX', 'm_Quote', 'm_Slash', vector=style,
                                                                 max_string_bytes=limit)
                     source = ('class HCOfflineProbe {\n    protected string m_Quote = "";\n'
-                              '    protected string m_Slash = "";\n' + text + '\n};')
-                    self.assertEqual(runtime.lint_hook(source, explicit_numbers=style == 'tostring'), [])
+                              '    protected string m_Slash = "";\n'
+                              '    string HCXNum(float value)\n    {\n        return value.ToString();\n    }\n'
+                              + text + '\n};')
+                    self.assertEqual(runtime.lint_hook(source, explicit_numbers=style != 'plain'), [])
                     self.assertLessEqual(runtime.max_statement_plus(source), runtime.MAX_STATEMENT_PLUS)
                     for name in ('Key', 'Str', 'Bool', 'Vector'):
                         self.assertIn('string HCX%s(' % name, text)
                     self.assertEqual(text.count('.ToString()'), 3 if style == 'tostring' else 0)
+                    self.assertEqual(text.count('HCXNum('), 3 if style == 'num' else 0)
                     self.assertIn('Length() > %d' % limit, text)
                     self.assertNotIn('@', text)
+
+    def test_sanitizing_helper_replacement_order_only_reorders(self):
+        first = core.enforce_sanitizing_json_helpers('HCX', 'q', 's')
+        second = core.enforce_sanitizing_json_helpers('HCX', 'q', 's', slash_first=True)
+        self.assertNotEqual(first, second)
+        self.assertEqual(sorted(first.splitlines()), sorted(second.splitlines()))
+        self.assertLess(first.index('Replace(q'), first.index('Replace(s'))
+        self.assertLess(second.index('Replace(s'), second.index('Replace(q'))
+
+    def test_sampler_hooks_embed_the_shared_helpers(self):
+        from tools.setup import ce_probe, interior_sampler
+        for module in (ce_probe, interior_sampler):
+            with self.subTest(module=module.__name__):
+                self.assertNotIn('@@JSON_HELPERS@@', module.HOOK_TAIL)
+                for name in ('Key', 'Str', 'Bool', 'Vector'):
+                    self.assertEqual(module.HOOK_TAIL.count('string HCProbe%s(' % name), 1)
 
     def test_sanitizing_helpers_refuse_bad_parameters(self):
         good = dict(prefix='HCX', quote='m_Quote', slash='m_Slash')
         for key, value in (('prefix', 'a b'), ('prefix', ''), ('quote', '1x'), ('slash', 'x;y')):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 core.enforce_sanitizing_json_helpers(**{**good, key: value})
-        for kwargs in (dict(vector='num'), dict(max_string_bytes=0), dict(max_string_bytes=True)):
+        for kwargs in (dict(vector='bogus'), dict(max_string_bytes=0), dict(max_string_bytes=True)):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 core.enforce_sanitizing_json_helpers(**good, **kwargs)
 

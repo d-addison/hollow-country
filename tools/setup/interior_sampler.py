@@ -43,10 +43,11 @@ import xml.etree.ElementTree as ET
 
 try:
     from . import ce_probe as placements_tool  # public placement parsing/selection only
-    from . import probe_runtime as rt
+    from . import probe_core, probe_runtime as rt
     from ..audit import interior_points as pts  # census parsing/validation (the builder's own rules)
 except ImportError:  # executed as a script from tools/setup
     import ce_probe as placements_tool
+    import probe_core
     import probe_runtime as rt
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import interior_points as pts
@@ -333,32 +334,7 @@ HOOK_TAIL = r"""
         return value.ToString();
     }
 
-    string HCProbeKey(string name)
-    {
-        return m_HCProbeQuote + name + m_HCProbeQuote + ":";
-    }
-
-    string HCProbeStr(string value)
-    {
-        string text = value;
-        if (text.Length() > 96)
-            text = text.Substring(0, 96);
-        text.Replace(m_HCProbeQuote, "'");
-        text.Replace(m_HCProbeBackslash, "/");
-        return m_HCProbeQuote + text + m_HCProbeQuote;
-    }
-
-    string HCProbeBool(bool value)
-    {
-        if (value)
-            return "true";
-        return "false";
-    }
-
-    string HCProbeVector(vector value)
-    {
-        return "[" + HCProbeNum(value[0]) + "," + HCProbeNum(value[1]) + "," + HCProbeNum(value[2]) + "]";
-    }
+@@JSON_HELPERS@@
 
     bool HCProbeBoxUsable(vector lo, vector hi)
     {
@@ -2054,6 +2030,9 @@ HOOK_TAIL = r"""
     }
 }
 """
+HOOK_TAIL = HOOK_TAIL.replace("@@JSON_HELPERS@@", probe_core.enforce_sanitizing_json_helpers(
+    "HCProbe", "m_HCProbeQuote", "m_HCProbeBackslash", vector="num"))
+
 
 
 RUN_ID_RULE = re.compile(r"[0-9a-f]{32}")
