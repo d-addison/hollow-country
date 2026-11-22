@@ -574,6 +574,34 @@ class HCWorldMaterializer : HCModule
         return true;
     }
 
+    // Only depth zero with no committed image anywhere can start empty.
+    // A deeper intent also prevents this classification, even without a primary.
+    protected bool HCFreshCustodyOnly()
+    {
+        string path = "$profile:HollowCountry/ai-custody.json";
+        if (m_CustodyPath != path || m_StartedOnce) { return false; }
+        for (int level = 0; level <= HC_REJECTED_SLOTS; level++)
+        {
+            if (FileExist(path)) { return false; }
+            if (level > 0 && FileExist(path + ".tmp")) { return false; }
+            path += ".bak";
+        }
+        return true;
+    }
+
+    protected bool HCRetireFreshCustodyTmp()
+    {
+        string temporary = m_CustodyPath + ".tmp";
+        if (FileExist(temporary) && !HCWorldIntentRecovery.Reject(temporary, HCWorldStore.MAX_BYTES)) { return this.HCCustodyFault("custody_fresh_tmp_preserve_failed"); }
+        if (FileExist(temporary + ".unverified_read") && !DeleteFile(temporary + ".unverified_read")) { return this.HCCustodyFault("custody_fresh_marker_delete_failed"); }
+        if (FileExist(temporary + ".unverified_oversize") && !DeleteFile(temporary + ".unverified_oversize")) { return this.HCCustodyFault("custody_fresh_marker_delete_failed"); }
+        m_CustodyKeepTmp = false;
+        m_CustodyRetainedSource = "";
+        Print("[HC World] custody_fresh_tmp_rejected action=start_empty reason=no_committed_copy");
+        HCModuleReadiness.HCUse(GetName(), "custody_fresh_tmp_rejected");
+        return true;
+    }
+
     protected bool HCRecoverCustodyTmp()
     {
         if (!this.HCCustodyDepthAllowed()) { return false; }
@@ -582,6 +610,7 @@ class HCWorldMaterializer : HCModule
         if (!this.HCReadCustody(temporary, intent))
         {
             if (m_CustodyRetryRead) { return false; }
+            if (this.HCFreshCustodyOnly()) { return this.HCRetireFreshCustodyTmp(); }
             // Exhausted string reads (including NUL conversion) are not a
             // permanent refusal when another fully valid checkpoint survives.
             string survivor;
@@ -684,6 +713,7 @@ class HCWorldMaterializer : HCModule
         // keeps the source in place and moves subsequent saves to the backup.
         if (!next)
         {
+            if (this.HCFreshCustodyOnly()) { return this.HCRetireFreshCustodyTmp(); }
             if (!this.HCPreserveCustodyFile(temporary)) { return false; }
             if (m_CustodyRetainedSource == temporary)
             {
@@ -748,8 +778,15 @@ class HCWorldMaterializer : HCModule
             {
                 bool nextEmpty = !FileExist(backup);
                 if (FileExist(backup + ".bak")) { nextEmpty = false; }
-                if (FileExist(m_CustodyPath) && nextEmpty) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
+                if (!retainedPrimary && this.HCFreshCustodyOnly()) { return this.HCRetireFreshCustodyTmp(); }
                 if (nextEmpty) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
+            }
+            // Refuse an invalid ceiling before promoting an older checkpoint:
+            // otherwise a crash could disguise the rollback as a valid primary.
+            bool restoringOlder = prior && (!selected || prior.NextLease > selected.NextLease) && (m_CustodyRetainedSource == m_CustodyPath || m_CustodyRetainedSource == m_CustodyPath + ".tmp");
+            if (restoringOlder)
+            {
+                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
             }
             // A selected pending intent is already durable; never truncate it
             // by opening the same backup intent for an in-place rewrite.
@@ -788,8 +825,10 @@ class HCWorldMaterializer : HCModule
                 if (!HCWorldStore.ReadChecked(backup + ".tmp", verified) || verified != selectedText) { return this.HCCustodyFault("custody_retained_verify_failed"); }
             }
             if (!this.HCCleanupCustodyWitness(m_CustodyPath)) { return false; }
+            // A persisted relocation marker already makes backup the active
+            // store. Report rollback only when this boot newly selects its prior.
+            if (restoringOlder) { m_CustodyRestoredOlder = true; }
             m_CustodyPath = backup;
-            m_CustodyRestoredOlder = true;
             m_CustodyKeepTmp = false;
         }
         return this.HCCustodyDepthAllowed();
@@ -839,7 +878,6 @@ class HCWorldMaterializer : HCModule
         m_CustodyText = "";
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return this.HCCustodyFault("custody_directory_create_failed"); }
         m_LeaseCeiling = new HCWorldLeaseCeiling;
-        if (!m_LeaseCeiling.Load()) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
         m_CustodyKeepTmp = false;
         if (!this.HCSelectRetainedCustody()) { return false; }
         if (FileExist(m_CustodyPath + ".tmp") && !this.HCRecoverCustodyTmp()) { return false; }
@@ -867,6 +905,7 @@ class HCWorldMaterializer : HCModule
                 if (!this.HCReadCustody(backup, backupText)) { return false; }
                 HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
                 if (!prior) { return this.HCCustodyFault("custody_backup_invalid"); }
+                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
                 m_CustodyRestoredOlder = true;
                 // Rollback may lose a checkpoint, but never reissue any lease
                 // proposed in this process, even after its last save request.
@@ -962,13 +1001,30 @@ class HCWorldMaterializer : HCModule
         }
         if (loaded.NextLease < m_CustodyNextLeaseSeen) { return this.HCCustodyFault("custody_primary_older_than_watermark"); }
         if (!this.HCCustodyDepthAllowed()) { return false; }
+        // Classify the selected custody image before deciding whether a torn
+        // ceiling can be reseeded without reissuing a committed lease.
+        bool allowReseed = !m_CustodyRestoredOlder;
+        if (!m_LeaseCeiling.Load(allowReseed)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
         int leaseFloor = m_LeaseCeiling.Ceiling();
-        if (leaseFloor == 0) { Print("[HC World] custody_lease_ceiling_reseed next_lease=" + loaded.NextLease.ToString()); }
+        if (leaseFloor == 0)
+        {
+            int margin = 1024;
+            string reseedReason = "custody_lease_ceiling_reseed";
+            if (m_CustodyRestoredOlder)
+            {
+                margin = 2048;
+                reseedReason = "custody_lease_ceiling_missing_after_restore";
+            }
+            if (loaded.NextLease <= 2147483647 - margin) { loaded.NextLease += margin; }
+            else { loaded.NextLease = 2147483647; }
+            loaded.SchemaVersion = 2;
+            Print("[HC World] " + reseedReason + " next_lease=" + loaded.NextLease.ToString());
+            HCModuleReadiness.HCUse(GetName(), reseedReason);
+        }
         if (loaded.NextLease < leaseFloor)
         {
             loaded.NextLease = leaseFloor;
             loaded.SchemaVersion = 2;
-            m_CustodyRestoredOlder = true;
         }
         if (m_CustodyRestoredOlder) { Print("[HC World] custody_restored_older next_lease=" + loaded.NextLease.ToString()); }
         // A valid primary no longer needs a stale preservation intent.
@@ -1066,14 +1122,24 @@ class HCWorldMaterializer : HCModule
 
     // Routine scheduling owns its grant; only HCPumpCustodyFallback needs
     // the local guard. Flushes must never count no-op STEP_MORE as disk stages.
+    protected int HCAbortCustody()
+    {
+        if (m_LeaseCeiling)
+        {
+            int ceilingAbort = m_LeaseCeiling.HCAbort();
+            if (ceilingAbort == HCSaveJob.STEP_MORE) { return ceilingAbort; }
+        }
+        return m_CustodyImage.HCAbort();
+    }
+
     int HCStepCustody()
     {
-        if (!m_CustodyReady) { return m_CustodyImage.HCAbort(); }
+        if (!m_CustodyReady) { return this.HCAbortCustody(); }
         int result = this.HCWriteCustody();
         if (result == HCSaveJob.STEP_FAILED)
         {
             this.HCCustodySaveFailed();
-            return m_CustodyImage.HCAbort();
+            return this.HCAbortCustody();
         }
         return result;
     }

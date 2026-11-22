@@ -483,6 +483,7 @@ class HCSearchRefreshStore
     int CheckpointStep(HCSearchRefreshState state, int revision)
     {
         if (m_Fault || !state) { return HCSaveJob.STEP_FAILED; }
+        if (state.LastUtc > HCGroupClock.Utc()) { Fault(); return HCSaveJob.STEP_FAILED; }
         if (!m_Image.Active() || (m_Image.HCReadyToClearIntent() && m_ImageRevision != revision))
         {
             HCSaveJob.HCOperation = "encode";
@@ -514,6 +515,7 @@ class HCSearchRefreshStore
 
     // Validate a whole canonical image before it can authorize recovery. Legacy
     // IntervalSeconds=0 is admitted unchanged; module enrollment fills it later.
+    // Recovery compares durable image clocks with each other, never wall time.
     protected HCSearchRefreshState Decode(string text)
     {
         if (text == "" || text.Length() > MAX_BYTES) { return null; }
@@ -522,7 +524,7 @@ class HCSearchRefreshStore
         string canonical;
         if (!JsonFileLoader<HCSearchRefreshState>.LoadData(text, state, error) || !state) { return null; }
         if (!JsonFileLoader<HCSearchRefreshState>.MakeData(state, canonical, error) || canonical != text) { return null; }
-        if (state.Version != 1 || !state.Rows || state.Rows.Count() > HCSearchRefreshModule.MAX_RECORDS || state.LastUtc < 1 || state.LastUtc > HCGroupClock.Utc()) { return null; }
+        if (state.Version != 1 || !state.Rows || state.Rows.Count() > HCSearchRefreshModule.MAX_RECORDS || state.LastUtc < 1) { return null; }
         map<string, bool> keys = new map<string, bool>;
         foreach (HCSearchRefreshRow row : state.Rows)
         {
@@ -569,7 +571,9 @@ class HCSearchRefreshStore
             Fault();
             return null;
         }
-        if ((FileExist(PATH + ".tmp") && !RecoverIntent()) || (!FileExist(PATH) && FileExist(PATH + ".bak")))
+        bool recovered = true;
+        if (FileExist(PATH + ".tmp")) { recovered = RecoverIntent(); }
+        if (!recovered || (!FileExist(PATH) && FileExist(PATH + ".bak")))
         {
             Fault();
             return null;
@@ -590,6 +594,7 @@ class HCSearchRefreshStore
     bool Save(HCSearchRefreshState state)
     {
         if (m_Fault || !state) return false;
+        if (state.LastUtc > HCGroupClock.Utc()) return Fault();
         // Poison before the first write: even partial temp writes remain evidence.
         m_Fault = true;
         if (!HCSearchJson<HCSearchRefreshState>.WriteNew(PATH + ".tmp", state, MAX_BYTES)) return Fault();
