@@ -641,13 +641,16 @@ class HCHoldouts : HCModule
             if (Occupied() >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
             int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, row.Ledger.Id, "holdout");
             if (row.Camp.Population > 0) { population = row.Camp.Population; }
+            // Finite stock/recruits are an expected wait, reported together by
+            // HCReportWindow rather than one refusal per dormant catalog row.
+            if (m_State.Resources.Stock < policy.CampAllocation || m_State.Resources.Population < population - row.Camp.Population) { return false; }
             array<ref HCAICampLife> foundingHomes = HCCampHomes();
             if (!HCAICampLifecycle.HCFound(row.Camp, m_State.Resources, foundingHomes, "holdout:" + row.Ledger.Id, population, now, policy))
             {
-                if (m_CampRefusals.Get(row.Ledger.Id) != "FOUNDING_RESERVE_EXHAUSTED")
+                if (m_CampRefusals.Get(row.Ledger.Id) != "FOUNDING_INVARIANT_REFUSED")
                 {
-                    m_CampRefusals.Set(row.Ledger.Id, "FOUNDING_RESERVE_EXHAUSTED");
-                    HCLogCamp(row, "refused", "FOUNDING_RESERVE_EXHAUSTED");
+                    m_CampRefusals.Set(row.Ledger.Id, "FOUNDING_INVARIANT_REFUSED");
+                    HCLogCamp(row, "refused", "FOUNDING_INVARIANT_REFUSED");
                 }
                 return false;
             }
@@ -1235,6 +1238,7 @@ class HCHoldouts : HCModule
         int phase1 = 0;
         int phase2 = 0;
         int phase3 = 0;
+        int living = 0;
         array<ref HCHoldoutRow> summaryRows;
         if (m_State && m_State.Rows) { summaryRows = m_State.Rows; }
         int summaryCount;
@@ -1243,6 +1247,7 @@ class HCHoldouts : HCModule
         {
             HCHoldoutRow summaryRow = summaryRows[summaryIndex];
             if (!summaryRow || !summaryRow.Ledger || !summaryRow.Cache) { continue; }
+            if (summaryRow.Camp && summaryRow.Camp.Allocated) { living += summaryRow.Camp.Population; }
             if (summaryRow.Ledger.State == "DORMANT") { dormant++; }
             else if (summaryRow.Ledger.State == "OCCUPIED" || summaryRow.Ledger.State == "ALERT") { occupied++; }
             else if (summaryRow.Ledger.State == "RAIDED") { raided++; }
@@ -1251,6 +1256,41 @@ class HCHoldouts : HCModule
             else if (summaryRow.Cache.Phase == 1) { phase1++; }
             else if (summaryRow.Cache.Phase == 2) { phase2++; }
             else if (summaryRow.Cache.Phase == 3) { phase3++; }
+        }
+        // One additional bounded logical census per report, no site/entity
+        // probes. Forecast assumes no competing debit, death or refund; cache,
+        // observer, occupancy and save gates still decide actual founding.
+        int waiting = 0;
+        int fundingPossible = -1;
+        int populationBlocked = 0;
+        int reserve = 0;
+        int reservePopulation = 0;
+        int reserveAt = 0;
+        int nextReplenish = -1;
+        int now = HCWorldClock.UTC();
+        if (m_Ready && m_State && m_State.Resources && m_State.CampPolicy)
+        {
+            HCAICampResources pool = m_State.Resources;
+            HCAICampPolicy policy = m_State.CampPolicy;
+            reserve = pool.Stock;
+            reservePopulation = pool.Population;
+            reserveAt = pool.ReserveAt;
+            nextReplenish = HCAICampLifecycle.HCNextReplenishSeconds(pool, now, policy);
+            for (int waitIndex = 0; summaryRows && waitIndex < summaryRows.Count() && waitIndex < HCAILimits.Get().MaxHoldouts; waitIndex++)
+            {
+                HCHoldoutRow waitingRow = summaryRows[waitIndex];
+                if (!waitingRow || !waitingRow.Camp || !waitingRow.Ledger) { continue; }
+                if (waitingRow.Camp.Allocated && !waitingRow.Camp.Refunded) { continue; }
+                waiting++;
+                int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, waitingRow.Ledger.Id, "holdout");
+                if (waitingRow.Camp.Population > 0) { population = waitingRow.Camp.Population; }
+                int delay = HCAICampLifecycle.HCFundingWaitSeconds(pool, living, population - waitingRow.Camp.Population, now, policy);
+                if (delay < 0) { populationBlocked++; continue; }
+                // Subtract UTC ints before Math.Max's native float conversion.
+                delay = Math.Max(delay, waitingRow.Camp.ReoccupyAfter - now);
+                delay = Math.Max(delay, waitingRow.Ledger.ReoccupyAfter - now);
+                if (fundingPossible < 0 || delay < fundingPossible) { fundingPossible = delay; }
+            }
         }
         array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
         int catalogPending;
@@ -1276,6 +1316,17 @@ class HCHoldouts : HCModule
         line += " spot_colliding=" + m_SpotCollidingWindow.ToString() + " spot_budget=" + m_SpotBudgetWindow.ToString();
         line += " founded=" + occupied.ToString() + " pending=" + pending.ToString() + " tick_phase=" + m_TickPhase.ToString();
         line += " catalog_pending_rows=" + catalogPending.ToString() + " catalog_cursor=" + m_CatalogCursor.ToString();
+        line += " reserve=" + reserve.ToString() + " next_replenish_s=" + nextReplenish.ToString() + " waiting=" + waiting.ToString();
+        line += " reserve_population=" + reservePopulation.ToString() + " allocated_population=" + living.ToString() + " reserve_at=" + reserveAt.ToString();
+        line += " funding_possible_s=" + fundingPossible.ToString() + " population_blocked=" + populationBlocked.ToString();
+        string fundingState = "available";
+        if (!m_Ready) { fundingState = "unavailable"; }
+        else if (waiting == 0) { fundingState = "no_waiting_camps"; }
+        else if (fundingPossible < 0) { fundingState = "population_capacity"; }
+        else if (nextReplenish == 0) { fundingState = "replenish_due"; }
+        else if (fundingPossible > 0) { fundingState = "scheduled_wait"; }
+        line += " funding_state=" + fundingState;
+        line += " funding_forecast=logical_no_competing_debits";
         line += " ready=" + m_Ready.ToString() + " reason=" + reason;
         Print(line + " runtime=PENDING");
         m_RowsSteppedWindow = 0;

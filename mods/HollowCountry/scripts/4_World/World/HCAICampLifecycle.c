@@ -66,6 +66,43 @@ class HCAICampLifecycle
         return pool.ReserveAt == 0 || now - pool.ReserveAt >= policy.ReserveDaySeconds;
     }
 
+    // Read-only forecasts for the bounded holdout census. Zero means due now;
+    // -1 means the clock/state cannot be forecast, or living population leaves
+    // no recruit capacity. These never grant credit or change the journal.
+    static int HCNextReplenishSeconds(HCAICampResources pool, int now, HCAICampPolicy policy)
+    {
+        if (!pool || !policy || now < 1 || pool.ReserveAt < 0 || now < pool.ReserveAt) { return -1; }
+        if (pool.ReserveAt == 0) { return 0; }
+        return Math.Max(0, policy.ReserveDaySeconds - (now - pool.ReserveAt));
+    }
+
+    static int HCFundingWaitSeconds(HCAICampResources pool, int living, int recruits, int now, HCAICampPolicy policy)
+    {
+        int next = HCNextReplenishSeconds(pool, now, policy);
+        if (next < 0 || recruits < 0) { return -1; }
+        int stockMissing = Math.Max(0, policy.CampAllocation - pool.Stock);
+        int recruitsMissing = Math.Max(0, recruits - pool.Population);
+        if (stockMissing == 0 && recruitsMissing == 0) { return 0; }
+        if (recruits > Math.Max(0, policy.ReservePopulationCap - living)) { return -1; }
+        int stockDays = (stockMissing + policy.ReserveRegenPerDay - 1) / policy.ReserveRegenPerDay;
+        int populationDays = (recruitsMissing + policy.ReservePopulationRegenPerDay - 1) / policy.ReservePopulationRegenPerDay;
+        int days = Math.Max(stockDays, populationDays);
+        // A zero epoch establishes time only; it does not replenish. Overdue
+        // intervals are credited by HCReplenish on the next admitted camp step.
+        if (pool.ReserveAt == 0) { next = policy.ReserveDaySeconds; }
+        else
+        {
+            int overdueDays = (now - pool.ReserveAt) / policy.ReserveDaySeconds;
+            if (overdueDays >= days) { return 0; }
+            if (overdueDays > 0)
+            {
+                days = days - overdueDays;
+                next = policy.ReserveDaySeconds - (now - pool.ReserveAt) % policy.ReserveDaySeconds;
+            }
+        }
+        return next + (days - 1) * policy.ReserveDaySeconds;
+    }
+
     static bool HCReplenish(HCAICampResources pool, array<ref HCAICampLife> homes, int now, HCAICampPolicy policy)
     {
         if (!pool || !homes || !policy || now < 1 || now < pool.ReserveAt) { return false; }
