@@ -26,6 +26,26 @@ Finish is deliberately traversed because it drains stages synchronously.
 A load-once latch (a bool/ref field tested first and set unconditionally before any
 return/continue/break, with no reset on a tick path) makes the code it guards once-only:
 neither its I/O, calls, Print nor Save sites are reported (see once_spans).
+Consume latch (once_spans): `if (!latch) { return; }` at method level, then a method-level
+`latch = null/false;` later, makes the code after the last exit before that reset, to the
+end of the method, run once per arming; it counts unless a tick path assigns the latch a
+non-null value. Latch resets that are reachable only through an OnStop override do not
+defeat a load-once latch (shutdown is not tick work).
+Staged steps: a *Step*/*SaveStage*/*StageSave* method is exempt as a tick root, and as a
+callee of a call that is not inside a loop, when StepCost bounds one call at STAGE_OPS file
+operations and the method advances a field of its own class. StepCost follows statement
+structure: sequential statements add, if/else takes the larger arm, an arm that always
+returns excludes the code after it, any loop that can reach file I/O is unbounded, a
+ReadFile counts only with a constant length <= STAGE_READ_BYTES, and a recursive call into
+I/O-reaching code is unbounded. The stage boundaries above cost one operation.
+Exact-field dispatch (Model.concrete_type): a field whose initializer and every write
+(anywhere in its class lineage, never through a qualifier elsewhere) is `new T` or null
+with a single T dispatches only to T's lineage instead of every override of its declared
+type. It only filters targets and never adds an edge.
+Capped retry (capped_retry): a CallLater scheduled in the then-branch of
+`if (counter < N)` (int field of the scheduling class, N a literal or static const int
+<= TRIP_LOOP_CAP, counter incremented before the call, no callback assigning it other than
+by increment) is a finite retry sequence and does not make the callback a tick root.
 Single I/O operations are candidates too: the tool cannot infer their latency.
 Baseline entries acknowledge candidates, not native acceptance. P002 is omitted
 because source-only configured-float bounds have too much ambiguity.
@@ -59,8 +79,13 @@ callbacks stay out of the roots. Update-queue Insert callbacks are not modelled.
 P009 follows the same bounded typed call graph from OnStart, carrying lexical
 loop context across calls. Repeated file opens, probes, copies, deletes and JSON
 file loads/saves are synchronous multi-file candidates; reads from an already
-open handle are not. It cannot distinguish repeated access to one path from
-different paths, prove loop trip counts, or follow queued callbacks.
+open handle are not. A counting for-loop with a literal start, a literal or static const int
+limit, a unit stride and a body that never writes the counter has a constant trip count
+(trip_count); loops up to TRIP_LOOP_CAP iterations, nested to a product of at most
+TRIP_PRODUCT_CAP, are bounded and do not make a pass multi-file (multiplier). Latch spans
+and calls into OnStop overrides are not followed. It cannot distinguish repeated access to
+one path from different paths, prove other loop trip counts (while, foreach, configured
+bounds), or follow queued callbacks.
 P010 finds raw HCTake calls on declared HCUnitBudget receivers (including
 derived types) and HCServer.HCTickWork() chains. The shared budget's own
 implementation is excluded. Private budgets remain review candidates; unknown
@@ -110,6 +135,8 @@ _BOUNDARIES = frozenset({'Begin', 'HCStepImage', 'HCRefreshIntent'})
 _ARRAY_SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Find|Contains|IndexOf)\s*\(')
 _SLOT_CALL = re.compile(r'\b(HCTakeFor|HCCharge)\s*\(')
 _CALL_LATER = re.compile(r'\b(CallLater|CallLaterByName)\s*\(')
+# Names of staged steps (the HCStep* part of _ROOT, plus the save-stage spellings).
+_STEP = re.compile(r'^(?:HCStep\w*|\w*SaveStage\w*|\w*StageSave\w*)$')
 
 
 @dataclass(frozen=True)
@@ -152,6 +179,8 @@ class Model:
         for s in sources:
             for c in re.finditer(r'\bconst\s+int\s+(\w+)\s*=\s*(\d+)\s*;', s.code):
                 self.consts[c.group(1)] = max(self.consts.get(c.group(1), 0), int(c.group(2)))
+        self._writes = None
+        self._concrete = {}
         self.envs = [self.environment(s, m) for s, m in self.nodes]
 
     def const_int(self, text):
@@ -201,14 +230,72 @@ class Model:
                         if f.name == part), '')
         return typ
 
+    def writes(self):
+        """Every `name = value;` statement in authored method bodies: name -> [(node, qualifier, value)]."""
+        if self._writes is None:
+            self._writes = {}
+            pattern = re.compile(rf'(?<![\w.])((?:{_IDENT}\s*\.\s*)*)({_IDENT})\s*=(?!=)\s*([^;]*);')
+            for i, (s, m) in enumerate(self.nodes):
+                for write in pattern.finditer(s.code, m.body_start, m.body_end):
+                    self._writes.setdefault(write.group(2), []).append(
+                        (i, re.sub(r'\s+', '', write.group(1)), write.group(3).strip()))
+        return self._writes
+
+    def concrete_type(self, i, expression):
+        """Exact class that a field named by expression always holds, else ''.
+
+        Holds when every write to the field, in its class or a derived class, and its
+        initializer, is `new T(...)` or null, with one T; and no code outside those
+        classes writes the field through a qualifier. Parameters, locals and fields
+        assigned from other expressions keep their declared type."""
+        s, m = self.nodes[i]
+        parts = re.sub(r'\s+', '', expression).split('.')
+        if parts[0] == 'this':
+            parts = parts[1:]
+        if len(parts) != 1 or not m.owner or parts[0] in {n for _, n, _ in m.parameters()}:
+            return ''
+        name = parts[0]
+        body = s.body(m)
+        if re.search(rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(name)}\s*[=;,)]', body):
+            return ''
+        field = self.field_of(m.owner.name, name)
+        if not field:
+            return ''
+        defining = next(c.name for ancestor in self.lineage(m.owner.name) for c in self.classes.get(ancestor, [])
+                        if any(f is field for f in c.fields))
+        key = (defining, name)
+        if key not in self._concrete:
+            kinds, exact = set(), True
+            if field.initializer.strip():
+                made = re.match(r'\s*new\s+(\w+)', field.initializer)
+                if made:
+                    kinds.add(made.group(1))
+                elif field.initializer.strip() not in {'null', 'NULL'}:
+                    exact = False
+            for node, qualifier, value in self.writes().get(name, []):
+                owner = self.nodes[node][1].owner
+                related = owner and defining in self.lineage(owner.name)
+                if qualifier not in {'', 'this'}:
+                    exact = False
+                elif related:
+                    made = re.match(r'new\s+(\w+)', value)
+                    if made:
+                        kinds.add(made.group(1))
+                    elif value not in {'null', 'NULL'}:
+                        exact = False
+            self._concrete[key] = next(iter(kinds)) if exact and len(kinds) == 1 else ''
+        return self._concrete[key] if self._concrete[key] in self.classes else ''
+
     def targets(self, i, expression):
         s, m = self.nodes[i]
         parts = re.sub(r'\s+', '', expression).split('.')
         name = parts[-1]
+        exact = ''
         if len(parts) == 1:
             typ = m.owner.name if m.owner else ''
         else:
             typ = self.type_of('.'.join(parts[:-1]), self.envs[i])
+            exact = self.concrete_type(i, '.'.join(parts[:-1]))
         result = []
         if typ:
             for ancestor in self.lineage(typ):
@@ -218,6 +305,11 @@ class Model:
             if len(parts) == 1 or (parts[0] not in self.classes and parts[0] != 'super'):
                 for child in self.descendants.get(typ, []):
                     result.extend(self.index.get((child, name), []))
+        # A receiver field that is only ever constructed as one exact class cannot
+        # dispatch to the declared type's other derived implementations.
+        if exact and typ:
+            held = set(self.lineage(exact))
+            result = [r for r in result if self.nodes[r][1].owner and self.nodes[r][1].owner.name in held]
         if len(parts) == 1 and not result:
             result.extend(self.globals.get(name, []))
         return sorted(set(result))
@@ -399,6 +491,7 @@ def nested_scans(model, i, spans):
 
 
 _RESET = re.compile(rf'(?<![\w.])({_CHAIN})\s*=(?!=)\s*(?:false|null|NULL|0)\s*;')
+_ASSIGN = re.compile(rf'(?<![\w.])({_CHAIN})\s*=(?!=)\s*([^;]*);')
 _EXIT = re.compile(r'\b(?:return|continue|break)\b')
 
 
@@ -486,6 +579,43 @@ def once_spans(model, i):
             if latch and sets_latch(after, m.body_end, latch):
                 spans.append((after, m.body_end, latch))
                 break
+    # Consume form: `if (!latch) { return ...; }` at method level, later a method-level
+    # `latch = null/false;`. Code after the last exit before that reset runs only on the
+    # pass that consumes the latch, including the rest of the method; a later pass leaves at the guard (unless the latch is
+    # armed again on a tick path, which the caller checks).
+    for guard in re.finditer(r'\bif\s*\(', code[m.body_start + 1:m.body_end]):
+        start = m.body_start + 1 + guard.start()
+        before = code[m.body_start + 1:start]
+        if before.count('{') != before.count('}'):
+            continue
+        opening = code.find('(', start)
+        closing = es.matching_paren(code, opening)
+        entry = re.fullmatch(rf'\s*(?:!\s*({_CHAIN})|({_CHAIN})\s*==\s*(?:false|null|NULL))\s*', code[opening + 1:closing])
+        a, b = statement(closing + 1)
+        if not entry or not re.fullmatch(r'\s*return\b[^;]*;\s*', code[a:b]):
+            continue
+        latch = _latch_field(model, i, entry.group(1) or entry.group(2))
+        if not latch:
+            continue
+        spelled = rf'(?<![\w.])(?:this\s*\.\s*|{re.escape(latch[0])}\s*\.\s*)?{re.escape(latch[1])}\s*=(?!=)\s*(?:null|NULL|false|0)\s*;'
+        after = b + 1 if code[b:b + 1] == '}' else b
+        for consume in re.finditer(spelled, code[after:m.body_end]):
+            middle = code[after:after + consume.start()]
+            if middle.count('{') != middle.count('}'):
+                continue
+            exits = list(_EXIT.finditer(middle))
+            floor = after
+            if exits:
+                tail = middle.find(';', exits[-1].end())
+                if tail < 0:
+                    continue
+                floor = after + tail + 1
+                if code[floor:].lstrip().startswith('}'):
+                    floor = code.find('}', floor) + 1
+                if re.match(r'\s*else\b', code[floor:]):
+                    continue
+            spans.append((floor, m.body_end, latch + ('consume',)))
+            break
     return spans
 
 
@@ -573,25 +703,291 @@ def raw_budget_calls(model, i):
                       'raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot')
 
 
-def startup_file_loops(model, edges, ios, loop_spans):
-    """Visit each (method, repeated) state once, retaining a shortest witness."""
+# Per-visit file operation budget of a staged step, and the byte ceiling of one read.
+STAGE_OPS = 1
+STAGE_READ_BYTES = 65536
+# Constant-trip loops that cannot make a startup pass "multi-file": per loop and per nest.
+TRIP_LOOP_CAP = 16
+TRIP_PRODUCT_CAP = 64
+UNBOUNDED = 1 << 20
+
+
+def trip_count(model, s, start, end):
+    """Iteration bound of a counting for-loop with a constant limit, else None.
+
+    Recognized only for: for (int i = A; i < N | i <= N; i++ | ++i | i += 1) with literal A
+    and a literal or static const int N, where the body never writes i. Anything else
+    (while, foreach, configured or computed bounds, other strides) has no constant bound."""
+    match = re.match(r'for\s*\(', s.code[start:end])
+    if not match:
+        return None
+    opening = start + match.end() - 1
+    closing = es.matching_paren(s.code, opening)
+    parts = es.split_top(s.code[opening + 1:closing], ';')
+    if len(parts) != 3:
+        return None
+    init = re.fullmatch(rf'\s*(?:int\s+)?({_IDENT})\s*=\s*(\d+)\s*', parts[0])
+    if not init:
+        return None
+    var = init.group(1)
+    # Conjuncts all have to hold, so one constant bound on the counter bounds the loop.
+    bounds = [re.fullmatch(rf'\s*{var}\s*(<|<=)\s*({_CHAIN}|\d+)\s*', term) for term in parts[1].split('&&')]
+    bounds = [b for b in bounds if b and model.const_int(b.group(2)) is not None]
+    cond = min(bounds, key=lambda b: model.const_int(b.group(2)) + (b.group(1) == '<='), default=None) if '||' not in parts[1] else None
+    step = re.fullmatch(rf'\s*(?:{var}\s*\+\+|\+\+\s*{var}|{var}\s*\+=\s*1|{var}\s*=\s*{var}\s*\+\s*1)\s*', parts[2])
+    if not cond or not step:
+        return None
+    limit = model.const_int(cond.group(2))
+    if re.search(rf'(?<![\w.]){var}\s*(?:=(?!=)|[-+*/]=|\+\+|--)|(?:\+\+|--)\s*{var}\b', s.code[closing + 1:end]):
+        return None
+    return max(0, limit - int(init.group(2)) + (1 if cond.group(1) == '<=' else 0))
+
+
+def multiplier(model, s, spans, offset, base):
+    """Iterations of the loops around offset, multiplied onto base; UNBOUNDED when any
+    enclosing loop lacks a constant trip count within TRIP_LOOP_CAP or the nest exceeds
+    TRIP_PRODUCT_CAP."""
+    result = base
+    for a, b in spans:
+        if not a <= offset < b:
+            continue
+        trips = trip_count(model, s, a, b)
+        if trips is None or trips > TRIP_LOOP_CAP:
+            return UNBOUNDED
+        result *= max(trips, 1)
+    return UNBOUNDED if result > TRIP_PRODUCT_CAP else result
+
+
+def _statements(s, pos, end):
+    """Parse code[pos:end] into statement nodes: block, if, loop or simple (a span)."""
+    code = s.code
+    nodes = []
+    while True:
+        while pos < end and code[pos].isspace():
+            pos += 1
+        if pos >= end:
+            return nodes
+        node, after = _statement(s, pos, end)
+        nodes.append(node)
+        pos = max(after, pos + 1)
+
+
+def _statement(s, pos, end):
+    code = s.code
+    if code[pos] == '{':
+        close = es.matching_brace(code, pos)
+        return ('block', _statements(s, pos + 1, close)), close + 1
+    keyword = re.match(r'(if|for|foreach|while|switch)\b\s*\(', code[pos:end])
+    if keyword:
+        opening = pos + keyword.end() - 1
+        closing = es.matching_paren(code, opening)
+        head = (opening, closing)
+        body, after = _statement_at(s, closing + 1, end)
+        if keyword.group(1) == 'if':
+            other = after
+            while other < end and code[other].isspace():
+                other += 1
+            if re.match(r'else\b', code[other:end]):
+                alternative, after = _statement_at(s, other + 4, end)
+                return ('if', head, body, alternative), after
+            return ('if', head, body, None), after
+        if keyword.group(1) == 'switch':
+            return ('block', [('simple', pos, closing + 1)] + ([body] if body else [])), after
+        return ('loop', head, body), after
+    if re.match(r'do\b', code[pos:end]):
+        body, after = _statement_at(s, pos + 2, end)
+        tail = re.compile(r'\s*while\s*\(').match(code, after)
+        if tail:
+            closing = es.matching_paren(code, tail.end() - 1)
+            return ('loop', (tail.end() - 1, closing), body), code.find(';', closing) + 1
+        return ('loop', (pos, pos), body), after
+    depth = 0
+    cursor = pos
+    while cursor < end:
+        if code[cursor] in '({[':
+            depth += 1
+        elif code[cursor] in ')}]':
+            depth -= 1
+        elif code[cursor] == ';' and depth <= 0:
+            break
+        cursor += 1
+    return ('simple', pos, cursor + 1), cursor + 1
+
+
+def _statement_at(s, pos, end):
+    while pos < end and s.code[pos].isspace():
+        pos += 1
+    if pos >= end:
+        return None, pos
+    return _statement(s, pos, end)
+
+
+def _leaves(s, node):
+    """True when every path through the node ends in a return."""
+    kind = node[0]
+    if kind == 'simple':
+        return re.match(r'return\b', s.code[node[1]:node[2]].lstrip()) is not None
+    if kind == 'block':
+        return any(_leaves(s, n) for n in node[1])
+    if kind == 'if':
+        return node[3] is not None and node[2] is not None and _leaves(s, node[2]) and _leaves(s, node[3])
+    return False
+
+
+class StepCost:
+    """Maximum file operations one call of a method can perform, UNBOUNDED when no
+    constant bound exists.
+
+    Statement structure decides the sum: sequential statements add, if/else branches
+    take the larger arm, a branch that always returns excludes the code after it, and any
+    loop whose header or body can reach a file operation is UNBOUNDED. A ReadFile counts
+    one operation only when its length argument is a constant <= STAGE_READ_BYTES.
+    A call costs the largest cost among its resolved targets, a stage boundary
+    (HCStagedSaveImage Begin/HCStepImage/HCRefreshIntent) costs one operation, and
+    calls or sites inside once-only (load-once latch) spans cost nothing. A recursive
+    call into a method that can reach file I/O is UNBOUNDED."""
+
+    def __init__(self, model, edges, ios, boundary, skipped, io_reaching):
+        self.model, self.edges, self.ios = model, edges, ios
+        self.boundary, self.skipped, self.io_reaching = boundary, skipped, io_reaching
+        self.memo, self.parsed, self.seqmemo = {}, {}, {}
+        self.at = [{} for _ in model.nodes]
+        for i, pairs in enumerate(edges):
+            for offset, target in pairs:
+                self.at[i].setdefault(offset, []).append(target)
+
+    def live(self, i, offset):
+        return not any(a <= offset < b for a, b in self.skipped.get(i, ()))
+
+    def method(self, i, stack=()):
+        if self.boundary(i):
+            return STAGE_OPS
+        if i not in self.io_reaching:
+            return 0
+        if i in self.memo:
+            return self.memo[i]
+        if i in stack:
+            return UNBOUNDED
+        s, m = self.model.nodes[i]
+        if i not in self.parsed:
+            self.parsed[i] = _statements(s, m.body_start + 1, m.body_end)
+        cost = self.sequence(s, i, self.parsed[i], 0, stack + (i,))
+        # A result computed through a recursion cut is not final for callers up the stack.
+        if not any(t in stack for t in {t for _, t in self.edges[i]}):
+            self.memo[i] = cost
+        return cost
+
+    def span(self, s, i, start, end, stack):
+        cost = 0
+        for offset, name in self.ios[i]:
+            if start <= offset < end and self.live(i, offset):
+                weight = 1
+                if name == 'ReadFile':
+                    opening = s.code.find('(', offset)
+                    args = es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',')
+                    limit = self.model.const_int(args[2]) if len(args) >= 3 else None
+                    if limit is None or limit > STAGE_READ_BYTES:
+                        weight = UNBOUNDED
+                cost += weight
+        for offset, targets in self.at[i].items():
+            if start <= offset < end and self.live(i, offset):
+                cost += max(self.method(t, stack) for t in targets)
+        return min(cost, UNBOUNDED)
+
+    def node(self, s, i, n, stack):
+        kind = n[0]
+        if kind == 'simple':
+            return self.span(s, i, n[1], n[2], stack)
+        if kind == 'block':
+            return self.sequence(s, i, n[1], 0, stack)
+        head = self.span(s, i, n[1][0], n[1][1] + 1, stack)
+        if kind == 'loop':
+            inner = self.node(s, i, n[2], stack) if n[2] else 0
+            return UNBOUNDED if head + inner else 0
+        first = self.node(s, i, n[2], stack) if n[2] else 0
+        second = self.node(s, i, n[3], stack) if n[3] else 0
+        return min(UNBOUNDED, head + max(first, second))
+
+    def sequence(self, s, i, nodes, k, stack):
+        key = (id(nodes), k)
+        if key not in self.seqmemo:
+            self.seqmemo[key] = self._sequence(s, i, nodes, k, stack)
+        return self.seqmemo[key]
+
+    def _sequence(self, s, i, nodes, k, stack):
+        if k >= len(nodes):
+            return 0
+        n = nodes[k]
+        rest = lambda: self.sequence(s, i, nodes, k + 1, stack)
+        if n[0] == 'if':
+            head = self.span(s, i, n[1][0], n[1][1] + 1, stack)
+
+            def arm(x):
+                if x is None:
+                    return rest()
+                return self.node(s, i, x, stack) + (0 if _leaves(s, x) else rest())
+            return min(UNBOUNDED, head + max(arm(n[2]), arm(n[3])))
+        cost = self.node(s, i, n, stack)
+        return cost if _leaves(s, n) else min(UNBOUNDED, cost + rest())
+
+
+def advances_state(model, i):
+    """True when the method assigns a field of its own class (a cursor or phase)."""
+    s, m = model.nodes[i]
+    if not m.owner:
+        return False
+    local = {n for _, n, _ in m.parameters()}
+    for write in re.finditer(rf'(?<![\w.])(?:this\s*\.\s*)?({_IDENT})\s*(?:=(?!=)|\+=|-=|\+\+)', s.body(m)):
+        name = write.group(1)
+        if name not in local and model.field_of(m.owner.name, name) and not re.search(
+                rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{name}\s*[=;]', s.body(m)):
+            return True
+    return False
+
+
+def reaching(model, edges, ios, boundary):
+    """Nodes that can reach a file operation or a stage boundary, over the call edges."""
+    reverse = [[] for _ in model.nodes]
+    for i, pairs in enumerate(edges):
+        for _, target in pairs:
+            reverse[target].append(i)
+    seen = {i for i in range(len(model.nodes)) if ios[i] or boundary(i)}
+    queue = deque(seen)
+    while queue:
+        for caller in reverse[queue.popleft()]:
+            if caller not in seen:
+                seen.add(caller)
+                queue.append(caller)
+    return seen
+
+
+
+def startup_file_loops(model, edges, ios, loop_spans, skipped=None):
+    """Visit each (method, iteration multiplier) state once, retaining a shortest witness.
+
+    Loops with a constant trip count within TRIP_LOOP_CAP (nest product within
+    TRIP_PRODUCT_CAP) are bounded and do not make a pass multi-file. Once-only code (a
+    load-once latch in `skipped`) and calls into a lifecycle OnStop override, which runs
+    at shutdown and never on the OnStart path, are not followed."""
+    skipped = skipped or {}
     roots = [i for i, (_, m) in enumerate(model.nodes) if m.name == 'OnStart']
-    queue = deque((i, False, (i,)) for i in roots)
-    reached = {(i, False) for i in roots}
+    queue = deque((i, 1, (i,)) for i in roots)
+    reached = {(i, 1) for i in roots}
     reported = set()
     while queue:
-        i, repeated, chain = queue.popleft()
+        i, mult, chain = queue.popleft()
         s, m = model.nodes[i]
 
-        def in_loop(offset):
-            return repeated or any(a <= offset < b for a, b in loop_spans[i])
+        def live(offset):
+            return not any(a <= offset < b for a, b in skipped.get(i, ()))
 
         counts = {}
         for offset, operation in ios[i]:
             if operation not in {'OpenFile', 'FileExist', 'CopyFile', 'DeleteFile'} and not operation.startswith('JsonFileLoader.'):
                 continue
             counts[operation] = counts.get(operation, 0) + 1
-            if not in_loop(offset) or (i, offset, operation) in reported:
+            if (not live(offset) or multiplier(model, s, loop_spans[i], offset, mult) < UNBOUNDED
+                    or (i, offset, operation) in reported):
                 continue
             reported.add((i, offset, operation))
             witness = ' -> '.join(symbol(model.nodes[n][1]) for n in chain)
@@ -601,10 +997,53 @@ def startup_file_loops(model, edges, ios, loop_spans):
         if len(chain) - 1 >= MAX_DEPTH:
             continue
         for offset, target in edges[i]:
-            state = (target, in_loop(offset))
+            if not live(offset) or model.nodes[target][1].name == 'OnStop':
+                continue
+            state = (target, multiplier(model, s, loop_spans[i], offset, mult))
             if state not in reached:
                 reached.add(state)
                 queue.append((*state, chain + (target,)))
+
+
+def capped_retry(model, i, offset, callbacks):
+    """True when the scheduling call at offset only runs under a constant retry cap.
+
+    The call sits in the then-branch of `if (counter < N)` (conjuncts allowed, no ||),
+    where counter is an int field of the scheduling class, N is a literal or static const
+    int <= TRIP_LOOP_CAP, the branch increments the counter before the call, and no
+    callback target assigns the counter other than by increment. Such a re-arm is a
+    finite retry sequence of one-shot callbacks, not a repeating tick."""
+    s, m = model.nodes[i]
+    if not m.owner:
+        return False
+    code = s.code
+    for guard in re.finditer(r'\bif\s*\(', code[m.body_start:offset]):
+        opening = m.body_start + guard.end() - 1
+        closing = es.matching_paren(code, opening)
+        if closing > offset:
+            continue
+        pos = closing + 1
+        while code[pos].isspace():
+            pos += 1
+        if code[pos] != '{':
+            continue
+        end = es.matching_brace(code, pos)
+        if not pos < offset < end or '||' in code[opening:closing]:
+            continue
+        for term in code[opening + 1:closing].split('&&'):
+            bound = re.fullmatch(rf'\s*({_IDENT})\s*(<|<=)\s*({_CHAIN}|\d+)\s*', term)
+            if not bound:
+                continue
+            counter, limit = bound.group(1), model.const_int(bound.group(3))
+            field = model.field_of(m.owner.name, counter)
+            if not field or field.type != 'int' or limit is None or not 0 < limit <= TRIP_LOOP_CAP:
+                continue
+            bump = rf'(?<![\w.])(?:this\s*\.\s*)?{counter}\s*(?:\+\+|\+=\s*1\b|=\s*{counter}\s*\+\s*1\b)|\+\+\s*{counter}\b'
+            assign = rf'(?<![\w.])(?:this\s*\.\s*)?{counter}\s*(?:=(?!=)|[-*/]=)(?!\s*{counter}\s*\+\s*1\b)'
+            if re.search(bump, code[pos:offset]) and not any(
+                    re.search(assign, model.nodes[c][0].body(model.nodes[c][1])) for c in callbacks):
+                return True
+    return False
 
 
 def callback_roots(model, edges):
@@ -637,7 +1076,10 @@ def callback_roots(model, edges):
                                   for t in model.index.get((ancestor, raw), [])})
                 repeat_at = 3
             repeat = re.sub(r'\s+', '', arguments[repeat_at]) if len(arguments) > repeat_at else 'false'
-            scheduled.append((i, targets, repeat not in ('false', '0', '')))
+            repeating = repeat not in ('false', '0', '')
+            if not repeating and capped_retry(model, i, call.start(), targets):
+                continue
+            scheduled.append((i, targets, repeating))
     schedulers = {}
     for i, targets, _ in scheduled:
         for target in targets:
@@ -739,8 +1181,6 @@ def check(sources, root=ROOT):
         ios.append(sorted(set(sites)))
         tick_sites.append(candidates)
 
-    findings.extend(startup_file_loops(model, edges, ios, loop_spans))
-
     def boundary(i):
         s, m = model.nodes[i]
         return (s.rel == _WRITER_PATH and m.owner and m.owner.name == 'HCStagedSaveImage'
@@ -749,11 +1189,16 @@ def check(sources, root=ROOT):
     roots = [i for i, (_, m) in enumerate(model.nodes) if _ROOT.fullmatch(m.name) and not boundary(i)
              and (not m.owner or m.name != m.owner.name)]
     roots.extend(i for i in sorted(callback_roots(model, edges)) if i not in roots and not boundary(i))
+    staged = set()
 
-    def walk(skipped):
-        """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only."""
-        queue = deque((i, (i,)) for i in roots)
-        reached = {i: (i,) for i in roots}
+    def walk(skipped, prune_staged=False, cut_stop=False):
+        """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only.
+
+        With prune_staged, a staged step is neither a root nor entered by a call that runs
+        at most once per visit (a call inside a loop still enters it). With cut_stop, calls
+        into a lifecycle OnStop override are not followed (shutdown, not tick work)."""
+        queue = deque((i, (i,)) for i in roots if not (prune_staged and i in staged))
+        reached = {i: chain for i, chain in queue}
         while queue:
             i, chain = queue.popleft()
             s, m = model.nodes[i]
@@ -761,6 +1206,10 @@ def check(sources, root=ROOT):
                 continue
             for offset, target in edges[i]:
                 if any(a <= offset < b for a, b in skipped.get(i, ())):
+                    continue
+                if prune_staged and target in staged and not any(a <= offset < b for a, b in loop_spans[i]):
+                    continue
+                if cut_stop and model.nodes[target][1].name == 'OnStop':
                     continue
                 drains_writer = (m.owner and m.owner.name == 'HCStagedSaveImage' and m.name == 'Finish'
                                  and s.rel == _WRITER_PATH)
@@ -773,14 +1222,32 @@ def check(sources, root=ROOT):
     # unpruned reachable set is a superset of the pruned one, so this stays conservative.
     latched = {i: once_spans(model, i) for i in range(len(model.nodes))}
     resettable = set()
-    for i in walk({}):
+    for i in walk({}, False, True):
         s, m = model.nodes[i]
         for reset in _RESET.finditer(s.code, m.body_start, m.body_end):
             latch = _latch_field(model, i, reset.group(1))
             if latch:
                 resettable.add(latch[:2])
-    skipped = {i: [(a, b) for a, b, latch in spans if latch[:2] not in resettable]
+    armed = set()
+    for i in walk({}, False, True):
+        s, m = model.nodes[i]
+        for write in _ASSIGN.finditer(s.code, m.body_start, m.body_end):
+            if write.group(2).strip() not in {'null', 'NULL', 'false', '0', ''}:
+                latch = _latch_field(model, i, write.group(1))
+                if latch:
+                    armed.add(latch[:2])
+    # A consume latch is cleared by design, so only arming it again defeats it.
+    skipped = {i: [(a, b) for a, b, latch in spans
+                   if (latch[:2] not in armed if len(latch) == 4 else latch[:2] not in resettable)]
                for i, spans in latched.items() if spans}
+
+    findings.extend(startup_file_loops(model, edges, ios, loop_spans, skipped))
+
+    cost = StepCost(model, edges, ios, boundary, skipped, reaching(model, edges, ios, boundary))
+    for i, (s, m) in enumerate(model.nodes):
+        if (_STEP.fullmatch(m.name) and not boundary(i) and cost.method(i) <= STAGE_OPS
+                and advances_state(model, i)):
+            staged.add(i)
 
     for i, chain in walk(skipped).items():
         s, m = model.nodes[i]
@@ -795,6 +1262,9 @@ def check(sources, root=ROOT):
             tick_counts[key] = tick_counts.get(key, 0) + 1
             findings.append(Finding(rule, s.rel, s.line_of(offset), symbol(m),
                                     f'{operation}#{tick_counts[key]}', message))
+    for i, chain in walk(skipped, True, True).items():
+        s, m = model.nodes[i]
+        live = lambda offset: not any(a <= offset < b for a, b in skipped.get(i, ()))
         counts = {}
         for offset, operation in ios[i]:
             if not live(offset):

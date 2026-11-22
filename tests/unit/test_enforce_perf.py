@@ -334,6 +334,189 @@ class BaselineRatchetTests(unittest.TestCase):
         self.assertEqual(json.loads(self.path.read_text())['findings'], [])
 
 
+class ConstantLoopTests(unittest.TestCase):
+    """P009: a counting loop with a constant, small trip count is not an unbounded scan."""
+    TEXT = '''
+class M
+{
+    void OnStart() { for (int i = 0; i < %s; i++) { Probe(i); } }
+    void Probe(int i) { if (FileExist("$profile:a")) { return; } }
+}
+'''
+
+    def keys(self, limit):
+        return [f.key for f in findings(self.TEXT % limit, 'HC-P009')]
+
+    def test_small_constant_trip_count_is_bounded(self):
+        self.assertEqual([], self.keys(perf.TRIP_LOOP_CAP))
+
+    def test_trip_count_over_the_cap_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys(perf.TRIP_LOOP_CAP + 1))
+
+    def test_computed_bound_stays_flagged(self):
+        self.assertEqual(['FileExist#1'], self.keys('m_Rows.Count()'))
+
+    def test_nest_product_over_the_cap_stays_flagged(self):
+        side = int(perf.TRIP_PRODUCT_CAP ** 0.5) + 1
+        text = self.TEXT % side
+        text = text.replace('Probe(i);', 'for (int j = 0; j < %d; j++) { Probe(j); }' % side)
+        self.assertEqual(['FileExist#1'], [f.key for f in findings(text, 'HC-P009')])
+
+
+class CappedRetryTests(unittest.TestCase):
+    """A CallLater re-arm under a constant retry counter is a finite retry, not a tick."""
+    TEXT = '''
+class M
+{
+    int m_Tries;
+    void Start() { %s }
+    void Work() { FileHandle h = OpenFile("$profile:x.json", FileMode.READ); CloseFile(h); %s }
+}
+'''
+    LATER = 'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, false);'
+
+    def keys(self, rearm, reset=''):
+        return [f.key for f in findings(self.TEXT % (self.LATER, rearm + reset), 'HC-P003')]
+
+    def test_counter_capped_rearm_is_not_a_root(self):
+        cap = perf.TRIP_LOOP_CAP
+        self.assertEqual([], self.keys('if (m_Tries < %d) { m_Tries++; %s }' % (cap, self.LATER)))
+
+    def test_uncapped_rearm_stays_a_root(self):
+        self.assertEqual(['OpenFile#1'], self.keys(self.LATER))
+
+    def test_cap_over_the_limit_stays_a_root(self):
+        cap = perf.TRIP_LOOP_CAP + 1
+        self.assertEqual(['OpenFile#1'], self.keys('if (m_Tries < %d) { m_Tries++; %s }' % (cap, self.LATER)))
+
+    def test_callback_that_resets_the_counter_stays_a_root(self):
+        self.assertEqual(['OpenFile#1'], self.keys('if (m_Tries < 3) { m_Tries++; %s }' % self.LATER, 'm_Tries = 0;'))
+
+
+class ShutdownResetTests(unittest.TestCase):
+    """A latch reset reachable only from OnStop is not a tick-path reset."""
+    TEXT = '''
+class Store
+{
+    bool m_Loaded;
+    void Reset() { m_Loaded = false; }
+    void Load() { if (m_Loaded) { return; } m_Loaded = true; if (FileExist("$profile:a")) { OpenFile("$profile:a", FileMode.READ); } }
+}
+class Mod
+{
+    ref Store m_Store;
+    void OnStart() { m_Store = new Store; }
+    void OnTick(float dt) { m_Store.Load(); %s }
+    void OnStop() { m_Store.Reset(); }
+}
+'''
+
+    def test_reset_from_on_stop_keeps_the_latch(self):
+        self.assertEqual([], findings(self.TEXT % '', 'HC-P003'))
+
+    def test_reset_from_the_tick_path_stays_flagged(self):
+        self.assertEqual(['FileExist#1', 'OpenFile#1'],
+                         sorted(f.key for f in findings(self.TEXT % 'm_Store.Reset();', 'HC-P003')))
+
+
+class ConcreteFieldDispatchTests(unittest.TestCase):
+    """A field only ever assigned `new T` dispatches to T's lineage, not every override."""
+    TEXT = '''
+class Base { void Work() {} }
+class Quiet : Base { override void Work() {} }
+class Loud : Base { override void Work() { FileExist("$profile:a"); } }
+class Mod
+{
+    ref Base m_Impl;
+    void OnStart() { m_Impl = new Quiet; }
+    %s
+    void OnTick(float dt) { m_Impl.Work(); }
+}
+'''
+
+    def keys(self, extra):
+        return [f.key for f in findings(self.TEXT % extra, 'HC-P003')]
+
+    def test_single_constructed_type_excludes_sibling_overrides(self):
+        self.assertEqual([], self.keys(''))
+
+    def test_second_constructed_type_keeps_the_override(self):
+        self.assertEqual(['FileExist#1'], self.keys('void Swap() { m_Impl = new Loud; }'))
+
+    def test_assignment_from_a_parameter_keeps_the_override(self):
+        self.assertEqual(['FileExist#1'], self.keys('void Set(Base impl) { m_Impl = impl; }'))
+
+
+class StagedStepTests(unittest.TestCase):
+    """A step that advances a cursor and does at most STAGE_OPS file operations is one stage."""
+    TEXT = '''
+class Job
+{
+    int m_Cursor;
+    ref array<string> m_Rows;
+    void Write() { FileHandle h = OpenFile("$profile:s", FileMode.WRITE); CloseFile(h); }
+    void HCStep() { %s }
+}
+'''
+
+    def keys(self, body):
+        return [f.key for f in findings(self.TEXT % body, 'HC-P003')]
+
+    def test_single_operation_with_a_cursor_is_a_stage(self):
+        self.assertEqual([], self.keys('m_Cursor++; Write();'))
+
+    def test_operation_in_a_loop_stays_flagged(self):
+        self.assertEqual(['OpenFile#1'], self.keys('for (int i = 0; i < m_Rows.Count(); i++) { Write(); } m_Cursor++;'))
+
+    def test_step_without_a_cursor_stays_flagged(self):
+        self.assertEqual(['OpenFile#1'], self.keys('Write();'))
+
+    def test_more_operations_than_a_stage_stay_flagged(self):
+        body = 'm_Cursor++; ' + 'Write(); ' * (perf.STAGE_OPS + 1)
+        self.assertEqual(['OpenFile#1'], self.keys(body))
+
+    def test_branches_cost_the_larger_arm_not_the_sum(self):
+        self.assertEqual([], self.keys('m_Cursor++; if (m_Rows) { Write(); } else { Write(); }'))
+
+
+class ConsumeLatchTests(unittest.TestCase):
+    """`if (!latch) return;` then `latch = null;` makes the rest of the method once-per-arming."""
+    TEXT = '''
+class Job { bool Busy; }
+class Pump
+{
+    static ref Job s_Job;
+    static void Begin(Job job) { s_Job = job; }
+    static void Run()
+    {
+        if (!s_Job) { return; }
+        if (s_Job.Busy) { return; }
+        FileExist("$profile:a");
+        s_Job = null;
+        DeleteFile("$profile:a");
+    }
+}
+class HCServer
+{
+    void OnTick(float dt) { Pump.Run(); }
+    %s
+}
+'''
+
+    def keys(self, extra):
+        return [f.key for f in findings(self.TEXT % extra, 'HC-P003')]
+
+    def test_consumed_latch_clears_the_work_after_the_guards(self):
+        self.assertEqual([], self.keys(''))
+
+    def test_latch_armed_again_on_a_tick_path_stays_flagged(self):
+        self.assertEqual(['DeleteFile#1', 'FileExist#1'], sorted(self.keys('void OnUpdate(float dt) { Pump.Begin(new Job); }')))
+
+    def test_work_before_the_last_guard_stays_flagged(self):
+        text = self.TEXT.replace('if (s_Job.Busy) { return; }', 'FileExist("$profile:b"); if (s_Job.Busy) { return; }')
+        self.assertEqual(['FileExist#1'], [f.key for f in findings(text % '', 'HC-P003')])
+
+
 if __name__ == '__main__':
     unittest.main()
 
