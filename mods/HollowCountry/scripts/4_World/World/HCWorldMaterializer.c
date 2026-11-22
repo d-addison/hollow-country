@@ -200,7 +200,6 @@ class HCWorldMaterializer : HCModule
         m_RingSeconds = 0;
         m_LogSeconds = 0;
         m_CustodyRestoredOlder = false;
-        m_CustodyForwardedPath = "";
         m_CustodyReadRetries = 0;
         m_CustodyArchiveScans = 0;
         HCWorldStore.HCResetCompareBudget();
@@ -798,7 +797,9 @@ class HCWorldMaterializer : HCModule
             bool restoringOlder = priorWins && newlyRetained;
             // Persisted relocation is unsafe until the active store has its own
             // committed history; this classification survives process restart.
-            if (priorWins && !FileExist(backup + ".bak"))
+            bool forwardedBackup = m_CustodyForwardedPath == backup;
+            bool priorWithoutHistory = priorWins && !forwardedBackup;
+            if (priorWithoutHistory && !FileExist(backup + ".bak"))
             {
                 if (!FileExist(backup + ".tmp")) { m_CustodyReseedUnsafe = true; }
             }
@@ -893,7 +894,8 @@ class HCWorldMaterializer : HCModule
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_invalid_no_backup";
         m_CustodyRestoredOlder = false;
-        m_CustodyForwardedPath = "";
+        // Forwarding remains evidence across same-process retries and toggles.
+        // A fresh process starts with an empty marker and rechecks disk history.
         string restoreMarker = "$profile:HollowCountry/ai-custody.json.restore_pending";
         m_CustodyRestoreWitness = FileExist(restoreMarker);
         m_CustodyReseedUnsafe = m_CustodyRestoreWitness;
@@ -1022,7 +1024,8 @@ class HCWorldMaterializer : HCModule
                 loaded = m_Custody;
             }
         }
-        bool retainedIntent = m_CustodyRetainedSource == m_CustodyPath + ".tmp";
+        string activeIntentPath = m_CustodyPath + ".tmp";
+        bool retainedIntent = m_CustodyRetainedSource == activeIntentPath;
         bool loadedRetained = loaded && m_CustodyKeepTmp;
         if (loadedRetained && retainedIntent)
         {
