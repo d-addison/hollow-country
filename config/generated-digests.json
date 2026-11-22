@@ -2362,7 +2362,7 @@
         "config/map-overlays/layers/roadside-checkpoints-v1.json": "94ee1babefaa00c3659a31ca0b1f28e4a3f66603220024ce58b317772e217c49",
         "config/map-overlays/layers/supply-dumps-v1.json": "68a2ffb0739cabdb6d542db29adf69f0acba673c8cdc13933244152f74a1d4dc",
         "config/map-overlays/profile.json": "5f29e94a5e187637ab41af1b61043ff14175b534ee146842c921acb228a42375",
-        "config/military-loot.json": "1de4e8cce5cbfd196716e499c06eca56ed859ad19a2fd25dfc463a70bb552c59",
+        "config/military-loot.json": "60d42eb0bdfc1bb8124913131f007a2161829f51e4ef9d1ac901346f6b0401dd",
         "config/wiring-audit.json": "1f69905fd0ca2e03b47da36dda467969949a8b74f86d2740339727e7ef82a9a2",
         "config/zeroed-items.json": "5cfeada1b2a03ea9dad9eb79165faf47ba788c407ac0dc6e4686b9a8ff0ca840",
         "mission/hollow-country/ai/AIPatrolSettings.override.json": "f477152ce2b52019f0121c234b3c90cd67b579a36c96224744270f0c55887a9d",
