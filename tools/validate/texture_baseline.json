@@ -2,22 +2,9 @@
   "schema": 1,
   "counts": {
     "unresolved": 0,
-    "skipped": 3
+    "skipped": 0
   },
   "unresolved": [],
-  "skipped": [
-    {
-      "reference": "mods/HollowCountry/gui/layouts/hc_group_icon.layout:24: imageset symbolic reference needs native review: set:dayz_gui image:circle",
-      "reason": "Existing dayz_gui/circle symbolic atlas member. PBO header names prove files, not atlas members; client open check pending. Not accepted."
-    },
-    {
-      "reference": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c:190: runtime texture expression needs native review: MapMarkerTypes",
-      "reason": "Existing native marker-type lookup selects a texture at runtime. Static header index cannot enumerate returned values; client marker check pending. Not accepted."
-    },
-    {
-      "reference": "mods/HollowCountryExpansionAI/scripts/5_Mission/HCXAdminMapLayers.c:273: runtime texture expression needs native review: registered.IconPath",
-      "reason": "HCXIconName selects from a fixed set of Expansion registry names with Map Marker as fallback. Static file resolution cannot evaluate registered.IconPath; client legend/marker checks against the installed registry remain pending. Not accepted."
-    }
-  ],
+  "skipped": [],
   "procedural_layout_allowlist": []
 }
