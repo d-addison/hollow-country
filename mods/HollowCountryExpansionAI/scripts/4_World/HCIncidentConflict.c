@@ -4,7 +4,7 @@
 // Shared policy has no faction_clash kind: use its existing visual scene kind.
 // Expansion xref/ai/4_World/DayZExpansion_AI/Classes/eAIGroup.c:1139 GetMember,
 // :1185 Count. Native scripts-1.30.164289: 3_Game/Entities/Object.c:287 GetPosition.
-// m_Groups is capped at HCXFactionCombatAdapter.MAX_RECORDED_GROUPS (2); no
+// m_Groups (group ids, resolved live) is capped at HCXFactionCombatAdapter.MAX_RECORDED_GROUPS (2); no
 // polling beyond the existing conflict tick. HCSurveyed resets m_SeenCombat for
 // the next encounter. Default ON; acceptance/world_incidents.disable opts out.
 // Actual native combat, sight and replication remain runtime=PENDING.
@@ -16,9 +16,10 @@ modded class HCXFactionCombatAdapter
         bool disengaged = super.HCDisengaged(encounter);
         if (!seenBefore && m_SeenCombat)
         {
-            array<eAIGroup> groups = m_Groups;
-            foreach (eAIGroup group : groups)
+            array<int> groupIds = m_Groups;
+            foreach (int groupId : groupIds)
             {
+                eAIGroup group = HCXExpansionBridge.HCGroupById(groupId);
                 if (!group || HCXExpansionBridge.HCGroupCount(group) < 1) { continue; }
                 DayZPlayerImplement participant = HCXExpansionBridge.HCGroupGetMember(group, 0);
                 if (!participant) { continue; }

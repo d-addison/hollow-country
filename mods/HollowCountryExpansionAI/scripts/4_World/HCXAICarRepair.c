@@ -66,7 +66,9 @@ class HCXAICarStep
 
 class HCXAICarJob
 {
+    // Raw handle (eAIGroup is not Managed): valid only while Hold exists, from the offer until HCEnd.
     eAIGroup Group;
+    ref HCXAIGroupHold Hold;
     int GroupId = 0;
     CarScript Subject;
     ref array<ref HCXAICarStep> Steps = new array<ref HCXAICarStep>();
@@ -78,6 +80,7 @@ class HCXAICarJob
     ref array<vector> Route = new array<vector>();
     eAIWaypointBehavior Behaviour;
     ItemBase Tool;
+    void ~HCXAICarJob() { HCXAIGroupHolds.Retire(Hold); }
 }
 
 class HCXAICarRepair
@@ -244,6 +247,7 @@ class HCXAICarRepair
         job.Subject = pick.Subject;
         string plan = HCPlan(job, pick, leader, home);
         if (plan != "") { HCRefuse(plan); return false; }
+        job.Hold = HCXAIGroupHolds.Follow(null, group);
         if (!HCTakeStash(job, leader)) { HCEnd(job, "carfix_stash_take_refused", false); return false; }
         if (!HCWalk(job, pick.Pos)) { HCEnd(job, "carfix_route_refused", false); return false; }
         pick.Subject.m_HCCarClaimGroup = groupId;
@@ -719,6 +723,8 @@ class HCXAICarRepair
         if (!job) { return; }
         HCXAICarRepairConfig config = HCConfig();
         HCRestoreRoute(job);
+        HCXAIGroupHolds.Retire(job.Hold);
+        job.Hold = null;
         array<ref HCXAICarStep> ended = job.Steps;
         foreach (HCXAICarStep step : ended)
         {

@@ -388,11 +388,13 @@ class HCXAIStyleFormation : eAIFormation
     }
 }
 
-// Per-group runtime record, kept on the site state. Weak pointers only for
-// engine objects: the group owns its formation, the group owns its members.
+// Per-group runtime record, kept on the site state. Members and the formation are
+// weak. eAIGroup is not Managed, so GroupRef is a raw handle that is valid only
+// while Hold exists (retired when the style is forgotten or destroyed).
 class HCXAIGroupStyle
 {
     eAIGroup GroupRef;
+    ref HCXAIGroupHold Hold;
     HCXAIStyleFormation FormRef;
     ref array<eAIBase> Halted = new array<eAIBase>();
     int Seed;
@@ -408,6 +410,7 @@ class HCXAIGroupStyle
     bool Foreign;
     // True only while our own formation is installed on the group.
     bool Styled;
+    void ~HCXAIGroupStyle() { HCXAIGroupHolds.Retire(Hold); }
 }
 
 modded class HCXAISiteState
@@ -661,6 +664,8 @@ class HCXAIFormationController
             ReleaseStyle(style, HCWorldClock.UTC());
             m_Holding.Remove(found);
         }
+        HCXAIGroupHolds.Retire(style.Hold);
+        style.Hold = null;
         state.HCStyle = null;
     }
 
@@ -696,6 +701,7 @@ class HCXAIFormationController
             ForgetStyle(state);
             HCXAIGroupStyle fresh = new HCXAIGroupStyle();
             fresh.GroupRef = group;
+            fresh.Hold = HCXAIGroupHolds.Follow(null, group);
             string identity = state.ProposalId;
             if (identity == "" && state.Site) { identity = state.Site.Id; }
             fresh.Seed = HCXAIFormationRules.SeedOf(identity);

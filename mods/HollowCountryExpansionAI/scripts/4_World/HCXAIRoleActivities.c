@@ -267,7 +267,8 @@ class HCXAIRoleJson
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:1-6 HALT/LOOP/ALTERNATE/ONCE.
 class HCXAIRoleLease
 {
-    eAIGroup Group;
+    // eAIGroup is not Managed and a lease outlives its group: keep the id, resolve it per use.
+    int GroupId;
     int Until;
     bool Held;
     eAIWaypointBehavior Previous;
@@ -292,9 +293,15 @@ class HCXAIRoleLease
         return false;
     }
 
+    eAIGroup HCGroup()
+    {
+        return HCXExpansionBridge.HCGroupById(GroupId);
+    }
+
     void HCRelease()
     {
-        if (Held && Group && HCXExpansionBridge.HCGroupGetWaypointBehaviour(Group) == eAIWaypointBehavior.HALT) { HCXExpansionBridge.HCGroupSetWaypointBehaviour(Group, Previous); }
+        eAIGroup group = this.HCGroup();
+        if (Held && group && HCXExpansionBridge.HCGroupGetWaypointBehaviour(group) == eAIWaypointBehavior.HALT) { HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, Previous); }
         Held = false;
     }
 }
@@ -417,10 +424,11 @@ class HCXAIRoleActivities : HCModule
 
     protected bool HCHasGroupLease(eAIGroup group)
     {
+        int groupId = HCXExpansionBridge.HCGroupGetID(group);
         array<ref HCXAIRoleLease> activeLeases = m_Leases;
         foreach (HCXAIRoleLease activeLease : activeLeases)
         {
-            if (activeLease.Group == group) { return true; }
+            if (activeLease.GroupId == groupId) { return true; }
         }
         return false;
     }
@@ -574,7 +582,8 @@ class HCXAIRoleActivities : HCModule
             HCReached.Mark("ai_roles.lease");
             bool expired = HCWorldClock.UTC() >= expiring.Until;
             if (expired && expiring.HCProviderBusy()) { expired = false; }
-            if (expired || !expiring.Group || HCXExpansionBridge.HCGroupCount(expiring.Group) < 1)
+            eAIGroup leaseGroup = expiring.HCGroup();
+            if (expired || !leaseGroup || HCXExpansionBridge.HCGroupCount(leaseGroup) < 1)
             {
                 expiring.HCRelease();
                 m_Leases.RemoveOrdered(m_LeaseCursor);
@@ -674,7 +683,7 @@ class HCXAIRoleActivities : HCModule
             {
                 state.HCW70NextAt = now + m_Config.CooldownSeconds;
                 HCXAIRoleLease lease = new HCXAIRoleLease;
-                lease.Group = group;
+                lease.GroupId = HCXExpansionBridge.HCGroupGetID(group);
                 lease.LeaseId = state.ProposalId;
                 lease.Until = state.HCW70NextAt;
                 lease.Held = activity == "hold";
