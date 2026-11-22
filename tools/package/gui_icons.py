@@ -111,6 +111,17 @@ def convert(tool, source, destination):
         raise ValueError('ImageToPAA conversion failed; no provenance recorded')
 
 
+def windows_sees(directory):
+    """A sandboxed WSL process can have a private /tmp or mount namespace that the
+    Windows converter cannot reach; that is missing interop, not a conversion fault."""
+    if os.name == 'nt':
+        return True
+    quote = lambda s: "'" + s.replace("'", "''") + "'"
+    result = winproc.run('powershell', ['if (Test-Path -LiteralPath ' + quote(windows_path(directory)) + ') { "HC_SEEN=1" }'],
+                         attempts=1, timeout=30)
+    return result.returncode == 0 and 'HC_SEEN=1' in result.stdout.splitlines()
+
+
 def build(root, tool=DEFAULT_TOOL, converter=convert):
     render(root)  # Keep useful sources even when Windows conversion is unavailable.
     if not tool.is_file():
@@ -120,6 +131,10 @@ def build(root, tool=DEFAULT_TOOL, converter=convert):
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.gui-icons-', dir=root / SOURCE) as tmp:
         staged = Path(tmp)
+        (staged / '.visible').write_bytes(b'1')
+        if converter is convert and not windows_sees(staged / '.visible'):
+            raise winproc.InteropError('Windows cannot reach the WSL staging directory')
+        (staged / '.visible').unlink()
         entries = {}
         for name in ICONS:
             source = root / SOURCE / (name + '.png')
