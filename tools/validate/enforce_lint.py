@@ -26,6 +26,7 @@ import sys
 from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
+from tools.validate import enforce_lint_handles as _handles
 from tools.validate import enforce_rules_readiness as _readiness
 from tools.validate import native_symbols
 
@@ -89,6 +90,7 @@ RULES = {
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
     enforce_json.RULE: enforce_json.DESCRIPTION,
+    _handles.RULE: _handles.DESCRIPTION,
 }
 RULES.update(_readiness.RULES)  # HC-S006 module names, HC-E009 engine-type variable names
 
@@ -2059,6 +2061,11 @@ def rule_modded_field_order(project, source):
 _BARE_PRINT = re.compile(r'(?<![\w.])Print\s*\(\s*(?!(?:true|false|null)\s*\))([A-Za-z_]\w*)\s*\)')
 
 
+def rule_stored_handles(project, source):
+    for row in _handles.stored_handles(source):
+        yield _finding(row.rule, source, row.offset, row.symbol, row.message, key=row.key)
+
+
 def rule_bare_print(project, source):
     """Boot 032 RPT: Print(line) logged "string line = '[HC XAI] live ...'" (EnDebug.c proto Print(void var)
     describes a variable argument), so tagged RPT lines lost their prefix. Print an expression: "" + line."""
@@ -2632,7 +2639,7 @@ ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_argum
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
              rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, enforce_json.rule_json_defaults,
-             _readiness.rule_module_names, _readiness.rule_engine_type_names)
+             _readiness.rule_module_names, _readiness.rule_engine_type_names, rule_stored_handles)
 
 
 def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None):
