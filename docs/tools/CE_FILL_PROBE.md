@@ -141,7 +141,8 @@ in t2. Their weapons-category signatures were Military+Police / Tier3+Tier4
 and containers also began failing after packs were added.
 
 In t4, 22 pack types with nominal/min 1/1, Military+Police and Tier3+Tier4 each
-logged exactly 173 lines: every initial-fill attempt failed. Broad-usage pack
+logged exactly 173 lines. These are failed placement attempts, not 173 missing items;
+these logs alone do not establish the final supply. Broad-usage pack
 weapons (Farm/Hunting/Town/Village, Tier1–4) still contributed about 860 lines.
 The all-category static deficit was 845 for both t2 and t3 while weapons demand
 rose from 3,641 to 6,559. The static model is uncalibrated and does not predict
@@ -193,7 +194,7 @@ SHA-256 and counts. The binding also covers a SHA-256 pin for the staged type
 catalog, derived from that runtime's own `cfgeconomycore.xml` registrations (including
 multi-line CE blocks), with stock rows first and later definitions taking precedence.
 The catalog is a pinned staged file; ingest verifies its hash, so keep it beside
-the plan. It records defining-file hashes and category/usage/tier sets. Ingest
+the plan. It records defining-file hashes, nominal/min and category/usage/tier sets. Ingest
 carries variants, receipts and per-warning-type definitions into the summary.
 Unregistered types remain unattributed and prevent comparison; no attribution is
 guessed from prefixes or a different installation.
@@ -211,3 +212,75 @@ against the first summary. Different executable or stock-mission hashes refuse.
 Older summaries without staged attribution must be restaged and re-ingested to
 compare. The comparison reports observations only; native dose response and any
 resulting installer fix remain pending with the lead.
+
+
+## Retry evidence and in-map census (2026-11-22)
+
+The lead observed consecutive `Item [N]` indices for one type in the same
+millisecond. **Hard-to-place lines count failed placement attempts**, not unplaced
+items. Neither the retry count nor the failing-type set measures supply shortfall.
+
+| Run (t3 = HC base + boost + both packs) | Lines | Failing types | Burst s |
+| --- | ---: | ---: | ---: |
+| t0 stock | 71 | 40 | 7.0 |
+| t3 | 17,090 | 406 | 16.8 |
+| t3 weapons_capacity=2 | 10,183 | 449 | 14.6 |
+| t3 pack_tiers=widen | 18,988 | 407 | 18.1 |
+| t3 pack_nominal=0.5 | 14,330 | 372 | 15.2 |
+| t4 full stack | 10,120 | 371 | 22.0 |
+
+No tested knob removes the failing-type set, and stock CE also fails 40 types.
+The next measurement compares observed loose-world supply with staged nominal/min.
+
+At hold end the disposable hook requests `GetCEApi().EconomyLog` once when the
+API is non-null, then surveys the 15,360 m map. Installed 1.30.164289 declarations
+in `3_Game/Global/Game.c` define `GetObjectsAtPosition` as a circle query with
+object and proxy-cargo output arrays. The survey uses 60 by 60 tiles of 256 m,
+with radius 182 m circles covering each square. It processes one tile per
+`CallLater` callback, rescheduling after 10 ms; actual callback timing is engine
+controlled. Half-open x/z square ownership removes overlapping-circle duplicates
+for stationary roots. Object counts in the marker are query hits, including
+non-items and overlap; they are not the loose-item total.
+
+Only `ItemBase` objects whose `GetHierarchyRoot()` is themselves count as loose.
+Items in cargo, attachments and held items do not count as loose. The hook walks
+only attachment edges from each loose root, including nested attachments, and
+records their ItemBase count in `attached` **under the root's type**, not under
+the attachment class. Cargo is never traversed. Attached counts are supplemental;
+fill ratios and below-min/zero lists use loose counts only. The hook cannot
+identify whether an attachment came from cfgspawnabletypes or another source.
+
+After scanning, the hook writes `profiles/HCCEFillProbe/census.txt`, beginning
+with `[HC FillProbe] census binding=TOKEN`, then `type<TAB>loose<TAB>attached`
+rows. It closes that file, prints the bound census marker with tile/query-hit/type
+counts, then prints done and writes complete.txt. The launcher already retains
+this profile directory and records all its files in `probe_outputs`; no copying
+or launcher changes are needed. Allow additional time after the hold for the
+survey. Failure or timeout before completion is not a successful observation.
+
+Ingest requires this bound file for new census-enabled plans, rejects duplicate
+class names (case-insensitively), malformed rows and mismatched headers, and
+verifies the staged catalog hash. Every staged class participates in aggregation,
+including classes absent from the survey (loose count zero). Schema 2 summaries
+contain per-file and per-category/usage/tier sums of nominal, min, loose and
+attached, plus `fill_ratio = loose / nominal` (null for zero nominal), below-min
+classes, zero classes with positive nominal, and unattributed observed classes.
+Compare shows these census results beside retry counts. Older summaries still
+compare with `census.present=false`; existing attribution requirements remain.
+
+`EconomyLog` is documented **DEVELOPER/DIAG ONLY** in
+`3_Game/CE/CentralEconomy.c`; it may do nothing on retail. Ingest independently
+records whether `storage/log/*.csv` appeared, each file's SHA-256 and CSV record
+count (including a header, if present). Absence does not fail ingest or replace
+the census. Fresh storage is required so these exports belong to the run.
+
+Limits: loose counts can miss items in proxies that `GetObjectsAtPosition` does
+not return. Proxy cargo output is deliberately not treated as loose supply.
+This is a sequential survey, not an atomic initial-fill snapshot: CE can continue
+respawning or deleting items during the hold and sweep, and moving roots can
+cross ownership boundaries. Off-map objects are excluded. Tile stepping bounds
+queries per callback, not the engine query cost or number of returned objects;
+per-frame performance remains unmeasured. Nominal/min comparisons do not model
+CE count flags, dynamic events or other supply outside loose roots. Native compile,
+retail run, query coverage and census accuracy remain pending with the lead;
+o runtime acceptance or multiplayer proof is claimed.
