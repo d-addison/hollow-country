@@ -26,7 +26,7 @@ from tools.package import pbo, weapon_pack_guards
 from tools.release import compile_gate, ship_inputs
 from tools.release.compile_gate import source_tree
 from tools.release.rpt_summary import filtered
-from tools.setup import winproc
+from tools.setup import probe_core, winproc
 
 REPO = Path(__file__).resolve().parents[2]
 WORKBENCH = Path('/mnt/d/SteamLibrary/steamapps/common/DayZ Tools/Bin/Workbench')
@@ -203,19 +203,16 @@ def verdict(text, returncode, timed_out=False, truncated=False, probes=MODULES):
 
 
 def windows_path(path):
-    result = subprocess.run(['wslpath', '-w', str(Path(path).absolute())],
-                            capture_output=True, text=True, timeout=10, check=True)
-    return result.stdout.strip()
+    """Lexical /mnt/<drive> translation (no wslpath subprocess; non-drive paths refused)."""
+    return probe_core.windows_path(Path(path).absolute())
 
 
 def linux_path(path):
-    result = subprocess.run(['wslpath', '-u', path], capture_output=True,
-                            text=True, timeout=10, check=True)
-    return Path(result.stdout.strip())
+    return probe_core.linux_path(path)
 
 
 def quote_ps(value):
-    return "'" + str(value).replace("'", "''") + "'"
+    return probe_core.quote_ps(value)
 
 
 def tool_pbo(files, prefix):

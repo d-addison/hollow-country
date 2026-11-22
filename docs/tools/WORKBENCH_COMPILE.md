@@ -157,6 +157,17 @@ Observed: exit 1, `compile_failed`, first error `ours`
 module!`. Cascade `Bad type 'JsonFileLoader'` errors follow, and they are absent
 on the clean tree.
 
+## Shared host helpers
+
+`wb_compile`, `diag_session` and `wine_compile_probe` take WSL/Windows path
+translation, PowerShell quoting and link/reparse refusal from
+`tools/setup/probe_core.py`; host locking is the shared `tools/release/host_lock.py`
+lease. Translation is lexical and covers `/mnt/<drive>` paths only: a non-drive
+path, `..`, a reserved Windows name or a control character is refused before any
+Windows command runs (no `wslpath` call). Each module keeps its own isolation
+policy on top (`wine_compile_probe.safe` still refuses Steam, `.git` and the
+checkout; `diag_session.windows` also refuses `;`, quotes and newlines).
+
 ## Not qualified
 
 - `HC_CompileCheck` `RunCommandline` was never observed firing (its prints never

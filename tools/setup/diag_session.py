@@ -16,7 +16,7 @@ import shutil
 from tools.package import pbo
 from tools.release.rpt_summary import (CASCADE, COMPILE_MARKER, HC, SCRIPT_ERROR,
                                        filtered, lines)
-from tools.setup import workshop_sync, winproc
+from tools.setup import probe_core, workshop_sync, winproc
 
 REPO = Path(__file__).resolve().parents[2]
 CLIENT = Path('/mnt/g/SteamLibrary/steamapps/common/DayZ')
@@ -49,23 +49,25 @@ class Refused(ValueError):
 
 def plain(path):
     """Refuse links/reparse points in a managed path and its ancestors."""
-    path = Path(path).absolute()
-    for part in (path, *path.parents):
-        if part.is_symlink() or (part.exists() and
-                getattr(part.lstat(), 'st_file_attributes', 0) & 0x400):
-            raise Refused('linked/reparse path refused')
-    return path
+    try:
+        return probe_core.safe(path)
+    except ValueError:
+        raise Refused('linked/reparse path refused') from None
 
 
 def windows(path):
-    match = re.fullmatch(r'/mnt/([a-zA-Z])/(.+)', str(Path(path)))
-    if not match or any(c in match[2] for c in '\r\n";'):
+    """WSL drive path to a Windows path; refuses command separators and aliases."""
+    text = str(Path(path))
+    if any(c in text for c in '\r\n";'):
         raise Refused('expected a WSL drive path without command separators')
-    return match[1].upper() + ':\\' + match[2].replace('/', '\\')
+    try:
+        return probe_core.windows_path(text)
+    except ValueError:
+        raise Refused('expected a WSL drive path without command separators') from None
 
 
 def quote(value):
-    return "'" + str(value).replace("'", "''") + "'"
+    return probe_core.quote_ps(value)
 
 
 def source_files(source):
