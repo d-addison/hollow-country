@@ -749,6 +749,85 @@ class WorkshopStepTests(InstallerCase):
         self.assertEqual(self.fetches, [])
 
 
+class RetiredDependencyTests(InstallerCase):
+    """An older release installed items the manifest has since retired; the upgrade must still work."""
+
+    def setUp(self):
+        super().setUp()
+        self.retired = ws.load_manifest()['retired']
+        self.assertTrue(self.retired)
+
+    def seed_old_install(self):
+        """Apply the current bundle, then add what an older install recorded for the retired items."""
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        path = self.server / ws.RECEIPT_NAME
+        receipt = json.loads(path.read_text())
+        files = {e['path']: e for e in receipt['files']}
+        dirs = set(receipt['dirs'])
+        self.old_paths = []
+        for item in self.retired:
+            top, name = item['folder'], 'old-' + item['id']
+            dirs |= {top, top + '/addons', top + '/keys'}
+            for rel, data in ((top + '/addons/%s.pbo' % name, b'OLDPBO-' + item['id'].encode()),
+                              (top + '/keys/%s.bikey' % name, b'OLDKEY-' + item['id'].encode()),
+                              (top + '/meta.cpp', b'publishedid = %s;\n' % item['id'].encode()),
+                              ('keys/%s.bikey' % name, b'OLDKEY-' + item['id'].encode())):
+                put(self.server, rel, data)
+                files[rel] = {'path': rel, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data),
+                              'item': item['id']}
+                self.old_paths.append(rel)
+        path.write_bytes(ws.json_bytes(ws.receipt_data(files, dirs)))
+        return receipt
+
+    def test_an_older_receipt_naming_retired_folders_does_not_block_the_upgrade(self):
+        before = self.seed_old_install()
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 0, out + err)
+        self.assertNotIn('workshop_receipt', err)
+        self.assertEqual(status_of(out, 3), 'planned')
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        for rel in self.old_paths:
+            self.assertFalse((self.server / rel).exists(), rel)
+        for item in self.retired:
+            self.assertFalse((self.server / item['folder']).exists(), item['folder'])
+        after = json.loads((self.server / ws.RECEIPT_NAME).read_text())
+        self.assertEqual(after, before)
+        self.assertTrue((self.server / '@CF/addons/1559212036.pbo').is_file())
+
+    def test_a_second_apply_changes_nothing(self):
+        self.seed_old_install()
+        self.assertEqual(self.apply()[0], 0)
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 3), 'already-done')
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_a_retired_file_changed_since_install_is_left_and_reported(self):
+        self.seed_old_install()
+        kept = '%s/addons/old-%s.pbo' % (self.retired[0]['folder'], self.retired[0]['id'])
+        (self.server / kept).write_bytes(b'EDITED BY HAND')
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((self.server / kept).read_bytes(), b'EDITED BY HAND')
+        self.assertIn(kept, out)
+        receipt = json.loads((self.server / ws.RECEIPT_NAME).read_text())
+        self.assertNotIn(kept, {e['path'] for e in receipt['files']})
+        before = snapshot(self.server)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_rollback_with_an_older_receipt_removes_retired_files_and_keys(self):
+        self.seed_old_install()
+        code = ws.main(['rollback', '--server-root', str(self.server), '--assume-stopped'], out=io.StringIO())
+        self.assertEqual(code, 0)
+        for rel in self.old_paths:
+            self.assertFalse((self.server / rel).exists(), rel)
+        self.assertFalse((self.server / ws.RECEIPT_NAME).exists())
+
+
 class SteamcmdResolutionTests(InstallerCase):
     """A fresh machine has no download folder yet: steamcmd must be resolved, remembered and passed on."""
 

@@ -258,7 +258,7 @@ installed mission overlays.
 | Module | Flag | State |
 | --- | --- | --- |
 | Grade, Lighting, WeatherDays | `EnableGrade` (weather also respects `EnableAtmosphere`) | being built / runtime acceptance pending |
-| OptionalPacks (AmbientAnimals, Bicycles), Polish (Hints, EnvSound) | `EnableAmbientLife` | being built / runtime acceptance pending |
+| OptionalPacks (AmbientAnimals), Polish (Hints, EnvSound) | `EnableAmbientLife` | being built / runtime acceptance pending |
 | SignsOfLife | `EnableSignsOfLife` | being built / runtime acceptance pending |
 | Shelters, WreckSalvage | `EnableTravel` | being built / runtime acceptance pending |
 | MapPins | `EnableTravel` or `EnableLeads`, with each pin kind filtered | being built / runtime acceptance pending |
@@ -271,7 +271,7 @@ installed mission overlays.
 | Scenes and scene chains | `EnableEncounters` | being built / runtime acceptance pending |
 | Optional Expansion living-world addon (Factions, Stance, AskForNews, Checkpoints) | `EnableEncounters`, plus optional provider dependencies | being built / runtime acceptance pending |
 | Client grade, lighting, signs of life, hints, environmental sound, map pins and Morse presentation | Client-local defaults; server flags apply to corresponding server modules only | being built / runtime acceptance pending |
-| Travel CE content and optional animal/bicycle mission overlays | Installed content; flags alone do not roll it back | being built / runtime acceptance pending |
+| Travel CE content and optional animal mission overlays | Installed content; flags alone do not roll it back | being built / runtime acceptance pending |
 
 The [V2 acceptance checklist](LOCAL_ACCEPTANCE_V1.md#v2-living-country-scaffolding)
 retains feature steps, missing observations and single-client checks. Operator
@@ -673,7 +673,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Melee | `hit_processed`, `parity_probe` |
 | Notes | `note_read` |
 | ObjectSpawner | `pathgraph_refresh` (boot batch reported by the World readiness hook; native routing verification pending) |
-| OptionalPacks | `animal_seen`, `bicycle_seen` |
+| OptionalPacks | `animal_seen` |
 | Pickers | `trip_started` |
 | Polish | `hint_shown`, `sound_played` |
 | Progression | `familiarity_gained` |

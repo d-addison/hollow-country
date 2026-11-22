@@ -7,8 +7,8 @@ WORKSHOP_FOLDERS = {
     '@CF': '1559212036', '@COT': '1564026768', '@DabsFramework': '2545327648',
     '@Expansion-Core': '2291785308', '@Expansion-Licensed': '2116157322',
     '@Expansion-Vehicles': '2291785437', '@Expansion-AI': '2792982069',
-    '@Expansion-Navigation': '2792984722', '@SurvivorAnimations': '2918418331',
-    '@AmbientAnimals': '3114410963', '@DayZ-Bicycle': '2971190303',
+    '@Expansion-Navigation': '2792984722',
+    '@AmbientAnimals': '3114410963',
     '@RaG_Core': '3556131153', '@RaG_Immersive_Vehicles': '3105330157',
     '@WeaponPackA': '2646817942', '@WeaponPackB': '2443122116',
 }

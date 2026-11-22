@@ -531,6 +531,8 @@ class Analysis:
         self.cfg = None          # dict(path, raw, new, changes)
         self.third = []          # dict(item, folder_exists, ours)
         self.fetch = []          # items to download
+        self.retire_files = []   # receipt rows of retired dependencies still on the server
+        self.retire_dirs = []    # their receipt folders
         self.overlay = None
 
 
@@ -599,8 +601,10 @@ def analyze(ctx):
     ctx.dirs = dirs
     owned = set()
     try:
-        receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods']})
+        # A receipt an older release wrote still names the folders of items since retired.
+        receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']})
         owned = set(receipt['dirs']) if receipt else set()
+        a.retire_files, a.retire_dirs = ws.retired_receipt_rows(receipt, manifest)
     except ws.SyncError as error:
         raise Refused('workshop_receipt', str(error))
     ctx.owned = owned
@@ -951,18 +955,37 @@ def plan_workshop(ctx, a):
     if a.pending:
         lines.append('then copied into the server folder with their keys: %s'
                      % ', '.join(t['item']['folder'] for t in a.pending))
+    if a.retire_files or a.retire_dirs:
+        folders = sorted({r['path'].split('/')[0] for r in a.retire_files if r['path'].startswith('@')}
+                         | {d.split('/')[0] for d in a.retire_dirs})
+        lines.append('retired dependencies this install put there are removed with their keys (unchanged files '
+                     'only; the Workshop subscription stays harmless): %s' % ', '.join(folders))
+    if a.pending or a.retire_files or a.retire_dirs:
         return 'planned', lines, lambda: do_workshop(ctx, a)
-    if not a.pending:
-        lines.append('all %d dependencies are in the server folder' % len(third))
-        return 'already-done', lines, None
+    lines.append('all %d dependencies are in the server folder' % len(third))
     return 'already-done', lines, None
 
 
 def do_workshop(ctx, a):
     if a.fetch:
         do_fetch(ctx, a)
-    install_dependencies(ctx, a)
+    if a.pending:
+        install_dependencies(ctx, a)
+    if a.retire_files or a.retire_dirs:
+        retire_dependencies(ctx)
     return 'done'
+
+
+def retire_dependencies(ctx):
+    manifest = ws.load_manifest()
+    receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']})
+    removed, left = ws.retire_items(ctx.server, receipt, manifest,
+                                    before_write=lambda rel, digest: record_written(ctx, rel, digest))
+    ctx.owned = ctx.owned - {d for d in ctx.owned if d.split('/')[0] in {m['folder'] for m in manifest['retired']}}
+    for rel in removed:
+        ctx.say('  removed retired file: ' + rel)
+    for rel in left:
+        ctx.say('  left in place (changed since install; remove by hand if wanted): ' + rel)
 
 
 def do_fetch(ctx, a):

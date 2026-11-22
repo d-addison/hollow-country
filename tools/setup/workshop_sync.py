@@ -447,6 +447,74 @@ def load_receipt(root, managed):
     return data
 
 
+def retired_receipt_rows(receipt, manifest):
+    """Receipt files and folders that belong to retired manifest items: (file rows, folder names).
+
+    A server key counts when a retired folder holds the same key bytes and no active folder does.
+    """
+    if not receipt:
+        return [], []
+    retired = {m['folder'] for m in manifest['retired']}
+
+    def key_copies(keep):
+        return {(e['path'].split('/')[-1], e['sha256']) for e in receipt['files']
+                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0])}
+
+    retired_keys = key_copies(lambda top: top in retired)
+    active_keys = key_copies(lambda top: top not in retired)
+    rows = []
+    for entry in receipt['files']:
+        path = entry['path']
+        if path.startswith('@'):
+            if path.split('/')[0] in retired:
+                rows.append(entry)
+        else:
+            key = (path.split('/')[-1], entry['sha256'])
+            if key in retired_keys and key not in active_keys:
+                rows.append(entry)
+    return rows, sorted(rel for rel in receipt['dirs'] if rel.split('/')[0] in retired)
+
+
+def retire_items(root, receipt, manifest, before_write=None):
+    """Remove what an earlier install recorded for retired items, keys included, then rewrite the receipt.
+
+    Only files whose bytes still match the receipt are deleted; a changed file is left and reported, and
+    its folder stays. Both are dropped from the receipt either way, so a second run finds nothing to do.
+    Returns (removed paths, left paths).
+    """
+    rows, dirs = retired_receipt_rows(receipt, manifest)
+    if not rows and not dirs:
+        return [], []
+    for entry in rows:
+        check_no_symlink_below(root, entry['path'])
+    for rel in dirs:
+        check_no_symlink_below(root, rel)
+    removed, left = [], []
+    for entry in rows:
+        target = root / entry['path']
+        if not target.exists() and not target.is_symlink():
+            continue
+        if not target.is_file() or sha256_of(target) != entry['sha256']:
+            left.append(entry['path'])
+            continue
+        if before_write is not None:
+            before_write(entry['path'], None)
+        target.unlink()
+        fsync_parent(target)
+        removed.append(entry['path'])
+    for rel in sorted(dirs, key=lambda r: r.count('/'), reverse=True):
+        folder = root / rel
+        if folder.is_dir() and not folder.is_symlink() and not any(folder.iterdir()):
+            folder.rmdir()
+    gone = {e['path'] for e in rows}
+    data = receipt_data({e['path']: e for e in receipt['files'] if e['path'] not in gone},
+                        set(receipt['dirs']) - set(dirs))
+    if before_write is not None:
+        before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
+    write_json_atomic(root / RECEIPT_NAME, data)
+    return removed, left
+
+
 def receipt_data(files, dirs):
     return {'schema': SCHEMA, 'files': sorted(files.values(), key=lambda e: e['path']), 'dirs': sorted(dirs)}
 

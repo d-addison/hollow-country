@@ -21,6 +21,7 @@ from tools.setup import workshop_sync as ws
 
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
+GENERATED_DIGESTS = REPO / 'config/generated-digests.json'
 IDS = {'cf': '1559212036', 'cot': '1564026768', 'navigation': '2792984722', 'rag_core': '3556131153', 'rag_vehicles': '3105330157', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963',
        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942', 'licensed': '2116157322', 'vehicles': '2291785437'}
 HC_ID = '3841628320'
@@ -162,6 +163,8 @@ class Manifest(unittest.TestCase):
         for folder in ('config', 'mission', 'mods'):
             for path in (REPO / folder).rglob('*'):
                 if path.is_file() and path.suffix.lower() in {'.json', '.md', '.xml', '.cpp', '.c'}:
+                    if path == GENERATED_DIGESTS:
+                        continue  # lists tool file paths as digest inputs; it holds no mod content or ids
                     data = path.read_bytes().lower()
                     self.assertNotIn(IDS['tf'].encode(), data, path)
                     self.assertNotIn(b'snafu', data, path)

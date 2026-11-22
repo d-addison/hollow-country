@@ -789,4 +789,5 @@ not native acceptance. Refresh with `python3 -B tools/audit/acceptance_markers.p
 - `$profile:HollowCountry/acceptance/melee.disable` — `HCMeleeModule.OnStart` (`mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c:30`).
 - `$profile:HollowCountry/acceptance/scavenge_runs.disable` — `HCPickPolicy` (`mods/HollowCountry/scripts/4_World/World/auditpick_Policy.c:13`).
 - `$profile:HollowCountry/acceptance/season_leaves.disable` — `auditleaves_Client.HCStart` (`mods/HollowCountry/scripts/5_Mission/Weather/auditleaves_Client.c:44`).
+- `$profile:HollowCountry/acceptance/startup_catchup.disable` — `HCStartupPump.HCBegin` (`mods/HollowCountry/scripts/4_World/Core/HCStartupPump.c:43`). Turns the shared startup catch-up pump off.
 - `$profile:HollowCountry/acceptance/story_index.disable` — `HCGapcodeStoryIndex.HCStart` (`mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c:125`).

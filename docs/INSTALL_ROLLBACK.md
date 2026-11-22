@@ -308,11 +308,19 @@ Both Workshop items are dropped. Survivor Animations references about 130 animat
 files its own package does not ship, and DayZ-Bicycle needs it; the owner chose to
 drop both rather than patch third-party content. The vanilla motorbikes stay.
 
-Upgrading an existing server needs no wipe:
+Upgrading an existing server needs no wipe. Bikes and bicycle parts that players left in
+the world, in inventories or in tents are dropped by the engine when the world loads once the
+mods are gone; no Hollow Country data references them. This has not been observed yet and is
+checked at the first retail boot after the upgrade. Ask players to empty bike cargo before the
+upgrade so nothing of value is inside a bike that disappears.
 
 - Remove `@SurvivorAnimations` and `@DayZ-Bicycle` from the server and client `-mod` lines.
 - `workshop_sync` keeps both folders in a `retired` list in `tools/setup/workshop_mods.json`,
   so an older receipt that names them still loads; sync no longer downloads or loads them.
+- The friend installer removes what the Workshop receipt recorded for the retired folders:
+  their files and their copied `.bikey` files in `keys/`. A file that changed since the
+  install is left in place and listed. `workshop_sync rollback` removes the same files.
+  A key the receipt does not record is not touched; delete it from `keys/` by hand.
 - An existing install that carried the bicycle overlay upgrades the normal way: the friend
   installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
   receipt (it does not depend on the current pack list), then `bundle-apply` installs the

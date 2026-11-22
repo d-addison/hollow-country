@@ -170,6 +170,14 @@ with Public or Unlisted visibility. After an upload, `record` stores the item's
 published ID. Preparation sends no credentials; Steam handles its interactive
 login and Steam Guard. A friend operator never publishes; they only subscribe.
 
+Publish checklist step, needs the owner's go-ahead for that release: at the next publish of
+either owned item, remove the two retired dependency Workshop ids (Survivor Animations
+2918418331 and DayZ-Bicycle 2971190303) from the required items of both Workshop pages (Hollow
+Country 3841628320 and Hollow Country Expansion AI 3841637854), in the Workshop page editor.
+Neither mod is loaded any more, so a page that still lists them makes new subscribers download
+content that is not used. Confirm the ids against the `retired` list in
+`tools/setup/workshop_mods.json` before editing.
+
 An AI agent setting up the friend's server follows
 [FRIEND_SERVER_AI_RUNBOOK.md](FRIEND_SERVER_AI_RUNBOOK.md) step by step.
 
