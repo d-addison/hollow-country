@@ -1799,6 +1799,27 @@ def run_check(ctx):
         if not addons.is_dir() or not any(p.suffix.lower() == '.pbo' for p in addons.iterdir()):
             missing.append('missing_mod_folder: %s' % folder)
     result('mod_folders', missing, '%d mod folders present with signed PBOs' % len(expected))
+    # Our own folders must be this bundle's bytes: a rolled-back or older install
+    # still has signed PBOs, so presence alone cannot prove which build will load.
+    problems = []
+    own_count = 0
+    for folder in ('@HollowCountry', '@HollowCountryExpansionAI'):
+        rows = bundle_walk(ctx.bundle, ctx.manifest, folder)
+        own_count += len(rows)
+        for rel, source in rows:
+            target = server / rel
+            if not target.is_file():
+                problems.append('own_file_missing: ' + rel)
+            elif sha256_file(target) != sha256_file(source):
+                problems.append('own_file_differs: ' + rel)
+        listed = {rel.casefold() for rel, _ in rows}
+        addons = server / folder / 'addons'
+        if rows and addons.is_dir():
+            for path in sorted(addons.iterdir()):
+                rel = folder + '/addons/' + path.name
+                if path.is_file() and path.suffix.lower() == '.pbo' and rel.casefold() not in listed:
+                    problems.append('own_pbo_not_in_bundle: ' + rel)
+    result('own_mod_bytes', problems, '%d own mod files match this bundle' % own_count)
     # The signed guard is an ordinary HCX addon: analyze() copies it and moves its
     # old PBO/signatures to backup when a later bundle no longer ships the pack.
     guard_rel = '@HollowCountryExpansionAI/addons/hollowcountry_weapon_pack_guards.pbo'
