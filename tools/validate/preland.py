@@ -12,6 +12,7 @@ import sys
 
 from tools.validate.cfgconvert_check import SKIPPED
 from tools.release.rpt_summary import filtered
+from tools.release.test_queue import submit_line
 from tools.release.ship_inputs import ADDONS
 from tools.validate.wiring_audit import OFFLINE_EXCLUSIONS
 from tools.validate import layout_lint
@@ -261,6 +262,8 @@ def execute(args, paths, scratch):
                               '--image-to-paa', str(scratch / 'ImageToPAA.exe')]
             if args.strict:
                 arguments += ['--require-installed']
+            elif ci and name == 'generated_digests':
+                arguments += ['--waive-unavailable']
         elif name == 'wiring_audit' and ci:
             arguments = ['--offline']
         elif name == 'layout_lint' and ci:
@@ -303,7 +306,11 @@ def execute(args, paths, scratch):
                 status = 'FAIL (skipped/unavailable coverage)'
                 failed = True
             elif name == 'cfgconvert_check' and code == SKIPPED:
-                status = 'skipped: unavailable'
+                status = 'needs-host-check: unavailable'
+                incomplete = True
+            elif not ci and (code == SKIPPED or (code == 0 and gaps)):
+                # Host-only inputs (native cache, Windows tools) are missing: never a pass.
+                status = 'needs-host-check: ' + ('; '.join(gaps[:1]) or 'inputs unavailable')[:120]
                 incomplete = True
             elif (ci and not args.strict and name == 'layout_lint'
                   and code == layout_lint.SKIPPED and not gaps
@@ -324,6 +331,10 @@ def execute(args, paths, scratch):
         print(' | '.join(row))
     print('preland: ' + ('FAILED' if failed else 'INCOMPLETE (native/optional checks pending)' if incomplete else 'PASS')
           + '; engine compile/boot acceptance remains separate')
+    if incomplete and not failed:
+        print('preland: status=needs-host-check; host-only inputs are missing here, so this is not a pass.'
+              ' Commit, then run on the lead host queue:')
+        print(submit_line(ROOT))
     return 1 if failed else SKIPPED if incomplete else 0
 
 

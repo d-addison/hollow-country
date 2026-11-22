@@ -86,8 +86,11 @@ class DigestTests(unittest.TestCase):
         before = path.read_bytes()
         with patch.object(digests, 'installed_snapshot', side_effect=digests.MissingInput('fixture unavailable')):
             code, output = self.invoke('--check')
-            self.assertEqual(0, code)
+            self.assertEqual(digests.NEEDS_HOST_CHECK, code)
             self.assertIn('SKIP fixture', output)
+            self.assertIn('STATUS needs-host-check', output)
+            self.assertIn('SUBMIT python3 -B -m tools.release.test_queue submit --commit', output)
+            self.assertEqual(0, self.invoke('--check', '--waive-unavailable')[0])
             self.assertEqual(1, self.invoke('--check', '--require-installed')[0])
             self.assertEqual(0, self.invoke('--update')[0])
         self.assertEqual(json.loads(before), json.loads(path.read_bytes()))
