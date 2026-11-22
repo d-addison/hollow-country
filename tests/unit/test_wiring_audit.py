@@ -115,6 +115,100 @@ class BaselineTests(unittest.TestCase):
                 self.assertEqual(report['baseline_kept_missing_roots'], len(expected))
 
 
+class DeadClassTests(unittest.TestCase):
+    """W004 reachability: derived from script, config and tool sources; no engine behaviour is implied."""
+
+    def audit(self, scripts, config='', tool=''):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        for name, text in scripts.items():
+            (root / name).write_text(text)
+        (root / 'config.cpp').write_text(config)
+        (root / 'tool.py').write_text(tool)
+        rules = copy.deepcopy(wiring.DEFAULTS)
+        rules['roots'] = {'scripts': list(scripts), 'configs': ['config.cpp'], 'data': [],
+                          'tools': ['tool.py'], 'audit_data': []}
+        audit = wiring.Audit(rules, offline=True)
+        with patch.object(wiring, 'ROOT', root):
+            parsed = {p: wiring.mask(audit.read(p)) for p in audit.paths(scripts)}
+            script_classes = [(p, c) for p, t in parsed.items() for c in wiring.classes(t)]
+            audit.dead_class_check(parsed, script_classes)
+        return {f['subject'] for f in audit.findings if f['id'] == 'W004'}
+
+    def test_unreferenced_class_is_flagged(self):
+        self.assertEqual({'Dead'}, self.audit({'a.c': 'class Dead { void Run() {} }'}))
+
+    def test_comment_and_own_body_do_not_reference(self):
+        text = '// Dead\nclass Dead { static Dead Make() { return new Dead(); } }'
+        self.assertEqual({'Dead'}, self.audit({'a.c': text}))
+
+    def test_file_local_helper_used_by_live_code_is_live(self):
+        text = 'class Helper {}\nmodded class MissionServer { void OnInit() { new Helper(); } }'
+        self.assertEqual(set(), self.audit({'a.c': text}))
+
+    def test_helper_used_only_by_dead_class_is_dead_chain(self):
+        text = 'class Helper {}\nclass Dead { void Run() { new Helper(); } }'
+        self.assertEqual({'Helper', 'Dead'}, self.audit({'a.c': text}))
+
+    def test_cross_file_reference_from_live_code_is_live(self):
+        scripts = {'a.c': 'class Used {}', 'b.c': 'void Boot() { Used u; }'}
+        self.assertEqual(set(), self.audit(scripts))
+
+    def test_config_named_and_exact_literal_classes_are_live(self):
+        scripts = {'a.c': 'class Configured {}\nclass Looked {}\nclass Other {}',
+                   'b.c': 'void Boot() { GetGame().CreateObject("Looked", vector.Zero); }'}
+        self.assertEqual({'Other'}, self.audit(scripts, config='class CfgMods { class X { dependencies[] = {"Configured"}; }; };'))
+
+    def test_substring_literal_does_not_reference(self):
+        scripts = {'a.c': 'class Looked {}', 'b.c': 'void Boot() { Print("Looked at it"); }'}
+        self.assertEqual({'Looked'}, self.audit(scripts))
+
+    def test_tool_embedded_call_or_new_is_an_entry_point(self):
+        scripts = {'a.c': 'class Hook { static void Run() {} }\nclass Maker {}\nclass Dead {}'}
+        tool = '"""Dead.Run() in a docstring"""\nHOOK = "void Init() { Hook.Run(); Maker m = new Maker(); }"\n'
+        self.assertEqual({'Dead'}, self.audit(scripts, tool=tool))
+
+
+class FieldRouteTests(unittest.TestCase):
+    """A string-array field default reaches the creation call that consumes it, across methods."""
+
+    def routes(self, source):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        (root / 'a.c').write_text(source)
+        rules = copy.deepcopy(wiring.DEFAULTS)
+        rules['roots'] = {'scripts': ['a.c'], 'configs': [], 'data': [], 'tools': [], 'audit_data': []}
+        audit = wiring.Audit(rules, offline=True)
+        with patch.object(wiring, 'ROOT', root), patch.object(audit, 'safe', side_effect=Path):
+            scripts = {p: wiring.mask(audit.read(p)) for p in audit.paths(['a.c'])}
+            script_classes = [(p, c) for p, t in scripts.items() for c in wiring.classes(t)]
+            with patch('tools.package.map_overlay.load_source'), \
+                    patch('tools.package.map_overlay.enabled_layers', return_value=[]):
+                return audit.spawn_routes({}, scripts, script_classes)[0]
+
+    CONFIG = 'class Cfg { ref array<string> Herbs = {"Cannabis", "Nettle"}; }\n'
+
+    def test_field_array_read_through_pending_field_is_a_route(self):
+        source = self.CONFIG + """class Spawner {
+            protected string m_Pending;
+            string Pick(int slot) { return Cfg.Get().Herbs[0]; }
+            void Plan() { string type = Pick(0); m_Pending = type; }
+            void Create() { string type = m_Pending; GetGame().CreateObjectEx(type, vector.Zero, 0); }
+        }"""
+        self.assertIn('cannabis', self.routes(source))
+
+    def test_field_assigned_but_never_created_is_not_a_route(self):
+        source = self.CONFIG + """class Spawner {
+            protected string m_Pending;
+            string Pick(int slot) { return Cfg.Get().Herbs[0]; }
+            void Plan() { string type = Pick(0); m_Pending = type; }
+            void Create() { Print(m_Pending); }
+        }"""
+        self.assertNotIn('cannabis', self.routes(source))
+
+
 class ExternalClassTests(unittest.TestCase):
     def test_missing_object_caches_defer_only_external_dependent_findings(self):
         with tempfile.TemporaryDirectory() as temporary:

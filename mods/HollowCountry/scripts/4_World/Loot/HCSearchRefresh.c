@@ -14,11 +14,6 @@ class HCSearchLimitsRegistry : HCOperatorSettingsRegistry
         HCInit();
         if (s_SearchRegistered) { return; }
         s_SearchRegistered = true;
-        // RetryDelayMs and RetryAttempts are reserved: no effect since the interiors pilot
-        // retirement (2026-11-22). They stay registered so an existing search-limits.json
-        // that carries them still loads and validates; nothing reads their values.
-        HCAdd("SearchLimits.RetryDelayMs", "int", 10000, 1000, 60000, "HCSearchLimits");
-        HCAdd("SearchLimits.RetryAttempts", "int", 3, 1, 12, "HCSearchLimits");
         HCAdd("SearchLimits.RefreshRecordsPerMinute", "int", 32, 1, 32, "HCSearchLimits");
         HCAdd("SearchLimits.RefreshMaxRecords", "int", 4096, 1, 4096, "HCSearchLimits");
         HCAdd("SearchLimits.RefreshMinSeconds", "int", 172800, 60, 2592000, "HCSearchLimits");
@@ -32,10 +27,11 @@ class HCSearchLimitsRegistry : HCOperatorSettingsRegistry
 
 class HCSearchLimits
 {
-    // Reserved, no effect since the interiors pilot retirement (2026-11-22): parsed and
-    // range-checked in HCApply so old operator files keep loading, never read elsewhere.
-    int RetryDelayMs = 10000;
-    int RetryAttempts = 3;
+    // Retired with the interiors pilot (2026-11-22), no longer registered or read. They are
+    // declared only so an old search-limits.json that still carries them decodes; HCApply
+    // logs and ignores them (any value, no range check) and never lets them refuse the file.
+    int RetryDelayMs;
+    int RetryAttempts;
     int RefreshRecordsPerMinute = 32;
     int RefreshMaxRecords = 4096;
     int RefreshMinSeconds = 172800;
@@ -81,18 +77,15 @@ class HCSearchLimits
         return s_Config;
     }
 
+    protected void HCRetiredKey(string text, string key)
+    {
+        if (HCJsonFields.Has(text, key)) { Print("[HC Search Limits] retired key ignored key=" + key + " (no effect; safe to remove from search-limits.json)"); }
+    }
+
     void HCApply(HCSearchLimits decoded, string text)
     {
-        if (HCJsonFields.Has(text, "RetryDelayMs"))
-        {
-            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RetryDelayMs", decoded.RetryDelayMs)) { RetryDelayMs = decoded.RetryDelayMs; }
-            else { m_Healthy = false; }
-        }
-        if (HCJsonFields.Has(text, "RetryAttempts"))
-        {
-            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RetryAttempts", decoded.RetryAttempts)) { RetryAttempts = decoded.RetryAttempts; }
-            else { m_Healthy = false; }
-        }
+        HCRetiredKey(text, "RetryDelayMs");
+        HCRetiredKey(text, "RetryAttempts");
         if (HCJsonFields.Has(text, "RefreshRecordsPerMinute"))
         {
             if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RefreshRecordsPerMinute", decoded.RefreshRecordsPerMinute)) { RefreshRecordsPerMinute = decoded.RefreshRecordsPerMinute; }

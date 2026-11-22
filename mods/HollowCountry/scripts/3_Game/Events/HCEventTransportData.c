@@ -1,24 +1,8 @@
-// Original bounded public protocol. IDs scanned against this repository and
-// installed native 1.30, not a promise of third-party collision freedom.
+// HC-38: retired client event protocol; no RPC endpoint remains.
 enum HCEventWire
 {
     VERSION = 1,
-    RPC_REQUEST = 4853801,
-    RPC_VIEW = 4853802,
     MENU_EVENTS = 48538
-}
-enum HCEventWireOp
-{
-    BROWSE = 0,
-    JOIN = 1,
-    LEAVE = 2
-}
-enum HCEventWireCode
-{
-    RATE = 8,
-    SESSION = 9,
-    ORDER = 10,
-    DISABLED = 11
 }
 class HCEventWireRequest
 {

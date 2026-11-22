@@ -229,11 +229,19 @@ def check_search_limits(rows):
     """Optional search-limits.json: registration/defaults and presence-guarded migration."""
     source = (ROOT / 'mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c').read_text()
     dto = source.split('class HCSearchLimits\n', 1)[1].split('// Owner revisit request', 1)[0]
-    fields = {key: (kind, int(value)) for kind, key, value in re.findall(
-        r'^    (int) (\w+) = (\d+);', dto, re.M)}
+    # A decode-only retired field has no initializer; a registered key must carry its default.
+    fields = {key: (kind, int(value) if value else None) for kind, key, value in re.findall(
+        r'^    (int) (\w+)(?: = (\d+))?;', dto, re.M)}
     rules = {r['key'].removeprefix('SearchLimits.'): r for r in rows}
+    # Retired keys: still decoded (an old operator file must parse) but ignored and logged,
+    # never registered or applied. The loader declares each with one HCRetiredKey call.
+    retired = set(re.findall(r'^        HCRetiredKey\(text, "(\w+)"\);', dto, re.M))
     errors = []
-    if fields.keys() != rules.keys(): errors.append('SearchLimits registry/native key set differs')
+    if fields.keys() != rules.keys() | retired or retired & rules.keys():
+        errors.append('SearchLimits registry/native key set differs')
+    for key in sorted(retired):
+        if f'HCJsonFields.Has(text, "{key}")' in dto or f'decoded.{key}' in dto:
+            errors.append(f'SearchLimits retired key {key} must be ignored, not applied')
     compiled = re.findall(r'^        HCAdd\([^\n]+;', source.split('class HCSearchLimits\n', 1)[0], re.M)
     if compiled != render_native_registry(rows).splitlines():
         errors.append('SearchLimits compiled registry differs (key/type/default/range/owner)')

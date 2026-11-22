@@ -2922,22 +2922,6 @@
     "owner": "HCWorldRuntimeConfig"
   },
   {
-    "key": "SearchLimits.RetryDelayMs",
-    "type": "int",
-    "default": 10000,
-    "min": 1000,
-    "max": 60000,
-    "owner": "HCSearchLimits"
-  },
-  {
-    "key": "SearchLimits.RetryAttempts",
-    "type": "int",
-    "default": 3,
-    "min": 1,
-    "max": 12,
-    "owner": "HCSearchLimits"
-  },
-  {
     "key": "SearchLimits.RefreshRecordsPerMinute",
     "type": "int",
     "default": 32,

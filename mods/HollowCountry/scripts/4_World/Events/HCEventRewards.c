@@ -200,19 +200,3 @@ class HCEventRewardLedger
         return plan;
     }
 }
-class HCEventRewards
-{
-    protected static ref HCEventRewardLedger s_Ledger;
-    static HCEventRewardLedger Ledger()
-    {
-        if (!s_Ledger)
-        {
-            s_Ledger = new HCEventRewardLedger;
-            HCEventRewardIO rewardIO = new HCEventRewardIO;
-            HCEventRewardPool pools = HCEventRewardPools.V1();
-            s_Ledger.Configure(rewardIO, pools);
-            s_Ledger.Start();
-        }
-        return s_Ledger;
-    }
-}

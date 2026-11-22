@@ -176,7 +176,7 @@ rows and must not scan buildings, claim work, commit state or resolve inventory.
 ## File consistency and recovery
 
 The installed engine exposes CopyFile/DeleteFile and no rename/replace API.
-**True atomic file replacement is skipped.** `HCDebugJsonStore.HCSaveText`
+**True atomic file replacement is skipped.** `HCDebugSnapshotModule`
 uses the existing HCGroupIO bounded write/read helpers and the existing
 HCV2ThreatStore's temp-intent/backup/copy/readback protocol. It keeps `.tmp`
 on any failure after creating intent, preserves the previous completed image
@@ -198,10 +198,8 @@ regenerate. Never remove gameplay stores to repair a debug export. A missing
 primary beside `.bak`, stale `.tmp`, directory failure, unsupported world/date
 or copy/readback failure stops the exporter. No repeated failure-log flood.
 
-`HCDebugJsonStore.HCSaveText` is the owned raw-JSON seam the lead could promote
-to Core to consolidate the existing repeated verified-copy protocol. It was
-needed because the schema's literal map key cannot be an Enforce field name;
-it makes no new atomicity claim.
+The fixed envelope is authored text because the schema's literal map key cannot be an
+Enforce field name; this makes no new atomicity claim.
 
 ## Optional map image from your own installation
 

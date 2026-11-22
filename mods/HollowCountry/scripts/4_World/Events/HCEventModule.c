@@ -15,7 +15,6 @@ class HCEventModule : HCModule
     protected ref HCEventSettings m_Config;
     protected ref HCStepTimer m_TickSteps;
     protected int m_SituationStep;
-    protected int m_TransportStep;
     protected int m_RuntimeStep;
     protected int m_RosterStep;
     protected int m_CacheStep;
@@ -65,7 +64,6 @@ class HCEventModule : HCModule
     protected ref array<int> m_PoliceRetryAttempts;
     protected ref array<float> m_PoliceRetryAfter;
     protected bool m_PoliceRetryReady;
-    protected ref HCEventRPC m_EventRPC;
     protected bool m_Stopping = false;
     protected bool m_Quarantined = false;
     protected int m_CleanupAttempts = 0;
@@ -334,7 +332,6 @@ class HCEventModule : HCModule
         m_StartRefusal = "";
         m_TickSteps = new HCStepTimer("Events");
         m_SituationStep = m_TickSteps.HCDefine("situations");
-        m_TransportStep = m_TickSteps.HCDefine("transport");
         m_RuntimeStep = m_TickSteps.HCDefine("maintenance");
         m_RosterStep = m_TickSteps.HCDefine("roster");
         m_CacheStep = m_TickSteps.HCDefine("scene_cache");
@@ -406,14 +403,6 @@ class HCEventModule : HCModule
             }
             return;
         }
-        // Runtime barriers refuse opt-in mutations during roster publication.
-        m_EventRPC = new HCEventRPC;
-        if (!m_EventRPC.Start(this))
-        {
-            Print("[HC Events] opt-in transport unavailable; stopping runtime reason=" + m_EventRPC.Refusal());
-            OnStop();
-            return;
-        }
         s_Instance = this;
         Print("[HC Events] roster admission queued; participation is optional");
     }
@@ -455,16 +444,8 @@ class HCEventModule : HCModule
                 OnStop();
                 return;
             }
-            // A retained journal gets this tick to itself. Transport can revoke
-            // peers next tick, still before any new objective observations.
             bool journalTick = m_Runtime.HCPublishPending();
             bool journalAtStart = m_Runtime.HCJournalPending();
-            if (m_EventRPC && !journalTick)
-            {
-                int transportStarted = TickCount(0);
-                m_EventRPC.Tick();
-                HCMeasureStep(m_TransportStep, "transport", transportStarted);
-            }
             int runtimeStarted = TickCount(0);
             m_Runtime.Tick(context);
             // Runtime names individual expiry/cleanup/journal chunks. Keep its
@@ -777,11 +758,6 @@ class HCEventModule : HCModule
             m_Announcing = null;
         }
         HCCloseSituations();
-        if (m_EventRPC)
-        {
-            m_EventRPC.Stop();
-            m_EventRPC = null;
-        }
         if (s_Instance == this)
         {
             s_Instance = null;
