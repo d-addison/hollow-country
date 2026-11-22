@@ -1234,3 +1234,10 @@ modded class HCInteriorsModule
         super.OnStop();
     }
 }
+
+class HCStartupInteriors : HCStartupOwner
+{
+    HCInteriorsModule Module;
+    override bool HCNeedsWork() { return Module && Module.HCStartupPackPending(); }
+    override void HCSlice() { Module.HCPackPump(); }
+}

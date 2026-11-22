@@ -52,6 +52,8 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Performance.TickWeight_AI_ROUTE_CACHE", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.EnableSharedSaves", "bool", 1, 0, 1, "HCPerfConfig");
         HCAdd("Performance.SliceMs", "int", 4, 1, 10, "HCPerfConfig");
+        HCAdd("Performance.StartupFrameMs", "int", 4, 1, 4, "HCPerfConfig");
+        HCAdd("Performance.StartupDeadlineSeconds", "int", 30, 1, 300, "HCPerfConfig");
         HCAdd("Performance.SaveStageTargetMs", "int", 10, 1, 10, "HCPerfConfig");
         HCAdd("Performance.EcologyRowsPerTick", "int", 4, 1, 32, "HCPerfConfig");
         HCAdd("Performance.InteriorStepsPerTick", "int", 1, 1, 4, "HCPerfConfig");

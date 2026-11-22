@@ -20,7 +20,14 @@ modded class HCXAISiteDirector
         }
         m_GapcodeRoutes = new HCGapcodeRoutesCatalog;
         m_GapcodeRoutes.HCOpen();
+        m_GapcodeRoutes.StartupDirector = this;
+        HCStartupPump.HCRegister(m_GapcodeRoutes, "routes_catalog");
     }
+    bool HCStartupRoutesPending()
+    {
+        return m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused";
+    }
+    void HCStartupRoutesSlice() { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); }
     override void Step()
     {
         // A source-page hash remains atomic because Expansion's hasher is
@@ -35,6 +42,7 @@ modded class HCXAISiteDirector
     }
     override void Stop()
     {
+        HCStartupPump.HCFinish(m_GapcodeRoutes);
         if (m_GapcodeRoutes) { m_GapcodeRoutes.HCStop(); m_GapcodeRoutes = null; }
         super.Stop();
     }

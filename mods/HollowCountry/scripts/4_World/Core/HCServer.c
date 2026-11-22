@@ -59,6 +59,7 @@ class HCServer
         if (m_Started || !GetGame() || !GetGame().IsServer()) return;
         // A prior startup/stop callback may have aborted before cleanup finished.
         if (m_Active.Count() > 0) Stop();
+        HCStartupPump.HCBegin();
         HCReached.Begin();
         HCInfectedVisionQualification.HCThreatReset(false);
         m_Operational.HCReset();
@@ -248,6 +249,7 @@ class HCServer
     {
         if (!m_Started && m_Active.Count() == 0) return;
         m_Started = false;
+        HCStartupPump.HCStop();
         m_TickActive = false;
         // Retain off/unknown receipts even if a later stop callback aborts.
         m_Operational.HCStopAll();

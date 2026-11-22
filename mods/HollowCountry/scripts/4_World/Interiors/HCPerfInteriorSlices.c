@@ -1,26 +1,25 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
 // EnSystem.c:106 TickCount; 3_Game/Global/Game.c:1120 IsServer;
-// 2_GameLib/tools.c:61/65 ScriptCallQueue.CallLater/Remove; EnMath.c:553 Min.
+// Shared frame API citations live in Core/HCStartupPump.c; EnMath.c:553 Min.
 // w45 #138. Final modded link: the pack reader declares m_PackBudget and HCPackAdvance in
 // HCInteriorTemplates.c. Earlier links never call methods introduced here.
 // Every pack slice is capped at PACK_SLICE_MS of raw ticks (and the configured pack slice
-// when lower). While the pack loads, a call-queue pump adds a slice every PACK_PUMP_MS so the
-// 1 Hz module tick is not the only driver; the module tick still publishes the finished load.
+// when lower). The shared startup frame pump adds slices until ready/deadline/opt-out;
+// the 1 Hz module tick remains the fallback and publishes the finished load.
 modded class HCInteriorsModule
 {
     static const float PACK_SLICE_MS = 2;
-    static const int PACK_PUMP_MS = 100;
 
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
         m_PackBudget = new HCPerfSlices("Interiors");
-        Print("[HC PerfControl] Interiors pack slicing admitted; slice_ms<=2 pump_ms=100; runtime=PENDING");
+        Print("[HC PerfControl] Interiors pack slicing admitted; slice_ms<=2 shared_startup_frame=true; runtime=PENDING");
     }
     protected ref HCWorkBudget m_PrepareBudget = new HCWorkBudget;
     protected ref HCW64InteriorPackBudget m_PackSlice;
     protected bool m_SlicedPack;
-    protected bool m_PackPumping;
+    protected ref HCStartupInteriors m_StartupPack;
     protected ref HCStepTimer m_PackSteps;
     protected int m_LoadStep;
 
@@ -30,7 +29,7 @@ modded class HCInteriorsModule
         float sliceMs = config.InteriorPackOnlineMs;
         array<Man> players = HCPerfPlayers.HCGet();
         if (players.Count() == 0) { sliceMs = config.InteriorPackEmptyMs; }
-        return Math.Min(sliceMs, PACK_SLICE_MS);
+        return HCStartupPump.HCSliceMs(Math.Min(sliceMs, PACK_SLICE_MS));
     }
 
     // One budgeted slice of load steps; returns the raw ticks it took.
@@ -63,12 +62,11 @@ modded class HCInteriorsModule
         if (HCInteriorTemplates.HCLoadFinished()) { HCPackPumpStop(); }
     }
 
-    protected void HCPackPumpStop()
+    bool HCStartupPackPending()
     {
-        if (!m_PackPumping) { return; }
-        m_PackPumping = false;
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPackPump);
+        return m_PackLoading && m_SlicedPack && !HCInteriorTemplates.HCLoadFinished();
     }
+    protected void HCPackPumpStop() { HCStartupPump.HCFinish(m_StartupPack); }
 
     override void OnTick(float deltaTime)
     {
@@ -86,6 +84,9 @@ modded class HCInteriorsModule
             m_PackSteps = new HCStepTimer("InteriorsPack");
             m_LoadStep = m_PackSteps.HCDefine("decode_validate");
             m_SlicedPack = true;
+            m_StartupPack = new HCStartupInteriors;
+            m_StartupPack.Module = this;
+            HCStartupPump.HCRegister(m_StartupPack, "interiors_pack");
         }
         HCSettings settings = HCServer.Get().GetSettings();
         if (!IsEnabled(settings)) { OnStop(); return; }
@@ -99,11 +100,6 @@ modded class HCInteriorsModule
         {
             HCPackPumpStop();
             return;
-        }
-        if (!m_PackPumping)
-        {
-            m_PackPumping = true;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCPackPump, PACK_PUMP_MS, true);
         }
     }
 

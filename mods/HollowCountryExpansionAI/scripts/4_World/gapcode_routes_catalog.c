@@ -116,7 +116,7 @@ class HCGapcodeRouteHash : ExpansionSHA256
     }
 }
 
-class HCGapcodeRoutesCatalog
+class HCGapcodeRoutesCatalog : HCStartupOwner
 {
     ref HCGapcodeRoutesData Data;
     protected ref HCGapcodeRoutesPins m_Pins;
@@ -390,7 +390,13 @@ class HCGapcodeRoutesCatalog
         // The nearest mainland node cannot establish island-local access.
         if (row.island) { this.HCRowRefuse(row, "ROUTE_ISLAND_LOCAL_ACCESS_PENDING"); }
     }
-    bool HCNeedsWork() { return m_Enabled && m_Phase != "failed" && m_Phase != "loaded"; }
+    HCXAISiteDirector StartupDirector;
+    override void HCSlice()
+    {
+        if (!StartupDirector || !StartupDirector.HCStartupRoutesPending()) { HCStartupPump.HCFinish(this); return; }
+        StartupDirector.HCStartupRoutesSlice();
+    }
+    override bool HCNeedsWork() { return m_Enabled && m_Phase != "failed" && m_Phase != "loaded"; }
 
     HCXAICaravanRoads HCGraph()
     {
@@ -412,7 +418,7 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
-        // ROADS has its own fair admission and one 4 ms loading slice per frame.
+        // ROADS shares the startup frame budget and retains its 4 ms slice cap.
         // Pump independently of AI_ROUTES so source checks and node parsing overlap.
         HCXAICaravanRoads roads = this.HCGraph();
         if (!roads || m_Phase == "failed") { return; }
@@ -428,7 +434,7 @@ class HCGapcodeRoutesCatalog
         int limit = Data.limits.page_size;
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
         // Half-slice headroom for the final non-preemptible hash block.
-        m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+        m_Work.HCReset(limit, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
         m_Slices++;
         int hashedBefore = m_Hashed;
         while (m_Work.HCContinue())

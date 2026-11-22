@@ -563,6 +563,7 @@ class HCXAISiteDirector : Managed
     protected bool m_Diagnostic;
     protected bool m_RespawnOff; // ai-respawn.disable, probed once at Start (the marker contract is probe-once)
     protected ref HCXAIRouteSave m_RouteSave;
+    protected bool m_LegacyRoutesDirty;
     protected bool m_WaitLogged;
     protected bool m_RadiusClampLogged;
     protected bool m_OwnedSaved = true;
@@ -1484,6 +1485,7 @@ class HCXAISiteDirector : Managed
                 m_CachePending.Set(bootRoute.SiteId, true);
                 m_CacheReviewIds.Insert(bootRoute.SiteId);
             }
+            this.HCDiscardLegacyRoutes();
             this.HCRoutesWarm();
         }
         m_Caches = HCXAISiteDirector.LoadCaches();
@@ -1606,6 +1608,24 @@ class HCXAISiteDirector : Managed
         m_Routes.Rows.RemoveItem(row);
         this.SaveRoutes();
     }
+    // Upgrade repair over the already size/structure-validated boot snapshot.
+    // Preserve order and retained modern rows; one dirty notification for the whole pass.
+    protected void HCDiscardLegacyRoutes()
+    {
+        array<ref HCXAIRouteRow> retained = new array<ref HCXAIRouteRow>;
+        int discarded = 0;
+        foreach (HCXAIRouteRow row : m_Routes.Rows)
+        {
+            if (row.ValidityKey != "") { retained.Insert(row); continue; }
+            discarded++;
+            if (!m_CachePolicy.Contains(row.SiteId)) { m_CacheRetained--; }
+            this.HCCacheVerdict(row.SiteId, false);
+        }
+        if (discarded == 0) { return; }
+        m_Routes.Rows = retained;
+        m_LegacyRoutesDirty = true;
+        Print("[HC Expansion AI] route cache discarded reason=validity_mismatch field=policy detail=missing_validity count=" + discarded.ToString());
+    }
     protected void HCReviewCachedRoute()
     {
         // Structural work uses the site slot. Leave the cache slot's single
@@ -1676,6 +1696,7 @@ class HCXAISiteDirector : Managed
         {
             m_RouteSave = new HCXAIRouteSave();
             m_RouteSave.Owner = this;
+            if (m_LegacyRoutesDirty) { this.SaveRoutes(); m_LegacyRoutesDirty = false; }
             HCSaveScheduler.HCRegister(m_RouteSave);
         }
         if (!m_Routes || !m_Caches)
