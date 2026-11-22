@@ -96,8 +96,9 @@ The audit runs the pure row pipeline used by packaging, in memory:
   `_new_type` row transforms and default abundance multiplier. No verification
   report is fabricated and no Workshop files are read.
 - `loot_boost.scale_types` applies the shipped multiplier and firearms exemptions.
-  Floor retagging does not change quantities. This checkout contains no
-  `military_loot.py`; native military quantity policy lives in the firearms roster.
+  Floor retagging does not change quantities. The shared military budgets live in
+  `tools/package/military_loot.py` (applied to the firearms roster by
+  `tools/package/firearms.py`); the audit does not import that module itself.
 
 Findings show class, source, previous vanilla/pack nominal (or `unknown`) and the
 reason the row is invalid/missing. A minimum above nominal cannot be exempted.
@@ -106,9 +107,8 @@ than silently normalized by this audit. The audit examines configured pack rows,
 not installation entitlement, verification results or runtime CE eligibility.
 
 `config/zeroed-items.json` maps **exact class names** to one-line deliberate reasons.
-The seed contains exactly the 24 nominal-zero authored rows at the fix-round HEAD:
-23 Expansion vehicle entities, each checked against an exact `events.xml` child,
-and Cannabis, deliberately excluded as a plant entity rather than inventory loot.
+The file holds 21 keys: 20 Expansion vehicle entities reserved for native vehicle
+events, and Cannabis, deliberately excluded as a plant entity rather than inventory loot.
 Vehicle spawning and horticulture behavior remain unverified. These exceptions do
 not exempt future classes. Both formerly zeroed pack magazine rows now pass the
 mandatory shipped-row check without adding exceptions.
@@ -129,9 +129,8 @@ plugin imports require separate review. Diagnostic/points CLI branches in a ship
 module are included in closure because the tool itself ships. The audit never runs
 an installer, builds a bundle or writes to the installed mission.
 
-At the r11 starting checkout the previously reported bundle dependency gaps are
-resolved: W010 reports zero missing edges. This worker did not change the bundle
-catalogue or relax closure checks.
+W010 reports zero missing edges on the current tree; the bundle catalogue and closure
+checks are not relaxed.
 
 ## Class-index coverage and baseline
 
@@ -155,86 +154,39 @@ python3 -B -m tools.validate.wiring_audit --update-baseline
 
 This now **only prunes resolved existing entries**. It never auto-accepts new
 findings. Identity remains `(id, subject, file)` so line movement is quiet.
-Round r11 adds only the five explicitly reviewed source-local helper entries
-listed below; no new class-index gaps are accepted. Existing intentional
-source-locality entries remain review debt.
+The committed baseline is empty; any entry added later needs a reviewed reason, and
+no class-index gap is accepted.
 
-## Round r11 result (2026-11-20)
+## Current result (dev at 2d2c075c, 2026-11-22)
 
-Before: **472 total / 16 new**. After: **462 total / 1 new**; exit **1**.
-The requested zero-new end state is **not yet reached** because the remaining
-HC43 binding belongs to another worker's provider file.
+`python3 -B -m tools.validate.wiring_audit` exits **0** with every check W001 to W010
+at 0 total and 0 new findings; `tools/validate/wiring_audit_baseline.json` is empty
+(`"findings": []`); a baseline row whose finding disappears is reported as stale and
+pruned by `--update-baseline`. W009 and W010 stay mandatory and unbaselinable.
 
-| Check | Before total / new | After total / new |
-| --- | ---: | ---: |
-| W001 | 8 / 8 | 0 / 0 |
-| W003 | 1 / 1 | 0 / 0 |
-| W004 | 340 / 7 | 339 / 1 |
-| W009 | 0 / 0 | 0 / 0 |
-| W010 | 0 / 0 | 0 / 0 |
+Coverage debt is stated, not hidden: the run notes that Workshop class-index coverage is
+incomplete on this host (22 declared dependencies lack a local cache), so W007/W008 keep
+the "absence is not proof" wording. The run measured 1,382 production creation routes
+(0 admin-only), 1,314 shipped fragment rows against 2,382 stock rows for W009, and 43
+transitive installer modules for W010.
 
-W001 now resolves all four melee damage descriptors and all four newly flagged
-CE infected classes through production routes. `WildlifeProviders.TargetPairsEnabled`
-already has runtime reads (contact sweeps/recording); W003 sees them. Provider
-validation now explicitly rejects unsupported `config.Version` before registry
-range validation, making the schema decision a real resolved consumer.
+Companion gates on the same commit: `enforce_lint` reports `findings=0 new=0 stale=0
+native=yes` with an empty baseline, and `enforce_perf` reports `findings=23 new=0
+stale=0` (23 reviewed rows in `tools/validate/enforce_perf_baseline.json`). These are
+source-level results, below the compile gate and boot evidence; they do not establish
+CE spawning, native damage, geometry, persistence or one-server/one-client behaviour.
 
-Removed `HCEventBriefing`: an uncalled string formatter with no presentation,
-notification or environmental clue consumer. No event lifecycle or gameplay
-provider depended on it. Removed `HCTapedHelmetQualification`: an unconstructed
-duplicate of the shared `HCTapedLightV1Qualification` wearable adapter. Live held
-mount actions already construct the shared adapter, whose exact helmet branch
-checks `HCTapedWearableCatalog.Admitted()`. No mount route was disabled.
+Items from earlier rounds, as they stand in the source:
 
-Five exact W004 baseline additions document actual same-file consumers:
-
-- `HCPresentationTuningServer`: MissionServer start/connect/finish callbacks.
-- `HCXAIFortification`: HCXAIAdapter lifecycle and HCXAISiteDirector spawn callback.
-- `HCXAIFortificationSite`: the fortification service's Admit/Step queue DTO.
-- `HCXAIFortificationState`: the service's load/save persistence DTO.
-- `HCTapedLightV1Qualification`: the live taped-light runtime's shared adapter,
-  now source-local after removal of its duplicate helmet wrapper.
-
-Nine resolved prior baseline entries were pruned. The baseline has 461 entries,
-all with reasons; W009/W010 remain mandatory and unbaselinable. No new allowlists,
-zeroed-item exceptions, settings keys or module slots were added.
-
-### Integration still needed from other owners
-
-**HC43 remains NEW W004, deliberately unbaselined.** `mission/hollow-country/ai/sites.json`
-contains an authored `HC43` block; `HCWorldData.c` declares the intended shared DTO.
-`HCXAISitePolicy` in `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c`
-has no `HC43` field. The provider owner must bind `ref HC43ContentManifest HC43`
-and consume/validate the manifest in its locality/content selection or receipt
-path, or explicitly replace that authored contract with its current equivalent.
-Adding a field alone establishes decoding, not selection or native eligibility.
-This worker cannot edit the HCX owner's file or reference HCX classes from base HC.
-The source comment now records the missing binding honestly.
-
-**Retire the legacy `EnableMealBuffs` key through settings ownership.** Meal heat
-hooks are already retired by HC-2/#150. The live V2 summary no longer reads/logs
-a fake preference and the non-module receipt says `MealBuffs=retired`. The
-settings owner must remove the key from `shared_settings.json`, regenerate the
-compiled registry through `settings_consistency`'s render path, and remove its
-HCSettings DTO field, missing-field default restoration and effective-value log.
-Check shipped settings JSON for stale entries as part of that owner's change.
-W003 still sees HCSettings' own effective-value log, so zero findings do not prove
-this legacy key has been removed. No meal feature was newly disabled here.
-
-Validation tails:
-
-```text
-enforce_lint: pass findings=1 new=0 stale=0 native=yes
-enforce_perf: pass findings=65 new=0
-```
-
-Python AST parsing and `git diff --check` pass. No existing unit tests target
-`wiring_audit.py`; no unit tests, Enforce translators or engine harnesses were
-added or run. Native compile/boot is reserved for the lead, and native damage,
-shove, CE spawning, helmet geometry, persistence and one-server/one-client
-behavior remain unproven.
-
-Suggested README/MODULE_STATUS line: “Static wiring audit resolves native melee
-ammo and generated CE variant routes; W001/W003/W009/W010 have no new findings.
-HC43 provider binding remains open; legacy meal-buff setting retirement needs
-settings integration. Native compile/boot and one-client gameplay remain pending.”
+- **HC43 binding is closed for decoding and selection.** `HCXAISitePolicy` declares
+  `ref HC43ContentManifest HC43`, validates it (schema, caps, role and locality
+  cross-checks) and binds the authored content into site and locality selection, with a
+  `[HC Expansion AI] HC43 content bound=...` receipt. Native eligibility, actor
+  admission and in-game behaviour remain unverified. One comment in `HCWorldData.c`
+  still says the provider binding is pending; it is stale.
+- **`EnableMealBuffs` is retired.** `HCMealBuffs.c` keeps the retirement (HC-2/#150) and
+  `HCSettings.c` ignores the legacy key through `HCRetiredKey` (it has no DTO field and no
+  registry row and logs `[HC Settings] retired key ignored` when an old file carries it);
+  no meal feature reads it.
+- **Unit tests exist.** `tests/unit/test_wiring_audit.py` covers the audit; run it with
+  `python3 -B -m unittest tests.unit.test_wiring_audit` when `wiring_audit.py` changes.

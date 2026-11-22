@@ -1,6 +1,6 @@
 # Outstanding work
 
-Source snapshot: 2026-11-19, through `1635f3f8`. The [README](../README.md)
+Source snapshot: 2026-11-22, through `2d2c075c` (`dev`). The [README](../README.md)
 describes the implemented product and operator controls. Here, **built** means
 source/data landed; it does not mean the current combined build compiled,
 booted or passed gameplay acceptance. Nothing has a DayZ gameplay verdict yet.
@@ -15,8 +15,7 @@ of runtime acceptance. All budgets remain provisional for **3–6 players**.
 
 ## Implemented source and data
 
-The README now includes changes through `1635f3f8`, including the commits after
-`c37d3598`. All features remain *In-game test pending*. Acceptance requires
+The README includes changes through `2d2c075c`. All features remain *In-game test pending*. Acceptance requires
 DayZDiag and normal PBO/server boots plus at most one client, per the owner
 decision of 2026-11-19 evening. Extra participants are not an acceptance gate.
 
@@ -166,8 +165,9 @@ actual acceptance is recorded; an operational `ready` line does not replace it.
 
 ## Tooling and review debt
 
-- Lint baseline: one reviewed HC-E006 entry, `findings=1 new=0 stale=0`
-  ([#160](https://github.com/d-addison/hollow-country/issues/160)). Native-only
+- Lint baseline: empty, `findings=0 new=0 stale=0`
+  ([#160](https://github.com/d-addison/hollow-country/issues/160)); the wiring
+  audit baseline is empty and the perf baseline holds 23 reviewed rows. Native-only
   compile traps still require a boot; offline heuristics are incomplete.
 - The settings registry and consistency validator cover scoped owners. The
   [README settings tables](../README.md#server-settings-reference) list new

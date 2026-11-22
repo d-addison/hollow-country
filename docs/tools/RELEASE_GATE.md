@@ -65,6 +65,44 @@ launcher does not override retail profiles or expose an RPT discovery API.
 Server defaults match `checkstart`; override `--profiles`, `--server-root` and
 `--workshop-content` together for a different installation.
 
+## Branch model
+
+Which branch carries what. Passing a gate establishes compile and boot behaviour for
+one server plus at most one client, never multiplayer behaviour.
+
+| Branch | Takes | Runs where |
+| :--- | :--- | :--- |
+| `main` | Server bug fixes and crash fixes only. | The friend server, from the published release bundle. |
+| `dev` | The feature and framework waves, and their follow-up fixes. | Local dev and test only. |
+
+- **`main` is the server line.** It takes only bug fixes and crash fixes that the
+  friend server needs. No feature, framework or content wave lands on it directly.
+  Everything the friend server runs is a commit on `main`.
+- **`dev` takes the waves.** Worker branches are cut from `dev` and the lead merges
+  them into it. `dev` has its own gate: after a merge the lead runs the pre-land checks
+  (`python3 -B -m tools.validate.preland`) and, for any `mods/**/*.c` change, the
+  native compile gate until it reaches the Mission marker. A wave is not ready for
+  `main` on a compiling build alone.
+- **`dev` merges to `main` only after a gated, soaked wave.** The wave must have
+  passed the `dev` gate and then a clean soak on the exact commit, with this gate's
+  requirements: no SCRIPT (E) error, no VM exception, no perf R2 above 20 ms, and
+  every default-on feature reporting activity.
+- **At most one release per day.** A release is one published bundle built from one
+  `main` commit. A crash fix is the exception to waiting: it ships alone,
+  immediately, as its own release, and is not bundled with anything else. Broaden
+  the affected feature only after one clean soak of the fix.
+- **Unlanded branches are archived, not deleted.** A branch that will not land is
+  tagged `archive/<branch>` (for example `archive/hc/w39-wildlife`) before the branch
+  is removed. Salvage later from the tag with `git show` or `git diff`; the tag is
+  the only record, so tag first.
+
+A release is cut from a `main` commit with `tools/release/*`, which build from a clean
+worktree at that commit and write `BUILD_MANIFEST.json`. Bundle data comes from the
+repository at that commit, never from a server profile or an old install snapshot.
+Nothing lands on `main` while the friend-bundle cycle runs, and the cycle pins an
+explicit full commit hash. GitHub Releases and Workshop uploads follow the owner's
+approval for that release. The friend runbook is separate and is not changed here.
+
 ## Integration prerequisites (currently unverified)
 
 The current activity checker lacks `--release` and has no shared `[HC Use]`
