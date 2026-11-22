@@ -689,11 +689,14 @@ class HCXAIGroupHold
     ref eAIGroup Group;
     ref array<DayZPlayerImplement> Members;
     int SettledAtMs;
+    int SettledSeenMs;
+    int SettledSeen;
     void HCXAIGroupHold(eAIGroup group)
     {
         Group = group;
         Members = new array<DayZPlayerImplement>;
         SettledAtMs = -1;
+        SettledSeenMs = -1;
     }
     void Track(DayZPlayerImplement member)
     {
@@ -720,7 +723,9 @@ class HCXAIGroupHold
 }
 
 // Retired holds: bounded scan, two entries per call (each site patrol calls it from
-// its 5 s update). A hold is released 2 s after its last tracked member is deleted.
+// its 5 s update, the AI adapter from its tick). A hold is released once its last
+// tracked member has been gone for 2 s AND on three distinct frames, so one long
+// hitch cannot release it before the provider's queued group cleanup has run.
 class HCXAIGroupHolds
 {
     protected static ref array<ref HCXAIGroupHold> s_Retired;
@@ -730,7 +735,8 @@ class HCXAIGroupHolds
     static const int HC_HIGH_COUNT = 256;
     static void Retire(HCXAIGroupHold hold)
     {
-        if (!hold || !hold.Group) { return; }
+        // At shutdown (destructors) there is no game: never re-create the static list then.
+        if (!hold || !hold.Group || !GetGame()) { return; }
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
         s_Retired.Insert(hold);
         if (s_Retired.Count() > HC_HIGH_COUNT && !s_HighLogged)
@@ -747,9 +753,10 @@ class HCXAIGroupHolds
         {
             if (s_Cursor >= s_Retired.Count()) { s_Cursor = 0; }
             HCXAIGroupHold hold = s_Retired[s_Cursor];
-            if (hold && !hold.Settled()) { hold.SettledAtMs = -1; s_Cursor++; continue; }
+            if (hold && !hold.Settled()) { hold.SettledAtMs = -1; hold.SettledSeen = 0; s_Cursor++; continue; }
+            if (hold && hold.SettledSeenMs != nowMs) { hold.SettledSeenMs = nowMs; hold.SettledSeen++; }
             if (hold && hold.SettledAtMs < 0) { hold.SettledAtMs = nowMs; s_Cursor++; continue; }
-            if (hold && nowMs - hold.SettledAtMs < HC_SETTLE_MS) { s_Cursor++; continue; }
+            if (hold && (nowMs - hold.SettledAtMs < HC_SETTLE_MS || hold.SettledSeen < 3)) { s_Cursor++; continue; }
             s_Retired.Remove(s_Cursor);
         }
     }

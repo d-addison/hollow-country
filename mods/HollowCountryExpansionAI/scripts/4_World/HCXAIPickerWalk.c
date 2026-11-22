@@ -137,8 +137,8 @@ class HCXAIPickerWalk : HCScavengeInventory
 
     // Terminal custody, uncertain checkpoint or stop: resume the same group's
     // prior patrol list and behavior. Reset cursor via ClearWaypoints, exactly
-    // as a fresh patrol request; never move or respawn a member. Weak group
-    // handle can expire after native destruction; then there is nothing to resume.
+    // as a fresh patrol request; never move or respawn a member. The group
+    // handle stays valid through m_HCHold until the walk finishes (#334).
     void HCFinishWalk()
     {
         if (m_Group)

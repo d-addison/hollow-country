@@ -108,9 +108,11 @@ class HCXAISitePatrol : HCXExpansionPatrol
     {
         m_HCPendingMembers = 0;
         if (m_HCFinished) { return; }
-        if (m_HCTransient && m_Group && HCXExpansionBridge.HCGroupCount(m_Group) == 0)
+        // An emptied group may already be out of the provider's group list (our hold keeps
+        // the object alive); never add members to it.
+        if (m_Group && HCXExpansionBridge.HCGroupCount(m_Group) == 0)
         {
-            this.HCRefuseBudget("transient group emptied before member spawn");
+            this.HCRefuseBudget("group emptied before member spawn");
             return;
         }
         if (!m_Group || !m_Formation)
