@@ -4,7 +4,8 @@ Equipment uses evidence-indexed native shelf and raised/platform points. Native
 coordinates are relocated rather than duplicated. Displaced capacity transfers to
 compatible receivers locally, then across native usage-compatible groups. Exact
 Military group exceptions admit at most two weapon slots where no raised route is
-evidenced. Nominal/min, group maxima and coordinates are never invented. Unmatched
+evidenced. Nominal/min and coordinates are never invented; group maxima are clamped
+to physical capacity. Bulky Motorbike lootdispatch wheels retain native routes. Unmatched
 finite demand and exceptions remain explicit in the install receipt. Counts are offline CE estimates, runtime=PENDING.
 The policy is enabled by default with floor-policy.json enabled=false opt-out.
 """
@@ -155,6 +156,13 @@ def floor_eligible(name, category, policy):
 _TAG = re.compile(r'<tag\s+name="([^"]*)"\s*/>')
 
 
+def _shelf_exempt(name, categories):
+    # Vehicle wheels retain their native Industrial/garage routes and quantities.
+    # A category-wide lootdispatch exemption would also bypass small equipment.
+    return ('lootdispatch' in categories
+            and re.fullmatch(r'Motorbike_[A-Za-z0-9_]+_Wheel_[A-Za-z0-9_]+', name, re.I) is not None)
+
+
 def retag_types(data, policy, roster=frozenset()):
     """Return (bytes, rows). rows: (name, categories, tags_before, tags_after, nominal, usage)."""
     economy.xml(data, 'types')
@@ -176,7 +184,7 @@ def retag_types(data, policy, roster=frozenset()):
         value = int(nominal.group(1)) if nominal else 0
         after = list(tags)
         # Roster membership protects supply quantities, never equipment floor placement.
-        movable = ((bool(cats) or floor_tag in tags or value > 0)
+        movable = (not _shelf_exempt(name, cats) and (bool(cats) or floor_tag in tags or value > 0)
                    and not all(floor_eligible(name, category, policy) for category in (cats or [''])))
         if movable:
             after = [t for t in tags if t != floor_tag]
@@ -471,7 +479,8 @@ def finish_receivers(data, report, policy, floor_report):
     report['zero_capacity_points_after'] = sum(len(c.findall('point')) for c in zero_capacity)
     if zero_capacity:
         raise ValueError('floor policy introduced containers with points but no capacity')
-    output = xml_text.document(root)
+    output = loot_boost._clamp_proto(xml_text.document(root))
+    loot_boost._verify_proto_caps(economy.xml(output, 'prototype'))
     text = output.decode('utf-8')
     scanned = _scan(text, loot_boost._mask(text), _default(root))
     floor_report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in cs))
@@ -489,7 +498,7 @@ def rebalance_proto(data, rows_by_file, policy):
     then to compatible existing shelf points. This is a finite capacity estimate,
     not a promise of CE counts, distribution or native geometry qualification.
     """
-    economy.xml(data, 'prototype')
+    data = loot_boost._clamp_proto(data)
     text = data.decode('utf-8-sig')
     masked = loot_boost._mask(text)
     block = re.search(r'<default\b[^>]*\bname="container"[^>]*>', masked)
@@ -503,7 +512,8 @@ def rebalance_proto(data, rows_by_file, policy):
               'slots_before': 0, 'slots_after': 0, 'supply': {}, 'supply_gaps': {}}
     supply = report['supply']
     for name, row in sorted(table.items()):
-        if row[3] > 0 and not all(floor_eligible(name, category, policy) for category in (row[0] or {''})):
+        if (row[3] > 0 and not _shelf_exempt(name, row[0])
+                and not all(floor_eligible(name, category, policy) for category in (row[0] or {''}))):
             supply[name] = {'nominal': row[3], 'compatible_shelf_points': 0,
                             'displaced_slot_estimate': 0.0, 'requested_slots': 0,
                             'transferred_slots': 0, 'unplaced_slots': 0,
@@ -629,7 +639,7 @@ def rebalance_proto(data, rows_by_file, policy):
             report['supply_gaps'][name] = record
     for key in ('floor_nonclothing_slots_before', 'floor_nonclothing_slots_after'):
         report[key] = round(report[key], 2)
-    output = loot_boost._encode(loot_boost._apply(text, edits), data)
+    output = loot_boost._clamp_proto(loot_boost._encode(loot_boost._apply(text, edits), data))
     output_text = output.decode('utf-8-sig')
     after_groups = _scan(output_text, loot_boost._mask(output_text), default_lootmax)
     report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in containers))
@@ -652,13 +662,21 @@ def rebalance_proto(data, rows_by_file, policy):
 
 def _verify_proto(before, after, report, policy):
     old, new = economy.xml(before, 'prototype'), economy.xml(after, 'prototype')
+    loot_boost._verify_proto_caps(new)
     groups_old, groups_new = old.findall('group'), new.findall('group')
     if [g.get('name') for g in groups_old] != [g.get('name') for g in groups_new]:
         raise ValueError('floor policy verification failed: group order changed')
     gain = 0
     removed = 0
     for a, b in zip(groups_old, groups_new):
-        if a.attrib != b.attrib:
+        attributes = dict(a.attrib)
+        defaults = loot_boost._proto_defaults(new)
+        capacity = sum(min(int(c.get('lootmax', str(defaults.get('container', 0)))),
+                           len(c.findall('point'))) for c in b.findall('container'))
+        original_limit = int(a.get('lootmax', str(defaults.get('group', 0))))
+        if original_limit > capacity:
+            attributes['lootmax'] = str(capacity)
+        if attributes != b.attrib:
             raise ValueError('floor policy verification failed: group attributes changed')
         cs_old, cs_new = a.findall('container'), b.findall('container')
         if len(cs_old) != len(cs_new):

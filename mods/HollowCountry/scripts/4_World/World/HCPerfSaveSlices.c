@@ -3,7 +3,8 @@
 // 1_Core/proto/EnDebug.c:96 Print; EnConvert.c:115 float.ToString.
 // One native IO/JSON operation cannot be cancelled. This diagnostic is a peak,
 // never a claim that the configured target was enforced inside that operation.
-// Expose only the elapsed conversion; HCWorkBudget's limits and clock stay shared.
+// Shared by the scheduler deadline and this receipt; retain the same slice clock. It
+// starts immediately before dispatching this tick's bounded group of save stages.
 class HCSaveStageBudget : HCWorkBudget
 {
     float HCElapsedMs()

@@ -550,6 +550,1426 @@
       "key": "ReadFile#2",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
       "native": false
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 35,
+      "symbol": "HCGroupIO.HCReadRaw",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCCraftingModule.OnStart -> HCAuditLeatherPolicy.HCValidate -> HCAuditLeatherConfig.HCGet -> HCGroupIO.Read -> HCGroupIO.HCReadRaw; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCGroupIO.HCReadRaw remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 51,
+      "symbol": "HCGroupIO.HCLooksWholeObject",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCWholeCacheText -> HCGroupIO.HCLooksWholeObject; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCGroupIO.HCLooksWholeObject remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 40,
+      "symbol": "HCWorldRuntimeConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldModule.OnStart -> HCWorldStore.Load -> HCWorldStore.Decode -> HCWorldStore.Migrate -> HCWorldData.Valid -> HCWorldData.InsertFact -> HCWorldRuntimeConfig.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCWorldRuntimeConfig.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Actions/c3FuelSiphonConfig.c",
+      "line": 37,
+      "symbol": "HCFuelSiphonConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCraftingModule.OnStart -> HCActionSiphonFuel.ProductionStart -> HCSiphonDiagnosticLocks.ActiveCount -> HCSiphonDiagnosticLocks.Purge -> HCSiphonDiagnosticLocks.LeaseLive -> HCFuelSiphonConfig.Get; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCFuelSiphonConfig.Get remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c",
+      "line": 403,
+      "symbol": "HCCampModule.HCAdminSelectCamp",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCampModule.HCAdminSelectCamp still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c",
+      "line": 382,
+      "symbol": "HCAdminLootMap.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAdminLootMap.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 218,
+      "symbol": "HCAdminTeleport.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAdminTeleport.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 404,
+      "symbol": "HCAdminTeleport.HCFindGround",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAdminTeleport.HCFindGround still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldStream.c",
+      "line": 270,
+      "symbol": "HCAdminModule.HCWorldTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAdminModule.HCWorldTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCSignsOfLife.c",
+      "line": 24,
+      "symbol": "HCSignsConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCHoldouts.OnStart -> HCHoldouts.HCSyncLights -> HCSignsHoldoutRPC.Publish -> HCSignsHoldoutRPC.SendTo -> HCSignsConfig.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCSignsConfig.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCSignsOfLife.c",
+      "line": 315,
+      "symbol": "HCSignsOfLife.SelectHouses",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCSignsOfLife.SelectHouses still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCBuildingClaim.c",
+      "line": 448,
+      "symbol": "HCBuildingClaim.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCBuildingClaim.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "line": 100,
+      "symbol": "HCGCCampGroupConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCGroupService.Start -> HCGroupService.Connected -> HCGroupService.Broadcast -> HCTeamPingModule.HCInvalidate -> HCGCCampGroupConfig.Get; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCGCCampGroupConfig.Get remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 272,
+      "symbol": "HCPersistenceDisposition.HCPruneArchives",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCPersistenceDisposition.HCPruneArchives; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCPersistenceDisposition.HCPruneArchives remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 272,
+      "symbol": "HCPersistenceDisposition.HCPruneArchives",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCPersistenceDisposition.HCPruneArchives; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCPersistenceDisposition.HCPruneArchives remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 67,
+      "symbol": "HCProfileDefaults.PrepareParents",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAIRespawnDefaults.HCEnsure -> HCProfileDefaults.PrepareParents; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCProfileDefaults.PrepareParents remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 19,
+      "symbol": "HCAuditLeatherConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCraftingModule.OnStart -> HCAuditLeatherPolicy.HCValidate -> HCAuditLeatherConfig.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCAuditLeatherConfig.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycle.c",
+      "line": 96,
+      "symbol": "HCEcologyCycle.TakePath",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyCycle.TakePath still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycle.c",
+      "line": 116,
+      "symbol": "HCEcologyCycle.Tick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyCycle.Tick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycle.c",
+      "line": 128,
+      "symbol": "HCEcologyCycle.Tick",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyCycle.Tick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyCycleInfected.c",
+      "line": 59,
+      "symbol": "HCInfectedModule.RetargetCohorts",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCInfectedModule.RetargetCohorts still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "line": 438,
+      "symbol": "HCEcologyRuntime.StagePrune",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyRuntime.StagePrune still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "line": 514,
+      "symbol": "HCEcologyRuntime.StageSample",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyRuntime.StageSample still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "line": 665,
+      "symbol": "HCEcologyRuntime.ProbeCohort",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCEcologyRuntime.ProbeCohort still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 8,
+      "symbol": "HCEcologyRuntimeIO.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeIO.Read remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 31,
+      "symbol": "HCEcologyRuntimeIO.WriteRaw",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeIO.WriteRaw remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 138,
+      "symbol": "HCEcologyRuntimeStore.HCStepSave",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeStore.HCStepSave remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 158,
+      "symbol": "HCEcologyRuntimeStore.HCStepSave",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCEcologySaveJob.HCStep -> HCEcologySaveJob.HCAdvance -> HCEcologyRuntimeStore.HCStepSave; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEcologyRuntimeStore.HCStepSave remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
+      "line": 353,
+      "symbol": "HCWildlifeObservation.HCSample",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCWildlifeObservation.HCSample still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 357,
+      "symbol": "HCWildlifeScenes.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCWildlifeScenes.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 374,
+      "symbol": "HCWildlifeScenes.HCStep",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCWildlifeScenes.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 23,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.Highest -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Ensure remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 24,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.Highest -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Ensure remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 25,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.Highest -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Ensure remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 54,
+      "symbol": "HCEventJournalIO.Exists",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn -> HCEventJournalIO.Exists; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Exists remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 70,
+      "symbol": "HCEventJournalIO.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn -> HCEventJournalIO.Read; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Read remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 91,
+      "symbol": "HCEventJournalIO.WriteNew",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCEventRuntime.Publish -> HCEventJournal.Save -> HCEventJournalIO.WriteNew; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.WriteNew remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 110,
+      "symbol": "HCEventJournalIO.PreserveTorn",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.PreserveTorn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 122,
+      "symbol": "HCEventJournalIO.PreserveTorn",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.PreserveTorn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 122,
+      "symbol": "HCEventJournalIO.PreserveTorn",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.PreserveTorn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 123,
+      "symbol": "HCEventJournalIO.PreserveTorn",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.PreserveTorn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.PreserveTorn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 138,
+      "symbol": "HCEventJournalIO.Remove",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventJournal.Load -> HCEventJournalIO.Remove; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventJournalIO.Remove remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventQualification.c",
+      "line": 13,
+      "symbol": "HCEventQualification.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.BindReviewedTargets -> HCEventWorldBinding.BindSites -> HCEventRoster.Build -> HCEventQualification.Admitted -> HCEventQualification.LocalAcceptanceOptIn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventQualification.LocalAcceptanceOptIn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 558,
+      "symbol": "HCEventCacheSpawner.HCPhysicalEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvanceAnnounce -> HCEventNativeObserver.Prepare -> HCEventNativeObserver.Ready -> HCEventCacheSpawner.HCPhysicalEnabled; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventCacheSpawner.HCPhysicalEnabled remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventSitesGate.c",
+      "line": 14,
+      "symbol": "HCEventSitesGate.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.BindReviewedTargets -> HCEventWorldBinding.BindSites -> HCEventRoster.Build -> HCEventSitesGate.Admitted -> HCEventSitesGate.LocalAcceptanceOptIn; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCEventSitesGate.LocalAcceptanceOptIn remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
+      "line": 741,
+      "symbol": "HCSituationDirector.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCSituationDirector.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c",
+      "line": 40,
+      "symbol": "HCW38SituationPolicy.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.BindReviewedTargets -> HCEventWorldBinding.BindSites -> HCEventWorldBinding.Bind -> HCEventWorldBinding.BindCandidate -> HCEventWorldBinding.BindCache -> HCEventCacheSpawner.Create -> HCEventCacheSpawner.Spawn -> HCW38SituationPolicy.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCW38SituationPolicy.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 628,
+      "symbol": "HCForageModule.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCForageModule.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 643,
+      "symbol": "HCForageModule.OnTick",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCForageModule.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 685,
+      "symbol": "HCForageModule.HCResumeSpawn",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCForageModule.HCResumeSpawn still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 691,
+      "symbol": "HCForageModule.HCResumeSpawn",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCForageModule.HCResumeSpawn still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
+      "line": 175,
+      "symbol": "HCDeathPins.HCInvalidate",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCDeathPins.HCInvalidate still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
+      "line": 175,
+      "symbol": "HCTeamPingModule.HCInvalidate",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCTeamPingModule.HCInvalidate still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c",
+      "line": 276,
+      "symbol": "HCInfectedDoorsModule.WatchAround",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCInfectedDoorsModule.WatchAround still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c",
+      "line": 331,
+      "symbol": "HCInfectedModule.HCV2MigrationStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCInfectedModule.HCV2MigrationStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCHordeReinforce.c",
+      "line": 89,
+      "symbol": "HCHordeReinforce.HCBeginTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCHordeReinforce.HCBeginTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachPolicy.c",
+      "line": 40,
+      "symbol": "HCInfectedReachPolicy.HCThreatTakeContact",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCInfectedReachPolicy.HCThreatTakeContact still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCPostureAdmission.c",
+      "line": 146,
+      "symbol": "HCPostureAdmission.HCSlice",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPostureAdmission.HCSlice still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 357,
+      "symbol": "HCCellarSampler.HCProbeTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCellarSampler.HCProbeTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 366,
+      "symbol": "HCCellarSampler.HCProbeTick",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCellarSampler.HCProbeTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 462,
+      "symbol": "HCCellarSampler.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCellarSampler.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 468,
+      "symbol": "HCCellarSampler.OnTick",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCellarSampler.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 491,
+      "symbol": "HCCellarSampler.OnTick",
+      "key": "HCTake#3",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCCellarSampler.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 194,
+      "symbol": "HCInteriorPackIndex.HCReadAtStart",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorTemplates.EnsureLoaded -> HCInteriorPackIndex.HCPrimeAtStart -> HCInteriorPackIndex.HCReadAtStart; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorPackIndex.HCReadAtStart remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 166,
+      "symbol": "HCInteriorStore.ReconcileAll",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 170,
+      "symbol": "HCInteriorStore.ReconcileAll",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 170,
+      "symbol": "HCInteriorStore.ReconcileAll",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 170,
+      "symbol": "HCInteriorStore.ReconcileAll",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 170,
+      "symbol": "HCInteriorStore.ReconcileAll",
+      "key": "FileExist#5",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReconcileAll remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 242,
+      "symbol": "HCInteriorStore.ReadRecoverySite",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 243,
+      "symbol": "HCInteriorStore.ReadRecoverySite",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 244,
+      "symbol": "HCInteriorStore.ReadRecoverySite",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCInteriorsModule.OnStart -> HCInteriorStore.Open -> HCInteriorStore.ReconcileAll -> HCInteriorStore.ReadRecoverySite; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCInteriorStore.ReadRecoverySite remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesModule.c",
+      "line": 80,
+      "symbol": "HCInteriorsModule.HCFurnish",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCInteriorsModule.HCFurnish still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
+      "line": 274,
+      "symbol": "HCBodyStories.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCBodyStories.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
+      "line": 351,
+      "symbol": "HCNoteLedger.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCNoteLedger.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c",
+      "line": 444,
+      "symbol": "HCRadioChatter.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCRadioChatter.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Operations/HCOperationalContributors.c",
+      "line": 172,
+      "symbol": "HCOperationalContributors.HCRows",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCOperationalContributors.HCRows still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 585,
+      "symbol": "HCProgressionModule.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCProgressionModule.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/HCStorySchedule.c",
+      "line": 408,
+      "symbol": "HCStorySchedule.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCStorySchedule.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 429,
+      "symbol": "HCStorySchedule.HCStep",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCStorySchedule.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "line": 589,
+      "symbol": "HCWreckSalvageModule.Purge",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCWreckSalvageModule.Purge still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCSeasonSnapshotRPC.c",
+      "line": 62,
+      "symbol": "HCSeasonSnapshotRPC.HCTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCSeasonSnapshotRPC.HCTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasons.c",
+      "line": 267,
+      "symbol": "HCVisualSeasons.HCTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCVisualSeasons.HCTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCAICaravan.c",
+      "line": 645,
+      "symbol": "HCAICaravan.Step",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAICaravan.Step still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c",
+      "line": 791,
+      "symbol": "HCAITrade.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCAITrade.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c",
+      "line": 219,
+      "symbol": "HCDeadDrops.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCDeadDrops.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
+      "line": 308,
+      "symbol": "HCFactionConflict.HCCallbackAllowed",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCFactionConflict.HCCallbackAllowed still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
+      "line": 406,
+      "symbol": "HCFactionConflict.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCFactionConflict.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
+      "line": 562,
+      "symbol": "HCFactionConflict.Tick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCFactionConflict.Tick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "line": 1286,
+      "symbol": "HCHoldouts.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCHoldouts.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c",
+      "line": 71,
+      "symbol": "HCPerfConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCXAIRouteSave.HCStep -> HCPerfConfig.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCPerfConfig.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 1031,
+      "symbol": "HCPickers.HCTryParty",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPickers.HCTryParty still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 1052,
+      "symbol": "HCPickers.HCBeginSurveyed",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPickers.HCBeginSurveyed still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 1137,
+      "symbol": "HCPickers.OnTick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPickers.OnTick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 467,
+      "symbol": "HCStagedSaveImage.Begin",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.Begin; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.Begin remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 467,
+      "symbol": "HCStagedSaveImage.Begin",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.Begin; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.Begin remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 564,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 573,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 583,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 588,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 647,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 652,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 673,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 686,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#4",
+      "message": "FileExist in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 696,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCStagedSaveImage.HCStepImage remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "line": 175,
+      "symbol": "HCWorldIncidentPolicy.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCFactionConflict.HCInstallCombatPort -> HCFactionConflict.HCRefreshStatus -> HCFactionConflict.HCServiceWorld -> HCFactionConflict.HCFinishObserved -> HCXFactionCombatAdapter.HCDisengaged -> HCIncidentEmissions.HCPublish -> HCWorldIncidents.HCPublish -> HCWorldIncidents.HCAdd -> HCWorldIncidentPolicy.HCGet; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCWorldIncidentPolicy.HCGet remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "line": 267,
+      "symbol": "HCWorldIncidents.HCOptedOut",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEcologyRuntimeModule.OnStart -> HCWildlifeObservation.HCStart -> HCWildlifeProviders.HCStart -> HCWildlifeProviders.HCOpen -> HCWildlifeProviders.HCRefuse -> HCWildlifeProviders.HCObserve -> HCWildlifeProviders.HCClueDependency -> HCWorldIncidents.HCOff -> HCWorldIncidents.HCOptedOut; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCWorldIncidents.HCOptedOut remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 735,
+      "symbol": "HCWorldMaterializer.InterestRing",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCWorldMaterializer.InterestRing still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 53,
+      "symbol": "HCWorldStore.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCShelterModule.OnStart -> HCShelterCatalog.Count -> HCShelterCatalog.HCLoadRegional -> HCWorldStore.Read; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCWorldStore.Read remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Carry.c",
+      "line": 98,
+      "symbol": "HCPickCarry.HCUnload",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPickCarry.HCUnload still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Houses.c",
+      "line": 184,
+      "symbol": "HCPickRunner.HCHouseStage",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPickRunner.HCHouseStage still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c",
+      "line": 117,
+      "symbol": "HCLightingClient.Tick",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCLightingClient.Tick still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCPresentationTuningMission.c",
+      "line": 76,
+      "symbol": "HCPresentationTuningServer.HCCheckChanges",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCPresentationTuningServer.HCCheckChanges still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/5_Mission/Operations/HCClientPresentation.c",
+      "line": 267,
+      "symbol": "HCClientPresentation.HCUpdate",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCClientPresentation.HCUpdate still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountry/scripts/5_Mission/Weather/auditleaves_Client.c",
+      "line": 135,
+      "symbol": "auditleaves_Client.HCFindAndStart",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: auditleaves_Client.HCFindAndStart still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICampRoutine.c",
+      "line": 93,
+      "symbol": "HCXAICampRoutine.Step",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXAICampRoutine.Step still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1135,
+      "symbol": "HCXAISiteDirector.HCStepLocalities",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1148,
+      "symbol": "HCXAISiteDirector.HCStepLocalities",
+      "key": "HCTake#2",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1172,
+      "symbol": "HCXAISiteDirector.HCStepLocalities",
+      "key": "HCTake#3",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXAISiteDirector.HCStepLocalities still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3234,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3238,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3239,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3246,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3246,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3247,
+      "symbol": "HCXAISiteDirector.HCPreserveRoute",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes -> HCXAISiteDirector.HCPreserveRoute; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.HCPreserveRoute remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3283,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3283,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3284,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3286,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3286,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3289,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 3289,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCXAIAdapter.OnStart -> HCXAISiteDirector.Start -> HCXAISiteDirector.LoadRoutes; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAISiteDirector.LoadRoutes remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 48,
+      "symbol": "HCXAIStore.ReadJournal",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal -> HCXAIStore.ReadJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.ReadJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 67,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 76,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "JsonFileLoader.SaveFile#1",
+      "message": "JsonFileLoader.SaveFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 79,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 82,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 83,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventRuntime.Start -> HCEventRuntime.Cleanup -> HCExpansionAIEventProvider.Gone -> HCXAIEncounters.GoneEncounter -> HCXAIJournal.End -> HCXAIStore.SaveJournal; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-11 legacy startup I/O: HCXAIStore.SaveJournal remains reachable under a startup loop (including conditional recovery/flush paths); defer bounded startup/persistence migration to the owning work item. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXEmoteObservation.c",
+      "line": 204,
+      "symbol": "HCXEmoteObservation.Work",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXEmoteObservation.Work still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P010",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXEmoteObservation.c",
+      "line": 224,
+      "symbol": "HCXEmoteObservation.EventWork",
+      "key": "HCTake#1",
+      "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
+      "native": false,
+      "reason": "W1-11 legacy budget caller: HCXEmoteObservation.EventWork still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 616,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 638,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#2",
+      "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
+      "native": false,
+      "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
     }
   ]
 }

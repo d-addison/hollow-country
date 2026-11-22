@@ -98,6 +98,7 @@ class HCServer
         HCModuleReadiness.HCRegisterModuleUses("ClientUI");
         m_Registry = new HCModuleRegistry();
         m_Registry.RegisterModules();
+        m_Registry.HCSortStartup();
         // Named locals only: boot 040 and 041 showed the foreach over the
         // returned registry array losing its array ("NULL pointer to instance"
         // on the foreach line) once the body passed a returned status object
@@ -105,7 +106,9 @@ class HCServer
         array<ref HCModule> modules = m_Registry.GetModules();
         bool saveServiceRefused = false;
         bool dependsOnSharedSaves = false;
-        string sharedSaveOwnerName = "";
+        array<bool> enabledModules = new array<bool>();
+        array<bool> startedModules = new array<bool>();
+        array<bool> saveRefusals = new array<bool>();
         bool moduleEnabled = false;
         bool moduleStarted = false;
         HCOperationalStatus reported = null;
@@ -114,13 +117,8 @@ class HCServer
         {
             // Exactly one lifecycle admission read; it may load local config.
             moduleEnabled = module.IsEnabled(m_Settings);
-            sharedSaveOwnerName = module.GetName();
-            if (moduleEnabled) { HCModuleReadiness.HCRegisterModuleUses(sharedSaveOwnerName); }
-            // Includes embedded persistence: Camps owns BuildingClaim;
-            // WeatherDays starts VisualSeasons. Refuse before either start hook.
-            dependsOnSharedSaves = sharedSaveOwnerName == "World" || sharedSaveOwnerName == "SettlementDecay" || sharedSaveOwnerName == "Escalation" || sharedSaveOwnerName == "Scenes";
-            dependsOnSharedSaves = dependsOnSharedSaves || sharedSaveOwnerName == "Ecology" || sharedSaveOwnerName == "Forage" || sharedSaveOwnerName == "Leads" || sharedSaveOwnerName == "Progression";
-            dependsOnSharedSaves = dependsOnSharedSaves || sharedSaveOwnerName == "Camps" || sharedSaveOwnerName == "InfectedLOD" || sharedSaveOwnerName == "WeatherDays";
+            if (moduleEnabled) { module.RegisterUses(); }
+            dependsOnSharedSaves = module.RequiresSharedSaves();
             saveServiceRefused = moduleEnabled && dependsOnSharedSaves && !HCPerfConfig.HCGet().EnableSharedSaves;
             moduleStarted = false;
             if (moduleEnabled && !saveServiceRefused)
@@ -129,20 +127,35 @@ class HCServer
                 module.OnStart(m_Settings);
                 moduleStarted = true;
             }
+            enabledModules.Insert(moduleEnabled);
+            startedModules.Insert(moduleStarted);
+            saveRefusals.Insert(saveServiceRefused);
+        }
+        // Phase two sees every admitted provider, including addon start hooks.
+        foreach (HCModule startedModule : m_Active) { startedModule.OnAllModulesStarted(); }
+        HCModuleReadiness.HCUseRegistrationSummary();
+        // Snapshot only after ALL post-start hooks; a later binder can update an
+        // earlier owner's status without leaving a stale boot-ready receipt.
+        for (int readyIndex = 0; readyIndex < modules.Count(); readyIndex++)
+        {
+            HCModule capturedModule = modules[readyIndex];
+            moduleEnabled = enabledModules[readyIndex];
+            moduleStarted = startedModules[readyIndex];
+            saveServiceRefused = saveRefusals[readyIndex];
             reported = null;
             if (saveServiceRefused)
             {
                 reported = new HCOperationalStatus();
                 reported.HCPublish("refused", "shared_save_service_operator_off");
             }
-            if (!saveServiceRefused) { reported = module.HCGetOperationalStatus(); }
-            m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
+            if (!saveServiceRefused) { reported = capturedModule.HCGetOperationalStatus(); }
+            m_Operational.HCCapture(capturedModule.GetName(), moduleEnabled, reported);
             if (moduleStarted) { m_Changes.HCBaseline(reported); }
-            opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
+            opOwner = HCOperationalContributors.HCRegisterOwner(capturedModule.GetName());
             if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
-            module.HCReadyCapture(moduleEnabled, moduleStarted, reported);
+            capturedModule.HCReadyCapture(moduleEnabled, moduleStarted, reported);
         }
-        // All active modules have now returned from OnStart; no new admission reads.
+        // All snapshots are final; no new lifecycle admission reads.
         foreach (HCModule readyModule : modules) { readyModule.HCReadyReport(); }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();

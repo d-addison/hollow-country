@@ -595,7 +595,7 @@
       "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present. One wire segment is removed to leave an additional exit and keep the original piece budget.",
       "pieces": [
         {
-          "class": "Land_Mil_Radar_Mobile1",
+          "class": "StaticObj_Misc_Antenna",
           "dx": -6,
           "dz": -3,
           "loot": "none",
@@ -686,7 +686,7 @@
           "yaw": 180
         }
       ],
-      "purpose": "A radio post: a mobile radar and two antenna masts at the back, an ops shed with a sandbag screen on one side, HBarrier wall on the other, a table and chairs, a parked wreck and razor wire across the front.",
+      "purpose": "A radio post: three antenna masts at the back, an ops shed with a sandbag screen on one side, HBarrier wall on the other, a table and chairs, a parked wreck and razor wire across the front.",
       "status": "runtime-unverified",
       "theme": "comms post",
       "threat_hint": "exposed military salvage",
@@ -3191,7 +3191,7 @@
           "yaw": 180.0
         },
         {
-          "class": "Land_Mil_Radar_Mobile1",
+          "class": "StaticObj_Misc_Antenna",
           "dx": 24.0,
           "dz": -15.0,
           "loot": "none",
@@ -3310,7 +3310,7 @@
           "yaw": 0
         }
       ],
-      "purpose": "A remote relay kept broadcasting after the convoy stopped coming; a radar trailer, twin masts and a sheltered operator station dominate the skyline.",
+      "purpose": "A remote relay kept broadcasting after the convoy stopped coming; three antenna masts and a sheltered operator station dominate the skyline.",
       "status": "runtime-unverified",
       "theme": "radio relay",
       "threat_hint": "exposed military salvage",
