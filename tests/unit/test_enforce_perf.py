@@ -179,6 +179,46 @@ class M
 '''
         self.assertEqual([f.key for f in findings(src, 'HC-P003')], ['FileExist#1'])
 
+    RETRY = '''
+class Cfg
+{
+    static const float RETRY_SECONDS = 30.0;
+    protected bool m_Probed;
+    protected float m_RetryAt;
+    bool Ensure()
+    {
+        if (!m_Probed)
+        {
+            float now = GetGame().GetTickTime();
+            if (now >= m_RetryAt)
+            {
+                if (Probe()) { m_Probed = true; }
+                else { m_RetryAt = now + %s; }
+            }
+        }
+        return m_Probed;
+    }
+    bool Probe() { return FileExist("$profile:x"); }
+}
+class M
+{
+    ref Cfg m_Cfg = new Cfg;
+    void OnTick() { m_Cfg.Ensure(); }
+}
+'''
+
+    def test_retry_window_probe_is_one_attempt_per_window(self):
+        self.assertEqual(findings(self.RETRY % 'RETRY_SECONDS', 'HC-P003'), [])
+        self.assertEqual(findings(self.RETRY % '30.0', 'HC-P003'), [])
+
+    def test_retry_without_a_positive_window_stays_flagged(self):
+        self.assertEqual([f.key for f in findings(self.RETRY % '0', 'HC-P003')], ['FileExist#1'])
+        self.assertEqual([f.key for f in findings(self.RETRY % 'now', 'HC-P003')], ['FileExist#1'])
+
+    def test_retry_that_never_advances_the_window_stays_flagged(self):
+        src = self.RETRY.replace('else { m_RetryAt = now + %s; }', '')
+        self.assertEqual([f.key for f in findings(src, 'HC-P003')], ['FileExist#1'])
+
     def test_return_before_the_set_stays_flagged(self):
         src = '''
 class Cfg
