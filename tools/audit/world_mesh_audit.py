@@ -23,8 +23,12 @@ POLICY = {
     'lowest_visual_triangles': 2000, 'lowest_visual_sections': 20,
     'door_radius_m': 0.30, 'door_height_m': 1.8, 'door_sweep_each_way_m': 1.5,
     'contact_epsilon_m': 0.005,
+    # Paths LOD walk check: agent column of door_radius_m x door_height_m moved along
+    # authored path segments; boxes lower than the step-over height are walked over.
+    'path_step_over_m': 0.20, 'path_sample_step_m': 0.10, 'stair_min_slope': 0.30,
 }
-GEOMETRY, VIEW_GEOMETRY = 1e13, 6e15
+GEOMETRY, VIEW_GEOMETRY, PATHS = 1e13, 6e15, 4e15
+CLASS_CATALOG = 'config/map-overlays/classes.json'
 SHELTER_PROPS = ('StaticObj_Furniture_fireplace_grill', 'StaticObj_Misc_Chair_Camp1',
                  'StaticObj_Furniture_PaperBox_01_small_closed')
 WIRING = ('Not wired into preland. A future preland adapter must invoke this module, '
@@ -195,6 +199,92 @@ def door_intersects(box, door):
     return min(distances) < POLICY['door_radius_m']
 
 
+def path_segments(model):
+    """Paths LOD (4e15) polylines as (start, end, is_stair); None when the model has no Paths LOD.
+
+    Each LOD face is read as a polyline of consecutive vertices (a two-vertex face is one
+    segment). A segment is a stair flight when it rises more than stair_min_slope per metre
+    of horizontal run, including vertical (ladder-like) segments.
+    """
+    lod = lod_for(model, PATHS)
+    if lod is None:
+        return None
+    points = [tuple(v[a] + model.bounding_center[a] for a in range(3)) for v in lod.vertices]
+    result = []
+    for face in lod.faces:
+        for a, b in zip(face, face[1:]):
+            start, end = points[a], points[b]
+            run = math.hypot(end[0] - start[0], end[2] - start[2])
+            rise = abs(end[1] - start[1])
+            if run == 0 and rise == 0:
+                continue
+            result.append((start, end, rise > POLICY['stair_min_slope'] * run))
+    return result
+
+
+def path_blocked(box, segment):
+    """True when the agent column swept along one path segment meets the box.
+
+    Sampled every path_sample_step_m (conservative to well within one step); the column is
+    door_radius_m wide on each side of the sample and door_height_m tall above the path
+    point, ignoring boxes whose top is below path_step_over_m.
+    """
+    start, end, _ = segment
+    radius, height = POLICY['door_radius_m'], POLICY['door_height_m']
+    low, high = (box[0][0], box[0][2]), (box[1][0], box[1][2])
+    count = max(1, math.ceil(math.dist(start, end) / POLICY['path_sample_step_m']))
+    for i in range(count + 1):
+        point = tuple(start[a] + (end[a] - start[a]) * i / count for a in range(3))
+        if box[1][1] <= point[1] + POLICY['path_step_over_m'] or box[0][1] >= point[1] + height:
+            continue
+        nearest = tuple(max(low[a], min(high[a], point[2 * a])) for a in range(2))
+        if math.dist((point[0], point[2]), nearest) < radius:
+            return True
+    return False
+
+
+def class_bounds(box):
+    """Measured Geometry bounds for one class, millimetre-rounded and ordered by axis."""
+    size = tuple(box[1][a] - box[0][a] for a in range(3))
+    return {'geometry_min_m': [round(v, 3) for v in box[0]], 'geometry_max_m': [round(v, 3) for v in box[1]],
+            'size_m': [round(v, 3) for v in size], 'footprint_m': [round(size[0], 3), round(size[2], 3)]}
+
+
+def reserve_status(reserve, footprint):
+    """Compare an authored reserve with the measured footprint; axis order is unspecified."""
+    if not reserve or len(reserve) != 2:
+        return 'NO_RESERVE'
+    covered = all(r + 1e-9 >= f for r, f in zip(sorted(reserve, reverse=True), sorted(footprint, reverse=True)))
+    return 'RESERVE_COVERS_MEASURED' if covered else 'RESERVE_BELOW_MEASURED'
+
+
+def bounds_update(result, catalog):
+    """Proposed measured-bounds update for the class catalogue; never applied automatically.
+
+    Covers every catalogue class the audit measured, placed or not. Classes that could not
+    be measured are listed, never guessed.
+    """
+    measured = dict(result.get('catalog_bounds', {}))
+    for metric in result['classes']:
+        if 'geometry_bounds' in metric:
+            measured[metric['classname']] = metric['geometry_bounds']
+    classes = {}
+    for name in sorted(set(measured) & set(catalog)):
+        row = class_bounds(measured[name])
+        reserve = catalog[name].get('footprint_reserve_m')
+        row['footprint_reserve_m'] = reserve
+        row['reserve_status'] = reserve_status(reserve, row['footprint_m'])
+        classes[name] = row
+    unmeasured = sorted({s['classname'] for s in result['skipped']
+                         if s.get('reason') in ('MODEL_UNRESOLVED', 'GEOMETRY_LOD_EMPTY_OR_MISSING',
+                                                'CLASS_BOUNDS_UNMEASURED', 'MODEL_DECODE_FAILED')
+                         and s.get('classname') in catalog and s['classname'] not in classes})
+    return {'schema': 1, 'kind': 'measured_bounds_proposal', 'target': CLASS_CATALOG,
+            'applied': False, 'reader_revision': gen.READER_REVISION, 'classes': classes,
+            'unmeasured': unmeasured,
+            'note': 'Geometry LOD vertex bounds in the model frame; review before copying into the catalogue.'}
+
+
 class Installed:
     """All installed PBOs, indexed and read in place; no extracted assets."""
     def __init__(self, addons, reader):
@@ -276,8 +366,10 @@ def doors(model):
     return result, skipped
 
 
-def audit(rows, installed):
-    findings, skips, metrics = [], [], []
+def audit(rows, installed, catalog=()):
+    """Audit placements; catalogue classes without placements only get measured bounds."""
+    findings, skips, metrics, hosts = [], [], [], []
+    catalog_bounds = {}
     class_rows = defaultdict(list)
     for row in rows:
         class_rows[row.classname].append(row)
@@ -286,7 +378,20 @@ def audit(rows, installed):
     def record(target, name, code, **detail):
         target.append(dict(classname=name, reason=code, **detail))
 
-    for name in sorted(class_rows):
+    unplaced = sorted(set(catalog) - set(class_rows))
+    for name in sorted(set(class_rows) | set(unplaced)):
+        if name not in class_rows:
+            try:
+                model = installed.model(name)
+                box = geometry(model)[0] if model is not None else None
+            except (ValueError, OSError, EOFError, IndexError, KeyError, AttributeError, TypeError):
+                record(skips, name, 'CLASS_BOUNDS_UNMEASURED', detail='decode')
+                continue
+            if box is None:
+                record(skips, name, 'CLASS_BOUNDS_UNMEASURED', detail='model' if model is None else 'geometry')
+            else:
+                catalog_bounds[name] = box
+            continue
         try:
             model = installed.model(name)
             if model is None:
@@ -366,8 +471,13 @@ def audit(rows, installed):
                            group=row.group, key=row.key)
             host_box, triangles = geometry(model) if model else (None, [])
             door_rows, incomplete = doors(model) if model else ([], [])
+            segments = path_segments(model) if model else None
         except (ValueError, OSError, EOFError, IndexError, KeyError, AttributeError, TypeError):
-            host_box, triangles, door_rows, incomplete = None, [], [], []
+            host_box, triangles, door_rows, incomplete, segments = None, [], [], [], None
+        # A host without a Paths LOD has no authored AI/stair paths: recorded, not a skip.
+        hosts.append({'classname': host, 'placements': len(placements),
+                      'paths_lod': segments is not None, 'path_segments': len(segments or ()),
+                      'stair_segments': sum(1 for seg in segments or () if seg[2])})
         for row in placements:
             detail = dict(group=row.group, key=row.key, host=host)
             if not door_rows or incomplete:
@@ -387,7 +497,18 @@ def audit(rows, installed):
             for selection, door in door_rows:
                 if door_intersects(box, door):
                     record(findings, row.classname, 'DOOR_APRON_INTERSECTION', selection=selection, **detail)
-    return report(rows, metrics, findings, skips)
+            hit = {False: 0, True: 0}
+            for segment in segments or ():
+                if path_blocked(box, segment):
+                    hit[segment[2]] += 1
+            if hit[True]:
+                record(findings, row.classname, 'STAIR_PATH_INTERSECTION', segments=hit[True], **detail)
+            if hit[False]:
+                record(findings, row.classname, 'PATH_LOD_INTERSECTION', segments=hit[False], **detail)
+    result = report(rows, metrics, findings, skips)
+    result['hosts'] = sorted(hosts, key=lambda h: h['classname'])
+    result['catalog_bounds'] = {n: catalog_bounds[n] for n in sorted(catalog_bounds)}
+    return result
 
 
 def report(rows, metrics=(), findings=(), skips=()):
@@ -396,12 +517,13 @@ def report(rows, metrics=(), findings=(), skips=()):
             'placements': len(rows), 'findings': ordered(findings), 'skipped': ordered(skips),
             'classes': ordered(metrics), 'policy': POLICY, 'reader_revision': gen.READER_REVISION,
             'reader_sha256': gen.READER_HASHES, 'wiring_needed': WIRING,
-            'runtime_acceptance': 'pending',
+            'runtime_acceptance': 'pending', 'hosts': [], 'catalog_bounds': {},
             'limitations': ['AABB overlap is a conservative review finding, not proven mesh clipping.',
                             'Origin Y is model-relative; no terrain support or runtime grounding verdict.',
                             'Door leaf selection planes approximate the closed-door threshold.',
                             'All placed props receive the View Geometry check as an interaction superset.',
                             'Shelter slots inventory the base layout; live terrain and retry variants are skipped.',
+                            'Paths LOD faces are read as polylines; the sampled agent column is an offline walk approximation, not the engine navmesh.',
                             'Host checks use baked Geometry, excluding proxy marker faces; stock proxy solids are not expanded.']}
 
 
@@ -411,10 +533,17 @@ def main(argv=None):
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--reader', type=Path, default=os.environ.get('HC_GENERATED_READER'))
     parser.add_argument('--report', type=Path, help='JSON destination; defaults to stdout')
+    parser.add_argument('--bounds-out', type=Path,
+                        help='write the proposed measured-bounds update for the class catalogue')
     parser.add_argument('--require-installed', action='store_true')
     args = parser.parse_args(argv)
     try:
         rows = discover(args.repo)
+        catalog = {}
+        catalog_path = Path(args.repo) / CLASS_CATALOG
+        if catalog_path.is_file():
+            catalog = read_json(catalog_path)['classes']
+        proposal = None
         missing = []
         if args.reader is None or not args.reader.is_dir():
             missing.append('PINNED_READER_UNAVAILABLE')
@@ -423,12 +552,16 @@ def main(argv=None):
         if missing:
             result = report(rows, skips=[{'reason': reason} for reason in missing])
         else:
-            result = audit(rows, Installed(args.addons, args.reader))
+            result = audit(rows, Installed(args.addons, args.reader), catalog)
+            proposal = bounds_update(result, catalog)
     except Exception:
         # External reader/PBO diagnostics can contain private filesystem paths.
         # Keep errors machine-readable without echoing paths or raw exceptions.
         result = report([], findings=[{'reason': 'INVALID_INPUT_OR_READER'}])
     rendered = json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + '\n'
+    if args.bounds_out and proposal is not None:
+        args.bounds_out.write_text(json.dumps(proposal, sort_keys=True, indent=2, allow_nan=False) + '\n',
+                                   encoding='utf-8')
     if args.report:
         args.report.write_text(rendered, encoding='utf-8')
     else:

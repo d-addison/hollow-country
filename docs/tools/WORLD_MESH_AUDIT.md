@@ -6,7 +6,8 @@ Run from the checkout:
 python3 -B -m tools.audit.world_mesh_audit --addons /external/DayZ/Addons --reader /external/pinned-reader --report /tmp/world-mesh-report.json
 ```
 
-`--reader` defaults to `HC_GENERATED_READER`; `--addons` defaults to the shared
+`--bounds-out FILE` additionally writes the proposed measured-bounds update for
+`config/map-overlays/classes.json` (see "Measured bounds" below). `--reader` defaults to `HC_GENERATED_READER`; `--addons` defaults to the shared
 release `ship_inputs.ADDONS`. The reader revision and file hashes come directly
 from `interior_points_gen.Reader`, as described in [REGENERATE.md](REGENERATE.md).
 No reader is vendored. Installed PBOs are indexed and read in place, without
@@ -51,18 +52,45 @@ contribute `vertices - 2` triangles. Section counts use the pinned reader's
 `lod.sections`, not material or texture counts. Door clearance is a **0.6 m
 diameter**, **1.8 m tall** vertical cylinder swept **1.5 m each way** along the
 horizontal normal of a Geometry door-leaf selection. Contact tolerance is
-**5 mm** for piece/host intersection checks. These are provisional audit policy,
+**5 mm** for piece/host intersection checks. The path-walk values are listed in
+the same block (`path_step_over_m`, `path_sample_step_m`, `stair_min_slope`). These are provisional audit policy,
 not measured engine or player-load budgets.
 
 Each finding/skip has a reason code and, for model/placement checks, a class.
 Key finding codes are `PIVOT_OFFSET`, `FLOATING_ORIGIN`, `SINKING_ORIGIN`,
 `PIECE_AABB_OVERLAP`, `HOST_GEOMETRY_ENCROACHMENT`,
 `VIEW_GEOMETRY_EMPTY_OR_MISSING`, `DOOR_APRON_INTERSECTION`,
-`VISUAL_TRIANGLE_COST` and `VISUAL_SECTION_COST`. Placement findings include
+`VISUAL_TRIANGLE_COST`, `VISUAL_SECTION_COST`, `STAIR_PATH_INTERSECTION` and
+`PATH_LOD_INTERSECTION`. Placement findings include
 group/key and the other piece or host. Model metrics retain Geometry bounds,
 centre, bottom and visual costs. Bounds use actual Geometry vertices; standalone
 props restore their bounding centre, while hosts and `Land_` buildings follow
 the existing support audit's raw building frame.
+
+Paths and stairs: every host (interior template or shelter model) with a Paths
+LOD (4e15) has its path faces read as polylines of consecutive vertices. A
+segment rising more than **0.30 m per metre** of horizontal run (or vertical) is a
+stair flight. An agent column (**0.3 m** radius, **1.8 m** tall above the path
+point) is sampled every **0.10 m** along each segment; a placed prop whose box meets
+the column and is taller than the **0.20 m** step-over height is a finding:
+`STAIR_PATH_INTERSECTION` for stair segments, `PATH_LOD_INTERSECTION` for level
+ones (with the number of segments hit). Hosts are listed in the report's `hosts`
+rows (`paths_lod`, `path_segments`, `stair_segments`); a host with no Paths LOD has
+no authored path and is recorded, not skipped. Shelter terrain rows are not checked
+(live Y). The sampled column approximates a walk along the authored path; it is not
+the engine navmesh and not an infected-traversal proof.
+
+Measured bounds: classes in `classes.json` that are not placed anywhere are
+measured too (Geometry LOD only; no placement checks) and listed under
+`catalog_bounds`; classes that cannot be measured are `CLASS_BOUNDS_UNMEASURED`
+skips. `--bounds-out` writes `{classes: {name: geometry_min_m, geometry_max_m,
+size_m, footprint_m, footprint_reserve_m, reserve_status}, unmeasured}` with
+millimetre rounding, `applied: false`. `reserve_status` compares the authored
+reserve with the measured X/Z footprint ignoring axis order (the catalogue does
+not define it): `RESERVE_COVERS_MEASURED`, `RESERVE_BELOW_MEASURED` or `NO_RESERVE`.
+The proposal is never applied automatically; the lead reviews it and updates the
+catalogue by hand (P3.5). Reading models still needs the pinned reader; without it
+the run skips and no proposal is written.
 
 Box overlaps are conservative candidates, especially for rotated/hollow pieces.
 Host checks intersect the placed box with baked Geometry triangles; proxy marker
@@ -79,3 +107,35 @@ This task does not wire the audit into preland. The report's `wiring_needed`
 field describes the future adapter: invoke this module with installed inputs,
 retain the JSON report and require installed checks. Offline tests and reports
 never establish DayZ placement, action, collision or multiplayer behavior.
+
+## DamageZones census (WD-2B-1)
+
+`tools/audit/damagezones_census.py` is a separate offline reader of installed config
+data, kept beside the mesh audit because it uses the same bounded PBO reader and the
+same installed folders:
+
+```sh
+python3 -B -m tools.audit.damagezones_census --addons /external/DayZ/Addons --addons /external/built-addons --report /tmp/dz-census.json
+```
+
+`--addons` may repeat (default: the shared release `ship_inputs.ADDONS`); give the
+vanilla Addons first, then the built mod PBOs and any optional Workshop folder, as
+later folders patch earlier classes the way load order does. It decodes only
+`CfgVehicles/*/DamageSystem/DamageZones/*` (parent, `Health/hitpoints`) and `scope`
+from `config.bin` members; compressed members and unknown entries are counted as
+`config_unreadable`.
+
+Output is counts under a fixed vocabulary, never class names, paths or a vanilla dump:
+four families (vanilla infected, HC infected variants named with the mod prefix,
+AI-actor classes, vanilla survivors) over spawnable (scope 2) classes, and a fixed zone
+list. Per family and zone: how many classes carry the zone, a histogram of resolved
+hit points, and the zone's parent link (which vocabulary zone it inherits). Zone parents
+resolve in the class that declared the link, so a later patch to the base leg zone shows
+up in every class that inherits it and not in classes that redeclare their own hit
+points. Per family the `right_leg` block answers whether the right leg inherits the left
+leg and whether the resolved hit points match. Families with no installed class are
+`SKIP` reasons (`HC_INFECTED_NOT_INSTALLED`, `EAI_ACTORS_NOT_INSTALLED`, ...); missing
+folders are `ADDONS_UNAVAILABLE`. Skips return zero unless `--require-installed`.
+
+It reads config files only: it does not show how the engine applies zones to posed or
+crawling bodies, and the numbers are not an acceptance result.
