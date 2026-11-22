@@ -1,5 +1,5 @@
 // Fixed owned paths; bounded parsing and readback, no globbing or claimed fsync.
-// Startup archives leftover pending bytes before admitting the promoted image.
+// Startup restores the verified predecessor before archiving leftover pending bytes.
 // Invalid images and failed quarantine remain refused; no pending-image replay.
 class HCEcologyRuntimeIO
 {
@@ -24,16 +24,6 @@ class HCEcologyRuntimeIO
 		return Read(path, limit) == text;
 	}
 
-    // Staged-only raw write: caller verifies before deleting the pending intent.
-    static bool WriteRaw(string path, string text, int limit)
-    {
-        if (text.Length() < 1 || text.Length() > limit) { return false; }
-        FileHandle handle = OpenFile(path, FileMode.WRITE);
-        if (!handle) { return false; }
-        FPrint(handle, text);
-        CloseFile(handle);
-        return true;
-    }
 
 	static bool WriteNew(string path, string text, int limit)
 	{
@@ -96,6 +86,8 @@ class HCEcologyRuntimeStore
 	protected int m_SavePhase;
 	protected int m_SaveRevision;
 	protected string m_SaveText;
+    protected string m_CommittedText;
+    protected ref HCStagedSaveImage m_SaveImage;
 
 	// HC-29: six scalar fields, encoded at <=2048 bytes. No live entity
 	// snapshot, rename/fsync claim or unsupported asynchronous engine IO.
@@ -113,68 +105,64 @@ class HCEcologyRuntimeStore
 
 	int HCPhase() { return m_SavePhase; }
 
-	// Crash boundary 1: pending written, old primary intact; Open archives pending.
-    // 2: pending verified, old primary intact. 3: primary written with pending
-    // retained; Open archives pending and validates primary, refusing corruption.
-    // 4: primary verified. 5: pending removed, new primary admitted as before.
-    // Exactly one full write/read per stage; result codes 0 done/1 more/2 failed.
-    // Perf batch E / #261: bounded staged writer, not a synchronous Save drain.
-    // HCEcologySaveJob.HCAdvance invokes exactly one phase per scheduler stage;
-    // each read/write is capped at 2048 bytes and pending names must stay intact.
-    // Analyzer currently recognizes only HCStagedSaveImage as a stage boundary.
-	int HCStepSave()
-	{
-		if (m_Fault && m_SavePhase <= 0) { return 2; }
-		if (m_SavePhase < 1 || m_SavePhase > 5) { return 2; }
-		string pendingPath = m_Root + "/pending-" + m_World + ".json";
-		string imagePath = m_Root + "/state-" + m_World + ".json";
-		bool ok = false;
-		// Fault before the first intent attempt. Only this in-flight continuation
-		// may proceed; every failure retains the journal and forbids retries.
-		m_Fault = true;
-		if (m_SavePhase == 1)
+    // The scheduler owns each open, chunk, close and promotion separately.
+    // Keep the legacy pending name and JSON schema, and a verified old backup.
+    int HCStepSave()
+    {
+        if (m_SavePhase != 1 || m_Fault) { return HCSaveJob.STEP_FAILED; }
+        if (!m_SaveImage)
         {
-            HCSaveJob.HCOperation = "write_tmp";
-            ok = !FileExist(pendingPath) && HCEcologyRuntimeIO.WriteRaw(pendingPath, m_SaveText, 2048);
+            m_SaveImage = new HCStagedSaveImage;
+            string imagePath = m_Root + "/state-" + m_World + ".json";
+            string pendingPath = m_Root + "/pending-" + m_World + ".json";
+            if (!m_SaveImage.Begin(imagePath, m_SaveText, 2048, true, true, m_CommittedText, HCStagedSaveImage.HC_IMAGE_REPLACE, pendingPath))
+            {
+                m_Fault = true;
+                m_SavePhase = -1;
+                return HCSaveJob.STEP_FAILED;
+            }
+            return HCSaveJob.STEP_MORE;
         }
-        if (m_SavePhase == 2)
+        int result = m_SaveImage.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED)
         {
-            HCSaveJob.HCOperation = "read_tmp";
-            ok = HCEcologyRuntimeIO.Read(pendingPath, 2048) == m_SaveText;
+            m_Fault = true;
+            m_SavePhase = -1;
+            Print("[HC Ecology] checkpoint IO refused; preserve pending/state/backup runtime=PENDING");
         }
-        if (m_SavePhase == 3)
+        if (result == HCSaveJob.STEP_DONE)
         {
-            HCSaveJob.HCOperation = "write_primary";
-            ok = HCEcologyRuntimeIO.WriteRaw(imagePath, m_SaveText, 2048);
+            m_Revision = m_SaveRevision;
+            m_CommittedText = m_SaveText;
+            m_SaveText = "";
+            m_SavePhase = 0;
+            m_SaveImage = null;
         }
-        if (m_SavePhase == 4)
+        return result;
+    }
+
+    // Boot only. A whole pending image was verified before primary promotion.
+    // If promotion started, the verified backup must be its exact predecessor.
+    // A torn pending image cannot have reached promotion, so primary stays good.
+    protected bool HCRecoverPrior(string imagePath, string pendingPath, string world)
+    {
+        HCEcologyCheckpoint intent = HCEcologyRuntimeIO.Decode(HCEcologyRuntimeIO.Read(pendingPath, 2048));
+        string primaryText = HCEcologyRuntimeIO.Read(imagePath, 2048);
+        HCEcologyCheckpoint primary = HCEcologyRuntimeIO.Decode(primaryText);
+        bool primaryValid = HCEcologyRuntimeRules.CheckpointValid(primary, world);
+        if (!HCEcologyRuntimeRules.CheckpointValid(intent, world)) { return primaryValid; }
+        if (primaryValid && primary.Revision == intent.Revision - 1) { return true; }
+        string backupText = HCEcologyRuntimeIO.Read(imagePath + ".bak", 2048);
+        HCEcologyCheckpoint backup = HCEcologyRuntimeIO.Decode(backupText);
+        if (!HCEcologyRuntimeRules.CheckpointValid(backup, world) || backup.Revision != intent.Revision - 1) { return false; }
+        if (FileExist(imagePath))
         {
-            HCSaveJob.HCOperation = "read_primary";
-            ok = HCEcologyRuntimeIO.Read(imagePath, 2048) == m_SaveText;
+            if (!HCPersistenceDisposition.HCArchive(imagePath, ".interrupted-" + HCGroupClock.Utc().ToString(), 2048, true)) { return false; }
+            if (!DeleteFile(imagePath)) { return false; }
         }
-        if (m_SavePhase == 5)
-        {
-            HCSaveJob.HCOperation = "clear_intent";
-            ok = DeleteFile(pendingPath);
-        }
-		if (!ok)
-		{
-			m_SavePhase = -1;
-			m_SaveText = "";
-			Print("[HC Plan] HC-29 state=refused reason=checkpoint_io visited=0 deferred=0 save_phase=-1 elapsed_us=-1; runtime=PENDING");
-			return 2;
-		}
-		if (m_SavePhase < 5)
-		{
-			m_SavePhase++;
-			return 1;
-		}
-		m_Revision = m_SaveRevision;
-		m_SavePhase = 0;
-		m_SaveText = "";
-		m_Fault = false;
-		return 0;
-	}
+        if (!CopyFile(imagePath + ".bak", imagePath)) { return false; }
+        return HCEcologyRuntimeIO.Read(imagePath, 2048) == backupText;
+    }
 
 	HCEcologyCheckpoint Open(string worldName, string session)
 	{
@@ -188,6 +176,7 @@ class HCEcologyRuntimeStore
 		bool pending = FileExist(pendingPath);
 		if (pending)
 		{
+            if (!HCRecoverPrior(imagePath, pendingPath, worldName)) { m_Fault = true; return null; }
 			// HC-28 logical rename: verified archive before removing the active name.
 			// No native rename exists. EnSystem.c:528/531 DeleteFile/CopyFile;
 			// HCGroupClock.Utc uses EnSystem.c:76/100 UTC time/date.
@@ -213,7 +202,8 @@ class HCEcologyRuntimeStore
 		bool valid = false;
 		if (image)
 		{
-			prior = HCEcologyRuntimeIO.Decode(HCEcologyRuntimeIO.Read(imagePath, 2048));
+			m_CommittedText = HCEcologyRuntimeIO.Read(imagePath, 2048);
+            prior = HCEcologyRuntimeIO.Decode(m_CommittedText);
 			valid = HCEcologyRuntimeRules.CheckpointValid(prior, worldName);
 		}
 		if (!HCEcologyRuntimeRules.CheckpointAdmission(pending, image, valid))
@@ -244,25 +234,16 @@ class HCEcologyRuntimeStore
 
 	bool Save(HCEcologyCheckpoint state)
 	{
-		// Startup/shutdown barrier cannot overlap a routine continuation.
-		if (m_SavePhase != 0) { return false; }
-		if (m_Fault || !HCEcologyRuntimeRules.CheckpointValid(state, m_World)) { return false; }
-		if (state.SessionId != m_Session) { return false; }
-		if (state.Revision != m_Revision + 1) { return false; }
-		string text = HCEcologyRuntimeIO.Encode(state);
-		if (text.Length() < 1 || text.Length() > 2048) { return false; }
-		// Once an intent write is attempted, every failure poisons this store.
-		// No live caller can overwrite a possibly interrupted transaction.
-		string imagePath = m_Root + "/state-" + m_World + ".json";
-		string pendingPath = m_Root + "/pending-" + m_World + ".json";
-		m_Fault = true;
-		if (!HCEcologyRuntimeIO.WriteNew(pendingPath, text, 2048)) { return false; }
-		if (!HCEcologyRuntimeIO.Write(imagePath, text, 2048)) { return false; }
-		string actual = HCEcologyRuntimeIO.Read(imagePath, 2048);
-		if (actual != text) { return false; }
-		if (!DeleteFile(pendingPath)) { return false; }
-		m_Revision = state.Revision;
-		m_Fault = false;
-		return true;
-	}
+        // Startup/shutdown only; routine saves use the scheduler continuation.
+        if (!HCBeginSave(state)) { return false; }
+        int result = HCSaveJob.STEP_MORE;
+        int steps = 0;
+        while (result == HCSaveJob.STEP_MORE && steps < HCStagedSaveImage.HC_MAX_STAGES + 2)
+        {
+            result = HCStepSave();
+            steps++;
+        }
+        if (result == HCSaveJob.STEP_MORE) { m_Fault = true; m_SavePhase = -1; }
+        return result == HCSaveJob.STEP_DONE;
+    }
 }

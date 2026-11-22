@@ -29,7 +29,9 @@
 
 class HCEncounterStore<Class T>
 {
-    protected ref HCV2ThreatStore<T> m_Writer = new HCV2ThreatStore<T>;
+    protected ref HCStagedSaveImage m_Writer = new HCStagedSaveImage;
+    protected string m_SaveText;
+    protected bool m_Prepared;
     protected string m_Path;
     protected bool m_Fault;
     // Raw image of the last successful file load; owners may check key presence
@@ -69,19 +71,53 @@ class HCEncounterStore<Class T>
 
     bool Save(T data)
     {
-        if (m_Fault || !data) return false;
-        if (!m_Writer.FinishSave() || !HCV2ThreatStore<T>.Save(m_Path, data, 262144)) return Fault();
+        if (m_Fault || !data) { return false; }
+        // Finish the frozen snapshot before encoding any newer callback state.
+        if (SaveInFlight())
+        {
+            if (!HCFinish(data)) { return false; }
+        }
+        return HCFinish(data);
+    }
+
+    protected bool HCFinish(T data)
+    {
+        int result = HCSaveJob.STEP_MORE;
+        int steps = 0;
+        while (result == HCSaveJob.STEP_MORE && steps < HCStagedSaveImage.HC_MAX_STAGES + 2)
+        {
+            result = SaveStep(data);
+            steps++;
+        }
+        if (result != HCSaveJob.STEP_DONE) { return Fault(); }
         return true;
     }
 
-    bool SaveInFlight() { return m_Writer.SaveInFlight(); }
-    // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
-    // copy_backup retains old primary/backup + intent; copy_primary/read_primary
-    // retain new primary, old backup and intent; clear_intent admits new primary.
+    bool SaveInFlight() { return m_Prepared || m_Writer.Active(); }
+
+    // Encoding and Begin admission have separate budgets. Once admitted, the
+    // shared writer owns bounded chunks, verified backup and primary promotion.
     int SaveStep(T data)
     {
         if (m_Fault || !data) { return HCSaveJob.STEP_FAILED; }
-        int result = m_Writer.SaveStep(m_Path, data, 262144);
+        if (!SaveInFlight())
+        {
+            HCSaveJob.HCOperation = "encode";
+            string error;
+            if (!JsonFileLoader<T>.MakeData(data, m_SaveText, error)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            if (m_SaveText.Length() < 1 || m_SaveText.Length() > 262144) { Fault(); return HCSaveJob.STEP_FAILED; }
+            m_Prepared = true;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_Prepared)
+        {
+            HCSaveJob.HCOperation = "admit";
+            if (!m_Writer.Begin(m_Path, m_SaveText, 262144)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            m_Prepared = false;
+            m_SaveText = "";
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_Writer.HCStepImage();
         if (result == HCSaveJob.STEP_FAILED) { Fault(); }
         return result;
     }
@@ -217,7 +253,6 @@ class HCHoldouts : HCModule
     protected int m_TickMeasuredStage;
     protected ref HCStepTimer m_TickSteps = new HCStepTimer("Holdouts");
     protected bool m_MeasuringTick;
-    protected float m_LastSaveStep = -1;
     protected ref HCWorkBudget m_SpotWork = new HCWorkBudget;
     protected bool m_CampReserveSaved;
     protected bool m_CampFoundedPending;
@@ -456,18 +491,13 @@ class HCHoldouts : HCModule
     // rows on every boot. It needs no checkpoint or simulation wait. Actual
     // stock intents, founding and reserve/spend transitions use phase 12.
     // Catalog discovery uses the shared staged save job. Tick-owned cache and
-    // result barriers reuse its one-stage writer, without handing ownership to
-    // the scheduler; callbacks/shutdown retain synchronous SaveChanged().
+    // result barriers request urgent scheduler continuations; callbacks/shutdown
+    // retain synchronous SaveChanged().
 
     int HCStepCatalog()
     {
         if (!m_Ready) { return HCSaveJob.STEP_FAILED; }
         if (!m_Dirty && !m_Store.SaveInFlight()) { return HCSaveJob.STEP_DONE; }
-        // GetTickTime is fixed within a native tick (#278). Routine scheduler
-        // retries and owner continuations share this one-stage admission stamp.
-        float saveTick = GetGame().GetTickTime();
-        if (m_LastSaveStep == saveTick) { return HCSaveJob.STEP_MORE; }
-        m_LastSaveStep = saveTick;
         bool starting = !m_Store.SaveInFlight();
         int result = m_Store.SaveStep(m_State);
         if (starting && result == HCSaveJob.STEP_MORE) { m_Dirty = false; }
@@ -1261,11 +1291,11 @@ class HCHoldouts : HCModule
         if (m_CatalogDirty)
         {
             // The scheduler owns routine catalog saves. Without routine dispatch,
-            // advance only one stage here, using the same shared work guard.
+            // advance only one stage through the scheduler fallback.
             if (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_SaveJob))
             {
-                m_WorkBudget.HCReset(1);
-                if (m_WorkBudget.HCContinue()) { HCStepCatalog(); }
+                m_SaveJob.HCUrgent = true;
+                HCSaveScheduler.HCPumpFallback(m_SaveJob);
             }
             m_WorkBudget.HCDeferred(GetName(), 1);
             return;
@@ -1307,8 +1337,10 @@ class HCHoldouts : HCModule
         {
             if (m_Dirty || m_Store.SaveInFlight())
             {
-                int saveResult = HCStepCatalog();
-                if (saveResult != HCSaveJob.STEP_DONE) { return; }
+                m_SaveJob.HCDirty = true;
+                m_SaveJob.HCUrgent = true;
+                HCSaveScheduler.HCPumpFallback(m_SaveJob);
+                return;
             }
             if (m_TickPhase == 10) { m_TickPhase = 11; }
             else { m_TickPhase = m_TickAfterSave; }
