@@ -451,3 +451,103 @@ class HCWorldCustodySaveJob : HCSaveJob
         return Owner.HCStepCustody();
     }
 }
+
+// Startup-only promotion shared by bounded stores. Callers validate complete
+// images and revision order before passing nonempty text. No empty-state fallback.
+class HCWorldIntentRecovery
+{
+    static bool Recover(string path, int limit, string intent, string primary, bool forward)
+    {
+        if (intent == "")
+        {
+            if (primary == "" || !DeleteFile(path + ".tmp")) { return false; }
+            Print("[HC World] staged_recovery action=discard_unverifiable_or_stale path=" + path);
+            return true;
+        }
+        if (!forward) { return false; }
+        if (primary != intent)
+        {
+            if (primary != "")
+            {
+                if (FileExist(path + ".bak") && !DeleteFile(path + ".bak")) { return false; }
+                if (!CopyFile(path, path + ".bak")) { return false; }
+                string backup;
+                if (!HCGroupIO.HCReadRaw(path + ".bak", limit, backup) || backup != primary) { return false; }
+            }
+            if (FileExist(path) && !DeleteFile(path)) { return false; }
+            if (!CopyFile(path + ".tmp", path)) { return false; }
+        }
+        string check;
+        if (!HCGroupIO.HCReadRaw(path, limit, check) || check != intent || !DeleteFile(path + ".tmp")) { return false; }
+        Print("[HC World] staged_recovery action=promote_verified path=" + path);
+        return true;
+    }
+}
+
+// Independent exclusive lease ceiling. Never roll this file back to .bak.
+// Partial intent + valid primary is safe: IDs are exposed only after Finish.
+// A missing/corrupt primary without a verified intent blocks, preserving evidence.
+class HCWorldLeaseCeiling
+{
+    static const string PATH = "$profile:HollowCountry/ai-custody.lease-ceiling";
+    protected int m_Ceiling;
+    protected int m_Pending;
+    protected string m_Text;
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+
+    protected int Decode(string text)
+    {
+        if (text.Length() < 3 || text.Length() > 12) { return 0; }
+        string number = text.Substring(1, text.Length() - 2);
+        int value = number.ToInt();
+        if (value < 1 || text != "|" + value.ToString() + "|") { return 0; }
+        return value;
+    }
+
+    bool Load()
+    {
+        string primary;
+        HCGroupIO.HCReadRaw(PATH, 12, primary);
+        int floor = Decode(primary);
+        if (FileExist(PATH + ".tmp"))
+        {
+            string intent;
+            HCGroupIO.HCReadRaw(PATH + ".tmp", 12, intent);
+            int next = Decode(intent);
+            if (next == 0) { intent = ""; }
+            if (floor == 0) { primary = ""; }
+            if (!HCWorldIntentRecovery.Recover(PATH, 12, intent, primary, next >= floor)) { return false; }
+            if (!HCGroupIO.HCReadRaw(PATH, 12, primary)) { return false; }
+            floor = Decode(primary);
+        }
+        if (floor == 0 && (FileExist(PATH) || FileExist(PATH + ".bak"))) { return false; }
+        m_Ceiling = floor;
+        m_Text = primary;
+        return true;
+    }
+
+    int Ceiling() { return m_Ceiling; }
+
+    // Called only by the custody save job, before its image can commit or a
+    // provider can claim. One shared writer stage per call; no tick-time drain.
+    int AdvanceStep(int nextLease)
+    {
+        if (!m_Image.Active())
+        {
+            if (nextLease <= m_Ceiling) { return HCSaveJob.STEP_DONE; }
+            m_Pending = nextLease;
+            if (m_Pending <= 2147482623) { m_Pending += 1024; }
+            else { m_Pending = 2147483647; }
+            if (!m_Image.Begin(PATH, "|" + m_Pending.ToString() + "|", 12, false, true, m_Text)) { return HCSaveJob.STEP_FAILED; }
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_Ceiling = m_Pending;
+            m_Text = "|" + m_Pending.ToString() + "|";
+            m_Image = new HCStagedSaveImage;
+        }
+        return result;
+    }
+}

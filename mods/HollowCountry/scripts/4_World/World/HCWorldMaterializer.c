@@ -152,6 +152,9 @@ class HCWorldMaterializer : HCModule
     protected string m_CustodyRetainedSource;
     protected bool m_CustodyKeepTmp;
     protected int m_CustodyArchiveScans;
+    protected bool m_CustodyDepthFault;
+    protected bool m_CustodyRestoredOlder;
+    protected ref HCWorldLeaseCeiling m_LeaseCeiling;
     protected static const int HC_ARCHIVE_SCAN_LIMIT = 64;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
@@ -573,6 +576,7 @@ class HCWorldMaterializer : HCModule
 
     protected bool HCRecoverCustodyTmp()
     {
+        if (!this.HCCustodyDepthAllowed()) { return false; }
         string temporary = m_CustodyPath + ".tmp";
         string intent;
         if (!this.HCReadCustody(temporary, intent))
@@ -704,6 +708,7 @@ class HCWorldMaterializer : HCModule
         string carryText;
         for (int depth = 0; depth < HC_REJECTED_SLOTS; depth++)
         {
+            if (!this.HCCustodyDepthAllowed()) { return false; }
             string primaryReadMarker = m_CustodyPath + ".unverified_read";
             string primaryOversizeMarker = m_CustodyPath + ".unverified_oversize";
             bool retainedPrimary = FileExist(primaryReadMarker);
@@ -744,7 +749,7 @@ class HCWorldMaterializer : HCModule
                 bool nextEmpty = !FileExist(backup);
                 if (FileExist(backup + ".bak")) { nextEmpty = false; }
                 if (FileExist(m_CustodyPath) && nextEmpty) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
-                if (nextEmpty) { Print("[HC " + GetName() + "] custody_retained_no_primary starting_empty=true"); }
+                if (nextEmpty) { return this.HCCustodyFault("custody_retained_no_valid_copy"); }
             }
             // A selected pending intent is already durable; never truncate it
             // by opening the same backup intent for an in-place rewrite.
@@ -784,9 +789,10 @@ class HCWorldMaterializer : HCModule
             }
             if (!this.HCCleanupCustodyWitness(m_CustodyPath)) { return false; }
             m_CustodyPath = backup;
+            m_CustodyRestoredOlder = true;
             m_CustodyKeepTmp = false;
         }
-        return true;
+        return this.HCCustodyDepthAllowed();
     }
 
     protected bool HCCleanupCustodyWitness(string path)
@@ -796,8 +802,26 @@ class HCWorldMaterializer : HCModule
         return true;
     }
 
+    protected bool HCCustodyDepthAllowed()
+    {
+        string basePath = "$profile:HollowCountry/ai-custody.json";
+        int depth = (m_CustodyPath.Length() - basePath.Length()) / 4;
+        if (depth < 8) { return true; }
+        m_CustodyRetryRead = false;
+        m_CustodyLoadFault = "custody_relocation_depth_exceeded";
+        HCAIBudget.Block();
+        if (!m_CustodyDepthFault)
+        {
+            m_CustodyDepthFault = true;
+            Print("[HC World] custody_relocation_depth_exceeded");
+            HCModuleReadiness.HCUse(GetName(), "custody_relocation_depth_exceeded");
+        }
+        return false;
+    }
+
     protected bool HCLoadCustody()
     {
+        if (!this.HCCustodyDepthAllowed()) { return false; }
         bool loaded = this.HCLoadCustodyImage();
         string basePath = "$profile:HollowCountry/ai-custody.json";
         int depth = (m_CustodyPath.Length() - basePath.Length()) / 4;
@@ -810,9 +834,12 @@ class HCWorldMaterializer : HCModule
         // Retain the process watermark across failed loads and module toggles.
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_invalid_no_backup";
+        m_CustodyRestoredOlder = false;
         m_Custody = new HCAIPartyCustodyData();
         m_CustodyText = "";
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return this.HCCustodyFault("custody_directory_create_failed"); }
+        m_LeaseCeiling = new HCWorldLeaseCeiling;
+        if (!m_LeaseCeiling.Load()) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
         m_CustodyKeepTmp = false;
         if (!this.HCSelectRetainedCustody()) { return false; }
         if (FileExist(m_CustodyPath + ".tmp") && !this.HCRecoverCustodyTmp()) { return false; }
@@ -840,6 +867,7 @@ class HCWorldMaterializer : HCModule
                 if (!this.HCReadCustody(backup, backupText)) { return false; }
                 HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
                 if (!prior) { return this.HCCustodyFault("custody_backup_invalid"); }
+                m_CustodyRestoredOlder = true;
                 // Rollback may lose a checkpoint, but never reissue any lease
                 // proposed in this process, even after its last save request.
                 if (prior.NextLease < m_CustodyNextLeaseSeen)
@@ -919,8 +947,7 @@ class HCWorldMaterializer : HCModule
                 if (m_CustodyKeepTmp)
                 {
                     if (!this.HCCleanupCustodyWitness(m_CustodyPath)) { return false; }
-                    Print("[HC " + GetName() + "] custody_retained_no_primary starting_empty=true");
-                    m_CustodyPath += ".bak";
+                    return this.HCCustodyFault("custody_retained_no_valid_copy");
                 }
                 loaded = m_Custody;
             }
@@ -934,6 +961,16 @@ class HCWorldMaterializer : HCModule
             if (!loaded) { return this.HCCustodyFault("custody_retained_backup_verify_failed"); }
         }
         if (loaded.NextLease < m_CustodyNextLeaseSeen) { return this.HCCustodyFault("custody_primary_older_than_watermark"); }
+        if (!this.HCCustodyDepthAllowed()) { return false; }
+        int leaseFloor = m_LeaseCeiling.Ceiling();
+        if (leaseFloor == 0) { Print("[HC World] custody_lease_ceiling_reseed next_lease=" + loaded.NextLease.ToString()); }
+        if (loaded.NextLease < leaseFloor)
+        {
+            loaded.NextLease = leaseFloor;
+            loaded.SchemaVersion = 2;
+            m_CustodyRestoredOlder = true;
+        }
+        if (m_CustodyRestoredOlder) { Print("[HC World] custody_restored_older next_lease=" + loaded.NextLease.ToString()); }
         // A valid primary no longer needs a stale preservation intent.
         if (FileExist(m_CustodyPath + ".rejected.tmp") && !DeleteFile(m_CustodyPath + ".rejected.tmp")) { return this.HCCustodyFault("custody_witness_cleanup_delete_failed"); }
         m_Custody = loaded;
@@ -1053,6 +1090,13 @@ class HCWorldMaterializer : HCModule
             return HCSaveJob.STEP_MORE;
         }
         if (m_CustodyStage == 1)
+        {
+            int ceilingResult = m_LeaseCeiling.AdvanceStep(m_CustodySnapshotRevision);
+            if (ceilingResult != HCSaveJob.STEP_DONE) { return ceilingResult; }
+            m_CustodyStage = 4;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CustodyStage == 4)
         {
             // Fresh-store absence must be checked explicitly: the shared prior
             // check with an empty expected image permits an existing primary.

@@ -15,6 +15,10 @@ so a one-boot budget event causes permanent relocation without losing data.
 The disposable `tools.setup.custody_read_probe` stages/ingests the 5000-byte and
 NUL experiments; the lead's native run and crash/upgrade checks are still pending.
 
+Persistence F1 (implemented-unverified): custody relocation now faults once with `custody_relocation_depth_exceeded` at global depth >=8, blocks AI and never opens an empty relocated store; per-boot read bound is approximately (L+3) x 21 MiB + 257 MiB with L <=8 (plus bounded lease-mark reads); native depth/crash checks pending.
+Persistence F2 (implemented-unverified): existing custody V1/V2 JSON loads unchanged; an absent independent lease-ceiling mark reseeds on the first checkpoint, then its exclusive ceiling commits in shared save stages before custody/provider admission; rollback skips the reserved range and prints `custody_restored_older next_lease=<n>`; corrupt/missing marked state never falls back to an older mark; pre-mark historical reuse, downgrade and whole-profile rollback remain unverified; Opus review and native crash/upgrade checks pending.
+Persistence F3 (implemented-unverified): v1-test-14 refresh rows remain compatible; <=4096 rows need <=5,243,136 bytes (6 MiB cap), so shutdown uses the shared 33,088-stage default large-image guard (two images <18,688 stages), checks failure and preserves intent; shared recovery discards unverifiable/stale intent only with a verified primary and promotes a verified nonolder intent, printing once without zeroing state; lower operator guards still refuse; native crash/upgrade checks pending.
+
 This file distinguishes authored functionality from missing implementation and
 unperformed validation. The current test package is not the completed
 overhaul. Outstanding work is tracked in

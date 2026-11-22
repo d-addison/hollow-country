@@ -391,7 +391,8 @@
       "symbol": "HCSearchRetirementStore.PruneLegacy",
       "key": "DeleteFile#1",
       "message": "DeleteFile reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.PruneLegacyTombstones -> HCSearchRetirementStore.PruneLegacy",
-      "native": false
+      "native": false,
+      "reason": "W4 persistence follow-up: <=4096 rows with <=1024 ASCII identity bytes plus <=256 JSON/scalar bytes per row and <=256 header bytes (<=5,243,136 bytes); 6 MiB image cap. Shutdown intentionally uses the shared large-image guard (default 33,088 stages; two images <18,688 stages) and checks failure; explicit lower operator guards remain authoritative. Startup validates primary/intent and uses HCWorldIntentRecovery without zeroing state. No native timing, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P003",
@@ -401,7 +402,7 @@
       "key": "FileExist#1",
       "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
       "native": false,
-      "reason": "W2-08 staged fresh-store absence check: one FileExist in its own tick stage before shared Begin. Preserves external-edit refusal; no synchronous save chain or native timing acceptance."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -411,7 +412,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08: path-insensitive startup candidate through virtual HCSaveJob.HCStep dispatch in another owner shutdown flush. Custody performs one fresh-primary presence probe in its own stage, never a multi-file startup loop; its own shutdown drain is deliberate. Native validation pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P003",
@@ -2046,7 +2047,7 @@
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2056,7 +2057,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2066,7 +2067,7 @@
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2076,7 +2077,7 @@
       "key": "CopyFile#2",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2086,7 +2087,7 @@
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2096,7 +2097,7 @@
       "key": "CopyFile#3",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2106,7 +2107,7 @@
       "key": "DeleteFile#4",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2116,7 +2117,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2126,7 +2127,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2136,7 +2137,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2146,7 +2147,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2156,7 +2157,7 @@
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2166,7 +2167,7 @@
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2176,7 +2177,7 @@
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2186,7 +2187,7 @@
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2196,7 +2197,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2206,7 +2207,7 @@
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2216,7 +2217,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile -> HCWorldMaterializer.HCKeepUnverifiedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2226,7 +2227,7 @@
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2236,7 +2237,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2246,7 +2247,7 @@
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2256,7 +2257,7 @@
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2266,7 +2267,7 @@
       "key": "CopyFile#4",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2276,7 +2277,7 @@
       "key": "DeleteFile#5",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2286,7 +2287,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2296,7 +2297,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2306,7 +2307,7 @@
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2316,7 +2317,7 @@
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2326,7 +2327,7 @@
       "key": "FileExist#4",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2336,7 +2337,7 @@
       "key": "CopyFile#1",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2346,7 +2347,7 @@
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2356,7 +2357,7 @@
       "key": "FileExist#5",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2366,7 +2367,7 @@
       "key": "CopyFile#2",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2376,7 +2377,7 @@
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2386,7 +2387,7 @@
       "key": "FileExist#6",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2396,7 +2397,7 @@
       "key": "CopyFile#3",
       "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2406,7 +2407,7 @@
       "key": "DeleteFile#4",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2416,7 +2417,7 @@
       "key": "FileExist#7",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2426,7 +2427,7 @@
       "key": "DeleteFile#5",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2436,7 +2437,7 @@
       "key": "DeleteFile#6",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2446,7 +2447,7 @@
       "key": "FileExist#8",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2456,7 +2457,7 @@
       "key": "DeleteFile#7",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2466,7 +2467,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2476,7 +2477,7 @@
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2486,7 +2487,7 @@
       "key": "FileExist#3",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2496,7 +2497,7 @@
       "key": "FileExist#4",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2506,7 +2507,7 @@
       "key": "FileExist#5",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2516,7 +2517,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2526,7 +2527,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldStore.ReadChecked; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2536,7 +2537,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2546,7 +2547,7 @@
       "key": "OpenFile#2",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2556,7 +2557,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2566,7 +2567,7 @@
       "key": "OpenFile#1",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2576,7 +2577,7 @@
       "key": "OpenFile#2",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2586,7 +2587,7 @@
       "key": "OpenFile#3",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2596,7 +2597,7 @@
       "key": "OpenFile#4",
       "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2606,7 +2607,7 @@
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2616,7 +2617,7 @@
       "key": "DeleteFile#2",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2626,7 +2627,7 @@
       "key": "DeleteFile#3",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only, not steady-state tick IO. Eight rejection slots; 64 slot comparisons and 128 raw/string comparisons across the process; 1 MiB per comparison side. Native qualification fixtures are 5000 bytes. Retain unverifiable sources and select a valid backup without claim dispatch. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2636,7 +2637,7 @@
       "key": "FileExist#9",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 6: synchronous boot/retry recovery only; eight-slot archive, 64 slot comparisons and 128 raw/string comparisons across retries; 1 MiB per side. Unverified sources stay untouched; a valid backup owns checkpoints. Native boot latency/crash/upgrade evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2646,7 +2647,7 @@
       "key": "FileExist#10",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRecoverCustodyTmp; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2656,7 +2657,7 @@
       "key": "FileExist#6",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2666,7 +2667,7 @@
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCCleanupCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2676,7 +2677,7 @@
       "key": "FileExist#1",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCCleanupCustodyWitness; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 7: boot-only retained-copy guard and witness cleanup; eight levels per selector call, 64 archive slots and 128 comparisons across initial load plus three retries per start. No tick IO or native latency acceptance. Sources stay intact on unverifiable comparisons; absent valid copies fail closed."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2686,7 +2687,7 @@
       "key": "FileExist#7",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 8: boot-only backup-level existence guards, preserving recovery through a deeper valid backup. Eight levels and up to 32 string image reads per selector invocation, not a global depth/read cap; nested selectors add reads. Shared per-start limits are 64 archive slot scans and 128 comparisons across the initial load plus three retries. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     },
     {
       "rule": "HC-P009",
@@ -2696,7 +2697,7 @@
       "key": "FileExist#8",
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody; enqueue bounded startup work",
       "native": false,
-      "reason": "W2-08 round 8: boot-only backup-level existence guards, preserving recovery through a deeper valid backup. Eight levels and up to 32 string image reads per selector invocation, not a global depth/read cap; nested selectors add reads. Shared per-start limits are 64 archive slot scans and 128 comparisons across the initial load plus three retries. Native crash/upgrade and boot latency evidence pending."
+      "reason": "W4 persistence follow-up: boot/retry recovery only; global relocation depth faults at >=8 across selector calls (L <= 8), eight rejection slots, 64 archive slot scans and 128 comparisons shared across initial load plus three retries. Per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte lease-ceiling reads. Sources remain intact when comparison fails; no empty relocated store. Lease ceiling advances in shared save-job stages before custody commit/provider claim. No native latency, crash or upgrade acceptance."
     }
   ]
 }
