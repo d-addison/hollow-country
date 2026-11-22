@@ -464,6 +464,12 @@ class HCXAITactics
         s_SummaryAfter = GetGame().GetTickTime() + 60;
     }
 
+    // H8 bridge lifecycle (Start and the SHUTTING_DOWN flip): drop the scan's actor handle.
+    static void HCBridgeReset()
+    {
+        s_ScanActor = null;
+    }
+
     static void Stop()
     {
         s_Running = false;
