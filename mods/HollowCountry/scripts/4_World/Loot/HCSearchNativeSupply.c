@@ -4,7 +4,7 @@
 // 3_Game/Entities/EntityAI.c:879 GetHierarchyRoot, :882 GetHierarchyRootPlayer,
 // :885 GetHierarchyParent, :1884 GetInventory, :3374 GetPersistentID;
 // 3_Game/Entities/Object.c:1219 IsRuined. Callers journal before Transfer;
-// World/HCPickers.c CommitMove supplies the immutable 0->1->2/3/4 protocol.
+// World/HCPickers.c HCScavengeInventory.HCMove supplies the 0->1->2/3/4 protocol (2 confirmed, 3 ambiguous, 4 refused).
 class HCSearchOwnedSupply
 {
     EntityAI ItemHandle;

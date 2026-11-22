@@ -134,6 +134,7 @@ class AssetBuilderTests(unittest.TestCase):
         candidate.mkdir()
         payloads = {'config.cpp': b'class CfgPatches { class HollowCountryAssets { units[]={}; weapons[]={}; requiredAddons[]={"DZ_Data"}; }; };',
                     '$PBOPREFIX$': builder.PREFIX.encode(),
+                    'NOTICE.txt': b'Synthetic addon notice',
                     'HC_TestCube.p3d': mlod.write_mlod(hc_test_cube())}
         inputs = []
         for name, data in payloads.items():

@@ -4,12 +4,12 @@
   "scope": "Build 156 supplied INERT counters only; re-enumerate exact release commit including other workers additions",
   "acceptance": "No waivers. One server plus at most one client; every registered default-on counter must be ACTIVE. No multiplayer proof.",
   "estimate_semantics": "est_minutes is a per-exercise observation allowance after prerequisites, not an upper bound. Shared actions overlap; not_deterministic estimates can overrun indefinitely. Preparation and 30-minute soak are additional.",
-  "admin_controls": "Existing HC menu only (Pause); verified dispatch HCAdminModule.c:528-634, adapters HCAdminDirectors.c. No generic item/vehicle spawner is claimed. See R3_SMOKE_SCRIPT.md for exact citations and unimplemented proposal guards.",
+  "admin_controls": "Existing HC menu only (Pause); verified dispatch HCAdminModule.c#HCAdminModule.HCRegisterFixtureProvider..HCCommand, adapters HCAdminDirectors.c. No generic item/vehicle spawner is claimed. See R3_SMOKE_SCRIPT.md for exact citations and unimplemented proposal guards.",
   "entries": [
     {
       "module": "AIIncidents",
       "feature": "response_started",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:598",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c#HCXAIIncidentResponse.HCStartLease",
       "trigger": "HCStartLease borrows a real group and starts a usable response; only then inserts lease.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Create a real recorded incident near a real eligible HC patrol through normal gameplay. Run fx_incident from the lead admin position. The nearest recorded incident and nearest eligible group are queued for at most 60 seconds; the normal role scheduler must pass its busy checks and revalidate perception, range, cooldown, cap and claim before HCStartLease. Require the real response_started line with fixture=1. Selection alone earns nothing.",
@@ -20,7 +20,7 @@
     {
       "module": "AIRoles",
       "feature": "activity_started",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c:680",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c#HCXAIRoleActivities.OnTick",
       "trigger": "Role scheduler HCStart returns empty refusal and creates a bounded activity lease.",
       "exercise": "server_soak",
       "steps": "1. Activate patrol/scavenger sites by travelling near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk]. 2. Stay out of combat while the role scheduler chooses its funded activity. 3. Require activity_started, not role assignment.",
@@ -30,7 +30,7 @@
     {
       "module": "AISelfDefence",
       "feature": "hit_reaction",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c:310",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c#HCXDefence.OnHit",
       "trigger": "HCXDefence.OnHit reaches KIND_HIT after friendly-rescue exclusions.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], find a live HC-owned AI away from infected. 2. Land one ordinary nonfatal melee hit or firearm hit. 3. Retreat normally and check hit_reaction.",
@@ -40,7 +40,7 @@
     {
       "module": "AITactics",
       "feature": "tactic_chosen",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:677",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c#HCXAITactics.StartScan",
       "trigger": "A normal tactical evaluation selects real stock and a smoke throw/drop or lure throw succeeds. Inventory scan probes do not earn credit.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Let an existing HC group perceive a real hostile threat or infected. Run fx_tactic; the nearest living owned member with real perception is prioritized for the next normal evaluation. Keep real stock, cooldown and policy guards. Require tactic_chosen with fixture=1 after a successful real throw or smoke drop; an inventory scan alone earns nothing.",
@@ -51,7 +51,7 @@
     {
       "module": "AITrade",
       "feature": "trade_completed",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c:535",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c#HCTradeTransaction.HCMoveStep",
       "trigger": "Right reciprocal inventory transfer returns result=2; phase becomes complete/reciprocal_confirmed.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected.",
@@ -62,7 +62,7 @@
     {
       "module": "AdminMap",
       "feature": "request",
-      "source": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:648",
+      "source": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c#HCAdminModule.OnTick",
       "trigger": "Admin tick has a pending authenticated request, snapshot capture or loot-map job.",
       "exercise": "admin_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], press Pause. 2. In Overview run status or snapshot. 3. Wait for the server reply.",
@@ -72,7 +72,7 @@
     {
       "module": "AdminMap",
       "feature": "window_open",
-      "source": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c:484",
+      "source": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c#HCAdminMenu.OnShow",
       "trigger": "HCAdminMenu.Init creates a non-null layoutRoot.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], press Pause. 2. Wait for authorization and the HC window to render. 3. Close with Escape.",
@@ -82,18 +82,18 @@
     {
       "module": "BodyStories",
       "feature": "body_observed",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c:245",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c#HCBodyStories.HCObserveBody",
       "trigger": "Observed dead identity-less human belongs to an active retained transient situation, resolves the same world fact, and reserves a trace barrier.",
       "exercise": "not_deterministic",
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], identify an actually materialized transient situation party, not an arbitrary patrol. 2. In real combat kill one member while its situation is active. 3. Leave its original corpse/inventory intact. 4. Wait for delayed fact/trace processing and body_observed.",
       "est_minutes": 5,
-      "prerequisites": "gapcode_body_scene.c:34-90 ownership/situation/fact guards; EnableLeads; free body/trace caps; live fact not expired.",
+      "prerequisites": "gapcode_body_scene.c#HCGapBodySceneProducer.HCObserve..HCPublish ownership/situation/fact guards; EnableLeads; free body/trace caps; live fact not expired.",
       "deterministic_exercise_proposal": "Family A proposes selecting an existing active situation and showing its safe route context to the operator; fight its existing actor in-world. Do not create a corpse, clone loot, write a fact, or invoke HCObserveBody from an admin RPC."
     },
     {
       "module": "CampRespawn",
       "feature": "respawn_reserved",
-      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c:152",
+      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c#HCCampRespawnModule.HCChoose",
       "trigger": "Fresh-character request has eligible allegiance, hearth, live shelter/storage and safe spawn; cooldown reservation is saved.",
       "exercise": "client_action",
       "steps": "1. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, form solo group and recognise ground hearth. 2. Pitch SmallTent and place WoodenCrate within 12 m; let normal scan reach eligible tier. 3. Ensure no live threats within 100 m. 4. After all carried-item checks, die normally and choose native Respawn. 5. Require respawn_reserved and a new character; no movement of a living avatar.",
@@ -103,7 +103,7 @@
     {
       "module": "Camps",
       "feature": "camp_recognised",
-      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c:686",
+      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c#HCCampModule.OnTick",
       "trigger": "Burning unparented fire binds a nearby actual group; durable recognition notice is drained.",
       "exercise": "client_action",
       "steps": "1. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, M -> Create group if none. 2. Combine ShortWoodenStick and Rag into Fireplace, place on clear ground. 3. Add Firewood and light with Matches. 4. Stand near it until recognition saves and camp_recognised prints.",
@@ -113,29 +113,29 @@
     {
       "module": "CellarSampler",
       "feature": "class_measured",
-      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c:434",
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c#HCCellarSampler.HCSummaryTick",
       "trigger": "Class summary has SampleCount>0 after the sampler scans world tiles; measured boxes remain unqualified.",
       "exercise": "not_deterministic",
       "steps": "1. Before measured boot, operator creates private profile HollowCountry/measure-cellars marker. 2. Boot same commit with mission cellar class list installed. 3. Leave sampler running while player follows route. 4. Wait for measured summary with SampleCount>0 and sampler completion; a ready/idle line is insufficient.",
       "est_minutes": 30,
-      "prerequisites": "HCCellarSampler.c:108 startup marker; valid ChernarusPlus class list and writable healthy output store; actual measurable below-terrain geometry.",
+      "prerequisites": "HCCellarSampler.c#HCCellarSampler.OnStart startup marker; valid ChernarusPlus class list and writable healthy output store; actual measurable below-terrain geometry.",
       "deterministic_exercise_proposal": "Run the unmodified bounded whole-world survey to completion, possibly longer than soak. If it finds no SampleCount, survey a real listed building with native rays first. Proposed family B region-priority input may prioritize a physically measured tile/class without altering geometry acceptance; no synthetic box or count."
     },
     {
       "module": "Cellars",
       "feature": "visual_applied",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCCellarsClient.c:89",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCCellarsClient.c#HCCellarsClient.HCSample",
       "trigger": "Client alive, no native underground/NV requester, >2 m below terrain and IsSoundInsideBuilding; own requester starts.",
       "exercise": "not_deterministic",
       "steps": "1. Find a walkable cellar in a listed Land_House_1B01_Pub or listed house in Chernogorsk. 2. Walk down real stairs with NV off. 3. Confirm floor >2 m below local terrain and native underground visuals absent. 4. Check visual_applied and exit normally. No qualified Chernarus location is established by repo data.",
       "est_minutes": 5,
-      "prerequisites": "HCCellarAdmission currently returns true (3_Game/Atmosphere/HCCellarAdmission.c:12); DarkCellars client preference enabled; actual depth/inside geometry required.",
+      "prerequisites": "HCCellarAdmission currently returns true (3_Game/Atmosphere/HCCellarAdmission.c#HCCellarAdmission.HCAdmitted); DarkCellars client preference enabled; actual depth/inside geometry required.",
       "deterministic_exercise_proposal": "First survey and record a real stair-accessible candidate from cellar-classes list, with coordinates. A stock underground trigger suppresses HC visuals and is not a substitute. If none exists, no honest current exercise exists: propose qualified physical cellar content plus normal visual admission, outside this brief; never teleport below terrain or spoof inside/depth."
     },
     {
       "module": "ClientUI",
       "feature": "earplugs_applied",
-      "source": "mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c:68",
+      "source": "mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c#HCEarplugs.Apply",
       "trigger": "HCEarplugs.Apply writes actual sound-scene volume for a live conscious player.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], bind Hollow Country Earplugs in Controls (no default). 2. Close menus and press that binding once. 3. Hear change, then cycle back to out.",
@@ -145,7 +145,7 @@
     {
       "module": "ClientUI",
       "feature": "inventory_open",
-      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c:26",
+      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#InventoryMenu.OnShow",
       "trigger": "InventoryMenu.Init returns a real layoutRoot.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], press the current Inventory binding (default Tab). 2. Confirm inventory renders; close it.",
@@ -155,7 +155,7 @@
     {
       "module": "ClientUI",
       "feature": "map_open",
-      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c:35",
+      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#MapMenu.OnShow",
       "trigger": "HC group-map or vanilla map Init obtains layoutRoot.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], press map key M. 2. Confirm map/roster renders; close.",
@@ -165,28 +165,28 @@
     {
       "module": "Crafting",
       "feature": "recipe_completed",
-      "source": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c:30",
+      "source": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c#HCCraftingGate.RecordCraft",
       "trigger": "A successful HC recovery recipe calls HCCraftingGate.RecordCraft.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], hold KitchenKnife and combine CamoNet. 2. Select Salvage netting from camo net and complete the timed recipe. 3. Check native ingredient debit and Netting result.",
       "est_minutes": 1,
-      "prerequisites": "EnableCrafting; nonruined compatible inputs, tool quantity/health and output space; HCSalvageRecipe.c:432-436."
+      "prerequisites": "EnableCrafting; nonruined compatible inputs, tool quantity/health and output space; HCSalvageRecipe.c#HCSalvageCamoNet..Init."
     },
     {
       "module": "DeadDrops",
       "feature": "cache_bound",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:245",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnTick",
       "trigger": "V2Visit links an existing real cache successfully after guarded placement if needed.",
       "exercise": "not_deterministic",
-      "steps": "1. Use Pause -> Overview -> list/Map snapshot to locate hc-drop-balota at x=4086,z=3005 (HCDeadDrops.c:158; terrain Y resolved in engine). 2. Run World & Events -> deaddrop within 1000 m. 3. For an uncreated cache stay beyond 500 m while its placement runs, then approach on foot after binding. 4. Require cache_bound; command due receipt alone does not count.",
+      "steps": "1. Use Pause -> Overview -> list/Map snapshot to locate hc-drop-balota at x=4086,z=3005 (HCDeadDrops.c#HCDeadDrops.OnStart; terrain Y resolved in engine). 2. Run World & Events -> deaddrop within 1000 m. 3. For an uncreated cache stay beyond 500 m while its placement runs, then approach on foot after binding. 4. Require cache_bound; command due receipt alone does not count.",
       "est_minutes": 5,
-      "prerequisites": "EnableEncounters; finite drop row, valid terrain, healthy cache store; creation requires observer-clear 500 m (HCDeadDrops.c:233).",
+      "prerequisites": "EnableEncounters; finite drop row, valid terrain, healthy cache store; creation requires observer-clear 500 m (HCDeadDrops.c#HCDeadDrops.OnTick).",
       "deterministic_exercise_proposal": "Pre-stage a naturally created finite cache during player-free soak, then run normal LinkCache maintenance while entering its area. If normal creation requires conflicting near/far guards, family A proposes enqueueing only cache maintenance at a selected existing row, leaving observer guard and finite allocations unchanged; no deposit/refill grant."
     },
     {
       "module": "FactionConflict",
       "feature": "outcome_recorded",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:795",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCConflictStep",
       "trigger": "Far, unleased opposed factions pass budget and reserve/publish a data clash fact; no physical fight counts here.",
       "exercise": "admin_action",
       "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_conflict -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing distant opposed pair/cell with no pending territory receipt, claimed lease or provider fight and eligible cooldown/daily fact budget. Normal HCConflictStep retains quota, budget and all outcome guards.",
@@ -198,7 +198,7 @@
     {
       "module": "Forage",
       "feature": "item_picked",
-      "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c:460",
+      "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCReleaseNode",
       "trigger": "Tracked spawned node is released after real pickup/movement; HCRecordForage called and refill delay saved.",
       "exercise": "client_action",
       "steps": "1. At woodland edge on the road from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, find HC-spawned mushroom/berry from prior step. 2. Pick up that exact node item with native Take. 3. Wait one maintenance scan; do not drop/re-pick to count again.",
@@ -208,7 +208,7 @@
     {
       "module": "Forage",
       "feature": "item_spawned",
-      "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c:721",
+      "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCResumeSpawn",
       "trigger": "Reserved finite node passes season, forest, clearance and observer veto; CreateObjectEx succeeds.",
       "exercise": "admin_action",
       "steps": "1. At woodland edge on route to Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, stand on forest surface. 2. Pause -> Economy -> forage -> Run. 3. Close menu, move at least 30 m away from candidate slot while staying in its 200 m cell. 4. Wait up to three 10 s slot cycles; inspect list for node and search ground.",
@@ -218,7 +218,7 @@
     {
       "module": "Grade",
       "feature": "grade_applied",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c:123",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c#HCGradeSettingsClient.Update",
       "trigger": "Weather/time/grade evaluation starts an actual PPE requester.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] outside, close menus and allow atmosphere samples. 2. If client grade is zero press K until intensity nonzero. 3. Require grade_applied in client RPT.",
@@ -228,7 +228,7 @@
     {
       "module": "Groups",
       "feature": "group_mutated",
-      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c:587",
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c#HCGroupService.Commit",
       "trigger": "HCGroupService.Commit saves candidate and replaces live group state.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], M -> enter a disposable group label -> Create group. 2. Wait for saved roster. If already grouped, owner may rename via the existing group controls.",
@@ -238,7 +238,7 @@
     {
       "module": "Groups",
       "feature": "menu_open",
-      "source": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c:477",
+      "source": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c#HCGroupMapMenu.OnShow",
       "trigger": "HCGroupMapMenu.Init creates layoutRoot.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], press M. 2. Confirm group roster window.",
@@ -248,7 +248,7 @@
     {
       "module": "Holdouts",
       "feature": "camp_committed",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:558",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c#HCHoldouts.HCLogCamp",
       "trigger": "HCAdvanceOccupancy genuinely changes funded camp founding/upkeep/growth and persists that transition.",
       "exercise": "admin_action",
       "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_holdout_due -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing allocated funded populated row with naturally due upkeep, affordable growth or alert-clear; elapsed lockouts, available site and linked cache. Normal occupancy, loot/cap and verified-save guards remain.",
@@ -260,7 +260,7 @@
     {
       "module": "HordeMigration",
       "feature": "route_advanced",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c:642",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c#HCNativeInfectedPack.V2Tick",
       "trigger": "Physical cohort finishes native route segment with worst member distance within ArrivalMetres.",
       "exercise": "not_deterministic",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], leave a calm native cohort near police route start. 2. Pause -> Infected -> horde -> Run; it adopts only eligible existing actors. 3. Produce a real gunshot cue along the authored loop. 4. Keep corridor clear and allow cohort to walk; require route_advanced.",
@@ -271,7 +271,7 @@
     {
       "module": "InfectedDoors",
       "feature": "door_action",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c:570",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c#HCInfectedDoorsModule.Apply",
       "trigger": "Door policy selects actual open/break; native door unlock/sound/open calls run.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], attract an eligible infected. 2. Enter a normal accessible building, shut an unlocked door and move clear of its swing. 3. Let chasing infected reach the door. 4. Observe it opens; keep exit free.",
@@ -281,7 +281,7 @@
     {
       "module": "InfectedLOD",
       "feature": "herd_materialized",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c:885",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c#HCInfectedLODModule.HCLODMaterializeStep",
       "trigger": "LOD creates actual leased infected body through HCLODMaterialize at observer-safe candidate.",
       "exercise": "not_deterministic",
       "steps": "1. Approach Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters seed bor-farm by road. 2. Remain in activation range looking away from hidden candidates. 3. Wait for normal LOD slices and require herd_materialized; manual infected spawns are not this path.",
@@ -292,7 +292,7 @@
     {
       "module": "InfectedMemory",
       "feature": "heat_recorded",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c:287",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c#HCInfectedMemory.Add",
       "trigger": "Memory.Record adds loudness to a real cell after guards; marks dirty.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], fire one ordinary unsuppressed round into safe ground. 2. Wait for normal noise/memory path and require heat_recorded.",
@@ -302,7 +302,7 @@
     {
       "module": "InfectedReach",
       "feature": "strike_landed",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:801",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.CountStrike",
       "trigger": "Native selected attack permits full 3D distance, contact LOS and target leg damage dispatch; CountStrike(true).",
       "exercise": "not_deterministic",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], attract a native infected near an existing low loading ledge. 2. Climb normally onto it and remain within native attack reach. 3. Let a real elevated leg attack make contact. 4. Require strike_landed, then retreat and bandage.",
@@ -313,7 +313,7 @@
     {
       "module": "InfectedReach",
       "feature": "vault_started",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:663",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.ClimbStarted",
       "trigger": "ClimbStarted receives a non-null native vault command; attempt without command is excluded.",
       "exercise": "not_deterministic",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], climb normally onto a low walkable ledge 0.5-2.2 m above a chasing infected and within 2.5 m horizontally. 2. Leave top and landing clear. 3. Allow infected native vault; require vault_started.",
@@ -324,7 +324,7 @@
     {
       "module": "InfectedReach",
       "feature": "vehicle_battered",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:812",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.CountBatter",
       "trigger": "Real native attack ray strikes the tracked target vehicle component and CloseCombatDamage is dispatched.",
       "exercise": "not_deterministic",
       "steps": "1. In Chernogorsk open yard, park a nonruined OffroadHatchback. 2. On foot attract one infected, then enter a seat and stop engine. 3. Let it reach exposed vehicle side within 1.9 m ray. 4. Require vehicle_battered and inspect actual vehicle damage.",
@@ -335,7 +335,7 @@
     {
       "module": "InfectedVariety",
       "feature": "actor_woken",
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c:121",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c#HCInfectedVarietyModule.HCRecordWake",
       "trigger": "Actual HCVarietyWake succeeds (or damage-wake callback) while variety active.",
       "exercise": "admin_action",
       "steps": "1. In open flat ground near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], Pause -> Infected -> sitter -> Run. 2. Let native pose settle, approach and make real noise or one real melee hit. 3. Require actor_woken, not just created-at-8m. 4. Clear only the admin sitter afterward if appropriate.",
@@ -345,7 +345,7 @@
     {
       "module": "Interiors",
       "feature": "search_completed",
-      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c:693",
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c#HCInteriorsModule.CommitSearch",
       "trigger": "Bound interior search economy returns result=2; Search complete is shown.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], find a furnished, bound cabinet with empty hands. 2. Aim within action reach -> hold Search storage for six seconds. 3. Require Search complete and counter, not generic loose pickup.",
@@ -355,7 +355,7 @@
     {
       "module": "Leads",
       "feature": "lead_received",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c#HCLeadModule.ReceivePlayer",
       "trigger": "ReceivePlayer resolves real solo/group identity and Receive accepts a retained world lead.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], receive a real HC note or radio lead (see Notes/Radio). 2. Read/listen once before expiry. 3. Require lead_received; notification alone can be non-lead chatter.",
@@ -365,7 +365,7 @@
     {
       "module": "Lighting",
       "feature": "blend_applied",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c#HCLightingClient.Tick",
       "trigger": "Lighting slot transitions from unowned to positive user-table blend under live sun/weather/season guards.",
       "exercise": "admin_action",
       "steps": "1. Outside at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] in daylight with NV off, Pause -> Time & Weather -> weather value 4 (bad weather) -> Run. 2. Wait for native weather and three-second lighting samples. 3. Require positive blend; night is deliberately vanilla.",
@@ -375,7 +375,7 @@
     {
       "module": "LootRefresh",
       "feature": "timer_rearmed",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.OnTick",
       "trigger": "Due previously unready search timer becomes Ready/Revisited during normal minute scan.",
       "exercise": "admin_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], complete one finite search to create pending timer. 2. Pause -> Economy -> loot -> Run. 3. Wait normal next tick and durable checkpoint; require timer_rearmed. 4. Revisit same storage normally.",
@@ -385,7 +385,7 @@
     {
       "module": "MapPins",
       "feature": "pins_published",
-      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c:123",
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c#HCGroupPins.Collect",
       "trigger": "Group snapshot includes a received lead pin or previously discovered placed shelter trail pin, not an arbitrary user marker.",
       "exercise": "client_action",
       "steps": "1. Keep solo group and ChernarusMap. 2. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, approach completed shelter until discovery records. 3. Open M to collect snapshot. Alternatively receive a real group lead then open M. 4. Require pins_published.",
@@ -395,7 +395,7 @@
     {
       "module": "Materializer",
       "feature": "actors_materialized",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c#HCWorldMaterializer.Resolve",
       "trigger": "Resolve folds back a genuinely materialized ended lease, releases budget and successfully writes world fact plus strength adjustment.",
       "exercise": "admin_action",
       "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
@@ -407,7 +407,7 @@
     {
       "module": "MaterializerBridge",
       "feature": "party_materialized",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:99",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c#HCXMaterializerBridge.SiteSpawned",
       "trigger": "SiteSpawned receives nonempty known custody proposal identity not already counted and records real spawn.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing.",
@@ -418,7 +418,7 @@
     {
       "module": "Melee",
       "feature": "hit_processed",
-      "source": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c:93",
+      "source": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c#HCMeleeLog.Event",
       "trigger": "Player/infected hit processing reaches an accepted classification other than implausible.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], hit a native infected once with normal close-range fists/melee. 2. Require hit_processed; avoid a wall or excessive range.",
@@ -428,7 +428,7 @@
     {
       "module": "Melee",
       "feature": "parity_probe",
-      "source": "mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c:117",
+      "source": "mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c#HCMeleeTargetingParity.Observe",
       "trigger": "Observe gets a real player-to-infected hit, known zone, valid head/zone geometry and range; finishes diagnostic comparison.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], land the same ordinary close-range infected melee hit. 2. Require parity_probe after actual EEHitBy processing. Do not call Observe as a probe.",
@@ -438,7 +438,7 @@
     {
       "module": "Notes",
       "feature": "note_read",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c:333",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#HCNoteLedger.Read",
       "trigger": "Read matches actual HC-ledger Paper id, expiry and exact written text.",
       "exercise": "not_deterministic",
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], find genuine HC-authored Paper at a retained scene/search destination. 2. Use native Read action on that Paper. 3. Require note_read; blank or player-written Paper does not qualify.",
@@ -449,7 +449,7 @@
     {
       "module": "OptionalPacks",
       "feature": "animal_seen",
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:22",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#AnimalBase.EEInit",
       "trigger": "Server AnimalBase.EEInit observes actual Animal_Otter ancestry once.",
       "exercise": "not_deterministic",
       "steps": "1. During soak wait for installed CE to instantiate Animal_Otter. 2. If absent, ordinary observation on route cannot create the missing body. 3. Inspect animal_seen receipt; config class existence is insufficient.",
@@ -460,7 +460,7 @@
     {
       "module": "OptionalPacks",
       "feature": "bicycle_seen",
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:37",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#CarScript.EEInit",
       "trigger": "Server EEInit on CarScript or ItemBase observes actual Old_Bike ancestry once.",
       "exercise": "not_deterministic",
       "steps": "1. During soak let installed bicycle CE overlay instantiate Old_Bike. 2. On route inspect a real bicycle if present; do not assume seeing any modded bike qualifies. 3. Require bicycle_seen.",
@@ -471,7 +471,7 @@
     {
       "module": "Pickers",
       "feature": "trip_started",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCPickers.c:1076",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCPickers.c#HCPickers.HCBeginSurveyed",
       "trigger": "Surveyed live actor binds exact route/source/home/real item and durably leaves idle journal after needs and native walk gates.",
       "exercise": "not_deterministic",
       "steps": "1. In Chernogorsk observe scav-chernogorsk home waypoint (6790.94,9.52,2580.32), ai/picker-routes.json. 2. Keep source waypoint (6534.4,14.77,2454.83) and home reachable. 3. Let camp need and real source stock trigger normal trip. 4. Require trip_started; spawning a scavenger alone is insufficient.",
@@ -482,7 +482,7 @@
     {
       "module": "Polish",
       "feature": "hint_shown",
-      "source": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c:259",
+      "source": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c#HCHints.HCAdvanceSave",
       "trigger": "Persisted hint save completes and NotificationSystem displays queued text for same live character.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], on a fresh life close all menus and perform taped mount or finite search. 2. Wait for contextual/help notification and save completion. 3. Allow shared three-minute limiter; do not erase private hint history.",
@@ -492,7 +492,7 @@
     {
       "module": "Polish",
       "feature": "sound_played",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c:106",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c#HCEnvSound.Update",
       "trigger": "Outdoor forest effect survives to next sample with IsSoundPlaying true.",
       "exercise": "client_action",
       "steps": "1. Walk from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters onto cp_conifer_ or cp_broadleaf_ forest surface. 2. Leave vehicle and close menus, remain outdoors. 3. Wait startup/layer timer plus at least one five-second sample; require audible wind and sound_played.",
@@ -502,7 +502,7 @@
     {
       "module": "Progression",
       "feature": "familiarity_gained",
-      "source": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c:484",
+      "source": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c#HCProgressionModule.HCAwardForage",
       "trigger": "HCRecordForage accepts and saves a genuine eligible forage familiarity award.",
       "exercise": "client_action",
       "steps": "1. On woodland leg to Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, take the tracked HC-spawned node item. 2. Require familiarity_gained; loose unrelated mushroom does not establish this.",
@@ -512,7 +512,7 @@
     {
       "module": "Radio",
       "feature": "report_delivered",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:503",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c#HCRadioChatter.OnTick",
       "trigger": "Powered receiving listener revalidates tuned channel, report range and durable retained receipts; notification is delivered.",
       "exercise": "admin_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], hold PersonalRadio in hands (cargo/quickbar alone is rejected) with working Battery9V. 2. Switch on receiving and tune first to 87.8 MHz (Locals). 3. Pause -> World & Events -> radio -> Run. 4. If no real report in range, use next authored faction channel and a factual scene; wait delivery, not merely cooldown reset.",
@@ -522,7 +522,7 @@
     {
       "module": "Scenes",
       "feature": "scene_placed",
-      "source": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:590",
+      "source": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c#HCScenesModule.Work",
       "trigger": "All objects for normal scene kit placement complete and healthy; first StoryPublished transition.",
       "exercise": "admin_action",
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], use Map snapshot to identify nearby scene context. 2. Pause -> World & Events -> scene -> Run. 3. Move away from placement area and out of LOS normally. 4. Wait for placement completion and scene_placed.",
@@ -532,7 +532,7 @@
     {
       "module": "SearchBinding",
       "feature": "supply_bound",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:324",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.Attempt",
       "trigger": "Finite native supply BindSearchEconomy succeeds and transfers registry ownership.",
       "exercise": "server_soak",
       "steps": "1. Boot installed mission with finite search manifests. 2. Connect at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] and allow nearby normal binding/retry queues to settle. 3. Require supply_bound before cabinet exercise.",
@@ -542,48 +542,48 @@
     {
       "module": "SignsOfLife",
       "feature": "flies_created",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:260",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
       "trigger": "Reconcile creates real EffSwarmingFlies and buzz handles for eligible corpse/rotten-food source.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] after real combat, leave an original eligible infected/animal corpse, or drop one genuinely rotten Apple on the ground (food inside inventory is rejected). 2. Approach on foot within configured fly radius. 3. Wait client scan; require flies_created and inspect effect.",
       "est_minutes": 2,
-      "prerequisites": "EnableSignsOfLife; actual dead ZombieBase/AnimalBase or unparented rotten Edible_Base, configured range/cap and valid RealDay; HCSignsOfLifeClient.c:121-128; no cloned corpse."
+      "prerequisites": "EnableSignsOfLife; actual dead ZombieBase/AnimalBase or unparented rotten Edible_Base, configured range/cap and valid RealDay; HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile; no cloned corpse."
     },
     {
       "module": "SignsOfLife",
       "feature": "light_observed",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:258",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
       "trigger": "Reconcile admits a real server-synchronized burning FireplaceIndoor source for light; native fire owns actual rendering. SelectHouses also requires hour >=18 or <7.",
       "exercise": "client_action",
       "steps": "1. At the Bor village hearth stop near Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when hour >=18 or <7 and within configured house radius. 3. Wait client scan and require light_observed; ground Fireplace camp does not substitute.",
       "est_minutes": 2,
-      "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c:228-259,290-318; house-bound fire required, not loose ground fireplace."
+      "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c#HCSignsOfLife.DuskOrNight..Before and HCSignsOfLife.SelectHouses; house-bound fire required, not loose ground fireplace."
     },
     {
       "module": "SignsOfLife",
       "feature": "smoke_observed",
-      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:259",
+      "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
       "trigger": "Reconcile admits a real server-synchronized burning FireplaceIndoor source for smoke; native fire owns actual rendering. SelectHouses also requires native base environmental temperature < configured ColdC (default 10 C).",
       "exercise": "client_action",
       "steps": "1. At the Bor village hearth stop near Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when native base environmental temperature < configured ColdC (default 10 C) and within configured house radius. 3. Wait client scan and require smoke_observed; ground Fireplace camp does not substitute.",
       "est_minutes": 2,
-      "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c:228-259,290-318; house-bound fire required, not loose ground fireplace."
+      "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c#HCSignsOfLife.DuskOrNight..Before and HCSignsOfLife.SelectHouses; house-bound fire required, not loose ground fireplace."
     },
     {
       "module": "SurvivalAlignment",
       "feature": "stamina_applied",
-      "source": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c:73",
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c#StaminaHandler.ProcessStaminaChanges",
       "trigger": "ProcessStaminaChanges accepts valid simulation calculation, calls native super, observes m_Stamina actually changed, then first-use latch counts it. Server and client prediction can emit; settings/profile receipt alone cannot.",
       "exercise": "client_action",
       "steps": "1. Join alive at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk]. 2. Sprint, stop and recover. 3. Wait for an actual stamina value change and require stamina_applied in paired logs; inspect server authority separately.",
       "est_minutes": 1,
       "prerequisites": "Stamina integration enabled; valid native simulation owner/cap/depletion and nonzero actual stamina change. No use credit from a profile/config read.",
-      "source_note": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c:36-73"
+      "source_note": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c#StaminaHandler.ProcessStaminaChanges"
     },
     {
       "module": "SurvivalAlignment",
       "feature": "stamina_hud_shown",
-      "source": "mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c:244",
+      "source": "mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c#HCStaminaHUD.Update",
       "trigger": "Live client HUD updater successfully shows stamina/weight widgets for first time.",
       "exercise": "client_action",
       "steps": "1. Join alive at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] with normal HUD visible. 2. Close menus and sprint/stop. 3. Inspect effort and burden bars; require stamina_hud_shown in client RPT.",
@@ -593,7 +593,7 @@
     {
       "module": "TapedHelmetMounts",
       "feature": "light_mounted",
-      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:418",
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run",
       "trigger": "Successful shared mount custody for HostClass Mich2001Helmet; tape debited and same light attached.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], hold Mich2001Helmet; carry loose UniversalLight and DuctTape. 2. Choose Tape light to held item. 3. Verify native helmetFlashlight attachment and tape debit.",
@@ -603,7 +603,7 @@
     {
       "module": "TapedLight",
       "feature": "light_mounted",
-      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:417",
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run",
       "trigger": "Successful shared service mount result with actual light transfer and tape debit.",
       "exercise": "client_action",
       "steps": "1. Perform the Mich2001Helmet mount at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk]. 2. Require TapedLight/light_mounted too; a separate weapon mount is optional coverage, not necessary for this exact call site.",
@@ -613,7 +613,7 @@
     {
       "module": "TapedPackMounts",
       "feature": "light_mounted",
-      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:419",
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run",
       "trigger": "Successful shared mount where PairId set, CrossSlot true or HostClass TortillaBag.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], hold TortillaBag, carry loose UniversalLight and DuctTape. 2. Choose Tape light to held item. 3. Verify native attachment/tape debit; then wear and toggle if desired.",
@@ -623,17 +623,17 @@
     {
       "module": "TeamPing",
       "feature": "ping_delivered",
-      "source": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c:141",
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c#HCTeamPingModule.HCReceive",
       "trigger": "HCPingDeliver sends at least one eligible group snapshot; sender is included though self-notification is suppressed.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], create solo group via M and close menu. 2. Press Numpad7 (OK status). 3. Require ping_delivered and own marker on map. Do not claim remote delivery proven.",
       "est_minutes": 1,
-      "prerequisites": "EnableGroups/TeamPing; valid live peer/session and group, visibility/range guards pass. HCTeamPing.c:303-318 counts sender, so one client suffices."
+      "prerequisites": "EnableGroups/TeamPing; valid live peer/session and group, visibility/range guards pass. HCTeamPing.c#HCGroupService.HCPingDeliver counts sender, so one client suffices."
     },
     {
       "module": "VehicleFlip",
       "feature": "impulse_applied",
-      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c:215",
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c#HCVehicleFlipModule.OnTick",
       "trigger": "Queued job passes repeat safety/dynamic-body/mass guards and applies actual torque/lift impulse.",
       "exercise": "not_deterministic",
       "steps": "1. At Chernogorsk clear yard, obtain real nonruined OffroadHatchback resting on its side. 2. Stop engine, empty all seats, wait until linear speed <=0.25 m/s. 3. Hold nonruined Crowbar and stand outside expanded collision box within action range. 4. Hold Try to right vehicle (3 people or crowbar); require impulse_applied.",
@@ -644,7 +644,7 @@
     {
       "module": "WreckSalvage",
       "feature": "part_created",
-      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:681",
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c#HCWreckSalvageModule.Complete",
       "trigger": "Finite compatible wreck claim debits supply and native inventory-location entity creation succeeds.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk roadside locate a real supported wreck, not live car. 2. Hold Wrench (alternatively Screwdriver or Pliers). 3. Aim -> hold Salvage wreck through completion. 4. Pick up created part and require part_created.",
@@ -654,7 +654,7 @@
     {
       "module": "ZoneGuards",
       "feature": "guards_posted",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:220",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c#HCXZoneGuards.ActorSpawned",
       "trigger": "Director calls ActorSpawned(count>0) for actual guard creation.",
       "exercise": "server_soak",
       "steps": "1. During drive west from Chernogorsk to Balota, approach held zone center (3900,4.9,2330), ai/zones.json id=balota-cf3bbed7. 2. Stay outside spawn LOS while in site activation range. 3. Require guards_posted and actual guards, not default_state=held alone.",
@@ -664,7 +664,7 @@
     {
       "module": "optional-expansion-human-ai",
       "feature": "actor_spawned",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c:204",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c#HCXAISitePatrol.SetupAI",
       "trigger": "A live site-patrol actor is created by the Expansion patrol, SetupAI runs and the fairness check passes; the counter increments once per spawned actor, never per attempt.",
       "exercise": "server_soak",
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], let the site patrol spawn a unit with a player in activation range but outside sight. 2. Require actor_spawned; site presence or config readiness alone is insufficient.",
@@ -674,7 +674,7 @@
     {
       "module": "optional-expansion-human-ai",
       "feature": "convoy_astar",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:103",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c#HCXAIStuckRecovery.HCRouteUsed",
       "trigger": "HCXConvoyRoute finishes real road A* reconstruction with legal nonempty path and length.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. The per-request fixture mark follows the journey FIFO into the planner. Require a real successful A* outcome and convoy_astar use line with fixture=1; a queued journey diagnostic must also carry fixture=1. Completion, refusal and queue removal clear attribution. Lead native compile and runtime fixture evidence remain pending. No sample or stuck outcome is forced.",
@@ -685,7 +685,7 @@
     {
       "module": "optional-expansion-human-ai",
       "feature": "stuck_recovery",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:178",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c#HCXAIStuckRecovery.HCRecovered",
       "trigger": "Observer sees 3 low-progress samples (default 5 s interval, <3 m), then a real reissue/forward/replan rung succeeds and calls HCRecovered.",
       "exercise": "admin_action",
       "steps": "Implemented-unverified. EnableSmokeFixtures=true in the lead-only test profile (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. It marks only the nearest eligible observer, preserving all samples, timestamps and ladder state. Allow normal motion observation and recovery (journey rung 3 still uses the FIFO). Require a real recovery_step and stuck_recovery with fixture=1. Moving normally may produce no recovery; do not teleport or fabricate a stuck sample.",
@@ -696,7 +696,7 @@
     {
       "module": "v2-expansion-living-world",
       "feature": "actor_admitted",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c:184",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c#HCXLivingModule.OnTick",
       "trigger": "Known owned AI has no living-world refusal and HCXEmoteObservation.Ready; first per-actor admission latch.",
       "exercise": "server_soak",
       "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], approach an actually owned live AI with working living-world signal provider. 2. Keep interaction calm and visible. 3. Wait normal stance application and require actor_admitted.",

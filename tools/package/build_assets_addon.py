@@ -10,6 +10,8 @@ mods/HollowCountryAssets, including prefix metadata, must occur byte-for-byte
 in the plan and have a freshly recomputed shippable provenance.v2 verdict.
 Only explicitly listed candidate payloads ship; licences/provenance stay in the
 sealed build directory. Keep attribution there for release review/distribution.
+The source notice mods/HollowCountryAssets/NOTICE.txt (DayZ EULA / ADPL-SA) is a source
+member like any other: it must be admitted in the plan and ships inside the PBO.
 
 MLOD is supported but unbinarized: no Binarize/DayZ process is launched. Future
 binarized hook: admit a sealed post-Binarize candidate and add an explicit format
@@ -26,7 +28,7 @@ from tools.package import pbo
 PREFIX = 'HollowCountryAssets'
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods' / PREFIX
-EXTENSIONS = {'.cpp', '.cfg', '.p3d', '.paa', '.rvmat'}
+EXTENSIONS = {'.cpp', '.cfg', '.p3d', '.paa', '.rvmat', '.txt'}  # .txt carries NOTICE.txt
 
 
 def build(plan, *, plan_dir, out, source=SOURCE):

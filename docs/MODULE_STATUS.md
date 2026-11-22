@@ -642,7 +642,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | AdminMap | `request`, `window_open` |
 | BodyStories | `body_observed` |
 | CampRespawn | `respawn_reserved` |
-| Camps | `camp_recognised` |
+| Camps | `camp_recognised`, `pathgraph_refresh` (AI camp fortification path-graph refresh; lazy counter, `[HC Use] module=Camps feature=pathgraph_refresh` with `[HC Pathgraph] domain=camp_fortification`; implemented-unverified until boot evidence, native routing verification pending) |
 | CellarSampler | `class_measured` |
 | Cellars | `visual_applied` |
 | ClientUI | `earplugs_applied`, `inventory_open`, `map_open` |
