@@ -1,4 +1,4 @@
-# CE initial-fill probe (native evidence pending)
+# CE initial-fill probe and diagnostic variants
 
 The lead runs disposable treatments serially with no other DayZ server running.
 Workers stage and test tooling only. No economy policy is edited by this probe.
@@ -81,7 +81,7 @@ initial-fill warnings are included. Missing/duplicate/mismatched markers, a shor
 hold, missing CE summaries, malformed warnings or warnings after completion refuse
 ingest. A zero-warning control is valid. Keep outputs outside Git. Compare the
 first treatment where warnings rise before selecting a small targeted variant;
-none is justified by native treatment evidence yet.
+use the receipted variants below to test the hypotheses.
 
 The new diagnostic checks **all** building-routed categories together:
 
@@ -104,7 +104,7 @@ Observed static results during this worker run:
 Categories checked include clothes, containers, explosives, food, lootdispatch,
 tools, vehiclesparts and weapons when present. Exit 1 means the **static bound**
 is infeasible. This is not a qualified predictor of hard-to-place warnings:
-vanilla is infeasible too, while the lead observed zero warnings. Even excluding
+vanilla is infeasible too, while the fresh 240-second control logged only 71 warnings. Even excluding
 unreachable nominal leaves vanilla infeasible. Consequently the existing installer
 `problems()` gate and its `friend_install` caller are unchanged; promoting this
 bound to a gate would introduce a known false positive. The old weapons-only pass
@@ -116,6 +116,98 @@ runtime registration semantics. Nominal is not evidence that the engine must fil
 all matching proxies simultaneously. These observations prevent a defensible
 warning threshold or causal installer fix from this round's offline evidence.
 The bound supplies an additional constraint to investigate, not a finding that
-capacity caused the flood. Native t0–t4 runs, row attribution, targeted variants
-and a correctly qualified installer gate remain pending. Nothing here establishes
+capacity caused the flood. Targeted native variant runs and a correctly qualified installer gate remain pending. Nothing here establishes
 native compilation, successful boot/fill, runtime acceptance or multiplayer.
+
+
+## Native initial-fill evidence (lead, 2026-11-21)
+
+Same installed friend mod set, fresh storage and a 240-second hold:
+
+| Treatment | Hard-to-place lines | Types |
+| --- | ---: | ---: |
+| t0 stock CE | 71 | 40 |
+| t1 HC base | 85 | 43 |
+| t2 + loot boost | 2,181 | 136 |
+| t3 + both weapon packs (2x policy) | 17,090 | 406 |
+| t4 full friend stack | 10,120 | 371 |
+
+Every type's warnings shared one timestamp (last minus first = 0 seconds).
+This was a single initial-fill burst. Build 159 likewise logged all 12,742 lines
+in the first minute and none later. In t3, 14,419 lines were from pack types absent
+in t2. Their weapons-category signatures were Military+Police / Tier3+Tier4
+(5,181), Military+Police / Tier3 (4,662), Military+Police+Prison / Tier2–4
+(2,242), and Military+Police+Prison / Tier2–3 (1,402). Vanilla Military clothes
+and containers also began failing after packs were added.
+
+In t4, 22 pack types with nominal/min 1/1, Military+Police and Tier3+Tier4 each
+logged exactly 173 lines: every initial-fill attempt failed. Broad-usage pack
+weapons (Farm/Hunting/Town/Village, Tier1–4) still contributed about 860 lines.
+The all-category static deficit was 845 for both t2 and t3 while weapons demand
+rose from 3,641 to 6,559. The static model is uncalibrated and does not predict
+this native burst. Greedy fill exhausting Military/Police weapons slots at
+Tier3/4 is a working hypothesis, unproven. Boost deliberately leaves weapons-only
+container lootmax unscaled.
+
+## Targeted variants: lead run order
+
+Variants are diagnostics, not acceptance. They never change shipped installers.
+Keep the unchanged t3 summary as the baseline, then stage these independent runs
+in order (the lead omits `--dry-run` to retain each fresh runtime):
+
+```bash
+python3 -B -m tools.setup.ce_fill_probe stage --treatment t3 \
+  --variant weapons_capacity=2 --destination /mnt/d/HollowCountryLocal/ce-fill-cap2-001 --dry-run
+python3 -B -m tools.setup.ce_fill_probe stage --treatment t3 \
+  --variant weapons_capacity=4 --destination /mnt/d/HollowCountryLocal/ce-fill-cap4-001 --dry-run
+python3 -B -m tools.setup.ce_fill_probe stage --treatment t3 \
+  --variant pack_nominal=0.5 --destination /mnt/d/HollowCountryLocal/ce-fill-nomhalf-001 --dry-run
+python3 -B -m tools.setup.ce_fill_probe stage --treatment t3 \
+  --variant pack_tiers=widen --destination /mnt/d/HollowCountryLocal/ce-fill-tier2-001 --dry-run
+```
+
+Launch, hold and ingest each run using the commands above before proceeding to
+the next. Use t4 repetitions afterwards to check whether the full stack changes
+the response. Repeatable `--variant NAME=VALUE` knobs compose after every treatment
+layer, in a deterministic order. Unknown/duplicate knobs, invalid ranges and knobs
+on treatments without the weapons layer refuse. The treatment table retains its
+hard cap of 8; variants do not add treatments or launch a sweep automatically.
+
+`weapons_capacity` accepts 1 < factor ≤ 4. It multiplies resolved container
+lootmax (explicit, prototype default, or native fallback 8), rounding upward,
+only for weapons-accepting containers in enabled Military or Police groups. Each touched
+group cap is raised to at least the sum of its container caps. Receipts report
+container and group counts and before/after caps. No points, categories, usages
+or geometry change: actual usable capacity can remain limited by native point
+selection and collisions. This experiment tests the cap hypothesis only.
+
+`pack_nominal` accepts 0 < factor < 1 and rounds nominal/min to nearest integer
+(half upward), including allowing a small budget to become zero. Only the two
+weapon-pack managed type files change. **This can never be a shipped policy:
+the owner fixed both packs at 2x.** `pack_tiers=widen` adds Tier2 only to pack
+rows with nonempty usages contained in Military/Police/Prison and lacking Tier2.
+Other pack rows, stock rows and other managed files remain unchanged.
+
+Each plan contains normalized variants and per-file edit receipts with before/after
+SHA-256 and counts. The binding also covers a SHA-256 pin for the staged type
+catalog, derived from that runtime's own `cfgeconomycore.xml` registrations (including
+multi-line CE blocks), with stock rows first and later definitions taking precedence.
+The catalog is a pinned staged file; ingest verifies its hash, so keep it beside
+the plan. It records defining-file hashes and category/usage/tier sets. Ingest
+carries variants, receipts and per-warning-type definitions into the summary.
+Unregistered types remain unattributed and prevent comparison; no attribution is
+guessed from prefixes or a different installation.
+
+```bash
+python3 -B -m tools.setup.ce_fill_probe compare \
+  /mnt/d/HollowCountryLocal/ce-fill-t3-001-summary.json \
+  /mnt/d/HollowCountryLocal/ce-fill-cap2-001-summary.json \
+  /mnt/d/HollowCountryLocal/ce-fill-cap4-001-summary.json
+```
+
+Compare accepts two or more summaries, reports total lines, counts per defining
+file and per (category, usage, tier) signature, and types that went to zero or rose
+against the first summary. Different executable or stock-mission hashes refuse.
+Older summaries without staged attribution must be restaged and re-ingested to
+compare. The comparison reports observations only; native dose response and any
+resulting installer fix remain pending with the lead.

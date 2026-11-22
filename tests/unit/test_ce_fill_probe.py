@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 from tools.setup import ce_fill_probe as probe, probe_runtime as rt
@@ -147,3 +148,141 @@ class FillProbeTests(unittest.TestCase):
             with self.subTest(treatment=treatment):
                 with self.assertRaises(ValueError):
                     probe.stage('unused', self.root/'unused', treatment=treatment, hold_seconds=239, dry_run=True)
+
+
+class VariantTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def write(self, name, text):
+        path = self.root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def test_parse_and_refuse_before_staging(self):
+        valid = ['weapons_capacity=2', 'pack_nominal=0.5', 'pack_tiers=widen']
+        self.assertEqual(set(probe.parse_variants(valid, 't3')), {v.split('=')[0] for v in valid})
+        for value in ['unknown=1', 'weapons_capacity=1', 'weapons_capacity=4.1',
+                      'weapons_capacity=nan', 'weapons_capacity=bad', 'pack_nominal=0', 'pack_nominal=1',
+                      'pack_nominal=inf', 'pack_tiers=narrow', 'pack_tiers']:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                probe.parse_variants([value], 't3')
+        with self.assertRaises(ValueError):
+            probe.parse_variants(valid * 2, 't3')
+        for treatment, layers in probe.TREATMENTS.items():
+            if 'weapons' not in layers:
+                with self.assertRaisesRegex(ValueError, 'weapons layer'):
+                    probe.stage('unused', self.root/'unused', treatment=treatment, variant=valid, dry_run=True)
+
+    def test_capacity_defaults_selection_and_group_caps(self):
+        def group(name, usage, category, explicit=''):
+            return (f'<group name="{name}" lootmax="1"><usage name="{usage}"/>'
+                    f'<container name="shelf" {explicit}><category name="{category}"/>'
+                    '<point/><point/><point/><point/></container>'
+                    '<container name="other" lootmax="3"><category name="clothes"/></container></group>')
+        original = ('<prototype><defaults><default name="container" lootmax="2"/></defaults>'
+                    + group('mil', 'Military', 'weapons') + group('cop', 'Police', 'weapons', 'lootmax="3"')
+                    + group('disabled', 'Military', 'weapons').replace('lootmax="1"', 'lootmax="0"')
+                    + group('town', 'Town', 'weapons') + group('clothes', 'Military', 'clothes') + '</prototype>')
+        self.write('mapgroupproto.xml', original)
+        receipt = probe.apply_variants(self.root, {'weapons_capacity': 2})['weapons_capacity']
+        old = ET.fromstring(original)
+        new = ET.parse(self.root/'mapgroupproto.xml').getroot()
+        for a, b in zip(old.findall('group'), new.findall('group')):
+            if a.get('name') in ('mil', 'cop'):
+                expected = int(a.find('container').get('lootmax', '2')) * 2
+                self.assertEqual(int(b.find('container').get('lootmax')), expected)
+                self.assertGreaterEqual(int(b.get('lootmax')), expected + 3)
+                self.assertEqual(ET.tostring(a.findall('container')[1]), ET.tostring(b.findall('container')[1]))
+            else:
+                self.assertEqual(ET.tostring(a), ET.tostring(b))
+        self.assertEqual(receipt['edited_rows'], len([g for g in old.findall('group')
+                         if g.get('lootmax') != '0' and g.find('usage').get('name') in ('Military', 'Police')
+                         and g.find('container/category').get('name') == 'weapons']))
+        self.assertNotEqual(receipt['files'][0]['before_sha256'], receipt['files'][0]['after_sha256'])
+
+    def test_pack_rows_only_tiers_and_nominal(self):
+        rows = [('eligible', ['Military', 'Police'], ['Tier3']),
+                ('prison', ['Prison'], ['Tier4']), ('already', ['Police'], ['Tier2']),
+                ('broad', ['Military', 'Town'], ['Tier3']), ('empty', [], ['Tier4'])]
+        root = ET.Element('types')
+        for name, usages, tiers in rows:
+            row = ET.SubElement(root, 'type', name=name)
+            ET.SubElement(row, 'nominal').text = '6'
+            ET.SubElement(row, 'min').text = '2'
+            for usage in usages:
+                ET.SubElement(row, 'usage', name=usage)
+            for tier in tiers:
+                ET.SubElement(row, 'value', name=tier)
+        data = ET.tostring(root).decode()
+        for name in (*probe.PACK_FILES, 'db/types.xml'):
+            self.write(name, data)
+        report = probe.apply_variants(self.root, {'pack_tiers': 'widen', 'pack_nominal': 0.5})
+        self.assertEqual((self.root/'db/types.xml').read_text(), data)
+        for name in probe.PACK_FILES:
+            for row, (_, usages, tiers) in zip(ET.parse(self.root/name).getroot(), rows):
+                expected = set(tiers) | ({'Tier2'} if usages and set(usages) <= {'Military', 'Police', 'Prison'} else set())
+                self.assertEqual({v.get('name') for v in row.findall('value')}, expected)
+                self.assertEqual(int(row.findtext('nominal')), probe.loot_boost.scaled(6, 0.5))
+                self.assertLessEqual(int(row.findtext('min')), int(row.findtext('nominal')))
+        self.assertIn('2x', report['pack_nominal']['policy_warning'])
+
+    def test_multiline_registrations_binding_and_ingest_variants(self):
+        self.write('cfgeconomycore.xml', '<economycore><ce\n folder="extra/ce">\n<file name="rows.xml" type="types"/>\n</ce></economycore>')
+        self.write('db/types.xml', '<types><type name="Example"><category name="tools"/></type></types>')
+        self.write('extra/ce/rows.xml', '<types><type name="Example"><category name="weapons"/><usage name="Police"/><value name="Tier3"/></type></types>')
+        catalog = probe.type_catalog(self.root)
+        self.assertEqual(catalog['example']['file'], 'extra/ce/rows.xml')
+        fixture = FillProbeTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        old = fixture.plan['binding']
+        catalog_raw = json.dumps(catalog).encode()
+        (fixture.root/probe.CATALOG_NAME).write_bytes(catalog_raw)
+        fixture.plan.update(variants={'pack_tiers': 'widen'}, variant='t3', layers=list(probe.TREATMENTS['t3']),
+                            type_catalog=dict(path=probe.CATALOG_NAME, sha256=rt.sha256(catalog_raw)))
+        fixture.plan['binding'] = probe.binding(fixture.plan)
+        self.assertNotEqual(old, fixture.plan['binding'])
+        for key in ('variants', 'variant_receipts', 'type_catalog'):
+            changed = copy.deepcopy(fixture.plan)
+            changed[key] = {'changed': True}
+            self.assertNotEqual(probe.binding(changed), fixture.plan['binding'])
+        result = fixture.ingest(fixture.lines(('Example',)))
+        self.assertEqual(result['variants'], fixture.plan['variants'])
+        self.assertEqual(result['types']['Example']['definition'], catalog['example'])
+        (fixture.root/probe.CATALOG_NAME).write_bytes(catalog_raw + b' ')
+        with self.assertRaisesRegex(ValueError, 'catalog hash drift'):
+            fixture.ingest(fixture.lines(('Example',)))
+
+    def test_compare_aggregation_deltas_and_refusals(self):
+        definition = dict(file='extra/ce/types.xml', category=['weapons'], usage=['Police'], tier=['Tier3'])
+        base = dict(treatment='t3', variants={}, total=3,
+                    provenance=dict(server_exe_sha256='a'*64, stock_mission_sha256='b'*64),
+                    types={'Example': dict(count=2, definition=definition), 'Other': dict(count=1, definition=definition)})
+        other = copy.deepcopy(base)
+        other.update(variants={'pack_tiers': 'widen'}, types={'Example': dict(count=4, definition=definition)}, total=4)
+        paths = [self.root/'a.json', self.root/'b.json']
+        def write():
+            for path, run in zip(paths, (base, other)):
+                path.write_text(json.dumps(run))
+        write()
+        result = probe.compare(paths)['runs'][-1]
+        self.assertEqual(sum(result['per_defining_file'].values()), other['total'])
+        self.assertEqual(sum(result['per_signature'].values()), other['total'])
+        self.assertEqual(result['went_to_zero'], ['Other'])
+        self.assertEqual(result['rose']['Example'], dict(before=2, after=4))
+        for key in base['provenance']:
+            original = other['provenance'][key]
+            other['provenance'][key] = 'c'*64
+            write()
+            with self.assertRaisesRegex(ValueError, 'mismatch'):
+                probe.compare(paths)
+            other['provenance'][key] = original
+        other['types']['Example']['definition'] = None
+        write()
+        with self.assertRaisesRegex(ValueError, 'attribution'):
+            probe.compare(paths)
+        with self.assertRaises(ValueError):
+            probe.compare(paths[:1])
