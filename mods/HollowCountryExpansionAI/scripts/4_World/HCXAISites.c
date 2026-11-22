@@ -661,6 +661,9 @@ class HCXAISiteDirector : Managed
         }
         string next = "";
         if (m_LocalitySave && m_LocalitySave.Data) { next = m_LocalitySave.Data.NextId; }
+        // A running owner reports its live status; the cached string was a
+        // boot-time snapshot that kept "degraded" after the routes catalog loaded.
+        if (m_Phase == "run" && m_Localities) { m_LocalityStatus = this.HCGetOperationalStatus().HCState(); }
         string line = "[HC Plan] HC-18 localities=" + count.ToString() + " page=" + page.ToString() + " oldest_pending=" + oldest;
         return line + " cursor=" + next + " state=" + m_LocalityStatus + " runtime=PENDING";
     }
