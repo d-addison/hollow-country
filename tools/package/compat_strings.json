@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "_doc": "Our own wording for GUI keys that a dependency references but never defines. Each row is {\"key\": \"STR_...\", \"text\": \"...\"}; the text is written by us, never copied from a dependency. The key list comes from native RPT evidence (python3 -B -m tools.package.compat_stringtable --rpt <RPT> lists uncovered keys); it is empty until the lead fills it. See docs/tools/COMPAT_ADDON.md.",
+  "strings": []
+}
