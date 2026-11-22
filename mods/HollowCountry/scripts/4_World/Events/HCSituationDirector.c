@@ -147,6 +147,7 @@ class HCSituationDirector
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected float m_ActivityLastTick = -1;
     protected int m_Cursor;
+    protected int m_OfferCursor;
     protected bool m_Enabled;
     protected bool m_Fault;
     protected string m_Effective = "off";
@@ -417,7 +418,10 @@ class HCSituationDirector
 
     void HCReport()
     {
-        m_Status.HCPublish(m_Effective, m_Reason);
+        // HC-1 has a fixed lifecycle vocabulary; waiting for gameplay input
+        // leaves the director running. The situation/activity line is explicit.
+        if (m_Effective == "needs_player") { m_Status.HCPublish("ready", "needs_player"); }
+        else { m_Status.HCPublish(m_Effective, m_Reason); }
         string identity = "none";
         string phase = "none";
         string pinned = "0";
@@ -434,6 +438,27 @@ class HCSituationDirector
         if (line == m_LastReport) { return; }
         m_LastReport = line;
         Print("" + line);
+    }
+
+    // Startup readiness is not permanent: the live-party provider settles later,
+    // and no-player boots cannot materialize the parties this feature borrows.
+    protected void HCRefreshProvider()
+    {
+        if (!m_Enabled || m_Fault) { return; }
+        HCSituationActorPort actors = HCSituationActors.HCForProfile("survivor");
+        m_Effective = "refused";
+        m_Reason = actors.HCRefusal();
+        if (actors.HCReady())
+        {
+            m_Effective = "ready";
+            m_Reason = actors.HCRefusal();
+        }
+        else
+        {
+            m_Reason = actors.HCRefusal();
+            if (m_Reason == "SITUATION_NEEDS_PLAYER") { m_Effective = "needs_player"; }
+        }
+        HCReport();
     }
 
     HCOperationalStatus HCStatus() { return m_Status; }
@@ -457,6 +482,7 @@ class HCSituationDirector
     {
         if (m_Rows.Count() == 0)
         {
+            HCModuleReadiness.HCRegisterUse("Events", "situation_started");
             HCAddProfile("survivor");
             HCAddProfile("raid");
             HCAddProfile("column");
@@ -508,6 +534,7 @@ class HCSituationDirector
         m_Store = store;
         m_Enabled = true;
         m_Cursor = 0;
+        m_OfferCursor = 0;
         // Validated retained profiles are unique; build once before binding slots.
         map<string, HCSituationState> opportunities = new map<string, HCSituationState>;
         if (state.Stories.HCSituations)
@@ -522,9 +549,7 @@ class HCSituationDirector
             if (slot.Profile == "survivor") { slot.Opportunity = state.Stories.HCFirstSurvivor; }
             else { slot.Opportunity = opportunities.Get(slot.Profile); }
         }
-        HCSituationActorPort survivorActors = HCFind("survivor").Actors;
-        m_Reason = survivorActors.HCRefusal();
-        if (survivorActors.HCReady()) { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
+        HCRefreshProvider();
         // A crash never rebinds an issued intent/active story to a replacement.
         foreach (HCSituationProfileRow restored : m_Rows)
         {
@@ -558,12 +583,7 @@ class HCSituationDirector
             if (!slot.Actors.HCReady())
             {
                 m_Activity.HCRefuse("provider");
-                if (slot.Profile == "survivor" && (m_Effective != "refused" || m_Reason != slot.Actors.HCRefusal()))
-                {
-                    m_Effective = "refused";
-                    m_Reason = slot.Actors.HCRefusal();
-                    HCReport();
-                }
+                if (slot.Profile == "survivor") { HCRefreshProvider(); }
                 continue;
             }
             HCSituationState row = new HCSituationState;
@@ -620,12 +640,7 @@ class HCSituationDirector
             if (!slot.Actors.HCReady())
             {
                 m_Activity.HCRefuse("provider");
-                if (slot.Profile == "survivor")
-                {
-                    m_Effective = "refused";
-                    m_Reason = slot.Actors.HCRefusal();
-                    HCReport();
-                }
+                if (slot.Profile == "survivor") { HCRefreshProvider(); }
                 return;
             }
             string lease = slot.Actors.HCSelect(row);
@@ -634,7 +649,7 @@ class HCSituationDirector
                 m_Activity.HCRefuse("lease");
                 if (slot.Profile == "survivor")
                 {
-                    m_Effective = "refused";
+                    m_Effective = "ready";
                     m_Reason = slot.Actors.HCRefusal();
                     HCReport();
                 }
@@ -664,6 +679,7 @@ class HCSituationDirector
             HCSituationPacingReceipt started = HCPacingFind(row.Id);
             if (started) { started.StartedAt = now; }
             m_Activity.HCHit("started");
+            HCModuleReadiness.HCUse("Events", "situation_started");
             row.Phase = "active";
             HCCommit();
             return;
@@ -692,7 +708,9 @@ class HCSituationDirector
                     if (now >= activitySlot.Opportunity.DueAt) { dueRows++; }
                     if (activitySlot.Opportunity.Phase == "active") { activeRows++; }
                 }
-                m_Activity.HCLog("[HC Situations]", " due=" + dueRows.ToString() + " active=" + activeRows.ToString() + " state=" + m_Effective);
+                string activityState = " due=" + dueRows.ToString() + " active=" + activeRows.ToString();
+                activityState += " state=" + m_Effective + " reason=" + m_Reason;
+                m_Activity.HCLog("[HC Situations]", activityState);
             }
             m_ActivityLastTick = activityNow;
         }
@@ -700,11 +718,12 @@ class HCSituationDirector
 
     void HCStep(int now)
     {
+        HCRefreshProvider();
         HCActivityStep(now);
         if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
         m_Activity.HCHit("steps");
         m_Store.HCPumpCheckpoint();
-        if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
+        if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Effective = "refused"; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
         if (m_Store.HCBarrierPending()) { m_Activity.HCRefuse("checkpoint"); return; }
         foreach (HCSituationProfileRow ended : m_Rows)
         {
@@ -727,7 +746,12 @@ class HCSituationDirector
         }
         if (needsOffer && m_State.Chains && m_State.Chains.Count() > 0)
         {
-            HCOffer(m_State.Chains[m_Cursor % m_State.Chains.Count()]);
+            // Profile iteration wraps at five; it cannot rotate a chain catalog.
+            // Keep an independent bounded cursor so a terminal chain cannot starve
+            // a later eligible retained chain, including after a server upgrade.
+            m_OfferCursor = m_OfferCursor % m_State.Chains.Count();
+            HCOffer(m_State.Chains[m_OfferCursor]);
+            m_OfferCursor++;
             if (m_Store.HCBarrierPending()) { return; }
         }
         // Find one retained nonterminal row; bounded by the five-profile cap.

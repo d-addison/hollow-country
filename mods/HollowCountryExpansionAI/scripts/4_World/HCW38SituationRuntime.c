@@ -95,12 +95,26 @@ class HCW38SituationRuntime
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!HCPolicy()) { return false; }
         if (!director || director.Phase() != "run") { return HCRefuse("SITUATION_SITE_DIRECTOR_PENDING"); }
+        // HCWorldMaterializer.InterestRing creates leased parties only near
+        // living observers. Do not consume one-shot story rows on an empty server.
+        // Installed Object.c:517 IsAlive; EnScript.c:380 Count (cached players).
+        array<Man> players = HCPerfPlayers.HCGet();
+        if (!players || players.Count() == 0) { return HCRefuse("SITUATION_NEEDS_PLAYER"); }
+        if (players.Count() > HCSituationLimits.PACING_PLAYERS) { return HCRefuse("SITUATION_PLAYER_CAP"); }
+        bool living;
+        for (int playerIndex = 0; playerIndex < 16 && playerIndex < players.Count(); playerIndex++)
+        {
+            Man observer = players[playerIndex];
+            if (observer && observer.IsAlive()) { living = true; break; }
+        }
+        if (!living) { return HCRefuse("SITUATION_NEEDS_PLAYER"); }
+        if (s_Refusal == "SITUATION_SITE_DIRECTOR_PENDING" || s_Refusal == "SITUATION_NEEDS_PLAYER" || s_Refusal == "SITUATION_PLAYER_CAP") { s_Refusal = ""; }
         return true;
     }
 
     static string HCReason()
     {
-        if (s_Refusal == "") { return "SITUATION_SITE_DIRECTOR_PENDING"; }
+        if (s_Refusal == "") { return "observed_actor_port_ready"; }
         return s_Refusal;
     }
 
@@ -184,7 +198,7 @@ class HCW38SituationRuntime
         if (!HCRaidCooled(opportunity.Profile)) { return ""; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         array<ref HCXAISiteState> states = director.States();
-        if (!states || states.Count() == 0) { return ""; }
+        if (!states || states.Count() == 0) { HCRefuse("SITUATION_LIVE_PARTY_CATALOG_EMPTY"); return ""; }
         for (int visited = 0; visited < s_Policy.ScanRows && visited < states.Count(); visited++)
         {
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { return ""; }
@@ -195,6 +209,7 @@ class HCW38SituationRuntime
             if (!HCProfileFits(candidate, opportunity.Profile)) { continue; }
             if ((opportunity.Profile == "raid" || opportunity.Profile == "column") && !HCTarget(candidate)) { continue; }
             s_SelectedIndex = s_Cursor - 1;
+            s_Refusal = "";
             return candidate.ProposalId;
         }
         HCRefuse("SITUATION_MATCHING_LIVE_PARTY_PENDING");
