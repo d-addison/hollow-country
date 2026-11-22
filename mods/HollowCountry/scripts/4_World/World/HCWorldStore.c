@@ -74,6 +74,7 @@ class HCWorldStore
     protected static bool s_RawTested;
     protected static bool s_RawEnabled;
     protected static int s_CompareCalls;
+    protected static int s_RejectCompareCalls;
     static const int HC_COMPARE_LIMIT = 128;
 
     static void HCResetCompareBudget() { s_CompareCalls = 0; }
@@ -93,6 +94,45 @@ class HCWorldStore
         string b;
         if (!ReadChecked(left, a) || !ReadChecked(right, b)) { return false; }
         return a.Length() > 0 && a.Length() <= MAX_BYTES && a == b;
+    }
+
+    // Independent boot/retry budget: archive rejection cannot exhaust custody's
+    // 128 comparisons and force a durable unverified-source relocation.
+    static bool RejectRawEqual(string left, string right)
+    {
+        if (!s_RawTested) { HCTestRawRead(); }
+        if (s_RejectCompareCalls >= HC_COMPARE_LIMIT) { return false; }
+        s_RejectCompareCalls++;
+        if (!s_RawEnabled) { return false; }
+        return HCRawEqual(left, right);
+    }
+
+    // EnSystem.c:397/417/425: FileExist proves existence, not readability;
+    // OpenFile returns 0 on failure, ReadFile reads raw bytes into int[] or
+    // string and returns a byte count. Use raw one-byte reads so NUL never
+    // passes through string IO; zero the receiving int before every byte so
+    // neither packed-byte nor per-element array transfers retain prior bits.
+    // Boot/retry only: at most 13 calls/bytes (12-byte cap plus EOF/size probe).
+    static bool ReadCeilingChecked(string path, out string text)
+    {
+        text = "";
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int rawByte[1];
+        for (int offset = 0; offset < 13; offset++)
+        {
+            rawByte[0] = 0;
+            int count = ReadFile(handle, rawByte, 1);
+            if (count < 0 || count > 1) { CloseFile(handle); text = ""; return false; }
+            if (count == 0) { CloseFile(handle); return true; }
+            int value = rawByte[0];
+            bool grammarByte = value == 124 || (value >= 48 && value <= 57);
+            if (offset == 12 || !grammarByte) { CloseFile(handle); text = ""; return true; }
+            text += value.AsciiToString();
+        }
+        CloseFile(handle);
+        text = "";
+        return true;
     }
 
     // EnSystem.c:425 leaves the array unit ambiguous. Allocate enough elements
@@ -467,6 +507,24 @@ class HCWorldCustodySaveJob : HCSaveJob
 // images and revision order before passing nonempty text. No empty-state fallback.
 class HCWorldIntentRecovery
 {
+    protected static bool s_RotationFailurePrinted;
+
+    protected static string FileName(string path)
+    {
+        int slash = path.LastIndexOf("/");
+        return path.Substring(slash + 1, path.Length() - slash - 1);
+    }
+
+    protected static bool RotationFailed(string source)
+    {
+        if (!s_RotationFailurePrinted)
+        {
+            s_RotationFailurePrinted = true;
+            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_unverified action=retain_source_retry_next_boot");
+        }
+        return false;
+    }
+
     // Rejected bytes are non-authoritative. Callers establish safe retirement
     // (verified surviving image, or a provably uncommitted first-seed tear).
     // Never copy onto an occupied destination, including after interrupted copies.
@@ -482,9 +540,9 @@ class HCWorldIntentRecovery
             {
                 if (free < 0) { free = slot; rejected = candidate; }
             }
-            else if (HCWorldStore.RawEqual(source, candidate))
+            else if (HCWorldStore.RejectRawEqual(source, candidate))
             {
-                Print("[HC World] staged_rejection reason=existing_raw_copy action=retire_source");
+                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
                 return DeleteFile(source);
             }
         }
@@ -499,17 +557,18 @@ class HCWorldIntentRecovery
                 string newPath = source + ".rejected";
                 int previous = rotate - 1;
                 if (rotate > 1) { newPath += "." + previous.ToString(); }
-                if (!CopyFile(oldPath, newPath)) { return false; }
+                if (!CopyFile(oldPath, newPath)) { return RotationFailed(source); }
+                if (!HCWorldStore.RejectRawEqual(oldPath, newPath)) { return RotationFailed(source); }
                 if (!DeleteFile(oldPath)) { return false; }
             }
             rejected = source + ".rejected.7";
         }
         if (!CopyFile(source, rejected)) { return false; }
         bool equal = EqualText(source, rejected, limit);
-        if (!equal) { equal = HCWorldStore.RawEqual(source, rejected); }
+        if (!equal) { equal = HCWorldStore.RejectRawEqual(source, rejected); }
         string reason = "verified_copy";
         if (!equal) { reason = "copy_unverified_non_authoritative"; }
-        Print("[HC World] staged_rejection reason=" + reason + " action=retire_source");
+        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retire_source");
         return DeleteFile(source);
     }
 
@@ -569,7 +628,8 @@ class HCWorldIntentRecovery
         string check;
         bool readPrimary = HCGroupIO.HCReadRaw(path, limit, check);
         if (!readPrimary || check != intent) { return false; }
-        if (!keepBackup && FileExist(path + ".bak") && !DeleteFile(path + ".bak")) { return false; }
+        bool retireBackup = !keepBackup && FileExist(path + ".bak");
+        if (retireBackup && !DeleteFile(path + ".bak")) { return false; }
         if (!DeleteFile(path + ".tmp")) { return false; }
         Print("[HC World] staged_recovery action=promote_verified path=" + path);
         return true;
@@ -587,6 +647,7 @@ class HCWorldLeaseCeiling
     protected bool m_NeedsReseed;
     protected bool m_BackupLowerBound;
     protected bool m_CleanupReady;
+    protected static bool s_IntentReadFailurePrinted;
     protected string m_Text;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
 
@@ -610,8 +671,16 @@ class HCWorldLeaseCeiling
         if (FileExist(PATH + ".tmp"))
         {
             string intent;
-            bool intentRead = HCGroupIO.HCReadRaw(PATH + ".tmp", 12, intent);
-            if (!intentRead) { intent = ""; }
+            bool intentRead = HCWorldStore.ReadCeilingChecked(PATH + ".tmp", intent);
+            if (!intentRead)
+            {
+                if (!s_IntentReadFailurePrinted)
+                {
+                    s_IntentReadFailurePrinted = true;
+                    Print("[HC World] custody_lease_ceiling_intent_unreadable action=retain_retry");
+                }
+                return false;
+            }
             int next = Decode(intent);
             if (next == 0 || next < floor) { intent = ""; }
             if (floor == 0) { primary = ""; }
@@ -623,8 +692,15 @@ class HCWorldLeaseCeiling
                 // read_tmp must verify before the writer can remove a primary.
                 // No primary/backup + torn intent is therefore a first-seed tear.
                 if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
-                Print("[HC World] custody_lease_ceiling_first_seed_torn action=reseed");
-                HCModuleReadiness.HCUse("Materializer", "custody_lease_ceiling_first_seed_torn");
+                bool rejectedPrimary = FileExist(PATH + ".rejected");
+                for (int rejectedSlot = 1; rejectedSlot < 8; rejectedSlot++)
+                {
+                    if (FileExist(PATH + ".rejected." + rejectedSlot.ToString())) { rejectedPrimary = true; }
+                }
+                string tearReason = "custody_lease_ceiling_first_seed_torn";
+                if (rejectedPrimary) { tearReason = "custody_lease_ceiling_torn_after_primary_rejection"; }
+                Print("[HC World] " + tearReason + " action=reseed");
+                HCModuleReadiness.HCUse("Materializer", tearReason);
             }
             else
             {
@@ -647,7 +723,9 @@ class HCWorldLeaseCeiling
                 }
             }
         }
-        if (floor == 0 && (FileExist(PATH) || FileExist(PATH + ".bak")))
+        bool ceilingHistory = FileExist(PATH);
+        if (FileExist(PATH + ".bak")) { ceilingHistory = true; }
+        if (floor == 0 && ceilingHistory)
         {
             if (!allowReseed)
             {
@@ -696,7 +774,7 @@ class HCWorldLeaseCeiling
         {
             // The new primary has verified. One final bounded scheduler stage
             // retires the lower-bound backup, never before the ceiling commits.
-            if (!DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
             m_CleanupReady = false;
             m_BackupLowerBound = false;
             return HCSaveJob.STEP_DONE;
