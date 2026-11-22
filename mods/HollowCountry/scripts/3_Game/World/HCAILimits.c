@@ -12,11 +12,14 @@ class HCAILimits
     // Raised-weapon caution ranges (metres), cached once from the loaded limits by Use().
     // HCStancePolicy.Evaluate reads these; defaults hold until settings load.
     static float CAUTION_RANGE = 30;
-    static float CAUTION_HOSTILE_RANGE = 60;
+    // Hostile range: a non-hostile AI turns hostile at once at a raised weapon inside it;
+    // the caution grace starts beyond it (up to 80 m). HCXCautionObservation.InBand reads it.
+    static float CAUTION_HOSTILE_RANGE = 40;
     static float CAUTION_GUNFIRE_RANGE = 80;
-    // Seconds a non-hostile AI faces/warns a raised weapon (40 m < d <= 80 m) before hostility.
-    // CAUTION_HOSTILE_RANGE is reserved (no effect since the caution grace, 2026-11-22).
+    // Seconds a non-hostile AI faces/warns a raised weapon (hostile range < d <= 80 m) before hostility.
     static int CAUTION_GRACE = 3;
+    // Older operator files carry this value as the retired placeholder default; it is read as 40.
+    static const int LEGACY_CAUTION_HOSTILE_RANGE = 60;
     int MaxLiveGroups = 15;
     int MaxLiveAI = 72;
     int OccupationMin = 3;
@@ -42,7 +45,7 @@ class HCAILimits
     int MaxCampItems = 64;
     int WorldSeed = 18473;
     int CautionRangeM = 30;
-    int CautionHostileRangeM = 60;
+    int CautionHostileRangeM = 40;
     int CautionGunfireRangeM = 80;
     int CautionGraceSeconds = 3;
 
@@ -98,11 +101,16 @@ class HCAILimits
         WorldSeed = HCAILimits.Value("WorldSeed", WorldSeed, 0, 1000003);
         // Older operator files lack these keys; a zero-filled read restores the default.
         if (CautionRangeM == 0) { CautionRangeM = 30; }
-        if (CautionHostileRangeM == 0) { CautionHostileRangeM = 60; }
+        if (CautionHostileRangeM == 0) { CautionHostileRangeM = 40; }
+        if (CautionHostileRangeM == HCAILimits.LEGACY_CAUTION_HOSTILE_RANGE)
+        {
+            Print("[HC AI] AILimits.CautionHostileRangeM=60 is the retired placeholder default; using 40 (any other 40-80 value is honoured)");
+            CautionHostileRangeM = 40;
+        }
         if (CautionGunfireRangeM == 0) { CautionGunfireRangeM = 80; }
         if (CautionGraceSeconds == 0) { CautionGraceSeconds = 3; }
         CautionRangeM = HCAILimits.Value("CautionRangeM", CautionRangeM, 1, 100);
-        CautionHostileRangeM = HCAILimits.Value("CautionHostileRangeM", CautionHostileRangeM, 1, 100);
+        CautionHostileRangeM = HCAILimits.Value("CautionHostileRangeM", CautionHostileRangeM, 40, 80);
         CautionGunfireRangeM = HCAILimits.Value("CautionGunfireRangeM", CautionGunfireRangeM, 1, 100);
         CautionGraceSeconds = HCAILimits.Value("CautionGraceSeconds", CautionGraceSeconds, 1, 30);
         if (OccupationMin > OccupationMax)

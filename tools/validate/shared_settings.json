@@ -348,7 +348,7 @@
       "WorldSeed": 18473,
       "MaxObservedAI": 1024,
       "CautionRangeM": 30,
-      "CautionHostileRangeM": 60,
+      "CautionHostileRangeM": 40,
       "CautionGunfireRangeM": 80,
       "CautionGraceSeconds": 3
     },
@@ -559,9 +559,9 @@
   {
     "key": "AILimits.CautionHostileRangeM",
     "type": "int",
-    "default": 60,
-    "min": 1,
-    "max": 100,
+    "default": 40,
+    "min": 40,
+    "max": 80,
     "owner": "HCAILimits"
   },
   {
