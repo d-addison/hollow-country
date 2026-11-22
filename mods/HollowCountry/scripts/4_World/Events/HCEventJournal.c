@@ -102,10 +102,16 @@ class HCEventJournalIO
     // gets its own directory named from the UTC stamp, so a reused revision's earlier
     // crashes never collide and the names cannot run out (a same-second collision
     // takes one of 16 suffixes). Nothing is deleted until every file is verified as
-    // copied. When preservation cannot proceed the torn files stay in place, the
-    // reason is logged once, and recovery continues: the journal loads its last
-    // committed revision, and its save admission then refuses until a later boot
-    // preserves them. Readiness is never blocked by this path.
+    // copied. When preservation cannot proceed the torn files stay in place and the
+    // reason is logged once. The journal still loads its last committed revision, but
+    // its save admission refuses while the torn triple holds the next revision number
+    // (the inventory sees a highest revision above the loaded one), so no save can
+    // succeed until a later boot preserves the files. The journal reports this through
+    // HCTornUnpreserved(); the runtime refuses to start with reason=torn_preservation_failed
+    // instead of failing later on its first publish. Nothing is deleted, so the next boot
+    // retries the preservation and a cleared fault repairs itself. Writing past the torn
+    // revision number is not done: a crash in that first save would leave two torn top
+    // revisions, and Load's single-top torn rule would then fault.
     protected string m_TornDirectory;
     protected string m_TornReason;
     string HCTornDirectory() { return m_TornDirectory; }
@@ -294,6 +300,7 @@ class HCEventJournal : HCEventPersistence
     protected ref HCEventCodec m_Codec;
     protected ref HCEventSettings m_Settings;
     protected int m_Latest = 0;
+    protected bool m_TornUnpreserved = false;
     protected string m_Image;
     protected string m_Receipt;
     protected string m_World;
@@ -305,6 +312,8 @@ class HCEventJournal : HCEventPersistence
         m_IO = new HCEventJournalIO;
         m_Codec = new HCEventCodec;
     }
+    // True when the last Load found a torn top revision and could not preserve it.
+    bool HCTornUnpreserved() { return m_TornUnpreserved; }
     bool Fault()
     {
         m_Fault = true;
@@ -367,6 +376,7 @@ class HCEventJournal : HCEventPersistence
             return null;
         }
         m_World = world;
+        m_TornUnpreserved = false;
         int latest = Highest();
         if (latest < 0)
         {
@@ -406,7 +416,10 @@ class HCEventJournal : HCEventPersistence
             }
             else
             {
-                // Evidence stays in place; the journal still loads its committed revision.
+                // Evidence stays in place; the journal still loads its committed revision,
+                // but saves cannot pass the torn revision number: the runtime refuses to
+                // start with reason=torn_preservation_failed and the next boot retries.
+                m_TornUnpreserved = true;
                 Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=none reason=" + m_IO.HCTornReason());
             }
         }

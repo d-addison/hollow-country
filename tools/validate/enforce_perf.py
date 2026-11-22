@@ -801,12 +801,16 @@ def nested_scans(model, i, spans):
 _RESET = re.compile(rf'(?<![\w.])({_CHAIN})\s*=(?!=)\s*(?:false|null|NULL|0)\s*;')
 _ASSIGN = re.compile(rf'(?<![\w.])({_CHAIN})\s*=(?!=)\s*([^;]*);')
 _EXIT = re.compile(r'\b(?:return|continue|break)\b')
+# Any write to a field: plain or compound assignment, increment or decrement.
+_WRITE = re.compile(rf'(?<![\w.])({_CHAIN})\s*(?:[-+*/%|&^]|<<|>>)?=(?!=)|(?<![\w.])({_CHAIN})\s*(?:\+\+|--)|(?:\+\+|--)\s*({_CHAIN})')
+_TICK_TIME = r'GetGame\s*\(\s*\)\s*\.\s*GetTickTime\s*\(\s*\)'
 
 
-def _latch_field(model, i, expression):
+def _latch_field(model, i, expression, scalars=False):
     """(defining class, field name, type) of a bool/ref latch field, else None.
 
-    Locals, parameters, ints, floats, strings and vectors are not latches."""
+    Locals, parameters, ints, floats, strings and vectors are not latches unless
+    scalars is set (the retry-window check resolves its float window field)."""
     s, m = model.nodes[i]
     parts = re.sub(r'\s+', '', expression).split('.')
     if parts[0] == 'this':
@@ -821,7 +825,7 @@ def _latch_field(model, i, expression):
     else:
         return None
     field = model.field_of(owner, parts[-1])
-    if not field or field.type in {'int', 'float', 'string', 'vector', 'typename'}:
+    if not field or (not scalars and field.type in {'int', 'float', 'string', 'vector', 'typename'}):
         return None
     defining = next(c.name for ancestor in model.lineage(owner) for c in model.classes.get(ancestor, [])
                     if any(f is field for f in c.fields))
@@ -862,25 +866,30 @@ def once_spans(model, i):
 
     def retry_window(start, end, key):
         """Retry-until-success latch with a time window (the attempt repeats at most once per window):
-          if (!latch) { float now = ...; if (now >= window) { if (attempt()) { latch = true; } else { window = now + K; } } }
-        window is a float field and K a positive literal or static const number."""
+          if (!latch) { float now = GetGame().GetTickTime(); if (now >= window) { if (attempt()) { latch = true; }
+          else { window = now + K; } } }
+        now must come from the engine tick clock, window is a float field and K a positive literal or
+        static const number. Returns the window field (defining class, name), else None. The caller
+        rejects the window when another tick-path write reaches the window or the latch field."""
         block = code[start:end]
-        spelled = (rf'\s*float\s+(\w+)\s*=[^;{{}}]*;\s*if\s*\(\s*\1\s*>=\s*({_CHAIN})\s*\)\s*\{{\s*'
+        spelled = (rf'\s*float\s+(\w+)\s*=\s*{_TICK_TIME}\s*;\s*if\s*\(\s*\1\s*>=\s*({_CHAIN})\s*\)\s*\{{\s*'
                    rf'if\s*\([^{{}}]*\)\s*\{{\s*(?:this\s*\.\s*)?{re.escape(key[1])}\s*=\s*true\s*;\s*\}}\s*'
                    rf'else\s*\{{\s*(?:this\s*\.\s*)?\2\s*=\s*\1\s*\+\s*([\w.]+)\s*;\s*\}}\s*\}}\s*')
         found = re.fullmatch(spelled, block)
         if not found or key[2] != 'bool' or not m.owner:
-            return False
-        window = model.field_of(m.owner.name, found.group(2).replace('this.', '').strip())
-        if not window or window.type != 'float':
-            return False
+            return None
+        window = _latch_field(model, i, found.group(2), True)
+        if not window or window[2] != 'float':
+            return None
         step = found.group(3)
         if re.fullmatch(r'\d+(?:\.\d+)?', step):
-            return float(step) > 0
+            return window[:2] if float(step) > 0 else None
         constant = model.field_of(m.owner.name, step)
-        return bool(constant and {'static', 'const'} <= set(constant.modifiers)
-                    and re.fullmatch(r'\d+(?:\.\d+)?', constant.initializer.strip() or 'x')
-                    and float(constant.initializer.strip()) > 0)
+        if (constant and {'static', 'const'} <= set(constant.modifiers)
+                and re.fullmatch(r'\d+(?:\.\d+)?', constant.initializer.strip() or 'x')
+                and float(constant.initializer.strip()) > 0):
+            return window[:2]
+        return None
 
     for guard in re.finditer(r'\bif\s*\(', code[m.body_start + 1:m.body_end]):
         start = m.body_start + 1 + guard.start()
@@ -891,8 +900,12 @@ def once_spans(model, i):
         wrapped = re.fullmatch(rf'\s*(?:!\s*({_CHAIN})|({_CHAIN})\s*==\s*(?:false|null|NULL))\s*', condition)
         if wrapped:
             latch = _latch_field(model, i, wrapped.group(1) or wrapped.group(2))
-            if latch and (sets_latch(a, b, latch) or retry_window(a, b, latch)):
+            if latch and sets_latch(a, b, latch):
                 spans.append((a, b, latch))
+            elif latch:
+                window = retry_window(a, b, latch)
+                if window:
+                    spans.append((a, b, latch + ('window',) + window))
             continue
         # Early-return form, only as a top-level statement of the method.
         before = code[m.body_start + 1:start]
@@ -1795,8 +1808,32 @@ def check(sources, root=ROOT):
                 if latch:
                     armed.add(latch[:2])
     # A consume latch is cleared by design, so only arming it again defeats it.
-    skipped = {i: [(a, b) for a, b, latch in spans
-                   if (latch[:2] not in armed if len(latch) == 4 else latch[:2] not in resettable)]
+    # A retry-window span counts only when no tick path writes its window or latch field
+    # outside the accepted window blocks: any other write could reopen the window early.
+    window_blocks = {}
+    watched = set()
+    for i, spans in latched.items():
+        for a, b, latch in spans:
+            if len(latch) == 6:
+                window_blocks.setdefault(i, []).append((a, b))
+                watched.update((latch[:2], latch[4:6]))
+    tampered = set()
+    if watched:
+        for i in walk({}, False, True):
+            s, m = model.nodes[i]
+            for write in _WRITE.finditer(s.code, m.body_start, m.body_end):
+                field = _latch_field(model, i, next(g for g in write.groups() if g), True)
+                if field and field[:2] in watched and not any(a <= write.start() < b for a, b in window_blocks.get(i, ())):
+                    tampered.add(field[:2])
+
+    def counts(latch):
+        if len(latch) == 4:
+            return latch[:2] not in armed
+        if len(latch) == 6:
+            return latch[:2] not in resettable and not ({latch[:2], latch[4:6]} & tampered)
+        return latch[:2] not in resettable
+
+    skipped = {i: [(a, b) for a, b, latch in spans if counts(latch)]
                for i, spans in latched.items() if spans}
 
     findings.extend(startup_file_loops(model, edges, ios, loop_spans, skipped))

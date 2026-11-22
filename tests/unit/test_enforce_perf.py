@@ -219,6 +219,24 @@ class M
         src = self.RETRY.replace('else { m_RetryAt = now + %s; }', '')
         self.assertEqual([f.key for f in findings(src, 'HC-P003')], ['FileExist#1'])
 
+    def test_retry_window_clock_must_be_the_engine_tick_time(self):
+        src = self.RETRY % 'RETRY_SECONDS'
+        for clock in ('m_Clock', 'Math.RandomFloat(0, 1)', '0.0'):
+            other = src.replace('GetGame().GetTickTime()', clock)
+            self.assertEqual([f.key for f in findings(other, 'HC-P003')], ['FileExist#1'], clock)
+
+    def test_retry_window_write_on_a_tick_path_stays_flagged(self):
+        for write in ('m_RetryAt = 0;', 'm_RetryAt -= 5.0;', 'm_Probed = false;', 'm_Probed = Probe();'):
+            src = (self.RETRY % 'RETRY_SECONDS').replace(
+                'void OnTick() { m_Cfg.Ensure(); }', 'void OnTick() { m_Cfg.Ensure(); m_Cfg.Rewind(); }').replace(
+                '    bool Probe()', '    void Rewind() { %s }\n    bool Probe()' % write)
+            self.assertEqual([f.key for f in findings(src, 'HC-P003')], ['FileExist#1'], write)
+
+    def test_retry_window_write_off_the_tick_path_is_ignored(self):
+        src = (self.RETRY % 'RETRY_SECONDS').replace(
+            '    bool Probe()', '    void Rewind() { m_RetryAt = 0; m_Probed = false; }\n    bool Probe()')
+        self.assertEqual(findings(src, 'HC-P003'), [])
+
     def test_return_before_the_set_stays_flagged(self):
         src = '''
 class Cfg
