@@ -61,7 +61,7 @@ class HCSearchHouseJournal
 
     // Recovery owns the journal until every slot and settled-site index is rebuilt.
     // The clock normally ends a slice; the ceiling bounds cheap units too.
-    static const int RESTORE_UNITS = 4096;
+    static const int RESTORE_UNITS = 128;
     protected bool m_Recovered;
     protected bool m_RetirementChecked;
     protected int m_RestorePhase;
@@ -129,7 +129,8 @@ class HCSearchHouseJournal
             HCStopRecovery();
             float rate = HCWorkBudget.HCTicksPerMs();
             string summary = "[HC Search Houses] recovery scope=" + HCRecoveryScope() + " pass=" + Healthy().ToString() + " slots_scanned=" + m_RestoreScanned.ToString();
-            summary += " files=" + m_RestoreDiscovered.ToString() + " rows=" + m_RestoreRows.ToString() + " sites=" + m_ReleasedSites.Count().ToString() + " steps=" + m_RestoreSteps.ToString();
+            summary += " files=" + m_RestoreDiscovered.ToString() + " rows=" + m_RestoreRows.ToString() + " sites=" + m_Sites.Count().ToString();
+            summary += " released_sites=" + m_ReleasedSites.Count().ToString() + " steps=" + m_RestoreSteps.ToString();
             summary += " ms_max=" + ((float)m_RestoreMaxTicks / rate).ToString() + " journal_recovery_ms=" + ((float)m_RestoreTotalTicks / rate).ToString();
             summary += " wall_s=" + Math.Max(0, GetGame().GetTickTime() - m_RestoreOpened).ToString();
             Print("" + summary);
@@ -382,7 +383,8 @@ class HCSearchHouseJournal
 
     // Discover only the five legacy record kinds, incrementally. No format
     // change: all sparse old records and orphan intents contribute to the discovered
-    // high-water slot. Scan through that slot, checking entry existence even for gaps.
+    // high-water slot. Restore through that slot, then probe the remaining entry
+    // paths too: discovery may have missed the highest file or every file.
     protected string HCDiscoveryKind()
     {
         if (m_DiscoveryKind == 0) { return "compact"; }
@@ -482,12 +484,16 @@ class HCSearchHouseJournal
         if (m_RestorePhase == 0) { HCDiscoverRecord(); return true; }
         if (m_RestorePhase == 1)
         {
-            if (m_RestoreNext <= m_RestoreHighest)
+            if (m_RestoreNext < MAX_ENTRIES)
             {
                 int slotIndex = m_RestoreNext;
                 m_RestoreNext++;
                 m_RestoreScanned++;
-                return HCRestoreSlot(slotIndex);
+                if (slotIndex <= m_RestoreHighest) { return HCRestoreSlot(slotIndex); }
+                // One existence probe per budget unit, without extending the
+                // sparse row array. An undiscovered entry must never grant stock.
+                if (FileExist(PathFor(slotIndex, "entry"))) { return Fail("discovery_incomplete; preserve journal"); }
+                return true;
             }
             m_RestoreNext = 0;
             m_RestorePhase = 3;
