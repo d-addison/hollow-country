@@ -18,7 +18,7 @@ reimplements it:
                   DayZ-Bicycle, HC, then HCX. Expansion-Animations stays excluded.
   opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
-                  --interiors legacy (the old data pack), --[no-]travel (authored V2 CE, on by default, EnableTravel preference),
+                  --[no-]travel (authored V2 CE, on by default, EnableTravel preference),
                   --ce-coverage [--ce-coverage-result <external result>],
                   --[no-]loot-boost [--loot-multiplier N] (tools/package/loot_boost.py, on by default: non-firearm
                   building loot x2 from mission/hollow-country/loot-points/settings.json, RespawnTypes x2 and the
@@ -89,7 +89,6 @@ GAMEPLAY_PRESET = MISSION_ROOT + '/gear/hardscrabble.json'
 ECONOMY_PROFILES = MISSION_ROOT + '/economy-profiles/'
 DEFAULT_ECONOMY_PROFILE = 'contextual-pilot'
 FIREARMS_ROSTER = 'tools/package/firearms_roster.json'  # the 2x-scarcity firearms roster, in the economy delta by default
-INTERIORS_PACK = MISSION_ROOT + '/interiors'
 AI_MERGE = MISSION_ROOT + '/ai/AISettings.merge.json'
 AI_SETTINGS_TARGET = 'ExpansionMod/Settings/AISettings.json'
 AI_PATROL_OVERRIDE = MISSION_ROOT + '/ai/AIPatrolSettings.override.json'
@@ -981,7 +980,9 @@ def locate_expansion(workshop):
 
 
 def interiors_installer(mode):
-    """Adapt the existing template entry points to the session's legacy installer interface."""
+    """Adapt the existing template entry points to the session's installer interface. A session receipt written
+    before the legacy data pack was retired names mode 'legacy'; it still resolves to the pack installer so
+    that session can roll back byte-exactly. No new legacy session can be planned."""
     tool = load_tool('interiors_profile')
     if mode == 'templates':
         return SimpleNamespace(MANAGED=tool.TEMPLATE_MANAGED, validate=tool.templates_validate,
@@ -991,14 +992,9 @@ def interiors_installer(mode):
 
 
 def plan_interiors(profiles, repo, args):
-    if args.interiors == 'legacy':
-        if os.path.lexists(profiles / 'HollowCountry/templates/index.json'):
-            raise Refused('--interiors legacy: rooms_conflict with the existing template pack')
-        legacy = plan_legacy_interiors(profiles, repo)
-        legacy['mode'] = 'legacy'
-        return legacy
     target = no_links(profiles / 'HollowCountry', 'profiles/HollowCountry')
-    for relative in ('interiors.json', 'Infected/production-rooms.json'):
+    # A stale interiors.json is ignored by the server (the pilot is retired) and never blocks an install.
+    for relative in ('Infected/production-rooms.json',):
         if os.path.lexists(target / relative):
             raise Refused('--interiors: rooms_conflict: %s is present; preserve it outside HollowCountry '
                           'before installing templates. Nothing was changed.' % relative)
@@ -1012,44 +1008,14 @@ def plan_interiors(profiles, repo, args):
         raise Refused('--interiors: %s is not a directory' % target)
     if os.path.lexists(target / tool.MANAGED):
         raise Refused('--interiors: a template install already exists in %s; run its rollback first' % target)
-    rehearse_interiors(tool, pack, target, report, templates=True)
+    rehearse_interiors(tool, pack, target, report)
     return {'mode': 'templates', 'pack': pack, 'target': target, 'pending': ['runtime acceptance']}
 
 
-def plan_legacy_interiors(profiles, repo):
-    pack = no_links(repo / INTERIORS_PACK, 'interiors data pack')
-    if not pack.is_dir():
-        raise Refused('--interiors: the data pack is not in this checkout: %s' % INTERIORS_PACK)
-    tool = load_tool('interiors_profile')
-    try:
-        report = tool.validate(pack)
-    except (ValueError, OSError, KeyError, TypeError) as error:
-        raise Refused('--interiors: the data pack failed validation: %s' % error) from None
-    if report['errors']:
-        raise Refused('--interiors: the data pack failed validation: %s' % '; '.join(map(str, report['errors'][:3])))
-    target = no_links(profiles / 'HollowCountry', 'profiles/HollowCountry')
-    if target.exists() and not target.is_dir():
-        raise Refused('--interiors: %s is not a directory' % target)
-    if os.path.lexists(target / tool.MANAGED):
-        raise Refused('--interiors: an interiors install already exists in %s; run its rollback first' % target)
-    rehearse_interiors(tool, pack, target, report)
-    return {'pack': pack, 'target': target, 'pending': [row['id'] for row in report.get('pending', [])]}
-
-
-def rehearse_interiors(tool, pack, target, report, templates=False):
-    """Run the interiors installer's own conflict checks on a scratch copy of the profile paths it would touch, so a
-    different operator-owned interiors.json, a journal or a non-directory in the way refuses at plan time."""
+def rehearse_interiors(tool, pack, target, report):
+    """Run the template installer's own conflict checks on a scratch copy of the profile paths it would touch, so a
+    different operator-owned file or a non-directory in the way refuses at plan time."""
     names = set(report.get('files') or ())
-    if not templates:
-        try:
-            manifest = json.loads(read_bytes(pack / 'pack.json', 'interiors pack.json', 65536))
-            if isinstance(manifest.get('files'), dict):
-                names.update(manifest['files'])
-            config = json.loads(read_bytes(pack / 'interiors.json', 'interiors.json', 65536))
-            if isinstance(config, dict) and isinstance(config.get('Epoch'), int) and not isinstance(config['Epoch'], bool):
-                names.add('interiors_s1_e%d' % config['Epoch'])
-        except (ValueError, OSError, AttributeError, Refused):
-            pass
     scratch = Path(tempfile.mkdtemp(prefix='hc-interiors-rehearsal-'))
     try:
         copy = scratch / target.name
@@ -1074,7 +1040,7 @@ def rehearse_interiors(tool, pack, target, report, templates=False):
         try:
             tool.install(pack, copy)
         except (ValueError, OSError, KeyError, TypeError) as error:
-            raise Refused('--interiors: the profile cannot take the data pack (nothing was changed): %s' % error) from None
+            raise Refused('--interiors: the profile cannot take the template pack (nothing was changed): %s' % error) from None
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -1729,15 +1695,9 @@ def render_plan(plan, args, commands, applied=False):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
     if plan.get('interiors'):
         info = plan['interiors']
-        if info['mode'] == 'templates':
-            out.append('5. Interior template pack: install %s into %s with interiors_profile templates install '
-                       '(receipt, byte-exact rollback); runtime acceptance pending' %
-                       (info['pack'], info['target'] / 'templates'))
-        else:
-            out.append('5. Interiors data pack (legacy): install %s into %s with interiors_profile '
-                       '(receipt, byte-exact rollback)' % (info['pack'], info['target']))
-        if info['mode'] == 'legacy' and info['pending']:
-            out.append('     pending components (not installed, need a native measurement): %s' % ', '.join(info['pending']))
+        out.append('5. Interior template pack: install %s into %s with interiors_profile templates install '
+                   '(receipt, byte-exact rollback); runtime acceptance pending' %
+                   (info['pack'], info['target'] / 'templates'))
     if plan.get('ce_coverage'):
         out.append('   CE building coverage: ce_coverage generate/install after economy and optional CE deltas '
                    '(receipt, byte-exact rollback); validated result %s; runtime acceptance pending' %
@@ -1952,7 +1912,7 @@ def apply_plan(plan, args):
         receipt.step('loot_boost', 'started')
         boost.install(plan['mission'], plan['loot_boost']['multiplier'], plan['loot_boost']['points'])
         receipt.step('loot_boost', 'done')
-    # 5. interior templates (or explicit legacy data pack), through the existing installer
+    # 5. interior templates, through the existing installer
     if plan['interiors']:
         interiors = interiors_installer(plan['interiors']['mode'])
         receipt.step('interiors', 'started')
@@ -2490,9 +2450,8 @@ def build_parser():
         p.add_argument('--markers', default='all', help='all (every opt-in .enable marker the code scan finds), none, all-local '
                        '(every .enable marker in the docs/LOCAL_ACCEPTANCE_V1.md table) or comma-separated names from '
                        'that table; V1/V2 features are on by default and no .disable marker is ever written')
-        p.add_argument('--interiors', nargs='?', const='templates', choices=('templates', 'legacy'),
-                       help='install templates into <profiles>/HollowCountry/templates (default); legacy explicitly '
-                       'selects the old interiors.json pack')
+        p.add_argument('--interiors', nargs='?', const='templates', choices=('templates',),
+                       help='install templates into <profiles>/HollowCountry/templates')
         p.add_argument('--interiors-pack', type=Path,
                        help='external assembled pack root containing templates/index.json and groups; build with '
                        'interior_templates build then interiors_profile templates assemble')

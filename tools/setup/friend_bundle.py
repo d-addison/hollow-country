@@ -79,7 +79,6 @@ PROFILE_INCLUDE = (
     'HollowCountry/Infected/lod.json',
     'HollowCountry/settings.json',
     'HollowCountry/stamina.json',
-    'HollowCountry/interiors.json',
     'HollowCountry/interiors-measured-profile.json',
     'HollowCountry/measured-interiors/**',
     'HollowCountry/templates/**',
@@ -221,8 +220,7 @@ def _profile_allowed(rel):
     return False
 
 
-# Template packs replace legacy interiors and room owners in a fresh release.
-TEMPLATE_INDEX = 'HollowCountry/templates/index.json'
+# The retired interiors.json pilot is never shipped; an installed copy is left alone and the server ignores it.
 
 
 # No runtime state is deliberately carried between servers. Additions require an exact path
@@ -292,8 +290,6 @@ def repo_profile_sources():
         sources['ExpansionMod/Loadouts/' + path.name] = path
     for path in sorted((SOURCE / 'interiors/templates').rglob('*.json')):
         sources['HollowCountry/templates/' + path.relative_to(SOURCE / 'interiors/templates').as_posix()] = path
-    if TEMPLATE_INDEX not in sources:
-        sources['HollowCountry/interiors.json'] = SOURCE / 'interiors/interiors.json'
     sources.update({rel: (json.dumps(data, indent=4) + '\n').encode('utf-8')
                     for rel, data in BASELINE_PROFILES.items()})
     return sources
@@ -318,7 +314,6 @@ def profile_files(profiles):
 PROFILE_SOURCES = {
     'HollowCountry/settings.json': ('config/hollow-country-settings.json',),
     'HollowCountry/stamina.json': ('config/hollow-country-stamina.json',),
-    'HollowCountry/interiors.json': ('mission/hollow-country/interiors/interiors.json',),
     'HollowCountry/expansion-ai-sites.json': (
         'mission/hollow-country/ai/sites.json',
         'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'),

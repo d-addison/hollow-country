@@ -524,6 +524,23 @@
       "note": "A player completes one House search and the item move commits; the first-use line and bounded summaries carry the cumulative count."
     },
     {
+      "module": "SearchBinding",
+      "feature": "house-bound",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=SearchBinding feature=house_bound count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
+      "note": "The same player House search commit as Interiors house_search_completed; the binding records the hand-over to the House service."
+    },
+    {
       "module": "Leads",
       "feature": "active-leads",
       "signal": {

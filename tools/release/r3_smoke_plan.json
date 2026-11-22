@@ -345,12 +345,22 @@
     {
       "module": "Interiors",
       "feature": "house_search_completed",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c:937",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c#HCSearchHouses.HCCommitReservation",
       "trigger": "A House search commit moves one stock item to the player (journal phase 2); empty, refused or interrupted searches earn nothing.",
       "exercise": "client_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_search_completed.",
       "est_minutes": 3,
       "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; a House site with stock CE items inside its sphere."
+    },
+    {
+      "module": "SearchBinding",
+      "feature": "house_bound",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound",
+      "trigger": "The House search service commits one search and HCSearchBinding records that the House target was bound to a found item (the same commit as Interiors/house_search_completed); empty, refused or interrupted searches earn nothing.",
+      "exercise": "client_action",
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_bound; it fires on the same commit as house_search_completed.",
+      "est_minutes": 1,
+      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; the same House search as Interiors/house_search_completed (one search counts for both)."
     },
     {
       "module": "Leads",
@@ -375,7 +385,7 @@
     {
       "module": "LootRefresh",
       "feature": "timer_rearmed",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.OnTick",
       "trigger": "Due previously unready search timer becomes Ready/Revisited during normal minute scan.",
       "exercise": "admin_action",
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], complete one finite search to create pending timer. 2. Pause -> Economy -> loot -> Run. 3. Wait normal next tick and durable checkpoint; require timer_rearmed. 4. Revisit same storage normally.",

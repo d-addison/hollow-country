@@ -1,7 +1,7 @@
 // House search service owner; never a loot spawner.
 // Native snapshot 1.30.164289 (paths relative to the installed native cache):
 //   3_Game/gameplay.c:636 GetGame
-//   3_Game/Global/Game.c:1120 IsServer; :1550 GetCallQueue
+//   3_Game/Global/Game.c:1120 IsServer
 //   1_Core/proto/EnConvert.c:30 int.ToString; 1_Core/proto/EnDebug.c:96 Print
 // The lazy House search service lives here; supply is stock CE and is never spawned or
 // bound at start. Runtime acceptance stays pending.
@@ -26,8 +26,8 @@ class HCSearchBinding : HCModule
         return "SearchBinding";
     }
 
-    // Wave 16: started = the lazy search service is up and not stopped; a refused measured-interior hand-over
-    // after start is a real degradation (m_Fault); a missing admission marker or a stopped module is a refusal.
+    // started = the lazy search service is up, not stopped and its journal ready; a faulted journal is a degradation
+    // (m_Fault); a missing admission marker, unloaded templates or a stopped module is a refusal.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         bool running = false;
@@ -78,6 +78,12 @@ class HCSearchBinding : HCModule
         m_Houses.Start(settings);
         s_Instance = this;
         Print(HCV2Admission.Line("SearchBinding", true, "interior_search", false) + " runtime=PENDING");
+    }
+
+    // Activity signal for the lazy House service: one House search commit handed the found item to the player.
+    static void NoteHouseBound()
+    {
+        HCModuleReadiness.HCUse("SearchBinding", "house_bound");
     }
 
     // The running House search service, or null when this module is stopped or never started.

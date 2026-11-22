@@ -57,8 +57,9 @@ refill finite stock, or replace a missing exercise with a probe.
   zero VMEs, no R2 >20 ms, no crash/stall or enabled ready=false. Check all
   `[HC SelfTest] name=<name> pass=<true|false> detail=<short text>` lines; false
   fails. Do not treat absence of player activity as success. Start/observe
-  SearchBinding, distant conflict, dead-drop maintenance, optional CE spawns and
-  cellar survey now; AI activation may still require the subsequent client.
+  distant conflict, dead-drop maintenance, optional CE spawns and cellar survey
+  now (SearchBinding has its own player-driven counter, `SearchBinding/house_bound`, in
+  the House search step below); AI activation may still require the subsequent client.
 - [ ] Keep same-window server and client RPTs. Client counters stay local:
   `HCModuleReadiness.c:53-67` prints locally; no counter-forwarding RPC is present.
   Audit with `python3 -B -m tools.release.activity_check <server.RPT> --release
@@ -121,7 +122,8 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    unsupported wrecks and empty/unbound searches can refuse; do not count refusal.
    In a House with a template search site, stand within 2.5 m of the site, run the
    native search action to its commit and take the found item:
-   **Interiors/house_search_completed**. Empty, refused or interrupted searches do not count.
+   **Interiors/house_search_completed; SearchBinding/house_bound** (one commit counts for both).
+   Empty, refused or interrupted searches do not count.
 5. [ ] On clear flat ground use Infected -> **sitter**; let pose settle, then
    approach/noise/hit to produce a real wake: **InfectedVariety/actor_woken**.
    Land an ordinary close melee hit on an infected:
@@ -402,10 +404,10 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:663`.
 - [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:812`.
 - [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c:121`.
-- [ ] `Interiors/house_search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c:937`.
+- [ ] `Interiors/house_search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c#HCSearchHouses.HCCommitReservation`.
 - [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433`.
 - [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176`.
-- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.
+- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.OnTick`.
 - [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c:123`.
 - [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520`.
 - [ ] `MaterializerBridge/party_materialized` — `admin_action` **implemented-unverified**, command `fx_materialize`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:99`.
@@ -421,6 +423,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `Progression/familiarity_gained` — `client_action`; `mods/HollowCountry/scripts/4_World/Progression/HCProgression.c:484`.
 - [ ] `Radio/report_delivered` — `admin_action`; `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:503`.
 - [ ] `Scenes/scene_placed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:590`.
+- [ ] `SearchBinding/house_bound` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound`.
 - [ ] `SignsOfLife/flies_created` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:260`.
 - [ ] `SignsOfLife/light_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:258`.
 - [ ] `SignsOfLife/smoke_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:259`.

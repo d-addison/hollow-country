@@ -89,7 +89,7 @@ remain available. Settings-load failure reports `enabled=false ready=false
 reason=settings_unavailable` because preferences could not be read; this is not
 proof of an operator opt-out.
 
-`HCReached.Mark("search_binding.supply_bound");` is a shared **3_Game** API, usable
+`HCReached.Mark("dead_drops.row");` is a shared **3_Game** API, usable
 from World/Mission and from addons already depending on HollowCountry. ExpansionAI
 already declares that dependency in `requiredAddons`; no dependency was added.
 Core calls `HCReached.Begin()` before starting modules. Marks are server-only,
@@ -101,8 +101,8 @@ set of distinct overflow strings). On core stop, `HCReached.Summary()` emits onc
 cannot guarantee that shutdown summary. Repeated retained tokens cost only a
 bounded lookup and never print again.
 
-Marker names describe the observed operation: `.row`, `.job`, `.lease`, `.spawn`
-and `.supply_bound` identify concrete work; `.tick`, `.sweep` and `.maintenance`
+Marker names describe the observed operation: `.row`, `.job`, `.lease`
+and `.spawn` identify concrete work; `.tick`, `.sweep` and `.maintenance`
 identify entry into that maintenance path. Startup-only owners use explicit
 `.admission_logged`, `.catalog_read`, `.config_probed` or `.definitions_checked`
 markers. These do not prove successful client presentation, crafting, mounting,

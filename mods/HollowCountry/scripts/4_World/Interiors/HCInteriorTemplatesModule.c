@@ -58,7 +58,6 @@ modded class HCInteriorsModule
         array<Man> players = HCPerfPlayers.HCGet();
         HCSearchHouses houses = HCSearchBinding.Houses();
         if (m_MaintenancePhase == 0 && houses) { houses.RecycleSpentBindings(players); }
-        if (m_MaintenancePhase == 1 && houses) { houses.CompactSettled(); }
         m_MaintenancePhase = (m_MaintenancePhase + 1) % 2;
         steps.HCAdd(HCInteriorTemplatePlacement.STEP_MAINT, TickCount(maintStart));
         steps.HCEndTick(TickCount(tickStart));

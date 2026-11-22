@@ -679,6 +679,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Progression | `familiarity_gained` |
 | Radio | `report_delivered` |
 | Scenes | `scene_placed`; `retire_retry_cap` is a fault-path counter, lazily registered on first hit |
+| SearchBinding | `house_bound` |
 | SettlementDecay | `prop_placed` |
 | Shelters | `shelter_placed`, `pathgraph_refresh` (native routing verification pending) |
 | SignsOfLife | `flies_created`, `light_observed`, `smoke_observed` |

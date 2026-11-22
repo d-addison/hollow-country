@@ -53,7 +53,7 @@ class HCSearchHouses
     protected static ref HCActivityWindow s_Activity;
     static HCActivityWindow HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted cabinet_attempts cabinet_started cabinet_completed cabinet_empty cabinet_refused_begin cabinet_refused_commit cabinet_interrupted");
+        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted");
         return s_Activity;
     }
 
@@ -774,9 +774,7 @@ class HCSearchHouses
         if (row < 0)
         {
             // Count the action's empty outcome, not background binding probes.
-            string kind = "house";
-            if (!IsHouseTarget(data.m_Target)) kind = "cabinet";
-            HCActivity().Add(kind + "_empty");
+            HCActivity().Add("house_empty");
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.NOTHING, "Nothing here to search.");
             return;
         }
@@ -933,8 +931,9 @@ class HCSearchHouses
         {
             site.Phase = 2;
             // The pilot's search counters are retired; this is the only live House search completion.
-            HCActivity().Add("house_completed");
+            // The window's house_completed is counted once at the action boundary below.
             HCModuleReadiness.HCUse("Interiors", "house_search_completed");
+            HCSearchBinding.NoteHouseBound();
         }
         return phase == 2;
     }
@@ -956,7 +955,7 @@ class HCSearchHouses
     }
 }
 
-// Action boundary wraps all existing house, cabinet and refresh dispatch hooks.
+// Action boundary wraps the House search dispatch hooks.
 // Never count ActionCondition polling as a player attempt. Completion requires a
 // phase transition in this callback; repeated finish callbacks cannot count twice.
 modded class HCInteriorActionData
@@ -974,8 +973,8 @@ modded class HCActionSearchInterior
         if (!action) { super.OnStartServer(action_data); return; }
         action.HCActivityStarted = false;
         action.HCActivityCompleted = false;
-        action.HCActivityKind = "cabinet";
-        if (HCSearchHouses.IsHouseTarget(action_data.m_Target)) action.HCActivityKind = "house";
+        // Only House targets pass the action condition since the pilot cabinet search was retired.
+        action.HCActivityKind = "house";
         HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_attempts");
         HCSearchRefreshModule.HCRecordAttempt();
         super.OnStartServer(action_data);
