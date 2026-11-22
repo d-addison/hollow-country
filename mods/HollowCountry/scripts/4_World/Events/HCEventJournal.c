@@ -134,23 +134,24 @@ class HCEventJournalIO
         return "$profile:HollowCountry/Events/torn/attempt-" + revision.ToString() + ".txt";
     }
     // Attempts recorded for this revision (0 = none) and the stamp of its directory.
-    // An unreadable or malformed record counts as exhausted so it cannot hold the repair back.
+    // An unreadable or malformed record (a crash inside HCTornRecord, a zero-filled tail) leaves
+    // one more copy attempt before the repair, so it can neither skip the grace nor hold it back.
     protected int HCTornAttempts(int revision, out string stamp)
     {
         stamp = "";
         string path = HCTornAttemptPath(revision);
         if (!FileExist(path)) { return 0; }
         FileHandle handle = OpenFile(path, FileMode.READ);
-        if (!handle) { return HC_TORN_ATTEMPTS; }
+        if (!handle) { return HC_TORN_ATTEMPTS - 1; }
         string text;
         int count = ReadFile(handle, text, 64);
         CloseFile(handle);
         int space = text.IndexOf(" ");
-        if (count < 3 || text.Length() != count || space < 1) { return HC_TORN_ATTEMPTS; }
+        if (count < 3 || text.Length() != count || space < 1) { return HC_TORN_ATTEMPTS - 1; }
         string number = text.Substring(0, space);
         string tail = text.Substring(space + 1, text.Length() - space - 1);
         int attempts = number.ToInt();
-        if (attempts < 1 || attempts.ToString() != number || tail.Length() < 1 || tail.Length() > 12 || tail.ToInt().ToString() != tail) { return HC_TORN_ATTEMPTS; }
+        if (attempts < 1 || attempts.ToString() != number || tail.Length() < 1 || tail.Length() > 12 || tail.ToInt().ToString() != tail) { return HC_TORN_ATTEMPTS - 1; }
         stamp = tail;
         return attempts;
     }
@@ -170,8 +171,15 @@ class HCEventJournalIO
         string original = Read(name, 4194304);
         int originalCount = HCReadCount();
         if (originalCount < 0) { return false; }
+        // An earlier attempt's copy that already verifies is kept: a later retry never deletes the
+        // only good copy before its own copy succeeds.
+        if (FileExist(copy) && HCTornCopyMatches(copy, original, originalCount)) { return true; }
         if (FileExist(copy) && !DeleteFile(copy)) { return false; }
         if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return false; }
+        return HCTornCopyMatches(copy, original, originalCount);
+    }
+    protected bool HCTornCopyMatches(string copy, string original, int originalCount)
+    {
         FileHandle handle = OpenFile(copy, FileMode.READ);
         if (!handle) { return false; }
         string actual;
@@ -464,8 +472,10 @@ class HCEventJournal : HCEventPersistence
         // bytes (a zero-filled tail after power loss): Read then returns a shorter string than
         // the byte count, which is the same torn commit, never a fault.
         // Present, complete but mismatched receipts/images must fault in HCLoadRevision.
+        // A commit whose byte count reaches its intent's length is never a prefix: a complete but
+        // zero-filled commit of a hash-valid revision faults instead of rolling back.
         bool torn = !commitExists;
-        if (!torn && commit.Length() < intent.Length() && (commit == "" || intent.IndexOf(commit) == 0)) { torn = true; }
+        if (!torn && commitCount < intent.Length() && commit.Length() < intent.Length() && (commit == "" || intent.IndexOf(commit) == 0)) { torn = true; }
         if (!torn && commit.Length() != commitCount) { Fault(); return null; }
         int loaded = latest;
         if (torn) { loaded--; }

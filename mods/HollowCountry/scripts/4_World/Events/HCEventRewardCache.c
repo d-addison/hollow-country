@@ -244,6 +244,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     protected bool m_ListLogged;
     protected bool m_OverflowLogged;
     protected int m_PrunePasses;
+    protected int m_PruneRemoved;
     static const int RECEIPT_LIMIT = 384;
     // Directory image: every receipt file name and its text ("" = present but torn), loaded one file
     // per tick by HCStepLedger (HCEventModule tick), then kept current by this ledger's own queued
@@ -449,9 +450,14 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             return;
         }
         m_PrunePasses = m_PrunePasses + 1;
-        if (pruned < 1 || m_PrunePasses > PRUNE_PASSES)
+        // Progress is removes that completed during the previous drain, not removes queued: a host
+        // that refuses deletes refuses here instead of re-queueing the same prunes every pass.
+        bool stalled = m_PrunePasses > 1 && m_PruneRemoved < 1;
+        m_PruneRemoved = 0;
+        if (pruned < 1 || stalled || m_PrunePasses > PRUNE_PASSES)
         {
             m_PrunePasses = 0;
+            HCFailPendingRemoves();
             HCLoadRefused("listing_unavailable");
             return;
         }
@@ -505,6 +511,14 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             if (queued.Result == HCEventReceiptOp.RESULT_PENDING) { queued.Result = HCEventReceiptOp.RESULT_FAILED; }
         }
     }
+    // Removes planned from a refused listing never run later against a newer image.
+    protected void HCFailPendingRemoves()
+    {
+        foreach (HCEventReceiptOp queued : m_Queue)
+        {
+            if (queued.Mode == HCEventReceiptOp.MODE_REMOVE && queued.Result == HCEventReceiptOp.RESULT_PENDING) { queued.Result = HCEventReceiptOp.RESULT_FAILED; }
+        }
+    }
     protected HCEventReceiptOp HCNextOp()
     {
         foreach (HCEventReceiptOp queued : m_Queue)
@@ -532,7 +546,11 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (result == HCEventReceiptOp.RESULT_PENDING) { return true; }
         if (result == HCEventReceiptOp.RESULT_DONE)
         {
-            if (op.Mode == HCEventReceiptOp.MODE_REMOVE) { m_Files.Remove(op.Name); }
+            if (op.Mode == HCEventReceiptOp.MODE_REMOVE)
+            {
+                m_Files.Remove(op.Name);
+                m_PruneRemoved = m_PruneRemoved + 1;
+            }
             else { m_Files.Set(op.Name, op.Text); }
             return true;
         }
