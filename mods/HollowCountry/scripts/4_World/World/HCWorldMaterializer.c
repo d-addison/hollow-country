@@ -785,11 +785,11 @@ class HCWorldMaterializer : HCModule
             }
             // Refuse an invalid ceiling before promoting an older checkpoint:
             // otherwise a crash could disguise the rollback as a valid primary.
-            string retainedTmp = m_CustodyPath + ".tmp";
+            string retainedTmpPath = m_CustodyPath + ".tmp";
             bool priorWins = false;
             if (prior) { priorWins = !selected || prior.NextLease > selected.NextLease; }
             bool newlyRetained = m_CustodyRetainedSource == m_CustodyPath;
-            if (m_CustodyRetainedSource == retainedTmp) { newlyRetained = true; }
+            if (m_CustodyRetainedSource == retainedTmpPath) { newlyRetained = true; }
             bool restoringOlder = priorWins && newlyRetained;
             // Persisted relocation is unsafe until the active store has its own
             // committed history; this classification survives process restart.
