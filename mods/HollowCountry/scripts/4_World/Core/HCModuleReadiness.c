@@ -18,7 +18,11 @@ class HCModuleReadiness
     protected static ref array<string> s_UseFeatures = new array<string>();
     protected static ref array<int> s_UseCounts = new array<int>();
     protected static ref array<int> s_UseFixtureCounts = new array<int>();
+    protected static ref array<int> s_UsePrintedCounts = new array<int>();
+    protected static ref map<string, string> s_LegacyUses = new map<string, string>();
+    protected static bool s_LegacyUsesBuilt;
     protected static bool s_UseScheduled;
+    protected static bool s_UseRegistrationPrinted;
     static const int HC_USE_CAP = 256;
 
     static int HCRegisterUse(string module, string feature)
@@ -34,8 +38,10 @@ class HCModuleReadiness
         s_UseFeatures.Insert(feature);
         s_UseCounts.Insert(0);
         s_UseFixtureCounts.Insert(0);
+        // -1: the first summary prints every registered feature, count=0 included,
+        // so activity_check still sees (and fails) a feature that never fires.
+        s_UsePrintedCounts.Insert(-1);
         s_UseSlots.Insert(module + "/" + feature, slot);
-        HCUseLine(slot);
         if (!s_UseScheduled && GetGame())
         {
             s_UseScheduled = true;
@@ -84,16 +90,29 @@ class HCModuleReadiness
         line = line + " count=" + s_UseCounts[slot].ToString();
         if (s_UseFixtureCounts[slot] > 0) { line += " fixture=" + s_UseFixtureCounts[slot].ToString(); }
         Print("" + line);
+        s_UsePrintedCounts[slot] = s_UseCounts[slot];
     }
 
+    // R3 probes may call this same checkpoint; counts remain cumulative so the
+    // existing activity parser can compare checkpoints without summing deltas.
     static void HCSummary()
     {
+        HCUseRegistrationSummary();
         int slot = 0;
         while (slot < s_UseCounts.Count())
         {
-            HCUseLine(slot);
+            if (s_UseCounts[slot] > s_UsePrintedCounts[slot]) { HCUseLine(slot); }
             slot++;
         }
+    }
+
+    static void HCUseRegistrationSummary()
+    {
+        if (s_UseRegistrationPrinted) { return; }
+        s_UseRegistrationPrinted = true;
+        // The current activity parser reserves [HC Use] for per-feature lines.
+        // Keep the digest outside that prefix until its owner admits digests.
+        Print("[HC UseRegistry] registered=" + s_UseCounts.Count().ToString());
     }
 
     static void HCUseBegin()
@@ -103,15 +122,18 @@ class HCModuleReadiness
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCSummary);
         }
         s_UseScheduled = false;
+        s_UseRegistrationPrinted = false;
         s_UseSlots.Clear();
         s_UseModules.Clear();
         s_UseFeatures.Clear();
         s_UseCounts.Clear();
         s_UseFixtureCounts.Clear();
+        s_UsePrintedCounts.Clear();
         s_UseModules.Reserve(HC_USE_CAP);
         s_UseFeatures.Reserve(HC_USE_CAP);
         s_UseCounts.Reserve(HC_USE_CAP);
         s_UseFixtureCounts.Reserve(HC_USE_CAP);
+        s_UsePrintedCounts.Reserve(HC_USE_CAP);
     }
 
     static void HCUseShutdown()
@@ -124,300 +146,77 @@ class HCModuleReadiness
         s_UseScheduled = false;
     }
 
+    // Compatibility inventory for Wave 2 adoption of HCModule.RegisterUses.
+    // Keep this public seam: client lifecycle and optional addons override it.
     // Inventory is registered even when admission fails: readiness is not use.
     // Client features are also declared on the server, so a missing client RPT
     // cannot silently remove them from the release audit.
     static void HCRegisterModuleUses(string module)
     {
-        if (module == "AdminMap")
+        if (!s_LegacyUsesBuilt)
         {
-            HCRegisterUse("AdminMap", "window_open");
-            HCRegisterUse("AdminMap", "request");
-            return;
+            s_LegacyUsesBuilt = true;
+            s_LegacyUses.Insert("AdminMap", "window_open,request");
+            s_LegacyUses.Insert("Cellars", "visual_applied");
+            s_LegacyUses.Insert("Grade", "grade_applied");
+            s_LegacyUses.Insert("Lighting", "blend_applied");
+            s_LegacyUses.Insert("OptionalPacks", "animal_seen,bicycle_seen");
+            s_LegacyUses.Insert("SignsOfLife", "light_observed,smoke_observed,flies_created");
+            s_LegacyUses.Insert("Camps", "camp_recognised");
+            s_LegacyUses.Insert("CampRespawn", "respawn_reserved");
+            s_LegacyUses.Insert("Crafting", "recipe_completed");
+            s_LegacyUses.Insert("DebugSnapshot", "snapshot_saved");
+            s_LegacyUses.Insert("Ecology", "animal_observed");
+            s_LegacyUses.Insert("Events", "police_supply_bound");
+            s_LegacyUses.Insert("Forage", "item_spawned,item_picked");
+            s_LegacyUses.Insert("Groups", "group_mutated,menu_open");
+            s_LegacyUses.Insert("MapPins", "pins_published");
+            s_LegacyUses.Insert("TeamPing", "ping_delivered");
+            s_LegacyUses.Insert("HordeMigration", "route_advanced");
+            s_LegacyUses.Insert("InfectedMemory", "heat_recorded");
+            s_LegacyUses.Insert("Infected", "actor_bound");
+            s_LegacyUses.Insert("CellarSampler", "class_measured");
+            s_LegacyUses.Insert("Interiors", "prop_placed,search_completed");
+            s_LegacyUses.Insert("BodyStories", "body_observed");
+            s_LegacyUses.Insert("Leads", "lead_received");
+            s_LegacyUses.Insert("Notes", "note_read");
+            s_LegacyUses.Insert("Radio", "report_delivered");
+            s_LegacyUses.Insert("SearchBinding", "supply_bound");
+            s_LegacyUses.Insert("LootRefresh", "timer_rearmed");
+            s_LegacyUses.Insert("Melee", "hit_processed");
+            s_LegacyUses.Insert("Polish", "hint_shown,sound_played");
+            s_LegacyUses.Insert("Progression", "familiarity_gained");
+            s_LegacyUses.Insert("Scenes", "scene_placed");
+            s_LegacyUses.Insert("SurvivalAlignment", "stamina_applied,stamina_hud_shown");
+            s_LegacyUses.Insert("TapedHelmetMounts", "light_mounted");
+            s_LegacyUses.Insert("TapedLight", "light_mounted");
+            s_LegacyUses.Insert("TapedPackMounts", "light_mounted");
+            s_LegacyUses.Insert("Shelters", "shelter_placed");
+            s_LegacyUses.Insert("VehicleFlip", "impulse_applied");
+            s_LegacyUses.Insert("WreckSalvage", "part_created");
+            s_LegacyUses.Insert("WeatherDays", "profile_applied");
+            s_LegacyUses.Insert("AITrade", "trade_completed");
+            s_LegacyUses.Insert("DeadDrops", "cache_bound");
+            s_LegacyUses.Insert("Escalation", "state_advanced");
+            s_LegacyUses.Insert("FactionConflict", "outcome_recorded");
+            s_LegacyUses.Insert("Holdouts", "camp_committed");
+            s_LegacyUses.Insert("Pickers", "trip_started");
+            s_LegacyUses.Insert("SettlementDecay", "prop_placed");
+            s_LegacyUses.Insert("WorldSaves", "stage_written");
+            s_LegacyUses.Insert("WorldIncidents", "incident_recorded");
+            s_LegacyUses.Insert("Materializer", "actors_materialized");
+            s_LegacyUses.Insert("World", "row_simulated");
+            s_LegacyUses.Insert("InfectedDoors", "door_action");
+            s_LegacyUses.Insert("InfectedLOD", "tier_changed,herd_materialized");
+            s_LegacyUses.Insert("InfectedReach", "strike_landed,vehicle_battered,vault_started");
+            s_LegacyUses.Insert("InfectedVariety", "actor_woken");
+            s_LegacyUses.Insert("ClientUI", "map_open,inventory_open,earplugs_applied");
         }
-        if (module == "Cellars")
-        {
-            HCRegisterUse("Cellars", "visual_applied");
-            return;
-        }
-        if (module == "Grade")
-        {
-            HCRegisterUse("Grade", "grade_applied");
-            return;
-        }
-        if (module == "Lighting")
-        {
-            HCRegisterUse("Lighting", "blend_applied");
-            return;
-        }
-        if (module == "OptionalPacks")
-        {
-            HCRegisterUse("OptionalPacks", "animal_seen");
-            HCRegisterUse("OptionalPacks", "bicycle_seen");
-            return;
-        }
-        if (module == "SignsOfLife")
-        {
-            HCRegisterUse("SignsOfLife", "light_observed");
-            HCRegisterUse("SignsOfLife", "smoke_observed");
-            HCRegisterUse("SignsOfLife", "flies_created");
-            return;
-        }
-        if (module == "Camps")
-        {
-            HCRegisterUse("Camps", "camp_recognised");
-            return;
-        }
-        if (module == "CampRespawn")
-        {
-            HCRegisterUse("CampRespawn", "respawn_reserved");
-            return;
-        }
-        if (module == "Crafting")
-        {
-            HCRegisterUse("Crafting", "recipe_completed");
-            return;
-        }
-        if (module == "DebugSnapshot")
-        {
-            HCRegisterUse("DebugSnapshot", "snapshot_saved");
-            return;
-        }
-        if (module == "Ecology")
-        {
-            HCRegisterUse("Ecology", "animal_observed");
-            return;
-        }
-        if (module == "Events")
-        {
-            HCRegisterUse("Events", "police_supply_bound");
-            return;
-        }
-        if (module == "Forage")
-        {
-            HCRegisterUse("Forage", "item_spawned");
-            HCRegisterUse("Forage", "item_picked");
-            return;
-        }
-        if (module == "Groups")
-        {
-            HCRegisterUse("Groups", "group_mutated");
-            HCRegisterUse("Groups", "menu_open");
-            return;
-        }
-        if (module == "MapPins")
-        {
-            HCRegisterUse("MapPins", "pins_published");
-            return;
-        }
-        if (module == "TeamPing")
-        {
-            HCRegisterUse("TeamPing", "ping_delivered");
-            return;
-        }
-        if (module == "HordeMigration")
-        {
-            HCRegisterUse("HordeMigration", "route_advanced");
-            return;
-        }
-        if (module == "InfectedMemory")
-        {
-            HCRegisterUse("InfectedMemory", "heat_recorded");
-            return;
-        }
-        if (module == "Infected")
-        {
-            HCRegisterUse("Infected", "actor_bound");
-            return;
-        }
-        if (module == "CellarSampler")
-        {
-            HCRegisterUse("CellarSampler", "class_measured");
-            return;
-        }
-        if (module == "Interiors")
-        {
-            HCRegisterUse("Interiors", "prop_placed");
-            HCRegisterUse("Interiors", "search_completed");
-            return;
-        }
-        if (module == "BodyStories")
-        {
-            HCRegisterUse("BodyStories", "body_observed");
-            return;
-        }
-        if (module == "Leads")
-        {
-            HCRegisterUse("Leads", "lead_received");
-            return;
-        }
-        if (module == "Notes")
-        {
-            HCRegisterUse("Notes", "note_read");
-            return;
-        }
-        if (module == "Radio")
-        {
-            HCRegisterUse("Radio", "report_delivered");
-            return;
-        }
-        if (module == "SearchBinding")
-        {
-            HCRegisterUse("SearchBinding", "supply_bound");
-            return;
-        }
-        if (module == "LootRefresh")
-        {
-            HCRegisterUse("LootRefresh", "timer_rearmed");
-            return;
-        }
-        if (module == "Melee")
-        {
-            HCRegisterUse("Melee", "hit_processed");
-            return;
-        }
-        if (module == "Polish")
-        {
-            HCRegisterUse("Polish", "hint_shown");
-            HCRegisterUse("Polish", "sound_played");
-            return;
-        }
-        if (module == "Progression")
-        {
-            HCRegisterUse("Progression", "familiarity_gained");
-            return;
-        }
-        if (module == "Scenes")
-        {
-            HCRegisterUse("Scenes", "scene_placed");
-            return;
-        }
-        if (module == "SurvivalAlignment")
-        {
-            HCRegisterUse("SurvivalAlignment", "stamina_applied");
-            HCRegisterUse("SurvivalAlignment", "stamina_hud_shown");
-            return;
-        }
-        if (module == "TapedHelmetMounts")
-        {
-            HCRegisterUse("TapedHelmetMounts", "light_mounted");
-            return;
-        }
-        if (module == "TapedLight")
-        {
-            HCRegisterUse("TapedLight", "light_mounted");
-            return;
-        }
-        if (module == "TapedPackMounts")
-        {
-            HCRegisterUse("TapedPackMounts", "light_mounted");
-            return;
-        }
-        if (module == "Shelters")
-        {
-            HCRegisterUse("Shelters", "shelter_placed");
-            return;
-        }
-        if (module == "VehicleFlip")
-        {
-            HCRegisterUse("VehicleFlip", "impulse_applied");
-            return;
-        }
-        if (module == "WreckSalvage")
-        {
-            HCRegisterUse("WreckSalvage", "part_created");
-            return;
-        }
-        if (module == "WeatherDays")
-        {
-            HCRegisterUse("WeatherDays", "profile_applied");
-            return;
-        }
-        if (module == "AITrade")
-        {
-            HCRegisterUse("AITrade", "trade_completed");
-            return;
-        }
-        if (module == "DeadDrops")
-        {
-            HCRegisterUse("DeadDrops", "cache_bound");
-            return;
-        }
-        if (module == "Escalation")
-        {
-            HCRegisterUse("Escalation", "state_advanced");
-            return;
-        }
-        if (module == "FactionConflict")
-        {
-            HCRegisterUse("FactionConflict", "outcome_recorded");
-            return;
-        }
-        if (module == "Holdouts")
-        {
-            HCRegisterUse("Holdouts", "camp_committed");
-            return;
-        }
-        if (module == "Pickers")
-        {
-            HCRegisterUse("Pickers", "trip_started");
-            return;
-        }
-        if (module == "SettlementDecay")
-        {
-            HCRegisterUse("SettlementDecay", "prop_placed");
-            return;
-        }
-        if (module == "WorldSaves")
-        {
-            HCRegisterUse("WorldSaves", "stage_written");
-            return;
-        }
-        if (module == "WorldIncidents")
-        {
-            HCRegisterUse("WorldIncidents", "incident_recorded");
-            return;
-        }
-        if (module == "Materializer")
-        {
-            HCRegisterUse("Materializer", "actors_materialized");
-            return;
-        }
-        if (module == "World")
-        {
-            HCRegisterUse("World", "row_simulated");
-            return;
-        }
-        if (module == "InfectedDoors")
-        {
-            HCRegisterUse("InfectedDoors", "door_action");
-            return;
-        }
-        if (module == "InfectedLOD")
-        {
-            HCRegisterUse("InfectedLOD", "tier_changed");
-            HCRegisterUse("InfectedLOD", "herd_materialized");
-            return;
-        }
-        if (module == "InfectedReach")
-        {
-            HCRegisterUse("InfectedReach", "strike_landed");
-            HCRegisterUse("InfectedReach", "vehicle_battered");
-            HCRegisterUse("InfectedReach", "vault_started");
-            return;
-        }
-        if (module == "InfectedVariety")
-        {
-            HCRegisterUse("InfectedVariety", "actor_woken");
-            return;
-        }
-        if (module == "ClientUI")
-        {
-            HCRegisterUse("ClientUI", "map_open");
-            HCRegisterUse("ClientUI", "inventory_open");
-            HCRegisterUse("ClientUI", "earplugs_applied");
-            return;
-        }
+        string features;
+        if (!s_LegacyUses.Find(module, features)) { return; }
+        array<string> declared = new array<string>();
+        features.Split(",", declared);
+        foreach (string feature : declared) { HCRegisterUse(module, feature); }
     }
 
     static void HCPrintLate(string name, bool enabled, bool started, HCOperationalStatus status)
@@ -436,8 +235,7 @@ class HCModuleReadiness
 
     static void HCPrint(string name, bool enabled, bool started, HCOperationalStatus status)
     {
-        if (s_Reported.Find(name) >= 0 || s_Reported.Count() >= 64) { return; }
-        if (enabled) { HCRegisterModuleUses(name); }
+        if (s_Reported.Find(name) >= 0 || s_Reported.Count() >= HC_MAX_MODULES) { return; }
         s_Reported.Insert(name);
         s_BootReady.Insert(HCModuleReadiness.HCReady(enabled, started, status));
         s_LatePrinted.Insert(false);
