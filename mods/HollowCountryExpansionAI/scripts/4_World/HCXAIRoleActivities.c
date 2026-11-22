@@ -363,6 +363,13 @@ modded class HCXAITradeProducer
     }
 }
 
+// The director's generic status reports only its phase during rebinding.
+// Preserve its retained coverage fault for the roles readiness observer too.
+modded class HCXAISiteDirector
+{
+    string HCRoleCoverageFault() { return m_CoverageFault; }
+}
+
 class HCXAIRoleActivities : HCModule
 {
     protected ref HCXAIRoleConfig m_Config;
@@ -387,13 +394,19 @@ class HCXAIRoleActivities : HCModule
             HCOperationalStatus siteStatus = director.HCGetOperationalStatus();
             m_DirectorState = siteStatus.HCState();
             m_DirectorReason = siteStatus.HCReason();
-            // These phases follow successful provider/loadout/journal admission.
-            // Route survey remains background work; execution still requires run.
+            // Roles require admitted route data before they can serve groups.
+            // A retained coverage fault takes priority over a pending rebind.
             string phase = director.Phase();
-            if (phase == "bind" || phase == "qualify" || phase == "create")
+            string coverageFault = director.HCRoleCoverageFault();
+            if (coverageFault != "")
             {
-                m_DirectorState = "ready";
-                m_DirectorReason = "site_owner_admitted_routes_pending";
+                m_DirectorState = "degraded";
+                m_DirectorReason = coverageFault;
+            }
+            else if (phase == "bind" || phase == "qualify" || phase == "create")
+            {
+                m_DirectorState = "requested";
+                m_DirectorReason = "routes_pending";
             }
         }
         string signature = m_DirectorState + ":" + m_DirectorReason;
@@ -414,6 +427,11 @@ class HCXAIRoleActivities : HCModule
 
     override string GetName() { return "AIRoles"; }
     override int StartupPhase() { return HC_PHASE_FEATURE; }
+    override void RegisterUses()
+    {
+        super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse("AIRoles", "routes_pending");
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override HCOperationalStatus HCGetOperationalStatus()
     {
@@ -538,6 +556,14 @@ class HCXAIRoleActivities : HCModule
         if (!m_Running || !m_Config) { return; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         this.HCObserveSiteOwner(director);
+        if (director)
+        {
+            string phase = director.Phase();
+            if (phase == "bind" || phase == "qualify" || phase == "create")
+            {
+                HCModuleReadiness.HCUse("AIRoles", "routes_pending");
+            }
+        }
         // One expiry per tick, independent of the director retaining a state.
         // This bounds release work and prevents retired groups leaking slots.
         if (m_Leases.Count() > 0)
