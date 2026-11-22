@@ -5698,6 +5698,56 @@
       "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
       "native": false,
       "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner). Integ 2026-11-22: same review covers the HCRecover->HCCommit provenance and scratch-cleanup probes added by wc-migration-r2 (one step per tick, bounded file count)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 547,
+      "symbol": "HCSearchHouseJournal.HCRestoreKnown",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot -> HCSearchHouseJournal.HCRestoreKnown",
+      "native": false,
+      "reason": "2026-11-22 integ review (c10 CallLater roots x wc-journal r3): HCRecoveryTick is the sliced boot recovery of the house journal (one slot per slice under the HCWorkBudget recovery slice; recovery ends once the slot range is walked). These FileExist calls are exact-name probes of sibling files (claim/attempt/result/compact) and the tombstone check, taken only on torn-entry, torn-intent or index-overflow slots, which are rare crash leftovers; at most 4 probes per such slot."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 615,
+      "symbol": "HCSearchHouseJournal.HCRestoreSlot",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot",
+      "native": false,
+      "reason": "2026-11-22 integ review (c10 CallLater roots x wc-journal r3): HCRecoveryTick is the sliced boot recovery of the house journal (one slot per slice under the HCWorkBudget recovery slice; recovery ends once the slot range is walked). These FileExist calls are exact-name probes of sibling files (claim/attempt/result/compact) and the tombstone check, taken only on torn-entry, torn-intent or index-overflow slots, which are rare crash leftovers; at most 4 probes per such slot."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 615,
+      "symbol": "HCSearchHouseJournal.HCRestoreSlot",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot",
+      "native": false,
+      "reason": "2026-11-22 integ review (c10 CallLater roots x wc-journal r3): HCRecoveryTick is the sliced boot recovery of the house journal (one slot per slice under the HCWorkBudget recovery slice; recovery ends once the slot range is walked). These FileExist calls are exact-name probes of sibling files (claim/attempt/result/compact) and the tombstone check, taken only on torn-entry, torn-intent or index-overflow slots, which are rare crash leftovers; at most 4 probes per such slot."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 616,
+      "symbol": "HCSearchHouseJournal.HCRestoreSlot",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot",
+      "native": false,
+      "reason": "2026-11-22 integ review (c10 CallLater roots x wc-journal r3): HCRecoveryTick is the sliced boot recovery of the house journal (one slot per slice under the HCWorkBudget recovery slice; recovery ends once the slot range is walked). These FileExist calls are exact-name probes of sibling files (claim/attempt/result/compact) and the tombstone check, taken only on torn-entry, torn-intent or index-overflow slots, which are rare crash leftovers; at most 4 probes per such slot."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 616,
+      "symbol": "HCSearchHouseJournal.HCRestoreSlot",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot",
+      "native": false,
+      "reason": "2026-11-22 integ review (c10 CallLater roots x wc-journal r3): HCRecoveryTick is the sliced boot recovery of the house journal (one slot per slice under the HCWorkBudget recovery slice; recovery ends once the slot range is walked). These FileExist calls are exact-name probes of sibling files (claim/attempt/result/compact) and the tombstone check, taken only on torn-entry, torn-intent or index-overflow slots, which are rare crash leftovers; at most 4 probes per such slot."
     }
   ]
 }

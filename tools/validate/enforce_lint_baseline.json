@@ -105,15 +105,6 @@
       "review": "2026-11-22 c10 lint review: child comes from a successful ConfigGetChildName; an empty name or position array drops the row (fail closed) in the following checks. Retain until HCConfigHelper adoption."
     },
     {
-      "rule": "HC-E038",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "symbol": "HCSearchRetirementPolicy.Retain",
-      "key": "state.Recent.Remove(0);",
-      "count": 1,
-      "line_at_review": 230,
-      "review": "2026-11-22 c10 lint review: genuine unordered head remove on the recent-search list (silently breaks FIFO, the search journal P0); being fixed on another branch (HCSearchRefresh.c). Row exists only so main stays green until that branch merges; remove with --ratchet after the merge."
-    },
-    {
       "rule": "HC-E031",
       "path": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeFightLogic.c",
       "symbol": "HCMeleeWeaponWeight.HCCoefficient",
