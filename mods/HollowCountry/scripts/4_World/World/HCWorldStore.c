@@ -100,22 +100,45 @@ class HCWorldStore
     // 128 comparisons and force a durable unverified-source relocation.
     static bool RejectRawEqual(string left, string right)
     {
-        if (!s_RawTested) { HCTestRawRead(); }
-        if (s_RejectCompareCalls >= HC_COMPARE_LIMIT) { return false; }
+        bool mismatch;
+        bool exhausted;
+        return RejectCompare(left, right, mismatch, exhausted);
+    }
+
+    static bool RejectCompare(string left, string right, out bool mismatch, out bool exhausted)
+    {
+        mismatch = false;
+        exhausted = s_RejectCompareCalls >= HC_COMPARE_LIMIT;
+        if (exhausted) { return false; }
         s_RejectCompareCalls++;
-        if (!s_RawEnabled) { return false; }
-        return HCRawEqual(left, right);
+        if (!s_RawTested) { HCTestRawRead(); }
+        if (s_RawEnabled) { return HCRawCompare(left, right, mismatch); }
+        string a;
+        string b;
+        if (!ReadChecked(left, a) || !ReadChecked(right, b)) { return false; }
+        if (a.Length() < 1 || a.Length() > MAX_BYTES || b.Length() > MAX_BYTES) { return false; }
+        mismatch = a != b;
+        return !mismatch;
+    }
+
+    protected static bool s_CeilingCountPrinted;
+
+    protected static void CeilingUnexpectedCount()
+    {
+        if (s_CeilingCountPrinted) { return; }
+        s_CeilingCountPrinted = true;
+        Print("[HC WorldStore] custody_ceiling_read reason=unexpected_count action=string_fallback");
     }
 
     // EnSystem.c:397/417/425: FileExist proves existence, not readability;
-    // OpenFile returns 0 on failure, ReadFile reads raw bytes into int[] or
-    // string and returns a byte count. Use raw one-byte reads so NUL never
-    // passes through string IO; zero the receiving int before every byte so
-    // neither packed-byte nor per-element array transfers retain prior bits.
-    // Boot/retry only: at most 13 calls/bytes (12-byte cap plus EOF/size probe).
+    // OpenFile returns 0 on failure; ReadFile returns bytes into int[]/string.
+    // Qualify raw IO first. EOF/invalid grammar/NUL/13th byte are content
+    // damage; open/negative reads retain authority for retry, never reseed.
     static bool ReadCeilingChecked(string path, out string text)
     {
         text = "";
+        if (!s_RawTested) { HCTestRawRead(); }
+        if (!s_RawEnabled) { return ReadCeilingString(path, text); }
         FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) { return false; }
         int rawByte[1];
@@ -123,15 +146,42 @@ class HCWorldStore
         {
             rawByte[0] = 0;
             int count = ReadFile(handle, rawByte, 1);
-            if (count < 0 || count > 1) { CloseFile(handle); text = ""; return false; }
-            if (count == 0) { CloseFile(handle); return true; }
+            if (count < 0) { CloseFile(handle); text = ""; return false; }
+            if (count > 1)
+            {
+                CloseFile(handle);
+                CeilingUnexpectedCount();
+                s_RawEnabled = false;
+                return ReadCeilingString(path, text);
+            }
+            if (count == 0) { break; }
             int value = rawByte[0];
             bool grammarByte = value == 124 || (value >= 48 && value <= 57);
-            if (offset == 12 || !grammarByte) { CloseFile(handle); text = ""; return true; }
+            if (offset == 12 || !grammarByte) { text = ""; break; }
             text += value.AsciiToString();
         }
         CloseFile(handle);
+        return true;
+    }
+
+    protected static bool ReadCeilingString(string path, out string text)
+    {
         text = "";
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, text, 13);
+        CloseFile(handle);
+        if (count < 0) { text = ""; return false; }
+        if (count > 13) { CeilingUnexpectedCount(); text = ""; return false; }
+        if (text.Length() > 12) { text = ""; return true; }
+        bool invalid = count > 12 || count != text.Length();
+        for (int index = 0; index < text.Length() && !invalid; index++)
+        {
+            string character = text.Get(index);
+            int value = character.ToAscii();
+            if (value != 124 && (value < 48 || value > 57)) { invalid = true; }
+        }
+        if (invalid) { text = ""; }
         return true;
     }
 
@@ -140,6 +190,13 @@ class HCWorldStore
     // indexing. Zero bytes, errors and oversize images never prove equality.
     protected static bool HCRawEqual(string left, string right)
     {
+        bool mismatch;
+        return HCRawCompare(left, right, mismatch);
+    }
+
+    protected static bool HCRawCompare(string left, string right, out bool mismatch)
+    {
+        mismatch = false;
         FileHandle a = OpenFile(left, FileMode.READ);
         if (!a) { return false; }
         FileHandle b = OpenFile(right, FileMode.READ);
@@ -152,14 +209,15 @@ class HCWorldStore
         {
             int nx = ReadFile(a, x, 4096);
             int ny = ReadFile(b, y, 4096);
-            if (nx < 0 || ny < 0 || nx > 4096 || ny > 4096 || nx != ny || total + nx > MAX_BYTES) { break; }
+            if (nx < 0 || ny < 0 || nx > 4096 || ny > 4096 || total + nx > MAX_BYTES || total + ny > MAX_BYTES) { break; }
+            if (nx != ny) { mismatch = true; break; }
             if (nx == 0) { equal = total > 0; break; }
             bool different = false;
             for (int i = 0; i < nx && i < 4096; i++)
             {
                 if (x[i] != y[i]) { different = true; break; }
             }
-            if (different) { break; }
+            if (different) { mismatch = true; break; }
             total += nx;
         }
         CloseFile(a);
@@ -507,7 +565,8 @@ class HCWorldCustodySaveJob : HCSaveJob
 // images and revision order before passing nonempty text. No empty-state fallback.
 class HCWorldIntentRecovery
 {
-    protected static bool s_RotationFailurePrinted;
+    protected static ref map<string, bool> s_RotationFailures = new map<string, bool>;
+    protected static ref map<string, bool> s_RotationWarnings = new map<string, bool>;
 
     protected static string FileName(string path)
     {
@@ -515,12 +574,12 @@ class HCWorldIntentRecovery
         return path.Substring(slash + 1, path.Length() - slash - 1);
     }
 
-    protected static bool RotationFailed(string source)
+    protected static bool RotationFailed(string source, string reason)
     {
-        if (!s_RotationFailurePrinted)
+        if (!s_RotationFailures.Contains(source) && s_RotationFailures.Count() < 64)
         {
-            s_RotationFailurePrinted = true;
-            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_unverified action=retain_source_retry_next_boot");
+            s_RotationFailures.Set(source, true);
+            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retain_source_retry_next_boot");
         }
         return false;
     }
@@ -550,16 +609,35 @@ class HCWorldIntentRecovery
         {
             // Bounded oldest-first rotation. A crash can lose an old archive,
             // but leaves the current source available to retry on the next boot.
-            if (!DeleteFile(source + ".rejected")) { return false; }
+            if (!DeleteFile(source + ".rejected")) { return RotationFailed(source, "rotation_delete_failed"); }
             for (int rotate = 1; rotate < 8; rotate++)
             {
                 string oldPath = source + ".rejected." + rotate.ToString();
                 string newPath = source + ".rejected";
                 int previous = rotate - 1;
                 if (rotate > 1) { newPath += "." + previous.ToString(); }
-                if (!CopyFile(oldPath, newPath)) { return RotationFailed(source); }
-                if (!HCWorldStore.RejectRawEqual(oldPath, newPath)) { return RotationFailed(source); }
-                if (!DeleteFile(oldPath)) { return false; }
+                if (!CopyFile(oldPath, newPath)) { return RotationFailed(source, "rotation_copy_failed"); }
+                bool textMismatch;
+                bool rotatedEqual = CompareText(oldPath, newPath, limit, textMismatch);
+                bool rawMismatch;
+                bool budgetExhausted;
+                if (!rotatedEqual) { rotatedEqual = HCWorldStore.RejectCompare(oldPath, newPath, rawMismatch, budgetExhausted); }
+                if (!rotatedEqual)
+                {
+                    if (textMismatch || rawMismatch) { return RotationFailed(source, "rotation_copy_mismatch"); }
+                    if (!s_RotationWarnings.Contains(source) && s_RotationWarnings.Count() < 64)
+                    {
+                        s_RotationWarnings.Set(source, true);
+                        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_copy_unverified_non_authoritative");
+                    }
+                    string budgetKey = source + ".budget";
+                    if (budgetExhausted && !s_RotationWarnings.Contains(budgetKey) && s_RotationWarnings.Count() < 64)
+                    {
+                        s_RotationWarnings.Set(budgetKey, true);
+                        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_compare_budget_exhausted action=continue_non_authoritative");
+                    }
+                }
+                if (!DeleteFile(oldPath)) { return RotationFailed(source, "rotation_delete_failed"); }
             }
             rejected = source + ".rejected.7";
         }
@@ -574,6 +652,13 @@ class HCWorldIntentRecovery
 
     protected static bool EqualText(string source, string rejected, int limit)
     {
+        bool mismatch;
+        return CompareText(source, rejected, limit, mismatch);
+    }
+
+    protected static bool CompareText(string source, string rejected, int limit, out bool mismatch)
+    {
+        mismatch = false;
         FileHandle left = OpenFile(source, FileMode.READ);
         if (!left) { return false; }
         FileHandle right = OpenFile(rejected, FileMode.READ);
@@ -586,8 +671,10 @@ class HCWorldIntentRecovery
             string b = "";
             int count = ReadFile(left, a, 4096);
             int copied = ReadFile(right, b, 4096);
-            if (count < 0 || count > 4096 || count != copied || total + count > limit) { break; }
-            if (count != a.Length() || copied != b.Length() || a != b) { break; }
+            if (count < 0 || copied < 0 || count > 4096 || copied > 4096) { break; }
+            if (total + count > limit || total + copied > limit) { break; }
+            if (count != a.Length() || copied != b.Length()) { break; }
+            if (count != copied || a != b) { mismatch = true; break; }
             if (count == 0) { equal = true; break; }
             total += count;
         }
@@ -648,6 +735,10 @@ class HCWorldLeaseCeiling
     protected bool m_BackupLowerBound;
     protected bool m_CleanupReady;
     protected static bool s_IntentReadFailurePrinted;
+    protected static bool s_PrimaryReadFailurePrinted;
+    protected string m_LoadFailure;
+
+    string LoadFailure() { return m_LoadFailure; }
     protected string m_Text;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
 
@@ -664,9 +755,11 @@ class HCWorldLeaseCeiling
     {
         m_NeedsReseed = false;
         m_BackupLowerBound = false;
+        m_LoadFailure = "custody_lease_ceiling_invalid";
         string primary;
-        bool primaryRead = HCGroupIO.HCReadRaw(PATH, 12, primary);
-        if (!primaryRead) { primary = ""; }
+        bool primaryRead = true;
+        if (FileExist(PATH)) { primaryRead = ReadPrimary(primary); }
+        if (!primaryRead) { return false; }
         int floor = Decode(primary);
         if (FileExist(PATH + ".tmp"))
         {
@@ -674,6 +767,7 @@ class HCWorldLeaseCeiling
             bool intentRead = HCWorldStore.ReadCeilingChecked(PATH + ".tmp", intent);
             if (!intentRead)
             {
+                m_LoadFailure = "custody_lease_ceiling_intent_unreadable";
                 if (!s_IntentReadFailurePrinted)
                 {
                     s_IntentReadFailurePrinted = true;
@@ -717,7 +811,7 @@ class HCWorldLeaseCeiling
                 {
                     if (!HCWorldIntentRecovery.Recover(PATH, 12, intent, primary, true, false)) { return false; }
                     primary = "";
-                    primaryRead = HCGroupIO.HCReadRaw(PATH, 12, primary);
+                    primaryRead = ReadPrimary(primary);
                     if (!primaryRead) { return false; }
                     floor = Decode(primary);
                 }
@@ -759,6 +853,18 @@ class HCWorldLeaseCeiling
         m_Ceiling = floor;
         m_Text = primary;
         return true;
+    }
+
+    protected bool ReadPrimary(out string text)
+    {
+        if (HCWorldStore.ReadCeilingChecked(PATH, text)) { return true; }
+        m_LoadFailure = "custody_lease_ceiling_primary_unreadable";
+        if (!s_PrimaryReadFailurePrinted)
+        {
+            s_PrimaryReadFailurePrinted = true;
+            Print("[HC World] custody_lease_ceiling_primary_unreadable action=retain_retry");
+        }
+        return false;
     }
 
     int HCAbort() { return m_Image.HCAbort(); }

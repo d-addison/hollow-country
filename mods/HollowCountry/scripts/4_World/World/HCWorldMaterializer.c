@@ -199,6 +199,8 @@ class HCWorldMaterializer : HCModule
         m_Clock = 0;
         m_RingSeconds = 0;
         m_LogSeconds = 0;
+        m_CustodyRestoredOlder = false;
+        m_CustodyForwardedPath = "";
         m_CustodyReadRetries = 0;
         m_CustodyArchiveScans = 0;
         HCWorldStore.HCResetCompareBudget();
@@ -802,7 +804,7 @@ class HCWorldMaterializer : HCModule
             }
             if (restoringOlder)
             {
-                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
+                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault(m_LeaseCeiling.LoadFailure()); }
             }
             // A selected pending intent is already durable; never truncate it
             // by opening the same backup intent for an in-place rewrite.
@@ -891,6 +893,7 @@ class HCWorldMaterializer : HCModule
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_invalid_no_backup";
         m_CustodyRestoredOlder = false;
+        m_CustodyForwardedPath = "";
         string restoreMarker = "$profile:HollowCountry/ai-custody.json.restore_pending";
         m_CustodyRestoreWitness = FileExist(restoreMarker);
         m_CustodyReseedUnsafe = m_CustodyRestoreWitness;
@@ -925,7 +928,7 @@ class HCWorldMaterializer : HCModule
                 if (!this.HCReadCustody(backup, backupText)) { return false; }
                 HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
                 if (!prior) { return this.HCCustodyFault("custody_backup_invalid"); }
-                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
+                if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault(m_LeaseCeiling.LoadFailure()); }
                 // Existence is the safety witness, so even a torn copy blocks
                 // unsafe reseeding after a crash during backup promotion.
                 if (!FileExist(restoreMarker))
@@ -1042,13 +1045,15 @@ class HCWorldMaterializer : HCModule
         bool allowReseed = !m_CustodyRestoredOlder && !m_CustodyReseedUnsafe;
         if (!m_LeaseCeiling.Load(allowReseed))
         {
-            if (m_CustodyReseedUnsafe && !m_CustodyRestoredOlder)
+            string ceilingFailure = m_LeaseCeiling.LoadFailure();
+            bool unsafeCeiling = m_CustodyReseedUnsafe && !m_CustodyRestoredOlder;
+            if (unsafeCeiling && ceilingFailure == "custody_lease_ceiling_invalid")
             {
                 string unsafeReason = "retained_custody_without_active_history";
                 if (m_CustodyRestoreWitness) { unsafeReason = "restore_pending_before_ceiling_commit"; }
                 Print("[HC World] custody_lease_ceiling_invalid reason=" + unsafeReason);
             }
-            return this.HCCustodyFault("custody_lease_ceiling_invalid");
+            return this.HCCustodyFault(ceilingFailure);
         }
         int leaseFloor = m_LeaseCeiling.Ceiling();
         if (m_LeaseCeiling.NeedsReseed())

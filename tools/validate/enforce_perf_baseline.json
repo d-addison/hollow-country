@@ -2534,26 +2534,6 @@
     {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 103,
-      "symbol": "HCWorldStore.HCRawEqual",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 105,
-      "symbol": "HCWorldStore.HCRawEqual",
-      "key": "OpenFile#2",
-      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
       "line": 132,
       "symbol": "HCWorldStore.HCRawCounts",
       "key": "OpenFile#1",
@@ -3052,26 +3032,6 @@
       "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
     },
     {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 506,
-      "symbol": "HCWorldIntentRecovery.EqualText",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.EqualText; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 508,
-      "symbol": "HCWorldIntentRecovery.EqualText",
-      "key": "OpenFile#2",
-      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.EqualText; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
       "line": 687,
@@ -3160,6 +3120,76 @@
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep; enqueue bounded startup work",
       "native": false,
       "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 170,
+      "symbol": "HCWorldStore.ReadCeilingString",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldStore.ReadCeilingChecked -> HCWorldStore.ReadCeilingString; enqueue bounded startup work",
+      "native": false,
+      "reason": "Ceiling fallback opens only during bounded boot/retry recovery and reads at most 13 bytes, after native raw IO qualification fails. No tick IO; native crash/read validation pending."
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 180,
+      "symbol": "HCWorldStore.ReadCeilingString",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false,
+      "reason": "Ceiling fallback opens only during bounded boot/retry recovery and reads at most 13 bytes, after native raw IO qualification fails. No tick IO; native crash/read validation pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 200,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldStore.RejectCompare -> HCWorldStore.HCRawCompare; enqueue bounded startup work",
+      "native": false,
+      "reason": "Qualified raw comparison reads at most 1 MiB plus one 4 KiB EOF probe per side. Custody and non-authoritative rejection each have an independent 128-call allowance. Boot/retry only; native crash and latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 202,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldStore.RejectCompare -> HCWorldStore.HCRawCompare; enqueue bounded startup work",
+      "native": false,
+      "reason": "Qualified raw comparison reads at most 1 MiB plus one 4 KiB EOF probe per side. Custody and non-authoritative rejection each have an independent 128-call allowance. Boot/retry only; native crash and latency evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 662,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText; enqueue bounded startup work",
+      "native": false,
+      "reason": "Boot-only non-authoritative rejection compares at most seven rotated archive pairs and one final archive pair per Reject, capped by the caller file limit (12-byte ceiling or bounded refresh image), in 4096-byte chunks. Empty archives qualify; unavailable verification warns and continues, definite mismatch retains source. Native latency/crash evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 664,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText; enqueue bounded startup work",
+      "native": false,
+      "reason": "Boot-only non-authoritative rejection compares at most seven rotated archive pairs and one final archive pair per Reject, capped by the caller file limit (12-byte ceiling or bounded refresh image), in 4096-byte chunks. Empty archives qualify; unavailable verification warns and continues, definite mismatch retains source. Native latency/crash evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 851,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#11",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldLeaseCeiling.Load; enqueue bounded startup work",
+      "native": false,
+      "reason": "Boot/retry-only bounded ceiling recovery probes the primary before opening it, preserving authoritative bytes on transient read failure; eight rejection slots and a single backup are bounded. No routine tick path. Native crash evidence pending."
     }
   ]
 }
