@@ -96,6 +96,19 @@ class GraphIntegrityTests(unittest.TestCase):
         self.assertTrue(report["valid"])
         self.assertEqual(report["graph"], automation_drift.GRAPH)
 
+    def test_repository_bindings_all_name_an_existing_unit_test_file(self):
+        self.assertEqual([], automation_drift.unexecutable_bindings(ROOT))
+
+    def test_a_binding_naming_a_missing_test_file_is_an_error(self):
+        name = next(iter(bdd.BINDINGS))
+        steps = bdd.BINDINGS[name][0]
+        ghost = "Ghost binding without a suite"
+        with mock.patch.dict(bdd.BINDINGS, {ghost: (steps, "test_no_such_suite_file.py")}):
+            report = automation_drift.validate(ROOT)
+        self.assertEqual([ghost], report["unexecutable_bindings"])
+        self.assertFalse(report["valid"])
+        self.assertTrue(any(ghost in error for error in report["errors"]))
+
     def test_001_validator_reports_002_graph_as_not_checked(self):
         stdout = io.StringIO()
         with mock.patch("sys.argv", ["bdd", "--runtime"]), contextlib.redirect_stdout(stdout):
@@ -308,6 +321,33 @@ class LaneTests(unittest.TestCase):
         stdout = io.StringIO()
         with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(stdout):
             self.assertEqual(automation.lane_main([]), 1)
+
+    def test_run_with_trust_is_refused_in_hosted_ci_like_the_lane(self):
+        for name in ("GITHUB_ACTIONS", "CI"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "run"
+                stdout = io.StringIO()
+                with mock.patch.dict(os.environ, {name: "true"}), contextlib.redirect_stdout(stdout), \
+                        mock.patch.object(automation, "run_automation") as runner:
+                    code = automation.run_main(["manifest.json", str(output), "--trust", "native.synthetic"])
+                self.assertEqual(code, 1)
+                runner.assert_not_called()
+                self.assertFalse(output.exists())
+                report = json.loads(stdout.getvalue())
+                self.assertEqual((report["refused"], report["reason"], report["hosted_ci"]),
+                                 (True, "hosted_ci_refused", True))
+
+    def test_run_without_trust_is_not_refused_in_hosted_ci(self):
+        done = {"run_id": "r", "status": "PASS", "complete": True, "counts": {}, "task_counts": {}}
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(io.StringIO()), \
+                    mock.patch.object(automation, "run_automation", return_value=done) as runner:
+                code = automation.run_main([str(manifest), str(Path(directory) / "run")])
+        self.assertEqual(code, 0)
+        runner.assert_called_once()
+        self.assertEqual(list(runner.call_args.kwargs["trusted_drivers"]), [])
 
     def test_lane_cli_prints_one_json_report_and_states_the_rules(self):
         stdout = io.StringIO()
