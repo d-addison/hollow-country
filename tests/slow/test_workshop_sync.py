@@ -23,12 +23,14 @@ REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
 GENERATED_DIGESTS = REPO / 'config/generated-digests.json'
 IDS = {'cf': '1559212036', 'cot': '1564026768', 'navigation': '2792984722', 'rag_core': '3556131153', 'rag_vehicles': '3105330157', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963',
-       'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942', 'licensed': '2116157322', 'vehicles': '2291785437'}
+       'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942', 'licensed': '2116157322', 'vehicles': '2291785437',
+       'morefood': '3534507229', 'cookz': '3302732231', 'uncuepas': '1762444175', 'windstride': '1797720064',
+       'ams': '2579252958', 'notes': '2752192852', 'fortifications': '2670506982', 'gebsfish': '2757509117',
+       'rag_basebuilding': '3157695626'}
 HC_ID = '3841628320'
 AI_ID = '3900000002'
 AI_REAL_ID = '3841637854'
-FULL_MOD = ('-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;'
-            '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@HollowCountry;@HollowCountryExpansionAI')
+FULL_MOD = ws.launch_lines(ws.select(ws.load_manifest(MANIFEST), ws.GROUPS))[0]
 RECEIPT = 'hollow-country-workshop-receipt.json'
 MARKER = 'S3CRET-MARKER-9f2'
 
@@ -142,7 +144,10 @@ class Manifest(unittest.TestCase):
     def test_load_order_is_the_documented_one(self):
         order = [m['folder'] for m in sorted(self.data['mods'], key=lambda m: m['rank'])]
         self.assertEqual(order, ['@CF', '@COT', '@DabsFramework', '@Expansion-Core', '@Expansion-Licensed', '@Expansion-Vehicles',
-                                 '@Expansion-AI', '@Expansion-Navigation', '@SnafuWeapons', '@TacticalFlava', '@RaG_Core', '@RaG_Immersive_Vehicles', '@AmbientAnimals', '@HollowCountry',
+                                 '@Expansion-AI', '@Expansion-Navigation', '@SnafuWeapons',
+                                 '@MoreFoodV2', '@CookZ', '@UncuepasCivilianClothing', '@WindstridesClothingPack', '@AdditionalMedicSupplies',
+                                 '@dzr_notes', '@BuildingFortifications', '@gebsfish',
+                                 '@TacticalFlava', '@RaG_Core', '@RaG_BaseBuilding', '@RaG_Immersive_Vehicles', '@AmbientAnimals', '@HollowCountry',
                                  '@HollowCountryExpansionAI'])
         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
 

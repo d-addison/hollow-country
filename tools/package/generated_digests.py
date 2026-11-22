@@ -40,7 +40,7 @@ def contracts():
     """Use generators' declared inventories, including install-time-only deltas."""
     from tools.package import admin_world_catalog as admin, economy, gui_icons as icons
     from tools.package import snafu_optional as snafu, tactical_flava_optional as tf
-    from tools.package import inventory_sizes, new_buildings, ai_route_precompute
+    from tools.package import inventory_sizes, new_buildings, ai_route_precompute, variety_packs
     from tools.audit import gapcov_regions
     delta = tuple(sorted(economy.DELTA_FILES))
     package_data = ('tools/package/*.json', 'config/military-loot.json')
@@ -56,6 +56,8 @@ def contracts():
                  ('mods/HollowCountry/config.cpp', 'mods/HollowCountryExpansionAI/config.cpp',
                   str(inventory_sizes.PACK_TABLE.relative_to(ROOT))),
                  ('config/inventory-sizes.json', 'tools/setup/workshop_mods.json', *package_data)),
+        Contract('variety_packs', 'tools.package.variety_packs', variety_packs.OUTPUTS,
+                 (variety_packs.RULES, variety_packs.FLOOR_POLICY, 'tools/setup/workshop_mods.json')),
         Contract('firearms', 'tools.package.firearms', (), common, delta),
         Contract('loot_point_preserve', 'tools.package.loot_point_preserve',
                  ('mission/hollow-country/loot-points/additions-interiors.json',),
@@ -202,6 +204,12 @@ def installed_snapshot(contract, values):
             if not members:
                 raise MissingInput('inventory provider file list empty')
             identities['provider/' + provider] = sha(json.dumps(members, sort_keys=True).encode())
+    if name == 'variety_packs':
+        from tools.package import variety_packs
+        try:
+            identities.update(variety_packs.identities(values['addons'], values['workshop'], source))
+        except FileNotFoundError as exc:
+            raise MissingInput('installed variety pack or stock types unavailable') from exc
     if name == 'loot_point_preserve':
         from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
         for label, revision in LOOT_REVISIONS:
@@ -261,6 +269,8 @@ def regenerate(contract, values, scratch):
         out = scratch / 'types.xml'
         module.regenerate(out)
         return {contract.outputs[0]: out.read_bytes()}
+    if name == 'variety_packs':
+        return module.generate(values['addons'], values['workshop'], source)
     if name == 'inventory_sizes':
         paths = [scratch / ('output-' + str(i)) for i in range(len(contract.outputs))]
         for rel, path in zip(contract.outputs, paths):

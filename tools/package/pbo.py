@@ -63,7 +63,7 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  # HC-15 wildlife observation budgets (read by HCWildlifeObservation.HCStart).
                  'ecology/species.json', 'ecology/HCWildlife-providers.json',
                  # V2 optional-pack overlay policy (the packs themselves are never shipped or copied).
-                 'optional/overlay-policy.json',
+                 'optional/overlay-policy.json', 'optional/variety-types.json',
                  # W6 #60 authored survey inputs only; generated trigger instances never ship.
                  'cellars/classes.json', 'cellars/README.md',
                  # V2 scene chains catalog, its native/class provenance and the operator handoff.
@@ -742,7 +742,7 @@ def handoff(addon, mission, release=False):
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = data
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('hc_events.py', 'travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'overlay_stack.py', 'HCWildlife_habitats.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
+    for name in ('hc_events.py', 'travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'overlay_stack.py', 'HCWildlife_habitats.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'variety_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -788,7 +788,7 @@ def verify_handoff(blob):
             route_inventory({name.removeprefix('mission/hollow-country/'): z.read(name)
                              for name in names if name.startswith('mission/hollow-country/')})
             helper_names = {'hc_events.py', 'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
-                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'overlay_stack.py', 'HCWildlife_habitats.py', 'xml_text.py', 'rag_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py',
+                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'overlay_stack.py', 'HCWildlife_habitats.py', 'xml_text.py', 'rag_optional.py', 'variety_optional.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py',
                             'firearms_roster.json', 'README.md'}
             for name, expected in manifest['files'].items():
                 if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}

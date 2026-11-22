@@ -215,7 +215,9 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             before = snapshot(mission)
             absent = overlays.plan(workshop, mission, [])
             self.assertEqual(absent['files'], {})
-            self.assertEqual(len(absent['diagnostics']), 3)
+            known = 1 + len(overlays.rag_optional.OVERLAY_PACKS) + len(overlays.variety_optional.overlay_packs(
+                overlays.VARIETY_TYPES))
+            self.assertEqual(len(absent['diagnostics']), known)
             overlays.install(absent, mission)
             self.assertEqual(snapshot(mission), before)
 
@@ -276,6 +278,55 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             core.write_bytes(expected)
             overlays.rollback(mission)
             self.assertEqual(snapshot(mission), before)
+
+
+    def test_variety_pack_settings_are_written_only_when_absent_and_rolled_back(self):
+        import json
+        from tools.package import optional_overlays as overlays, variety_optional
+
+        document = variety_optional.parse(overlays.VARIETY_TYPES.read_bytes())
+        ident, entry = next((i, p) for i, p in sorted(document.items())
+                            if any(s['root'] == 'mission' for s in p['settings']))
+        shipped = [s for s in entry['settings'] if s['root'] == 'mission']
+        categories = {r['category'] for p in document.values() for r in p['types'] if r['category']}
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-variety-') as directory:
+            root = Path(directory)
+            mission, workshop = root / 'mission', root / 'workshop'
+            for name, text in {'cfgeconomycore.xml': '<economycore><defaults/></economycore>',
+                               'db/events.xml': '<events/>', 'db/types.xml': '<types/>',
+                               'cfgspawnabletypes.xml': '<spawnabletypes/>',
+                               'cfglimitsdefinition.xml': '<lists><categories>' + ''.join(
+                                   '<category name="%s"/>' % c for c in sorted(categories)) + '</categories></lists>'}.items():
+                (mission / name).parent.mkdir(parents=True, exist_ok=True)
+                (mission / name).write_text(text)
+            pack = workshop / ident
+            pack.mkdir(parents=True)
+
+            def snapshot():
+                return {p.relative_to(mission).as_posix(): p.read_bytes() for p in mission.rglob('*') if p.is_file()}
+
+            before = snapshot()
+            candidate = overlays.plan(workshop, mission, [pack])
+            self.assertEqual(snapshot(), before, 'plan must be read only')
+            for item in shipped:
+                self.assertEqual(candidate['files'][item['target']], variety_optional.settings_bytes(item))
+                self.assertIsNone(candidate['before'][item['target']])
+                self.assertTrue(overlays.allowed(item['target']))
+            overlays.install(candidate, mission)
+            for item in shipped:
+                self.assertEqual(json.loads((mission / item['target']).read_bytes()), item['content'])
+            overlays.rollback(mission)
+            self.assertEqual(snapshot(), before)
+            # A file the server already has is the operator's: never planned, never replaced.
+            for item in shipped:
+                (mission / item['target']).parent.mkdir(parents=True, exist_ok=True)
+                (mission / item['target']).write_bytes(b'{"operator": 1}')
+            owned = snapshot()
+            candidate = overlays.plan(workshop, mission, [pack])
+            self.assertFalse(set(candidate['files']) & {item['target'] for item in shipped})
+            overlays.install(candidate, mission)
+            overlays.rollback(mission)
+            self.assertEqual(snapshot(), owned)
 
 
 if __name__ == '__main__':

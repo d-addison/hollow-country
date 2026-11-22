@@ -1,0 +1,959 @@
+{
+ "schema": 1,
+ "kind": "hollow-country-variety-packs",
+ "note": "Authored rules for the nine owner-picked variety packs (issue 232). Rules are ordered, first match wins; tools/package/variety_packs.py generates the dispositions and CE rows. Every scope-2 class a pack adds must match a rule.",
+ "scarcity_divisor": 2,
+ "crafted_lifetime": 14400,
+ "generic_anchors": [
+  "Inventory_Base",
+  "Edible_Base",
+  "Container_Base",
+  "Clothing",
+  "Clothing_Base",
+  "Bottle_Base",
+  "BaseBuildingBase",
+  "HouseNoDestruct",
+  "ItemBase",
+  "Paper"
+ ],
+ "nutrition": {
+  "report_ratio": 2.0,
+  "exclude_ratio": 4.0,
+  "water_floor": 100
+ },
+ "size_check": {
+  "report_area_ratio": 1.5,
+  "exclude_area_ratio": 2.0
+ },
+ "packs": [
+  {
+   "id": "3534507229",
+   "name": "MoreFood V2",
+   "folder": "@MoreFoodV2",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied into this repository (class names and numeric properties read only).",
+   "scope": "Canned, jarred, bottled and packaged shelf food only; every class is a food or drink item.",
+   "rules": [
+    {
+     "id": "mf_opened",
+     "disposition": "crafted",
+     "reason": "opened_state_of_a_closed_item",
+     "evidence": "derived",
+     "name": ".*_Opened"
+    },
+    {
+     "id": "mf_cooked",
+     "disposition": "crafted",
+     "reason": "cooked_result_of_the_uncooked_cup",
+     "evidence": "script",
+     "name": "NoodleCup_DON_.*_Cooked"
+    },
+    {
+     "id": "mf_branded_clothing",
+     "disposition": "excluded",
+     "name": "BomberJacket_DON_.*",
+     "reason": "branded_promotional_clothing_skin"
+    },
+    {
+     "id": "mf_sewing_tin",
+     "disposition": "excluded",
+     "name": "CookieTin_DON_SewingKit",
+     "reason": "cosmetic_skin_of_the_vanilla_sewing_kit"
+    },
+    {
+     "id": "mf_filter_bottle",
+     "disposition": "crafted",
+     "reason": "vanilla_peer_is_crafted_only",
+     "evidence": "derived",
+     "name": "FilteringBottle_DON_.*"
+    },
+    {
+     "id": "mf_drink_cans",
+     "disposition": "spawn",
+     "name": "(SodaCan|SodaCanBig|SodaCanSlim|SodaCanTiny)_DON_.*|SodaPack_DON_.*",
+     "peers": [
+      "SodaCan_Cola",
+      "SodaCan_Fronta",
+      "SodaCan_Kvass",
+      "SodaCan_Pipsi",
+      "SodaCan_Spite"
+     ],
+     "usage": [
+      "Town",
+      "Village",
+      "School"
+     ],
+     "value": []
+    },
+    {
+     "id": "mf_water_bottles",
+     "disposition": "spawn",
+     "name": "WaterBottle_DON_.*",
+     "peers": [
+      "WaterBottle"
+     ],
+     "category": "food",
+     "usage": [
+      "Town",
+      "Village",
+      "School"
+     ]
+    },
+    {
+     "id": "mf_glass_bottles",
+     "disposition": "spawn",
+     "name": "GlassBottle_DON_.*",
+     "peers": [
+      "GlassBottle"
+     ],
+     "category": "food",
+     "usage": [
+      "Town",
+      "Village",
+      "School"
+     ]
+    },
+    {
+     "id": "mf_tubes_jars",
+     "disposition": "spawn",
+     "name": "(Jar|Tube|Marmalade)_DON_.*",
+     "peers": [
+      "Marmalade",
+      "Honey"
+     ]
+    },
+    {
+     "id": "mf_canned",
+     "disposition": "spawn",
+     "name": "(CAN|FoodCan_100g|FoodCan_200g|Longcan|MidCan|SmallCan|Smallcan2|LootCan|LidCan|LidCanSmall|Foodbox|FOODPACK|FoodPack|MRE)_DON_.*",
+     "peers": [
+      "BakedBeansCan",
+      "PeachesCan",
+      "SpaghettiCan",
+      "SardinesCan",
+      "TunaCan",
+      "PorkCan",
+      "Lunchmeat",
+      "Pate",
+      "BrisketSpread",
+      "Pajka"
+     ]
+    },
+    {
+     "id": "mf_packaged",
+     "disposition": "spawn",
+     "name": ".*_DON(_.*)?",
+     "peers": [
+      "Chips",
+      "Crackers",
+      "SaltySticks",
+      "BoxCerealCrunchin",
+      "Zagorky",
+      "ZagorkyChocolate",
+      "ZagorkyPeanuts"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3302732231",
+   "name": "CookZ",
+   "folder": "@CookZ",
+   "licence": "No licence file; credits file lists third-party model and icon sources (CC BY 4.0 box model, editorial-licensed sausage model, AI-generated art). Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Cooking overhaul: dishes are produced by cooking recipes; only the packaged cereal is a loot item.",
+   "rules": [
+    {
+     "id": "cz_cereal",
+     "disposition": "spawn",
+     "name": "CookZ_CuteCereal_.*",
+     "peers": [
+      "BoxCerealCrunchin"
+     ]
+    },
+    {
+     "id": "cz_tools",
+     "disposition": "crafted",
+     "reason": "craftable_by_default_config_flag",
+     "evidence": "script",
+     "name": "CookZ_(Cookbook_Item|Peeler|EmptyBox|EmptyCan)"
+    },
+    {
+     "id": "cz_opened",
+     "disposition": "crafted",
+     "reason": "opened_state_of_a_cooked_dish",
+     "evidence": "derived",
+     "name": "CookZ_.*_Opened"
+    },
+    {
+     "id": "cz_dishes",
+     "disposition": "crafted",
+     "reason": "cooked_dish_output",
+     "evidence": "script",
+     "name": "CookZ_.*"
+    }
+   ],
+   "settings_files": [
+    {
+     "id": "cz_config",
+     "root": "mission",
+     "target": "CookZ/CookZ_V003.json",
+     "tokens": [
+      "CookZ_V003"
+     ],
+     "reason": "complete file because a field the file lacks reads as zero; agent-removal chances held at vanilla-like values",
+     "json": {
+      "CanCraftCookBook": 1,
+      "CanCraftEmptyCans": 1,
+      "CanCraftEmptyBoxes": 1,
+      "CanCraftPeeler": 1,
+      "CanCraftDrumPeeler": 1,
+      "CanHydrateMushrooms": 1,
+      "MinIngredientQuantityPercent": 50,
+      "TemperaturOfCreatedDish": 80.0,
+      "ChanceToRemoveBrainAgent": 0.0,
+      "ChanceToRemoveHeavyMetalAgent": 0.0,
+      "ChanceToRemoveSalmonellaAgent": 0.4,
+      "EnableCheeseDecay": 0,
+      "EnableSausageDecay": 0,
+      "EnableBoxAndCanDecay": 1,
+      "InstantCook": 0,
+      "KeepLeftoverWater": 0,
+      "DisableRecipes": []
+     }
+    }
+   ]
+  },
+  {
+   "id": "1762444175",
+   "name": "Uncuepas Civilian Clothing",
+   "folder": "@UncuepasCivilianClothing",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Civilian clothing and bags as recolours of vanilla garments; novelty and out-of-region uniforms excluded.",
+   "rules": [
+    {
+     "id": "un_skull",
+     "disposition": "excluded",
+     "name": "Uncuepa_BallisticHelmet_Skull",
+     "reason": "novelty_skull_helmet"
+    },
+    {
+     "id": "un_us_police",
+     "disposition": "excluded",
+     "name": "Uncuepa_Police(Jacket|Pants)_American",
+     "reason": "out_of_region_police_uniform"
+    },
+    {
+     "id": "un_clothing",
+     "disposition": "spawn",
+     "name": "Uncuepa_.*",
+     "size_check": true
+    }
+   ]
+  },
+  {
+   "id": "1797720064",
+   "name": "Windstride's Clothing Pack",
+   "folder": "@WindstridesClothingPack",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Civilian clothing and bags; novelty, fetish, branded, licensed-character, pin and tactical items excluded.",
+   "rules": [
+    {
+     "id": "ws_novelty",
+     "disposition": "excluded",
+     "name": "(Ragged_)?Eyepatch|Plague_Mask|SkullMask|HumanSkull",
+     "reason": "novelty_or_fantasy_item"
+    },
+    {
+     "id": "ws_internal",
+     "disposition": "excluded",
+     "name": "Gekoseasteregg|WSHeadDummy",
+     "reason": "internal_helper_or_easter_egg_item"
+    },
+    {
+     "id": "ws_pins",
+     "disposition": "excluded",
+     "name": "Button_Pin_.*|Golden_Winged_Pin|Sheriff_Badge",
+     "reason": "pin_slot_without_vanilla_peer_or_economy"
+    },
+    {
+     "id": "ws_brand",
+     "disposition": "excluded",
+     "name": "Adidas_Leggings",
+     "reason": "real_world_brand"
+    },
+    {
+     "id": "ws_fetish",
+     "disposition": "excluded",
+     "name": "Latex_.*",
+     "reason": "novelty_garment_out_of_setting"
+    },
+    {
+     "id": "ws_character",
+     "disposition": "excluded",
+     "name": "Layered_Shirt_(Cheburashka|Courage)",
+     "reason": "licensed_cartoon_character"
+    },
+    {
+     "id": "ws_tactical",
+     "disposition": "excluded",
+     "name": "Defender_Vest_.*|Tactical_Leg_Holster_.*",
+     "reason": "modern_tactical_gear_not_economy_tuned"
+    },
+    {
+     "id": "ws_gasmask",
+     "disposition": "spawn",
+     "name": "PMK_5A_Gas_Mask",
+     "peers": [
+      "GasMask"
+     ],
+     "size_check": true
+    },
+    {
+     "id": "ws_back_cloak",
+     "disposition": "spawn",
+     "name": "Leather_Cloak.*",
+     "peer_slot": "Back",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_backpack",
+     "disposition": "spawn",
+     "name": "Canvas_Backpack_.*",
+     "size_check": true
+    },
+    {
+     "id": "ws_body",
+     "disposition": "spawn",
+     "slot": [
+      "Body"
+     ],
+     "peer_slot": "Body",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_legs",
+     "disposition": "spawn",
+     "slot": [
+      "Legs"
+     ],
+     "peer_slot": "Legs",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_feet",
+     "disposition": "spawn",
+     "slot": [
+      "Feet"
+     ],
+     "peer_slot": "Feet",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_head",
+     "disposition": "spawn",
+     "slot": [
+      "Headgear"
+     ],
+     "peer_slot": "Headgear",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_gloves",
+     "disposition": "spawn",
+     "ancestor": [
+      "WorkingGloves_ColorBase"
+     ],
+     "size_check": true
+    },
+    {
+     "id": "ws_eyewear",
+     "disposition": "spawn",
+     "slot": [
+      "Eyewear"
+     ],
+     "peer_slot": "Eyewear",
+     "category": "clothes",
+     "size_check": true
+    },
+    {
+     "id": "ws_mask",
+     "disposition": "spawn",
+     "slot": [
+      "Mask"
+     ],
+     "peer_slot": "Mask",
+     "category": "clothes",
+     "extra_divisor": 2,
+     "size_check": true
+    }
+   ]
+  },
+  {
+   "id": "2579252958",
+   "name": "AdditionalMedicSupplies",
+   "folder": "@AdditionalMedicSupplies",
+   "licence": "No licence file; credits file names one third-party model source. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied. Its own economy files are not used (our CE rows are generated).",
+   "scope": "Medical supplies subset: stimulant, narcotic, methadone, pox injector, trinket and whistle classes dropped (owner, issue 232).",
+   "rules": [
+    {
+     "id": "ams_owner_subset",
+     "disposition": "excluded",
+     "name": "AMS_(Energy|Narcotics|Methadone|POX|GoldenStar|Whistle)",
+     "reason": "owner_subset_dropped_in_issue_232"
+    },
+    {
+     "id": "ams_medchest",
+     "disposition": "excluded",
+     "name": "AMS_MedChest_.*",
+     "reason": "needs_pack_dispatch_category_absent_from_hollow_country_map_groups"
+    },
+    {
+     "id": "ams_applied",
+     "disposition": "crafted",
+     "reason": "applied_state_of_the_splint",
+     "evidence": "derived",
+     "name": "AMS_Splint_Applied"
+    },
+    {
+     "id": "ams_dressings",
+     "disposition": "spawn",
+     "name": "AMS_(Absorbent|BandAid|Tourniquet|Splint)",
+     "peers": [
+      "BandageDressing"
+     ]
+    },
+    {
+     "id": "ams_antiseptic",
+     "disposition": "spawn",
+     "name": "AMS_AntiSept",
+     "peers": [
+      "DisinfectantSpray",
+      "IodineTincture"
+     ]
+    },
+    {
+     "id": "ams_drugs",
+     "disposition": "spawn",
+     "name": "AMS_(Aspirin|Polaris|Poter|Vikasol)",
+     "peers": [
+      "PainkillerTablets",
+      "CharcoalTablets",
+      "TetracyclineAntibiotics"
+     ]
+    },
+    {
+     "id": "ams_water_straw",
+     "disposition": "spawn",
+     "name": "AMS_WaterStraw",
+     "peers": [
+      "PurificationTablets"
+     ],
+     "category": "tools"
+    },
+    {
+     "id": "ams_kits",
+     "disposition": "spawn",
+     "name": "AMS_(Ai2|BandageBox|FirstAidKit|MFAK|NBCPouch.*)",
+     "peers": [
+      "FirstAidKit"
+     ]
+    },
+    {
+     "id": "ams_masks",
+     "disposition": "spawn",
+     "name": "AMS_GasMask(GP21|GP7B)",
+     "peers": [
+      "AirborneMask"
+     ]
+    },
+    {
+     "id": "ams_filters",
+     "disposition": "spawn",
+     "name": "AMS_GasMask(GP21|GP7B)_Filter",
+     "peers": [
+      "GasMask_Filter"
+     ]
+    },
+    {
+     "id": "ams_heatpack",
+     "disposition": "spawn",
+     "name": "AMS_Heatpack",
+     "peers": [
+      "Heatpack"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2752192852",
+   "name": "dzr_notes",
+   "folder": "@dzr_notes",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Player-written notes. Admin pens and admin papers never spawn; lead notes stay read-only (script side owned by the notes worker).",
+   "rules": [
+    {
+     "id": "dn_admin",
+     "disposition": "excluded",
+     "name": "DZR_(AdminPen.*|PaperWrittenAdmin.*)",
+     "reason": "admin_tool_never_spawns"
+    },
+    {
+     "id": "dn_written",
+     "disposition": "crafted",
+     "reason": "written_by_a_player_from_blank_paper",
+     "evidence": "script",
+     "name": "DZR_PaperWritten"
+    },
+    {
+     "id": "dn_folder_colours",
+     "disposition": "excluded",
+     "name": "DZR_File_Folder_.*",
+     "reason": "colour_variant_without_a_producer_in_the_pack_scripts"
+    },
+    {
+     "id": "dn_folder",
+     "disposition": "crafted",
+     "reason": "crafted_by_the_pack_recipe",
+     "evidence": "script",
+     "name": "DZR_File_Folder"
+    },
+    {
+     "id": "dn_tape",
+     "disposition": "spawn",
+     "name": "DZR_3MDuctTape",
+     "peers": [
+      "DuctTape"
+     ],
+     "extra_divisor": 4
+    }
+   ]
+  },
+  {
+   "id": "2670506982",
+   "name": "Building Fortifications",
+   "folder": "@BuildingFortifications",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Window and door barricade kits and parts; gameplay owned by the fortification worker.",
+   "rules": [
+    {
+     "id": "bf_kits",
+     "disposition": "crafted",
+     "reason": "crafted_by_the_pack_recipe",
+     "evidence": "script",
+     "name": "BF_(Door|DoubleDoor|Window|WindowMed)BarricadeKit|BF_WindowBarricadeMedKit|BF_DoubleDoorBarricadeKit"
+    },
+    {
+     "id": "bf_parts",
+     "disposition": "crafted",
+     "reason": "crafted_by_the_pack_recipe",
+     "evidence": "script",
+     "name": "BF_SlottedPlank|BurlapCurtain"
+    },
+    {
+     "id": "bf_built",
+     "disposition": "crafted",
+     "reason": "constructed_from_a_crafted_kit",
+     "evidence": "derived",
+     "name": "BF_.*Barricade.*"
+    }
+   ]
+  },
+  {
+   "id": "2757509117",
+   "name": "gebsfish",
+   "folder": "@gebsfish",
+   "licence": "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 (LICENSE ships in the folder); the author asks that the mod is not re-uploaded, mirrored or repacked and that servers use a Steam Collection. We only list it as an unmodified Workshop dependency and write server-side settings, never modified copies.",
+   "scope": "Fishing subset: rods, lures, bait gear, canned and packaged fish foods. Fishing clothing, boats, trailers and cosmetic knife skins excluded (owner, issue 232).",
+   "rules": [
+    {
+     "id": "gf_boats",
+     "disposition": "excluded",
+     "name": "geb_jonboat.*|geb_BoatTrailer",
+     "reason": "boat_vehicle_jon_boat_events_disabled"
+    },
+    {
+     "id": "gf_clothing",
+     "disposition": "excluded",
+     "name": "geb_.*Fish(Gloves|Hat|Raincoat|Shirt|Vest|Wellies).*",
+     "reason": "owner_subset_no_fishing_clothing"
+    },
+    {
+     "id": "gf_knives",
+     "disposition": "excluded",
+     "name": "geb_.*FishKnife.*",
+     "reason": "cosmetic_skin_of_the_vanilla_hunting_knife"
+    },
+    {
+     "id": "gf_old_tackle",
+     "disposition": "excluded",
+     "name": "geb_Old.*Tackle.*",
+     "reason": "cosmetic_worn_duplicate_of_the_tackle_box"
+    },
+    {
+     "id": "gf_opened",
+     "disposition": "crafted",
+     "reason": "opened_state_of_a_closed_item",
+     "evidence": "derived",
+     "name": "geb_.*_Opened"
+    },
+    {
+     "id": "gf_tuna_cans",
+     "disposition": "spawn",
+     "name": "geb_(Anchovies|KippersSnacks|KipperSnacks|MackerelTomato|SmokedMussels|MincedClams|SmokedOysters|SquidInk)Can",
+     "peers": [
+      "TunaCan"
+     ]
+    },
+    {
+     "id": "gf_sardine_cans",
+     "disposition": "spawn",
+     "name": "geb_(Bonito|Caviar|CodLiver|CrabMeat|Salmon|SmokedTrout|Sprats|Saury)Can",
+     "peers": [
+      "SardinesCan"
+     ]
+    },
+    {
+     "id": "gf_pork_cans",
+     "disposition": "spawn",
+     "name": "geb_(ClamChowder|FishSoup)Can",
+     "peers": [
+      "PorkCan"
+     ]
+    },
+    {
+     "id": "gf_lunch_cans",
+     "disposition": "spawn",
+     "name": "geb_(FishBalls|HerringMustard)Can",
+     "peers": [
+      "Lunchmeat"
+     ]
+    },
+    {
+     "id": "gf_spreads",
+     "disposition": "spawn",
+     "name": "geb_(CodRoeSpread|SalmonPate|SmokedFishSpread)",
+     "peers": [
+      "Pajka",
+      "Pate",
+      "BrisketSpread"
+     ]
+    },
+    {
+     "id": "gf_jars",
+     "disposition": "spawn",
+     "name": "geb_(PickledHerring|PickledMussels|RedCaviarJar)",
+     "peers": [
+      "Marmalade",
+      "Honey"
+     ]
+    },
+    {
+     "id": "gf_dry",
+     "disposition": "spawn",
+     "name": "geb_(BonitoFlakes|DriedSquidSnack|PrawnCrackers|FishJerky)",
+     "peers": [
+      "Chips",
+      "Crackers",
+      "SaltySticks",
+      "BoxCerealCrunchin"
+     ]
+    },
+    {
+     "id": "gf_vitamins",
+     "disposition": "spawn",
+     "name": "geb_FishOilPills",
+     "peers": [
+      "VitaminBottle"
+     ]
+    },
+    {
+     "id": "gf_repair",
+     "disposition": "spawn",
+     "name": "geb_FishingRodRepairKit",
+     "peers": [
+      "SewingKit"
+     ],
+     "category": "tools"
+    },
+    {
+     "id": "gf_rods",
+     "disposition": "spawn",
+     "name": "geb_(.*FishingRod|HeavySurfRod)",
+     "peers": [
+      "FishingRod"
+     ]
+    },
+    {
+     "id": "gf_lures",
+     "disposition": "spawn",
+     "name": "geb_.*(Jig|Lure|SpinnerBait|SpoonLure).*",
+     "peers": [
+      "Jig"
+     ]
+    },
+    {
+     "id": "gf_tackle",
+     "disposition": "spawn",
+     "name": "geb_.*Tackle",
+     "peers": [
+      "Hook"
+     ],
+     "category": "tools",
+     "usage": [
+      "Coast"
+     ]
+    },
+    {
+     "id": "gf_bait_gear",
+     "disposition": "spawn",
+     "name": "geb_(BugContainer|WormContainer|MinnowBucket)",
+     "peers": [
+      "Hook"
+     ],
+     "category": "tools",
+     "usage": [
+      "Coast"
+     ]
+    },
+    {
+     "id": "gf_tank",
+     "disposition": "spawn",
+     "name": "geb_FishTank",
+     "peers": [
+      "CeramicPot_Black",
+      "CeramicPot_Gray",
+      "CeramicPot_Natural",
+      "CeramicPot_White"
+     ],
+     "category": "tools"
+    },
+    {
+     "id": "gf_stations",
+     "disposition": "crafted",
+     "reason": "crafted_by_the_pack_recipe",
+     "evidence": "script",
+     "name": "geb_(BambooFishingNet|FishDryingRack|FishDryingRackKit|FishingLocker|FishTankStand|WoodenFishMount|MediumFishMount|LargeFishMount)"
+    },
+    {
+     "id": "gf_catch",
+     "disposition": "crafted",
+     "reason": "caught_by_fishing_or_spearing",
+     "evidence": "script",
+     "slot": [
+      "TrapPrey_1"
+     ]
+    },
+    {
+     "id": "gf_processed",
+     "disposition": "crafted",
+     "reason": "cut_from_a_catch_by_the_pack_recipe",
+     "evidence": "script",
+     "slot": [
+      "GebDryingRackA"
+     ]
+    },
+    {
+     "id": "gf_bait_catch",
+     "disposition": "crafted",
+     "reason": "collected_as_bait_or_trap_catch",
+     "evidence": "script",
+     "ancestor": [
+      "Shrimp",
+      "Worm",
+      "RedCaviar"
+     ]
+    },
+    {
+     "id": "gf_coolers",
+     "disposition": "spawn",
+     "name": "geb_.*Cooler",
+     "peers": [
+      "WaterproofBag_Green",
+      "WaterproofBag_Orange",
+      "WaterproofBag_Yellow"
+     ]
+    }
+   ],
+   "settings_files": [
+    {
+     "id": "gf_general",
+     "root": "profile",
+     "target": "Gebs/general.json",
+     "tokens": [
+      "general"
+     ],
+     "reason": "predator spawns and the treasure catch off; the sections are complete because a missing field of a present section reads as zero",
+     "json": {
+      "PredatorSettings": {
+       "PredatorSpawnEnabled": 0,
+       "PredatorSpawnChanceFishing": 0.0,
+       "PredatorSpawnChancePreparing": 0.0,
+       "PredatorSpawnChanceFailCatch": 0.0,
+       "PredatorWarningSoundEnable": 1,
+       "PredatorWarningSoundRadius": 50,
+       "PredatorWarningMessageEnable": 1,
+       "PredatorWarningMessageGreen": 0,
+       "PredatorWarningMessageRed": 0,
+       "PredatorWarningMessageYellow": 1,
+       "PredatorWarningMessageGrey": 0
+      },
+      "TreasureSettings": {
+       "Enable": 0,
+       "Chance": 0.0,
+       "Announce": 0,
+       "RequireRealRod": 1,
+       "RodCatchesToRuin": 3
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "3157695626",
+   "name": "RaG_BaseBuilding",
+   "folder": "@RaG_BaseBuilding",
+   "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
+   "scope": "Shelter-scale kits only (floor, wall, low wall, single door, small window, roof) through its craft toggles; larger structures excluded.",
+   "rules": [
+    {
+     "id": "rb_book",
+     "disposition": "spawn",
+     "name": "RaG_BB_Book",
+     "peers": [
+      "BloodTestKit"
+     ],
+     "category": "tools",
+     "usage": [
+      "Town",
+      "Village",
+      "School",
+      "Office"
+     ]
+    },
+    {
+     "id": "rb_kits",
+     "disposition": "crafted",
+     "reason": "shelter_scale_kit_enabled_through_craft_toggles",
+     "evidence": "script",
+     "name": "RaG_BB_(Floor|Wall|Low_Wall|Single_Door|Window_Small|Roof)Kit"
+    },
+    {
+     "id": "rb_built",
+     "disposition": "crafted",
+     "reason": "constructed_from_an_enabled_shelter_kit",
+     "evidence": "derived",
+     "name": "RaG_BB_(Floor|Wall|Low_Wall|Single_Door|Window_Small|Roof)(_Hologram|_BookHolo)?"
+    },
+    {
+     "id": "rb_large",
+     "disposition": "excluded",
+     "name": "RaG_BB_.*",
+     "reason": "not_shelter_scale_kit_disabled_through_craft_toggles"
+    }
+   ],
+   "settings_files": [
+    {
+     "id": "rb_toggles",
+     "root": "profile",
+     "target": "RaG_Core/Configs/RaG_BaseBuilding/RaG_BaseBuilding.json",
+     "tokens": [
+      "RaG_BaseBuilding"
+     ],
+     "reason": "craft toggles: shelter-scale kits on, every other kit off",
+     "json": {
+      "CraftToggles": [
+       {
+        "Kit": "CeilingKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "DoorKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "FloorKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "FoundationKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "GateKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "GateLeftKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "GateRightKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "HatchKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "LowWallKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "PillarKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "RampKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "RoofKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "SingleDoorKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "SmallWindowKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "Staircase2Kit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "StaircaseKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "StairsKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "StepLadder",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "WallKit",
+        "ENABLED": 1
+       },
+       {
+        "Kit": "WindowKit",
+        "ENABLED": 0
+       },
+       {
+        "Kit": "WoodStorageKit",
+        "ENABLED": 0
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

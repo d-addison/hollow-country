@@ -54,7 +54,7 @@ SOURCE = lts.ROOT / 'mission/hollow-country'
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowlist.json',
-                'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py', 'overlay_stack.py',
+                'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'variety_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py', 'overlay_stack.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py', 'firearms_roster.json',
                 'hc_events.py', 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py',
                 'military_loot.py', 'military_loot_allowlist.json', 'pbo.py', 'ce_coverage.py', 'interior_templates.py',
@@ -114,6 +114,8 @@ PROFILE_INCLUDE = (
     'HollowCountry/performance.json',
     'ExpansionMod/Settings/AISettings.json',
     'ExpansionMod/Loadouts/HollowCountry_*.json',
+    # Third-party variety pack settings authored in config/variety-packs.json (exact files, never patterns).
+    *overlays.variety_optional.profile_files(overlays.VARIETY_TYPES),
 )
 PORTS = '2302-2305 UDP (game) and 27016 UDP (Steam query)'
 MISSION_TEMPLATE = re.compile(r'\btemplate\s*=\s*"([^"\r\n]+)"\s*;')
@@ -293,6 +295,7 @@ def repo_profile_sources():
         sources['HollowCountry/templates/' + path.relative_to(SOURCE / 'interiors/templates').as_posix()] = path
     sources.update({rel: (json.dumps(data, indent=4) + '\n').encode('utf-8')
                     for rel, data in BASELINE_PROFILES.items()})
+    sources.update(overlays.variety_optional.profile_files(overlays.VARIETY_TYPES))
     return sources
 
 

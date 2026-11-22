@@ -32,6 +32,8 @@ GENERATORS = (
     Generator('military_loot', ('--check',)),
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
               ('addons', 'inventory_stack')),
+    Generator('variety_packs', ('--check', '--addons', '{addons}', '--workshop', '{workshop}', '--source', '{source}'),
+              ('addons', 'source', 'variety_packs')),
     Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
               'committed bytes match fresh generation'),
     Generator('loot_point_preserve', ('--check', '--prior', '{prior}', '--candidate', '{candidate}',
@@ -82,6 +84,10 @@ def missing_inputs(generator, values):
                 path = values['workshop'] / inventory_sources.WORKSHOP_FOLDERS.get(folder, folder) / 'addons'
                 if not path.is_dir():
                     return 'installed inventory provider Addons directory unavailable'
+        elif name == 'variety_packs':
+            from tools.package import variety_packs
+            if any(path is None for path in variety_packs.pack_directories(values['workshop']).values()):
+                return 'installed variety pack Addons directory unavailable'
         else:
             path = values[name]
             is_file = name.endswith('_report')
