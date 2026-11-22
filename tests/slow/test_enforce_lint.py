@@ -128,6 +128,49 @@ class HCGrouped {{
         found = run({W + 'Grouped.c': text}, 'HC-E016')
         self.assertEqual([('Grouped.c', line, '<file>.Check') for line in (3, 4)], where(found))
 
+    def test_handle_null_checks_cover_indexed_elements_and_static_members(self):
+        text = '''typedef array<FileHandle> HCHandleList;
+class HCBracketed {
+    FileHandle m_Fixed[2];
+    ref array<FileHandle> m_List;
+    ref HCHandleList m_Aliased;
+    static FileHandle s_Shared;
+    void Check(array<FileHandle> param) {
+        FileHandle local[3];
+        FileHandle plain, grouped[2];
+        if (m_Fixed[0] != null) {}
+        if (null == m_List[Pick(1, 2)]) {}
+        if ((m_Aliased[1]) != (null)) {}
+        if (HCBracketed.s_Shared != null) {}
+        if (local[1] == null) {}
+        if (grouped[0] != null) {}
+        if (param[0] != null) {}
+        if (plain != null) {}
+    }
+}
+'''
+        found = run({W + 'Bracketed.c': text}, 'HC-E016')
+        self.assertEqual([('Bracketed.c', line, 'HCBracketed.Check')
+                          for line in (10, 11, 12, 13, 14, 15, 16, 17)], where(found))
+
+    def test_handle_null_checks_ignore_arrays_and_non_handle_elements(self):
+        text = '''class HCBracketed {
+    FileHandle m_Fixed[2];
+    ref array<Object> m_Objects;
+    ref array<string> m_Names;
+    void Check(int index) {
+        Object found[2];
+        if (m_Fixed != null) {}
+        if (m_Objects[index] != null) {}
+        if (m_Names[0] != null) {}
+        if (found[0] != null) {}
+        if (m_Fixed[0].Get() != null) {}
+        if (null == Pick(m_Fixed)[0]) {}
+    }
+}
+'''
+        self.assertEqual([], run({W + 'Bracketed.c': text}, 'HC-E016'))
+
     def test_ternary_is_flagged_outside_strings_and_comments(self):
         found = run({W + 'T.c': 'class HCT\n{\n    int A(bool b)\n    {\n        return b ? 1 : 0;\n    }\n'
                                 '    string B() { return "?"; } // ?\n}\n'}, 'HC-E001')
@@ -457,8 +500,7 @@ class CurrentTree(unittest.TestCase):
         self.assertEqual([], stale, 'a baselined finding is gone: remove it from enforce_lint_baseline.json')
 
     def test_every_baseline_entry_carries_a_review_note(self):
-        entries = self.baseline['entries']
-        self.assertTrue(entries)
+        entries = self.baseline['entries']  # empty is the target state
         for entry in entries:
             self.assertIn(entry['rule'], lint.RULES)
             self.assertTrue(entry.get('review', '').strip())
