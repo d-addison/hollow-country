@@ -462,7 +462,10 @@ class HCInfectedDoorsModule : HCModule
             entry.m_WatchUntil = -1;
             return;
         }
-        if (!building.IsDoorClosed(doorIndex))
+        // A fortification pack barricade can stand in front of an open door too.
+        bool doorClosed = building.IsDoorClosed(doorIndex);
+        bool fortified = HCFortifyBridge.HCActive();
+        if (!doorClosed && !fortified)
         {
             entry.HCAdvance(HCInfectedDoorPolicy.KIND_NONE, HCInfectedDoorPolicy.LOCK_NONE, m_Clock);
             return;
@@ -475,8 +478,10 @@ class HCInfectedDoorsModule : HCModule
         int candidates = 0;
         int kind = HCInfectedDoorPolicy.KIND_NONE;
         ZombieBase chosen;
+        Object barricade;
         for (int objectIndex = 0; objectIndex < inspected; objectIndex++)
         {
+            if (fortified && !barricade && HCFortifyBridge.HCBlocksDoor(m_Objects[objectIndex])) { barricade = m_Objects[objectIndex]; }
             ZombieBase infected = ZombieBase.Cast(m_Objects[objectIndex]);
             if (!infected) { continue; }
             candidates = candidates + 1;
@@ -490,6 +495,18 @@ class HCInfectedDoorsModule : HCModule
         }
         m_Objects.Clear();
         m_Proxies.Clear();
+        // Pressure on a barricaded door lands on the barricade through the native
+        // damage path at the configured rate; the door itself is untouched until it falls.
+        if (barricade && kind != HCInfectedDoorPolicy.KIND_NONE && chosen)
+        {
+            HCPressBarricade(entry, barricade, kind, chosen, doorPos);
+            return;
+        }
+        if (!doorClosed)
+        {
+            entry.HCAdvance(HCInfectedDoorPolicy.KIND_NONE, HCInfectedDoorPolicy.LOCK_NONE, m_Clock);
+            return;
+        }
         int lockState = HCInfectedDoorPolicy.LOCK_NONE;
         if (kind != HCInfectedDoorPolicy.KIND_NONE) { lockState = LockState(building, doorIndex); }
         int action = entry.HCAdvance(kind, lockState, m_Clock);
@@ -505,6 +522,24 @@ class HCInfectedDoorsModule : HCModule
         }
         if (action == HCInfectedDoorPolicy.ACTION_NONE || !chosen) { return; }
         Apply(entry, action, chosen, doorPos);
+    }
+
+    // One bounded breach step per visit: elapsed time is clamped to the door
+    // tuning MaxStep and a lapsed contact starts fresh, like HCAdvance.
+    protected void HCPressBarricade(HCInfectedDoorPressure entry, Object barricade, int kind, ZombieBase chosen, vector doorPos)
+    {
+        float step = 0;
+        if (entry.m_BarricadeAt >= 0 && m_Clock - entry.m_BarricadeAt <= HCInfectedTuning.Get().Doors.Grace)
+        {
+            step = Math.Min(m_Clock - entry.m_BarricadeAt, HCInfectedTuning.Get().Doors.MaxStep);
+        }
+        entry.m_BarricadeAt = m_Clock;
+        // A refused breach (damage disabled by the server) must not refresh the
+        // hot-priority stamp, or this door would starve the others (HC-8).
+        if (HCFortifyBridge.HCBreach(barricade, step, kind == HCInfectedDoorPolicy.KIND_HEAVY) == 0) { return; }
+        entry.m_LastHot = m_Clock;
+        HCWarnPressure(entry, kind, doorPos);
+        Noise(chosen, doorPos);
     }
 
     // <=4 visited doors/tick, <=32 roster entries per cue, one RPC per nearby

@@ -352,6 +352,19 @@ class HCBuildingClaim
         return true;
     }
 
+    // True when a recorded claim envelope (the same visit radius) covers the
+    // position. Read only; lets fortification kits tell claimed from unclaimed ground.
+    static bool HCClaimCoversAt(vector position)
+    {
+        if (!s_Instance || s_Instance.m_OperatorDisabled || !s_Instance.m_Healthy) { return false; }
+        float radius = s_Instance.m_Config.VisitRadiusMeters;
+        foreach (HCBuildingClaimRecord claim : s_Instance.m_Data.Claims)
+        {
+            if (vector.DistanceSq(position, claim.Position) <= radius * radius) { return true; }
+        }
+        return false;
+    }
+
     // AI cannot fortify a player's claimed building or hearth camp. There is
     // no implicit AI group ownership and no mutation of native doors/locks.
     static bool HCAIFortificationAllowed(vector position)

@@ -211,6 +211,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableProgression", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableGroupScaling", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTapedPackMounts", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableFortify", "bool", 1, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
         HCAdd("MaxActiveHordes", "int", 4, 1, 12, "HCSettings");
@@ -221,6 +222,8 @@ class HCOperatorSettingsRegistry
         HCAdd("MaxBoundSearchSites", "int", 256, 1, 1024, "HCSettings");
         HCAdd("InfectedBindRadius", "int", 30, 5, 60, "HCSettings");
         HCAdd("MaxBindQueriesPerTick", "int", 2, 1, 8, "HCSettings");
+        HCAdd("FortifyUnclaimedBuild", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("FortifyBreachSeconds", "int", 90, 10, 900, "HCSettings");
         HCAdd("AILimits", "object", 0, 0, 0, "HCAILimits");
         HCAdd("AILimits.MaxLiveGroups", "int", 15, 1, 24, "HCAILimits");
         HCAdd("AILimits.MaxLiveAI", "int", 72, 1, 128, "HCAILimits");
@@ -542,6 +545,8 @@ class HCSettings
     // Wave 16 owner decision: default true. A missing JSON key keeps this default through the HCJsonFields.Has guard in LoadFromProfile
     // (JsonFileLoader would zero-fill it to false). Receipts record checks; a per-row Disabled opt-out or this setting turns pairs off.
     bool EnableTapedPackMounts = true;
+    // Fortification packs (barricades, shelter kits): bridge is active only while a pack is loaded.
+    bool EnableFortify = true;
     // Optional: JsonFileLoader absent ints are 0; progression resolves 0 to 128.
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
@@ -556,6 +561,8 @@ class HCSettings
     float SearchDensityScale = 0;
     int InfectedBindRadius = 30;
     int MaxBindQueriesPerTick = 2;
+    bool FortifyUnclaimedBuild = true;
+    int FortifyBreachSeconds = 90;
 
     ref HCAILimits AILimits = new HCAILimits;
 
@@ -592,6 +599,9 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableProgression")) { settings.EnableProgression = defaults.EnableProgression; }
         if (!HCJsonFields.Has(content, "EnableGroupScaling")) { settings.EnableGroupScaling = defaults.EnableGroupScaling; }
         if (!HCJsonFields.Has(content, "EnableTapedPackMounts")) { settings.EnableTapedPackMounts = defaults.EnableTapedPackMounts; }
+        if (!HCJsonFields.Has(content, "EnableFortify")) { settings.EnableFortify = defaults.EnableFortify; }
+        if (!HCJsonFields.Has(content, "FortifyUnclaimedBuild")) { settings.FortifyUnclaimedBuild = defaults.FortifyUnclaimedBuild; }
+        if (!HCJsonFields.Has(content, "FortifyBreachSeconds")) { settings.FortifyBreachSeconds = defaults.FortifyBreachSeconds; }
         if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
         if (!HCJsonFields.Has(content, "MaxFurnishedProps")) { settings.MaxFurnishedProps = defaults.MaxFurnishedProps; }
     }
@@ -622,6 +632,7 @@ class HCSettings
         else if (!HCOperatorSettingsRegistry.HCValid("MaxBoundSearchSites", MaxBoundSearchSites)) error = "Bound search site budget outside 1..1024";
         else if (!HCOperatorSettingsRegistry.HCValid("InfectedBindRadius", InfectedBindRadius)) error = "Infected bind radius outside 5..60";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxBindQueriesPerTick", MaxBindQueriesPerTick)) error = "Bind query budget outside 1..8";
+        else if (!HCOperatorSettingsRegistry.HCValid("FortifyBreachSeconds", FortifyBreachSeconds)) error = "Fortify breach seconds outside 10..900";
         else if (EnableSearch && !EnableInteriors) error = "Search requires interiors";
         else if ((EnableHordes || EnableAlertChains) && !EnableInfected) error = "Hordes/chains require infected";
         return error == "";
@@ -687,6 +698,7 @@ class HCSettings
         if (HCLogNonDefault("EnableProgression", EnableProgression.ToString(), defaults.EnableProgression.ToString())) { changed++; }
         if (HCLogNonDefault("EnableGroupScaling", EnableGroupScaling.ToString(), defaults.EnableGroupScaling.ToString())) { changed++; }
         if (HCLogNonDefault("EnableTapedPackMounts", EnableTapedPackMounts.ToString(), defaults.EnableTapedPackMounts.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableFortify", EnableFortify.ToString(), defaults.EnableFortify.ToString())) { changed++; }
         if (HCLogNonDefault("TickIntervalMs", TickIntervalMs.ToString(), defaults.TickIntervalMs.ToString())) { changed++; }
         if (HCLogNonDefault("MaxTickWorkItems", MaxTickWorkItems.ToString(), defaults.MaxTickWorkItems.ToString())) { changed++; }
         if (HCLogNonDefault("MaxActiveHordes", MaxActiveHordes.ToString(), defaults.MaxActiveHordes.ToString())) { changed++; }
@@ -705,6 +717,8 @@ class HCSettings
         if (HCLogNonDefault("MaxBoundSearchSites", effectiveMaxBoundSearchSites.ToString(), defaultMaxBoundSearchSites.ToString())) { changed++; }
         if (HCLogNonDefault("InfectedBindRadius", InfectedBindRadius.ToString(), defaults.InfectedBindRadius.ToString())) { changed++; }
         if (HCLogNonDefault("MaxBindQueriesPerTick", MaxBindQueriesPerTick.ToString(), defaults.MaxBindQueriesPerTick.ToString())) { changed++; }
+        if (HCLogNonDefault("FortifyUnclaimedBuild", FortifyUnclaimedBuild.ToString(), defaults.FortifyUnclaimedBuild.ToString())) { changed++; }
+        if (HCLogNonDefault("FortifyBreachSeconds", FortifyBreachSeconds.ToString(), defaults.FortifyBreachSeconds.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.MaxLiveGroups", AILimits.MaxLiveGroups.ToString(), defaults.AILimits.MaxLiveGroups.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.MaxLiveAI", AILimits.MaxLiveAI.ToString(), defaults.AILimits.MaxLiveAI.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.OccupationMin", AILimits.OccupationMin.ToString(), defaults.AILimits.OccupationMin.ToString())) { changed++; }

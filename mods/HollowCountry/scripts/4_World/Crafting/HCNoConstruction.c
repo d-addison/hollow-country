@@ -38,6 +38,14 @@ modded class ActionBuildPart
             if (action_data.m_Player) { action_data.m_Player.MessageStatus("Building refused: claim ownership or group access changed."); }
             return;
         }
+        // Fortification packs: claim members only (or unclaimed ground by setting).
+        string fortifyReason = HCFortifyBridge.HCBuildReason(action_data.m_Player, action_data.m_Target.GetObject());
+        if (fortifyReason != "")
+        {
+            HCFortifyBridge.HCRefuse(fortifyReason);
+            if (action_data.m_Player) { action_data.m_Player.MessageStatus(HCFortifyBridge.HCReasonText(fortifyReason)); }
+            return;
+        }
         super.OnFinishProgressServer(action_data);
     }
 }
@@ -65,6 +73,7 @@ modded class ActionDeployBase
     override void OnFinishProgressServer(ActionData action_data)
     {
         PlaceObjectActionData placement = PlaceObjectActionData.Cast(action_data);
+        bool packKit = false;
         if (placement && placement.m_MainItem)
         {
             ItemBase kit = placement.m_MainItem;
@@ -76,7 +85,17 @@ modded class ActionDeployBase
                     return;
                 }
             }
+            string fortifyReason = HCFortifyBridge.HCPlacementReason(placement.m_Player, kit, placement.m_Position);
+            if (fortifyReason != "")
+            {
+                HCFortifyBridge.HCRefuse(fortifyReason);
+                if (placement.m_Player) { placement.m_Player.MessageStatus(HCFortifyBridge.HCReasonText(fortifyReason)); }
+                return;
+            }
+            packKit = HCFortifyBridge.HCActive() && HCFortifyBridge.HCIsPackKit(kit);
         }
         super.OnFinishProgressServer(action_data);
+        // The kit may delete itself on placement; the flag was read before the commit.
+        if (packKit && placement.m_AlreadyPlaced) { HCFortifyBridge.HCPlaced(); }
     }
 }

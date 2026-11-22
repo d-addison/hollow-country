@@ -42,6 +42,9 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected eAIBase m_Actor;
     protected Object m_Seen;
     protected Building m_Building;
+    protected Object m_RayBarricade;
+    protected Object m_Barricade;
+    protected int m_BreachAt;
     protected ItemBase m_Source;
     protected int m_Door = -1;
     protected int m_Component = -1;
@@ -108,19 +111,69 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     bool HCVisible(Object target, vector point)
     {
+        m_RayBarricade = null;
         vector contact;
         vector normal;
         int component;
         set<Object> hits = new set<Object>;
         bool blocked = DayZPhysics.RaycastRV(HCXExpansionBridge.HCBaseGetPosition(m_Actor) + Vector(0, 1.6, 0), point, contact, normal, component, hits, null, m_Actor);
         if (!blocked) { m_Component = -1; return true; }
-        if (hits.Find(target) < 0 || vector.Distance(contact, point) > UAMaxDistances.DEFAULT) { return false; }
+        if (hits.Find(target) < 0)
+        {
+            // Stopped short of the target: remember a barricade that did it (breach target).
+            m_RayBarricade = HCRayBarricade(hits);
+            return false;
+        }
+        if (vector.Distance(contact, point) > UAMaxDistances.DEFAULT) { return false; }
         m_Component = component;
         return true;
     }
 
+    // Only raiders breach; visitors and traders (other factions) never target a barricade.
+    protected bool HCBreachAllowed() { return m_Site && m_Site.ProviderFaction == "HCRaiders"; }
+
+    // A standing doorway barricade among the ray hits (bounded scan).
+    protected Object HCRayBarricade(set<Object> hits)
+    {
+        if (!HCBreachAllowed() || !HCFortifyBridge.HCActive()) { return null; }
+        int count = Math.Min(hits.Count(), 8);
+        for (int index = 0; index < count; index++)
+        {
+            if (HCFortifyBridge.HCBlocksDoor(hits[index])) { return hits[index]; }
+        }
+        return null;
+    }
+
+    // The ray that just failed to reach the door was stopped by a barricade at that
+    // doorway: it becomes the breach target. Perception stays line-of-sight and range bound.
+    protected bool HCBarricadeSensed(vector doorway)
+    {
+        if (!m_RayBarricade || !HCBreachAllowed()) { return false; }
+        if (vector.DistanceSq(m_RayBarricade.GetPosition(), doorway) > 16) { return false; }
+        m_Barricade = m_RayBarricade;
+        m_Component = -1;
+        return true;
+    }
+
+    // One bounded breach step per raid step, standing at the barricade with it in sight.
+    protected void HCBreachBarricade(int now)
+    {
+        if (!m_Barricade || !HCBreachAllowed() || !HCLiveParty() || m_Barricade.IsPendingDeletion())
+        {
+            m_Barricade = null;
+            m_BreachAt = 0;
+            return;
+        }
+        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Barricade.GetPosition()) > 16 || !HCPerceive(m_Barricade, m_Point)) { return; }
+        int last = m_BreachAt;
+        m_BreachAt = now;
+        if (last < 1 || now <= last) { return; }
+        HCFortifyBridge.HCBreach(m_Barricade, now - last, false);
+    }
+
     bool HCPerceive(Object target, vector point)
     {
+        m_RayBarricade = null;
         if (!m_Actor || !target || !m_Config) { return false; }
         if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), point) > m_Config.NoticeRangeMeters * m_Config.NoticeRangeMeters) { return false; }
         return HCVisible(target, point);
@@ -136,6 +189,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_Seen = null;
         m_Source = null;
         m_Building = null;
+        m_Barricade = null;
         m_Door = -1;
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return; }
@@ -177,7 +231,16 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_DoorCursor++;
         if (!HCBuildingClaim.HCDoor(house, door)) { return; }
         vector doorway = house.GetDoorSoundPos(door);
-        if (!HCPerceive(house, doorway)) { return; }
+        if (!HCPerceive(house, doorway))
+        {
+            // A barricade in the doorway hides the door; it is the target instead.
+            if (!HCBarricadeSensed(doorway)) { return; }
+            m_Building = house;
+            m_Door = door;
+            m_Seen = house;
+            m_Point = doorway;
+            return;
+        }
         // A wall hit is not perception of the door behind that wall.
         if (m_Component < 0 || house.GetDoorIndex(m_Component) != door) { return; }
         m_Building = house;
@@ -200,13 +263,19 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected bool HCObservedCamp(HCCampRecord camp, HCCampScan scan)
     {
         if (!camp || !scan || !m_Seen || !HCLiveParty()) { return false; }
-        if (!HCPerceive(m_Seen, m_Point)) { return false; }
+        bool barricaded = false;
+        if (!HCPerceive(m_Seen, m_Point))
+        {
+            if (!HCBarricadeSensed(m_Point)) { return false; }
+            barricaded = true;
+        }
         if (m_Source)
         {
             return HCCampScan.RefOf(m_Source) == camp.FireRef || scan.Crates.Find(m_Source) >= 0;
         }
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
-        if (!claims || !m_Building || m_Component < 0 || m_Building.GetDoorIndex(m_Component) != m_Door) { return false; }
+        if (!claims || !m_Building) { return false; }
+        if (!barricaded && (m_Component < 0 || m_Building.GetDoorIndex(m_Component) != m_Door)) { return false; }
         return claims.HCHoldsClaim(camp.GroupId.ToInt(), HCBuildingClaim.HCIdentity(m_Building));
     }
 
@@ -387,6 +456,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
             HCBuildingClaim claims = HCBuildingClaim.HCGet();
             if (!claims || !claims.HCHoldsClaim(m_Camp.GroupId.ToInt(), HCBuildingClaim.HCIdentity(m_Building))) { HCCancel(); return; }
             HCTryLockpick();
+            HCBreachBarricade(now);
             HCFindLoot();
         }
         if (m_Source && HCPerceive(m_Source, m_Source.GetPosition())) { HCTakeLoot(); }
@@ -416,6 +486,9 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_Seen = null;
         m_Source = null;
         m_Building = null;
+        m_Barricade = null;
+        m_RayBarricade = null;
+        m_BreachAt = 0;
         m_Site = null;
         m_Actor = null;
     }

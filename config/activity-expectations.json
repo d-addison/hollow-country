@@ -1314,6 +1314,60 @@
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c",
       "scope": "runtime",
       "note": "Pack food passed the 1.30 temperature-init contract guard. Module is enabled only when the food pack is present."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify-placed",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Fortify feature=fortify_placed count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
+      "scope": "runtime",
+      "note": "Pack barricade or shelter-scale kit placed by a claim member or on unclaimed ground (only while a fortification pack is loaded)."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify-refused",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Fortify feature=fortify_refused count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
+      "scope": "runtime",
+      "note": "Fortification build or placement refused by the bridge (claim, scale, damage-disabled or build-anywhere reason code)."
+    },
+    {
+      "module": "Fortify",
+      "feature": "barricade-breached",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Fortify feature=barricade_breached count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
+      "scope": "runtime",
+      "note": "Barricade damaged by infected door pressure or a raider breach step through the native damage path."
     }
   ]
 }
