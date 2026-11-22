@@ -197,24 +197,24 @@ class HCXAIRoleConfig
         string error;
         HCXAIRoleConfig decoded;
         if (!HCGroupIO.Read(path, config.MaxConfigBytes, text)) { return null; }
-        if (!JsonFileLoader<HCXAIRoleConfig>.LoadData(text, decoded, error) || !decoded) { return null; }
+        if (!HCJsonSchemaLoader<HCXAIRoleConfig>.HCLoadData(text, decoded, error) || !decoded) { return null; }
         // Scalar omissions retain defaults; table omissions retain the entire
         // compiled table. An explicit empty/malformed table is an operator error.
-        if (HCJsonFields.Has(text, "Enabled")) { config.Enabled = decoded.Enabled; }
-        if (HCJsonFields.Has(text, "EnableCarRepair")) { config.EnableCarRepair = decoded.EnableCarRepair; }
-        if (HCJsonFields.Has(text, "GroupsPerTick")) { config.GroupsPerTick = decoded.GroupsPerTick; }
-        if (HCJsonFields.Has(text, "MaxActive")) { config.MaxActive = decoded.MaxActive; }
-        if (HCJsonFields.Has(text, "CooldownSeconds")) { config.CooldownSeconds = decoded.CooldownSeconds; }
-        if (HCJsonFields.Has(text, "RetrySeconds")) { config.RetrySeconds = decoded.RetrySeconds; }
-        if (HCJsonFields.Has(text, "DangerMemorySeconds")) { config.DangerMemorySeconds = decoded.DangerMemorySeconds; }
-        if (HCJsonFields.Has(text, "SupplyNeedBelow")) { config.SupplyNeedBelow = decoded.SupplyNeedBelow; }
-        if (HCJsonFields.Has(text, "NightStartHour")) { config.NightStartHour = decoded.NightStartHour; }
-        if (HCJsonFields.Has(text, "NightEndHour")) { config.NightEndHour = decoded.NightEndHour; }
-        if (HCJsonFields.Has(text, "LogSeconds")) { config.LogSeconds = decoded.LogSeconds; }
-        if (HCJsonFields.Has(text, "MaxTableRows")) { config.MaxTableRows = decoded.MaxTableRows; }
-        if (HCJsonFields.Has(text, "PerceivedInfectedMeters")) { config.PerceivedInfectedMeters = decoded.PerceivedInfectedMeters; }
-        if (HCJsonFields.Has(text, "TicketCycle")) { config.TicketCycle = decoded.TicketCycle; }
-        if (HCJsonFields.Has(text, "MaxConfigBytes")) { config.MaxConfigBytes = decoded.MaxConfigBytes; }
+        config.Enabled = HCJsonSchema.HCApplyBool(text, "Enabled", decoded.Enabled, config.Enabled);
+        config.EnableCarRepair = HCJsonSchema.HCApplyBool(text, "EnableCarRepair", decoded.EnableCarRepair, config.EnableCarRepair);
+        config.GroupsPerTick = HCJsonSchema.HCApplyInt(text, "GroupsPerTick", decoded.GroupsPerTick, config.GroupsPerTick);
+        config.MaxActive = HCJsonSchema.HCApplyInt(text, "MaxActive", decoded.MaxActive, config.MaxActive);
+        config.CooldownSeconds = HCJsonSchema.HCApplyInt(text, "CooldownSeconds", decoded.CooldownSeconds, config.CooldownSeconds);
+        config.RetrySeconds = HCJsonSchema.HCApplyInt(text, "RetrySeconds", decoded.RetrySeconds, config.RetrySeconds);
+        config.DangerMemorySeconds = HCJsonSchema.HCApplyInt(text, "DangerMemorySeconds", decoded.DangerMemorySeconds, config.DangerMemorySeconds);
+        config.SupplyNeedBelow = HCJsonSchema.HCApplyInt(text, "SupplyNeedBelow", decoded.SupplyNeedBelow, config.SupplyNeedBelow);
+        config.NightStartHour = HCJsonSchema.HCApplyInt(text, "NightStartHour", decoded.NightStartHour, config.NightStartHour);
+        config.NightEndHour = HCJsonSchema.HCApplyInt(text, "NightEndHour", decoded.NightEndHour, config.NightEndHour);
+        config.LogSeconds = HCJsonSchema.HCApplyInt(text, "LogSeconds", decoded.LogSeconds, config.LogSeconds);
+        config.MaxTableRows = HCJsonSchema.HCApplyInt(text, "MaxTableRows", decoded.MaxTableRows, config.MaxTableRows);
+        config.PerceivedInfectedMeters = HCJsonSchema.HCApplyFloat(text, "PerceivedInfectedMeters", decoded.PerceivedInfectedMeters, config.PerceivedInfectedMeters);
+        config.TicketCycle = HCJsonSchema.HCApplyInt(text, "TicketCycle", decoded.TicketCycle, config.TicketCycle);
+        config.MaxConfigBytes = HCJsonSchema.HCApplyInt(text, "MaxConfigBytes", decoded.MaxConfigBytes, config.MaxConfigBytes);
         if (HCJsonFields.Has(text, "Rules"))
         {
             string ruleImage = HCXAIRoleJson.HCArray(text, "Rules");
@@ -237,64 +237,26 @@ class HCXAIRoleConfig
     }
 }
 
-// Bounded top-level table extraction after successful JSON decoding. Strings
-// and escaped brackets are skipped. Every() can then enforce each row at depth
-// two without confusing Rules and Activities or accepting nested lookalikes.
-// Native EnString.c:113 Substring, :199 Length, :448 Get.
+// Extract only a root table from successfully decoded, bounded JSON. Keep the
+// brackets so Every() validates rows at depth two, as in existing profiles.
 class HCXAIRoleJson
 {
-    // Per-character reads go through the shared 1 KB HCTextWindow (boot 084: raw Get cost grows
-    // with the text size); the extracted array is copied out in clamped 1 KB pieces.
     static string HCArray(string text, string key)
     {
         HCTextWindow window = new HCTextWindow(text);
-        int length = text.Length();
-        int cursor = 0;
-        int depth = 0;
-        int start = -1;
-        bool selected = false;
-        while (cursor < length)
+        int start;
+        int stop;
+        if (!window.HCArrayRange(key, start, stop)) { return ""; }
+        if (start < 0 || stop < start || stop > text.Length()) { return ""; }
+        string image = "[";
+        while (start < stop)
         {
-            string token = window.At(cursor);
-            if (token == "\"")
-            {
-                int keyStart = cursor + 1;
-                cursor = keyStart;
-                while (cursor < length && window.At(cursor) != "\"")
-                {
-                    if (window.At(cursor) == "\\") { cursor++; }
-                    cursor++;
-                }
-                int after = cursor + 1;
-                while (after < length && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after++; }
-                if (depth == 1 && after < length && window.At(after) == ":") { selected = HCJsonFields.KeyMatchesAt(window, keyStart, cursor, key); }
-            }
-            else
-            {
-                if (token == "[" && depth == 1 && selected) { start = cursor; }
-                if (token == "{" || token == "[") { depth++; }
-                if (token == "}" || token == "]")
-                {
-                    if (token == "]" && depth == 2 && start >= 0)
-                    {
-                        string image = "";
-                        int offset = start;
-                        int stop = cursor + 1;
-                        while (offset < stop)
-                        {
-                            int piece = stop - offset;
-                            if (piece > 1024) { piece = 1024; }
-                            image = image + text.Substring(offset, piece);
-                            offset = offset + piece;
-                        }
-                        return image;
-                    }
-                    depth--;
-                }
-            }
-            cursor++;
+            int piece = stop - start;
+            if (piece > 1024) { piece = 1024; }
+            image = image + text.Substring(start, piece);
+            start = start + piece;
         }
-        return "";
+        return image + "]";
     }
 }
 
@@ -425,6 +387,14 @@ class HCXAIRoleActivities : HCModule
             HCOperationalStatus siteStatus = director.HCGetOperationalStatus();
             m_DirectorState = siteStatus.HCState();
             m_DirectorReason = siteStatus.HCReason();
+            // These phases follow successful provider/loadout/journal admission.
+            // Route survey remains background work; execution still requires run.
+            string phase = director.Phase();
+            if (phase == "bind" || phase == "qualify" || phase == "create")
+            {
+                m_DirectorState = "ready";
+                m_DirectorReason = "site_owner_admitted_routes_pending";
+            }
         }
         string signature = m_DirectorState + ":" + m_DirectorReason;
         if (signature == m_OwnerLog) { return; }
@@ -443,6 +413,7 @@ class HCXAIRoleActivities : HCModule
     }
 
     override string GetName() { return "AIRoles"; }
+    override int StartupPhase() { return HC_PHASE_FEATURE; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override HCOperationalStatus HCGetOperationalStatus()
     {
@@ -453,7 +424,7 @@ class HCXAIRoleActivities : HCModule
             m_Status.HCPublish(ownerState, m_DirectorReason);
             return m_Status;
         }
-        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Fault, "", "role_policy_loaded_site_owner_running");
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Fault, "", "role_policy_loaded_site_owner_admitted");
         return m_Status;
     }
 
@@ -471,6 +442,12 @@ class HCXAIRoleActivities : HCModule
         if (FileExist("$profile:HollowCountry/acceptance/role_activities.disable")) { enabled = false; }
         m_Running = HCV2Admission.Admitted(enabled);
         Print(HCV2Admission.Line("AIRoles", enabled, "role_activities", false) + " runtime=PENDING");
+    }
+
+    override void OnAllModulesStarted()
+    {
+        if (!m_Running) { return; }
+        this.HCObserveSiteOwner(HCXAISiteDirector.Active());
     }
 
     protected void HCRefuse(HCXAISiteState state, int groupIndex, string role, string activity, string reason, int now)
