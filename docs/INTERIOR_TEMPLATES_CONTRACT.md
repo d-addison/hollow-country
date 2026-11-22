@@ -11,7 +11,7 @@ can't be measured stay vanilla with an exclusion reason.
 This replaces the single-house pilot gates (`HCInteriorCatalog.BUILDING`,
 `HCInteriorMeasuredCatalog`) with class-level templates in the model frame. Templates bind
 lazily to each instance through `Object.ModelToWorld`/`WorldToModel` (native
-`3_Game/Entities/Object.c:873-874`). The legacy files keep loading unchanged: `interiors.json`,
+`3_Game/Entities/Object.c#Object.ModelToWorld`, `#Object.WorldToModel`). The legacy files keep loading unchanged: `interiors.json`,
 `interiors-measured-profile.json` and `measured-interiors/*`. The new pack is additive and lives
 in its own directory.
 
@@ -30,11 +30,11 @@ in its own directory.
 assembles, pins and installs the tree.
 
 **Size and read rule.** Every file is ASCII JSON of at most **32,767 bytes**. That is the
-existing limit for measured files (`HCInteriorMeasuredCatalog.c:1473-1476`, `interiors_profile.py`).
-Read with the bounded pattern at `HCInteriorMeasuredCatalog.c:36-55`:
+existing limit for measured files (`HCInteriorMeasuredCatalog.c#HCInteriorMeasuredCatalog.MeasuredResolve`, `interiors_profile.py`).
+Read with the bounded pattern at `HCInteriorMeasuredCatalog.c#HCInteriorMeasuredCatalog.MeasuredRequested..MeasuredRead`:
 `OpenFile` → `ReadFile(handle, text, cap + 1)` → refuse unless `count == text.Length()` and
 1 ≤ length ≤ cap → strict key pass (unknown/duplicate/missing keys refuse, as `MeasuredStrict`) →
-`JsonFileLoader<T>.LoadData` (native `JsonFileLoader.c:69`). Never `LoadFile`.
+`JsonFileLoader<T>.LoadData` (native `JsonFileLoader`). Never `LoadFile`.
 
 The whole pack is ≤610 files and ≤20 MiB. It is read once in `OnStart` and never on ticks.
 `ReadFile` byte semantics are not yet observed natively, so the first DayZDiag run logs count and
@@ -42,7 +42,7 @@ length for one file of each kind.
 
 **Text rules.** Ids, classes and items pass `HCSearchRules.TextValid` (≤128 chars); hashes pass
 `HCSearchRules.PinValid`; vectors are finite `[x, y, z]` arrays passing `HCInteriorRules.SaneVector`
-(model frame within ±512). DTOs are flat, no inherited JSON members (`HCInfectedRooms.c:72`).
+(model frame within ±512). DTOs are flat, no inherited JSON members (`HCInfectedRooms.c#HCInfectedRoomDocument`).
 
 ## 2. Frames, instances and pins
 
@@ -53,8 +53,7 @@ length for one file of each kind.
 (stock = (z, y, −x)). A class with no verdict is excluded as `frame_unverified`.
 
 **Instances.** Furnish rows copy `mapgrouppos.xml` `pos`/`a`. At runtime, exactly one live object
-of the class must lie within 0.75 m (`HCInteriorsModule.ResolveBuilding`,
-`HCInteriorModule.c:266`). Orientation comes from the live object and must be yaw-only. Nonzero
+of the class must lie within 0.75 m (`HCInteriorsModule.ResolveBuilding`). Orientation comes from the live object and must be yaw-only. Nonzero
 pitch or roll refuses with `tilted`.
 
 **Pins (in `index.json`).** `Sources` maps names to SHA-256: `mapgroupproto`, `mapgrouppos`,
@@ -87,7 +86,7 @@ until runtime acceptance exists.
 ```
 
 Rows across all chunks equal every loaded `CfgVehicles` subclass of `House`, each once, ≤2,048
-(existing check, `HCInfectedRooms.c:527-566`). Each field is `covered` or a reason: existing
+(existing check, `HCInfectedRooms.c#HCInfectedRoomCatalog.ProductionHash..ProductionClassIndex`). Each field is `covered` or a reason: existing
 `unmeasured`, `not_enterable`, `path_pending`, `door_pending`, `unsupported_geometry`; new
 `frame_unverified`, `clearance_failed`, `no_ce_points`, `not_in_mapgrouppos`, `over_budget` (T4
 adds them to `ProductionDisposition`). A class with any `covered` field has exactly one
@@ -145,7 +144,7 @@ is their converted centroid and every point plus its `range` lies in the sphere;
   (or is absent). Value tiers are positional and are not filtered offline.
 - A group with more than 256 items is refused. A class left with no sites becomes `Search: over_budget`.
 - `Items` is a filter, never a source. Search transfers only CE items that already exist in the
-  sphere (`HCSearchSupplyProvider.c:122`, `HCSearchNativeSupply.c:36-41,170`). Nothing is created,
+  sphere (`HCSearchSupplyProvider.c#HCSearchSupplyProvider.Collect`, `HCSearchNativeSupply.c#HCSearchSupplyRegistry`). Nothing is created,
   refilled or duplicated, and the only move is a server-side `TakeToDst`.
 
 **Runtime context.** Each bound site builds one existing `HCInteriorSearchContext`:

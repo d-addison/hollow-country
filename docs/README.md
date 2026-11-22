@@ -91,7 +91,7 @@ run and save, rather than all being created at every startup.
 | `world.json`, `escalation.json` | World ledger and persistent escalation epoch |
 | `settlement-decay.json`, `infected-memory.json` | Settlement history and infected clues |
 | `leads.json`, `morse-rates.json` | Group leads, note/body reservations, radio channels and Morse rate limits |
-| `holdouts.json`, `pickers.json`, `dead-drops.json`, `CacheMoves/` | Encounter state and real-item transfer journals |
+| `holdouts.json`, `pickers.json`, `dead-drops.json`, legacy `CacheMoves/` (v1-test-5..9 only; old files left on a server are orphaned and harmless) | Encounter state and real-item transfer journals |
 | `camps.json` | Camps, tiers, visitors, mailbox receipts, theft journal and probes |
 | `scene-chains.json` | Scene stage and expiry state |
 | `wreck-salvage.json`, `search-refresh.json` | Finite wreck supplies and search revisit history |

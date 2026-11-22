@@ -45,7 +45,7 @@ refill finite stock, or replace a missing exercise with a probe.
 - [ ] Select an in-game date in June–November for forage. Confirm actual daylight
   for lighting and a later hour >=18 for house light observation; smoke requires
   native base temperature <10 C by default. These are separate predicates.
-  `mission/hollow-country/INSTALL_AND_ROLLBACK.md:83-84` documents 4x day / 32x
+  the `serverTimeAcceleration` and `serverNightTimeAcceleration` settings in `mission/hollow-country/INSTALL_AND_ROLLBACK.md` document 4x day / 32x
   night settings, but these do not guarantee cold weather or qualify a cellar.
   Schedule the measured boot/window accordingly; otherwise add a real wait.
   HC `day` changes escalation, **not** solar time or the calendar. HC `weather`
@@ -60,10 +60,10 @@ refill finite stock, or replace a missing exercise with a probe.
   SearchBinding, distant conflict, dead-drop maintenance, optional CE spawns and
   cellar survey now; AI activation may still require the subsequent client.
 - [ ] Keep same-window server and client RPTs. Client counters stay local:
-  `HCModuleReadiness.c:53-67` prints locally; no counter-forwarding RPC is present.
+  `HCModuleReadiness.c#HCModuleReadiness.HCRegisterUse..HCUse` prints locally; no counter-forwarding RPC is present.
   Audit with `python3 -B -m tools.release.activity_check <server.RPT> --release
   --client-rpt <client.RPT>` (replace placeholders with private paths).
-  `tools/release/activity_check.py:52-112` merges counter maxima from both logs.
+  `tools.release.activity_check.scan_release` merges counter maxima from both logs.
   Do not manufacture log lines. Activity alone does not check soak length, errors,
   textures or upgrade: the lead must run the entire scripted R3 gate unchanged.
 
@@ -74,16 +74,16 @@ unverified in this run; their presence in code does not prove native operation.
 
 | Control | Source evidence | What it actually permits |
 | --- | --- | --- |
-| Pause, HC authorization and request queue | `mods/HollowCountry/inputs.xml:38`; `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:249`, `:412`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c:484` | Authenticated menu; one-command queue, throttle and replay checks. |
-| Overview status/list/snapshot and Map | `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:481`, `:509`, `:591`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c` | Read state and snapshots; no bodies, supplies or use credit for a probe. |
-| Infected sitter/horde | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c:93`, `:154`; dispatch `HCAdminModule.c:613-623` in same directory | One tracked sitter on clear ground 8 m ahead; horde adopts an existing eligible calm cohort, not an arbitrary spawn. |
-| World scene, radio, deaddrop | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c:266`, `:566`, `:617` | Normal scene director; held-radio cooldown prime; nearest finite drop maintenance. Success reply alone is insufficient. |
-| Economy forage, loot | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c:745`, `:661` | Prime normal forest node work; age oldest real pending search timer. Neither grants inventory. |
-| AI & Camps camp/holdout | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c:403`, `:441` | Existing row within 100 m; normal criteria/cooldowns. `camp` cannot create a hearth/camp. |
-| Weather | `mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c:198-218`; dispatch `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:563` | Codes 0 clear override, 1 plain, 2 calm, 3 fog, 4 bad. Foreign weather controller refuses. |
-| Group creation and status ping | `mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c:351`; `mods/HollowCountry/inputs.xml:24-34`; `mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c:303-318` | M roster, Create group; Numpad7 OK. Sender counts as a snapshot recipient, so solo exercise works; remote delivery remains untested. |
-| Earplugs and grade | `mods/HollowCountry/inputs.xml:16-26`; `mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c:60-68` | Earplugs intentionally unbound: bind in Controls. Grade K cycles intensity. |
-| Mount, flip, salvage actions | `mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c:9`; `HCActionFlipVehicle.c:27`, `HCActionSalvageWreck.c:38` in same directory | Exact contextual labels used below; ordinary server-owned custody/safety paths. |
+| Pause, HC authorization and request queue | `UAHollowCountryAdmin` in `mods/HollowCountry/inputs.xml`; `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c#HCAdminModule.HCAuthorized`, `#HCAdminModule.HCDispatch`, `#HCAdminModule.HCReceive`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c#HCAdminMenu.OnShow` | Authenticated menu; one-command queue, throttle and replay checks. |
+| Overview status/list/snapshot and Map | `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c#HCAdminModule.HCStatus`, `#HCAdminModule.HCList`, `#HCAdminModule.HCReceive`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c` | Read state and snapshots; no bodies, supplies or use credit for a probe. |
+| Infected sitter/horde | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c#HCInfectedModule.HCAdminSitter`, `#HCInfectedModule.HCAdminHorde`; dispatch `HCAdminModule.c#HCAdminModule.HCOperatorCommand` in same directory | One tracked sitter on clear ground 8 m ahead; horde adopts an existing eligible calm cohort, not an arbitrary spawn. |
+| World scene, radio, deaddrop | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c#HCScenesModule.HCAdminNearestScene`, `#HCRadioChatter.HCAdminRadio`, `#HCDeadDrops.HCAdminDeadDrop` | Normal scene director; held-radio cooldown prime; nearest finite drop maintenance. Success reply alone is insufficient. |
+| Economy forage, loot | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c#HCForageModule.HCAdminForage`, `#HCSearchRefreshModule.HCAdminDue` | Prime normal forest node work; age oldest real pending search timer. Neither grants inventory. |
+| AI & Camps camp/holdout | `mods/HollowCountry/scripts/4_World/Admin/HCAdminDirectors.c#HCCampModule.HCAdminCamp`, `#HCHoldouts.HCAdminHoldout` | Existing row within 100 m; normal criteria/cooldowns. `camp` cannot create a hearth/camp. |
+| Weather | `mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c#ChernarusPlusData.HCAdminBucket..HCAdminWeather`; dispatch `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c#HCAdminModule.HCExtra` | Codes 0 clear override, 1 plain, 2 calm, 3 fog, 4 bad. Foreign weather controller refuses. |
+| Group creation and status ping | `mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c#HCGroupMapMenu.OnClick`; the `UAHollowCountryLookPing` and `UAHollowCountryPing*` inputs in `mods/HollowCountry/inputs.xml`; `mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c#HCGroupService.HCPingDeliver` | M roster, Create group; Numpad7 OK. Sender counts as a snapshot recipient, so solo exercise works; remote delivery remains untested. |
+| Earplugs and grade | the `UAHollowCountryGrade` input in `mods/HollowCountry/inputs.xml`; `mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c#HCEarplugs.RequestRestore`, `#HCEarplugs.Apply` | Earplugs intentionally unbound: bind in Controls. Grade K cycles intensity. |
+| Mount, flip, salvage actions | `mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c#HCActionMountTapedLight`; `HCActionFlipVehicle.c#HCActionFlipVehicle`, `HCActionSalvageWreck.c#HCActionSalvageWreck` in same directory | Exact contextual labels used below; ordinary server-owned custody/safety paths. |
 
 ## Stop 1 — Chernogorsk police and scavenger loop, 0–18 minutes
 
@@ -167,7 +167,7 @@ Drive west along the coast. Zone `balota-cf3bbed7` center is
 **(3900, 4.9, 2330)** in `mission/hollow-country/ai/zones.json` (default held).
 The labels/radii of overlapping zones are authored data, not surveyed geography.
 The finite drop `hc-drop-balota` is at **x=4086,z=3005**, terrain Y resolved by
-engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:158`, `:232`).
+engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnStart`, `#HCDeadDrops.OnTick`).
 
 - [ ] Approach listed held sites without watching their spawn points. Let normal
   guard work produce real guards: **ZoneGuards/guards_posted**. A held-state value
@@ -189,7 +189,7 @@ engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:158`, `:232`).
 Drive/walk north toward **Bor South Rest (3100.955811, 249.415558, 4238.387207)**,
 `mission/hollow-country/travel/route-surveys.json` existing shelter entry.
 This also supplies the `bor-farm` LOD seed X/Z in
-`mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODStore.c:108`.
+`mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODStore.c#HCInfectedLODConfig.HCSeedDefaults`.
 Stop on actual woodland surface en route; the shelter itself is not guaranteed
 forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
 
@@ -281,8 +281,8 @@ Detailed priority setups:
   player's normal climb and infected native targeting. Use an occupied stationary
   car for vehicle batter, then a **different**, empty settled sideways car plus
   crowbar for flip. Native ray must hit the real car component. No door obstruction.
-  `HCInfectedReachNative.c:302-354` in `4_World/Infected/Reach/` and
-  `HCVehicleFlip.c:114-154,200-215` in `4_World/Vehicles/` hold the decisive guards.
+  `HCInfectedReachNative.c#ZombieBase.HCReachHitLegs..HCReachHitVehicle` in `4_World/Infected/Reach/` and
+  `HCVehicleFlip.c#HCVehicleFlipModule.HCCandidate..HCReady` and `#HCVehicleFlipModule.OnTick` in `4_World/Vehicles/` hold the decisive guards.
 - **Horde / LOD:** use police-chernogorsk-loop actual nodes in
   `mission/hollow-country/infected/route-surveys.json`, starting
   (6564.47,14.31,2551.96), plus a genuine shot cue. A cohort must physically finish
@@ -294,14 +294,14 @@ Detailed priority setups:
   **19811,19813,19819,19816,19817,19823,19820,19822**, length 137.849 m, status
   **authored-candidate-native-pending**. It does not establish an active convoy.
   The current authorized snapshot gives only position/phase/reason
-  (`mods/HollowCountryExpansionAI/scripts/4_World/Admin/HCXAdminWorldSources.c:13-21`),
+  (`mods/HollowCountryExpansionAI/scripts/4_World/Admin/HCXAdminWorldSources.c#HCAdminWorldSources.StepAI`),
   not its path. Observe the actual travelled segment in-world; a bounded
   authenticated route-node display would be an additional read-only proposal.
   Compare the actual segment to these nodes before placing an empty obstruction. Park on a traversed segment, keep doors/pedestrian
   escape and alternate road open, withdraw normally, wait three low-progress
   samples (default >=15 seconds), then require a real recovery rung and remove
   obstruction by driving it. AI may avoid it; qualification remains pending.
-  `HCXAIStuckRecovery.c:88-112` counts successful rungs, not elapsed waiting.
+  `HCXAIStuckRecovery.c#HCXAIStuckRecovery.HCFixtureStuck..HCSummary` counts successful rungs, not elapsed waiting.
   A* must plan a **real journey**; standalone graph probing cannot satisfy it.
 - **Trade / pickers:** Chernogorsk picker home/source are the exact anchors above;
   source/home containers, real item custody, under-supplied home and walking lease
@@ -312,7 +312,7 @@ Detailed priority setups:
   and empty SurveySha256; do not treat it as a prepared native corridor. If no
   real eligible pair/route exists, record the binding blocker, not success.
 - **Owned death / materializer:** ordinary permanent patrol death is insufficient
-  for BodyStories. `mods/HollowCountryExpansionAI/scripts/4_World/gapcode_body_scene.c:34-90`
+  for BodyStories. `mods/HollowCountryExpansionAI/scripts/4_World/gapcode_body_scene.c#HCGapBodySceneProducer.HCObserve..HCPublish`
   requires a materialized transient party, active retained situation and the same
   real delayed world fact. Kill a real member in actual combat and retain original
   corpse/inventory. MaterializerBridge counts that known proposal's actual spawn;
@@ -366,76 +366,76 @@ Each row points into the companion JSON for the full predicate, steps, timing an
 prerequisites. Check only after an observed positive counter in this candidate's
 logs; every checkbox below is deliberately unchecked.
 
-- [ ] `AIIncidents/response_started` — `admin_action` **implemented-unverified**, command `fx_incident`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:598`.
+- [ ] `AIIncidents/response_started` — `admin_action` **implemented-unverified**, command `fx_incident`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c#HCXAIIncidentResponse.HCStartLease`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Create a real recorded incident near a real eligible HC patrol through normal gameplay. Run fx_incident from the lead admin position. The nearest recorded incident and nearest eligible group are queued for at most 60 seconds; the normal role scheduler must pass its busy checks and revalidate perception, range, cooldown, cap and claim before HCStartLease. Require the real response_started line with fixture=1. Selection alone earns nothing.
-- [ ] `AIRoles/activity_started` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c:680`.
-- [ ] `AISelfDefence/hit_reaction` — `client_action`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c:310`.
-- [ ] `AITactics/tactic_chosen` — `admin_action` **implemented-unverified**, command `fx_tactic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c:677`.
+- [ ] `AIRoles/activity_started` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c#HCXAIRoleActivities.OnTick`.
+- [ ] `AISelfDefence/hit_reaction` — `client_action`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c#HCXDefence.OnHit`.
+- [ ] `AITactics/tactic_chosen` — `admin_action` **implemented-unverified**, command `fx_tactic`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c#HCXAITactics.ExecuteSmoke`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Let an existing HC group perceive a real hostile threat or infected. Run fx_tactic; the nearest living owned member with real perception is prioritized for the next normal evaluation. Keep real stock, cooldown and policy guards. Require tactic_chosen with fixture=1 after a successful real throw or smoke drop; an inventory scan alone earns nothing.
-- [ ] `AITrade/trade_completed` — `admin_action` **implemented-unverified**, command `fx_trade`; `mods/HollowCountry/scripts/4_World/World/HCAITrade.c:535`.
+- [ ] `AITrade/trade_completed` — `admin_action` **implemented-unverified**, command `fx_trade`; `mods/HollowCountry/scripts/4_World/World/HCAITrade.c#HCTradeTransaction.HCMoveStep`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected.
-- [ ] `AdminMap/request` — `admin_action`; `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:648`.
-- [ ] `AdminMap/window_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c:484`.
-- [ ] `BodyStories/body_observed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c:245`.
-- [ ] `CampRespawn/respawn_reserved` — `client_action`; `mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c:152`.
-- [ ] `Camps/camp_recognised` — `client_action`; `mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c:686`.
-- [ ] `CellarSampler/class_measured` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c:434`.
-- [ ] `Cellars/visual_applied` — `not_deterministic`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCCellarsClient.c:89`.
-- [ ] `ClientUI/earplugs_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c:68`.
-- [ ] `ClientUI/inventory_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c:26`.
-- [ ] `ClientUI/map_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c:35`.
-- [ ] `Crafting/recipe_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c:30`.
-- [ ] `DeadDrops/cache_bound` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:245`.
-- [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c:795`.
-- [ ] `Forage/item_picked` — `client_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c:460`.
-- [ ] `Forage/item_spawned` — `admin_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c:721`.
-- [ ] `Grade/grade_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c:123`.
-- [ ] `Groups/group_mutated` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c:587`.
-- [ ] `Groups/menu_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c:477`.
-- [ ] `Holdouts/camp_committed` — `admin_action`, **implemented-unverified**, `fx_holdout_due`; `mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:558`.
-- [ ] `HordeMigration/route_advanced` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c:642`.
-- [ ] `InfectedDoors/door_action` — `client_action`; `mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c:570`.
-- [ ] `InfectedLOD/herd_materialized` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c:885`.
-- [ ] `InfectedMemory/heat_recorded` — `client_action`; `mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c:287`.
-- [ ] `InfectedReach/strike_landed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:801`.
-- [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:663`.
-- [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:812`.
-- [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c:121`.
-- [ ] `Interiors/search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c:693`.
-- [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433`.
-- [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176`.
-- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.
-- [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c:123`.
-- [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c:520`.
-- [ ] `MaterializerBridge/party_materialized` — `admin_action` **implemented-unverified**, command `fx_materialize`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c:99`.
+- [ ] `AdminMap/request` — `admin_action`; `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c#HCAdminModule.HCCommand`.
+- [ ] `AdminMap/window_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c#HCAdminMenu.OnShow`.
+- [ ] `BodyStories/body_observed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c#HCBodyStories.HCObserveBody`.
+- [ ] `CampRespawn/respawn_reserved` — `client_action`; `mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c#HCCampRespawnModule.HCChoose`.
+- [ ] `Camps/camp_recognised` — `client_action`; `mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c#HCCampModule.OnTick`.
+- [ ] `CellarSampler/class_measured` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c#HCCellarSampler.HCSummaryTick`.
+- [ ] `Cellars/visual_applied` — `not_deterministic`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCCellarsClient.c#HCCellarsClient.HCSample`.
+- [ ] `ClientUI/earplugs_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c#HCEarplugs.Apply`.
+- [ ] `ClientUI/inventory_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#InventoryMenu.OnShow`.
+- [ ] `ClientUI/map_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#MapMenu.OnShow`.
+- [ ] `Crafting/recipe_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c#HCCraftingGate.RecordCraft`.
+- [ ] `DeadDrops/cache_bound` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnTick`.
+- [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCConflictStep`.
+- [ ] `Forage/item_picked` — `client_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCReleaseNode`.
+- [ ] `Forage/item_spawned` — `admin_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCResumeSpawn`.
+- [ ] `Grade/grade_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c#HCGradeSettingsClient.Update`.
+- [ ] `Groups/group_mutated` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c#HCGroupService.Commit`.
+- [ ] `Groups/menu_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c#HCGroupMapMenu.OnShow`.
+- [ ] `Holdouts/camp_committed` — `admin_action`, **implemented-unverified**, `fx_holdout_due`; `mods/HollowCountry/scripts/4_World/World/HCHoldouts.c#HCHoldouts.PublishState`.
+- [ ] `HordeMigration/route_advanced` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c#HCNativeInfectedPack.V2Tick`.
+- [ ] `InfectedDoors/door_action` — `client_action`; `mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c#HCInfectedDoorsModule.Apply`.
+- [ ] `InfectedLOD/herd_materialized` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c#HCInfectedLODModule.HCLODMaterializeStep`.
+- [ ] `InfectedMemory/heat_recorded` — `client_action`; `mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c#HCInfectedMemory.Add`.
+- [ ] `InfectedReach/strike_landed` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.CountStrike`.
+- [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.ClimbStarted`.
+- [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c#HCInfectedReachModule.CountBatter`.
+- [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c#HCInfectedVarietyModule.HCRecordWake`.
+- [ ] `Interiors/search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c#HCInteriorsModule.CommitSearch`.
+- [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c#HCLeadModule.ReceivePlayer`.
+- [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c#HCLightingClient.Tick`.
+- [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c#HCSearchRefreshModule.RecycleReadyTimer`.
+- [ ] `MapPins/pins_published` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c#HCGroupPins.Collect`.
+- [ ] `Materializer/actors_materialized` — `admin_action`, **implemented-unverified**, `fx_materialize`; `mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c#HCWorldMaterializer.HCArchiveCustodyFile`.
+- [ ] `MaterializerBridge/party_materialized` — `admin_action` **implemented-unverified**, command `fx_materialize`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c#HCXMaterializerBridge.SiteSpawned`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Use fx_materialize on an existing short unclaimed proposal; fx_bridge is kit guidance only (use fx_materialize). Let normal admission and out-of-sight materialization run. The bridge retains proposal.Fixture through the real attributed SiteSpawned callback. Require party_materialized with fixture=1; selection or admission earns nothing.
-- [ ] `Melee/hit_processed` — `client_action`; `mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c:93`.
-- [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c:117`.
-- [ ] `Notes/note_read` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c:333`.
-- [ ] `OptionalPacks/animal_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:22`.
-- [ ] `OptionalPacks/bicycle_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c:37`.
-- [ ] `Pickers/trip_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCPickers.c:1076`.
-- [ ] `Polish/hint_shown` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c:259`.
-- [ ] `Polish/sound_played` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c:106`.
-- [ ] `Progression/familiarity_gained` — `client_action`; `mods/HollowCountry/scripts/4_World/Progression/HCProgression.c:484`.
-- [ ] `Radio/report_delivered` — `admin_action`; `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:503`.
-- [ ] `Scenes/scene_placed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:590`.
-- [ ] `SearchBinding/supply_bound` — `server_soak`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:324`.
-- [ ] `SignsOfLife/flies_created` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:260`.
-- [ ] `SignsOfLife/light_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:258`.
-- [ ] `SignsOfLife/smoke_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c:259`.
-- [ ] `SurvivalAlignment/stamina_applied` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c:73`.
-- [ ] `SurvivalAlignment/stamina_hud_shown` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c:244`.
-- [ ] `TapedHelmetMounts/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:418`.
-- [ ] `TapedLight/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:417`.
-- [ ] `TapedPackMounts/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c:419`.
-- [ ] `TeamPing/ping_delivered` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c:141`.
-- [ ] `VehicleFlip/impulse_applied` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c:215`.
-- [ ] `WreckSalvage/part_created` — `client_action`; `mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:681`.
-- [ ] `ZoneGuards/guards_posted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:220`.
-- [ ] `optional-expansion-human-ai/actor_spawned` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c:204`.
-- [ ] `optional-expansion-human-ai/convoy_astar` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:103`.
+- [ ] `Melee/hit_processed` — `client_action`; `mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c#HCMeleeLog.Event`.
+- [ ] `Melee/parity_probe` — `client_action`; `mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeTargetingParity.c#HCMeleeTargetingParity.Observe`.
+- [ ] `Notes/note_read` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#HCNoteLedger.Read`.
+- [ ] `OptionalPacks/animal_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#AnimalBase.EEInit`.
+- [ ] `OptionalPacks/bicycle_seen` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Core/HCOptionalPackUse.c#CarScript.EEInit`.
+- [ ] `Pickers/trip_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCPickers.c#HCModuleRegistry.RegisterModules`.
+- [ ] `Polish/hint_shown` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c#HCHints.HCAdvanceSave`.
+- [ ] `Polish/sound_played` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c#HCEnvSound.Update`.
+- [ ] `Progression/familiarity_gained` — `client_action`; `mods/HollowCountry/scripts/4_World/Progression/HCProgression.c#HCProgressionModule.HCAwardForage`.
+- [ ] `Radio/report_delivered` — `admin_action`; `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c#HCRadioChatter.OnTick`.
+- [ ] `Scenes/scene_placed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c#HCScenesModule.Work`.
+- [ ] `SearchBinding/supply_bound` — `server_soak`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.Attempt`.
+- [ ] `SignsOfLife/flies_created` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.
+- [ ] `SignsOfLife/light_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.
+- [ ] `SignsOfLife/smoke_observed` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile`.
+- [ ] `SurvivalAlignment/stamina_applied` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c#StaminaHandler.ProcessStaminaChanges`.
+- [ ] `SurvivalAlignment/stamina_hud_shown` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c#HCStaminaHUD.Update`.
+- [ ] `TapedHelmetMounts/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run`.
+- [ ] `TapedLight/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run`.
+- [ ] `TapedPackMounts/light_mounted` — `client_action`; `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c#HCTapedLightService.Run`.
+- [ ] `TeamPing/ping_delivered` — `client_action`; `mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c#HCTeamPingModule.HCReceive`.
+- [ ] `VehicleFlip/impulse_applied` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c#HCVehicleFlipModule.OnTick`.
+- [ ] `WreckSalvage/part_created` — `client_action`; `mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c#HCWreckSalvageModule.Complete`.
+- [ ] `ZoneGuards/guards_posted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c#HCXZoneGuards.ActorSpawned`.
+- [ ] `optional-expansion-human-ai/actor_spawned` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c#HCXAISitePatrol.SetupAI`.
+- [ ] `optional-expansion-human-ai/convoy_astar` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c#HCXAIStuckRecovery.HCRouteUsed`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. The per-request fixture mark follows the journey FIFO into the planner. Require a real successful A* outcome and convoy_astar use line with fixture=1; a queued journey diagnostic must also carry fixture=1. Completion, refusal and queue removal clear attribution. Lead native compile and runtime fixture evidence remain pending. No sample or stuck outcome is forced.
-- [ ] `optional-expansion-human-ai/stuck_recovery` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c:178`.
+- [ ] `optional-expansion-human-ai/stuck_recovery` — `admin_action` **implemented-unverified**, command `fx_convoy_stuck`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStuckRecovery.c#HCXAIStuckRecovery.HCRecovered`.
   Lead-only test profile: `EnableSmokeFixtures=true` (OFF by default). Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. It marks only the nearest eligible observer, preserving all samples, timestamps and ladder state. Allow normal motion observation and recovery (journey rung 3 still uses the FIFO). Require a real recovery_step and stuck_recovery with fixture=1. Moving normally may produce no recovery; do not teleport or fabricate a stuck sample.
-- [ ] `v2-expansion-living-world/actor_admitted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c:184`.
+- [ ] `v2-expansion-living-world/actor_admitted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c#HCXLivingModule.OnTick`.
