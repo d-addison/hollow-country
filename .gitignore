@@ -91,6 +91,8 @@ Thumbs.db
 !/docs/AI_FACTIONS.md
 !/docs/VARIETY_PACKS.md
 !/docs/tools/
+!/docs/briefs/
+!/docs/pitfalls/
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
