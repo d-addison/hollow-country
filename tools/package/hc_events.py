@@ -27,6 +27,12 @@ CRATE = 'StaticObj_Misc_SupplyBox2_DE'
 SEEDS = ('StaticHeliCrash', 'StaticPoliceCar', 'StaticMilitaryConvoy',
          'StaticPoliceSituation', 'StaticBonfire')
 MAX_OBSERVERS = 6
+MEASUREMENTS = 'ce/hc-site-measurements.json'
+MAX_SLOPE_DEG = 12.0
+BLOCKER_RADIUS_M = 2.0
+CACHE_RADIUS_M = 15.0
+MIN_CACHE_POSITIONS = 3
+
 GROUP_POLICY = b'per-anchor-groups-v1\0'
 
 
@@ -60,6 +66,80 @@ def _anchor_groups(positions, templates):
             pos.set('group', name)
             groups.append(group)
     return groups
+
+
+def measurement_usable(row):
+    """Named conservative screening policy; native CE success is still required."""
+    for key in ('x', 'z', 'y', 'slope_deg'):
+        value = row.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError('invalid measurement: ' + key)
+    if not 0 <= row['slope_deg'] <= 90:
+        raise ValueError('invalid measurement slope')
+    if (type(row.get('water')) is not int or row['water'] not in (0, 1)
+            or type(row.get('blockers')) is not int or row['blockers'] < 0):
+        raise ValueError('invalid measurement water/blockers')
+    return (row['water'] == 0 and row['slope_deg'] <= MAX_SLOPE_DEG
+            and row['blockers'] == 0)
+
+
+def apply_measurements(positions, cache_positions, measured):
+    """Apply complete native observations to generated XML, never authored anchors."""
+    if not isinstance(measured, dict) or not isinstance(measured.get('provenance'), dict):
+        raise ValueError('invalid measurement document')
+    provenance = measured['provenance']
+    for key in ('server_exe_sha256', 'stock_mission_sha256', 'probe_plan_sha256', 'rpt_sha256'):
+        if not economy.HEX64.fullmatch(str(provenance.get(key, ''))):
+            raise ValueError('missing measured provenance: ' + key)
+    if (measured.get('schema') != 1 or provenance.get('treatment') not in ('current', 'measured')
+            or not provenance.get('date') or measured.get('blocker_radius_m') != BLOCKER_RADIUS_M):
+        raise ValueError('invalid measurement provenance or collision radius')
+    rows = measured.get('targets', [])
+    if (not isinstance(rows, list) or not rows
+            or any(not isinstance(r, dict) or not isinstance(r.get('id'), str) for r in rows)):
+        raise ValueError('invalid measurement targets')
+    by_id = {r['id']: r for r in rows}
+    if len(by_id) != len(rows):
+        raise ValueError('duplicate measurement id')
+
+    def checked(ident, pos):
+        row = by_id.get(ident)
+        if row is None:
+            raise ValueError('missing measurement: ' + ident)
+        usable = measurement_usable(row)
+        if any(abs(row[a] - float(pos.get(a))) > 0.01 for a in ('x', 'z')):
+            raise ValueError('measurement coordinate drift: ' + ident)
+        return row, usable
+    for event in positions:
+        for index, pos in enumerate(event.findall('pos'), 1):
+            ident = '%s:site%03d' % (event.get('name'), index)
+            row, usable = checked(ident, pos)
+            if not usable:
+                raise ValueError('unusable measurement (water/slope/blocker): ' + ident)
+            pos.set('y', format(row['y'], '.6f'))
+    for event in cache_positions:
+        anchor = event.find('pos')
+        x, z = (float(anchor.get(a)) for a in ('x', 'z'))
+        selected = []
+        seen = set()
+        prefix = event.get('name') + ':'
+        for row in rows:
+            if not row['id'].startswith(prefix):
+                continue
+            if not measurement_usable(row):
+                continue
+            distance = math.hypot(row['x'] - x, row['z'] - z)
+            if distance > CACHE_RADIUS_M + 0.001:
+                raise ValueError('cache candidate outside observer radius')
+            coord = (row['x'], row['z'])
+            if coord in seen:
+                raise ValueError('duplicate cache candidate')
+            seen.add(coord)
+            selected.append(ET.Element('pos', x=format(row['x'], '.6f'),
+                                       z=format(row['z'], '.6f'), y=format(row['y'], '.6f'), a='0'))
+        if len(selected) < MIN_CACHE_POSITIONS:
+            raise ValueError('insufficient usable measured cache candidates: ' + event.get('name'))
+        event[:] = selected
 
 
 def validate(source=SOURCE):
@@ -194,6 +274,10 @@ def validate(source=SOURCE):
         x, z = (float(anchors[0].get(axis)) for axis in ('x', 'z'))
         if not (0 < x < 15360 and 0 < z < 15360):
             raise ValueError('invalid cache anchor')
+    measured_path = economy.child(source, MEASUREMENTS)
+    if os.path.lexists(measured_path):
+        data[MEASUREMENTS] = economy.read_plain(source, MEASUREMENTS)
+        apply_measurements(positions, cache_positions, json.loads(data[MEASUREMENTS]))
     encounter_count = len(events)
     events.extend(caches)
     positions.extend(cache_positions)
@@ -209,7 +293,8 @@ def validate(source=SOURCE):
 def _digest(data):
     # A prior receipt with shared template identities must require reinstall,
     # even when the authored XML itself has not changed.
-    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in (*DATA, *CACHE_DATA)))
+    names = (*DATA, *CACHE_DATA) + ((MEASUREMENTS,) if MEASUREMENTS in data else ())
+    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in names))
 
 
 def plan(target, source=SOURCE):

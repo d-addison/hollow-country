@@ -7,7 +7,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Runtime,
-    [ValidateSet('ce-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler', 'infected-competence-probe')]
+    [ValidateSet('ce-probe', 'ce-site-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler', 'infected-competence-probe')]
     [string]$Kind = 'ce-probe',
     [ValidateRange(0, 120)]
     [int]$TimeoutMinutes = 0
@@ -109,6 +109,7 @@ Assert-NoReparsePoints -Path $install -AncestorsOnly
 # Each probe kind maps to a fixed plan file, profile directory and output file; nothing here
 # is read from the plan, so a tampered plan cannot redirect the sentinel or output paths.
 $probes = @{
+    'ce-site-probe' = @{ Plan = 'ce-site-probe-plan.json'; Directory = 'HCCESiteProbe'; Output = 'complete.txt' }
     'ce-probe' = @{ Plan = 'ce-probe-plan.json'; Directory = 'HCCEProbe'; Output = 'census.json' }
     'taped-light-probe' = @{ Plan = 'taped-light-probe-plan.json'; Directory = 'HCTapedLightProbe'; Output = 'observations.json' }
     'weather-probe' = @{ Plan = 'weather-probe-plan.json'; Directory = 'HCWeatherProbe'; Output = 'observations.json' }
