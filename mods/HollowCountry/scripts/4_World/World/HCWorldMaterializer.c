@@ -154,6 +154,8 @@ class HCWorldMaterializer : HCModule
     protected int m_CustodyArchiveScans;
     protected bool m_CustodyDepthFault;
     protected bool m_CustodyRestoredOlder;
+    protected bool m_CustodyReseedUnsafe;
+    protected bool m_CustodyRestoreWitness;
     protected ref HCWorldLeaseCeiling m_LeaseCeiling;
     protected static const int HC_ARCHIVE_SCAN_LIMIT = 64;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -783,7 +785,18 @@ class HCWorldMaterializer : HCModule
             }
             // Refuse an invalid ceiling before promoting an older checkpoint:
             // otherwise a crash could disguise the rollback as a valid primary.
-            bool restoringOlder = prior && (!selected || prior.NextLease > selected.NextLease) && (m_CustodyRetainedSource == m_CustodyPath || m_CustodyRetainedSource == m_CustodyPath + ".tmp");
+            string retainedTmp = m_CustodyPath + ".tmp";
+            bool priorWins = false;
+            if (prior) { priorWins = !selected || prior.NextLease > selected.NextLease; }
+            bool newlyRetained = m_CustodyRetainedSource == m_CustodyPath;
+            if (m_CustodyRetainedSource == retainedTmp) { newlyRetained = true; }
+            bool restoringOlder = priorWins && newlyRetained;
+            // Persisted relocation is unsafe until the active store has its own
+            // committed history; this classification survives process restart.
+            if (priorWins && !FileExist(backup + ".bak"))
+            {
+                if (!FileExist(backup + ".tmp")) { m_CustodyReseedUnsafe = true; }
+            }
             if (restoringOlder)
             {
                 if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
@@ -874,6 +887,9 @@ class HCWorldMaterializer : HCModule
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_invalid_no_backup";
         m_CustodyRestoredOlder = false;
+        string restoreMarker = "$profile:HollowCountry/ai-custody.json.restore_pending";
+        m_CustodyRestoreWitness = FileExist(restoreMarker);
+        m_CustodyReseedUnsafe = m_CustodyRestoreWitness;
         m_Custody = new HCAIPartyCustodyData();
         m_CustodyText = "";
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return this.HCCustodyFault("custody_directory_create_failed"); }
@@ -906,6 +922,14 @@ class HCWorldMaterializer : HCModule
                 HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
                 if (!prior) { return this.HCCustodyFault("custody_backup_invalid"); }
                 if (!m_LeaseCeiling.Load(false)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
+                // Existence is the safety witness, so even a torn copy blocks
+                // unsafe reseeding after a crash during backup promotion.
+                if (!FileExist(restoreMarker))
+                {
+                    if (!CopyFile(backup, restoreMarker)) { return this.HCCustodyFault("custody_restore_marker_copy_failed"); }
+                }
+                m_CustodyRestoreWitness = true;
+                m_CustodyReseedUnsafe = true;
                 m_CustodyRestoredOlder = true;
                 // Rollback may lose a checkpoint, but never reissue any lease
                 // proposed in this process, even after its last save request.
@@ -1003,14 +1027,27 @@ class HCWorldMaterializer : HCModule
         if (!this.HCCustodyDepthAllowed()) { return false; }
         // Classify the selected custody image before deciding whether a torn
         // ceiling can be reseeded without reissuing a committed lease.
-        bool allowReseed = !m_CustodyRestoredOlder;
-        if (!m_LeaseCeiling.Load(allowReseed)) { return this.HCCustodyFault("custody_lease_ceiling_invalid"); }
+        if (m_CustodyPath != "$profile:HollowCountry/ai-custody.json")
+        {
+            bool activeHistory = FileExist(m_CustodyPath + ".bak");
+            if (FileExist(m_CustodyPath + ".tmp")) { activeHistory = true; }
+            if (!activeHistory) { m_CustodyReseedUnsafe = true; }
+        }
+        bool allowReseed = !m_CustodyRestoredOlder && !m_CustodyReseedUnsafe;
+        if (!m_LeaseCeiling.Load(allowReseed))
+        {
+            if (m_CustodyReseedUnsafe && !m_CustodyRestoredOlder)
+            {
+                Print("[HC World] custody_lease_ceiling_invalid reason=restore_pending_before_ceiling_commit");
+            }
+            return this.HCCustodyFault("custody_lease_ceiling_invalid");
+        }
         int leaseFloor = m_LeaseCeiling.Ceiling();
-        if (leaseFloor == 0)
+        if (m_LeaseCeiling.NeedsReseed())
         {
             int margin = 1024;
             string reseedReason = "custody_lease_ceiling_reseed";
-            if (m_CustodyRestoredOlder)
+            if (m_CustodyRestoredOlder || m_CustodyReseedUnsafe)
             {
                 margin = 2048;
                 reseedReason = "custody_lease_ceiling_missing_after_restore";
@@ -1146,6 +1183,16 @@ class HCWorldMaterializer : HCModule
 
     protected int HCWriteCustody()
     {
+        if (m_CustodyStage == 5)
+        {
+            // Both ceiling and new custody checkpoint have verified. A separate
+            // scheduler stage retires the rollback witness only after that point.
+            HCSaveJob.HCOperation = "custody_restore_witness_retire";
+            if (!DeleteFile("$profile:HollowCountry/ai-custody.json.restore_pending")) { return HCSaveJob.STEP_FAILED; }
+            m_CustodyRestoreWitness = false;
+            m_CustodyReseedUnsafe = false;
+            return this.HCFinishCustodySnapshot();
+        }
         if (m_CustodyStage == 0)
         {
             HCSaveJob.HCOperation = "custody_encode";
@@ -1185,6 +1232,16 @@ class HCWorldMaterializer : HCModule
         }
         int result = m_CustodyImage.HCStepImage();
         if (result != HCSaveJob.STEP_DONE) { return result; }
+        if (m_CustodyRestoreWitness)
+        {
+            m_CustodyStage = 5;
+            return HCSaveJob.STEP_MORE;
+        }
+        return this.HCFinishCustodySnapshot();
+    }
+
+    protected int HCFinishCustodySnapshot()
+    {
         m_CustodyText = m_CustodySnapshot;
         m_CustodyCommitted = m_CustodySnapshotRevision;
         if (m_CustodyCommitted > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_CustodyCommitted; }

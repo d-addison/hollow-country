@@ -456,13 +456,54 @@ class HCWorldCustodySaveJob : HCSaveJob
 // images and revision order before passing nonempty text. No empty-state fallback.
 class HCWorldIntentRecovery
 {
-    // Copy + byte-counted readback substitutes for the absent native rename.
-    // Includes empty files; shortened conversions (e.g. NUL) fail closed.
-    // Uses observed <=4096-byte string reads, not unqualified raw arrays.
+    // Rejected bytes are non-authoritative. Callers establish safe retirement
+    // (verified surviving image, or a provably uncommitted first-seed tear).
+    // Never copy onto an occupied destination, including after interrupted copies.
     static bool Reject(string source, int limit)
     {
         string rejected = source + ".rejected";
+        int free = -1;
+        for (int slot = 0; slot < 8; slot++)
+        {
+            string candidate = source + ".rejected";
+            if (slot > 0) { candidate += "." + slot.ToString(); }
+            if (!FileExist(candidate))
+            {
+                if (free < 0) { free = slot; rejected = candidate; }
+            }
+            else if (HCWorldStore.RawEqual(source, candidate))
+            {
+                Print("[HC World] staged_rejection reason=existing_raw_copy action=retire_source");
+                return DeleteFile(source);
+            }
+        }
+        if (free < 0)
+        {
+            // Bounded oldest-first rotation. A crash can lose an old archive,
+            // but leaves the current source available to retry on the next boot.
+            if (!DeleteFile(source + ".rejected")) { return false; }
+            for (int rotate = 1; rotate < 8; rotate++)
+            {
+                string oldPath = source + ".rejected." + rotate.ToString();
+                string newPath = source + ".rejected";
+                int previous = rotate - 1;
+                if (rotate > 1) { newPath += "." + previous.ToString(); }
+                if (!CopyFile(oldPath, newPath)) { return false; }
+                if (!DeleteFile(oldPath)) { return false; }
+            }
+            rejected = source + ".rejected.7";
+        }
         if (!CopyFile(source, rejected)) { return false; }
+        bool equal = EqualText(source, rejected, limit);
+        if (!equal) { equal = HCWorldStore.RawEqual(source, rejected); }
+        string reason = "verified_copy";
+        if (!equal) { reason = "copy_unverified_non_authoritative"; }
+        Print("[HC World] staged_rejection reason=" + reason + " action=retire_source");
+        return DeleteFile(source);
+    }
+
+    protected static bool EqualText(string source, string rejected, int limit)
+    {
         FileHandle left = OpenFile(source, FileMode.READ);
         if (!left) { return false; }
         FileHandle right = OpenFile(rejected, FileMode.READ);
@@ -482,8 +523,7 @@ class HCWorldIntentRecovery
         }
         CloseFile(left);
         CloseFile(right);
-        if (!equal) { return false; }
-        return DeleteFile(source);
+        return equal;
     }
 
     static bool Recover(string path, int limit, string intent, string primary, bool forward, bool keepBackup = true)
@@ -533,6 +573,9 @@ class HCWorldLeaseCeiling
     static const string PATH = "$profile:HollowCountry/ai-custody.lease-ceiling";
     protected int m_Ceiling;
     protected int m_Pending;
+    protected bool m_NeedsReseed;
+    protected bool m_BackupLowerBound;
+    protected bool m_CleanupReady;
     protected string m_Text;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
 
@@ -547,6 +590,8 @@ class HCWorldLeaseCeiling
 
     bool Load(bool allowReseed)
     {
+        m_NeedsReseed = false;
+        m_BackupLowerBound = false;
         string primary;
         bool primaryRead = HCGroupIO.HCReadRaw(PATH, 12, primary);
         if (!primaryRead) { primary = ""; }
@@ -559,7 +604,10 @@ class HCWorldLeaseCeiling
             int next = Decode(intent);
             if (next == 0 || next < floor) { intent = ""; }
             if (floor == 0) { primary = ""; }
-            if (intent == "" && floor == 0 && !FileExist(PATH) && !FileExist(PATH + ".bak"))
+            bool firstSeed = intent == "" && floor == 0;
+            if (FileExist(PATH)) { firstSeed = false; }
+            if (FileExist(PATH + ".bak")) { firstSeed = false; }
+            if (firstSeed)
             {
                 // read_tmp must verify before the writer can remove a primary.
                 // No primary/backup + torn intent is therefore a first-seed tear.
@@ -571,7 +619,11 @@ class HCWorldLeaseCeiling
             {
                 if (intent == "" && floor == 0)
                 {
-                    if (!allowReseed) { return false; }
+                    if (!allowReseed)
+                    {
+                        Print("[HC World] custody_lease_ceiling_invalid reason=older_custody_unverified_ceiling");
+                        return false;
+                    }
                     if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
                 }
                 else
@@ -586,14 +638,35 @@ class HCWorldLeaseCeiling
         }
         if (floor == 0 && (FileExist(PATH) || FileExist(PATH + ".bak")))
         {
-            if (!allowReseed) { return false; }
+            if (!allowReseed)
+            {
+                Print("[HC World] custody_lease_ceiling_invalid reason=older_custody_unverified_ceiling");
+                return false;
+            }
+            m_NeedsReseed = true;
+            string backup;
+            bool backupRead = HCGroupIO.HCReadRaw(PATH + ".bak", 12, backup);
+            if (backupRead) { floor = Decode(backup); }
+            if (floor > 0)
+            {
+                m_BackupLowerBound = true;
+                Print("[HC World] custody_lease_ceiling_backup_lower_bound next_lease=" + floor.ToString());
+            }
             if (FileExist(PATH) && !HCWorldIntentRecovery.Reject(PATH, 12)) { return false; }
-            if (FileExist(PATH + ".bak") && !HCWorldIntentRecovery.Reject(PATH + ".bak", 12)) { return false; }
+            // Keep a verified backup lower bound until a new ceiling commits.
+            // Otherwise a crash between rejection and reseed could lose it.
+            if (floor == 0 && FileExist(PATH + ".bak"))
+            {
+                if (!HCWorldIntentRecovery.Reject(PATH + ".bak", 12)) { return false; }
+            }
             primary = "";
             Print("[HC World] custody_lease_ceiling_torn action=reseed_from_verified_custody");
             HCModuleReadiness.HCUse("Materializer", "custody_lease_ceiling_torn");
         }
-        if (floor > 0 && FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return false; }
+        if (floor > 0 && !m_NeedsReseed)
+        {
+            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return false; }
+        }
         m_Ceiling = floor;
         m_Text = primary;
         return true;
@@ -602,14 +675,24 @@ class HCWorldLeaseCeiling
     int HCAbort() { return m_Image.HCAbort(); }
 
     int Ceiling() { return m_Ceiling; }
+    bool NeedsReseed() { return m_NeedsReseed || m_Ceiling == 0; }
 
     // Called only by the custody save job, before its image can commit or a
     // provider can claim. One shared writer stage per call; no tick-time drain.
     int AdvanceStep(int nextLease)
     {
+        if (m_CleanupReady)
+        {
+            // The new primary has verified. One final bounded scheduler stage
+            // retires the lower-bound backup, never before the ceiling commits.
+            if (!DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+            m_CleanupReady = false;
+            m_BackupLowerBound = false;
+            return HCSaveJob.STEP_DONE;
+        }
         if (!m_Image.Active())
         {
-            if (nextLease <= m_Ceiling) { return HCSaveJob.STEP_DONE; }
+            if (nextLease <= m_Ceiling && !m_NeedsReseed) { return HCSaveJob.STEP_DONE; }
             m_Pending = nextLease;
             if (m_Pending <= 2147482623) { m_Pending += 1024; }
             else { m_Pending = 2147483647; }
@@ -622,6 +705,12 @@ class HCWorldLeaseCeiling
             m_Ceiling = m_Pending;
             m_Text = "|" + m_Pending.ToString() + "|";
             m_Image = new HCStagedSaveImage;
+            m_NeedsReseed = false;
+            if (m_BackupLowerBound)
+            {
+                m_CleanupReady = true;
+                return HCSaveJob.STEP_MORE;
+            }
         }
         return result;
     }
