@@ -100,10 +100,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
         }
         m_HCPendingMembers = m_NumberOfAI - HCXExpansionBridge.HCGroupCount(m_Group);
         if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
-        for (int heldIndex = 0; heldIndex < HCXExpansionBridge.HCGroupCount(m_Group) && heldIndex < 16; heldIndex++)
-        {
-            this.HCHoldGroup(m_Group, HCXExpansionBridge.HCGroupGetMember(m_Group, heldIndex));
-        }
+        this.HCHoldMembers();
         m_HCLive = true;
         director.Spawned(this);
     }
@@ -142,14 +139,26 @@ class HCXAISitePatrol : HCXExpansionPatrol
         m_HCPendingMembers = m_NumberOfAI - i - 1;
         if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
         this.HCBridgeSpawnAI_Deferred(i);
+        // The provider joins the member to m_Group only after SetupAI returns.
+        this.HCHoldMembers();
     }
     // #334: keep the provider group alive while any member it spawned still exists.
+    // The hold always follows m_Group; a hold on the live m_Group is never retired here.
     protected void HCHoldGroup(eAIGroup group, DayZPlayerImplement member)
     {
         if (!group) { return; }
-        if (m_HCHold && m_HCHold.Group != group) { this.HCReleaseHold(); }
+        if (m_HCHold && m_HCHold.Group != group)
+        {
+            if (m_Group && m_HCHold.Group == m_Group) { return; }
+            this.HCReleaseHold();
+        }
         if (!m_HCHold) { m_HCHold = new HCXAIGroupHold(group); }
         m_HCHold.Track(member);
+    }
+    protected void HCHoldMembers()
+    {
+        if (!m_Group) { return; }
+        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
     }
     void HCReleaseHold()
     {
@@ -202,12 +211,16 @@ class HCXAISitePatrol : HCXExpansionPatrol
     {
         HCXAIGroupHolds.PruneStep();
         if (m_HCFinished || HCXExpansionBridge.HCSitePatrolBeingDestroyed(this)) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
+        this.HCHoldMembers();
         this.HCBridgeOnUpdate();
     }
     override void SetupAI(eAIBase ai)
     {
         if (!this.HCBridgeSetupAI(ai)) { return; }
-        this.HCHoldGroup(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai), ai);
+        // Deferred members still carry their temporary provider group here; hold m_Group instead.
+        eAIGroup heldGroup = m_Group;
+        if (!heldGroup) { heldGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai); }
+        this.HCHoldGroup(heldGroup, ai);
         HCXAffiliationCues.Actor(ai, m_Faction);
         HCXExpansionBridge.HCBaseSetUnlimitedReload(ai, 0);
         HCXExpansionBridge.HCBaseSetLootingBehavior(ai, 0);

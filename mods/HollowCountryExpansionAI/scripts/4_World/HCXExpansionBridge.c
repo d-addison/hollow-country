@@ -699,6 +699,15 @@ class HCXAIGroupHold
     {
         if (member && Members.Find(member) < 0) { Members.Insert(member); }
     }
+    // Bounded: at most 16 current members of the held group.
+    void TrackGroup()
+    {
+        int count = HCXExpansionBridge.HCGroupCount(Group);
+        for (int memberIndex = 0; memberIndex < count && memberIndex < 16; memberIndex++)
+        {
+            this.Track(HCXExpansionBridge.HCGroupGetMember(Group, memberIndex));
+        }
+    }
     // Entries are weak and turn null once the entity is deleted.
     bool Settled()
     {
@@ -743,6 +752,20 @@ class HCXAIGroupHolds
             if (hold && nowMs - hold.SettledAtMs < HC_SETTLE_MS) { s_Cursor++; continue; }
             s_Retired.Remove(s_Cursor);
         }
+    }
+    // Returns the hold for group and tracks its members; a hold on another group is retired.
+    static HCXAIGroupHold Follow(HCXAIGroupHold hold, eAIGroup group)
+    {
+        if (hold && hold.Group == group)
+        {
+            hold.TrackGroup();
+            return hold;
+        }
+        Retire(hold);
+        if (!group) { return null; }
+        HCXAIGroupHold next = new HCXAIGroupHold(group);
+        next.TrackGroup();
+        return next;
     }
     static int Count()
     {
