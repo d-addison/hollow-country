@@ -41,9 +41,11 @@ modded class HCXDefence
         if (!s_Running || !actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)) { return false; }
         int nowMs = GetGame().GetTime();
         if (nowMs < 0) { return true; }
+        int actorGroupId = HCXExpansionBridge.HCGroupGetID(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor));
+        if (actorGroupId <= 0) { return false; }
         foreach (HCXGrudge grudge : s_Grudges)
         {
-            if (!grudge || grudge.Group != HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor) || grudge.Until <= nowMs || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { continue; }
+            if (!grudge || grudge.GroupId != actorGroupId || grudge.Until <= nowMs || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { continue; }
             if (!grudge.Attacker || !grudge.Attacker.GetIdentity()) { return true; }
             if (members.Contains(grudge.Attacker.GetIdentity().GetId())) { return true; }
         }

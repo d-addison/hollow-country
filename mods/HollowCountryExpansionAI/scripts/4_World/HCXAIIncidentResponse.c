@@ -389,7 +389,8 @@ class HCXAIIncidentResponse : HCModule
 
     bool HCCooling(eAIGroup group, int now)
     {
-        int groupId = HCXExpansionBridge.HCGroupGetID(group);
+        int groupId = 0;
+        if (group) { groupId = HCXExpansionBridge.HCGroupGetID(group); }
         int index = 0;
         bool cooling = false;
         while (index < m_Cooldowns.Count())
@@ -400,7 +401,7 @@ class HCXAIIncidentResponse : HCModule
                 m_Cooldowns.RemoveOrdered(index);
                 continue;
             }
-            if (entry.GroupId == groupId) { cooling = true; }
+            if (groupId > 0 && entry.GroupId == groupId) { cooling = true; }
             index++;
         }
         return cooling;
@@ -409,12 +410,14 @@ class HCXAIIncidentResponse : HCModule
     void HCCool(eAIGroup group, int now)
     {
         if (!group || m_Policy.CooldownSeconds < 1) { return; }
+        int coolId = HCXExpansionBridge.HCGroupGetID(group);
+        if (coolId <= 0) { return; }
         while (m_Cooldowns.Count() >= m_Policy.MaxCooldowns)
         {
             m_Cooldowns.RemoveOrdered(0);
         }
         HCXAIIncidentCooldown entry = new HCXAIIncidentCooldown;
-        entry.GroupId = HCXExpansionBridge.HCGroupGetID(group);
+        entry.GroupId = coolId;
         entry.Until = now + m_Policy.CooldownSeconds;
         m_Cooldowns.Insert(entry);
     }

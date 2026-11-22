@@ -721,6 +721,20 @@ class HCXAIGroupHold
             this.Track(HCXExpansionBridge.HCGroupGetMember(Group, memberIndex));
         }
     }
+    // Adds another hold's live members (bounded); used when a group is retired twice.
+    void Absorb(HCXAIGroupHold other)
+    {
+        for (int at = Members.Count() - 1; at >= 0; at--)
+        {
+            if (!Members[at]) { Members.Remove(at); }
+        }
+        if (!other || !other.Members) { return; }
+        foreach (DayZPlayerImplement member : other.Members)
+        {
+            if (Members.Count() >= 32) { return; }
+            this.Track(member);
+        }
+    }
     // Entries are weak and turn null once the entity is deleted.
     bool Settled()
     {
@@ -748,6 +762,21 @@ class HCXAIGroupHolds
         // At shutdown (destructors) there is no game: never re-create the static list then.
         if (!hold || !hold.Group || !GetGame()) { return; }
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
+        // One retired hold per group: a group retired again (leases, jobs, replans) merges its
+        // members into the existing hold, so the list is bounded by groups, not by events.
+        foreach (HCXAIGroupHold retired : s_Retired)
+        {
+            if (retired && retired.Group == hold.Group)
+            {
+                retired.Absorb(hold);
+                if (!retired.Settled())
+                {
+                    retired.SettledAtMs = -1;
+                    retired.SettledSeen = 0;
+                }
+                return;
+            }
+        }
         s_Retired.Insert(hold);
         if (s_Retired.Count() > HC_HIGH_COUNT && !s_HighLogged)
         {
