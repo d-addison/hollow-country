@@ -3163,6 +3163,46 @@
       "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldLeaseCeiling.Load; enqueue bounded startup work",
       "native": false,
       "reason": "Boot/retry-only bounded ceiling recovery probes the primary before opening it, preserving authoritative bytes on transient read failure; eight rejection slots and a single backup are bounded. No routine tick path. Native crash evidence pending."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 620,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCSearchRefreshModule.OnStart -> HCSearchRefreshStore.Open -> HCSearchRefreshStore.RecoverIntent -> HCWorldIntentRecovery.Recover -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
+      "native": false,
+      "reason": "w6-persist-fu: copy-verify FileExist after CopyFile on the staged-rejection path; runs only when a torn/rejected custody, ceiling or search-refresh intent file (HCSearchRefreshStore.Recover) is retired at boot, bounded to <=8 rotation slots per rejected source; post-copy existence check prevents deleting the source after a silent copy failure. Offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 646,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
+      "native": false,
+      "reason": "w6-persist-fu: copy-verify FileExist after CopyFile on the staged-rejection path; runs only when a torn/rejected custody, ceiling or search-refresh intent file (HCSearchRefreshStore.Recover) is retired at boot, bounded to <=8 rotation slots per rejected source; post-copy existence check prevents deleting the source after a silent copy failure. Offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 872,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#12",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldLeaseCeiling.Load; enqueue bounded startup work",
+      "native": false,
+      "reason": "w6-persist-fu: one .bak cleanup probe per ceiling load on a valid primary (floor > 0, no reseed); removes the superseded backup after a verified write. Boot/retry-only, one call per load; bounded. Offline candidate; no native probe yet."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 661,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp -> HCWorldIntentRecovery.Reject; enqueue bounded startup work",
+      "native": false,
+      "reason": "w6-persist-fu P3-2: deletes our own mismatched staged-rejection copy before returning copy_mismatch so the next boot retries into a free slot; source stays intact. Boot/retry-only, at most one call per rejected source per load; bounded."
     }
   ]
 }

@@ -123,11 +123,13 @@ class HCWorldStore
 
     protected static bool s_CeilingCountPrinted;
 
-    protected static void CeilingUnexpectedCount()
+    protected static void CeilingUnexpectedCount(bool rawFallback)
     {
         if (s_CeilingCountPrinted) { return; }
         s_CeilingCountPrinted = true;
-        Print("[HC WorldStore] custody_ceiling_read reason=unexpected_count action=string_fallback");
+        string action = "retain_retry";
+        if (rawFallback) { action = "string_fallback raw_compare=disabled"; }
+        Print("[HC WorldStore] custody_ceiling_read reason=unexpected_count action=" + action);
     }
 
     // EnSystem.c:397/417/425: FileExist proves existence, not readability;
@@ -150,7 +152,7 @@ class HCWorldStore
             if (count > 1)
             {
                 CloseFile(handle);
-                CeilingUnexpectedCount();
+                CeilingUnexpectedCount(true);
                 s_RawEnabled = false;
                 return ReadCeilingString(path, text);
             }
@@ -172,7 +174,7 @@ class HCWorldStore
         int count = ReadFile(handle, text, 13);
         CloseFile(handle);
         if (count < 0) { text = ""; return false; }
-        if (count > 13) { CeilingUnexpectedCount(); text = ""; return false; }
+        if (count > 13) { CeilingUnexpectedCount(false); text = ""; return false; }
         if (text.Length() > 12) { text = ""; return true; }
         bool invalid = count > 12 || count != text.Length();
         for (int index = 0; index < text.Length() && !invalid; index++)
@@ -238,8 +240,8 @@ class HCWorldStore
     }
 
     // One-time native qualification before the first raw comparison. Fixtures
-    // are disposable, actor-free profile files. EnConvert.c:44 AsciiToString.
-    // A NUL that cannot be emitted/read exactly disables raw comparisons too.
+    // are disposable, actor-free profile files.
+    // Printable bytes avoid depending on native NUL-to-string conversion.
     protected static void HCTestRawRead()
     {
         s_RawTested = true;
@@ -251,8 +253,6 @@ class HCWorldStore
         FileHandle fe = OpenFile(empty, FileMode.WRITE);
         if (fa && fb && fe)
         {
-            int nul;
-            string zero = nul.AsciiToString();
             string block;
             for (int n = 0; n < 1000; n++) { block += "a"; }
             for (int chunk = 0; chunk < 5; chunk++)
@@ -261,7 +261,6 @@ class HCWorldStore
                 string right = block;
                 if (chunk == 4 && block.Length() == 1000)
                 {
-                    left = block.Substring(0, 500) + zero + block.Substring(501, 499);
                     right = block.Substring(0, 500) + "b" + block.Substring(501, 499);
                 }
                 FPrint(fa, left);
@@ -272,7 +271,7 @@ class HCWorldStore
         if (fb) { CloseFile(fb); }
         if (fe) { CloseFile(fe); }
         // The differing byte must survive beyond the first 4096-byte read.
-        // Never enable the raw path when the NUL fixture was shortened.
+        // Both fixtures must contain exactly 5000 bytes.
         string fixture;
         FileHandle check = OpenFile(a, FileMode.READ);
         int length = -1;
@@ -602,7 +601,8 @@ class HCWorldIntentRecovery
             else if (HCWorldStore.RejectRawEqual(source, candidate))
             {
                 Print("[HC World] staged_rejection path=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
-                return DeleteFile(source);
+                if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
+                return true;
             }
         }
         if (free < 0)
@@ -617,6 +617,7 @@ class HCWorldIntentRecovery
                 int previous = rotate - 1;
                 if (rotate > 1) { newPath += "." + previous.ToString(); }
                 if (!CopyFile(oldPath, newPath)) { return RotationFailed(source, "rotation_copy_failed"); }
+                if (!FileExist(newPath)) { return RotationFailed(source, "rotation_copy_missing"); }
                 bool textMismatch;
                 bool rotatedEqual = CompareText(oldPath, newPath, limit, textMismatch);
                 bool rawMismatch;
@@ -641,19 +642,24 @@ class HCWorldIntentRecovery
             }
             rejected = source + ".rejected.7";
         }
-        if (!CopyFile(source, rejected)) { return false; }
-        bool equal = EqualText(source, rejected, limit);
-        if (!equal) { equal = HCWorldStore.RejectRawEqual(source, rejected); }
+        if (!CopyFile(source, rejected)) { return RotationFailed(source, "copy_failed"); }
+        if (!FileExist(rejected)) { return RotationFailed(source, "copy_missing"); }
+        bool copyTextMismatch;
+        bool equal = CompareText(source, rejected, limit, copyTextMismatch);
+        bool copyRawMismatch;
+        bool copyBudgetExhausted;
+        if (!equal) { equal = HCWorldStore.RejectCompare(source, rejected, copyRawMismatch, copyBudgetExhausted); }
+        if (copyTextMismatch || copyRawMismatch)
+        {
+            // Our own copy is wrong; remove it so the next boot retries with a free slot.
+            DeleteFile(rejected);
+            return RotationFailed(source, "copy_mismatch");
+        }
         string reason = "verified_copy";
         if (!equal) { reason = "copy_unverified_non_authoritative"; }
         Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retire_source");
-        return DeleteFile(source);
-    }
-
-    protected static bool EqualText(string source, string rejected, int limit)
-    {
-        bool mismatch;
-        return CompareText(source, rejected, limit, mismatch);
+        if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
+        return true;
     }
 
     protected static bool CompareText(string source, string rejected, int limit, out bool mismatch)
@@ -736,9 +742,17 @@ class HCWorldLeaseCeiling
     protected bool m_CleanupReady;
     protected static bool s_IntentReadFailurePrinted;
     protected static bool s_PrimaryReadFailurePrinted;
+    protected static bool s_BackupReadFailurePrinted;
     protected string m_LoadFailure;
 
     string LoadFailure() { return m_LoadFailure; }
+    protected bool RecoveryIOFailed()
+    {
+        m_LoadFailure = "custody_lease_ceiling_recovery_io_failed";
+        Print("[HC World] custody_lease_ceiling_recovery_io_failed path=ai-custody.lease-ceiling action=retain_retry");
+        return false;
+    }
+
     protected string m_Text;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
 
@@ -785,7 +799,7 @@ class HCWorldLeaseCeiling
             {
                 // read_tmp must verify before the writer can remove a primary.
                 // No primary/backup + torn intent is therefore a first-seed tear.
-                if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
+                if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return RecoveryIOFailed(); }
                 bool rejectedPrimary = FileExist(PATH + ".rejected");
                 for (int rejectedSlot = 1; rejectedSlot < 8; rejectedSlot++)
                 {
@@ -805,11 +819,11 @@ class HCWorldLeaseCeiling
                         Print("[HC World] custody_lease_ceiling_invalid reason=older_custody_unverified_ceiling");
                         return false;
                     }
-                    if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return false; }
+                    if (!HCWorldIntentRecovery.Reject(PATH + ".tmp", 12)) { return RecoveryIOFailed(); }
                 }
                 else
                 {
-                    if (!HCWorldIntentRecovery.Recover(PATH, 12, intent, primary, true, false)) { return false; }
+                    if (!HCWorldIntentRecovery.Recover(PATH, 12, intent, primary, true, false)) { return RecoveryIOFailed(); }
                     primary = "";
                     primaryRead = ReadPrimary(primary);
                     if (!primaryRead) { return false; }
@@ -828,19 +842,31 @@ class HCWorldLeaseCeiling
             }
             m_NeedsReseed = true;
             string backup;
-            bool backupRead = HCGroupIO.HCReadRaw(PATH + ".bak", 12, backup);
-            if (backupRead) { floor = Decode(backup); }
+            if (FileExist(PATH + ".bak"))
+            {
+                if (!HCWorldStore.ReadCeilingChecked(PATH + ".bak", backup))
+                {
+                    m_LoadFailure = "custody_lease_ceiling_backup_unreadable";
+                    if (!s_BackupReadFailurePrinted)
+                    {
+                        s_BackupReadFailurePrinted = true;
+                        Print("[HC World] custody_lease_ceiling_backup_unreadable path=ai-custody.lease-ceiling.bak action=retain_retry");
+                    }
+                    return false;
+                }
+                floor = Decode(backup);
+            }
             if (floor > 0)
             {
                 m_BackupLowerBound = true;
                 Print("[HC World] custody_lease_ceiling_backup_lower_bound next_lease=" + floor.ToString());
             }
-            if (FileExist(PATH) && !HCWorldIntentRecovery.Reject(PATH, 12)) { return false; }
+            if (FileExist(PATH) && !HCWorldIntentRecovery.Reject(PATH, 12)) { return RecoveryIOFailed(); }
             // Keep a verified backup lower bound until a new ceiling commits.
             // Otherwise a crash between rejection and reseed could lose it.
             if (floor == 0 && FileExist(PATH + ".bak"))
             {
-                if (!HCWorldIntentRecovery.Reject(PATH + ".bak", 12)) { return false; }
+                if (!HCWorldIntentRecovery.Reject(PATH + ".bak", 12)) { return RecoveryIOFailed(); }
             }
             primary = "";
             Print("[HC World] custody_lease_ceiling_torn action=reseed_from_verified_custody");
@@ -848,7 +874,7 @@ class HCWorldLeaseCeiling
         }
         if (floor > 0 && !m_NeedsReseed)
         {
-            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return false; }
+            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return RecoveryIOFailed(); }
         }
         m_Ceiling = floor;
         m_Text = primary;
