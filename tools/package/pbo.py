@@ -104,6 +104,8 @@ MISSION_FILES.add('ce/hc-site-measurements.json')
 MISSION_FILES.update({'travel/gapcode_routes_source-pages.json',
                       'travel/routes-manifest.json', 'ai/road-graph.compact.json'})
 # Generated bounded regional road catalog inventory.
+# Shipped together with the generated header (inventory checked by route tests).
+MISSION_FILES.update('travel/routes-manifest-%03d.json' % index for index in range(11))
 MISSION_FILES.add('travel/gapcov-roads/index.json')
 MISSION_FILES.update('travel/gapcov-roads/page-%03d.json' % index for index in range(17))
 # Named-locality catalogue for clue direction/distance wording (Leads).
