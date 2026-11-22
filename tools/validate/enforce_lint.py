@@ -27,6 +27,7 @@ from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
 from tools.validate import enforce_rules_readiness as _readiness
+from tools.validate import enforce_lint_use as _use
 from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,6 +92,7 @@ RULES = {
     enforce_json.RULE: enforce_json.DESCRIPTION,
 }
 RULES.update(_readiness.RULES)  # HC-S006 module names, HC-E009 engine-type variable names
+RULES.update(_use.RULES)  # HC-E040 use counter reached from an init path
 
 _KEYWORDS = frozenset({'if', 'while', 'for', 'foreach', 'switch', 'return', 'new', 'delete', 'case',
                        'else', 'sizeof', 'typename', 'super', 'this', 'thread', 'string', 'int', 'float',
@@ -2632,7 +2634,7 @@ ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_argum
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
              rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, enforce_json.rule_json_defaults,
-             _readiness.rule_module_names, _readiness.rule_engine_type_names)
+             _readiness.rule_module_names, _readiness.rule_engine_type_names, _use.rule_use_init_path)
 
 
 def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None):

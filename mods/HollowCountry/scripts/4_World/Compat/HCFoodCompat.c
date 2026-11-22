@@ -52,10 +52,12 @@ class HCFoodCompat
         return false;
     }
 
-    // Pass-through evidence: pack food went through the guard and the contract held.
-    static void Guarded()
+    // Pass-through evidence: pack food went through the guard and the contract held. Guarded counter:
+    // pack food initialised while the server loads (before any player, before the first summary) is
+    // refused, so only an item created in play counts (HC-E040).
+    static void Guarded(EntityAI item)
     {
-        HCModuleReadiness.HCUse("FoodCompat", "food_compat_guard");
+        HCModuleReadiness.HCUseGuarded("FoodCompat", "food_compat_guard", item);
     }
 
     // A refusal skipped the temperature init instead of dereferencing a null. The
@@ -214,7 +216,7 @@ modded class ItemBase
         }
         if (!HCFoodCompat.Admit(this)) { return; }
         super.InitTemperature();
-        HCFoodCompat.Guarded();
+        HCFoodCompat.Guarded(this);
     }
 }
 

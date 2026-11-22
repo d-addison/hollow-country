@@ -25,6 +25,13 @@ class HCModuleReadiness
     protected static bool s_UseRegistrationPrinted;
     static const int HC_USE_CAP = 256;
 
+    // Guarded counters (HC-E040). The init window opens at mission start (HCUseBegin) and closes at the
+    // first player or the first summary checkpoint; HCUseInitEnter/Leave bracket Load or migration code
+    // that can run later. A guarded count inside the window is refused and logged once per feature.
+    protected static bool s_UseInitOpen;
+    protected static int s_UseInitDepth;
+    protected static ref map<string, int> s_UseRefused = new map<string, int>();
+
     static int HCRegisterUse(string module, string feature)
     {
         int slot = HCUseSlot(module, feature);
@@ -68,6 +75,58 @@ class HCModuleReadiness
         if (count == 0) { HCUseLine(slot); }
     }
 
+    // The guarded counter: call it only from the gameplay path that did the work, passing the live object
+    // that proves it (the entity, item, row or player). It refuses, logs once and returns false when the
+    // evidence is null or the call runs on an init path; it counts through HCUse and returns true otherwise.
+    // A caller that latches "already counted" state must latch only on true. HC-E040 treats a call to this
+    // API as safe, and flags an unguarded HCUse/HCUseFixture an init path reaches without any branch.
+    static bool HCUseGuarded(string module, string feature, Class evidence)
+    {
+        if (!evidence)
+        {
+            HCUseRefuse(module, feature, "no_evidence");
+            return false;
+        }
+        if (HCUseInitActive())
+        {
+            HCUseRefuse(module, feature, "init_path");
+            return false;
+        }
+        HCUse(module, feature);
+        return true;
+    }
+
+    // True while a count would come from an init path: inside a HCUseInitEnter/Leave bracket, or from
+    // mission start until the first player connects or the first summary checkpoint runs.
+    static bool HCUseInitActive()
+    {
+        if (s_UseInitDepth > 0) { return true; }
+        if (!s_UseInitOpen) { return false; }
+        if (GetGame() && HCPerfPlayers.HCGet().Count() > 0) { s_UseInitOpen = false; }
+        return s_UseInitOpen;
+    }
+
+    // Bracket Load, restore or migration code that can run after the window closed.
+    static void HCUseInitEnter()
+    {
+        s_UseInitDepth++;
+    }
+
+    static void HCUseInitLeave()
+    {
+        if (s_UseInitDepth > 0) { s_UseInitDepth--; }
+    }
+
+    protected static void HCUseRefuse(string module, string feature, string reason)
+    {
+        if (module == "" || feature == "" || module.Length() > 64 || feature.Length() > 64) { return; }
+        if (HCReached.Token(module) != module || HCReached.Token(feature) != feature) { return; }
+        string key = module + "/" + feature + "/" + reason;
+        if (s_UseRefused.Contains(key) || s_UseRefused.Count() >= HC_USE_CAP) { return; }
+        s_UseRefused.Insert(key, 1);
+        Print("[HC UseRefused] module=" + module + " feature=" + feature + " reason=" + reason);
+    }
+
     // Real owner outcomes only; selection never calls this API.
     static void HCUseFixture(string module, string feature)
     {
@@ -97,6 +156,7 @@ class HCModuleReadiness
     // existing activity parser can compare checkpoints without summing deltas.
     static void HCSummary()
     {
+        s_UseInitOpen = false;
         HCNavRegister();
         HCNavRefresh();
         HCUseRegistrationSummary();
@@ -194,6 +254,9 @@ class HCModuleReadiness
 
     static void HCUseBegin()
     {
+        s_UseInitOpen = true;
+        s_UseInitDepth = 0;
+        s_UseRefused.Clear();
         if (s_UseScheduled && GetGame())
         {
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCSummary);

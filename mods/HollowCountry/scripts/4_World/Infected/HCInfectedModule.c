@@ -368,7 +368,7 @@ class HCInfectedModule : HCModule
         HCInfectedActor actor = new HCInfectedActor;
         actor.InfectedEntity = entity;
         actor.InitializeProfile(m_Config);
-        HCModuleReadiness.HCUse("Infected", "actor_bound");
+        HCModuleReadiness.HCUseGuarded("Infected", "actor_bound", entity);
         if (slot < 0)
             m_Actors.Insert(actor);
         else
