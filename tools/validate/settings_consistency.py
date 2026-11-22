@@ -438,9 +438,19 @@ def check_profile_default_sizes():
     native = ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c'
     cap = int(re.search(r'static const int MAX_BYTES = (\d+);', native.read_text()).group(1))
     errors, warnings = [], []
-    for path in sorted((ROOT / 'mods').glob('*/data/defaults/**/*')):
-        if not path.is_file():
-            continue
+    defaults = {path for path in (ROOT / 'mods').glob('*/data/defaults/**/*')
+                if path.is_file()}
+    images = set(defaults)
+    # HCXAISiteDirector selects these mission images as shipped before HCEnsure.
+    # Keep renamed AI defaults as well as same-path mission mirrors in coverage.
+    mission_root = ROOT / 'mission/hollow-country'
+    for default in defaults:
+        relative = Path(*default.parts[default.parts.index('defaults') + 1:])
+        candidates = [mission_root / relative]
+        if default.name.startswith('expansion-ai-'):
+            candidates.append(mission_root / 'ai' / default.name.removeprefix('expansion-ai-'))
+        images.update(path for path in candidates if path.is_file())
+    for path in sorted(images):
         size = path.stat().st_size
         message = f'profile default path={path.relative_to(ROOT).as_posix()} bytes={size} cap={cap}'
         if size > cap:

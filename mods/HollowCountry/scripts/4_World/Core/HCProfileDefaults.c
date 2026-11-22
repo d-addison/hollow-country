@@ -42,8 +42,10 @@ class HCProfileDefaults
             // bounded read reports observed bytes (at least MAX_BYTES + 1).
             string relative = "unknown";
             int prefix = path.IndexOf("data/defaults/");
+            string missionRoot = "$mission:hollow-country/";
             if (prefix >= 0) { relative = path.Substring(prefix + 14, path.Length() - prefix - 14); }
             else if (path.IndexOf(PROFILE_ROOT) == 0) { relative = path.Substring(PROFILE_ROOT.Length(), path.Length() - PROFILE_ROOT.Length()); }
+            else if (path.IndexOf(missionRoot) == 0) { relative = path.Substring(missionRoot.Length(), path.Length() - missionRoot.Length()); }
             Print("[HollowCountry] profile default refused reason=too_large path=" + relative + " bytes=" + count.ToString());
             return "";
         }
@@ -108,42 +110,108 @@ class HCProfileDefaults
         return "";
     }
 
-    // Copies the shipped default to $profile:HollowCountry/<relative> only when
-    // the profile file is absent. Returns true when the profile file exists
-    // afterwards (operator file kept, or default provisioned and read back).
+    // Synchronous completion: callers may read the profile immediately. Only
+    // our verified first-copy marker permits repair of an existing torn copy.
     static bool Ensure(string relative, string shippedRoot)
     {
         if (!Valid(relative)) { return false; }
         string target = PROFILE_ROOT + relative;
-        if (FileExist(target)) { return true; }
+        string provisionPath = target + ".hcdefault.provision";
+        bool exists = FileExist(target);
+        if (exists && !FileExist(provisionPath)) { return true; }
         string shipped = shippedRoot + relative;
         string text = ReadText(shipped);
         if (text == "")
         {
-            Print("[HollowCountry] profile default unavailable file=" + relative + " source=" + shipped + "; feature keeps its own admission diagnostic");
+            Print("[HollowCountry] profile default unavailable file=" + relative + "; feature keeps its own admission diagnostic");
             return false;
+        }
+        string temporary = target + ".hcdefault.tmp";
+        bool repair = false;
+        if (exists)
+        {
+            string profile = ReadText(target);
+            string intent = ReadText(provisionPath);
+            if (profile == text)
+            {
+                if (intent == text)
+                {
+                    if (FileExist(temporary) && !DeleteFile(temporary))
+                    {
+                        Print("[HollowCountry] profile default refused file=" + relative + " reason=tmp_delete");
+                        return false;
+                    }
+                    if (!DeleteFile(provisionPath))
+                    {
+                        Print("[HollowCountry] profile default refused file=" + relative + " reason=provision_delete");
+                        return false;
+                    }
+                }
+                return true;
+            }
+            if (intent != text) { return true; }
+            repair = profile == "";
+            if (repair)
+            {
+                FileHandle emptyHandle = OpenFile(target, FileMode.READ);
+                if (!emptyHandle)
+                {
+                    Print("[HollowCountry] profile default refused file=" + relative + " reason=profile_unreadable");
+                    return false;
+                }
+                string emptyProbe;
+                int emptyBytes = ReadFile(emptyHandle, emptyProbe, 1);
+                CloseFile(emptyHandle);
+                if (emptyBytes != 0) { return true; }
+            }
+            if (!repair && profile.Length() < text.Length())
+            {
+                repair = text.Substring(0, profile.Length()) == profile;
+            }
+            if (!repair) { return true; }
         }
         if (!PrepareParents(relative))
         {
             Print("[HollowCountry] profile default refused file=" + relative + " reason=directory");
             return false;
         }
-        string temporary = target + ".hcdefault.tmp";
-        // The target was absent before this copy, so a copy that fails readback is removed and retried next boot.
-        bool provCopied = false;
-        bool provOk = WriteText(temporary, text);
-        if (provOk) { provCopied = CopyFile(temporary, target); provOk = provCopied; }
-        if (provOk) { provOk = ReadText(target) == text; }
-        if (!provOk)
+        // This first-copy marker is distinct from HCXAIRespawnDefaults' origin:
+        // its origin means COMPLETED adoption and must not precede target copy.
+        // Our marker proves an absent/torn target was ours, until readback.
+        bool intentOk = WriteText(temporary, text);
+        // Keep a verified repair marker intact across retries: rewriting it
+        // could tear the only authority while the target is still a prefix.
+        if (intentOk && !repair) { intentOk = WriteText(provisionPath, text); }
+        if (!intentOk)
         {
-            DeleteFile(temporary);
-            if (provCopied) { DeleteFile(target); }
+            Print("[HollowCountry] profile default refused file=" + relative + " reason=intent_readback");
+            return false;
+        }
+        if (exists && !DeleteFile(target))
+        {
+            Print("[HollowCountry] profile default refused file=" + relative + " reason=target_delete");
+            return false;
+        }
+        if (!CopyFile(temporary, target) || ReadText(target) != text)
+        {
+            // Keep intent and provenance until target readback succeeds.
             Print("[HollowCountry] profile default refused file=" + relative + " reason=write_readback");
             return false;
         }
-        DeleteFile(temporary);
+        if (!DeleteFile(temporary))
+        {
+            Print("[HollowCountry] profile default refused file=" + relative + " reason=tmp_delete");
+            return false;
+        }
+        if (!DeleteFile(provisionPath))
+        {
+            Print("[HollowCountry] profile default refused file=" + relative + " reason=provision_delete");
+            return false;
+        }
+        string mode = "fresh";
+        if (repair) { mode = "resume_interrupted"; }
         int bytes = text.Length();
-        Print("[HollowCountry] profile default provisioned file=" + relative + " bytes=" + bytes.ToString() + " source=pbo; operator files are never overwritten");
+        Print("[HollowCountry] profile default provisioned file=" + relative + " bytes=" + bytes.ToString() + " mode=" + mode + " source=pbo");
         return true;
     }
 
