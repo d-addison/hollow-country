@@ -519,6 +519,15 @@ class HCEventModule : HCModule
                 HCFinishStartupSweep();
             }
         }
+        else if (!m_Stopping && m_Config && m_Config.Enabled && m_TickSteps)
+        {
+            // The runtime refused to start (or is down): the police receipt directory image and any
+            // queued receipt work still advance, one native file call per tick, so police receipts
+            // never depend on the runtime having started.
+            int idleReceiptStarted = TickCount(0);
+            HCEventCacheSpawner.HCStepReceipts();
+            HCMeasureStep(m_ReceiptStep, "receipt_files", idleReceiptStarted);
+        }
     }
     // One line per 60 s window while the runtime is up: ticks the roster could not run
     // behind an unpublished journal image / an owned announcement, refreshes run, missions admitted.

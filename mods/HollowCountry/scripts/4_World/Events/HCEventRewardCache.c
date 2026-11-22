@@ -242,6 +242,9 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     protected ref map<string, ref HCPoliceGeneration> m_Generations = new map<string, ref HCPoliceGeneration>;
     protected bool m_PruneLogged;
     protected bool m_ListLogged;
+    protected bool m_OverflowLogged;
+    protected int m_PrunePasses;
+    protected int m_PruneRemoved;
     static const int RECEIPT_LIMIT = 384;
     // Directory image: every receipt file name and its text ("" = present but torn), loaded one file
     // per tick by HCStepLedger (HCEventModule tick), then kept current by this ledger's own queued
@@ -251,7 +254,13 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     static const int LOAD_READ = 2;
     static const int LOAD_READY = 3;
     static const int LOAD_UNAVAILABLE = 4;
+    static const int LOAD_PRUNE = 5;
+    // Receipt names the image holds after a listing overflow (a listing over this keeps the highest
+    // generations per site and kind and prunes the rest instead of refusing), the raw entries one
+    // listing scans, the relist passes of one load.
     static const int LISTING_CAP = 48;
+    static const int SCAN_CAP = 256;
+    static const int PRUNE_PASSES = 16;
     static const int QUEUE_KEEP = 32;
     // A directory that cannot be made or listed is retried after this many seconds.
     static const int LOAD_RETRY_SECONDS = 60;
@@ -292,8 +301,10 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         m_RetryAt = GetGame().GetTickTime() + LOAD_RETRY_SECONDS;
         HCRefuse(reason);
     }
-    // One staged step per call, driven every module tick: load the directory image (one native file
-    // call per call), then run the queued receipt writes and removes in order (one per call).
+    // One staged step per call, driven every module tick: load the directory image (one file open
+    // per call; the LOAD_LIST step is one name-only FindFile walk capped at SCAN_CAP entries plus its
+    // in-memory prune plan, load-time only and only above LISTING_CAP), then run the queued receipt
+    // writes and removes in order (one per call).
     // Returns true when a counted file call ran.
     bool HCStepLedger()
     {
@@ -319,7 +330,17 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             m_Listed = new array<string>;
             m_ReadAt = 0;
             m_Load = LOAD_READ;
-            if (!HCEventReceiptFiles.List(HCRoot(), m_Listed, LISTING_CAP)) { HCLoadRefused("listing_unavailable"); }
+            bool whole = HCEventReceiptFiles.List(HCRoot(), m_Listed, SCAN_CAP);
+            if (!whole || m_Listed.Count() > LISTING_CAP) { HCPlanOverflow(whole); }
+            else { m_PrunePasses = 0; }
+            return false;
+        }
+        if (m_Load == LOAD_PRUNE)
+        {
+            // A listing that hit SCAN_CAP is only partly known: its prunes drain first, then the
+            // directory is listed again until the whole of it fits.
+            if (HCNextOp()) { return HCStepQueue(); }
+            m_Load = LOAD_LIST;
             return false;
         }
         if (m_Load == LOAD_READ)
@@ -336,6 +357,113 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             return true;
         }
         return HCStepQueue();
+    }
+    // A listing over LISTING_CAP entries (or over SCAN_CAP raw entries) keeps, per site, the fixed
+    // names (.txt/.pos/.repair) and the 4 highest numbers of each gen/ok/bar kind, queues
+    // the other receipts of ours as removes (one DeleteFile per tick like every queued op) and ignores
+    // names that are not receipts. The highest numbers always survive, so the anchor, the generation
+    // and the barrel id the ledger reads are unchanged. A partial scan (more than SCAN_CAP entries)
+    // is repeated after its prunes drain, at most PRUNE_PASSES times and only while a pass pruned
+    // something; then the directory counts as unavailable (stock only) and is retried later.
+    protected void HCPlanOverflow(bool whole)
+    {
+        array<string> scanned = m_Listed;
+        m_Listed = new array<string>;
+        array<string> siteIds = new array<string>;
+        siteIds.Insert("coastal-police-source");
+        siteIds.Insert("inland-police-source");
+        array<string> kindPrefixes = new array<string>;
+        kindPrefixes.Insert("gen-");
+        kindPrefixes.Insert("ok-");
+        kindPrefixes.Insert("bar-");
+        // group: -2 = not a receipt of ours, -1 = fixed name, else site * 3 + kind.
+        array<int> groups = new array<int>;
+        array<int> numbers = new array<int>;
+        for (int at = 0; at < scanned.Count(); at++)
+        {
+            int group = -2;
+            int number = 0;
+            for (int siteAt = 0; siteAt < 2; siteAt++)
+            {
+                string scannedName = scanned[at];
+                if (scannedName == siteIds[siteAt] + ".txt" || scannedName == siteIds[siteAt] + ".pos" || scannedName == siteIds[siteAt] + ".repair") { group = -1; }
+                for (int kindAt = 0; kindAt < 3; kindAt++)
+                {
+                    int value = HCEpochOf(siteIds[siteAt], scannedName, kindPrefixes[kindAt]);
+                    if (value > 0)
+                    {
+                        group = siteAt * 3 + kindAt;
+                        number = value;
+                    }
+                }
+            }
+            groups.Insert(group);
+            numbers.Insert(number);
+        }
+        // Lowest number kept per group: the 4th highest, or 0 (keep all) when fewer exist.
+        array<int> floors = new array<int>;
+        for (int combo = 0; combo < 6; combo++)
+        {
+            int ceiling = 2000000000;
+            int low = 0;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                int best = 0;
+                for (int scan = 0; scan < scanned.Count(); scan++)
+                {
+                    if (groups[scan] == combo && numbers[scan] < ceiling && numbers[scan] > best) { best = numbers[scan]; }
+                }
+                if (best == 0)
+                {
+                    low = 0;
+                    break;
+                }
+                low = best;
+                ceiling = best;
+            }
+            floors.Insert(low);
+        }
+        int pruned = 0;
+        for (int pick = 0; pick < scanned.Count(); pick++)
+        {
+            if (groups[pick] == -2) { continue; }
+            bool keep = groups[pick] == -1;
+            if (!keep && numbers[pick] >= floors[groups[pick]]) { keep = true; }
+            if (keep)
+            {
+                m_Listed.Insert(scanned[pick]);
+                continue;
+            }
+            HCEventReceiptOp removal = new HCEventReceiptOp;
+            removal.HCBegin(scanned[pick], m_IO.HCPath(scanned[pick]), "", HCEventReceiptOp.MODE_REMOVE, "");
+            m_Queue.Insert(removal);
+            pruned = pruned + 1;
+        }
+        if (!m_OverflowLogged)
+        {
+            m_OverflowLogged = true;
+            string scope = "whole";
+            if (!whole) { scope = "partial"; }
+            Print("[HC Police] action=receipt_listing_pruned kept=" + m_Listed.Count().ToString() + " pruned=" + pruned.ToString() + " scan=" + scope);
+        }
+        if (whole)
+        {
+            m_PrunePasses = 0;
+            return;
+        }
+        m_PrunePasses = m_PrunePasses + 1;
+        // Progress is removes that completed during the previous drain, not removes queued: a host
+        // that refuses deletes refuses here instead of re-queueing the same prunes every pass.
+        bool stalled = m_PrunePasses > 1 && m_PruneRemoved < 1;
+        m_PruneRemoved = 0;
+        if (pruned < 1 || stalled || m_PrunePasses > PRUNE_PASSES)
+        {
+            m_PrunePasses = 0;
+            HCFailPendingRemoves();
+            HCLoadRefused("listing_unavailable");
+            return;
+        }
+        m_Load = LOAD_PRUNE;
     }
     // The latest queued op for a name (writes and removes), null when none is retained.
     protected HCEventReceiptOp HCQueued(string name, bool remove)
@@ -385,6 +513,14 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
             if (queued.Result == HCEventReceiptOp.RESULT_PENDING) { queued.Result = HCEventReceiptOp.RESULT_FAILED; }
         }
     }
+    // Removes planned from a refused listing never run later against a newer image.
+    protected void HCFailPendingRemoves()
+    {
+        foreach (HCEventReceiptOp queued : m_Queue)
+        {
+            if (queued.Mode == HCEventReceiptOp.MODE_REMOVE && queued.Result == HCEventReceiptOp.RESULT_PENDING) { queued.Result = HCEventReceiptOp.RESULT_FAILED; }
+        }
+    }
     protected HCEventReceiptOp HCNextOp()
     {
         foreach (HCEventReceiptOp queued : m_Queue)
@@ -412,7 +548,11 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (result == HCEventReceiptOp.RESULT_PENDING) { return true; }
         if (result == HCEventReceiptOp.RESULT_DONE)
         {
-            if (op.Mode == HCEventReceiptOp.MODE_REMOVE) { m_Files.Remove(op.Name); }
+            if (op.Mode == HCEventReceiptOp.MODE_REMOVE)
+            {
+                m_Files.Remove(op.Name);
+                m_PruneRemoved = m_PruneRemoved + 1;
+            }
             else { m_Files.Set(op.Name, op.Text); }
             return true;
         }

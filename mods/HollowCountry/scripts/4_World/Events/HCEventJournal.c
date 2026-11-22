@@ -98,87 +98,159 @@ class HCEventJournalIO
         return Read(name, limit) == text;
     }
     // Copy every surviving top-revision file before deleting any of them.
-    // The torn set is the three immutable files of one revision. Each preservation
-    // gets its own directory named from the UTC stamp, so a reused revision's earlier
-    // crashes never collide and the names cannot run out (a same-second collision
-    // takes one of 16 suffixes). Nothing is deleted until every file is verified as
-    // copied. When preservation cannot proceed the torn files stay in place and the
-    // reason is logged once. The journal still loads its last committed revision, but
-    // its save admission refuses while the torn triple holds the next revision number
-    // (the inventory sees a highest revision above the loaded one), so no save can
-    // succeed until a later boot preserves the files. The journal reports this through
-    // HCTornUnpreserved(); the runtime refuses to start with reason=torn_preservation_failed
-    // instead of failing later on its first publish. Nothing is deleted, so the next boot
-    // retries the preservation and a cleared fault repairs itself. Writing past the torn
-    // revision number is not done: a crash in that first save would leave two torn top
-    // revisions, and Load's single-top torn rule would then fault.
+    // The torn set is the three immutable files of one revision. One directory
+    // Events/torn/<revision>-<stamp> serves every attempt for that revision: the stamp
+    // is persisted with the attempt counter (Events/torn/attempt-<revision>.txt, text
+    // "<attempts> <stamp>"), so a failing boot never leaves a new directory behind and a
+    // reused revision number's earlier crash still gets its own directory. A copy is
+    // verified by byte count (the copy's ReadFile count equals the original's) and by
+    // text only when the original read as a whole string: a torn file that holds NUL
+    // bytes (zero-filled tail after power loss), a file over the read cap and an empty
+    // file are all byte-count cases. Nothing is deleted until every present file is
+    // verified as copied. While the attempt counter is below HC_TORN_ATTEMPTS a failed
+    // copy leaves the files in place and the next boot retries. From the last attempt
+    // on (or when the counter itself cannot be written) the journal repairs itself: a
+    // verified copy is still kept when possible, and a file that failed to copy is
+    // deleted only when the caller proved it already-torn data (provable[i] = 1: a
+    // strict prefix of the intent, or an incomplete image of an uncommitted revision).
+    // Files are removed commit first, then image, then intent, so a crash between two
+    // removals always leaves a top revision without a commit, which Load treats as torn.
+    // A file that cannot be removed at all (the host denies the delete) keeps the top
+    // revision on disk; the journal save admission then refuses and the runtime start
+    // names torn_preservation_failed. The files stay in place and the reason is logged.
+    static const int HC_TORN_ATTEMPTS = 3;
     protected string m_TornDirectory;
     protected string m_TornReason;
     string HCTornDirectory() { return m_TornDirectory; }
     string HCTornReason() { return m_TornReason; }
-    protected bool HCTornFail(string reason, string emptyDirectory)
+    protected bool HCTornFail(string reason)
     {
         m_TornReason = reason;
-        // A directory made for a failed copy must not linger as a spent slot.
-        if (emptyDirectory != "") { DeleteFile(emptyDirectory); }
         Print("[HC Events] torn preservation skipped reason=" + reason + " files=kept_in_place");
         return false;
     }
-    bool PreserveTorn(array<string> names, int revision)
+    protected string HCTornAttemptPath(int revision)
     {
-        if (!names || names.Count() > 3) { return HCTornFail("torn_copy_failed", ""); }
-        string root = "$profile:HollowCountry/Events/torn";
-        if (!FileExist(root) && !MakeDirectory(root)) { return HCTornFail("torn_copy_failed", ""); }
-        string stamp = HCGroupClock.Utc().ToString();
-        string target;
-        string leaf;
-        bool vacant = false;
-        for (int probe = 0; probe < 16; probe++)
-        {
-            leaf = revision.ToString() + "-" + stamp;
-            if (probe > 0) { leaf = leaf + "-" + probe.ToString(); }
-            target = root + "/" + leaf;
-            if (!FileExist(target))
-            {
-                vacant = true;
-                break;
-            }
-        }
-        if (!vacant) { return HCTornFail("torn_attempts_exhausted", ""); }
-        if (!MakeDirectory(target)) { return HCTornFail("torn_copy_failed", ""); }
-        int copied = 0;
-        for (int index = 0; index < 3 && index < names.Count(); index++)
-        {
-            string name = names[index];
-            if (!Exists(name)) { continue; }
-            // Verify raw bytes, including an empty torn file, before any delete.
-            string original = Read(name, 4194304);
-            int originalCount = HCReadCount();
-            if (originalCount < 0 || originalCount > 4194304 || original.Length() != originalCount) { return HCTornFail("torn_copy_failed", HCEmptyOnly(target, copied)); }
-            string copy = target + "/" + name;
-            if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return HCTornFail("torn_copy_failed", HCEmptyOnly(target, copied)); }
-            copied = copied + 1;
-            FileHandle handle = OpenFile(copy, FileMode.READ);
-            if (!handle) { return HCTornFail("torn_copy_failed", ""); }
-            string actual;
-            actual = "";
-            int count = ReadFile(handle, actual, 4194305);
-            CloseFile(handle);
-            if (count != originalCount || actual != original) { return HCTornFail("torn_copy_failed", ""); }
-        }
-        for (int last = 0; last < 3 && last < names.Count(); last++)
-        {
-            string obsolete = names[last];
-            if (Exists(obsolete) && !Remove(obsolete)) { return HCTornFail("torn_copy_failed", ""); }
-        }
-        m_TornDirectory = "Events/torn/" + leaf;
+        return "$profile:HollowCountry/Events/torn/attempt-" + revision.ToString() + ".txt";
+    }
+    // Attempts recorded for this revision (0 = none) and the stamp of its directory.
+    // An unreadable or malformed record (a crash inside HCTornRecord, a zero-filled tail) leaves
+    // one more copy attempt before the repair, so it can neither skip the grace nor hold it back.
+    protected int HCTornAttempts(int revision, out string stamp)
+    {
+        stamp = "";
+        string path = HCTornAttemptPath(revision);
+        if (!FileExist(path)) { return 0; }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return HC_TORN_ATTEMPTS - 1; }
+        string text;
+        int count = ReadFile(handle, text, 64);
+        CloseFile(handle);
+        int space = text.IndexOf(" ");
+        if (count < 3 || text.Length() != count || space < 1) { return HC_TORN_ATTEMPTS - 1; }
+        string number = text.Substring(0, space);
+        string tail = text.Substring(space + 1, text.Length() - space - 1);
+        int attempts = number.ToInt();
+        if (attempts < 1 || attempts.ToString() != number || tail.Length() < 1 || tail.Length() > 12 || tail.ToInt().ToString() != tail) { return HC_TORN_ATTEMPTS - 1; }
+        stamp = tail;
+        return attempts;
+    }
+    protected bool HCTornRecord(int revision, int attempts, string stamp)
+    {
+        string path = HCTornAttemptPath(revision);
+        if (FileExist(path) && !DeleteFile(path)) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.WRITE);
+        if (!handle) { return false; }
+        FPrint(handle, attempts.ToString() + " " + stamp);
+        CloseFile(handle);
+        return FileExist(path);
+    }
+    // Copies one torn file and verifies it by byte count before the original may go.
+    protected bool HCTornCopy(string name, string copy)
+    {
+        string original = Read(name, 4194304);
+        int originalCount = HCReadCount();
+        if (originalCount < 0) { return false; }
+        // An earlier attempt's copy that already verifies is kept: a later retry never deletes the
+        // only good copy before its own copy succeeds.
+        if (FileExist(copy) && HCTornCopyMatches(copy, original, originalCount)) { return true; }
+        if (FileExist(copy) && !DeleteFile(copy)) { return false; }
+        if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return false; }
+        return HCTornCopyMatches(copy, original, originalCount);
+    }
+    protected bool HCTornCopyMatches(string copy, string original, int originalCount)
+    {
+        FileHandle handle = OpenFile(copy, FileMode.READ);
+        if (!handle) { return false; }
+        string actual;
+        actual = "";
+        int count = ReadFile(handle, actual, 4194305);
+        CloseFile(handle);
+        if (count != originalCount) { return false; }
+        if (original.Length() == originalCount && actual != original) { return false; }
         return true;
     }
-    // Only a directory that received nothing may be removed; evidence never is.
-    protected string HCEmptyOnly(string directory, int copied)
+    bool PreserveTorn(array<string> names, int revision, array<int> provable)
     {
-        if (copied > 0) { return ""; }
-        return directory;
+        m_TornDirectory = "";
+        m_TornReason = "";
+        if (!names || !provable || names.Count() > 3 || provable.Count() != names.Count()) { return HCTornFail("torn_copy_failed"); }
+        string root = "$profile:HollowCountry/Events/torn";
+        bool rootReady = FileExist(root) || MakeDirectory(root);
+        string stamp;
+        int before = 0;
+        if (rootReady) { before = HCTornAttempts(revision, stamp); }
+        bool exhausted = !rootReady || before >= HC_TORN_ATTEMPTS;
+        if (stamp == "") { stamp = HCGroupClock.Utc().ToString(); }
+        if (rootReady && !HCTornRecord(revision, before + 1, stamp)) { exhausted = true; }
+        string leaf = revision.ToString() + "-" + stamp;
+        string target = root + "/" + leaf;
+        bool targetReady = rootReady && (FileExist(target) || MakeDirectory(target));
+        // Per file: 0 = present and not copied, 1 = copied and verified, 2 = absent.
+        array<int> status = new array<int>;
+        int kept = 0;
+        for (int index = 0; index < 3 && index < names.Count(); index++)
+        {
+            int state = 2;
+            if (Exists(names[index]))
+            {
+                state = 0;
+                if (targetReady && HCTornCopy(names[index], target + "/" + names[index]))
+                {
+                    state = 1;
+                    kept = kept + 1;
+                }
+            }
+            status.Insert(state);
+        }
+        string reason = "";
+        bool discarded = false;
+        for (int check = 0; check < status.Count(); check++)
+        {
+            if (status[check] != 0) { continue; }
+            if (!exhausted) { reason = "torn_copy_failed"; }
+            else if (provable[check] != 1) { reason = "torn_unpreservable_kept"; }
+            else { discarded = true; }
+        }
+        if (reason != "") { return HCTornFail(reason); }
+        // The record goes before the removals: a crash between them must not leave a
+        // stale counter that a later torn revision of the same number would reuse.
+        if (FileExist(HCTornAttemptPath(revision))) { DeleteFile(HCTornAttemptPath(revision)); }
+        bool removeFailed = false;
+        for (int last = status.Count() - 1; last >= 0 && !removeFailed; last--)
+        {
+            string obsolete = names[last];
+            if (Exists(obsolete) && !Remove(obsolete)) { removeFailed = true; }
+        }
+        if (removeFailed)
+        {
+            HCTornRecord(revision, before + 1, stamp);
+            return HCTornFail("torn_remove_failed");
+        }
+        if (kept > 0) { m_TornDirectory = "Events/torn/" + leaf; }
+        else { m_TornDirectory = "none"; }
+        if (exhausted && (discarded || kept < 1)) { m_TornReason = "self_repaired_after_" + before.ToString() + "_attempts"; }
+        return true;
     }
     bool Remove(string name) { return DeleteFile(m_Root + "/" + name); }
 }
@@ -394,11 +466,17 @@ class HCEventJournal : HCEventPersistence
         string intent = m_IO.Read(Name("intent-", latest), 2048);
         string commit = m_IO.Read(Name("commit-", latest), 2048);
         int commitCount = m_IO.HCReadCount();
-        if (m_IO.Exists(Name("commit-", latest)) && (commitCount < 0 || commitCount > 2048 || commit.Length() != commitCount)) { Fault(); return null; }
-        // Only an absent commit or a strict prefix of its intent is torn.
+        bool commitExists = m_IO.Exists(Name("commit-", latest));
+        if (commitExists && (commitCount < 0 || commitCount > 2048)) { Fault(); return null; }
+        // Only an absent commit or a strict prefix of its intent is torn. A prefix may hold NUL
+        // bytes (a zero-filled tail after power loss): Read then returns a shorter string than
+        // the byte count, which is the same torn commit, never a fault.
         // Present, complete but mismatched receipts/images must fault in HCLoadRevision.
-        bool torn = !m_IO.Exists(Name("commit-", latest));
-        if (!torn && commit.Length() < intent.Length() && (commit == "" || intent.IndexOf(commit) == 0)) { torn = true; }
+        // A commit whose byte count reaches its intent's length is never a prefix: a complete but
+        // zero-filled commit of a hash-valid revision faults instead of rolling back.
+        bool torn = !commitExists;
+        if (!torn && commitCount < intent.Length() && commit.Length() < intent.Length() && (commit == "" || intent.IndexOf(commit) == 0)) { torn = true; }
+        if (!torn && commit.Length() != commitCount) { Fault(); return null; }
         int loaded = latest;
         if (torn) { loaded--; }
         if (loaded < 1) { Fault(); return null; }
@@ -410,15 +488,37 @@ class HCEventJournal : HCEventPersistence
             names.Insert(Name("intent-", latest));
             names.Insert(Name("image-", latest));
             names.Insert(Name("commit-", latest));
-            if (m_IO.PreserveTorn(names, latest))
+            // 1 = already-torn data that may be dropped when every copy attempt failed: the commit
+            // (absent or a strict prefix of its intent), an intent with no image beside it, and an
+            // image shorter than its receipt's length. A complete uncommitted candidate is never
+            // provable and is only removed after a verified copy.
+            array<int> provable = new array<int>;
+            bool imagePresent = m_IO.Exists(Name("image-", latest));
+            int intentProof = 0;
+            if (!imagePresent) { intentProof = 1; }
+            int imageProof = 0;
+            if (imagePresent)
             {
-                Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=" + m_IO.HCTornDirectory());
+                HCEventJournalReceipt tornReceipt = m_Codec.Receipt(intent);
+                string tornImage = m_IO.Read(Name("image-", latest), m_Settings.MaxStoreBytes);
+                int tornImageCount = m_IO.HCReadCount();
+                if (tornReceipt && tornReceipt.Revision == latest && tornImageCount >= 0 && tornImageCount < tornReceipt.Length) { imageProof = 1; }
+            }
+            provable.Insert(intentProof);
+            provable.Insert(imageProof);
+            provable.Insert(1);
+            if (m_IO.PreserveTorn(names, latest, provable))
+            {
+                string recoveredNote = "";
+                if (m_IO.HCTornReason() != "") { recoveredNote = " reason=" + m_IO.HCTornReason(); }
+                Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=" + m_IO.HCTornDirectory() + recoveredNote);
             }
             else
             {
                 // Evidence stays in place; the journal still loads its committed revision,
                 // but saves cannot pass the torn revision number: the runtime refuses to
-                // start with reason=torn_preservation_failed and the next boot retries.
+                // start with reason=torn_preservation_failed. The attempt counter in
+                // Events/torn moves the next boots toward the self-repair path.
                 m_TornUnpreserved = true;
                 Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=none reason=" + m_IO.HCTornReason());
             }

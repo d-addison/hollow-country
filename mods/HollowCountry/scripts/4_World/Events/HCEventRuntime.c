@@ -341,7 +341,8 @@ class HCEventRuntime
         }
         // A torn top revision that could not be preserved blocks every journal save
         // (see HCEventJournalIO.PreserveTorn); name that reason instead of failing the
-        // first publish. The next boot retries the preservation.
+        // first publish. Each boot counts an attempt and the last one repairs the journal
+        // itself, so this refusal only persists while the host denies deleting the torn files.
         HCEventJournal loadedJournal = HCEventJournal.Cast(store);
         if (loadedJournal && loadedJournal.HCTornUnpreserved())
         {

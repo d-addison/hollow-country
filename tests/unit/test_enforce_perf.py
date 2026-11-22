@@ -1128,3 +1128,133 @@ class HCProbe
     def test_slow_poll_with_more_operations_than_the_cap_stays_a_root(self):
         many = 'FileExist("$profile:b"); ' * perf.SLOW_POLL_OPS
         self.assertIn('FileExist#1', self.keys(self.SLOW, '', many))
+
+
+class RetryWindowMinimumTests(unittest.TestCase):
+    RETRY = LatchTests.RETRY
+
+    def test_window_below_one_second_stays_flagged(self):
+        floor = perf.MIN_RETRY_WINDOW
+        too_short = '%g' % (floor / 2)
+        self.assertEqual([f.key for f in findings(self.RETRY % too_short, 'HC-P003')], ['FileExist#1'])
+        short_constant = self.RETRY.replace('RETRY_SECONDS = 30.0', 'RETRY_SECONDS = %s' % too_short)
+        self.assertEqual([f.key for f in findings(short_constant % 'RETRY_SECONDS', 'HC-P003')], ['FileExist#1'])
+
+    def test_window_of_exactly_the_minimum_clears_the_probe(self):
+        exact = '%.1f' % perf.MIN_RETRY_WINDOW
+        self.assertEqual(findings(self.RETRY % exact, 'HC-P003'), [])
+        exact_constant = self.RETRY.replace('RETRY_SECONDS = 30.0', 'RETRY_SECONDS = %s' % exact)
+        self.assertEqual(findings(exact_constant % 'RETRY_SECONDS', 'HC-P003'), [])
+
+
+class QualifiedLatchWriteTests(unittest.TestCase):
+    RETRY = LatchTests.RETRY % 'RETRY_SECONDS'
+
+    def source(self, member, tick='m_Cfg.Ensure(); Poke(m_Cfg);', extra=''):
+        return self.RETRY.replace(
+            'void OnTick() { m_Cfg.Ensure(); }',
+            'static ref Cfg s_Instance;\n    void OnTick() { %s }\n    void Poke(Cfg inst) { %s }\n    %s' % (tick, member, extra))
+
+    def keys(self, text):
+        return [f.key for f in findings(text, 'HC-P003')]
+
+    def test_write_through_a_parameter_reopens_the_window(self):
+        for member in ('inst.m_RetryAt = 0;', 'inst.m_Probed = false;', 'inst.m_RetryAt -= 2.0;'):
+            self.assertEqual(self.keys(self.source(member)), ['FileExist#1'], member)
+
+    def test_write_through_a_static_instance_or_field_chain_reopens_the_window(self):
+        for member in ('s_Instance.m_RetryAt = 0;', 'm_Cfg.m_Probed = false;', 'this.m_Cfg.m_RetryAt = 0;'):
+            self.assertEqual(self.keys(self.source(member)), ['FileExist#1'], member)
+
+    def test_qualified_write_to_an_unwatched_name_is_ignored(self):
+        self.assertEqual(self.keys(self.source('inst.m_Other = 0;')), [])
+
+    def test_qualified_write_off_the_tick_path_is_ignored(self):
+        self.assertEqual(self.keys(self.source('inst.m_RetryAt = 0;', tick='m_Cfg.Ensure();')), [])
+
+    def test_out_parameter_write_to_a_watched_field_reopens_the_window(self):
+        text = self.source('', extra='void Fill(out float value) { value = 0; }').replace(
+            'Poke(m_Cfg);', 'Poke(m_Cfg); Fill(m_Cfg.m_RetryAt);')
+        self.assertEqual(self.keys(text), ['FileExist#1'])
+
+    def test_cast_to_a_watched_field_reopens_the_window(self):
+        text = self.source('', extra='').replace('Poke(m_Cfg);', 'Poke(m_Cfg); Class.CastTo(m_Cfg.m_RetryAt, null);')
+        self.assertEqual(self.keys(text), ['FileExist#1'])
+
+    def test_out_parameter_write_to_another_field_is_ignored(self):
+        text = self.source('', extra='void Fill(out float value) { value = 0; }').replace(
+            'Poke(m_Cfg);', 'Poke(m_Cfg); Fill(m_Cfg.m_Spare);')
+        self.assertEqual(self.keys(text), [])
+
+
+class FieldInitializerEdgeTests(unittest.TestCase):
+    TEXT = '''
+class Holder
+{
+    %s
+}
+class M
+{
+    void OnTick() { %s }
+}
+'''
+
+    def keys(self, member, tick):
+        return [f.key for f in findings(self.TEXT % (member, tick), 'HC-P003')]
+
+    def test_initializer_call_to_an_authored_method_reaches_its_file_work(self):
+        member = 'bool m_Seen = Check();\n    bool Check() { return FileExist("$profile:y"); }'
+        self.assertEqual(self.keys(member, 'Holder h = new Holder;'), ['FileExist#1'])
+
+    def test_initializer_file_operation_is_flagged_at_the_construction_site(self):
+        self.assertEqual(self.keys('bool m_Seen = FileExist("$profile:z");', 'Holder h = new Holder;'), ['FileExist#1'])
+
+    def test_nested_construction_in_an_initializer_is_followed(self):
+        text = self.TEXT % ('ref Inner m_Inner = new Inner;', 'Holder h = new Holder;')
+        text += 'class Inner\n{\n    bool m_Seen = Probe();\n    bool Probe() { return FileExist("$profile:i"); }\n}\n'
+        self.assertEqual([f.key for f in findings(text, 'HC-P003')], ['FileExist#1'])
+
+    def test_literal_initializers_add_nothing(self):
+        member = 'bool m_Seen = false;\n    int m_Count = 3;\n    ref array<string> m_Rows = new array<string>;'
+        self.assertEqual(self.keys(member, 'Holder h = new Holder;'), [])
+
+    def test_initializer_of_a_class_no_tick_path_creates_adds_nothing(self):
+        member = 'bool m_Seen = FileExist("$profile:z");'
+        self.assertEqual(self.keys(member, 'int x = 1;'), [])
+
+
+class ContextCapTests(unittest.TestCase):
+    def source(self, sites):
+        classes = ''.join('class Quiet%d : Job { override int Advance() { return 0; } }\n' % n for n in range(sites))
+        calls = ' '.join('Sched.Flush(new Quiet%d);' % n for n in range(sites))
+        return '''
+class Job { int Advance() { return 0; } }
+%sclass FileJob : Job
+{
+    override int Advance()
+    {
+        FileExist("$profile:f.json");
+        return 0;
+    }
+}
+class Sched
+{
+    static void Flush(Job job) { while (job.Advance() == 1) { } }
+}
+class Other { void Go() { Sched.Flush(new FileJob); } }
+class M
+{
+    void OnTick(float dt) { %s }
+}
+''' % (classes, calls)
+
+    def test_contexts_within_the_cap_stay_narrowed(self):
+        self.assertEqual(findings(self.source(perf.CONTEXT_CAP), 'HC-P003'), [])
+
+    def test_contexts_past_the_cap_fall_back_to_full_dispatch_and_flag(self):
+        self.assertTrue(findings(self.source(perf.CONTEXT_CAP + 1), 'HC-P003'))
+
+    def test_zero_cap_never_hides_an_override(self):
+        from unittest import mock
+        with mock.patch.object(perf, 'CONTEXT_CAP', 0):
+            self.assertTrue(findings(self.source(1), 'HC-P003'))

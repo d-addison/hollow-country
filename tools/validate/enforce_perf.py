@@ -139,7 +139,13 @@ RULES = {
     'HC-P010': 'raw HCTake bypasses consumer fairness and attribution',
 }
 MAX_DEPTH = 24
+# A retry window shorter than this is not a bound on a per-tick attempt (seconds).
+MIN_RETRY_WINDOW = 1.0
+# Distinct argument-type contexts the tick walk keeps per method; past this a method is entered
+# once more without narrowing (every override stays reachable), so the walk stays bounded.
+CONTEXT_CAP = 8
 _IDENT = r'[A-Za-z_]\w*'
+_NEW = re.compile(rf'\bnew\s+({_IDENT})')
 _CHAIN = rf'{_IDENT}(?:\s*\.\s*{_IDENT})*'
 _SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Get|Substring|IndexOfFrom|IndexOf|Contains)\s*\(')
 _CALL = re.compile(rf'(?<![\w.])({_CHAIN})(?:\s*<[^;{{}}()]*>)?\s*\(')
@@ -206,6 +212,7 @@ class Model:
         self._sites = None
         self._out_names = None
         self._scheduled = None
+        self._initializers = {}
         self.envs = [self.environment(s, m) for s, m in self.nodes]
 
     def const_int(self, text):
@@ -313,6 +320,44 @@ class Model:
                                 names.add(argument.split('.')[-1])
             self._out_names = names
         return self._out_names
+
+    def initializer_targets(self, name, stack=()):
+        """(authored target nodes, file-operation names) reached by the field initializers of class
+        name and its bases: they run each time the class is constructed, so a method that does
+        `new name` runs them. Calls are matched by name through the class lineage (a superset);
+        a nested `new Other` in an initializer adds Other's own initializers."""
+        if name in stack or name not in self.classes:
+            return frozenset(), frozenset()
+        if name not in self._initializers:
+            targets, operations = set(), set()
+            for ancestor in self.lineage(name):
+                for c in self.classes.get(ancestor, []):
+                    env = {f.name: f.type for base in self.lineage(c.name) for d in self.classes.get(base, []) for f in d.fields}
+                    env['this'] = c.name
+                    for f in c.fields:
+                        if not f.initializer:
+                            continue
+                        code = f.initializer
+                        for call in _CALL.finditer(code):
+                            expression = re.sub(r'\s+', '', call.group(1))
+                            parts = expression.split('.')
+                            if parts[0] == 'JsonFileLoader':
+                                continue
+                            if len(parts) == 1 and parts[0] in _IO:
+                                operations.add(parts[0])
+                            typ = c.name if len(parts) == 1 else self.type_of('.'.join(parts[:-1]), env)
+                            found = set()
+                            for owner_name in (self.lineage(typ) + self.descendants.get(typ, []) if typ else []):
+                                found.update(self.index.get((owner_name, parts[-1]), []))
+                            if len(parts) == 1 and not found:
+                                found.update(self.globals.get(parts[0], []))
+                            targets.update(found)
+                        for made in _NEW.finditer(code):
+                            inner_targets, inner_operations = self.initializer_targets(made.group(1), stack + (name,))
+                            targets.update(inner_targets)
+                            operations.update(inner_operations)
+            self._initializers[name] = (frozenset(targets), frozenset(operations))
+        return self._initializers[name]
 
     def scheduled_names(self):
         """Method names that the engine or a call queue can invoke with arguments the authored
@@ -937,11 +982,11 @@ def once_spans(model, i):
             return None
         step = found.group(3)
         if re.fullmatch(r'\d+(?:\.\d+)?', step):
-            return window[:2] if float(step) > 0 else None
+            return window[:2] if float(step) >= MIN_RETRY_WINDOW else None
         constant = model.field_of(m.owner.name, step)
         if (constant and {'static', 'const'} <= set(constant.modifiers)
                 and re.fullmatch(r'\d+(?:\.\d+)?', constant.initializer.strip() or 'x')
-                and float(constant.initializer.strip()) > 0):
+                and float(constant.initializer.strip()) >= MIN_RETRY_WINDOW):
             return window[:2]
         return None
 
@@ -1832,6 +1877,11 @@ def check(sources, root=ROOT):
                 note = site_context(i, call, expression, found)
                 if note:
                     site_info.update(note)
+        # `new T` runs the field initializers of T and its bases at the creating call site.
+        for made in _NEW.finditer(s.code, m.body_start, m.body_end):
+            initial_targets, initial_ops = model.initializer_targets(made.group(1))
+            outgoing.extend((made.start(), target) for target in initial_targets)
+            sites.extend((made.start(), operation) for operation in initial_ops)
         # JsonFileLoader<T>.LoadFile/SaveFile/legacy JsonLoadFile/JsonSaveFile.
         for call in re.finditer(r'\bJsonFileLoader\s*<[^;{}()]+>\s*[.:]+\s*(LoadFile|SaveFile|JsonLoadFile|JsonSaveFile)\s*\(', s.body(m)):
             sites.append((m.body_start + call.start(), 'JsonFileLoader.' + call.group(1)))
@@ -1884,6 +1934,7 @@ def check(sources, root=ROOT):
                       if not (prune_staged and i in staged) and not avoid(i) and i not in polls)
         reached = {i: chain for i, chain, _ in queue}
         entered = {(i, context) for i, _, context in queue}
+        narrowed = {}
         while queue:
             i, chain, context = queue.popleft()
             s, m = model.nodes[i]
@@ -1903,8 +1954,14 @@ def check(sources, root=ROOT):
                 if avoid(target) or (boundary(target) and not drains_writer):
                     continue
                 inner = enter(i, context, offset, target)
-                if inner is None or (target, inner) in entered:
+                if inner is None:
                     continue
+                if inner and narrowed.get(target, 0) >= CONTEXT_CAP:
+                    inner = frozenset()
+                if (target, inner) in entered:
+                    continue
+                if inner:
+                    narrowed[target] = narrowed.get(target, 0) + 1
                 entered.add((target, inner))
                 reached.setdefault(target, chain + (target,))
                 queue.append((target, chain + (target,), inner))
@@ -1940,12 +1997,31 @@ def check(sources, root=ROOT):
                 watched.update((latch[:2], latch[4:6]))
     tampered = set()
     if watched:
+        watched_leaves = {}
+        for pair in watched:
+            watched_leaves.setdefault(pair[1], set()).add(pair)
         for i in walk({}, False, True):
             s, m = model.nodes[i]
             for write in _WRITE.finditer(s.code, m.body_start, m.body_end):
-                field = _latch_field(model, i, next(g for g in write.groups() if g), True)
-                if field and field[:2] in watched and not any(a <= write.start() < b for a, b in window_blocks.get(i, ())):
-                    tampered.add(field[:2])
+                if any(a <= write.start() < b for a, b in window_blocks.get(i, ())):
+                    continue
+                chain = next(g for g in write.groups() if g)
+                field = _latch_field(model, i, chain, True)
+                if field:
+                    if field[:2] in watched:
+                        tampered.add(field[:2])
+                    continue
+                # A write through a local or a field of another object (`inst.m_RetryAt = 0;`,
+                # `s_Instance.m_X = ...`) cannot be tied to one class without type resolution:
+                # any qualified write whose last name is a watched field's name counts.
+                parts = re.sub(r'\s+', '', chain).split('.')
+                if parts[0] == 'this':
+                    parts = parts[1:]
+                if len(parts) >= 2 and parts[-1] in watched_leaves:
+                    tampered.update(watched_leaves[parts[-1]])
+        # A watched field passed as an out/inout argument or CastTo target is written by the call.
+        for leaf in model.out_written_names() & watched_leaves.keys():
+            tampered.update(watched_leaves[leaf])
 
     def counts(latch):
         if len(latch) == 4:
