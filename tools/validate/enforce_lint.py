@@ -69,6 +69,7 @@ RULES = {
     'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
     'HC-E024': 'typename cannot return null; declare an empty typename and return it',
     'HC-E028': 'initializer must be a literal; a non-literal static const read as 0 natively (build 169)',
+    'HC-E029': 'duplicate local declaration or local shadows a parameter (Enforce function scope is flat)',
     'HC-E027': 'COT/CF/ExpansionStatic call outside its owned dependency bridge',
     'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
     'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
@@ -335,6 +336,39 @@ def rule_static_const_literals(project, source):
             if not separator or not literal.fullmatch(initializer.strip()):
                 yield _finding('HC-E028', source, offset, name.strip(), RULES['HC-E028'])
             offset += len(binding) + 1
+
+
+def rule_duplicate_locals(project, source):
+    """Reject redeclarations across the entire function, including sibling blocks.
+
+    Installed 1.30.164289 scripts never repeat a typed for-loop name in one
+    parsed method. EntityAI.SetInvisibleRecursive declares i at line 4070 and
+    reuses it without a type at 4096, even across blocks (see audit/CHECKS.md).
+    Use masked source bindings, including grouped declarations and foreach
+    slots, without changing the lexical scopes used by receiver resolution.
+    """
+    declaration = re.compile(r'[A-Za-z_]\w*(?:\s*<[^;(){}=]*>)?'
+                             r'\s+([A-Za-z_]\w*)\s*(?=[=;\[,:)])')
+    for method in _all_methods(source):
+        seen = {name: 'parameter' for _, name, _ in method.parameters()}
+        declarations = {}
+        for name, kind, start, end in source.local_declarations(method):
+            # The shared receiver model deliberately accepts broad generic
+            # text. Comparisons such as `a < b || c > value` are not types,
+            # and `Call(out value)` passes a binding rather than declaring it.
+            if kind in {'out', 'inout', 'in'} or not re.fullmatch(r'[\w<>,]+', kind):
+                continue
+            declarations[start] = name
+            match = declaration.match(source.code, start)
+            if match and match[1] == name:
+                for grouped, offset in _grouped_declarators(source.code, match.end(), end):
+                    declarations[offset] = grouped
+        for start, name in sorted(declarations.items()):
+            if name in seen:
+                yield _finding('HC-E029', source, start, _symbol(method),
+                               f'{name}: {RULES["HC-E029"]}; first declared as {seen[name]}')
+            else:
+                seen[name] = f'local at line {source.line_of(start)}'
 
 
 def rule_ternary(project, source):
@@ -2139,7 +2173,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,

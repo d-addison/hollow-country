@@ -7,6 +7,82 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class DuplicateLocalRule(unittest.TestCase):
+    def findings(self, body, parameters=''):
+        return lint.lint_texts({W + 'Locals.c':
+                               f'class HCProbe {{ void Run({parameters}) {{ {body} }} }}'},
+                               rules=(lint.rule_duplicate_locals,))
+
+    def test_same_scope_and_auto_redeclarations(self):
+        for body in ('bool retainedTmp; string retainedTmp;',
+                     'int value; auto value = Factory();',
+                     'auto value = Factory(); int value;',
+                     'int value; Load(out int value);'):
+            with self.subTest(body=body):
+                findings = self.findings(body)
+                self.assertEqual(['HC-E029'], [f.rule for f in findings])
+                self.assertIn('local at line', findings[0].message)
+
+    def test_nested_and_sibling_blocks_are_function_scoped(self):
+        for body in ('int value; if (true) { int value; }',
+                     'if (true) { int value; } int value;',
+                     'if (true) { int value; } else { int value; }',
+                     'for (int i = 0; i < 2; i++) {} for (int i = 0; i < 2; i++) {}',
+                     'for (int i = 0; i < 2; i++) { int i; }'):
+            with self.subTest(body=body):
+                self.assertEqual(['HC-E029'], [f.rule for f in self.findings(body)])
+
+    def test_parameter_shadow_including_out_and_generic_parameters(self):
+        for parameters, body in (('int value', 'int value;'),
+                                  ('out int value', '{ auto value = Factory(); }'),
+                                  ('map<string, ref Thing> values', 'array<Thing> values;')):
+            with self.subTest(parameters=parameters):
+                findings = self.findings(body, parameters)
+                self.assertEqual(['HC-E029'], [f.rule for f in findings])
+                self.assertIn('first declared as parameter', findings[0].message)
+
+    def test_foreach_slots_and_grouped_declarations(self):
+        for body in ('int value; foreach (Thing value : values) {}',
+                     'foreach (int key, Thing value : values) {} int key; int value;',
+                     'int first = Factory(1, 2), value = 3; int value;',
+                     'ref map<string, ref Thing> first = Factory(), value; Thing value;',
+                     'map <string, ref Thing> first = Factory(), value; Thing value;',
+                     'int first[2], value[3]; int value;'):
+            with self.subTest(body=body):
+                findings = self.findings(body)
+                expected = ['key', 'value'] if 'int key;' in body else ['value']
+                self.assertCountEqual(expected, [f.message.split(':')[0] for f in findings])
+
+    def test_comments_strings_references_and_assignments_are_ignored(self):
+        self.assertEqual([], self.findings('''
+            int i; string example = "int i; foreach (int i : values) {}";
+            int maxRise = 1; if (i < -2 || i > maxRise) {}
+            // int i;
+            /* auto i = Factory(); */
+            for (i = 0; i < 2; i++) {} for (i = 0; i < 2; i++) {}
+            Load(i); Load(out i); example = "int i;";
+            foreach (int key, Thing value : values) { Use(key, value); }
+        '''))
+
+    def test_methods_fields_and_global_functions_have_separate_bindings(self):
+        self.assertEqual([], lint.lint_texts({W + 'Locals.c': '''
+            int value;
+            void Global(int other) { int value; }
+            class HCProbe {
+                int value;
+                void First() { int value; }
+                void Second() { int value; }
+            }
+        '''}, rules=(lint.rule_duplicate_locals,)))
+        findings = lint.lint_texts({W + 'Locals.c': 'void Global() { int value; int value; }'})
+        self.assertIn('HC-E029', [f.rule for f in findings])
+
+    def test_diagnostic_points_to_second_declaration(self):
+        findings = self.findings('int value;\nfloat value;')
+        self.assertEqual([2], [f.line for f in findings])
+        self.assertTrue(all(f.severity == 'error' for f in findings))
+
+
 class StaticConstLiteralRule(unittest.TestCase):
     def findings(self, text):
         return lint.lint_texts({W + 'Constants.c': text},

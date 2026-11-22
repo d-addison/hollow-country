@@ -99,10 +99,21 @@ legacy code stays in the baseline until its WP converts it.
 | HC-E006 | `Substring` without a `Length()` bound or a checked `IndexOf` | boot 023, `DisabledXmlRoot` |
 | HC-E007 | a method named like a visible type and called unqualified | boot 026, `HCXGrudge.Slot` |
 | HC-E028 | primitive `static const` initializer is not a single literal (signed numbers, quoted strings and booleans allowed); references and arithmetic are forbidden | build 169: `HCStagedSaveImage.HC_MAX_STAGES` cross-class expression read as 0 natively; Leads exhausted a 6-step save guard |
+| HC-E029 | duplicate typed/auto/grouped/for/foreach/out-style local declarations anywhere in a function, including sibling blocks, or a local shadowing a parameter; comments and strings are masked | persist-fu round 3: `bool retainedTmp` and later `string retainedTmp` in `HCSelectRetainedCustody` (lead fix `a823fa9e`); native compiler reports “Multiple declaration of variable” |
 | HC-L001 | `Print(variable)` logs `string name = '...'` instead of the text; print an expression such as `"" + line` | boot 032 RPT, `[HC XAI] live` and `[HC InfectedLOD] stats` lines; member access (`obj.m_X`) and `PrintToRPT`/`ErrorEx` are not observed and not flagged |
 | HC-S001 | silent early `return;` in a server commit point | issue A |
 | HC-S002 | silent `return false;` in a gate | issue A/B |
 | HC-S003 | predicted action whose server path never messages the player | issue A |
+
+HC-E029 uses flat function scope. The installed vanilla 1.30.164289 cache was
+searched across 3,056 `.c` files and 27,910 parsed method/function bodies:
+none redeclared a typed for-loop name within one body (including `i` in sibling
+loops). Positive evidence of reuse is `3_Game/Entities/EntityAI.c`,
+`SetInvisibleRecursive`: `for (int i ...` at line 4070, followed by
+`for (i ...` at line 4096. This is source evidence supporting the rule, not a
+new native compiler experiment. The initial authored-tree HC-E029 scan found
+zero genuine declarations to rename; the lead's `retainedTmp` fix is already
+present. Existing lint baselines are unchanged.
 
 - **Historical validation** (run with `--root` on archived pre-fix trees):
   - `6daeb18^`: E005 at `HCHordeMigration.c:156`, E003 at
