@@ -1346,7 +1346,7 @@ def _validate_templates(files):
                            for field in ('Rooms', 'Furniture', 'Search')}}}
 
 
-def templates_build(censuses, proto, pos, types_bytes=None):
+def templates_build(censuses, proto, pos, clearance, types_bytes=None):
     """Validate batch configs, emitting only House classes actually observed in those runs.
 
     Stock-only classes stay traceable in the manifest; runtime callers treat absent rows as
@@ -1357,8 +1357,9 @@ def templates_build(censuses, proto, pos, types_bytes=None):
     docs, names = tpl.load_censuses(censuses, proto)
     tpl.parse_pos(pos)
     if docs:
-        return tpl.build(censuses, proto, pos, types_bytes=types_bytes, authored_bytes=tpl.authored_inputs())
-    sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': tpl.generator_sha256()}
+        return tpl.build(censuses, proto, pos, types_bytes=types_bytes, authored_bytes=tpl.authored_inputs(),
+                         clearance=clearance)
+    sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': tpl.generator_sha256(clearance=clearance)}
     parameters = {'reach_source': 'strict', 'min_agreement': tpl.DEFAULT_MIN_AGREEMENT,
                   'max_furnished': tpl.MAX_FURNISHED}
     excluded = [{'BuildingClass': name, 'Reason': 'not_observed_as_house'} for name in names]
@@ -1542,6 +1543,7 @@ def main(argv=None):
     entry.add_argument('--proto', type=Path, required=True)
     entry.add_argument('--pos', type=Path, required=True)
     entry.add_argument('--types', type=Path, help='stock types.xml; required to emit search sites')
+    entry.add_argument('--addons', type=Path, help='installed Addons for host and prop Geometry/Paths LODs (default: shared release Addons)')
     entry.add_argument('--out', type=Path, required=True)
     entry = commands.add_parser('assemble')
     entry.add_argument('--build', type=Path, required=True)
@@ -1581,7 +1583,8 @@ def main(argv=None):
                 require(not report['rejected'], 'census inputs rejected; inspect coverage before building')
                 if args.batch_plan:
                     require(not report['batch_plan']['missing'], 'batch plan has missing runs; inspect coverage')
-                built = templates_build(censuses, proto, pos,
+                from tools.audit import interior_slot_clearance
+                built = templates_build(censuses, proto, pos, interior_slot_clearance.factory(args),
                                         tpl._read(args.types, tpl.pts.MAX_STOCK_BYTES) if args.types else None)
                 out = tpl._output_dir(args.out)
                 tpl._write(out, built)
