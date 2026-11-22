@@ -650,6 +650,37 @@ only, in one of two ways:
 Never upload the raw `.RPT`, `.ADM` or `.mdmp` files or anything from the profiles folder. A report shows what the
 server logged; it does not show that a feature works for players.
 
+## #331: server crash about 3 minutes after start (v1-test-12 and v1-test-13)
+
+v1-test-12 and v1-test-13 could crash the server a few minutes after start, while
+a police supply event created its supply barrel. v1-test-14 creates the barrel in
+one step and fixes the crash. **Install it with the normal upgrade (“Updating to a
+later bundle”). Do not reset the server, wipe storage or edit any Hollow Country
+file by hand.** The upgrade repairs the state the crash left behind by itself.
+
+What the crash left behind: the profile folder
+`$profile:HollowCountry/Events/police-cache-stock/` may contain a `<site>.txt` file
+(the spent one-time grant) without the matching `<site>.pos` file. Older builds
+treat that site as spent forever, so its police supply barrel never comes back.
+Leave these files alone.
+
+What v1-test-14 does once, the first time a police event runs at that site:
+
+- If a supply barrel is still on the ground near the site, it keeps the old grant:
+  `[HC Events] police grant orphan kept; <site>; reason=barrel_present`
+- If no barrel is there, it writes a one-time `<site>.repair` marker and makes one
+  new barrel:
+  `[HC Events] police grant orphan repaired; <site>; runtime=PENDING`
+  followed by
+  `[HC Events] police cache created; <site>; stock=finite; refill=never runtime=PENDING`
+
+The `.repair` marker means the repair has already happened. It never repeats, so a
+repaired site cannot hand out a second barrel. The repair needs a player near the
+police station before it starts, so it may happen hours after the upgrade.
+
+Report to the owner: whether the server stays up past 10 minutes, and any of the
+lines above from the server RPT (site ids only, no player names).
+
 ## #162: police event refusal and unsupported AI weapons
 
 The `coastal-police-source-7` and `inland-police-source-7` suffix is
