@@ -1,3 +1,4 @@
+// Parsed through the shared HCJsonSchema loader; HCJsonFields keeps missing-field defaults.
 // ZoneGuards settings keys register in HollowCountry 3_Game
 // (AI/HCZoneGuardsSettingsRegistry.c): a modded class must share its base's script module.
 class HCXZoneGuardsConfig
@@ -17,7 +18,7 @@ class HCXZoneGuardsConfig
         {
             string raw = HCWorldStore.Read(path);
             string error;
-            if (raw == "" || !JsonFileLoader<HCXZoneGuardsConfig>.LoadData(raw, config, error) || !config) { return null; }
+            if (raw == "" || !HCJsonSchemaLoader<HCXZoneGuardsConfig>.HCLoadData(raw, config, error) || !config) { return null; }
             if (!HCJsonFields.Has(raw, "CooldownDays")) { config.CooldownDays = 2; }
             if (!HCJsonFields.Has(raw, "MaxChangesPerDay")) { config.MaxChangesPerDay = 2; }
             if (!HCJsonFields.Has(raw, "MaxZones")) { config.MaxZones = 128; }
