@@ -71,22 +71,16 @@ class HCGapcodeRoutesSourceFile
     string Path;
     int Bytes;
     string Sha256;
-    ref array<string> Pages;
     int PageStart;
     int PageCount;
 }
-class HCGapcodeRoutesPins
+// Generated with the mission bundle; preland verifies all bytes/digests offline.
+// Runtime compares source identities; small manifest pages are hashed incrementally.
+class HCGapcodeRoutesManifest
 {
     int SchemaVersion;
     int ChunkBytes;
-    int MaxSourceBytes;
     ref array<ref HCGapcodeRoutesSourceFile> Files;
-}
-
-// Generated with the mission bundle; preland verifies all bytes/digests offline.
-// Runtime compares source identities; small manifest pages are hashed incrementally.
-class HCGapcodeRoutesManifest : HCGapcodeRoutesPins
-{
     int CatalogPageStart;
     int HashPageVersion;
     ref array<ref HCGapcodeRoutesSourceFile> HashPages;
@@ -119,7 +113,7 @@ class HCXRoadCompactHeader
 }
 
 // Save/restore only the installed provider's protected hashing context. No hash
-// algorithm is duplicated. Each visit updates <=128 original page bytes; other
+// algorithm is duplicated. Each step updates <=128 original page bytes; other
 // hash users see exactly their incoming context even between route visits.
 // Installed ExpansionSHA256: protected s_Hash[8], s_TotalBits[2],
 // s_Buffer[64], s_BufferIndex; Update(input, reset, finalize), Reset, HexDigest.
@@ -165,29 +159,15 @@ class HCGapcodeRouteHash : ExpansionSHA256
 class HCGapcodeRoutesCatalog
 {
     ref HCGapcodeRoutesData Data;
-    protected ref HCGapcodeRoutesPins m_Pins;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref array<string> m_Ids = new array<string>;
-    protected FileHandle m_PinFile;
-    protected bool m_PinOpen;
     protected bool m_Enabled;
-    protected int m_FileIndex;
-    protected int m_PageIndex;
-    protected int m_ReadBytes;
-    protected int m_HashStride = 1;
-    protected int m_HashOffset;
-    protected int m_Hashed;
-    protected string m_HashPage;
-    protected int m_HashCursor;
-    protected ref HCGapcodeRouteHashState m_PageHash;
-    protected int m_PagesRead;
     protected int m_Cursor;
     protected int m_IndexPage;
     protected int m_IndexRows;
     protected int m_CatalogPage;
     protected int m_CatalogRows;
-    protected int m_PinPeakTicks;
     protected int m_Pending;
     protected ref map<string, int> m_Refusals = new map<string, int>;
     protected bool m_RefusalsDirty;
@@ -213,30 +193,17 @@ class HCGapcodeRoutesCatalog
     protected string m_Reason;
     protected string m_Phase = "off";
 
-    void HCRefuse(string reason, string sourcePath = "", int pageIndex = -1)
+    void HCRefuse(string reason)
     {
-        this.HCClose();
         m_Phase = "failed";
         if (m_Reason == reason) { return; }
         m_Reason = reason;
-        string sourceContext;
-        if (sourcePath != "")
-        {
-            // Only HCSourcePath-validated virtual paths reach this diagnostic.
-            // Zero-based page index identifies the exact pin to regenerate/check.
-            sourceContext = " file=" + sourcePath + " page_index=" + pageIndex.ToString();
-        }
-        Print("[HC Routes] catalog=degraded reason=" + reason + sourceContext + " runtime=PENDING");
+        Print("[HC Routes] catalog=degraded reason=" + reason + " runtime=PENDING");
         if (m_ValidityMismatch > 0)
         { Print("[HC Routes] validity_mismatch=" + m_ValidityMismatch.ToString() + " reason=" + reason + " runtime=PENDING"); }
     }
-    void HCClose()
-    {
-        if (m_PinOpen) { CloseFile(m_PinFile); m_PinOpen = false; }
-    }
     void HCStop()
     {
-        this.HCClose();
         if (m_RefusalsDirty)
         {
             Print("[HC Routes] catalog=stopped" + this.HCRefusalSummary() + " runtime=PENDING");
@@ -244,9 +211,6 @@ class HCGapcodeRoutesCatalog
         m_Manifest = null;
         m_ManifestHash = null;
         m_ManifestText = "";
-        m_PageHash = null;
-        m_HashPage = "";
-        m_HashCursor = 0;
         if (m_OpenedRoadOwner) { HCXAICaravanRoads.HCClose(); m_OpenedRoadOwner = false; }
         m_Enabled = false;
         m_Phase = "off";
@@ -298,7 +262,7 @@ class HCGapcodeRoutesCatalog
         this.HCRefuse(reason);
         return false;
     }
-    // One bounded read, <=128-byte hash update, or <=4 KiB parse per visit.
+    // One bounded read, budgeted hash batch, or <=4 KiB parse per visit.
     // Reuse the manifest scratch state; the phases never overlap.
     bool HCIndexPageStep()
     {
@@ -326,11 +290,8 @@ class HCGapcodeRoutesCatalog
         }
         if (!m_ManifestHashVerified)
         {
-            int count = Math.Min(HASH_BYTES_PER_STEP, m_ManifestText.Length() - m_ManifestHashCursor);
-            bool last = m_ManifestHashCursor + count == m_ManifestText.Length();
-            string digest = HCGapcodeRouteHash.HCRoutePart(m_ManifestHash, m_ManifestText.Substring(m_ManifestHashCursor, count), last);
-            m_ManifestHashCursor += count;
-            if (!last) { return false; }
+            string digest;
+            if (!this.HCHashPageBatch(digest)) { return false; }
             digest.ToLower();
             if (digest != identity.Sha256) { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_MISMATCH"); }
             m_ManifestHashVerified = true;
@@ -418,8 +379,8 @@ class HCGapcodeRoutesCatalog
         m_Manifest = manifest;
         return true;
     }
-    // Each visit does one bounded read, one <=128-byte provider hash update, or
-    // one <=4 KiB parse. Never combine the final hash block with JSON parsing.
+    // Each visit does one bounded read, a budgeted hash batch, or one <=4 KiB
+    // parse. Never combine the final hash block with JSON parsing.
     bool HCManifestPageStep()
     {
         HCGapcodeRoutesSourceFile identity = m_Manifest.HashPages[m_ManifestPage];
@@ -444,11 +405,8 @@ class HCGapcodeRoutesCatalog
         }
         if (!m_ManifestHashVerified)
         {
-            int count = Math.Min(HASH_BYTES_PER_STEP, m_ManifestText.Length() - m_ManifestHashCursor);
-            bool last = m_ManifestHashCursor + count == m_ManifestText.Length();
-            string digest = HCGapcodeRouteHash.HCRoutePart(m_ManifestHash, m_ManifestText.Substring(m_ManifestHashCursor, count), last);
-            m_ManifestHashCursor += count;
-            if (!last) { return false; }
+            string digest;
+            if (!this.HCHashPageBatch(digest)) { return false; }
             digest.ToLower();
             if (digest != identity.Sha256) { m_ValidityMismatch++; this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_MISMATCH"); return false; }
             m_ManifestHashVerified = true;
@@ -527,90 +485,30 @@ class HCGapcodeRoutesCatalog
         if (index == 2) { return path == "$mission:hollow-country/ai/localities.json"; }
         return index == 3 && path == "$mission:hollow-country/travel/route-surveys.json";
     }
-    // Script SHA-256 used to cost about 43 ms per 4 KB page (097 boot: 765 pages, one per
-    // tick, 13 minutes of hitches before AIRoles could start). Every page is still
-    // read and length-checked; only the first and last page of each file are hashed,
-    // plus HASH_SAMPLES strided pages of the external road source. The mission files
-    // come from the repo at the build commit, and their pages cost up to 550 ms each
-    // on 097, so their rows are checked by id binding below. The stride offset
-    // rotates per boot, so successive boots cover different road pages. A changed
-    // source changes its byte count or shifts every page after the edit.
-    static const int HASH_SAMPLES = 4;
-    static const int READS_PER_UNIT = 8;
     static const int HASH_BYTES_PER_STEP = 128;
-    bool HCPageSampled(int page, int pages)
+    static const int HASH_STEPS_PER_VISIT = 8;
+    // Keep provider updates atomic and bounded, restoring ambient state each time.
+    // Stop between parts at the shared frame remainder / local 2 ms deadline;
+    // the eight-step ceiling also bounds visits on an uncalibrated clock.
+    bool HCHashPageBatch(out string digest)
     {
-        if (page == 0 || page == pages - 1) { return true; }
-        return page % m_HashStride == m_HashOffset;
+        if (m_ManifestText.Length() < 1 || m_ManifestText.Length() > 4096)
+        { this.HCRefuse("ROUTE_HASH_PAGE_SIZE"); return false; }
+        m_Work.HCReset(HASH_STEPS_PER_VISIT, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
+        while (m_Work.HCContinue())
+        {
+            if (this.HCHashPagePart(digest)) { return true; }
+        }
+        return false;
     }
-    // These four sources jointly bind every regional candidate: page offsets
-    // do not identify JSON rows. Refuse this catalog on drift rather than admit
-    // routes against a partially trusted site/locality/road binding. Independent
-    // site qualification remains owned by the site provider.
-    void HCPinStep()
+    // One provider update; the final short part never spans beyond the page.
+    bool HCHashPagePart(out string digest)
     {
-        HCGapcodeRoutesSourceFile sourceFile = m_Pins.Files[m_FileIndex];
-        int pages = sourceFile.Pages.Count();
-        if (m_PageHash)
-        {
-            int partBytes = Math.Min(HASH_BYTES_PER_STEP, m_HashPage.Length() - m_HashCursor);
-            bool lastPart = m_HashCursor + partBytes == m_HashPage.Length();
-            string digest = HCGapcodeRouteHash.HCRoutePart(m_PageHash, m_HashPage.Substring(m_HashCursor, partBytes), lastPart);
-            m_HashCursor += partBytes;
-            if (!lastPart) { return; }
-            digest.ToLower();
-            m_PageHash = null;
-            m_HashPage = "";
-            m_HashCursor = 0;
-            if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
-            m_Hashed++;
-            m_PageIndex++;
-            return;
-        }
-        if (!m_PinOpen)
-        {
-            m_PinFile = OpenFile(sourceFile.Path, FileMode.READ);
-            if (!m_PinFile) { this.HCRefuse("ROUTE_SOURCE_FILE_MISSING", sourceFile.Path, m_PageIndex); return; }
-            m_PinOpen = true;
-            m_HashStride = (pages + HASH_SAMPLES - 1) / HASH_SAMPLES;
-            if (m_HashStride < 1) { m_HashStride = 1; }
-            m_HashOffset = HCWorldClock.UTC() % m_HashStride;
-            if (m_HashOffset < 0) { m_HashOffset = 0; }
-            // Mission files: first and last page only (no stride index can match).
-            if (m_FileIndex > 0) { m_HashStride = pages + 1; m_HashOffset = pages; }
-        }
-        for (int readCount = 0; readCount < READS_PER_UNIT && m_PageIndex < pages; readCount++)
-        {
-            string page;
-            int count = ReadFile(m_PinFile, page, m_Pins.ChunkBytes);
-            int expected = m_Pins.ChunkBytes;
-            if (expected > sourceFile.Bytes - m_ReadBytes) { expected = sourceFile.Bytes - m_ReadBytes; }
-            if (count != expected || page.Length() != expected) { this.HCRefuse("ROUTE_SOURCE_SIZE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
-            m_ReadBytes += count;
-            bool sampled = this.HCPageSampled(m_PageIndex, pages);
-            if (sampled)
-            {
-                m_HashPage = page;
-                m_HashCursor = 0;
-                m_PageHash = new HCGapcodeRouteHashState;
-                return;
-            }
-            m_PageIndex++;
-        }
-        if (m_PageIndex < pages) { return; }
-        string trailing;
-        if (ReadFile(m_PinFile, trailing, 1) > 0) { this.HCRefuse("ROUTE_SOURCE_TRAILING_BYTES", sourceFile.Path, m_PageIndex); return; }
-        this.HCClose();
-        m_PagesRead += pages;
-        m_ReadBytes = 0;
-        m_PageIndex = 0;
-        m_FileIndex++;
-        if (m_FileIndex == m_Pins.Files.Count())
-        {
-            m_Phase = "resolving";
-            m_Reason = "ROUTE_GRAPH_LOADING";
-            Print("[HC Routes] source_pages=verified read=" + m_PagesRead.ToString() + " hashed=" + m_Hashed.ToString() + " runtime=PENDING");
-        }
+        int count = Math.Min(HASH_BYTES_PER_STEP, m_ManifestText.Length() - m_ManifestHashCursor);
+        bool last = m_ManifestHashCursor + count == m_ManifestText.Length();
+        digest = HCGapcodeRouteHash.HCRoutePart(m_ManifestHash, m_ManifestText.Substring(m_ManifestHashCursor, count), last);
+        m_ManifestHashCursor += count;
+        return last;
     }
     // Candidate-local failures retain other candidates and their source order.
     void HCRowRefuse(HCGapcodeRoutesRow row, string reason)
@@ -710,8 +608,8 @@ class HCGapcodeRoutesCatalog
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (roads) { return roads; }
-        // Open the shared reader while pinning is in progress. No candidate is
-        // resolved/admitted until every original source check has completed.
+        // Open the shared reader after manifest admission. No candidate is
+        // resolved/admitted until the shared graph has finished loading.
         string corridorText = HCWorldStore.Read("$mission:hollow-country/ai/caravans.json");
         string corridorError;
         HCCaravanCorridor corridor;
@@ -759,7 +657,7 @@ class HCGapcodeRoutesCatalog
             return;
         }
         // ROADS shares the startup frame budget and retains its 4 ms slice cap.
-        // Pump independently of AI_ROUTES so source checks and node parsing overlap.
+        // The road owner pumps independently of AI_ROUTES during catch-up.
         bool graphWasOpen = HCXAICaravanRoads.HCGet() != null;
         int graphBegan = TickCount(0);
         HCXAICaravanRoads roads = this.HCGraph();
@@ -767,16 +665,10 @@ class HCGapcodeRoutesCatalog
         if (!roads || m_Phase == "failed" || !graphWasOpen) { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
         if (roads.Phase == "loading" && !HCStartupPump.HCInSlice()) { roads.HCStep(); }
-        // #275: the owner visits every other core tick. One row per visit
-        // paced 88 cheap bindings over 176 s even after the graph was loaded
-        // (131: graph 33.496 s, source checks ~71 s). Admit one bounded page,
-        // charging its full cap even under starvation, and retain the cursor.
-        // The same page/time cap lets cheap source reads reach the next hash
-        // without waiting another two seconds per 64 reads. Never run a second
-        // completed page digest in this visit or combine it with candidate work.
+        // Admit one bounded catalog page per visit, separately from row resolution.
         int limit = Data.limits.page_size;
         if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
-        // Half-slice headroom for the final non-preemptible hash block.
+        // Retain the existing row cap and two-millisecond cooperative slice.
         m_Work.HCReset(limit, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
         m_Slices++;
         if (m_Cursor == Data.routes.Count() && m_CatalogPage < Data.pages.Count())
@@ -788,52 +680,36 @@ class HCGapcodeRoutesCatalog
             if (pageMs > m_PageMsMax) { m_PageMsMax = pageMs; }
             return;
         }
-        int hashedBefore = m_Hashed;
         while (m_Work.HCContinue())
         {
             m_Units++;
-            if (m_Phase == "pinning")
+            if (roads.Phase == "loading") { return; }
+            if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
+            if (roads.Phase == "cold") { this.HCRefuse("ROUTE_GRAPH_NOT_OPENED"); return; }
+            if (roads.Nodes.Count() != Data.graph.nodes || roads.Config.RoadDataPath != Data.sources.road_virtual_path || Data.graph.max_degree > roads.Config.MaxRoadDegree)
+            { this.HCRefuse("ROUTE_GRAPH_SOURCE_MISMATCH"); return; }
+            if (!localities || !localities.Localities || !policy || !policy.Sites) { m_Reason = "ROUTE_SITE_OWNER_MISSING"; return; }
+            int resolveBegan = TickCount(0);
+            this.HCResolve(localities, policy, roads);
+            int resolveTicks = TickCount(resolveBegan);
+            if (resolveTicks > m_ResolvePeakTicks) { m_ResolvePeakTicks = resolveTicks; }
+            if (m_Phase == "failed") { return; }
+            if (m_Cursor == Data.routes.Count() && m_CatalogRows == Data.row_count)
             {
-                int pinBegan = TickCount(0);
-                this.HCPinStep();
-                int pinTicks = TickCount(pinBegan);
-                if (pinTicks > m_PinPeakTicks)
-                {
-                    m_PinPeakTicks = pinTicks;
-                }
-                if (m_Hashed != hashedBefore || m_Phase != "pinning") { return; }
-            }
-            else
-            {
-                if (roads.Phase == "loading") { return; }
-                if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
-                if (roads.Phase == "cold") { this.HCRefuse("ROUTE_GRAPH_NOT_OPENED"); return; }
-                if (roads.Nodes.Count() != Data.graph.nodes || roads.Config.RoadDataPath != Data.sources.road_virtual_path || Data.graph.max_degree > roads.Config.MaxRoadDegree)
-                { this.HCRefuse("ROUTE_GRAPH_SOURCE_MISMATCH"); return; }
-                if (!localities || !localities.Localities || !policy || !policy.Sites) { m_Reason = "ROUTE_SITE_OWNER_MISSING"; return; }
-                int resolveBegan = TickCount(0);
-                this.HCResolve(localities, policy, roads);
-                int resolveTicks = TickCount(resolveBegan);
-                if (resolveTicks > m_ResolvePeakTicks) { m_ResolvePeakTicks = resolveTicks; }
-                if (m_Phase == "failed") { return; }
-                if (m_Cursor == Data.routes.Count() && m_CatalogRows == Data.row_count)
-                {
-                    m_Phase = "loaded";
-                    m_Reason = "";
-                    if (m_Pending > 0) { m_Reason = "ROUTE_CANDIDATES_PENDING_ACCESS_OR_BINDING"; }
-                    string line = "[HC Routes] catalog=loaded candidates=" + m_Cursor.ToString();
-                    line += " pending=" + m_Pending.ToString() + " page_cap=" + limit.ToString();
-                    line += " manifest=" + m_ManifestAdmitted.ToString() + " validity_mismatch=" + m_ValidityMismatch.ToString();
-                    line += " pin_ticks_max=" + m_PinPeakTicks.ToString();
-                    line += " slices=" + m_Slices.ToString() + " units=" + m_Units.ToString();
-                    float elapsed = GetGame().GetTickTime() - m_Started;
-                    line += " elapsed_s=" + elapsed.ToString() + " resolve_ticks_max=" + m_ResolvePeakTicks.ToString();
-                    line += " manifest_ms=" + m_ManifestMs.ToString();
-                    line += " page_ms_max=" + m_PageMsMax.ToString();
-                    line += " graph_open_ms=" + m_GraphOpenMs.ToString();
-                    Print(line + this.HCRefusalSummary() + " runtime=PENDING");
-                    return;
-                }
+                m_Phase = "loaded";
+                m_Reason = "";
+                if (m_Pending > 0) { m_Reason = "ROUTE_CANDIDATES_PENDING_ACCESS_OR_BINDING"; }
+                string line = "[HC Routes] catalog=loaded candidates=" + m_Cursor.ToString();
+                line += " pending=" + m_Pending.ToString() + " page_cap=" + limit.ToString();
+                line += " manifest=" + m_ManifestAdmitted.ToString() + " validity_mismatch=" + m_ValidityMismatch.ToString();
+                line += " slices=" + m_Slices.ToString() + " units=" + m_Units.ToString();
+                float elapsed = GetGame().GetTickTime() - m_Started;
+                line += " elapsed_s=" + elapsed.ToString() + " resolve_ticks_max=" + m_ResolvePeakTicks.ToString();
+                line += " manifest_ms=" + m_ManifestMs.ToString();
+                line += " page_ms_max=" + m_PageMsMax.ToString();
+                line += " graph_open_ms=" + m_GraphOpenMs.ToString();
+                Print(line + this.HCRefusalSummary() + " runtime=PENDING");
+                return;
             }
             if (m_Phase == "failed" || m_Cursor == Data.routes.Count()) { return; }
         }
@@ -856,8 +732,11 @@ class HCGapcodeRoutesCatalog
         {
             HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
             string loadingReason = "catalog_loading";
-            if (!roads || roads.Phase == "cold" || roads.Phase == "loading") { loadingReason = "roads_loading"; }
-            m_Status.HCPublish("degraded", loadingReason);
+            if (m_Phase == "resolving")
+            {
+                if (!roads || roads.Phase == "cold" || roads.Phase == "loading") { loadingReason = "roads_loading"; }
+            }
+            m_Status.HCPublish("requested", loadingReason);
         }
         else if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
         // Candidate-local refusals (island access, a site binding) keep every other
