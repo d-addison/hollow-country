@@ -33,7 +33,13 @@ class auditleaves_Client
     protected float m_NextQuery;
     protected float m_StopAt;
     protected float m_LastNow;
-    protected string m_LastReceipt;
+    protected string m_LastState;
+    protected string m_LastReason;
+    // Native EnScript.c:385 Clear, :846 map, :877 Find, :902 Set.
+    // Query arrays are reused but release object references after each query.
+    protected ref array<Object> m_Nearby = new array<Object>;
+    protected ref array<CargoBase> m_Cargos = new array<CargoBase>;
+    protected ref map<string, bool> m_Deciduous = new map<string, bool>;
 
     HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
 
@@ -53,6 +59,18 @@ class auditleaves_Client
     {
         name.ToLower();
         return name.Contains("betulapendula") || name.Contains("fagussylvatica");
+    }
+
+    protected bool HCCachedDeciduous(string name)
+    {
+        bool deciduous;
+        if (m_Deciduous.Find(name, deciduous)) { return deciduous; }
+        deciduous = HCDeciduous(name);
+        // Bound retained class names even on maps with many tree variants.
+        // Eviction only repeats classification; it cannot change eligibility.
+        if (m_Deciduous.Count() >= 256) { m_Deciduous.Clear(); }
+        m_Deciduous.Set(name, deciduous);
+        return deciduous;
     }
 
     protected bool HCEligible(bool grade)
@@ -121,11 +139,13 @@ class auditleaves_Client
     {
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
         if (!viewer) { return; }
-        array<Object> nearby = new array<Object>;
-        array<CargoBase> cargos = new array<CargoBase>;
+        array<Object> nearby = m_Nearby;
+        array<CargoBase> cargos = m_Cargos;
+        nearby.Clear();
+        cargos.Clear();
         vector origin = viewer.GetPosition();
         // Native query has a spatial bound, no API result-count limit. Script
-        // inspects at most MaxObjects and releases both result arrays this call.
+        // inspects at most MaxObjects and clears both result arrays this call.
         GetGame().GetObjectsAtPosition3D(origin, m_Config.QueryRadius, nearby, cargos);
         m_Units.HCReset(m_Config.MaxObjects);
         m_Work.HCReset(m_Config.MaxObjects);
@@ -136,10 +156,12 @@ class auditleaves_Client
         {
             Object candidate = nearby[index];
             index = index + 1;
-            if (!candidate || !candidate.IsTree() || !HCDeciduous(candidate.GetType())) { continue; }
+            if (!candidate || !candidate.IsTree() || !HCCachedDeciduous(candidate.GetType())) { continue; }
             float distance = vector.DistanceSq(origin, candidate.GetPosition());
             if (distance < nearest) { selected = candidate; nearest = distance; }
         }
+        nearby.Clear();
+        cargos.Clear();
         if (!selected) { HCReport("off", "no_nearby_deciduous_tree"); return; }
         vector bounds[2];
         if (!selected.GetCollisionBox(bounds)) { HCRefuse("tree_bounds_unavailable"); return; }
@@ -162,9 +184,9 @@ class auditleaves_Client
     protected void HCReport(string state, string reason)
     {
         m_Status.HCPublish(state, reason);
-        string receipt = state + ":" + reason;
-        if (receipt == m_LastReceipt) { return; }
-        m_LastReceipt = receipt;
+        if (state == m_LastState && reason == m_LastReason) { return; }
+        m_LastState = state;
+        m_LastReason = reason;
         Print("[HC Leaves] state=" + state + " reason=" + reason + " runtime=PENDING");
     }
 
