@@ -2716,9 +2716,7 @@ def native_cache(argument=None, disabled=False):
     if disabled:
         return None
     path = Path(argument or os.environ.get('HC_NATIVE_SCRIPTS') or DEFAULT_CACHE).expanduser()
-    if not (path / '3_Game').is_dir():
-        return None
-    symbols = native_symbols.load(path, allow_uncached=True)
+    symbols, _origin = native_symbols.resolve(path, allow_uncached=True)
     return {int(layer): set(names) for layer, names in symbols['types'].items()}
 
 
@@ -2734,10 +2732,11 @@ def main(argv=None):
                         help='rewrite the baseline from the current findings with this review note')
     args = parser.parse_args(argv)
     path = Path(args.native_scripts or os.environ.get('HC_NATIVE_SCRIPTS') or DEFAULT_CACHE).expanduser()
-    symbols = None
-    if not args.no_native and (path / '3_Game').is_dir():
+    symbols, native_origin = None, 'none'
+    if not args.no_native:
+        # No local cache: the committed vanilla names index stands in (summary says names-index).
         try:
-            symbols = native_symbols.load(path, allow_uncached=True)
+            symbols, native_origin = native_symbols.resolve(path, allow_uncached=True)
         except (OSError, ValueError):
             parser.exit(1, 'enforce_lint: cannot read scripts or write the local symbol cache\n')
     native = ({int(layer): set(names) for layer, names in symbols['types'].items()}
@@ -2748,7 +2747,11 @@ def main(argv=None):
         names = {m.name for source in sources for c in source.classes for m in c.methods
                  if m.name != c.name and 'override' not in m.modifiers}
         names.update(_COT_GLOBALS | _CF_GLOBALS | _DEPENDENCY_GLOBALS.keys())
-        symbols = dict(symbols, globals=native_global_functions(path, names))
+        if native_origin == 'names-index':
+            found = {n: set(layers) for n, layers in symbols['global_functions'].items() if n in names}
+        else:
+            found = native_global_functions(path, names)
+        symbols = dict(symbols, globals=found)
     provider_layers = {}
     if not args.no_native:
         project = Project(sources, native, symbols)
@@ -2778,7 +2781,7 @@ def main(argv=None):
         for rule in RULES:
             print(f'{rule} total={per_rule[rule]} new={new_rule[rule]}  {RULES[rule]}')
         print(f"enforce_lint: {'FAIL' if new or stale else 'pass'} findings={len(findings)} new={len(new)} "
-              f"stale={len(stale)} native={'yes' if native is not None else 'no'}")
+              f"stale={len(stale)} native={'yes' if native_origin == 'cache' else native_origin if native is not None else 'no'}")
         # The tick-path cost check is part of the same gate; baselined lines stay quiet.
         perf_failed = run_perf(args.root)
         return 1 if new or stale or perf_failed else 0

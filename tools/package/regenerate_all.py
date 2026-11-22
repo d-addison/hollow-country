@@ -9,9 +9,12 @@ import tempfile
 
 from tools.release.rpt_summary import filtered
 from tools.release.ship_inputs import ADDONS
+from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
+NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+NAMES_INDEX_CHECK = 'vanilla_names_index'
 LOOT_OUTPUT = 'mission/hollow-country/loot-points/additions-interiors.json'
 # Historical inputs documented in docs/LOOT_POINTS.md, Reproduction and validation.
 LOOT_REVISIONS = (('prior', '335915c6'), ('candidate', 'fa0c2ac8'))
@@ -61,6 +64,13 @@ EXCLUDED_CHECK_MODULES = {
     'generated_digests': 'digest orchestrator; checked separately before release packaging',
     'hc_events': 'install-time CE scene installer with no committed outputs; friend_bundle runs hc_events.validate on every bundle build',
 }
+
+
+def check_names_index(values):
+    """The committed names-only vanilla index against the native scripts cache.
+
+    Compared in-process (no child): SKIP, reported as needs-host-check, where the cache is missing."""
+    return native_symbols.check_names_index(values['native_scripts'])
 
 
 def diagnostic(result):
@@ -162,13 +172,16 @@ def main(argv=None):
     parser.add_argument('--snafu-report', type=Path, help='existing external verification report')
     parser.add_argument('--tactical-flava-report', type=Path, help='existing external verification report')
     parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
+    parser.add_argument('--native-scripts', type=Path, default=NATIVE_SCRIPTS,
+                        help='extracted engine scripts the committed names index is compared with')
     parser.add_argument('--native-census', type=Path, action='append', default=[])
     parser.add_argument('--image-to-paa', type=Path, help='installed ImageToPAA converter')
     parser.add_argument('--timeout', type=positive_timeout, default=60, help='seconds per child (default: 60)')
     args = parser.parse_args(argv)
     values = {name: path.expanduser().resolve() if path is not None else None
               for name, path in vars(args).items() if name in
-              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'}}
+              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa',
+               'native_scripts'}}
     values['native_census'] = [p.expanduser().resolve() for p in args.native_census]
     if values['source'] is None:
         values['source'] = values['addons'].parent / 'mpmissions/dayzOffline.chernarusplus'
@@ -183,6 +196,12 @@ def main(argv=None):
                 subprocess.CompletedProcess([], 1, '', str(exc)))
         counts[status] += 1
         print(f'{status} {generator.name} {reason}', flush=True)
+    try:
+        status, reason = check_names_index(values)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        status, reason = 'FAIL', 'check unavailable: ' + diagnostic(subprocess.CompletedProcess([], 1, '', str(exc)))
+    counts[status] += 1
+    print(f'{status} {NAMES_INDEX_CHECK} {reason}', flush=True)
     failed = counts['FAIL'] > 0 or (args.require_installed and counts['SKIP'] > 0)
     print(f'regenerate_all: {"fail" if failed else "pass"} '
           f'checked={counts["PASS"] + counts["FAIL"]} failed={counts["FAIL"]} skipped={counts["SKIP"]}')
