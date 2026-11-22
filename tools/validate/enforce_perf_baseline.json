@@ -615,33 +615,6 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 317,
-      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
-      "key": "OpenFile#1",
-      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 317,
-      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
-      "key": "ReadFile#1",
-      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
-      "native": false
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 317,
-      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
-      "key": "ReadFile#2",
-      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
-      "native": false
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
       "line": 35,
