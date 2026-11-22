@@ -1,6 +1,7 @@
 """Synthetic parser/generator checks; these do not establish engine behavior."""
 import copy
 import json
+import math
 from pathlib import Path
 import tempfile
 import unittest
@@ -130,6 +131,209 @@ class SiteProbeTests(unittest.TestCase):
             with self.subTest(key=key):
                 report = hc.validate(self.root)[3]
                 self.assertEqual(report['measured_unusable_anchors'], [bad['targets'][0]['id']])
+
+    def relocation_source(self):
+        doc = measurement(self.rows)
+        doc['targets'][0]['water'] = 1
+        path = self.root / 'base.json'
+        path.write_text(json.dumps(doc))
+        return path, doc
+
+    def test_relocation_chunks_cover_only_screened_out_group_rings_under_cap(self):
+        raw = (hc.SOURCE / hc.MEASUREMENTS).read_bytes()
+        measured = json.loads(raw)
+        groups = {r['id']: r for r in self.rows if ':site' in r['id']
+                  and not r['id'].startswith('ItemHCSceneCache')}
+        bad = {r['id'] for r in measured['targets']
+               if r['id'] in groups and not hc.measurement_usable(r)}
+        ring_size = len(probe.RING_RADII) * probe.RING_BEARINGS
+        count = math.ceil(len(bad) / (probe.HARD_CAP // ring_size))
+        observed = []
+        for index in range(1, count + 1):
+            selector = '%d/%d' % (index, count)
+            rows, metadata = probe.relocation_targets(raw, selector)
+            self.assertLessEqual(len(rows), probe.HARD_CAP)
+            self.assertEqual(metadata['source_measurement_sha256'], probe.rt.sha256(raw))
+            self.assertEqual(metadata['chunk'], selector)
+            for row in rows:
+                anchor = groups[row['id'].rsplit(':', 1)[0]]
+                self.assertLessEqual(math.hypot(row['x'] - anchor['x'], row['z'] - anchor['z']),
+                                     hc.RELOCATE_RADIUS_M + 0.000001)
+            observed.extend(rows)
+        self.assertEqual({r['id'].rsplit(':', 1)[0] for r in observed}, bad)
+        self.assertEqual(len(observed), len(bad) * ring_size)
+        self.assertEqual(len({r['id'] for r in observed}), len(observed))
+        for selector in (None, '0/%d' % count, '1/%d' % (count + 1), '%d/%d' % (count + 1, count)):
+            with self.subTest(selector=selector), self.assertRaises(ValueError):
+                probe.relocation_targets(raw, selector)
+
+    def chunk_document(self, base):
+        rows, metadata = probe.relocation_targets(base.read_bytes(), '1/1')
+        doc = measurement(rows)
+        doc['relocation'] = metadata
+        path = self.root / 'chunk.json'
+        path.write_text(json.dumps(doc))
+        return path, doc
+
+    def test_merge_retains_every_run_and_applies_schema_one_output(self):
+        self.source_copy()
+        base, original = self.relocation_source()
+        chunk, doc = self.chunk_document(base)
+        out = self.root / hc.MEASUREMENTS
+        merged = probe.merge(base, [chunk], out)
+        self.assertEqual(merged['targets'], original['targets'] + doc['targets'])
+        runs = merged['provenance']['runs']
+        self.assertEqual([r['measurement_sha256'] for r in runs],
+                         [probe.rt.sha256(p.read_bytes()) for p in (base, chunk)])
+        self.assertEqual(runs[1]['relocation'], doc['relocation'])
+        report = hc.validate(self.root)[3]
+        self.assertIn(original['targets'][0]['id'], report['measured_relocated_anchors'])
+        self.assertEqual(report['measured_unusable_anchors'], [])
+        with self.assertRaises((ValueError, FileExistsError)):
+            probe.merge(base, [chunk], out)
+
+    def test_merge_refuses_hash_mismatch_duplicate_ids_and_incomplete_chunks(self):
+        base, _ = self.relocation_source()
+        chunk, original = self.chunk_document(base)
+        cases = []
+        for key in ('server_exe_sha256', 'stock_mission_sha256'):
+            doc = copy.deepcopy(original)
+            doc['provenance'][key] = 'f' * 64
+            cases.append(doc)
+        doc = copy.deepcopy(original)
+        doc['targets'].append(doc['targets'][0])
+        cases.append(doc)
+        doc = copy.deepcopy(original)
+        doc['relocation']['source_measurement_sha256'] = 'f' * 64
+        cases.append(doc)
+        doc = copy.deepcopy(original)
+        doc['targets'][0]['x'] += 1
+        cases.append(doc)
+        for doc in cases:
+            chunk.write_text(json.dumps(doc))
+            with self.subTest(case=doc), self.assertRaises(ValueError):
+                probe.merge(base, [chunk], self.root / 'merged.json')
+            self.assertFalse((self.root / 'merged.json').exists())
+        chunk.write_text(json.dumps(original))
+        for chunks in ([], [chunk, chunk]):
+            with self.subTest(chunks=len(chunks)), self.assertRaises(ValueError):
+                probe.merge(base, chunks, self.root / 'merged.json')
+
+    def test_merge_requires_every_chunk_and_keeps_unusable_evidence(self):
+        raw = (hc.SOURCE / hc.MEASUREMENTS).read_bytes()
+        base = self.root / 'base.json'
+        base.write_bytes(raw)
+        original = json.loads(raw)
+        count = math.ceil(len(hc.validate()[3]['measured_unusable_anchors']) /
+                          (probe.HARD_CAP // (len(probe.RING_RADII) * probe.RING_BEARINGS)))
+        chunks = []
+        for index in range(1, count + 1):
+            rows, metadata = probe.relocation_targets(raw, '%d/%d' % (index, count))
+            doc = measurement(rows)
+            doc['provenance'] = original['provenance']
+            doc['relocation'] = metadata
+            for row in doc['targets']:
+                row['water'] = 1
+            path = self.root / ('chunk%d.json' % index)
+            path.write_text(json.dumps(doc))
+            chunks.append(path)
+        out = self.root / 'merged.json'
+        with self.assertRaisesRegex(ValueError, 'incomplete'):
+            probe.merge(base, chunks[:-1], out)
+        self.assertFalse(out.exists())
+        merged = probe.merge(base, chunks, out)
+        self.assertEqual(len(merged['provenance']['runs']), len(chunks) + 1)
+        self.source_copy()
+        (self.root / hc.MEASUREMENTS).write_bytes(out.read_bytes())
+        report = hc.validate(self.root)[3]
+        self.assertEqual(report['measured_unusable_anchors'], hc.validate()[3]['measured_unusable_anchors'])
+        self.assertEqual(report['measured_relocated_anchors'], {})
+
+    def test_relocation_selects_nearest_usable_and_preserves_angle_and_group(self):
+        self.source_copy()
+        base, doc = self.relocation_source()
+        anchor = doc['targets'][0]
+        for distance in (hc.RELOCATE_RADIUS_M + 1, 8, 4, 2):
+            doc['targets'].append(dict(anchor, id=anchor['id'] + ':ring%d_0' % distance,
+                                       x=anchor['x'] + distance, water=int(distance == 2), y=distance))
+        (self.root / hc.MEASUREMENTS).write_text(json.dumps(doc))
+        baseline = hc.validate()[1][1][0].find('pos')
+        _, roots, _, report = hc.validate(self.root)
+        actual = roots[1][0].find('pos')
+        selected = min((r for r in doc['targets'] if r['id'].startswith(anchor['id'] + ':ring')
+                        and hc.measurement_usable(r)), key=lambda r: abs(r['x'] - anchor['x']))
+        self.assertEqual(float(actual.get('x')), selected['x'])
+        self.assertEqual(float(actual.get('z')), selected['z'])
+        self.assertEqual(float(actual.get('y')), selected['y'])
+        self.assertEqual(actual.get('a'), baseline.get('a'))
+        self.assertEqual(actual.get('group'), baseline.get('group'))
+        relocation = report['measured_relocated_anchors'][anchor['id']]
+        self.assertEqual(relocation['from'], {a: anchor[a] for a in ('x', 'z', 'y')})
+        self.assertEqual(relocation['to'], {a: selected[a] for a in ('x', 'z', 'y')})
+        self.assertAlmostEqual(relocation['distance'], abs(selected['x'] - anchor['x']))
+        # A usable authored anchor wins even when usable ring observations exist.
+        anchor['water'] = 0
+        (self.root / hc.MEASUREMENTS).write_text(json.dumps(doc))
+        _, roots, _, report = hc.validate(self.root)
+        self.assertEqual(float(roots[1][0].find('pos').get('x')), anchor['x'])
+        self.assertEqual(report['measured_relocated_anchors'], {})
+
+    def test_no_usable_candidate_within_radius_keeps_and_reports_anchor(self):
+        self.source_copy()
+        _, doc = self.relocation_source()
+        anchor = doc['targets'][0]
+        doc['targets'].extend([
+            dict(anchor, id=anchor['id'] + ':ring04_0', x=anchor['x'] + 4),
+            dict(anchor, id=anchor['id'] + ':ring99_0',
+                 x=anchor['x'] + hc.RELOCATE_RADIUS_M + 1, water=0)])
+        (self.root / hc.MEASUREMENTS).write_text(json.dumps(doc))
+        _, roots, _, report = hc.validate(self.root)
+        self.assertEqual(report['measured_unusable_anchors'], [anchor['id']])
+        self.assertEqual(report['measured_relocated_anchors'], {})
+        self.assertEqual(float(roots[1][0].find('pos').get('x')), anchor['x'])
+
+    def test_relocated_output_refuses_both_separation_violations(self):
+        for same_type in (False, True):
+            with self.subTest(same_type=same_type):
+                positions = ET.Element('eventposdef')
+                events = ET.Element('events')
+                rows = []
+                for index, x in enumerate((1000, 1341)):
+                    name = 'TestA' if same_type else 'Test' + str(index)
+                    event = positions.find("event[@name='%s']" % name)
+                    if event is None:
+                        event = ET.SubElement(positions, 'event', name=name)
+                        policy = ET.SubElement(events, 'event', name=name)
+                        ET.SubElement(policy, 'distanceradius').text = '340'
+                        ET.SubElement(policy, 'saferadius').text = '170'
+                    number = len(event.findall('pos')) + 1
+                    ET.SubElement(event, 'pos', x=str(x), z='1000', a='7', group='test')
+                    rows.append(dict(id='%s:site%03d' % (name, number), x=x, z=1000))
+                hc.check_anchor_separation(events, positions)
+                doc = measurement(rows)
+                anchor = doc['targets'][0]
+                anchor['water'] = 1
+                # 340 m is allowed globally, but refused by this same-type policy.
+                distance = 1 if same_type else 4
+                doc['targets'].append(dict(anchor, id=anchor['id'] + ':ring04_0',
+                                           x=anchor['x'] + distance, water=0))
+                hc.apply_measurements(positions, ET.Element('eventposdef'), doc)
+                with self.assertRaisesRegex(ValueError, 'same-type' if same_type else '340 m'):
+                    hc.check_anchor_separation(events, positions)
+
+    def test_relocation_binding_and_ingest_preserve_source_and_chunk(self):
+        base, _ = self.relocation_source()
+        self.rows, metadata = probe.relocation_targets(base.read_bytes(), '1/1')
+        self.plan.update(targets=self.rows, relocation=metadata)
+        self.plan['binding'] = probe.binding(self.rows, self.plan['variant'],
+                                            self.plan['stock_mission_sha256'], self.plan['run_id'], metadata)
+        self.plan_path.write_text(json.dumps(self.plan))
+        result = self.ingest(self.log())
+        self.assertEqual(result['relocation'], metadata)
+        self.plan['relocation']['source_measurement_sha256'] = 'f' * 64
+        self.plan_path.write_text(json.dumps(self.plan))
+        with self.assertRaises(ValueError):
+            self.ingest(self.log())
 
     def test_generated_hook_passes_shared_compile_shape_checks(self):
         hook = probe.render_hook(self.rows, self.plan['binding'])
