@@ -33,6 +33,7 @@ class HCStartupPump
     protected static int s_OverrunFrames;
     protected static float s_FrameMsMax;
     protected static int s_Frame;
+    protected static int s_FairCursor;
     protected static bool s_Installed;
     protected static bool s_InSlice;
     protected static bool s_Disabled = true;
@@ -76,6 +77,9 @@ class HCStartupPump
             index--;
         }
         s_Owners[index] = owner;
+        // A late registration can sort ahead of the next fair owner. Preserve
+        // that owner's turn; before the first frame, start in tier order.
+        if (s_Frame > 0 && index <= s_FairCursor) { s_FairCursor++; }
         if (!s_Installed)
         {
             s_Installed = true;
@@ -161,12 +165,22 @@ class HCStartupPump
         }
         int slices = 0;
         int remaining = active;
-        // Fair pass precedes bonus work: every pending owner is invoked once,
-        // in tier order. Reserve equal time for every remaining owner plus a
-        // bonus share. A zero-time slice cannot admit budgeted work, but still
-        // lets an owner observe completion. Native atomic units cannot preempt.
-        foreach (HCStartupOwner fair : s_Owners)
+        // Rotate through tier order across frames before granting bonus work.
+        // Owners can admit one atomic unit even with HCSliceMs(0), so stop
+        // after exhaustion instead of forcing every owner through this frame.
+        // At least one slice advances; the next owner leads the next frame.
+        // With <=32 registrations, every pending owner (including tier 0) gets
+        // a turn within <=32 frames, even when each atomic unit overruns.
+        int visits = 0;
+        int fairLimit = s_Owners.Count();
+        while (visits < fairLimit && slices < 32)
         {
+            if (slices > 0 && s_Budget.HCRemainingMs() <= 0) { break; }
+            if (s_FairCursor >= s_Owners.Count()) { s_FairCursor = 0; }
+            HCStartupOwner fair = s_Owners[s_FairCursor];
+            s_FairCursor++;
+            if (s_FairCursor >= s_Owners.Count()) { s_FairCursor = 0; }
+            visits++;
             if (fair.Finished) { continue; }
             float share = s_Budget.HCRemainingMs() / (remaining + 1);
             HCRunSlice(fair, share);
@@ -204,6 +218,7 @@ class HCStartupPump
             GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Remove(HCFrame);
             s_Installed = false;
             s_Frame = 0;
+            s_FairCursor = 0;
             s_DeadlineOwners = 0;
             s_OverrunFrames = 0;
             s_FrameMsMax = 0;
@@ -218,6 +233,7 @@ class HCStartupPump
         s_InSlice = false;
         s_Owners.Clear();
         s_Frame = 0;
+        s_FairCursor = 0;
         s_DeadlineOwners = 0;
         s_OverrunFrames = 0;
         s_FrameMsMax = 0;
