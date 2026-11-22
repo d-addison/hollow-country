@@ -625,7 +625,7 @@ class HCInfectedLODModule : HCModule
     }
 
     // Walk observations can repeat while idle or stalled. Only actual centre
-    // changes need a revision; the save job coalesces moving herds at 30 s.
+    // changes need a revision; the save job uses shared SaveCoalesceSeconds.
     protected void HCLODUpdateCentre(HCInfectedLODHerd herd, vector position)
     {
         if (herd.X == position[0] && herd.Z == position[2]) { return; }

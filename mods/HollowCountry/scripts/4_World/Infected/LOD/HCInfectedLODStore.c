@@ -339,10 +339,8 @@ class HCInfectedLODState
 class HCInfectedLODSaveJob : HCSaveJob
 {
     HCInfectedLODStore Owner;
-    // Minimum routine interval after a commit, not a sliding dirty timer:
-    // continual movement must not postpone checkpoints forever. Shutdown's
-    // HCFlush bypasses this interval and drains the latest revision.
-    override float HCInterval() { return 30; }
+    // Inherit the operator's SaveCoalesceSeconds interval. Shutdown's HCFlush
+    // bypasses this interval and drains the latest revision.
     override int HCStep()
     {
         if (!Owner) { return STEP_FAILED; }
