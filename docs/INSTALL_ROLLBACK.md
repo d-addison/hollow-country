@@ -385,10 +385,27 @@ If bytes match neither, recovery leaves them untouched, lists every conflict and
 its backup path, and retains `rollback_pending`. A previously absent target has
 no original backup file; the listed path identifies its place in the run backup.
 Keep the journal and backups, compare the conflicting files, and reconcile them
-by hand before retrying. A hard exit before a mission writer records its result,
-or an older journal without written hashes, can require this manual review.
-Never delete the journal to bypass a conflict. Identical dependency files are
-recorded as unchanged and receive no backup.
+by hand before retrying. An older journal without written hashes can require this
+manual review. Never delete the journal to bypass a conflict. Identical dependency
+files are recorded as unchanged and receive no backup.
+
+A hard exit (power loss, killed process) while a mission writer is running leaves
+mission-tree bytes the installer could not record. The journal marks the tree
+before the writer starts, so the next `--check` says "hard exit inside a mission
+writer". Recovery then refuses with `rollback_pending` and names `--repair`.
+`--apply --repair` (or answering `y` to "repair these (each backed up)? [y/N]" in
+an interactive run) restores the whole mission tree from that run's verified
+backup, keeps a copy of the partial tree in `hard-exit-partial` inside the run
+backup, and then installs normally. Without that explicit step nothing in the tree
+is changed.
+
+`--rollback <run>` is mostly a pre-restart tool. A run-created folder the server
+has since written into is kept ("kept non-empty folder <path>") and everything else
+is still undone. After the server has booted, files such as Expansion's
+`AISettings.json` are rewritten on start, so the rollback refuses with a conflict
+and changes nothing; that is the safe outcome. An interrupted `--rollback <run>`
+is finished by rerunning `--rollback <run> --apply`; that call restores only that
+run and installs nothing.
 
 The installer also repairs itself. A dry run and `--check` print a **Repair
 preview** of exactly what `--apply --repair` would change: managed files that are
@@ -399,13 +416,26 @@ without `--repair` still refuses on edited managed files and names the flag. Wit
 with a **Repair receipt** whose rows equal the preview; it is also stored under
 `repairs` in `hollow-country-install-receipt.json`. A second run reports nothing to
 repair. Files the installer does not manage and world saves (`storage_*`) are never
-deleted. An unreadable install receipt is rebuilt under `--repair` instead of
-blocking the install.
+deleted. An install receipt that cannot be read as JSON is rebuilt under `--repair`
+instead of blocking the install; a receipt with an unknown layout is never rebuilt
+(`receipt_invalid` says so and names the flag). A file the installer did not write
+that `--yes` replaces gets the same preview and receipt row as any repair.
+
+An operator-edited `start-server.bat` is never replaced wholesale. `--repair`
+changes only the `-mod=` and `-serverMod=` values to the bundle's and keeps the
+port, `-profiles`, `-cpuCount` and every other argument; the preview shows the
+changed launcher lines and the old file goes to the run backup. A launcher with no
+`-mod=` argument cannot be merged and stays a refusal. `install-hollow-country.bat`
+never passes `--repair`; in an interactive run the installer instead asks "repair
+these (each backed up)? [y/N]" when the preview has blocked rows.
 
 Operator `db/globals.xml` values survive an upgrade. The installer rebuilds the
 bytes it wrote last time from the loot receipt, treats every variable that differs
 from them as the operator's own, undoes the old boost, applies the new one, then
-re-applies the operator's values (BOM, line endings and comments are preserved).
+re-applies the operator's values (BOM and line endings are preserved; comments are
+kept only where they exist in the new file). A variable the operator removed comes
+back with a WARN. A boosted variable that is back at its pre-boost value counts as
+a reset, not tuning: the installer warns and applies the boost again.
 The run lists each carried value and keeps the operator's exact file in the run
 backup. When the receipt or backup cannot prove what the installer wrote, the file
 is left untouched and the run refuses with the reason. After a carry-forward the

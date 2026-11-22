@@ -33,8 +33,12 @@ Safety rules:
   world saves are never deleted. Operator db/globals.xml values survive an upgrade: the keys the operator
   changed are re-applied on top of the new loot boost; the file is only left alone (and the run refuses)
   when the receipt and backup cannot prove what the installer wrote.
+  An operator-edited start-server.bat is merged, never replaced: --repair takes only the -mod= and
+  -serverMod= values from the bundle. A hard exit inside a mission writer is journaled; --repair (or a typed
+  y at "repair these (each backed up)? [y/N]") restores the whole mission tree from that run's backup.
 * --rollback <run> restores the files of one earlier run from its backup folder; it refuses files edited
-  since that run.
+  since that run, keeps run-created folders the server has written into, and finishes an interrupted
+  rollback of that run without installing anything.
 * The server must be stopped (read-only process check; nothing is ever stopped or killed here).
 * The friend types their own Steam login name; steamcmd asks for the password and the Steam Guard code
   itself. This tool never reads, stores, passes on or echoes a password.
@@ -338,6 +342,80 @@ def parse_mod_list(bat_text):
     return match.group(1).split(';') if match else []
 
 
+LAUNCHER_REL = 'start-server.bat'
+LAUNCHER_ARG = re.compile(r'(?i)(?<![\w-])-(mod|serverMod)=([^"\s]*)')
+LAUNCHER_LINE_SHOWN = 240
+
+
+def _launcher_comment(line):
+    word = line.strip().lower()
+    return word.startswith('::') or word == 'rem' or word.startswith(('rem ', 'rem\t'))
+
+
+def merge_launcher(current, bundle):
+    """(merged bytes, [(old line, new line)]) with only the -mod= and -serverMod= values taken from the bundle's
+    launcher; every other byte of the operator's file (port, -profiles, -cpuCount, other arguments, line endings)
+    stays. None when the operator's file has no -mod= argument to merge into or either side is not UTF-8."""
+    try:
+        text, wanted_text = current.decode('utf-8'), bundle.decode('utf-8')
+    except UnicodeDecodeError:
+        return None
+    wanted = {}
+    for line in wanted_text.splitlines():
+        if not _launcher_comment(line):
+            for match in LAUNCHER_ARG.finditer(line):
+                wanted.setdefault(match.group(1).lower(), match.group(2))
+    if 'mod' not in wanted:
+        return None
+    lines = text.splitlines(keepends=True)
+    seen = set()
+    changes = []
+    out = []
+    for line in lines:
+        new = line
+        if not _launcher_comment(line):
+            for match in LAUNCHER_ARG.finditer(line):
+                seen.add(match.group(1).lower())
+
+            def replace(match):
+                value = wanted.get(match.group(1).lower())
+                return match.group(0) if value is None else '-%s=%s' % (match.group(1), value)
+            new = LAUNCHER_ARG.sub(replace, line)
+        out.append(new)
+        if new != line:
+            changes.append((line.rstrip('\r\n'), new.rstrip('\r\n')))
+    if 'mod' not in seen:
+        return None
+    if 'servermod' in wanted and 'servermod' not in seen:
+        for index, line in enumerate(out):
+            match = None if _launcher_comment(line) else LAUNCHER_ARG.search(line)
+            if match is None or match.group(1).lower() != 'mod':
+                continue
+            quoted = line[:match.start()].endswith('"') and line[match.end():].startswith('"')
+            add = ' "-serverMod=%s"' % wanted['servermod'] if quoted else ' -serverMod=%s' % wanted['servermod']
+            at = match.end() + (1 if quoted else 0)
+            out[index] = line[:at] + add + line[at:]
+            changes.append((line.rstrip('\r\n'), out[index].rstrip('\r\n')))
+            break
+    merged = ''.join(out).encode('utf-8')
+    if merged == current:
+        return merged, []
+    return merged, changes
+
+
+def launcher_change_lines(changes):
+    lines = []
+    for old, new in changes[:4]:
+        for sign, text in (('-', old), ('+', new)):
+            text = text.strip()
+            if len(text) > LAUNCHER_LINE_SHOWN:
+                text = text[:LAUNCHER_LINE_SHOWN] + ' ...'
+            lines.append('%s %s' % (sign, text))
+    if len(changes) > 4:
+        lines.append('... and %d more changed launcher lines' % (len(changes) - 4))
+    return lines
+
+
 def load_receipt(server):
     path = Path(server) / RECEIPT
     if not path.exists():
@@ -345,8 +423,9 @@ def load_receipt(server):
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        raise Refused('receipt_invalid', '%s cannot be read; move it away to start fresh (files are then treated as '
-                      'existing ones and backed up before they are replaced)' % RECEIPT)
+        raise Refused('receipt_invalid', '%s cannot be read; run --apply --repair to start a fresh one (the old bytes '
+                      'are kept in the backup folder), or move it away (files are then treated as existing ones and '
+                      'backed up before they are replaced)' % RECEIPT)
     if not isinstance(data, dict) or data.get('schema') != SCHEMA or not isinstance(data.get('files'), dict):
         raise Refused('receipt_invalid', '%s has an unknown layout' % RECEIPT)
     profiles = data.get('profile_defaults', {})
@@ -359,13 +438,22 @@ def load_receipt(server):
 
 
 def load_run_receipt(ctx):
-    """The receipt for this run. An unreadable receipt stops the run, except under --repair, which starts a fresh
-    one (the unreadable file is copied to the backup folder when the new receipt replaces it)."""
+    """The receipt for this run. A receipt that cannot be read or parsed stops the run, except under --repair, which
+    starts a fresh one (the unreadable file is copied to the backup folder when the new receipt replaces it). A
+    receipt that parses but has another layout or schema is never replaced: it may belong to another installer."""
     try:
         ctx.receipt = load_receipt(ctx.server)
     except Refused as error:
         if error.code != 'receipt_invalid' or not getattr(ctx.args, 'repair', False):
             raise
+        try:
+            json.loads((Path(ctx.server) / RECEIPT).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            pass
+        else:
+            raise Refused('receipt_invalid', '%s has an unknown layout (written by another installer version?); '
+                          '--repair does not replace it: use the installer that wrote it, or move it away (files '
+                          'are then treated as existing ones and backed up before they are replaced)' % RECEIPT)
         ctx.receipt = {'schema': SCHEMA, 'files': {}, 'overlay': None}
         ctx.repair_extra = [row for row in ctx.repair_extra if row['kind'] != 'receipt']
         ctx.repair_extra.append(repair_row('receipt', RECEIPT, 'unreadable; replaced by a fresh receipt (old bytes '
@@ -443,6 +531,7 @@ class Ctx:
         self.steamcmd_from = None
         self.steamcmd_bad = None
         self.statuses = {}
+        self.repair_blocked = []  # repair rows --repair could fix but was not given (edited managed files)
         self.repair_extra = []   # repair rows that are not file classifications (receipt rebuild, recovered runs)
 
     def say(self, text=''):
@@ -582,7 +671,64 @@ def heal_action(ctx, a, rel, action):
         if action == 'drift':
             a.repairs.append(repair_row(kind, rel, 'changed since this installer wrote it; run --apply --repair to '
                                         'restore it (backed up first)', status='blocked'))
+        else:
+            # An unrecorded file is replaced only after the typed yes or --yes; it is listed either way.
+            a.repairs.append(repair_row(kind, rel, 'differs from the bundle file and was never written by this '
+                                        'installer; replaced after confirmation (--yes or a typed yes), current bytes '
+                                        'are copied to the backup folder first'))
     return action
+
+
+def classify_launcher(ctx, rel, source):
+    """classify_file for start-server.bat, with the operator's own launcher in mind: a file whose -mod= and
+    -serverMod= values already equal the bundle's is 'same' whatever else it holds (port, -profiles, -cpuCount)."""
+    action, sha = classify_file(ctx, rel, source)
+    if action in ('new', 'same'):
+        return action, sha
+    if action == 'upgrade' and not ctx.receipt.get('launcher_merged'):
+        return action, sha  # the unedited file an older bundle wrote: replaced as a whole, with a backup
+    current = (ctx.server / rel).read_bytes()
+    merged = merge_launcher(current, source.read_bytes())
+    if merged is not None and merged[0] == current:
+        return 'same', sha
+    return action, sha
+
+
+def heal_launcher(ctx, a, rel, source, action):
+    """heal_action for start-server.bat. An edited launcher is never replaced wholesale: only its -mod= and
+    -serverMod= values are merged into the operator's file (every other argument stays), the old file is backed up
+    first and the preview shows the changed lines. A launcher with no -mod= argument cannot be merged: it stays a
+    refusal (edited) or is replaced only after confirmation (never written by this installer)."""
+    if action not in ('drift', 'confirm'):
+        return heal_action(ctx, a, rel, action)
+    merged = merge_launcher((ctx.server / rel).read_bytes(), source.read_bytes())
+    if merged is None:
+        if action == 'drift':
+            a.repairs.append(repair_row('launcher', rel, 'changed since this installer wrote it and has no -mod= '
+                                        'argument to merge into; --repair never replaces it wholesale: fix it by '
+                                        'hand or move it away', status='blocked'))
+            return 'drift'
+        return heal_action(ctx, a, rel, action)
+    lines = launcher_change_lines(merged[1])
+    if action == 'drift':
+        if getattr(ctx.args, 'repair', False):
+            row = repair_row('edited', rel, 'edited launcher kept; only the -mod=/-serverMod= values are merged in '
+                             '(current bytes are copied to the backup folder first)')
+            row['lines'] = lines
+            a.repairs.append(row)
+            return 'repair'
+        row = repair_row('edited', rel, 'changed since this installer wrote it; run --apply --repair to merge the '
+                         '-mod=/-serverMod= values into it (other arguments kept, backed up first)', status='blocked')
+        row['lines'] = lines
+        a.repairs.append(row)
+        return 'drift'
+    repairing = getattr(ctx.args, 'repair', False)
+    row = repair_row('unrecorded', rel, 'existing launcher kept; only the -mod=/-serverMod= values are merged in%s; '
+                     'current bytes are copied to the backup folder first'
+                     % ('' if repairing else ' after confirmation (--yes or a typed yes)'))
+    row['lines'] = lines
+    a.repairs.append(row)
+    return 'repair' if repairing else 'confirm'
 
 
 def analyze(ctx):
@@ -631,8 +777,8 @@ def analyze(ctx):
         a.cot = cot_admin_records(ctx)
     if 'launcher' not in ctx.skip:
         source = ctx.bundle / 'start-server.bat'
-        action, sha = classify_file(ctx, 'start-server.bat', source)
-        action = heal_action(ctx, a, 'start-server.bat', action)
+        action, sha = classify_launcher(ctx, LAUNCHER_REL, source)
+        action = heal_launcher(ctx, a, LAUNCHER_REL, source, action)
         a.launcher = ('start-server.bat', source, action, sha)
     if 'cfg' not in ctx.skip:
         keys_wanted, template = parse_snippet((ctx.bundle / 'serverDZ-hollow-country.txt').read_text(encoding='utf-8'))
@@ -839,11 +985,20 @@ def tree_writer(ctx, mission):
     rel = mission.relative_to(ctx.server).as_posix()
     track_target(ctx, rel, tree=True)
     before = tree_inventory(mission)
+    # "tree writer in progress": published before the helper writes and cleared when its result is recorded. A
+    # hard exit leaves it set, which is the only case --repair may restore the whole tree from the backup.
+    row = next(row for row in ctx.journal['entries'] if row['path'] == rel)
+    row['writing'] = row.get('writing', 0) + 1
+    ws.write_json_atomic(journal_path(ctx.backup_root), ctx.journal)
     try:
         yield
     finally:
         after = tree_inventory(mission)
         row = next(row for row in ctx.journal['entries'] if row['path'] == rel)
+        if row.get('writing', 0) > 1:
+            row['writing'] -= 1
+        else:
+            row.pop('writing', None)
         for name in before.keys() | after.keys():
             if before.get(name) != after.get(name):
                 values = row['written'].setdefault(name, [])
@@ -852,8 +1007,17 @@ def tree_writer(ctx, mission):
         ws.write_json_atomic(journal_path(ctx.backup_root), ctx.journal)
 
 
-def rollback_changes(ctx, root, data):
-    """Only undo known installer bytes. Validate every row before mutating anything."""
+def hard_exit_rows(data):
+    """Journal rows of a mission tree whose writer never recorded its result (the process exited inside it)."""
+    return [row for row in data['entries'] if row['kind'] == 'tree' and row.get('writing')]
+
+
+def rollback_changes(ctx, root, data, force=False):
+    """Only undo known installer bytes. Validate every row before mutating anything.
+
+    With force (--repair), a tree whose writer was cut off by a hard exit ("writing" marker) is restored as a whole
+    from this run's verified backup: its live bytes were never recorded, so they cannot be matched one by one.
+    """
     changes, conflicts = [], []
     for rel, before_names in data['temporaries'].items():
         if rel:
@@ -880,6 +1044,7 @@ def rollback_changes(ctx, root, data):
                 before = {}
             current = ({'': sha256_file(target)} if target.is_file() else
                        {'': 'dir'} if target.is_dir() else {})
+        whole = force and row['kind'] == 'tree' and bool(row.get('writing'))
         written = row.get('written', {})
         row_changes = []
         for name in before.keys() | current.keys():
@@ -887,7 +1052,7 @@ def rollback_changes(ctx, root, data):
             if live == baseline:
                 continue
             full_rel = rel + ('/' + name if name else '')
-            if live not in written.get(name, []):
+            if not whole and live not in written.get(name, []):
                 conflicts.append('%s (backup: %s)' % (full_rel, shown(backup / name)))
                 continue
             if live is not None and (baseline is None or baseline == 'dir' or live == 'dir'):
@@ -900,21 +1065,57 @@ def rollback_changes(ctx, root, data):
         changes.extend(sorted((c for c in row_changes if c[0] not in ('remove', 'rmdir')),
                               key=lambda c: (c[1].count('/'), c[1])))
     if conflicts:
-        raise ValueError('changed after interrupted install; left untouched: ' + '; '.join(sorted(conflicts)))
+        hint = ''
+        if hard_exit_rows(data):
+            hint = ('; the mission step was cut off by a hard exit: with the server stopped, run --apply --repair '
+                    '(or answer y when asked) to restore the mission folder from this run\'s backup')
+        raise ValueError('changed after interrupted install; left untouched: ' + '; '.join(sorted(conflicts)) + hint)
     unique = {}
     for change in changes:
         unique.setdefault(change[:2], change)
-    return list(unique.values())
+    return keep_non_empty(ctx, list(unique.values()))
+
+
+def keep_non_empty(ctx, changes):
+    """A folder this run created may hold files the server wrote since (runtime data, logs). Leaving the folder
+    is harmless; failing to remove it halfway through an undo is not. Decide before anything is changed."""
+    gone = {rel for action, rel, _source in changes if action == 'remove'}
+    planned = []
+    for action, rel, source in changes:
+        if action == 'rmdir':
+            target = ctx.server / rel
+            try:
+                names = [child.name for child in target.iterdir()] if target.is_dir() else []
+            except OSError:
+                names = []
+            if any(rel + '/' + name not in gone for name in names):
+                planned.append(('keep', rel, None))
+                continue
+            gone.add(rel)
+        planned.append((action, rel, source))
+    return planned
+
+
+def change_text(change):
+    action, rel, _source = change
+    return 'kept non-empty folder %s' % rel if action == 'keep' else '%s %s' % (action, rel)
 
 
 def restore_change(ctx, change):
     action, rel, source = change
     ws.check_no_symlink_below(ctx.server, rel)
     target = ctx.server / rel
-    if action == 'remove':
+    if action == 'keep':
+        ctx.say(change_text(change))
+    elif action == 'remove':
         target.unlink()
     elif action == 'rmdir':
-        target.rmdir()  # Only empty directories; never recursively remove a live tree.
+        # Only empty directories; never recursively remove a live tree. A runtime file that appeared after the
+        # plan was made keeps the folder.
+        if target.is_dir() and any(target.iterdir()):
+            ctx.say(change_text(('keep', rel, None)))
+        else:
+            target.rmdir()
     elif action == 'mkdir':
         target.mkdir()
     else:
@@ -923,11 +1124,15 @@ def restore_change(ctx, change):
 
 def describe_pending(ctx, root, data):
     state = 'install_interrupted' if data['state'] == 'active' else 'rollback_pending'
-    lines = ['%s: %s; rerun with --apply with the server stopped to recover before installing'
-             % (state, shown(journal_path(root)))]
+    if data['state'] != 'active' and data.get('intent') == 'rollback':
+        advice = ('rerun with --rollback %s --apply with the server stopped to finish this rollback (--apply alone '
+                  'also finishes it, then installs)' % root.name)
+    else:
+        advice = 'rerun with --apply with the server stopped to recover before installing'
+    lines = ['%s: %s; %s' % (state, shown(journal_path(root)), advice)]
     try:
         changes = rollback_changes(ctx, root, data)
-        lines += ['  pending: %s %s' % (action, rel) for action, rel, _source in changes]
+        lines += ['  pending: %s' % change_text(change) for change in changes if change[0] != 'keep']
         if not changes:
             lines.append('  pending: finalize rollback journal')
     except (OSError, ValueError, ws.SyncError) as error:
@@ -935,11 +1140,24 @@ def describe_pending(ctx, root, data):
     return '\n'.join(lines)
 
 
-def rollback_run(ctx, root, data):
+def stash_cut_off_trees(ctx, root, data):
+    """Before a hard-exit tree is restored from the backup, keep a copy of what is there now."""
+    for row in hard_exit_rows(data):
+        target = ctx.server / row['path']
+        stash = root / 'hard-exit-partial' / row['path']
+        if target.is_dir() and not stash.exists():
+            stash.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(target, stash, ignore=ignore_persistence)
+
+
+def rollback_run(ctx, root, data, force=False):
     ws.write_json_atomic(journal_path(root), dict(data, state='rolling-back'))
     data['state'] = 'rolling-back'
     try:
-        for change in rollback_changes(ctx, root, data):
+        changes = rollback_changes(ctx, root, data, force)
+        if force:
+            stash_cut_off_trees(ctx, root, data)
+        for change in changes:
             restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
     except (OSError, ValueError, ws.SyncError):
         data['state'] = 'rollback_pending'
@@ -949,11 +1167,11 @@ def rollback_run(ctx, root, data):
     data['state'] = 'rolled-back'
 
 
-def recover_runs(ctx, runs):
+def recover_runs(ctx, runs, force=False):
     require_stopped(ctx, False if ctx.args.assume_stopped else ws.server_running(ctx.server))
     for root, data in runs:
         try:
-            rollback_run(ctx, root, data)
+            rollback_run(ctx, root, data, force)
         except (OSError, ValueError, ws.SyncError):
             raise Refused('rollback_pending', describe_pending(ctx, root, data))
         ctx.say('Recovered interrupted install; ' + ROLLBACK_OK)
@@ -961,7 +1179,12 @@ def recover_runs(ctx, runs):
 
 def rollback_named(ctx, name):
     """--rollback RUN: undo one completed run byte-exact from its journal. Every target is checked first: a file
-    changed since that run (a later install, the operator, the server) is left untouched and listed."""
+    changed since that run (a later install, the operator, the server) is left untouched and listed. The same
+    command resumes a rollback of that run that was interrupted (state rolling-back or rollback_pending).
+
+    This is mostly a tool for right after an install, before the server has run: Expansion rewrites
+    AISettings.json when the server boots, and anything the server changed since the run is a conflict that
+    stops the rollback before it changes anything."""
     if not re.fullmatch(r'[0-9A-Za-z_.-]+', name) or name in ('.', '..'):
         raise Refused('rollback_run', '--rollback takes a run folder name from %s' % BACKUP_DIR)
     path = ctx.server / BACKUP_DIR / name / JOURNAL
@@ -972,22 +1195,29 @@ def rollback_named(ctx, name):
     if data['state'] == 'rolled-back':
         ctx.say('Run %s was already rolled back; nothing to do.' % name)
         return 0
-    if data['state'] != 'complete':
+    resuming = data['state'] in ('rolling-back', 'rollback_pending')
+    if data['state'] != 'complete' and not resuming:
         raise Refused('rollback_run', 'run %s is %s; rerun with --apply (without --rollback) to recover it' % (name, data['state']))
+    force = bool(getattr(ctx.args, 'repair', False))
     try:
-        changes = rollback_changes(ctx, root, data)
+        changes = rollback_changes(ctx, root, data, force)
     except (OSError, ValueError, ws.SyncError) as error:
         raise Refused('rollback_conflict', shown(error))
-    ctx.say('Rollback of run %s (%s):' % (name, 'apply' if ctx.args.apply else 'dry run, nothing is changed'))
-    for action, rel, _source in changes:
-        ctx.say('  %s %s' % (action, rel))
+    ctx.say('%s of run %s (%s):' % ('Resuming the rollback' if resuming else 'Rollback', name,
+                                    'apply' if ctx.args.apply else 'dry run, nothing is changed'))
+    for change in changes:
+        ctx.say('  ' + change_text(change))
     if not changes:
         ctx.say('  nothing differs from the state before that run')
     if not ctx.args.apply:
         ctx.say('Run again with --apply (server stopped) to roll back.')
         return 0
     require_stopped(ctx, False if ctx.args.assume_stopped else ws.server_running(ctx.server))
-    rollback_run(ctx, root, data)
+    data['intent'] = 'rollback'
+    try:
+        rollback_run(ctx, root, data, force)
+    except (OSError, ValueError, ws.SyncError):
+        raise Refused('rollback_pending', describe_pending(ctx, root, data))
     ctx.say(ROLLBACK_OK)
     return 0
 
@@ -1250,13 +1480,25 @@ def globals_installed_bytes(before, row, receipt):
     return None
 
 
-def globals_overrides(installed, current):
-    """({var: current tag} for values the operator changed or added, [vars the operator removed])."""
+def globals_overrides(installed, current, stock=None):
+    """({var: current tag} for values the operator changed or added, [vars the operator removed], [vars reset]).
+
+    A loot-boosted variable whose current value equals the pre-boost (stock) value is a reset, not operator
+    tuning: the boost value is applied again instead of keeping the stock one."""
     _text, old = _globals_vars(installed)
     _text, now = _globals_vars(current)
     overrides = {name: row['tag'] for name, row in now.items()
                  if name not in old or _globals_norm(old[name]['tag']) != _globals_norm(row['tag'])}
-    return overrides, sorted(name for name in old if name not in now)
+    resets = []
+    if stock is not None:
+        _text, before = _globals_vars(stock)
+        for name in sorted(overrides):
+            if (name in old and name in before and
+                    _globals_value(old[name]['tag']) != _globals_value(before[name]['tag']) and
+                    _globals_value(overrides[name]) == _globals_value(before[name]['tag'])):
+                resets.append(name)
+                del overrides[name]
+    return overrides, sorted(name for name in old if name not in now), resets
 
 
 def globals_with_overrides(data, overrides):
@@ -1280,7 +1522,8 @@ def globals_state(mission):
     none (no loot boost), clean (receipted bytes), tuned (operator values on top: carried forward on
     upgrade), missing (file absent: restored from the receipt) or blocked (evidence unusable).
     """
-    state = {'state': 'none', 'prev': None, 'overrides': {}, 'removed': [], 'problem': None, 'changes': []}
+    state = {'state': 'none', 'prev': None, 'overrides': {}, 'removed': [], 'resets': [], 'problem': None,
+             'changes': []}
     managed = mission / loot_boost.MANAGED
     if not managed.exists():
         return state
@@ -1311,9 +1554,9 @@ def globals_state(mission):
         if sha256_bytes(current) in (row['before'], row['after']):
             state['state'] = 'clean'
             return state
-        overrides, removed = globals_overrides(prev, current)
+        overrides, removed, resets = globals_overrides(prev, current, backup)
         _text, old = _globals_vars(prev)
-        state.update(state='tuned', overrides=overrides, removed=removed, current=sha256_bytes(current))
+        state.update(state='tuned', overrides=overrides, removed=removed, resets=resets, current=sha256_bytes(current))
         state['changes'] = ['%s %s -> %s' % (name, _globals_value(old[name]['tag']) if name in old else 'absent',
                                             _globals_value(tag)) for name, tag in overrides.items()]
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
@@ -1328,18 +1571,23 @@ def globals_upgrade_problem(mission):
 
 
 def globals_digest(state):
-    return sha256_bytes(json.dumps([state['state'], state['overrides'], state['removed'],
+    return sha256_bytes(json.dumps([state['state'], state['overrides'], state['removed'], state.get('resets', []),
                                     state.get('current')], sort_keys=True).encode())
 
 
 def globals_lines(state, replacing):
     if state['state'] == 'tuned':
-        names = ', '.join(state['changes']) or 'formatting only'
-        lines = ['db/globals.xml carries operator values (%s)' % names]
-        lines.append('they are carried forward onto the new loot boost values; the file is backed up first'
-                     if replacing else 'they are kept as they are')
+        lines = []
+        if state['changes'] or not state.get('resets'):
+            names = ', '.join(state['changes']) or 'formatting only'
+            lines.append('db/globals.xml carries operator values (%s)' % names)
+            lines.append('they are carried forward onto the new loot boost values; the file is backed up first'
+                         if replacing else 'they are kept as they are')
         for name in state['removed']:
             lines.append('WARN  globals  %s was removed by the operator; the stock variable returns on upgrade' % name)
+        for name in state.get('resets', ()):
+            lines.append('WARN  globals  %s is back at its stock value (a reset, not operator tuning); the loot boost '
+                         'value is applied again' % name)
         return lines
     if state['state'] == 'missing':
         return ['db/globals.xml is missing; it is restored from the loot boost receipt (nothing else changes)']
@@ -1354,10 +1602,14 @@ def write_globals(ctx, mission, data):
 
 
 def globals_heal(ctx, mission):
-    """Restore a missing db/globals.xml to the receipted bytes. Idempotent; nothing to lose when it is absent."""
+    """Restore a missing db/globals.xml to the receipted bytes, or put the loot boost value back on variables that
+    were reset to stock (the operator's own values stay on top). Idempotent."""
     state = globals_state(mission)
     if state['state'] == 'missing':
         write_globals(ctx, mission, state['prev'])
+        return True
+    if state['state'] == 'tuned' and state['resets']:
+        write_globals(ctx, mission, globals_with_overrides(state['prev'], state['overrides']))
         return True
     return False
 
@@ -1414,7 +1666,7 @@ def plan_overlay(ctx, a):
             if not variety.exists():
                 return 'planned', lines + ['apply infected variety after the existing mission overlay'], lambda: do_variety(ctx, mission)
             infected_variety.check(mission)
-        if state['state'] == 'missing':
+        if state['state'] == 'missing' or (state['state'] == 'tuned' and state['resets']):
             return 'planned', lines, lambda: do_variety(ctx, mission, variety=False)
         return 'already-done', lines, None
     pack_dir, missing = overlay_pack_dir(ctx)
@@ -1958,9 +2210,40 @@ def plan_launcher(ctx, a):
     lines = ['start-server.bat from the bundle: %s' % action]
     lines += ['  ' + line for line in ws.launch_lines(ctx.items) if line.startswith('-mod=')]
     if action == 'same':
-        ctx.receipt['files'].setdefault(rel, sha)
+        target = ctx.server / rel
+        if target.is_file() and sha256_file(target) != sha:
+            # The operator's own launcher with the right -mod= values: kept as it is.
+            ctx.receipt['files'].setdefault(rel, sha256_file(target))
+            ctx.receipt['launcher_merged'] = True
+            lines.append('your own launcher is kept: its -mod=/-serverMod= values already match the bundle')
+        else:
+            ctx.receipt['files'].setdefault(rel, sha)
         return 'already-done', lines, None
-    return 'planned', lines, lambda: do_files(ctx, [a.launcher])
+    return 'planned', lines, lambda: do_launcher(ctx, a)
+
+
+def do_launcher(ctx, a):
+    """Write start-server.bat: the bundle file when none is there (or an unedited older bundle's), otherwise only
+    the -mod=/-serverMod= values merged into the operator's file. The old bytes are journaled and backed up first."""
+    rel, source, action, sha = a.launcher
+    target = ctx.server / rel
+    if action != 'new' and target.is_file():
+        current = target.read_bytes()
+        pristine = action == 'upgrade' and not ctx.receipt.get('launcher_merged')
+        merged = None if pristine else merge_launcher(current, source.read_bytes())
+        if merged is not None:
+            data = merged[0]
+            record_written(ctx, rel, sha256_bytes(data))
+            ws.write_bytes_atomic(target, data)
+            ctx.receipt['files'][rel] = sha256_bytes(data)
+            ctx.receipt['launcher_merged'] = True
+            save_receipt(ctx)
+            return 'done'
+        if action == 'upgrade' and not pristine:
+            raise Refused('launcher', 'start-server.bat has no -mod= argument to merge into; it is never replaced '
+                          'wholesale: fix it by hand or move it away')
+    ctx.receipt.pop('launcher_merged', None)
+    return do_files(ctx, [a.launcher])
 
 
 CHECKLIST = (
@@ -2277,10 +2560,14 @@ def pre_apply(ctx, a):
     drift = [r[0] for r in a.own if r[2] == 'drift']
     if a.launcher and a.launcher[2] == 'drift':
         drift.append(a.launcher[0])
+    if drift and getattr(args, 'repair', False) and drift == [LAUNCHER_REL]:
+        raise Refused('drift', '%s changed since this installer wrote it and has no -mod= argument to merge into; '
+                      '--repair never replaces an edited launcher wholesale: fix it by hand or move it away'
+                      % LAUNCHER_REL)
     if drift:
         raise Refused('drift', 'changed since this installer wrote them: %s; run again with --repair to restore them '
-                      '(each is copied to %s first), or restore or move them away yourself'
-                      % (', '.join(drift[:8]), BACKUP_DIR))
+                      '(each is copied to %s first; an edited start-server.bat only has its -mod=/-serverMod= values '
+                      'merged), or restore or move them away yourself' % (', '.join(drift[:8]), BACKUP_DIR))
     confirm = [r[0] for r in a.own + a.profiles if r[2] == 'confirm']
     if a.launcher and a.launcher[2] == 'confirm':
         confirm.append(a.launcher[0])
@@ -2319,16 +2606,20 @@ def repair_rows(ctx, a):
             replacing = installed and ctx.receipt.get('overlay') != overlay_fingerprint(ctx)
             if state['state'] == 'missing':
                 rows.append(repair_row('globals', GLOBALS_REL, 'missing; restored from the loot boost receipt'))
-            elif state['state'] == 'tuned' and replacing:
-                rows.append(repair_row('globals', GLOBALS_REL, 'operator values carried forward: %s'
-                                       % ('; '.join(state['changes']) or 'formatting only')))
+            elif state['state'] == 'tuned' and (replacing or state['resets']):
+                detail = []
+                if replacing and (state['changes'] or not state['resets']):
+                    detail.append('operator values carried forward: %s' % ('; '.join(state['changes']) or 'formatting only'))
+                if state['resets']:
+                    detail.append('reset to stock, loot boost value applied again: %s' % ', '.join(state['resets']))
+                rows.append(repair_row('globals', GLOBALS_REL, '; '.join(detail)))
             elif state['state'] == 'blocked':
                 rows.append(repair_row('globals', GLOBALS_REL, state['problem'], status='blocked'))
     return rows
 
 
 def repair_step(row):
-    if row['path'] == 'start-server.bat':
+    if row['path'] == LAUNCHER_REL:
         return 'launcher'
     if row['kind'] == 'globals':
         return 'overlay'
@@ -2346,6 +2637,8 @@ def say_repairs(ctx, rows, done):
     for row in rows:
         label = {'repair': 'repaired' if done else 'would repair', 'blocked': 'blocked'}[row['status']]
         ctx.say('  %s  %s  %s: %s' % (label, row['kind'], row['path'], row['detail']))
+        for line in row.get('lines', ()):
+            ctx.say('      ' + line)
     ctx.say()
 
 
@@ -2356,6 +2649,7 @@ def run_steps(ctx, apply):
     ctx.say('Bundle: %s' % shown(ctx.bundle))
     ctx.say()
     repairs = repair_rows(ctx, a)
+    ctx.repair_blocked = [row for row in repairs if row['status'] == 'blocked']
     if not apply:
         say_repairs(ctx, repairs, False)
     if apply:
@@ -2394,8 +2688,9 @@ def run_steps(ctx, apply):
         done = [row for row in repairs if row['status'] == 'repair' and
                 ctx.statuses.get(repair_step(row), 'done') == 'done']
         if done:
+            ensure_journal(ctx)  # the run folder names this entry; it exists before the first write of the run
             log = ctx.receipt.setdefault('repairs', [])
-            log.append({'run': ctx.backup_root.name if ctx.backup_root is not None else None, 'rows': done})
+            log.append({'run': ctx.backup_root.name, 'rows': done})
             del log[:-REPAIR_KEEP]
             save_receipt(ctx)
         say_repairs(ctx, done, True)
@@ -2450,13 +2745,27 @@ def main(argv=None, out=None, input_fn=None):
         ctx.server = resolve_server(ctx)
         runs = pending_runs(ctx)
         if runs:
+            resumable = [root for root, data in runs if args.rollback == root.name
+                         and data['state'] in ('rolling-back', 'rollback_pending')]
             if args.check:
                 for root, data in runs:
                     ctx.say(describe_pending(ctx, root, data))
                 ctx.say('check result: fail')
                 return 1
+            if resumable:
+                # An interrupted --rollback of that run: finish it, on that run only, and install nothing.
+                return rollback_named(ctx, args.rollback)
             if args.apply and not args.rollback:
-                recover_runs(ctx, runs)
+                force = bool(args.repair)
+                if not force and ctx.input_fn is not None and any(hard_exit_rows(data) for _root, data in runs):
+                    ctx.say('A mission step of an interrupted run was cut off by a hard exit; its bytes cannot be '
+                            'matched one by one. The mission folder can be restored from that run\'s backup (what is '
+                            'there now is kept in the run backup first).')
+                    answer = ctx.ask('repair these (each backed up)? [y/N]: ')
+                    if (answer or '').strip().lower() in ('y', 'yes'):
+                        force = True
+                        args.repair = True
+                recover_runs(ctx, runs, force)
                 for root, _data in runs:
                     ctx.repair_extra.append(repair_row('interrupted', root.name, 'unfinished run rolled back to its '
                                                        'backup before installing'))
@@ -2474,6 +2783,18 @@ def main(argv=None, out=None, input_fn=None):
         if not apply:
             ctx.say('This was a dry run: nothing was changed. Run again with --apply to install.')
             if not blocked and not args.plan_only and ctx.input_fn is not None:
+                stuck = [row for row in ctx.repair_blocked if row['kind'] == 'edited'] if not args.repair else []
+                if stuck:
+                    # Edited managed files stop a plain --apply; --repair merges or restores them, each backed up.
+                    answer = ctx.ask('repair these (each backed up)? [y/N]: ')
+                    if (answer or '').strip().lower() in ('y', 'yes'):
+                        args.repair = True
+                        load_run_receipt(ctx)
+                        run_steps(ctx, True)
+                        ctx.say('Install finished. Nothing here was observed in DayZ; run --check any time.')
+                    else:
+                        ctx.say('Nothing was repaired or installed. Run again with --apply --repair when you are ready.')
+                    return 0
                 answer = ctx.ask('Apply these changes now? [y/N]: ')
                 if (answer or '').strip().lower() in ('y', 'yes'):
                     load_run_receipt(ctx)

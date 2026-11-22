@@ -2131,7 +2131,11 @@ class SelfHealingTests(InstallerCase):
         launcher = self.server / 'start-server.bat'
         profile = self.server / 'profiles/ExpansionMod/Settings/AISettings.json'
         retired = self.server / '@HollowCountry/addons/retired.pbo'
-        for target, data in ((pbo, b'EDITED'), (launcher, b'echo mine\r\n'), (retired, b'OLD'),
+        bundle_launcher = (self.bundle / 'start-server.bat').read_bytes()
+        operator_launcher = bundle_launcher.replace(b'-port=2302', b'-port=2999 -cpuCount=4').replace(
+            b'"-mod=@CF;', b'"-mod=@Mine;@CF;')
+        self.assertNotEqual(operator_launcher, bundle_launcher)
+        for target, data in ((pbo, b'EDITED'), (launcher, operator_launcher), (retired, b'OLD'),
                              (profile, b'{"Enabled": 1, "Edited": true}')):
             target.write_bytes(data)
         bikey.unlink()
@@ -2154,13 +2158,14 @@ class SelfHealingTests(InstallerCase):
         self.assertEqual(code, 0, applied + err)
         self.assertEqual(pbo.read_bytes(), b'PBO')
         self.assertEqual(bikey.read_bytes(), b'KEY')
-        self.assertEqual(launcher.read_bytes(), (self.bundle / 'start-server.bat').read_bytes())
+        # The edited launcher is never replaced wholesale: only the -mod= value comes from the bundle.
+        self.assertEqual(launcher.read_bytes(), bundle_launcher.replace(b'-port=2302', b'-port=2999 -cpuCount=4'))
         self.assertFalse(retired.exists())
         self.assertEqual(profile.read_bytes(), b'{"Enabled": 1, "Edited": true}')
         self.assertEqual((self.mission / 'storage_1/data/players.db').read_text(), 'SAVED PLAYERS')
         saved = sorted(b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('*')
                        if b.is_file() and b.name != fi.JOURNAL)
-        for original in (b'EDITED', b'echo mine\r\n', b'OLD'):
+        for original in (b'EDITED', operator_launcher, b'OLD'):
             self.assertIn(original, saved)
         rows = self.receipt()['repairs'][-1]['rows']
         for row in rows:
@@ -2180,6 +2185,7 @@ class SelfHealingTests(InstallerCase):
         code, out, err = self.apply()
         self.assertEqual(code, 2)
         self.assertIn('receipt_invalid', err)
+        self.assertIn('--repair', err)
         self.assertEqual(snapshot(self.server), before)
         code, out, err = self.apply('--repair')
         self.assertEqual(code, 0, out + err)
@@ -2187,6 +2193,8 @@ class SelfHealingTests(InstallerCase):
         self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'receipt')
         kept = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob(fi.RECEIPT)]
         self.assertEqual(kept, [b'not json'])
+        # The repair entry names the run whose backup folder holds the old bytes (the journal exists by then).
+        self.assertEqual(self.receipt()['repairs'][-1]['run'], self.latest_run())
         self.assertEqual(self.run_cli('--check')[0], 0)
 
     def test_an_interrupted_run_is_recovered_and_recorded_in_the_repair_receipt(self):
@@ -2208,6 +2216,350 @@ class SelfHealingTests(InstallerCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual([r['kind'] for r in self.receipt()['repairs'][-1]['rows']], ['interrupted'])
         self.assertEqual(self.run_cli('--check')[0], 0)
+
+
+class WaveCRoundTwoTests(InstallerCase):
+    """Opus review fixes for the friend installer on synthetic trees; nothing here runs DayZ or a real server."""
+    inject_after = RunRollbackTests.inject_after
+    tuned_server = SelfHealingTests.tuned_server
+    upgraded_bundle = SelfHealingTests.upgraded_bundle
+    latest_run = SelfHealingTests.latest_run
+    receipt = SelfHealingTests.receipt
+
+    def bundle_launcher(self):
+        return (self.bundle / 'start-server.bat').read_bytes()
+
+    def operator_launcher(self):
+        return self.bundle_launcher().replace(b'-port=2302', b'-port=2999 -cpuCount=4')
+
+    # P1: a run-created folder the server wrote into
+
+    def test_a_server_written_file_in_a_run_created_folder_keeps_the_folder_and_the_rollback_completes(self):
+        before = live_snapshot(self.server)
+        self.assertEqual(self.apply()[0], 0)
+        run = self.latest_run()
+        folder = self.server / 'profiles/HollowCountry/Events'
+        self.assertTrue(folder.is_dir())
+        runtime = put(folder, 'runtime-state.json', '{"written": "by the server"}')
+        code, out, err = self.run_cli('--rollback', run)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('kept non-empty folder profiles/HollowCountry/Events', out)
+        mid = live_snapshot(self.server)
+        code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('kept non-empty folder profiles/HollowCountry/Events', out)
+        self.assertIn(fi.ROLLBACK_OK, out)
+        self.assertEqual(runtime.read_text(), '{"written": "by the server"}')
+        self.assertFalse((self.server / 'profiles/HollowCountry/Events/settings.json').exists())
+        journal = json.loads((self.server / fi.BACKUP_DIR / run / fi.JOURNAL).read_text())
+        self.assertEqual(journal['state'], 'rolled-back')
+        self.assertNotEqual(live_snapshot(self.server), mid)
+        # Nothing is wedged: a later install and check work, and the server's file is still there.
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+        self.assertTrue(runtime.is_file())
+        self.assertNotEqual(live_snapshot(self.server), before)
+
+    def test_a_kept_folder_does_not_hide_a_real_conflict_and_nothing_changes_then(self):
+        self.assertEqual(self.apply()[0], 0)
+        run = self.latest_run()
+        put(self.server, 'profiles/HollowCountry/Events/runtime-state.json', '{}')
+        (self.server / '@HollowCountry/mod.cpp').write_bytes(b'EDITED LATER')
+        before = live_snapshot(self.server)
+        code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_conflict', err)
+        self.assertEqual(live_snapshot(self.server), before)
+        journal = json.loads((self.server / fi.BACKUP_DIR / run / fi.JOURNAL).read_text())
+        self.assertEqual(journal['state'], 'complete')
+
+    # P2: an interrupted --rollback is finished by --rollback on that run only
+
+    def test_an_interrupted_rollback_resumes_with_rollback_and_installs_nothing(self):
+        before = live_snapshot(self.server)
+        self.assertEqual(self.apply()[0], 0)
+        run = self.latest_run()
+        original, calls = fi.restore_change, []
+
+        def fail_on_second(ctx, change):
+            calls.append(change)
+            if len(calls) == 2:
+                raise PermissionError('synthetic locked file')
+            return original(ctx, change)
+        with mock.patch.object(fi, 'restore_change', fail_on_second):
+            code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_pending', err)
+        self.assertIn('--rollback %s --apply' % run, err)
+        journal_path = self.server / fi.BACKUP_DIR / run / fi.JOURNAL
+        self.assertEqual(json.loads(journal_path.read_text())['state'], 'rollback_pending')
+        runs = sorted(p.name for p in (self.server / fi.BACKUP_DIR).iterdir())
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 1, out + err)
+        self.assertIn('--rollback %s --apply' % run, out)
+        # The dry run of the resume changes nothing and says it is a resume.
+        mid = snapshot(self.server)
+        code, out, err = self.run_cli('--rollback', run)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('Resuming the rollback', out)
+        self.assertEqual(snapshot(self.server), mid)
+        code, out, err = self.run_cli('--rollback', run, '--apply')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn(fi.ROLLBACK_OK, out)
+        self.assertNotIn('Install finished', out)
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertEqual(sorted(p.name for p in (self.server / fi.BACKUP_DIR).iterdir()), runs)
+        self.assertEqual(json.loads(journal_path.read_text())['state'], 'rolled-back')
+        self.assertEqual(self.apply()[0], 0)
+
+    def test_rollback_of_another_run_is_refused_while_a_different_run_is_pending(self):
+        class Crash(BaseException):
+            pass
+        with self.inject_after('launcher', Crash()):
+            with self.assertRaises(Crash):
+                self.apply()
+        code, out, err = self.run_cli('--rollback', 'no-such-run', '--apply')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('install_interrupted', err)
+
+    # P2: --repair merges an edited launcher instead of replacing it
+
+    def test_merge_launcher_keeps_every_other_byte_and_takes_only_the_mod_values(self):
+        bundle = (b'@echo off\r\nstart "" DayZServer_x64.exe -config=serverDZ.cfg -port=2302 '
+                  b'"-mod=@A;@B" "-serverMod=@S" -dologs\r\n')
+        current = (b'@echo off\r\nrem -mod=@Ignored\r\nstart "" DayZServer_x64.exe -config=my.cfg -port=2999 '
+                   b'-cpuCount=4 "-mod=@A" -profiles=data\r\n')
+        merged, changes = fi.merge_launcher(current, bundle)
+        self.assertEqual(merged, (b'@echo off\r\nrem -mod=@Ignored\r\nstart "" DayZServer_x64.exe -config=my.cfg '
+                                  b'-port=2999 -cpuCount=4 "-mod=@A;@B" "-serverMod=@S" -profiles=data\r\n'))
+        self.assertEqual(len(changes), 2)
+        self.assertEqual(fi.merge_launcher(merged, bundle), (merged, []))
+        self.assertIsNone(fi.merge_launcher(b'echo no mods here\r\n', bundle))
+        self.assertIsNone(fi.merge_launcher(b'\xff\xfe', bundle))
+
+    def test_an_edited_launcher_is_merged_under_repair_with_a_preview_backup_and_no_wholesale_replace(self):
+        self.assertEqual(self.apply()[0], 0)
+        launcher = self.server / 'start-server.bat'
+        stale = self.operator_launcher().replace(b'"-mod=@CF;', b'"-mod=@Mine;@CF;')
+        launcher.write_bytes(stale)
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2)
+        self.assertIn('--repair', err)
+        self.assertEqual(snapshot(self.server), before)
+        code, preview, err = self.run_cli('--repair')
+        self.assertEqual(code, 0, preview + err)
+        self.assertEqual(snapshot(self.server), before)
+        self.assertIn('would repair  edited  start-server.bat', preview)
+        self.assertIn('      - ', preview)
+        self.assertIn('      + ', preview)
+        self.assertIn('-port=2999 -cpuCount=4', preview)
+        code, applied, err = self.apply('--repair')
+        self.assertEqual(code, 0, applied + err)
+        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+        saved = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('start-server.bat')]
+        self.assertEqual(saved, [stale])
+        rows = [r for r in self.receipt()['repairs'][-1]['rows'] if r['path'] == 'start-server.bat']
+        self.assertEqual([r['kind'] for r in rows], ['edited'])
+        self.assertIn('  repaired  edited  start-server.bat: %s' % rows[0]['detail'], applied)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+        # Idempotent: the merged launcher is the operator's, kept on later runs, with or without --repair.
+        before = snapshot(self.tmp)
+        for extra in ((), ('--repair',)):
+            code, again, err = self.apply(*extra)
+            self.assertEqual(code, 0, again + err)
+            self.assertEqual(snapshot(self.tmp), before)
+        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+
+    def test_a_launcher_with_the_right_mod_values_and_other_edits_is_kept_without_repair(self):
+        self.assertEqual(self.apply()[0], 0)
+        launcher = self.server / 'start-server.bat'
+        launcher.write_bytes(self.operator_launcher())
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(snapshot(self.server), before)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_a_merged_launcher_is_merged_again_by_a_later_bundle_not_replaced(self):
+        self.assertEqual(self.apply()[0], 0)
+        launcher = self.server / 'start-server.bat'
+        launcher.write_bytes(self.operator_launcher().replace(b'"-mod=@CF;', b'"-mod=@Mine;@CF;'))
+        self.assertEqual(self.apply('--repair')[0], 0)
+        newer = self.upgraded_bundle()
+        put(newer, 'start-server.bat', (newer / 'start-server.bat').read_bytes().replace(b'-dologs', b'-dologs -newflag'))
+        write_manifest(newer)
+        code, out, err = self.apply(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(launcher.read_bytes(), self.operator_launcher())
+
+    def test_an_unmergeable_edited_launcher_stays_a_refusal_even_with_repair(self):
+        self.assertEqual(self.apply()[0], 0)
+        launcher = self.server / 'start-server.bat'
+        launcher.write_bytes(b'echo mine\r\n')
+        before = snapshot(self.server)
+        code, preview, err = self.run_cli('--repair')
+        self.assertEqual(code, 0, preview + err)
+        self.assertIn('blocked  launcher  start-server.bat', preview)
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 2)
+        self.assertIn('drift', err)
+        self.assertIn('no -mod= argument', err)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_the_installer_bat_does_not_pass_repair(self):
+        bat = (ROOT / 'tools/setup/install-hollow-country.bat').read_text(encoding='utf-8')
+        self.assertNotIn('--repair', bat)
+
+    def test_blocked_repair_rows_in_an_interactive_run_ask_and_proceed_as_repair_only_on_yes(self):
+        self.assertEqual(self.apply()[0], 0)
+        pbo = self.server / '@HollowCountry/addons/hollowcountry.pbo'
+        pbo.write_bytes(b'EDITED')
+        before = snapshot(self.server)
+        code, out, err = self.run_cli(answers=lambda prompt: 'n')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('repair these (each backed up)? [y/N]: ', self.prompts)
+        self.assertNotIn('Apply these changes now? [y/N]: ', self.prompts)
+        self.assertEqual(snapshot(self.server), before)
+        code, out, err = self.run_cli(answers=lambda prompt: 'y')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(pbo.read_bytes(), b'PBO')
+        saved = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('hollowcountry.pbo')]
+        self.assertEqual(saved, [b'EDITED'])
+        self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'edited')
+        # With nothing blocked the usual question is asked and --repair is not implied.
+        self.run_cli(answers=lambda prompt: 'n')
+        self.assertIn('Apply these changes now? [y/N]: ', self.prompts)
+        self.assertNotIn('repair these (each backed up)? [y/N]: ', self.prompts)
+
+    # P2: a hard exit inside a mission writer
+
+    def crash_inside_the_mission_writer(self):
+        class Crash(BaseException):
+            pass
+        regular = fi.overlays.main.side_effect
+        armed = []
+        original = ws.write_json_atomic
+
+        def partial(argv):
+            if argv[0] == 'bundle-apply':
+                put(self.mission, 'cfgeconomycore.xml', '<partial/>')
+                put(self.mission, 'hollow-country/new/deep/file.json', '{}')
+                put(self.mission, 'hollow-country-bundle/receipt.json', '{"partial":true}')
+                armed.append(True)
+                raise Crash()
+            return regular(argv)
+
+        def lost_write(target, data):
+            # The process is gone: nothing after the helper's last instruction reaches the journal.
+            if armed and Path(target).name == fi.JOURNAL:
+                raise Crash()
+            return original(target, data)
+        with mock.patch.object(fi.overlays, 'main', side_effect=partial), \
+                mock.patch.object(ws, 'write_json_atomic', lost_write):
+            with self.assertRaises(Crash):
+                self.apply()
+        journals = list((self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL))
+        self.assertEqual(len(journals), 1)
+        rows = [r for r in json.loads(journals[0].read_text())['entries'] if r['kind'] == 'tree']
+        self.assertTrue(rows and rows[0].get('writing'), 'the tree writer marker must be journaled before the helper')
+
+    def test_a_hard_exit_inside_the_mission_writer_needs_repair_and_then_restores_the_whole_tree(self):
+        before = live_snapshot(self.server)
+        self.crash_inside_the_mission_writer()
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 1, out + err)
+        self.assertIn('hard exit', out)
+        # Without --repair recovery refuses, says why and names the flag; nothing is changed.
+        mid = live_snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_pending', err)
+        self.assertIn('hard exit', err)
+        self.assertIn('--repair', err)
+        self.assertEqual(live_snapshot(self.server), mid)
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('Recovered interrupted install', out)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<economycore/>')
+        self.assertFalse((self.mission / 'hollow-country/new').exists())
+        self.assertEqual((self.mission / 'storage_1/data/players.db').read_text(), 'SAVED PLAYERS')
+        stash = list((self.server / fi.BACKUP_DIR).rglob('hard-exit-partial'))
+        self.assertEqual(len(stash), 1)
+        self.assertEqual((stash[0] / 'mpmissions' / MISSION / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        self.assertEqual(self.run_cli('--check')[0], 0)
+        self.assertNotEqual(live_snapshot(self.server), before)
+
+    def test_a_hard_exit_in_an_interactive_run_asks_before_restoring_the_tree(self):
+        self.crash_inside_the_mission_writer()
+        code, out, err = self.run_cli('--apply', answers=lambda prompt: 'n')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('repair these (each backed up)? [y/N]: ', self.prompts)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        code, out, err = self.run_cli('--apply', answers=lambda prompt: 'y')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('Recovered interrupted install', out)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_the_marker_is_cleared_when_the_writer_returns_so_a_normal_failure_needs_no_repair(self):
+        with self.inject_after('overlay', fi.Refused('injected', 'late refusal')):
+            code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(fi.ROLLBACK_OK, err)
+        for journal in (self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL):
+            rows = json.loads(journal.read_text())['entries']
+            self.assertFalse([r for r in rows if r.get('writing')])
+
+    # P3
+
+    def test_a_loot_boosted_variable_back_at_its_stock_value_is_a_reset_and_the_boost_returns(self):
+        stock = (b'<var name="RespawnTypes" type="0" value="24"/>', b'<var name="RespawnTypes" type="0" value="12"/>')
+        path = self.tuned_server([stock, (b'value="60"', b'value="90"')])
+        newer = self.upgraded_bundle()
+        code, out, err = self.run_cli(bundle=newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('WARN  globals  RespawnTypes is back at its stock value', out)
+        self.assertIn('IdleModeCountdown 60 -> 90', out)
+        self.assertEqual(self.apply(bundle=newer)[0], 0)
+        values = var_values(path)
+        self.assertEqual(values['RespawnTypes'], '36')  # the new boost, not the stock value kept as tuning
+        self.assertEqual(values['IdleModeCountdown'], '90')
+
+    def test_a_reset_without_a_new_bundle_gets_the_boost_value_back_with_a_repair_row(self):
+        path = self.tuned_server([(b'<var name="RespawnTypes" type="0" value="24"/>',
+                                   b'<var name="RespawnTypes" type="0" value="12"/>'), (b'value="60"', b'value="90"')])
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        values = var_values(path)
+        self.assertEqual((values['RespawnTypes'], values['IdleModeCountdown']), ('24', '90'))
+        self.assertEqual(self.receipt()['repairs'][-1]['rows'][0]['kind'], 'globals')
+        before = snapshot(self.tmp)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_a_receipt_with_another_schema_is_never_rebuilt_by_repair(self):
+        self.assertEqual(self.apply()[0], 0)
+        (self.server / fi.RECEIPT).write_text(json.dumps({'schema': 99, 'files': {}}))
+        before = snapshot(self.server)
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 2)
+        self.assertIn('receipt_invalid', err)
+        self.assertIn('unknown layout', err)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_an_unrecorded_file_replaced_by_yes_has_a_preview_row_and_a_receipt_row(self):
+        put(self.server, '@HollowCountry/mod.cpp', 'name = "Mine";\n')
+        code, preview, err = self.run_cli()
+        self.assertEqual(code, 0, preview + err)
+        self.assertIn('would repair  unrecorded  @HollowCountry/mod.cpp', preview)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        rows = self.receipt()['repairs'][-1]['rows']
+        self.assertEqual([r['kind'] for r in rows if r['path'] == '@HollowCountry/mod.cpp'], ['unrecorded'])
+        for row in rows:
+            self.assertIn('  repaired  %s  %s: %s' % (row['kind'], row['path'], row['detail']), out)
+        saved = [b.read_bytes() for b in (self.server / fi.BACKUP_DIR / self.latest_run()).rglob('mod.cpp')]
+        self.assertEqual(saved, [b'name = "Mine";\n'])
 
 
 def live_snapshot_of(rows):
