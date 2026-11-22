@@ -455,6 +455,21 @@ upgrade so nothing of value is inside a bike that disappears.
   their files and their copied `.bikey` files in `keys/`. A file that changed since the
   install is left in place and listed. `workshop_sync rollback` removes the same files.
   A key the receipt does not record is not touched; delete it from `keys/` by hand.
+  A root `keys/*.bikey` is also kept when any live `@*/keys` folder (not only the ones the
+  receipt names) or the bundle's own `keys/` folder provides the same key name (compared
+  ignoring case) or the same bytes, so an author key several mods share is never deleted;
+  the plan prints "kept shared key <path>: <reason>". A kept key stays on the server but its
+  row leaves the Workshop receipt (unless a mod folder the receipt keeps holds the same key
+  under the exact same name), so the receipt stays valid and a rollback never deletes a key
+  another mod needs. A receipt an earlier release already left with such an orphaned key row
+  repairs itself when it is loaded: the row is dropped with a WARN naming the mod folder or
+  bundle key that provides it, and the key file is never touched. A key row no other key
+  backs is still refused (a receipt that names a key this tool never copied).
+- The start-server.bat step removes a retired folder from `-mod=` or `-serverMod=` only when
+  the Workshop receipt recorded that folder as created by this installer and the Workshop
+  step removes it (or removed it in an earlier run: the install receipt keeps a
+  `retired_removed` list for that). A retired folder the operator brought themselves stays
+  in their list and the preview prints a WARN for it.
 - An existing install that carried the bicycle overlay upgrades the normal way: the friend
   installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
   receipt (it does not depend on the current pack list), then `bundle-apply` installs the
@@ -542,10 +557,100 @@ If bytes match neither, recovery leaves them untouched, lists every conflict and
 its backup path, and retains `rollback_pending`. A previously absent target has
 no original backup file; the listed path identifies its place in the run backup.
 Keep the journal and backups, compare the conflicting files, and reconcile them
-by hand before retrying. A hard exit before a mission writer records its result,
-or an older journal without written hashes, can require this manual review.
-Never delete the journal to bypass a conflict. Identical dependency files are
-recorded as unchanged and receive no backup.
+by hand before retrying. An older journal without written hashes can require this
+manual review. Never delete the journal to bypass a conflict. Identical dependency
+files are recorded as unchanged and receive no backup.
+
+A hard exit (power loss, killed process) while a mission writer is running leaves
+mission-tree bytes the installer could not record. The journal marks the tree
+before the writer starts, so the next `--check` says "hard exit inside a mission
+writer". Recovery then refuses with `rollback_pending` and names `--repair`.
+`--apply --repair` (or answering `y` to "repair these (each backed up)? [y/N]" in
+an interactive run) restores the whole mission tree from that run's verified
+backup and then installs normally. A typed `y` allows that tree restore only: it does
+not turn on `--repair`, so edited mod files, keys and the launcher are still refused
+or kept exactly as they are. Before the restore, a copy of the partial tree is made
+under a temporary name and renamed to `hard-exit-partial-<run id>` inside the run
+backup once it is complete (the path is printed; a later attempt on the same run
+adds `-2`, `-3`, so no stash is ever overwritten, and an unfinished temporary copy
+is removed on the next try; if it cannot be removed the run refuses as `stash_cleanup` and
+names it, so a leftover is never reused). A copy that fails halfway therefore never counts as a
+stash, and the operator's mission edits are still in the tree for the retry. Without
+that explicit step nothing in the tree is changed.
+
+`--rollback <run>` is mostly a pre-restart tool. A run-created folder the server
+has since written into is kept ("kept non-empty folder <path>") and everything else
+is still undone. After the server has booted, files such as Expansion's
+`AISettings.json` are rewritten on start, so the rollback refuses with a conflict
+and changes nothing; that is the safe outcome. An interrupted `--rollback <run>`
+is finished by rerunning `--rollback <run> --apply`; that call restores only that
+run and installs nothing.
+
+The installer also repairs itself. A dry run and `--check` print a **Repair
+preview** of exactly what `--apply --repair` would change: managed files that are
+missing or were edited, retired files left behind by an older release, files from a
+partial previous install, and `db/globals.xml` values to carry forward. `--apply`
+without `--repair` still refuses on edited managed files and names the flag. With
+`--repair` each replaced file is copied into the run backup first and the run ends
+with a **Repair receipt** whose rows equal the preview; it is also stored under
+`repairs` in `hollow-country-install-receipt.json`. A second run reports nothing to
+repair. Files the installer does not manage and world saves (`storage_*`) are never
+deleted. An install receipt that is not valid JSON text is rebuilt under `--repair`
+instead of blocking the install (`receipt_invalid`; the old bytes go to the run
+backup). A receipt that cannot be opened at all (locked, permission denied, a folder
+in its place) is never rebuilt: the run refuses with `receipt_unreadable` and the
+reason, and converges on a later run once the cause is fixed. A receipt with an
+unknown layout is never rebuilt (`receipt_invalid` says so). A file the installer did not write
+that `--yes` replaces gets the same preview and receipt row as any repair.
+
+An operator-edited `start-server.bat` is never replaced wholesale. `--repair` (and
+`--yes` for a launcher the installer did not write) merges the `-mod=` and `-serverMod=`
+lists and keeps the port, `-profiles`, `-cpuCount` and every other argument. The values
+are read as whole tokens (quoted up to the closing quote, so `"-mod=@A;@Base Building Plus"`
+stays intact; otherwise up to the next whitespace). The merged list is the bundle's
+folders in bundle order, then every entry the installer does not manage in the operator's
+own order (the operator's other mods and an operator `-serverMod=` list are kept). Entries
+are compared by their last path component, ignoring case and slash style, so
+`C:\mods\@CF` and `.\@CF` count as the bundle's `@CF` and are replaced by the bundle form.
+All bundle folders of both lists are installer-managed for both: one the operator listed
+in the other argument moves to the argument the bundle puts it in. Retired folders (the
+manifest's `retired` list) are removed only when this installer installed them (see the
+retired-dependencies note above). The preview names each mod as `added`, `removed`
+(retired), `moved`, `replaced` (path form), `kept` or WARN (a retired folder the installer
+did not install), and the old file goes to the run backup. `@rem`, `rem` and `::` lines
+are comments. Only the unedited launcher an older bundle wrote is
+replaced as a whole. A launcher that cannot be merged (no `-mod=` argument, not UTF-8
+text, a value built from a `%variable%` or holding `!` (delayed expansion) or `^`, an
+unclosed quote), recorded or not, is a
+refusal with that reason under `--repair` and `--yes` alike: fix it by hand or move it
+away. `install-hollow-country.bat`
+never passes `--repair`; `--check` reports such a launcher as `launcher_problem` with the
+same reason (not as a wrong mod order). In an interactive run the installer instead asks "repair
+these (each backed up)? [y/N]" when the preview has blocked rows.
+
+Operator `db/globals.xml` values survive an upgrade. The installer rebuilds the
+bytes it wrote last time from the loot receipt, treats every variable that differs
+from them as the operator's own, undoes the old boost, applies the new one, then
+re-applies the operator's values (BOM and line endings are preserved; comments are
+kept only where they exist in the new file). A variable the operator removed comes
+back with a WARN. A boosted variable that is back at its pre-boost value counts as
+a reset, not tuning: the installer warns and applies the boost again. The whole file put
+back to its stock bytes is read the same way (every boosted variable is a reset). To keep
+the stock value on purpose, run with `--keep-stock-globals`: the variables that are back at
+stock are recorded as an opt-out in the install receipt (`globals_optout`), the run keeps
+their stock values, and no later run applies the boost to them again (the plan lists them).
+`globals_optout` must be a list of variable names; any other value is refused as
+`receipt_optout_invalid` and `--apply --repair` rebuilds the list from the loot-boost state
+on disk (the variables at their stock value), keeping the rest of the receipt. A receipt
+rebuilt by `--repair` because it was not valid JSON keeps the opt-out too: from the old
+text when the array is still readable, otherwise from the loot-boost state.
+The run lists each carried value and keeps the operator's exact file in the run
+backup. When the receipt or backup cannot prove what the installer wrote, the file
+is left untouched and the run refuses with the reason. After a carry-forward the
+file no longer equals the loot receipt's recorded result, so use
+`python -m tools.setup.friend_install --rollback <run>` (or rerun the installer)
+instead of the standalone `bundle-rollback`. `--rollback <run>` restores the
+files of that one run from its backup and refuses any file edited since the run.
 
 Rollback with the server stopped:
 

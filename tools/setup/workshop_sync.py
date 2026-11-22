@@ -408,7 +408,11 @@ def item_files(item, source):
 
 
 # ---------------------------------------------------------------- receipt
-def load_receipt(root, managed):
+def load_receipt(root, managed, extra_key_dirs=(), warn=None):
+    """The validated receipt, or None. A root keys/*.bikey row ownership is checked against the receipt's own mod
+    folders (exact name and bytes). A row an earlier release orphaned (retire_items kept the key because another mod
+    or the bundle provides it, but left the row) is repaired here, never refused: the row is dropped, the file stays,
+    and warn(text) says so. The repaired receipt is what callers see; the next write persists it."""
     path = root / RECEIPT_NAME
     if not path.exists():
         return None
@@ -433,6 +437,7 @@ def load_receipt(root, managed):
             raise SyncError('receipt folder %r is not a mod folder in the manifest; refusing to roll back' % (rel,))
     created = {rel for rel in data['dirs'] if rel.startswith('@') and '/' not in rel}
     by_path = {e['path']: e for e in data['files']}
+    orphans = []
     for entry in data['files']:
         path = entry['path']
         if path.startswith('@'):
@@ -442,48 +447,121 @@ def load_receipt(root, managed):
             # A server key is ours only if a created mod folder holds the same key we copied from it.
             name = path.split('/')[-1]
             if not any(by_path.get(top + '/keys/' + name, {}).get('sha256') == entry['sha256'] for top in created):
+                orphans.append(entry)
+    if orphans:
+        live = live_key_files(root, set(), extra_key_dirs)
+        dropped = []
+        for entry in orphans:
+            name = entry['path'].split('/')[-1].casefold()
+            provider = next((label for label, key_name, key_sha in live if key_name == name
+                             or key_sha == entry['sha256']), None)
+            if provider is None:
                 raise SyncError('receipt key %s has no matching copy in a folder install created; '
-                                'refusing to roll back' % path)
+                                'refusing to roll back' % entry['path'])
+            dropped.append(entry)
+            text = ('WARN: receipt key %s has no copy in a folder this install created (an earlier release kept it '
+                    'when a retired mod was removed); %s provides it, so the key stays on the server and is no longer '
+                    'recorded as installed by this tool' % (entry['path'], provider))
+            if warn is not None:
+                warn(text)
+            else:
+                print(text, file=sys.stderr)
+        gone = {e['path'] for e in dropped}
+        data['files'] = [e for e in data['files'] if e['path'] not in gone]
     return data
 
 
-def retired_receipt_rows(receipt, manifest):
-    """Receipt files and folders that belong to retired manifest items: (file rows, folder names).
+def live_key_files(root, retired_keys, extra_dirs=()):
+    """{casefolded name: (label, sha)} for every key file an active mod folder or the bundle provides now: each live
+    @*/keys folder (not only the ones the receipt names) and the extra directories (the bundle's keys folder)."""
+    found = []
+    if root is not None and Path(root).is_dir():
+        for folder in sorted(Path(root).iterdir()):
+            if not folder.name.startswith('@') or folder.name.casefold() in retired_keys or not folder.is_dir():
+                continue
+            for sub in folder.iterdir():
+                if sub.name.casefold() == 'keys' and sub.is_dir():
+                    found += [(folder.name + '/keys/' + key.name, key) for key in sorted(sub.iterdir())]
+    for extra in extra_dirs:
+        if Path(extra).is_dir():
+            found += [('the bundle keys/' + key.name, key) for key in sorted(Path(extra).iterdir())]
+    return [(label, key.name.casefold(), sha256_of(key)) for label, key in found if key.is_file()]
 
-    A server key counts when a retired folder holds the same key bytes and no active folder does.
-    """
+
+def _split(receipt, manifest, root=None, extra_key_dirs=()):
+    """(file rows to delete, folder names, [(path, reason)] for root keys that are kept, paths to disown).
+
+    A root key that is kept stays on the server. Its receipt row stays only when a folder the receipt keeps carries
+    the exact-name copy (load_receipt validates exactly that); otherwise the row is disowned: retire_items drops it, so
+    the receipt never names a key nothing in it backs and rollback never deletes a key another mod needs."""
     if not receipt:
-        return [], []
-    retired = {m['folder'] for m in manifest['retired']}
+        return [], [], [], set()
+    retired = {m['folder'].casefold() for m in manifest['retired']}
 
     def key_copies(keep):
-        return {(e['path'].split('/')[-1], e['sha256']) for e in receipt['files']
-                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0])}
+        return {(e['path'].split('/')[-1].casefold(), e['sha256']) for e in receipt['files']
+                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0].casefold())}
 
     retired_keys = key_copies(lambda top: top in retired)
     active_keys = key_copies(lambda top: top not in retired)
-    rows = []
+    active_exact = {(e['path'].split('/')[-1], e['sha256']) for e in receipt['files']
+                    if e['path'].startswith('@') and e['path'].count('/') == 2 and '/keys/' in e['path']
+                    and e['path'].split('/')[0].casefold() not in retired}
+    live = None
+    rows, kept, disown = [], [], set()
     for entry in receipt['files']:
         path = entry['path']
         if path.startswith('@'):
-            if path.split('/')[0] in retired:
+            if path.split('/')[0].casefold() in retired:
                 rows.append(entry)
+            continue
+        key = (path.split('/')[-1].casefold(), entry['sha256'])
+        if key not in retired_keys:
+            continue
+        if key in active_keys:
+            kept.append((path, 'an active mod folder in the receipt carries the same key'))
+            if (path.split('/')[-1], entry['sha256']) not in active_exact:
+                disown.add(path)
+            continue
+        if live is None:
+            live = live_key_files(root, retired, extra_key_dirs)
+        shared = next((label for label, name, sha in live if name == key[0] or sha == entry['sha256']), None)
+        if shared is not None:
+            kept.append((path, 'also provided by %s' % shared))
+            disown.add(path)
         else:
-            key = (path.split('/')[-1], entry['sha256'])
-            if key in retired_keys and key not in active_keys:
-                rows.append(entry)
-    return rows, sorted(rel for rel in receipt['dirs'] if rel.split('/')[0] in retired)
+            rows.append(entry)
+    dirs = sorted(rel for rel in receipt['dirs'] if rel.split('/')[0].casefold() in retired)
+    return rows, dirs, kept, disown
 
 
-def retire_items(root, receipt, manifest, before_write=None):
+def split_retired_rows(receipt, manifest, root=None, extra_key_dirs=()):
+    """(file rows to delete, folder names, [(path, reason)] for root keys that are kept).
+
+    A server key counts when a retired folder holds the same key bytes and no active folder does. An author key
+    several mods share is never deleted: before a root keys/*.bikey goes, every live @*/keys folder (not only the
+    receipt rows) and the bundle's keys folder are searched for the same name (case-insensitive) or the same bytes.
+    """
+    rows, dirs, kept, _disown = _split(receipt, manifest, root, extra_key_dirs)
+    return rows, dirs, kept
+
+
+def retired_receipt_rows(receipt, manifest, root=None, extra_key_dirs=()):
+    """Receipt files and folders that belong to retired manifest items: (file rows, folder names). See
+    split_retired_rows for the shared-key rules."""
+    rows, dirs, _kept = split_retired_rows(receipt, manifest, root, extra_key_dirs)
+    return rows, dirs
+
+
+def retire_items(root, receipt, manifest, before_write=None, extra_key_dirs=()):
     """Remove what an earlier install recorded for retired items, keys included, then rewrite the receipt.
 
     Only files whose bytes still match the receipt are deleted; a changed file is left and reported, and
     its folder stays. Both are dropped from the receipt either way, so a second run finds nothing to do.
     Returns (removed paths, left paths).
     """
-    rows, dirs = retired_receipt_rows(receipt, manifest)
-    if not rows and not dirs:
+    rows, dirs, _kept, disown = _split(receipt, manifest, root, extra_key_dirs)
+    if not rows and not dirs and not disown:
         return [], []
     for entry in rows:
         check_no_symlink_below(root, entry['path'])
@@ -506,7 +584,7 @@ def retire_items(root, receipt, manifest, before_write=None):
         folder = root / rel
         if folder.is_dir() and not folder.is_symlink() and not any(folder.iterdir()):
             folder.rmdir()
-    gone = {e['path'] for e in rows}
+    gone = {e['path'] for e in rows} | disown
     data = receipt_data({e['path']: e for e in receipt['files'] if e['path'] not in gone},
                         set(receipt['dirs']) - set(dirs))
     if before_write is not None:
@@ -692,7 +770,7 @@ def cmd_install(args, say, before_write=None):
     require_stopped(args)
     root = check_root(args.server_root)
     groups, items, dirs = resolve(args)
-    receipt = load_receipt(root, managed_folders(args))
+    receipt = load_receipt(root, managed_folders(args), warn=say)
     targets, skipped, manual = plan_install(items, dirs, root, set(receipt['dirs']) if receipt else set())
     files = {e['path']: e for e in receipt['files']} if receipt else {}
     made_dirs = set(receipt['dirs']) if receipt else set()
@@ -748,7 +826,7 @@ def cmd_install(args, say, before_write=None):
 def cmd_rollback(args, say):
     require_stopped(args)
     root = check_root(args.server_root)
-    receipt = load_receipt(root, managed_folders(args))
+    receipt = load_receipt(root, managed_folders(args), warn=say)
     if receipt is None:
         raise SyncError('no receipt (%s) in %s; nothing this tool installed can be rolled back' % (RECEIPT_NAME, root))
     for entry in receipt['files']:
