@@ -29,7 +29,8 @@ class HCProfileDefaults
 
     static string ReadText(string path)
     {
-        if (!FileExist(path)) { return ""; }
+        // Open once: an absent/unreadable file already fails here. Callers
+        // require the completed text synchronously, including loadout readback.
         FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) { return ""; }
         string text;
@@ -44,7 +45,19 @@ class HCProfileDefaults
         if (text.Length() < 1 || text.Length() > MAX_BYTES) { return false; }
         FileHandle handle = OpenFile(path, FileMode.WRITE);
         if (!handle) { return false; }
-        FPrint(handle, text);
+        // Keep the synchronous copy/readback contract until its callers own a
+        // durable continuation. As in HCStagedSaveImage, stay below the observed
+        // native FPrint transfer cap: <=256 chunks for the 1 MiB input ceiling.
+        int offset = 0;
+        int total = text.Length();
+        while (offset < total)
+        {
+            int length = total - offset;
+            if (length > 4096) { length = 4096; }
+            string piece = text.Substring(offset, length);
+            FPrint(handle, piece);
+            offset = offset + length;
+        }
         CloseFile(handle);
         return ReadText(path) == text;
     }
