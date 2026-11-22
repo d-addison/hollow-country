@@ -1,7 +1,7 @@
 // HC-42. Authored JSON-lines paging, not a procedural scenery provider.
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist,
-// :417 OpenFile, :443 CloseFile, :501 FGets; EnString.c:113 Substring,
-// :199 Length, :240 IndexOf, :319 TrimInPlace; EnScript.c:380 Count,
+// :417 OpenFile, :425 ReadFile, :443 CloseFile; EnString.c:113 Substring,
+// :199 Length, :271 IndexOfFrom, :319 TrimInPlace; EnScript.c:380 Count,
 // :407 array.Insert, :877 map.Find, :917 map.Contains, :926 map.Insert;
 // EnDebug.c:96 Print; EnConvert.c:30 ToString.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData. No Expansion calls.
@@ -95,7 +95,12 @@ class HCGapcodeStoryIndex : Managed
     protected bool m_InputOpen;
     protected bool m_Loading;
     protected bool m_Reading;
-    protected ref array<string> m_Lines = new array<string>;
+    // At most one 32 KiB chunk plus an unfinished bounded row. Scan by offset
+    // rather than copying the remaining chunk after every decoded row.
+    protected string m_Buffer;
+    protected int m_BufferCursor;
+    protected int m_ReadChunks;
+    protected ref map<string, bool> m_AdmittedKits = new map<string, bool>;
     protected int m_LineCursor;
     protected int m_LoadBatches;
     protected int m_LoadGuardYields;
@@ -121,7 +126,7 @@ class HCGapcodeStoryIndex : Managed
     string HCReason() { return m_Reason; }
     bool HCOff() { return m_Off; }
     bool HCHasSelectedPlan() { return m_Selected != null; }
-    // Loading parses the cached source. The startup adapter only enters while
+    // Loading streams and parses the source. The startup adapter only enters while
     // loading; selection and native clearance remain on scene ticks.
     bool HCLoading() { return m_Loading; }
     bool HCNeedsStep() { return m_Loading || (m_Complete && m_Qualified > 0 && !m_Selected); }
@@ -138,8 +143,8 @@ class HCGapcodeStoryIndex : Managed
         m_Input = OpenFile("$mission:hollow-country/events/story-sites.json", FileMode.READ);
         if (m_Input) { m_InputOpen = true; }
         if (!m_InputOpen) { HCRefuse("HC42_INDEX_MISSING"); return; }
-        // Cache and parse on separate bounded visits; startup must not drain
-        // the whole index before STORY_INDEX can account for its work.
+        // Read and decode on separate bounded visits. The pump supplies the
+        // shared frame deadline; normal ticks retain STORY_INDEX admission.
         m_Reading = true;
         m_Loading = true;
         m_StartupIndex = new HCStartupStoryIndex;
@@ -153,7 +158,8 @@ class HCGapcodeStoryIndex : Managed
         if (m_InputOpen) { CloseFile(m_Input); m_InputOpen = false; }
         m_Loading = false;
         m_Reading = false;
-        m_Lines.Clear();
+        m_Buffer = "";
+        m_BufferCursor = 0;
     }
 
     void HCLog()
@@ -162,12 +168,19 @@ class HCGapcodeStoryIndex : Managed
         m_Logged = true;
         string report = "[HC Scenes] HC-42 index sites=" + m_Sites.Count().ToString() + " candidates=" + m_Pairs.Count().ToString() + " qualified=" + m_Qualified.ToString();
         report = report + " load_rows=" + m_LineCursor.ToString() + " load_batches=" + m_LoadBatches.ToString() + " guard_yields=" + m_LoadGuardYields.ToString();
+        report = report + " read_chunks=" + m_ReadChunks.ToString() + " read_bytes=" + m_Bytes.ToString();
         Print(report + " runtime=PENDING");
     }
 
     bool HCRefuse(string reason)
     {
         if (m_Reason != reason) { Print("[HC Scenes] HC-42 reason=" + reason + " runtime=PENDING"); }
+        // Shared readiness reports boot and first admission. A later streaming
+        // refusal must also leave a false receipt rather than only a pending boot.
+        if (m_StartupIndex)
+        {
+            Print("[HC Ready] module=Scenes enabled=true ready=false reason=" + HCReached.Token(reason) + " runtime=PENDING");
+        }
         m_Reason = reason;
         m_Selected = null;
         HCStop();
@@ -236,7 +249,14 @@ class HCGapcodeStoryIndex : Managed
         if (!JsonFileLoader<HCGapcodeStoryCandidate>.LoadData(line, pair, error) || !pair) { return false; }
         if (m_Pairs.Count() >= m_Limits.MaxCandidates || m_Ids.Contains(pair.Id) || !HCEventDirector.TextValid(pair.Id, 96) || (pair.Variant != "primary" && pair.Variant != "regional")) { return false; }
         HCGapcodeStorySite anchor;
-        if (!m_Sites.Find(pair.SiteId, anchor) || !HCSceneKits.Find(pair.Kit)) { return false; }
+        if (!m_Sites.Find(pair.SiteId, anchor)) { return false; }
+        // Kit definitions are immutable: admit each distinct kit once instead
+        // of allocating its full prop array for every candidate in the index.
+        if (!m_AdmittedKits.Contains(pair.Kit))
+        {
+            if (!HCSceneKits.Find(pair.Kit)) { return false; }
+            m_AdmittedKits.Insert(pair.Kit, true);
+        }
         m_Ids.Insert(pair.Id, true);
         m_Pairs.Insert(pair);
         // 'qualified' here counts admitted source pairs, NEVER native receipts.
@@ -275,26 +295,31 @@ class HCGapcodeStoryIndex : Managed
                 // cooperative guard. Count it to distinguish time from line caps
                 // in the native completion receipt; one JSON row is atomic.
                 if (!m_Work.HCContinue()) { m_LoadGuardYields++; return; }
-                if (m_Reading)
+                int end = m_Buffer.IndexOfFrom(m_BufferCursor, "\n");
+                if (end < 0 && m_Reading)
                 {
-                    int read = FGets(m_Input, line);
-                    if (read > 0)
-                    {
-                        m_Bytes = m_Bytes + read;
-                        if (line.Length() > m_Limits.MaxLineBytes || m_Bytes > m_Limits.MaxFileBytes)
-                        {
-                            HCRefuse("HC42_INDEX_INVALID");
-                            return;
-                        }
-                        m_Lines.Insert(line);
-                        continue;
-                    }
+                    if (row > 0) { return; } // Keep native reads separate from JSON decode.
+                    // Compact only at a chunk boundary; preserve a split JSON
+                    // row byte-for-byte. A read is the last operation this visit.
+                    int tail = m_Buffer.Length() - m_BufferCursor;
+                    if (tail > m_Limits.MaxLineBytes) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                    if (tail > 0) { m_Buffer = m_Buffer.Substring(m_BufferCursor, tail); }
+                    else { m_Buffer = ""; }
+                    m_BufferCursor = 0;
+                    string chunk;
+                    int read = ReadFile(m_Input, chunk, 32768);
+                    m_ReadChunks++;
+                    if (read < 0 || read > 32768 || read != chunk.Length()) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                    m_Bytes = m_Bytes + read;
+                    if (m_Bytes > m_Limits.MaxFileBytes) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                    if (read > 0) { m_Buffer = m_Buffer + chunk; return; }
                     CloseFile(m_Input);
                     m_InputOpen = false;
                     m_Reading = false;
-                    return; // Never combine the last read with the first decode.
+                    return; // Final unterminated row is decoded on a later visit.
                 }
-                if (m_LineCursor >= m_Lines.Count())
+                if (end < 0) { end = m_Buffer.Length(); }
+                if (m_BufferCursor >= m_Buffer.Length())
                 {
                     HCStop();
                     if (m_Phase != 5 || m_Pairs.Count() < 1) { HCRefuse("HC42_INDEX_INVALID"); return; }
@@ -304,7 +329,12 @@ class HCGapcodeStoryIndex : Managed
                     HCLog();
                     return;
                 }
-                line = m_Lines[m_LineCursor];
+                int length = end - m_BufferCursor;
+                if (length > m_Limits.MaxLineBytes) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                line = "";
+                if (length > 0) { line = m_Buffer.Substring(m_BufferCursor, length); }
+                m_BufferCursor = end;
+                if (end < m_Buffer.Length()) { m_BufferCursor++; }
                 m_LineCursor++;
                 if (!HCLine(line)) { HCRefuse("HC42_INDEX_INVALID"); return; }
             }

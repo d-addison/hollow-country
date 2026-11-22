@@ -72,13 +72,18 @@ class HCScenesModule : HCModule
     override string GetName() { return "Scenes"; }
 
     // HC-62 readiness requires the loaded index and a source-qualified pair.
-    // This is the bounded HC-42 read/decode admission, not Events/AI readiness.
-    // Selection/clearance is progress, not a readiness failure or native acceptance.
+    // Bulk loading stays on the startup pump; selection/clearance remains
+    // independent of source admission and native placement acceptance.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         if (m_Fault != "")
         {
             m_Operational.HCPublish("degraded", m_Fault);
+            return m_Operational;
+        }
+        if (m_Running && m_StoryIndex && m_StoryIndex.HCLoading())
+        {
+            m_Operational.HCPublish("degraded", "index_loading");
             return m_Operational;
         }
         if (m_Running && m_StoryIndex && !m_StoryIndex.HCOff() && !m_StoryIndex.HCReady())
