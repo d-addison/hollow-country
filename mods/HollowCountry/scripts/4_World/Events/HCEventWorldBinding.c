@@ -198,7 +198,9 @@ class HCEventWorldBinding
         if (!found) { s_FailReason = "no_candidate"; }
         return found;
     }
-    // Finite police site stock has no refill clock or event-owned reservation.
+    // Police site stock is a lifecycle container (refill after RefillCooldownSeconds,
+    // replaced when aged or ruined) with no event-owned reservation; the cooldown and
+    // players-near reasons are waits, not refusals.
     // A later native stock observation can still bind; retry_at is the module
     // clock's earliest scan time, with roster rotation/work admission after it.
     static bool PoliceStockWaiting()
@@ -206,6 +208,11 @@ class HCEventWorldBinding
         if (s_FailReason == "police_cache_grant_spent") { return true; }
         if (s_FailReason == "police_cache_position_recorded") { return true; }
         if (s_FailReason == "police_cache_repair_spent") { return true; }
+        if (s_FailReason == "police_container_cooldown") { return true; }
+        if (s_FailReason == "police_container_players_near") { return true; }
+        if (s_FailReason == "police_container_not_ours") { return true; }
+        if (s_FailReason == "police_cache_position_drift") { return true; }
+        if (s_FailReason == "police_receipt_write_failed") { return true; }
         return s_FailReason == "police_cache_depleted";
     }
     static void PoliceStockDeferred(HCEventMission mission, float retryAt)
@@ -214,7 +221,7 @@ class HCEventWorldBinding
         if (s_PoliceStockReported.Count() >= 8) { return; }
         s_PoliceStockReported.Insert(mission.SiteId);
         string receipt = "[HC Events] police stock waiting; " + mission.SiteId + "; reason=" + s_FailReason;
-        receipt = receipt + "; refill=never; retry_mission=" + mission.Id + "; retry_at=" + retryAt.ToString();
+        receipt = receipt + "; refill=after_cooldown; retry_mission=" + mission.Id + "; retry_at=" + retryAt.ToString();
         receipt = receipt + "; retry_clock=event_context_seconds; retry=physical_stock_scan; retry_at_bound=earliest runtime=PENDING";
         Print("" + receipt);
     }

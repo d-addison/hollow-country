@@ -262,6 +262,9 @@ class HCOperatorSettingsRegistry
         HCAdd("W38Situations.PhysicalScanObjects", "int", 64, 1, 128, "HCW38SituationPolicy");
         HCAdd("W38Situations.PhysicalScanCargo", "int", 16, 1, 64, "HCW38SituationPolicy");
         HCAdd("W38Situations.PoliceSlowRetrySeconds", "int", 300, 60, 3600, "HCW38SituationPolicy");
+        HCAdd("W38Situations.RefillCooldownSeconds", "int", 10800, 600, 604800, "HCW38SituationPolicy");
+        HCAdd("W38Situations.ContainerLifetimeSeconds", "int", 604800, 3600, 2592000, "HCW38SituationPolicy");
+        HCAdd("W38Situations.RefillClearRadius", "float", 50, 10, 200, "HCW38SituationPolicy");
         HCAdd("W38Situations.MaxRaidMeters", "float", 600, 1, 1000, "HCW38SituationPolicy");
         HCAdd("W38Situations.ShelterMeters", "float", 20, 1, 50, "HCW38SituationPolicy");
         HCAdd("CampTheft.Version", "int", 1, 1, 1, "HCTheftConfig");

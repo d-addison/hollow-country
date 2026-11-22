@@ -685,6 +685,30 @@
     "owner": "HCW38SituationPolicy"
   },
   {
+    "key": "W38Situations.RefillCooldownSeconds",
+    "type": "int",
+    "default": 10800,
+    "min": 600,
+    "max": 604800,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.ContainerLifetimeSeconds",
+    "type": "int",
+    "default": 604800,
+    "min": 3600,
+    "max": 2592000,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.RefillClearRadius",
+    "type": "float",
+    "default": 50,
+    "min": 10,
+    "max": 200,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
     "key": "W38Situations.MaxRaidMeters",
     "type": "float",
     "default": 600,
