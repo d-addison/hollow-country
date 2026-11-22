@@ -488,6 +488,7 @@ class HCStagedSaveImage
     protected bool m_TargetExists;
     protected ref array<string> m_PriorChunks = new array<string>;
     protected int m_PriorBytes;
+    protected int m_BackupChunk;
     protected int m_BackupStage;
     protected bool m_BackupExists;
     protected bool m_Unchanged = true;
@@ -506,6 +507,7 @@ class HCStagedSaveImage
         if (m_WriteOpen) { CloseFile(m_Write); m_WriteOpen = false; }
         m_Opened = false;
         m_Offset = 0;
+        m_BackupChunk = 0;
         m_OpenStage = 0;
         m_SourceAbsent = false;
         m_TargetExists = false;
@@ -816,9 +818,13 @@ class HCStagedSaveImage
             {
                 if (m_Phase == 2 && !m_CheckPrior)
                 {
-                    int chunk = m_Offset / HC_CHUNK_BYTES;
+                    int chunk = m_BackupChunk;
                     if (m_Offset + count > m_PriorBytes || (count == 0 && m_Offset != m_PriorBytes)) { return HCFail(); }
-                    if (count > 0 && (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk])) { return HCFail(); }
+                    if (count > 0)
+                    {
+                        if (chunk >= m_PriorChunks.Count() || piece != m_PriorChunks[chunk]) { return HCFail(); }
+                        m_BackupChunk++;
+                    }
                 }
                 else
                 {

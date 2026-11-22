@@ -1891,6 +1891,96 @@
       "message": "CopyFile in a synchronous startup loop via HCRadioChatter.OnStart -> HCLeadStore.Save -> HCLeadStore.HCCheckpointStep -> HCStagedSaveImage.HCStepImage; enqueue bounded startup work",
       "native": false,
       "reason": "W1-03 staged save: the native CopyFile stages replace the former OpenFile copy stages one-for-one (one stage per tick, SaveStagesPerTick/SaveStageTargetMs bound). Still reachable from a synchronous startup save; Wave 2 moves startup saves onto HCSaveScheduler. Path-insensitive offline candidate; no native acceptance."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 432,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 473,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 487,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 491,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#2",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 493,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 505,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#3",
+      "message": "CopyFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 507,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 79,
+      "symbol": "HCWorldStore.RawEqual",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness -> HCWorldStore.RawEqual; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 81,
+      "symbol": "HCWorldStore.RawEqual",
+      "key": "OpenFile#2",
+      "message": "OpenFile in a synchronous startup loop via HCWorldMaterializer.OnStart -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness -> HCWorldStore.RawEqual; enqueue bounded startup work",
+      "native": false,
+      "reason": "W2-08 round 5: bounded one-time synchronous boot repair only; at most eight rejected slots and 1 MiB raw comparisons. Preserves corrupt bytes and resumes interrupted recovery without operator deletion. No tick/native timing acceptance; queued retry CallLater roots remain lead follow-up."
     }
   ]
 }

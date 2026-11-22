@@ -71,6 +71,36 @@ class HCWorldStore
         return count >= 0 && count == text.Length();
     }
 
+    // Recovery-only raw byte comparison. ReadFile's documented int[] target
+    // avoids treating embedded NUL/string conversion as proof of different bytes.
+    // One-time boot work, bounded by MAX_BYTES; native NUL probe remains pending.
+    static bool RawEqual(string left, string right)
+    {
+        FileHandle a = OpenFile(left, FileMode.READ);
+        if (!a) { return false; }
+        FileHandle b = OpenFile(right, FileMode.READ);
+        if (!b) { CloseFile(a); return false; }
+        int x[4096];
+        int y[4096];
+        int total;
+        bool equal = true;
+        while (total <= MAX_BYTES)
+        {
+            int nx = ReadFile(a, x, 4096);
+            int ny = ReadFile(b, y, 4096);
+            if (nx < 0 || nx != ny || total + nx > MAX_BYTES) { equal = false; break; }
+            for (int i = 0; i < nx; i++)
+            {
+                if (x[i] != y[i]) { equal = false; break; }
+            }
+            if (!equal || nx == 0) { break; }
+            total += nx;
+        }
+        CloseFile(a);
+        CloseFile(b);
+        return equal;
+    }
+
     // JSON serializer compatibility can ignore unknown fields. Since the DTOs
     // use no maps, allow only authored field names at ANY nesting depth. In
     // particular PlayerId/PlayerPosition/standing cannot be silently discarded.

@@ -152,6 +152,13 @@ class HCWorldMaterializer : HCModule
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Materializer"; }
+    // World is a feature phase owner. Reverse shutdown must resolve custody
+    // before World's final flush; readiness is captured after all start hooks.
+    override int StartupPhase() { return HC_PHASE_ADDON; }
+    protected bool m_Stopping;
+    protected int m_StopFolded;
+    protected int m_StopUnavailable;
+    static const int HC_REJECTED_SLOTS = 8;
 
     // Wave 16: a running materializer whose party custody could not be read keeps the AI budget blocked
     // (HCAIBudget.Block above): that is a real degradation, never ready.
@@ -182,6 +189,8 @@ class HCWorldMaterializer : HCModule
         m_Clock = 0;
         m_RingSeconds = 0;
         m_LogSeconds = 0;
+        m_CustodyReadRetries = 0;
+        m_CustodyRetryRead = false;
         m_CustodyStepTime = -1;
         m_CustodyStage = 0;
         m_CustodyRevision = 0;
@@ -287,6 +296,9 @@ class HCWorldMaterializer : HCModule
 
     override void OnStop()
     {
+        m_Stopping = true;
+        m_StopFolded = 0;
+        m_StopUnavailable = 0;
         // Mission shutdown owns provider cleanup. Unreported body outcomes are
         // not invented or replayed after restart; ledger facts remain durable.
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryCustodyLoad);
@@ -304,6 +316,8 @@ class HCWorldMaterializer : HCModule
                 }
             }
         }
+        Print("[HC " + GetName() + "] custody_stop folded=" + m_StopFolded.ToString() + " unavailable=" + m_StopUnavailable.ToString());
+        m_Stopping = false;
         HCSaveScheduler.HCUnregister(m_CustodyJob);
         m_Running = false;
         this.HCPlanLine("off");
@@ -350,11 +364,14 @@ class HCWorldMaterializer : HCModule
         else if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(loaded, canonical, error) || canonical != text) { return null; }
         foreach (HCAIPartyCustodyRow decodedRow : loaded.Rows)
         {
-            // V1 also admitted legacy non-sequence lease tokens. Keep those
-            // readable; sequence tokens must be canonical and below NextLease.
+            // V1 admitted lease:<party>:<generation>, not a sequence number.
+            // Those rows survive migration to V2; skip the legacy shape before
+            // ToInt. Numeric sequence tokens remain canonical in both schemas.
             if (decodedRow.LeaseId.IndexOf("lease:") != 0) { continue; }
             if (decodedRow.LeaseId.Length() <= 6) { return null; }
             string suffix = decodedRow.LeaseId.Substring(6, decodedRow.LeaseId.Length() - 6);
+            if (suffix.Length() > 96) { return null; }
+            if (suffix.IndexOf(":") >= 0) { continue; }
             int number = suffix.ToInt();
             if (number < 1 || number >= 2147483647 || suffix != number.ToString()) { return null; }
             // V1 had no NextLease field. Derive its watermark only after its
@@ -386,48 +403,118 @@ class HCWorldMaterializer : HCModule
         return false;
     }
 
-    // One-time synchronous boot preservation. The verified temporary remains a
-    // witness across a torn final CopyFile; unrelated rejected bytes never move.
-    protected bool HCPreserveCustodyPrimary(string text)
+    protected bool HCCustodyFault(string reason)
     {
-        string rejected = m_CustodyPath + ".rejected";
-        string temporary = rejected + ".tmp";
-        bool witnessed = false;
-        if (FileExist(temporary))
+        m_CustodyLoadFault = reason;
+        Print("[HC " + GetName() + "] " + reason);
+        // IO faults are retryable boot transactions, not an irreversible latch.
+        if (m_CustodyReadRetries < 3)
         {
-            string pending;
-            if (!this.HCReadCustody(temporary, pending)) { return false; }
-            witnessed = pending == text;
+            m_CustodyReadRetries++;
+            HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
+            m_CustodyRetryRead = true;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, 1000, false);
         }
-        bool exists = FileExist(rejected);
-        bool preserved = false;
-        if (exists)
+        return false;
+    }
+
+    protected string HCRejectedSlot(int slot)
+    {
+        return m_CustodyPath + ".rejected." + slot.ToString();
+    }
+
+    protected bool HCHasCustodyWitness()
+    {
+        string witness = m_CustodyPath + ".rejected.tmp";
+        if (!FileExist(witness)) { return false; }
+        if (FileExist(m_CustodyPath + ".rejected") && HCWorldStore.RawEqual(witness, m_CustodyPath + ".rejected")) { return true; }
+        for (int slot = 0; slot < HC_REJECTED_SLOTS; slot++)
         {
-            string prior;
-            if (!this.HCReadCustody(rejected, prior)) { return false; }
-            preserved = prior == text;
-            // A verified witness plus a strict prefix identifies our interrupted
-            // final copy. A different, complete rejection is never overwritten.
-            if (!preserved && (!witnessed || prior.Length() >= text.Length() || text.Substring(0, prior.Length()) != prior))
+            if (FileExist(this.HCRejectedSlot(slot)) && HCWorldStore.RawEqual(witness, this.HCRejectedSlot(slot))) { return true; }
+        }
+        return false;
+    }
+
+    // Preserve arbitrary raw bytes, including a string-read failure, through a
+    // verified witness. Slots are compacted oldest first; interrupted copies
+    // leave duplicate archives, never authorize deleting the source. All loops
+    // are bounded one-time boot work. Round-4's single rejection is slot zero.
+    protected bool HCPreserveCustodyFile(string source)
+    {
+        string temporary = m_CustodyPath + ".rejected.tmp";
+        string legacy = m_CustodyPath + ".rejected";
+        if (FileExist(legacy))
+        {
+            if (!FileExist(this.HCRejectedSlot(0)))
             {
-                m_CustodyLoadFault = "custody_rejected_differs";
-                Print("[HC " + GetName() + "] custody_rejected_differs");
-                return false;
+                if (!CopyFile(legacy, this.HCRejectedSlot(0))) { return this.HCCustodyFault("custody_rejected_adopt_copy_failed"); }
+                if (!HCWorldStore.RawEqual(legacy, this.HCRejectedSlot(0))) { return this.HCCustodyFault("custody_rejected_adopt_verify_mismatch"); }
+                if (!DeleteFile(legacy)) { return this.HCCustodyFault("custody_rejected_adopt_delete_failed"); }
+            }
+            else if (HCWorldStore.RawEqual(legacy, this.HCRejectedSlot(0)))
+            {
+                if (!DeleteFile(legacy)) { return this.HCCustodyFault("custody_rejected_adopt_delete_failed"); }
+            }
+            // A crash may leave a different slot zero. Preserve the legacy
+            // file through the same bounded archive before removing its name.
+            else
+            {
+                if (!this.HCArchiveCustodyFile(legacy)) { return false; }
+                if (!DeleteFile(legacy)) { return this.HCCustodyFault("custody_rejected_adopt_delete_failed"); }
             }
         }
-        // Retire stale intent at entry. Retain a byte-equal witness until the
-        // final copy verifies, including across repeated crashes during repair.
-        if ((!witnessed || preserved) && FileExist(temporary) && !DeleteFile(temporary)) { return false; }
-        if (preserved) { return true; }
-        if (!witnessed && !CopyFile(m_CustodyPath, temporary)) { return false; }
-        string copied;
-        if (!this.HCReadCustody(temporary, copied) || copied != text) { return false; }
-        if (exists && !DeleteFile(rejected)) { return false; }
-        if (!CopyFile(temporary, rejected)) { return false; }
-        if (!this.HCReadCustody(rejected, copied) || copied != text) { return false; }
-        if (!DeleteFile(temporary)) { return false; }
+        return this.HCArchiveCustodyFile(source);
+    }
+
+    protected bool HCArchiveCustodyFile(string source)
+    {
+        string temporary = m_CustodyPath + ".rejected.tmp";
+        for (int match = 0; match < HC_REJECTED_SLOTS; match++)
+        {
+            if (FileExist(this.HCRejectedSlot(match)) && HCWorldStore.RawEqual(source, this.HCRejectedSlot(match))) { return true; }
+        }
+        // Do not destroy a witness being archived. A stale temporary of any
+        // shape can be retired: its source stays intact until preservation ends.
+        if (source != temporary)
+        {
+            if (FileExist(temporary) && !DeleteFile(temporary)) { return this.HCCustodyFault("custody_rejected_tmp_delete_failed"); }
+            if (!CopyFile(source, temporary)) { return this.HCCustodyFault("custody_rejected_tmp_copy_failed"); }
+            if (!HCWorldStore.RawEqual(source, temporary)) { return this.HCCustodyFault("custody_rejected_tmp_verify_mismatch"); }
+        }
+        int used;
+        for (int slot = 0; slot < HC_REJECTED_SLOTS; slot++)
+        {
+            string path = this.HCRejectedSlot(slot);
+            if (!FileExist(path)) { continue; }
+            if (slot != used)
+            {
+                string compact = this.HCRejectedSlot(used);
+                if (!CopyFile(path, compact)) { return this.HCCustodyFault("custody_rejected_compact_copy_failed"); }
+                if (!HCWorldStore.RawEqual(path, compact)) { return this.HCCustodyFault("custody_rejected_compact_verify_mismatch"); }
+                if (!DeleteFile(path)) { return this.HCCustodyFault("custody_rejected_compact_delete_failed"); }
+            }
+            used++;
+        }
+        if (used == HC_REJECTED_SLOTS)
+        {
+            Print("[HC " + GetName() + "] custody_rejected_retired reason=archive_cap oldest=0");
+            if (!DeleteFile(this.HCRejectedSlot(0))) { return this.HCCustodyFault("custody_rejected_retire_delete_failed"); }
+            for (int shift = 1; shift < HC_REJECTED_SLOTS; shift++)
+            {
+                string oldPath = this.HCRejectedSlot(shift);
+                string newPath = this.HCRejectedSlot(shift - 1);
+                if (!CopyFile(oldPath, newPath)) { return this.HCCustodyFault("custody_rejected_rotate_copy_failed"); }
+                if (!HCWorldStore.RawEqual(oldPath, newPath)) { return this.HCCustodyFault("custody_rejected_rotate_verify_mismatch"); }
+                if (!DeleteFile(oldPath)) { return this.HCCustodyFault("custody_rejected_rotate_delete_failed"); }
+            }
+            used--;
+        }
+        string rejected = this.HCRejectedSlot(used);
+        if (!CopyFile(temporary, rejected)) { return this.HCCustodyFault("custody_rejected_copy_failed"); }
+        if (!HCWorldStore.RawEqual(temporary, rejected)) { return this.HCCustodyFault("custody_rejected_verify_mismatch"); }
+        if (source != temporary && !DeleteFile(temporary)) { return this.HCCustodyFault("custody_rejected_tmp_delete_failed"); }
         HCModuleReadiness.HCUse(GetName(), "custody_primary_rejected");
-        Print("[HC " + GetName() + "] custody_primary_rejected reason=read_ok_invalid_preserved");
+        Print("[HC " + GetName() + "] custody_primary_rejected reason=raw_preserved slot=" + used.ToString());
         return true;
     }
 
@@ -435,42 +522,48 @@ class HCWorldMaterializer : HCModule
     {
         string temporary = m_CustodyPath + ".tmp";
         string intent;
-        if (!this.HCReadCustody(temporary, intent)) { return false; }
+        if (!this.HCReadCustody(temporary, intent))
+        {
+            if (m_CustodyRetryRead) { return false; }
+            // Exhausted string reads (including NUL conversion) are not a
+            // permanent refusal when another fully valid checkpoint survives.
+            string survivor;
+            bool valid = HCWorldStore.ReadChecked(m_CustodyPath, survivor) && this.HCDecodeCustody(survivor);
+            if (!valid) { valid = HCWorldStore.ReadChecked(m_CustodyPath + ".bak", survivor) && this.HCDecodeCustody(survivor); }
+            if (!valid) { return false; }
+            if (!this.HCPreserveCustodyFile(temporary)) { return false; }
+            if (!DeleteFile(temporary)) { return this.HCCustodyFault("custody_tmp_retire_delete_failed"); }
+            HCModuleReadiness.HCUse(GetName(), "custody_tmp_retired");
+            Print("[HC " + GetName() + "] custody_tmp_retired reason=read_failed_preserved");
+            return true;
+        }
         HCAIPartyCustodyData next = this.HCDecodeCustody(intent);
         string primaryText;
-        if (FileExist(m_CustodyPath) && !this.HCReadCustody(m_CustodyPath, primaryText)) { return false; }
+        if (FileExist(m_CustodyPath) && !this.HCReadCustody(m_CustodyPath, primaryText))
+        {
+            if (m_CustodyRetryRead || !next || !this.HCHasCustodyWitness()) { return false; }
+            // Exhausted string reads of our witnessed torn promotion do not
+            // invalidate the already verified intent or its archived original.
+            primaryText = "";
+        }
         HCAIPartyCustodyData primary = this.HCDecodeCustody(primaryText);
-        // Only a validated primary is a committed process watermark. Merely
-        // decoding an uncommitted intent must not poison later fallback.
+        // Keep committed checkpoints and process-local proposals nondecreasing.
+        // Merely decoding an uncommitted intent must not poison fallback.
         if (primary && primary.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = primary.NextLease; }
         string reason = "invalid";
         if (next && next.NextLease >= m_CustodyNextLeaseSeen && (!primary || next.NextLease >= primary.NextLease))
         {
             if (!primary && FileExist(m_CustodyPath))
             {
-                bool tornPromotion = false;
-                string rejected = m_CustodyPath + ".rejected";
-                string witness = rejected + ".tmp";
-                if (FileExist(rejected) && FileExist(witness))
+                string witness = m_CustodyPath + ".rejected.tmp";
+                // A byte-equal archive/witness pair is written only by recovery
+                // before promotion. A torn CopyFile need not leave a prefix.
+                if (!this.HCHasCustodyWitness())
                 {
-                    string rejectedText;
-                    string witnessText;
-                    if (!this.HCReadCustody(rejected, rejectedText) || !this.HCReadCustody(witness, witnessText)) { return false; }
-                    // Recovery writes this byte-equal witness only after
-                    // preserving the original invalid primary, and retains it
-                    // throughout promotion. Without it, a prefix alone cannot
-                    // authorize overwriting an unrelated invalid primary.
-                    tornPromotion = rejectedText == witnessText && primaryText.Length() < intent.Length() && intent.Substring(0, primaryText.Length()) == primaryText;
-                }
-                if (!tornPromotion)
-                {
-                    if (!this.HCPreserveCustodyPrimary(primaryText)) { return false; }
-                    // Re-establish a promotion witness after preservation has
-                    // retired its own temporary. A crash before this verifies
-                    // leaves the original primary, equal to the rejection.
-                    if (!CopyFile(m_CustodyPath, witness)) { return false; }
-                    string preservedText;
-                    if (!this.HCReadCustody(witness, preservedText) || preservedText != primaryText) { return false; }
+                    if (!this.HCPreserveCustodyFile(m_CustodyPath)) { return false; }
+                    if (FileExist(witness) && !DeleteFile(witness)) { return this.HCCustodyFault("custody_witness_delete_failed"); }
+                    if (!CopyFile(m_CustodyPath, witness)) { return this.HCCustodyFault("custody_witness_copy_failed"); }
+                    if (!HCWorldStore.RawEqual(m_CustodyPath, witness)) { return this.HCCustodyFault("custody_witness_verify_mismatch"); }
                 }
             }
             // Keep intent throughout backup repair/promotion/readback. A crash
@@ -478,26 +571,29 @@ class HCWorldMaterializer : HCModule
             if (primary && primaryText != intent)
             {
                 string backup = m_CustodyPath + ".bak";
-                if (FileExist(backup) && !DeleteFile(backup)) { return false; }
-                if (!CopyFile(m_CustodyPath, backup)) { return false; }
+                if (FileExist(backup) && !DeleteFile(backup)) { return this.HCCustodyFault("custody_backup_delete_failed"); }
+                if (!CopyFile(m_CustodyPath, backup)) { return this.HCCustodyFault("custody_primary_backup_copy_failed"); }
                 string backupText;
-                if (!this.HCReadCustody(backup, backupText) || backupText != primaryText) { return false; }
+                if (!this.HCReadCustody(backup, backupText)) { return false; }
+                if (backupText != primaryText) { return this.HCCustodyFault("custody_primary_backup_verify_mismatch"); }
             }
             if (primaryText != intent)
             {
-                if (FileExist(m_CustodyPath) && !DeleteFile(m_CustodyPath)) { return false; }
-                if (!CopyFile(temporary, m_CustodyPath)) { return false; }
+                if (FileExist(m_CustodyPath) && !DeleteFile(m_CustodyPath)) { return this.HCCustodyFault("custody_primary_delete_failed"); }
+                if (!CopyFile(temporary, m_CustodyPath)) { return this.HCCustodyFault("custody_primary_copy_failed"); }
             }
             string promotedText;
-            if (!this.HCReadCustody(m_CustodyPath, promotedText) || promotedText != intent || !DeleteFile(temporary)) { return false; }
-            if (FileExist(m_CustodyPath + ".rejected.tmp") && !DeleteFile(m_CustodyPath + ".rejected.tmp")) { return false; }
+            if (!this.HCReadCustody(m_CustodyPath, promotedText)) { return false; }
+            if (promotedText != intent) { return this.HCCustodyFault("custody_primary_verify_mismatch"); }
+            if (!DeleteFile(temporary)) { return this.HCCustodyFault("custody_tmp_delete_failed"); }
+            if (FileExist(m_CustodyPath + ".rejected.tmp") && !DeleteFile(m_CustodyPath + ".rejected.tmp")) { return this.HCCustodyFault("custody_witness_cleanup_delete_failed"); }
             HCModuleReadiness.HCUse(GetName(), "custody_tmp_recovered");
             Print("[HC AI] custody_tmp action=recovered reason=valid_nondecreasing_revision runtime=PENDING");
             return true;
         }
         if (next) { reason = "older_revision"; }
         // Retirement leaves the primary/backup untouched, including on crash.
-        if (!DeleteFile(temporary)) { return false; }
+        if (!DeleteFile(temporary)) { return this.HCCustodyFault("custody_tmp_retire_delete_failed"); }
         HCModuleReadiness.HCUse(GetName(), "custody_tmp_retired");
         Print("[HC AI] custody_tmp action=retired reason=" + reason + " runtime=PENDING");
         return true;
@@ -506,7 +602,6 @@ class HCWorldMaterializer : HCModule
     protected bool HCLoadCustody()
     {
         // Retain the process watermark across failed loads and module toggles.
-        if (m_CustodyCommitted > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_CustodyCommitted; }
         m_CustodyRetryRead = false;
         m_CustodyLoadFault = "custody_invalid_no_backup";
         m_Custody = new HCAIPartyCustodyData();
@@ -524,21 +619,52 @@ class HCWorldMaterializer : HCModule
         if (!loaded)
         {
             // In-process bodies may still be alive: never roll back to backup.
-            if (m_StartedOnce) { return false; }
+            if (m_StartedOnce) { return this.HCCustodyFault("custody_in_process_invalid_primary"); }
             string backup = m_CustodyPath + ".bak";
             if (FileExist(backup))
             {
                 string backupText;
                 if (!this.HCReadCustody(backup, backupText)) { return false; }
                 HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
-                if (!prior || prior.NextLease < m_CustodyNextLeaseSeen) { return false; }
-                if (primaryExists && !this.HCPreserveCustodyPrimary(text)) { return false; }
+                if (!prior) { return this.HCCustodyFault("custody_backup_invalid"); }
+                // Rollback may lose a checkpoint, but never reissue any lease
+                // proposed in this process, even after its last save request.
+                if (prior.NextLease < m_CustodyNextLeaseSeen)
+                {
+                    Print("[HC " + GetName() + "] custody_backup_older_than_watermark action=raise_next_lease");
+                    prior.NextLease = m_CustodyNextLeaseSeen;
+                    prior.SchemaVersion = 2;
+                    string error;
+                    if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(prior, backupText, error)) { return this.HCCustodyFault("custody_backup_encode_failed"); }
+                }
+                if (primaryExists && !this.HCPreserveCustodyFile(m_CustodyPath)) { return false; }
                 // Backup never writes directly over primary. A torn copy here
                 // is retired on next load; a verified intent uses normal recovery.
                 string temporary = m_CustodyPath + ".tmp";
-                if (!CopyFile(backup, temporary)) { return false; }
+                string originalBackup;
+                if (!this.HCReadCustody(backup, originalBackup)) { return false; }
+                if (originalBackup == backupText)
+                {
+                    if (!CopyFile(backup, temporary)) { return this.HCCustodyFault("custody_backup_copy_failed"); }
+                }
+                else
+                {
+                    FileHandle raised = OpenFile(temporary, FileMode.WRITE);
+                    if (!raised) { return this.HCCustodyFault("custody_backup_open_write_failed"); }
+                    // Native FPrint string transfer cap: boot-only bounded chunks.
+                    int offset = 0;
+                    while (offset < backupText.Length())
+                    {
+                        int length = backupText.Length() - offset;
+                        if (length > 4096) { length = 4096; }
+                        FPrint(raised, backupText.Substring(offset, length));
+                        offset = offset + length;
+                    }
+                    CloseFile(raised);
+                }
                 string temporaryText;
-                if (!this.HCReadCustody(temporary, temporaryText) || temporaryText != backupText || !this.HCDecodeCustody(temporaryText)) { return false; }
+                if (!this.HCReadCustody(temporary, temporaryText)) { return false; }
+                if (temporaryText != backupText || !this.HCDecodeCustody(temporaryText)) { return this.HCCustodyFault("custody_backup_verify_mismatch"); }
                 if (!this.HCRecoverCustodyTmp()) { return false; }
                 if (!this.HCReadCustody(m_CustodyPath, text)) { return false; }
                 loaded = this.HCDecodeCustody(text);
@@ -554,9 +680,9 @@ class HCWorldMaterializer : HCModule
                 loaded = m_Custody;
             }
         }
-        if (loaded.NextLease < m_CustodyNextLeaseSeen) { return false; }
+        if (loaded.NextLease < m_CustodyNextLeaseSeen) { return this.HCCustodyFault("custody_primary_older_than_watermark"); }
         // A valid primary no longer needs a stale preservation intent.
-        if (FileExist(m_CustodyPath + ".rejected.tmp") && !DeleteFile(m_CustodyPath + ".rejected.tmp")) { return false; }
+        if (FileExist(m_CustodyPath + ".rejected.tmp") && !DeleteFile(m_CustodyPath + ".rejected.tmp")) { return this.HCCustodyFault("custody_witness_cleanup_delete_failed"); }
         m_Custody = loaded;
         m_CustodyText = text;
         m_CustodyRevision = loaded.NextLease;
@@ -627,6 +753,7 @@ class HCWorldMaterializer : HCModule
     {
         if (!m_CustodyReady || !this.HCValidCustody(m_Custody) || m_Custody.NextLease >= 2147483647) { return this.HCCustodySaveFailed(); }
         m_Custody.NextLease++;
+        if (m_Custody.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_Custody.NextLease; }
         m_CustodyRevision = m_Custody.NextLease;
         m_CustodyJob.HCDirty = true;
         m_CustodyJob.HCUrgent = true;
@@ -873,6 +1000,7 @@ class HCWorldMaterializer : HCModule
         HCAIBudget.Release(lease.Proposal.Id);
         if (lease.RowIndex >= 0 && lease.RowIndex < m_Cooldowns.Count()) { m_Cooldowns[lease.RowIndex] = m_Clock + ROW_COOLDOWN; }
         m_Active.RemoveOrdered(leaseIndex);
+        if (m_Stopping) { m_StopUnavailable++; }
         if (!world || !world.GetFaction(lease.Proposal.FactionId)) { Print("[HC AI] custody fold-back unavailable world/faction runtime=PENDING"); return; }
         if (!HCWorldMaterializer.FoldBack(world, lease.Proposal, materialized, survivors)) { Print("[HC AI] custody fold-back fact failed runtime=PENDING"); return; }
         if (materialized)
@@ -887,6 +1015,7 @@ class HCWorldMaterializer : HCModule
             Print("" + outcome);
         }
         else { m_Traces++; m_Activity.HCHit("traces"); }
+        if (m_Stopping) { m_StopUnavailable--; m_StopFolded++; }
     }
 
     protected void Expire()
@@ -1148,6 +1277,7 @@ class HCWorldMaterializer : HCModule
             if (m_Custody.NextLease >= 2147483647) { m_Activity.HCRefuse("sequence"); return; }
             row.Id = "lease:" + m_Custody.NextLease.ToString();
             m_Custody.NextLease++;
+            if (m_Custody.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_Custody.NextLease; }
             if (!HCAIBudget.TryReserve(row.Id, row.ActorCap)) { m_Activity.HCRefuse("reserve"); continue; }
             lease.Proposal = row;
             lease.Created = m_Clock;
