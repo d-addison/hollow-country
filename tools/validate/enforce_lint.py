@@ -75,6 +75,14 @@ RULES = {
     'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
     'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
     'HC-E025': 'method collides with a native global function or class and is called unqualified; rename it',
+    'HC-E031': 'unguarded ConfigGet* read: check ConfigIsExisting first or go through HCConfigHelper (logs No entry / error value on a missing path)',
+    'HC-E032': 'FindPath output array is null or never allocated (native FindPath dereferences it)',
+    'HC-E033': 'navmesh query with a PGFilter that never had SetFlags (an empty filter matches no polygon)',
+    'HC-E034': 'AIWorld.DeleteGroup without a living-member check (it destroys every agent still attached)',
+    'HC-E035': 'StartCommand_ScriptInst on a DayZInfected (engine builds the command with null constructor arguments); use StartCommand_Script(new Command(this))',
+    'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
+    'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
+    'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -2214,12 +2222,361 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
+# ---------------------------------------------------------------- native API shape rules (wave C, C10)
+
+def _ownership(project):
+    ownership = getattr(project, '_ownership', None)
+    if ownership is None:
+        ownership = project._ownership = _Ownership(project)
+    return ownership
+
+
+def _named_calls(source, method, names):
+    """Yield (absolute offset of the name, name, receiver text, [arguments], absolute '(' offset).
+
+    The receiver is the dotted chain before the name (one level of call parentheses
+    per link). Arguments are split at top level on the masked code.
+    """
+    body = source.body(method)
+    pattern = re.compile(r'(?<![\w.])((?:[A-Za-z_]\w*(?:\s*\((?:[^()]|\([^()]*\))*\))?\s*\.\s*)*)(' + names + r')\s*\(')
+    for match in pattern.finditer(body):
+        opening = match.end() - 1
+        closing = es.matching_paren(body, opening)
+        arguments = [argument.strip() for argument in es.split_top(body[opening + 1:closing], ',')]
+        receiver = re.sub(r'\s*\.\s*$', '', match[1]).strip()
+        yield (method.body_start + match.start(2), match[2], receiver, arguments, method.body_start + opening)
+
+
+def _bare_name(expression):
+    expression = re.sub(r'\s+', '', expression)
+    if expression.startswith('this.'):
+        expression = expression[5:]
+    return expression if re.fullmatch(r'[A-Za-z_]\w*', expression) else ''
+
+
+def _binding(project, source, method, name, offset):
+    """('local', start) | ('param',) | ('field',) | None for a bare identifier at offset."""
+    for declared, _, start, end in reversed(source.local_declarations(method)):
+        if declared == name and start <= offset < end:
+            return ('local', start)
+    if any(parameter == name for _, parameter, _ in method.parameters()):
+        return ('param',)
+    if method.owner and name in project.receiver_members(method.owner.name, source.layer)[1]:
+        return ('field',)
+    return None
+
+
+def _lineage_bodies(project, class_name, layer):
+    for ancestor in project.lineage(class_name):
+        for definition in project.links.get(ancestor, ()):
+            if layer is None or definition.source.layer is None or definition.source.layer <= layer:
+                yield definition
+
+
+def _statement_end(code, start):
+    end = code.find(';', start)
+    return len(code) if end < 0 else end
+
+
+_NULL_VALUE = re.compile(r'^\s*(?:null|NULL)\s*$')
+
+
+def _assigned_value(code, name, start, stop, allow_null=False):
+    """True when `name = <value>` appears in code[start:stop] (a null value only counts if allow_null)."""
+    for match in re.finditer(r'(?<![\w.>])(?:this\s*\.\s*)?' + re.escape(name) + r'\s*=(?!=)\s*', code[start:stop]):
+        value = code[start + match.end():_statement_end(code, start + match.end())]
+        if allow_null or not _NULL_VALUE.match(value):
+            return True
+    return False
+
+
+_FIND_PATH = re.compile(r'^FindPath$')
+
+
+def rule_findpath_output(project, source):
+    """FindPath(from, to, filter, out array) needs an allocated output array (WD-L1).
+
+    The engine writes through the array it is handed; null or an array that was
+    declared but never allocated is a null dereference in native code.
+    """
+    for method in _all_methods(source):
+        for offset, _, receiver, arguments, _ in _named_calls(source, method, 'FindPath'):
+            if len(arguments) != 4:
+                continue
+            argument = arguments[3]
+            reason = ''
+            if _NULL_VALUE.match(argument):
+                reason = 'null output array'
+            else:
+                name = _bare_name(argument)
+                bound = _binding(project, source, method, name, offset) if name else None
+                if bound and bound[0] == 'local':
+                    statement = source.code[bound[1]:_statement_end(source.code, bound[1])]
+                    if '=' in statement:
+                        initial = statement.split('=', 1)[1]
+                        if _NULL_VALUE.match(initial) and not _assigned_value(source.code, name, bound[1] + len(statement), offset):
+                            reason = f'{name} initialised to null'
+                    elif not _assigned_value(source.code, name, bound[1] + len(statement), offset):
+                        reason = f'{name} declared without new before the call'
+                elif bound and bound[0] == 'field' and method.owner:
+                    allocated = False
+                    for definition in _lineage_bodies(project, method.owner.name, source.layer):
+                        if any(f.name == name and f.initializer and not _NULL_VALUE.match(f.initializer)
+                               for f in definition.fields):
+                            allocated = True
+                        elif _assigned_value(definition.source.code, name, definition.body_start, definition.body_end):
+                            allocated = True
+                    if not allocated:
+                        reason = f'field {name} is never allocated'
+            if reason:
+                yield _finding('HC-E032', source, offset, _symbol(method), f'{reason}: {RULES["HC-E032"]}')
+
+
+_NAVMESH_CALLS = 'SampleNavmeshPosition|FindPath|RaycastNavMesh'
+
+
+def rule_navmesh_filter_flags(project, source):
+    """Navmesh queries need a PGFilter whose SetFlags ran (WD-L2).
+
+    A default PGFilter carries no include flags, so every query misses. Locals
+    must call SetFlags before the query (or come from a call/parameter, which
+    this rule cannot follow); fields need SetFlags somewhere in the class chain.
+    """
+    for method in _all_methods(source):
+        for offset, name, receiver, arguments, _ in _named_calls(source, method, _NAVMESH_CALLS):
+            if len(arguments) < 4 or (name == 'RaycastNavMesh' and len(arguments) != 5):
+                continue
+            argument = arguments[2]
+            reason = ''
+            if re.match(r'^new\s+PGFilter\b', argument):
+                reason = 'inline new PGFilter'
+            else:
+                variable = _bare_name(argument)
+                bound = _binding(project, source, method, variable, offset) if variable else None
+                if bound and bound[0] == 'local':
+                    statement = source.code[bound[1]:_statement_end(source.code, bound[1])]
+                    initial = statement.split('=', 1)[1] if '=' in statement else ''
+                    fresh = not initial or re.match(r'^\s*new\s+PGFilter\b', initial)
+                    configured = re.search(r'(?<![\w.])' + re.escape(variable) + r'\s*\.\s*SetFlags\s*\(',
+                                           source.code[bound[1]:offset])
+                    if fresh and not configured:
+                        reason = f'{variable} has no SetFlags before the query'
+                elif bound and bound[0] == 'field' and method.owner:
+                    configured = False
+                    for definition in _lineage_bodies(project, method.owner.name, source.layer):
+                        text = definition.source.code[definition.body_start:definition.body_end]
+                        if re.search(r'(?<![\w>])(?:this\s*\.\s*)?' + re.escape(variable) + r'\s*\.\s*SetFlags\s*\(', text):
+                            configured = True
+                        # A field filled from a call (not new) is configured elsewhere.
+                        for match in re.finditer(r'(?<![\w.>])(?:this\s*\.\s*)?' + re.escape(variable) + r'\s*=(?!=)\s*([^;]*)', text):
+                            if not re.match(r'^\s*new\s+PGFilter\b', match[1]):
+                                configured = True
+                    if not configured:
+                        reason = f'field {variable} never calls SetFlags'
+            if reason:
+                yield _finding('HC-E033', source, offset, _symbol(method), f'{name}: {reason}: {RULES["HC-E033"]}')
+
+
+_LIVING_CHECK = re.compile(r'\b(?:Count|GetCount|MemberCount|GetMemberCount|AliveCount|LivingCount|DeceasedCount'
+                           r'|GetAgentCount|IsAlive|IsDead|GetAgents|GetMember|GetAllAgents)\s*\(')
+
+
+def rule_delete_group(project, source):
+    """AIWorld.DeleteGroup destroys every attached agent (WD-L3).
+
+    The method must have looked at the group's living members before the call.
+    The check is textual and conservative: any member-count or liveness query
+    earlier in the same method satisfies it.
+    """
+    authored = project.methods.get('DeleteGroup', ())
+    for method in _all_methods(source):
+        if method.name == 'DeleteGroup':
+            continue
+        for offset, name, receiver, arguments, _ in _named_calls(source, method, 'DeleteGroup'):
+            if not receiver and authored:
+                continue
+            before = source.code[method.body_start:offset]
+            if not _LIVING_CHECK.search(before):
+                yield _finding('HC-E034', source, offset, _symbol(method), RULES['HC-E034'])
+
+
+_INFECTED_ROOTS = frozenset({'DayZInfected', 'ZombieBase', 'ZombieMaleBase', 'ZombieFemaleBase'})
+
+
+def _derives_from(project, kind, targets):
+    seen, pending = set(), [project.resolve_typedef(kind)]
+    while pending:
+        name = pending.pop()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        if name in targets or name.startswith('Zmb'):
+            return True
+        pending.extend(d.base for d in project.links.get(name, ()) if d.base)
+        pending.extend(d['parent'] for d in project.symbols.get(name, ()) if d['parent'])
+    return False
+
+
+def rule_infected_script_inst(project, source):
+    """StartCommand_ScriptInst on a DayZInfected crashes natively (WD-L4, build 135)."""
+    ownership = _ownership(project)
+    for method in _all_methods(source):
+        for offset, name, receiver, arguments, _ in _named_calls(source, method, 'StartCommand_ScriptInst'):
+            if receiver in ('', 'this', 'super'):
+                kind = method.owner.name if method.owner else ''
+            else:
+                kind = ownership.receiver(receiver, method, offset)
+            if kind and _derives_from(project, kind, _INFECTED_ROOTS):
+                yield _finding('HC-E035', source, offset, _symbol(method), f'{kind}: {RULES["HC-E035"]}')
+
+
+# Collection and command APIs that adopt their argument.
+# RegisterRecipe is the vanilla PluginRecipesManagerBase hook; the manager keeps the recipe.
+_ADOPTING_CALLS = frozenset({'Insert', 'InsertAt', 'InsertAll', 'Set', 'StartCommand_Script', 'StartCommand_ScriptInst',
+                             'RegisterRecipe'})
+_NEW_ARGUMENT = re.compile(r'^new\s+[A-Za-z_]\w*')
+
+
+def _parameter_retained(project, ownership, candidate, index, depth=0, visiting=frozenset()):
+    """True when a parameter is stored in a field/collection or forwarded to a retaining callee."""
+    parameters = candidate.parameters()
+    if index >= len(parameters) or id(candidate) not in ownership.sources:
+        return False
+    name = parameters[index][1]
+    source = ownership.sources[id(candidate)]
+    body = source.body(candidate)
+    escaped = re.escape(name)
+    if re.search(r'(?:^|[;{}])\s*[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*\s*=(?!=)\s*' + escaped + r'\s*;', body):
+        return True
+    if re.search(r'\.\s*(?:Insert|InsertAt|InsertAll|Set)\s*\([^;]*\b' + escaped + r'\b', body):
+        return True
+    # Returning the argument hands it to the caller's variable, which becomes its owner.
+    if re.search(r'\breturn\s+' + escaped + r'\s*;', body):
+        return True
+    if depth >= 3 or id(candidate) in visiting:
+        return False
+    for call in _ANY_CALL.finditer(body):
+        if call[1] in _KEYWORDS or call[1] == candidate.name:
+            continue
+        opening = body.find('(', call.start())
+        arguments = [a.strip() for a in es.split_top(body[opening + 1:es.matching_paren(body, opening)], ',')]
+        for position, argument in enumerate(arguments):
+            if argument != name:
+                continue
+            callees = [m for m in project.methods.get(call[1], ()) if len(m.parameters()) > position]
+            if callees and all(_parameter_retained(project, ownership, m, position, depth + 1,
+                                                   visiting | {id(candidate)}) for m in callees):
+                return True
+    return False
+
+
+def rule_new_argument(project, source):
+    """new X passed straight into a call that does not keep it (WD-L5).
+
+    HC-E026 covers fresh call results; this covers the same temporary-owner trap
+    for a direct `new`. Adopting natives (collection Insert/Set, StartCommand_Script)
+    and authored callees that store or forward the parameter are accepted.
+    """
+    ownership = _ownership(project)
+    for method in _all_methods(source):
+        for offset, name, receiver, arguments, opening in _named_calls(source, method, r'[A-Za-z_]\w*'):
+            if name in _KEYWORDS or name in _ADOPTING_CALLS:
+                continue
+            before = source.code[max(method.body_start, offset - 8):offset]
+            if re.search(r'\bnew\s*$', before) or (not receiver and re.search(r'\bnew\s+$', before)):
+                continue  # constructor call, not a method call
+            for index, argument in enumerate(arguments):
+                if not _NEW_ARGUMENT.match(argument):
+                    continue
+                call = ownership.call((receiver + '.' if receiver else '') + name + '()', method, offset)
+                pool = list(call[0]) if call else []
+                if not pool and receiver:
+                    # Generic receivers (Store<T>) resolve by their raw class name.
+                    kind = re.sub(r'<.*$', '', ownership.receiver(receiver, method, offset) or '')
+                    for ancestor in project.lineage(kind):
+                        pool = [m for d in project.links.get(ancestor, ()) for m in d.methods if m.name == name]
+                        if pool:
+                            break
+                candidates = [m for m in pool if len(m.parameters()) > index]
+                if pool and not candidates:
+                    continue  # arity mismatch: not resolvable here
+                if candidates and all(_parameter_retained(project, ownership, m, index) for m in candidates):
+                    continue
+                key = re.sub(r'\s+', ' ', f'{(receiver + ".") if receiver else ""}{name}(... {argument} ...)')
+                yield _finding('HC-E036', source, offset, _symbol(method), RULES['HC-E036'],
+                               key=f'{key} [argument {index + 1}]')
+
+
+def rule_flat_pathgraph(project, source):
+    """UpdatePathgraphRegionByObject builds a flat-Y region from the object (WD-L9)."""
+    for method in _all_methods(source):
+        body = source.body(method)
+        for match in re.finditer(r'\bUpdatePathgraphRegionByObject\b', body):
+            yield _finding('HC-E037', source, method.body_start + match.start(), _symbol(method), RULES['HC-E037'])
+
+
+# Vanilla array typedefs (1_Core/proto/EnScript.c); resolved through the native scripts when present.
+_ARRAY_TYPEDEFS = frozenset({'TStringArray', 'TIntArray', 'TFloatArray', 'TBoolArray', 'TVectorArray',
+                             'TClassNameArray', 'TManagedArray'})
+_ORDER_WAIVER = re.compile(r'//\s*HC-ORDER:\s*unordered ok\b')
+
+
+def rule_unordered_head_remove(project, source):
+    """array.Remove(0) breaks FIFO order: the engine fills the gap with the last element.
+
+    Native 1_Core/proto/EnScript.c: Remove(index) replaces the slot with the last
+    element; RemoveOrdered(index) keeps order. Only receivers that resolve to an
+    array<...> (typedefs such as TStringArray included) are flagged, so map keys are
+    not. The comment `// HC-ORDER: unordered ok` on the same or the previous line
+    waives a drain where order does not matter.
+    """
+    ownership = _ownership(project)
+    for method in _all_methods(source):
+        for offset, name, receiver, arguments, _ in _named_calls(source, method, 'Remove'):
+            if not receiver or arguments != ['0']:
+                continue
+            kind = ownership.receiver(receiver, method, offset)
+            if not (kind.startswith('array<') or kind in _ARRAY_TYPEDEFS):
+                continue
+            line = source.line_of(offset)
+            raw = source.text.split('\n')
+            if any(_ORDER_WAIVER.search(raw[number - 1]) for number in (line, line - 1) if 0 < number <= len(raw)):
+                continue
+            yield _finding('HC-E038', source, offset, _symbol(method), RULES['HC-E038'])
+
+
+# Value reads only. ConfigGetChildrenCount (0 is the true count of a missing class) and the
+# bool-returning enumerators ConfigGetChildName/ConfigGetBaseName already report absence.
+_CONFIG_READS = ('ConfigGetInt|ConfigGetFloat|ConfigGetText|ConfigGetTextRaw|ConfigGetTextOut|ConfigGetVector'
+                 '|ConfigGetType|ConfigGetTextArray|ConfigGetTextArrayRaw|ConfigGetFloatArray|ConfigGetIntArray')
+_CONFIG_GUARD = re.compile(r'\bConfigIsExisting\s*\(|\bHCConfigHelper\s*\.')
+_CONFIG_HELPER = 'HCConfigHelper'
+
+
+def rule_config_get(project, source):
+    """ConfigGet* needs a presence guard or the HCConfigHelper path (new id; HC-E028 is taken).
+
+    HCConfigHelper (3_Game/Core/HCConfigHelper.c) is the sanctioned reader: it
+    checks ConfigIsExisting and ConfigGetType, then returns the caller's fallback.
+    Elsewhere a ConfigIsExisting or HCConfigHelper call earlier in the same method
+    counts as the guard; the rule does not prove both use the same path.
+    """
+    for method in _all_methods(source):
+        if method.owner and method.owner.name == _CONFIG_HELPER:
+            continue
+        for offset, name, receiver, arguments, _ in _named_calls(source, method, _CONFIG_READS):
+            if not _CONFIG_GUARD.search(source.code[method.body_start:offset]):
+                yield _finding('HC-E031', source, offset, _symbol(method), f'{name}: {RULES["HC-E031"]}')
+
+
+
 ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
-             rule_predicted_actions, enforce_json.rule_json_defaults,
+             rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
+             rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
 
 

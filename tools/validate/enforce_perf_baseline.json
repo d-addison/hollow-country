@@ -3695,6 +3695,2046 @@
       "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
       "native": false,
       "reason": "W4-08 migration runner (wc-migration-r2 wording): bounded boot pass. Gated steps: at most 8 per boot and a 250 ms HCWorkBudget slice checked only BEFORE each step (the first step always runs); the rest are deferred one per tick (4 ms is a target, not a bound) and their store refuses that boot, never silently. Steps with store \"\" have no gate and are never deferred: they all run in the boot pass. One step is not preemptible; its worst case is <=4 fixed backup-slot probes plus about a dozen <=8 MiB passes (target read, scratch read, up to four backup-slot reads for reuse or provenance, backup copy+readback, scratch write+readback, commit copy (plus one retry)+readback). No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Atmosphere/c2_AtmosConfig.c",
+      "line": 251,
+      "symbol": "HCc2PresentationConfig.HCLoad",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCPresentationTuningServer.HCCheckChanges -> HCPresentationTuningServer.HCRefresh -> HCc2PresentationConfig.HCLoad",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCCheckChanges, 30000, true) every 30 s: HCRefresh reloads the presentation tuning file through HCc2PresentationConfig.HCLoad (one FileExist probe plus the bounded read) so owners can edit it live. The 30 s cadence is the intended debounce; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 35,
+      "symbol": "HCGroupIO.HCReadRaw",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCGroupIO.HCReadRaw",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCGroupIO.HCReadRaw I/O is that step; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 37,
+      "symbol": "HCGroupIO.HCReadRaw",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCGroupIO.HCReadRaw",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCGroupIO.HCReadRaw I/O is that step; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminWorldStream.c",
+      "line": 312,
+      "symbol": "HCAdminModule.HCWorldTick",
+      "key": "Print#1",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: Print is inside the map-catalog failure branch and is followed by m_WorldPeer.Due = now + 30, so it prints at most once per 30 s retry, not per tick."
+    },
+    {
+      "rule": "HC-P008",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "line": 301,
+      "symbol": "HCCampModule.Commit",
+      "key": "HCCampStore.Save#1",
+      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: Commit is the documented synchronous barrier for explicit authenticated actions and shutdown (comment above the method); routine camp saves stage through the checkpoint writer, so this is a durability barrier."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 82,
+      "symbol": "HCCoreSelfTest.Cleanup",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCServer.Tick -> HCCoreSelfTest.Pump -> HCCoreSelfTest.Cleanup",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Cleanup no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 82,
+      "symbol": "HCCoreSelfTest.Cleanup",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCServer.Tick -> HCCoreSelfTest.Pump -> HCCoreSelfTest.Cleanup",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Cleanup no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 83,
+      "symbol": "HCCoreSelfTest.Cleanup",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCServer.Tick -> HCCoreSelfTest.Pump -> HCCoreSelfTest.Cleanup",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Cleanup no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 83,
+      "symbol": "HCCoreSelfTest.Cleanup",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCServer.Tick -> HCCoreSelfTest.Pump -> HCCoreSelfTest.Cleanup",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Cleanup no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 146,
+      "symbol": "HCCoreSelfTest.Pump",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCServer.Tick -> HCCoreSelfTest.Pump",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Pump no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCCoreSelfTest.c",
+      "line": 149,
+      "symbol": "HCCoreSelfTest.Pump",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCServer.Tick -> HCCoreSelfTest.Pump",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCCoreSelfTest.Pump no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 300,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCRunStep I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 301,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCRunStep I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 322,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCRunStep I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 322,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCRunStep I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCMigrate I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCMigrate I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCMigrate I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 394,
+      "symbol": "HCMigrationRunner.HCBackup",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCBackup I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 424,
+      "symbol": "HCMigrationRunner.HCProvenance",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCProvenance",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCProvenance I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 466,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 467,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 475,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 294,
+      "symbol": "HCPersistenceDisposition.HCReadArchive",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCPersistenceDisposition.HCReadArchive",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCReadArchive I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 296,
+      "symbol": "HCPersistenceDisposition.HCReadArchive",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCPersistenceDisposition.HCReadArchive",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCReadArchive I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 305,
+      "symbol": "HCPersistenceDisposition.HCArchive",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup -> HCPersistenceDisposition.HCArchive",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCArchive I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 306,
+      "symbol": "HCPersistenceDisposition.HCArchive",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup -> HCPersistenceDisposition.HCArchive",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCArchive I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 315,
+      "symbol": "HCPersistenceDisposition.HCWriteRawNew",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCPersistenceDisposition.HCWriteRawNew",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCWriteRawNew I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 316,
+      "symbol": "HCPersistenceDisposition.HCWriteRawNew",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCPersistenceDisposition.HCWriteRawNew",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCWriteRawNew I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 318,
+      "symbol": "HCPersistenceDisposition.HCWriteRawNew",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCPersistenceDisposition.HCWriteRawNew",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCPersistenceDisposition.HCWriteRawNew I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 356,
+      "symbol": "HCPersistenceDisposition.HCStop",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCServer.Tick -> HCServer.Stop -> HCGroupModule.OnStop -> HCPersistenceDisposition.HCStopStore -> HCPersistenceDisposition.HCStop",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCPersistenceDisposition.HCStop no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 356,
+      "symbol": "HCPersistenceDisposition.HCStop",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCServer.Tick -> HCServer.Stop -> HCGroupModule.OnStop -> HCPersistenceDisposition.HCStopStore -> HCPersistenceDisposition.HCStop",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCServer.Tick is the 1 Hz-class repeating module tick (TickIntervalMs). Rows here are not steady-state I/O: HCCoreSelfTest.Pump reads/cleans its one self-test file when the job completes (guarded by s_Job and the s_Ticks < 64 early return), and HCServer.Stop runs the module OnStop persistence barriers once at shutdown. HCPersistenceDisposition.HCStop no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+      "line": 254,
+      "symbol": "HCServer.Tick",
+      "key": "Print#1",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: Print only fires when m_Changes.HCChange returns a non-empty line (one line per module state change after boot, empty string when unchanged)."
+    },
+    {
+      "rule": "HC-P008",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "line": 794,
+      "symbol": "HCEcologyRuntime.HCWriteCheckpoint",
+      "key": "m_Store.Save#1",
+      "message": "synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: checkpoint write is called after the cycle flush (flushed branch) and its cost is measured by HCRecordSaveTicks; one Save per checkpoint, not per tick. Convert to the HCSaveScheduler path if the recorded save ticks ever exceed the module budget."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 553,
+      "symbol": "HCInfectedStore.ReadBounded",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInfectedLODModule.OnTick -> HCInfectedLODModule.HCLODWalkStep -> HCNativeInfectedPack.Start -> HCInfectedRoomCatalog.BuildOrder -> HCInfectedRoomCatalog.EnsureDiagnosticLoaded -> HCInfectedRoomCatalog.ReadDiagnostic -> HCInfectedStore.ReadBounded",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCNativeInfectedPack.Start reaches HCInfectedRoomCatalog.EnsureDiagnosticLoaded, which claims s_DiagnosticAttempted before any I/O so the diagnostic file is read once per module start through HCInfectedStore.ReadBounded (bounded read); it is a first-use load, not per-tick I/O. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 557,
+      "symbol": "HCInfectedStore.ReadBounded",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInfectedLODModule.OnTick -> HCInfectedLODModule.HCLODWalkStep -> HCNativeInfectedPack.Start -> HCInfectedRoomCatalog.BuildOrder -> HCInfectedRoomCatalog.EnsureDiagnosticLoaded -> HCInfectedRoomCatalog.ReadDiagnostic -> HCInfectedStore.ReadBounded",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCNativeInfectedPack.Start reaches HCInfectedRoomCatalog.EnsureDiagnosticLoaded, which claims s_DiagnosticAttempted before any I/O so the diagnostic file is read once per module start through HCInfectedStore.ReadBounded (bounded read); it is a first-use load, not per-tick I/O. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 61,
+      "symbol": "HCSearchEconomyStore.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 63,
+      "symbol": "HCSearchEconomyStore.Open",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 66,
+      "symbol": "HCSearchEconomyStore.Open",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Open probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 108,
+      "symbol": "HCSearchEconomyStore.Recover",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 109,
+      "symbol": "HCSearchEconomyStore.Recover",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "line": 110,
+      "symbol": "HCSearchEconomyStore.Recover",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCInteriorsModule.BindSearchEconomy -> HCSearchEconomy.Open -> HCSearchEconomyStore.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchEconomyStore.Recover probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 219,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchBinding.OnTick -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCSearchHouses.ReportReadiness is latched by m_ReadinessReported and OpenJournal retains its result for the owner lifetime (m_Journal created once; HCSearchHouseJournal.Open refuses on m_Open), so HCSearchHouseJournal.Open FileExist/MakeDirectory probes of the fixed profile directories run once per boot, not per tick. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 221,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchBinding.OnTick -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCSearchHouses.ReportReadiness is latched by m_ReadinessReported and OpenJournal retains its result for the owner lifetime (m_Journal created once; HCSearchHouseJournal.Open refuses on m_Open), so HCSearchHouseJournal.Open FileExist/MakeDirectory probes of the fixed profile directories run once per boot, not per tick. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 223,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCSearchBinding.OnTick -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCSearchHouses.ReportReadiness is latched by m_ReadinessReported and OpenJournal retains its result for the owner lifetime (m_Journal created once; HCSearchHouseJournal.Open refuses on m_Open), so HCSearchHouseJournal.Open FileExist/MakeDirectory probes of the fixed profile directories run once per boot, not per tick. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 281,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot -> HCSearchHouseJournal.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.Recover probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 282,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot -> HCSearchHouseJournal.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.Recover probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 283,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot -> HCSearchHouseJournal.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.Recover probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 437,
+      "symbol": "HCSearchHouseJournal.HCRestoreSlot",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.HCRestoreSlot",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.HCRestoreSlot probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 497,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchHouseJournal.HCRecoveryTick -> HCSearchHouseJournal.HCRecoverSlice -> HCSearchHouseJournal.Restore",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: CallLater(HCRecoveryTick, 50, true) is armed only after a successful Open and drives HCRecoverSlice, a sliced boot-time recovery bounded by the HCStartupPump registration (search_house_recovery); HCSearchHouseJournal.Restore probes fixed slot paths per slice and the repeating call stops when recovery completes. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
+      "line": 291,
+      "symbol": "HCSearchSupplyProvider.Prepare",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchBinding.Attempt -> HCSearchSupplyProvider.Prepare",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(Attempt, RetryDelayMs, false) used for the post-start first observation and for retries, abandoned after HCSearchLimits RetryAttempts, so it runs a bounded number of times at boot. HCSearchSupplyProvider.Prepare probes fixed store paths with FileExist; no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 447,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCHasCustodyWitness are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 448,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCHasCustodyWitness are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 452,
+      "symbol": "HCWorldMaterializer.HCHasCustodyWitness",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCHasCustodyWitness",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCHasCustodyWitness are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 464,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 469,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 471,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 473,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 477,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 485,
+      "symbol": "HCWorldMaterializer.HCPreserveCustodyFile",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCPreserveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 507,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCKeepUnverifiedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 509,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCKeepUnverifiedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 509,
+      "symbol": "HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldMaterializer.HCKeepUnverifiedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCKeepUnverifiedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 532,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 538,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 538,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 539,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 546,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 550,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 552,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 559,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 564,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#3",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 566,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 571,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "CopyFile#4",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 573,
+      "symbol": "HCWorldMaterializer.HCArchiveCustodyFile",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCPreserveCustodyFile -> HCWorldMaterializer.HCArchiveCustodyFile",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCArchiveCustodyFile are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 590,
+      "symbol": "HCWorldMaterializer.HCFreshCustodyOnly",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCFreshCustodyOnly",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCFreshCustodyOnly are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 591,
+      "symbol": "HCWorldMaterializer.HCFreshCustodyOnly",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCFreshCustodyOnly",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCFreshCustodyOnly are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 600,
+      "symbol": "HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRetireFreshCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 601,
+      "symbol": "HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRetireFreshCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 601,
+      "symbol": "HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRetireFreshCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 602,
+      "symbol": "HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRetireFreshCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 602,
+      "symbol": "HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldMaterializer.HCRetireFreshCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRetireFreshCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 630,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 631,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 640,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 647,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 666,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 677,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 680,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 680,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 681,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 686,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#7",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 696,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 696,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#8",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 697,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 704,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 704,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#9",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 705,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "CopyFile#3",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 710,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 711,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "FileExist#10",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 712,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#6",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 731,
+      "symbol": "HCWorldMaterializer.HCRecoverCustodyTmp",
+      "key": "DeleteFile#7",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCRecoverCustodyTmp are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 750,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 751,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 754,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 755,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 785,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 786,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 802,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#7",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 804,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#8",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 816,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FileExist#9",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 832,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 839,
+      "symbol": "HCWorldMaterializer.HCSelectRetainedCustody",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCSelectRetainedCustody are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 860,
+      "symbol": "HCWorldMaterializer.HCCleanupCustodyWitness",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCCleanupCustodyWitness",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCCleanupCustodyWitness are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 860,
+      "symbol": "HCWorldMaterializer.HCCleanupCustodyWitness",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCCleanupCustodyWitness",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCCleanupCustodyWitness are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 900,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 904,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 908,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 911,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 927,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 936,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 938,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 959,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#7",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 986,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 990,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 998,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1033,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#8",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1044,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#9",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1045,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#10",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1084,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "FileExist#11",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1085,
+      "symbol": "HCWorldMaterializer.HCLoadCustodyImage",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldMaterializer.HCLoadCustodyImage are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 1116,
+      "symbol": "HCWorldMaterializer.HCRestoreCustody",
+      "key": "Print#1",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: custody restore runs once at the first start (m_StartedOnce guard) and prints one line per recovered lease, bounded by the lease count."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 67,
+      "symbol": "HCWorldStore.ReadChecked",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldStore.ReadChecked",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadChecked are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 69,
+      "symbol": "HCWorldStore.ReadChecked",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCSelectRetainedCustody -> HCWorldStore.ReadChecked",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadChecked are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 153,
+      "symbol": "HCWorldStore.ReadCeilingChecked",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldStore.ReadCeilingChecked",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadCeilingChecked are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 159,
+      "symbol": "HCWorldStore.ReadCeilingChecked",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldStore.ReadCeilingChecked",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadCeilingChecked are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 181,
+      "symbol": "HCWorldStore.ReadCeilingString",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldStore.ReadCeilingChecked -> HCWorldStore.ReadCeilingString",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadCeilingString are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 183,
+      "symbol": "HCWorldStore.ReadCeilingString",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldStore.ReadCeilingChecked -> HCWorldStore.ReadCeilingString",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.ReadCeilingString are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 211,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual -> HCWorldStore.HCRawCompare",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCompare are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 213,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "OpenFile#2",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual -> HCWorldStore.HCRawCompare",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCompare are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 221,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual -> HCWorldStore.HCRawCompare",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCompare are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 222,
+      "symbol": "HCWorldStore.HCRawCompare",
+      "key": "ReadFile#2",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCRawEqual -> HCWorldStore.HCRawCompare",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCompare are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 241,
+      "symbol": "HCWorldStore.HCRawCounts",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCounts are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 244,
+      "symbol": "HCWorldStore.HCRawCounts",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCounts are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 245,
+      "symbol": "HCWorldStore.HCRawCounts",
+      "key": "ReadFile#2",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCounts are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 246,
+      "symbol": "HCWorldStore.HCRawCounts",
+      "key": "ReadFile#3",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead -> HCWorldStore.HCRawCounts",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCRawCounts are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 262,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 263,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#2",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 264,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#3",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 277,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 278,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "FPrint#2",
+      "message": "FPrint reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 287,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "OpenFile#4",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 289,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 301,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 302,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 303,
+      "symbol": "HCWorldStore.HCTestRawRead",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldMaterializer.HCRecoverCustodyTmp -> HCWorldStore.RawEqual -> HCWorldStore.HCTestRawRead",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldStore.HCTestRawRead are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 608,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 614,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "Print#1",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: staged_rejection prints are in the rotation/recovery path, one per rejected archive, with the warnings throttled by s_RotationWarnings (cap 64) and a bounded rotation budget."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 615,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 623,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 630,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 631,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 643,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "Print#2",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: staged_rejection prints are in the rotation/recovery path, one per rejected archive, with the warnings throttled by s_RotationWarnings (cap 64) and a bounded rotation budget."
+    },
+    {
+      "rule": "HC-P005",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 649,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "Print#3",
+      "message": "per-item Print on a tick path; latch or summarize",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: staged_rejection prints are in the rotation/recovery path, one per rejected archive, with the warnings throttled by s_RotationWarnings (cap 64) and a bounded rotation budget."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 652,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 656,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 657,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 666,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 666,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 675,
+      "symbol": "HCWorldIntentRecovery.Reject",
+      "key": "DeleteFile#5",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Reject are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 682,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.CompareText are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 684,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "OpenFile#2",
+      "message": "OpenFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.CompareText are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 692,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.CompareText are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 693,
+      "symbol": "HCWorldIntentRecovery.CompareText",
+      "key": "ReadFile#2",
+      "message": "ReadFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Reject -> HCWorldIntentRecovery.CompareText",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.CompareText are the custody load itself (not per-item work); no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 719,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 719,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 720,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 725,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 731,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 733,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 738,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 739,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 740,
+      "symbol": "HCWorldIntentRecovery.Recover",
+      "key": "DeleteFile#4",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load -> HCWorldIntentRecovery.Recover",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldIntentRecovery.Recover are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 789,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 792,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 810,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 811,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 817,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 820,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 848,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#7",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 849,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#8",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 859,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#9",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 878,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#10",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 881,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#11",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 891,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 891,
+      "symbol": "HCWorldLeaseCeiling.Load",
+      "key": "FileExist#12",
+      "message": "FileExist reachable via HCWorldMaterializer.HCRetryCustodyLoad -> HCWorldMaterializer.HCLoadCustody -> HCWorldMaterializer.HCLoadCustodyImage -> HCWorldLeaseCeiling.Load",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: one-shot CallLater(this.HCRetryCustodyLoad, 1000, false) armed only after a failed custody read or custody fault, at most 3 times (m_CustodyReadRetries < 3), so it is a bounded boot-time retry, never a recurring tick. The reads/renames/archive probes in HCWorldLeaseCeiling.Load are the custody load itself (not per-item work); the same callee already carries a reviewed row in this baseline (Persistence round-3)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 178,
+      "symbol": "HCXAICaravanRoads.HCLoad",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCGraph -> HCXAICaravanRoads.HCOpen -> HCXAICaravanRoads.HCLoad",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCXAICaravanRoads.HCOpen is a singleton open (returns when s_Instance exists) and calls HCLoad once, which opens the bounded roads file; later catalog steps reuse the instance. no earlier row for this callee; reviewed here for the first time."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 647,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner). Integ 2026-11-22: same review covers the HCRecover->HCCommit provenance and scratch-cleanup probes added by wc-migration-r2 (one step per tick, bounded file count)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 647,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner). Integ 2026-11-22: same review covers the HCRecover->HCCommit provenance and scratch-cleanup probes added by wc-migration-r2 (one step per tick, bounded file count)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 664,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner). Integ 2026-11-22: same review covers the HCRecover->HCCommit provenance and scratch-cleanup probes added by wc-migration-r2 (one step per tick, bounded file count)."
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 664,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCMigrationRunner.HCTick -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit",
+      "native": false,
+      "reason": "2026-11-22 B-14 CallLater root review: HCMigrationRunner.HCSchedule arms CallLater(HCTick, HC_TICK_INTERVAL_MS, false) once per step (s_Scheduled latch), so this is one bounded migration step per tick on a boot-only pass: each step does at most 4 fixed backup-slot probes and one read/copy/readback under the 8 MiB raw cap, and the loop body only runs when a migration step is registered (none by default). Callee HCMigrationRunner.HCCommit I/O is that step; the same callee already carries a reviewed row in this baseline (W4-08 migration runner). Integ 2026-11-22: same review covers the HCRecover->HCCommit provenance and scratch-cleanup probes added by wc-migration-r2 (one step per tick, bounded file count)."
     }
   ]
 }

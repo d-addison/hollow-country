@@ -504,7 +504,7 @@ class HCXAIFormationController
         while (m_Holding.Count() > 0)
         {
             ReleaseStyle(m_Holding[0], now);
-            m_Holding.Remove(0);
+            m_Holding.Remove(0); // HC-ORDER: unordered ok (Close drains the whole list)
         }
     }
 

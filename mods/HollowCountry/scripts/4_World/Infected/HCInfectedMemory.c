@@ -440,7 +440,7 @@ modded class HCAlertChain
             if (emission.Root.Recipients.Count() >= limit)
             {
                 HCActivity.Add("capped");
-                m_Queue.Remove(0);
+                m_Queue.RemoveOrdered(0);
                 spent++;
                 continue;
             }

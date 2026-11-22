@@ -179,7 +179,7 @@ class HCAlertChain
             if (!emission.Emitter || !emission.Emitter.IsAlive() || emission.Scanned >= actors.Count() || emission.Root.Recipients.Count() >= 12)
             {
                 if (emission.Root.Recipients.Count() >= 12) HCActivity.Add("capped");
-                m_Queue.Remove(0);
+                m_Queue.RemoveOrdered(0);
                 continue;
             }
             // Rotate across emissions: the short two-second processing window
