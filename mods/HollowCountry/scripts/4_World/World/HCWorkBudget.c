@@ -284,6 +284,10 @@ class HCSaveScheduler : HCModule
             result = job.HCStep();
             guard = guard + 1;
         }
+        if (guard >= flushLimit && (result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())))
+        {
+            Print("[HC WorldRuntime] owner=" + job.HCName() + " guard=save_flush_stage_guard steps=" + guard.ToString());
+        }
         job.HCInFlight = false;
         if (result != HCSaveJob.STEP_DONE || job.HCPendingCheckpoint())
         {
@@ -916,6 +920,14 @@ class HCStagedSaveImage
         {
             result = HCStepImage();
             stages++;
+        }
+        if (Active() && result == HCSaveJob.STEP_MORE && stages >= HC_MAX_STAGES)
+        {
+            Print("[HC Persistence] owner=HCStagedSaveImage guard=finish_stage_guard steps=" + stages.ToString());
+            HCFail();
+            // A synchronous refusal still releases retained handles, preserving the image/intent.
+            HCClose();
+            return false;
         }
         return !m_Failed && !Active() && result != HCSaveJob.STEP_FAILED;
     }

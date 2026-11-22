@@ -131,6 +131,12 @@ class HCEcologyMigrationStore
             result = SaveStep(state);
             stages++;
         }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            Print("[HC Persistence] owner=HCEcologyMigrationStore guard=save_stage_guard steps=" + stages.ToString());
+            m_Fault = true;
+            return false;
+        }
         return result == HCSaveJob.STEP_DONE;
     }
 }

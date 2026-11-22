@@ -227,6 +227,11 @@ class HCGroupStore
             result = SaveStep(state);
             stages++;
         }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            Print("[HC Persistence] owner=HCGroupStore guard=save_stage_guard steps=" + stages.ToString());
+            return Fault();
+        }
         return result == HCSaveJob.STEP_DONE;
     }
 }

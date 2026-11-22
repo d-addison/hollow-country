@@ -68,6 +68,7 @@ RULES = {
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
     'HC-E024': 'typename cannot return null; declare an empty typename and return it',
+    'HC-E028': 'initializer must be a literal; a non-literal static const read as 0 natively (build 169)',
     'HC-E027': 'COT/CF/ExpansionStatic call outside its owned dependency bridge',
     'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
     'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
@@ -314,6 +315,26 @@ def rule_parse_issues(project, source):
     _ = source.signatures
     for issue in source.parse_issues:
         yield _finding('HC-E008', source, issue.offset, '<parse>', issue.message)
+
+
+def rule_static_const_literals(project, source):
+    """Static primitive constants must survive native initialization (build 169).
+
+    Use masked code so comments, string contents and preprocessor lines cannot
+    introduce declarations or operators. Quotes remain, preserving string tokens.
+    """
+    declaration = re.compile(r'\b(?:static\s+const|const\s+static)\s+'
+                             r'(?:int|float|bool|string)\s+([^;{}]+);')
+    literal = re.compile(r'(?:[+-]?\s*(?:0[xX][0-9a-fA-F]+|'
+                         r'(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)'
+                         r'|true|false|"[^"\n]*")')
+    for match in declaration.finditer(source.code):
+        offset = match.start(1)
+        for binding in es.split_top(match.group(1), ','):
+            name, separator, initializer = binding.partition('=')
+            if not separator or not literal.fullmatch(initializer.strip()):
+                yield _finding('HC-E028', source, offset, name.strip(), RULES['HC-E028'])
+            offset += len(binding) + 1
 
 
 def rule_ternary(project, source):
@@ -2118,7 +2139,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
