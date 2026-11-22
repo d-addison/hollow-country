@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "_doc": "Rules for the HC compat config addon (tools/package/compat_addon.py, docs/tools/COMPAT_ADDON.md). The addon only fills config entries by inheritance; it never copies a dependency's class bodies, assets, scripts or text. own_rules come from this repo's own data and are empty today: our own CE types and config.cpp need no compat entry. dependency_rules is the slot the lead fills from native RPT evidence (rpt_config_audit No entry rows); each row is {id, section, class, parent, requires[], set{}, evidence} and requires/evidence are mandatory there. required_addons must name our own CfgPatches classes; the generator checks them against mods/*/config.cpp.",
+  "addon": {
+    "patch": "HollowCountryCompat",
+    "prefix": "HollowCountryExpansionAI\\compat",
+    "pbo": "hollowcountry_compat.pbo",
+    "required_addons": ["HollowCountryExpansionAI"]
+  },
+  "own_rules": [],
+  "dependency_rules": []
+}
