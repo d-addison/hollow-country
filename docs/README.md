@@ -13,6 +13,7 @@ Use the [field guide](../README.md) for the features, dependency stack and miles
 | See every outstanding feature, fix, audit and owner question | [Outstanding work](OUTSTANDING.md) |
 | Review shared runtime interfaces | [Runtime integration contract](RUNTIME_IMPLEMENTATION_CONTRACT.md) |
 | Keep module tick, save and log cost bounded | [Performance practices](PERFORMANCE_PRACTICES.md) |
+| See what the automated validation tooling does and does not do | [Automated validation](tools/AUTOMATION.md) |
 | Review ownership and dependencies | [Provenance and licenses](PROVENANCE_AND_LICENSES.md) |
 | Find official documentation | [Sources](SOURCES.md) |
 

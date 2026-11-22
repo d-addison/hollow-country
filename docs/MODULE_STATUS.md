@@ -169,6 +169,17 @@ Source and offline tests only, **implemented-unverified**; the native compile ga
 | Receipt and gate shas (P3) | 64-hex required; the gate prints every compat sha and release/friendcycle compare them with the receipt | Unit-tested offline only; the lead runs the real gate |
 | Deferred: nested `No entry` RPT rows | Damage zones, optics and beam sub-classes of vanilla and third-party base classes are nested entries; the schema forbids them and no top-level class with a verified parent was found. No rule is filled; no content dropped for them | Owner decision on dropping or a verified top-level class from a future RPT; traceable here and in `docs/tools/COMPAT_ADDON.md` ("No dependency rules yet") |
 
+## Autonomous validation tooling (spec 002 integrity, 2026-11-22)
+
+Offline tooling only, **implemented-unverified** as a native method: nothing here observes DayZ. Autotest evidence ranks below the owner's one-client smoke and never proves multiplayer. Details: `docs/tools/AUTOMATION.md`.
+
+| Item | State | Remaining evidence |
+| --- | --- | --- |
+| Runner, driver registry, discovery, BDD bindings, artifact store, coverage report | Present and unit-tested offline; the graph check (`tools.validate.automation_drift`) now requires catalogue rows, feature tags, bindings and the driver registry to agree; the 001-only BDD check reports the 002 graph as not checked | None for offline use |
+| Offline CI lane | `static.yml` job runs the graph check and the framework unit tests with the standard library only, no secret and no download | First hosted run |
+| Local native lane | `automation lane` reports BLOCKED or NOTRUN per native driver and never PASS; owner host only, shared host lock, one at a time | Native adapters from AV-T007 onward are not implemented; AV-T017/T018/T019/T022 stay NOTRUN (`deferred_owner_2026-11-22`) |
+| 001 offline BDD bindings | Many bound unit-test files are no longer in the tree, so `tools.validate.bdd` fails closed; the drift report lists them as `unexecutable_bindings` | Owner decision to rebind or retire those scenarios |
+
 ## Earlier implementation snapshots
 
 Older tables and round notes preserve evidence for their stated source versions. Their old
