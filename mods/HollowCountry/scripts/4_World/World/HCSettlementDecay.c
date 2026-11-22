@@ -164,13 +164,23 @@ modded class HCObserverTransitionGate
 
 class HCSettlementDecay : HCModule
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rows changed props refused fault world_unavailable budget history_pending visual_cap no_visual quiet_300m_60s quiet_wait candidates exhausted position_or_water surface slope occupied_15m class_missing create_failed bounds");
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rows changed props refused fault world_unavailable budget history_pending visual_cap no_visual quiet_300m_60s quiet_wait candidates exhausted position_or_water surface slope occupied_15m building_standoff occupancy_cap class_missing create_failed bounds");
     protected ref HCSettlementState m_State;
     protected ref HCSettlementDecayStore m_Store;
     protected ref HCWorldData m_Catalog;
     protected ref array<Object> m_Props = new array<Object>;
     protected ref array<int> m_PropSlots = new array<int>;
-    static const int VISUAL_CANDIDATES = 12;
+    static const int VISUAL_CANDIDATES = 24;
+    // The post-create bounds admit at most 6 x 3 x 6 m. Its horizontal
+    // half-diagonal is sqrt(3*3 + 3*3), rounded up, plus 0.75 m clearance.
+    static const float VISUAL_FOOTPRINT_RADIUS = 4.25;
+    static const float VISUAL_CLEARANCE = 5.0;
+    static const float VISUAL_BUILDING_STANDOFF = 8.0;
+    static const float VISUAL_QUERY_RADIUS = 64.0;
+    static const int VISUAL_QUERY_CAP = 512;
+    // 0.35 / 3 (~6.7 degrees) admits gentle ground without conspicuous tilt
+    // or burying a <=6 m decorative prop. Probe both signs of both axes.
+    static const float VISUAL_SLOPE_RISE = 0.35;
     protected ref array<int> m_VisualAttempts = new array<int>;
     protected ref array<float> m_Clear = new array<float>;
     protected int m_FactNext;
@@ -371,12 +381,120 @@ class HCSettlementDecay : HCModule
         if (heading < 0) { heading += 360; }
         int attempt = m_VisualAttempts[index];
         float angle = (heading + slot * 97 + attempt * 137) * Math.DEG2RAD;
+        // Six rings, four dispersed headings each; the 137-degree stride
+        // avoids radial spokes. Try settlement edges before the busy centre.
+        // 150, 124, 98, 72, 46, 20 m; all stay inside the 180 m envelope.
         int ring = attempt / 4;
-        float radius = 30 + ring * 75;
+        float radius = 150 - ring * 26;
         vector point = m_Catalog.Places[index].Position;
         point[0] = point[0] + Math.Cos(angle) * radius;
         point[2] = point[2] + Math.Sin(angle) * radius;
         return point;
+    }
+
+    protected bool HCVisualSoftSurface(string surface)
+    {
+        surface.ToLower();
+        // Installed DayZ 1.30.164289 addons/surfaces.pbo:config.bin,
+        // CfgSurfaces (read with tools.audit.pbo_config): Chernarus terrain
+        // soft-ground classes only. Exact allowlist excludes roads, asphalt,
+        // concrete, gravel, rock and generic model/interior dirt materials.
+        return surface == "cp_dirt" || surface == "cp_grass" || surface == "cp_grass_tall" || surface == "cp_broadleaf_dense1" || surface == "cp_broadleaf_dense2" || surface == "cp_broadleaf_sparse1" || surface == "cp_broadleaf_sparse2" || surface == "cp_conifer_common1" || surface == "cp_conifer_common2" || surface == "cp_conifer_moss1" || surface == "cp_conifer_moss2";
+    }
+
+    protected bool HCVisualSurface(vector point)
+    {
+        // Nine fixed samples span the maximum footprint, not just its centre.
+        // Game.c:1180/1183: ground type and a downward trace from above the prop
+        // reject hard road/model surfaces over otherwise admissible terrain.
+        for (int sample = 0; sample < 9; sample++)
+        {
+            int column = sample % 3;
+            int row = sample / 3;
+            float x = point[0] + (column - 1) * 3;
+            float z = point[2] + (row - 1) * 3;
+            string ground;
+            string above;
+            GetGame().SurfaceGetType(x, z, ground);
+            GetGame().SurfaceGetType3D(x, point[1] + 3, z, above);
+            if (!HCVisualSoftSurface(ground) || !HCVisualSoftSurface(above)) { return false; }
+        }
+        return true;
+    }
+
+    protected float HCVisualObjectRadius(Object obstacle)
+    {
+        // Object.c:358 ClippingInfo; EnConvert.c:169 vector.Length. Include
+        // offset bounds as well as the engine radius, conservatively enclosing
+        // rotated geometry and door owners rather than just their origins.
+        vector bounds[2];
+        float radius = obstacle.ClippingInfo(bounds);
+        vector extent;
+        extent[0] = Math.Max(Math.AbsFloat(bounds[0][0]), Math.AbsFloat(bounds[1][0]));
+        extent[1] = Math.Max(Math.AbsFloat(bounds[0][1]), Math.AbsFloat(bounds[1][1]));
+        extent[2] = Math.Max(Math.AbsFloat(bounds[0][2]), Math.AbsFloat(bounds[1][2]));
+        return Math.Max(radius, extent.Length());
+    }
+
+    protected string HCVisualOccupancy(vector point)
+    {
+        // At most 24 owned props, checked independently before any clutter
+        // exemption. No nested ownership scan over the broad-phase result.
+        foreach (Object placed : m_Props)
+        {
+            if (!placed) { continue; }
+            vector placedPosition = placed.GetPosition();
+            placedPosition[1] = point[1];
+            float placedClearance = HCVisualObjectRadius(placed) + VISUAL_CLEARANCE;
+            if (vector.DistanceSq(point, placedPosition) <= placedClearance * placedClearance) { return "occupied_15m"; }
+        }
+        array<Object> nearby = new array<Object>;
+        array<CargoBase> cargo = new array<CargoBase>;
+        // One spatial query per candidate. Broad phase includes building
+        // origins outside the small prop clearance; narrow phase uses bounds.
+        GetGame().GetObjectsAtPosition3D(point, VISUAL_QUERY_RADIUS, nearby, cargo);
+        if (nearby.Count() > VISUAL_QUERY_CAP || cargo.Count() > VISUAL_QUERY_CAP) { return "occupancy_cap"; }
+        foreach (Object obstacle : nearby)
+        {
+            if (!obstacle) { return "occupied_15m"; }
+            float radius = HCVisualObjectRadius(obstacle);
+            vector position = obstacle.GetPosition();
+            position[1] = point[1];
+            float distanceSq = vector.DistanceSq(point, position);
+            // Building.Cast includes House and door owners even where a
+            // specialized building overrides IsBuilding to false.
+            Building building = Building.Cast(obstacle);
+            if (building || obstacle.IsBuilding())
+            {
+                float standoff = radius + VISUAL_FOOTPRINT_RADIUS + VISUAL_BUILDING_STANDOFF;
+                if (distanceSq <= standoff * standoff) { return "building_standoff"; }
+                continue;
+            }
+            // Owned scenery never gets the vegetation/clutter exemption.
+            // Object.c:595/613/965/970; static-without-config alone is NOT
+            // clutter (it may be a fence). Only native terrain scenery qualifies.
+            if (!obstacle.IsEntityAI())
+            {
+                if (obstacle.IsTree() || obstacle.IsBush() || (obstacle.IsPlainObject() && obstacle.IsScenery())) { continue; }
+            }
+            float clearance = radius + VISUAL_CLEARANCE;
+            // Legacy counter key retained for consumers; now footprint-based,
+            // not a 15 m veto. Unknown objects, items, vehicles and all actors
+            // are obstacles; no foreign/orphan prop adoption occurs.
+            if (distanceSq <= clearance * clearance) { return "occupied_15m"; }
+        }
+        foreach (CargoBase proxy : cargo)
+        {
+            if (!proxy) { return "occupied_15m"; }
+            // Installed 3_Game/Systems/Inventory/Cargo.c:12 GetCargoOwner.
+            EntityAI owner = proxy.GetCargoOwner();
+            if (!owner) { return "occupied_15m"; }
+            vector cargoPosition = owner.GetPosition();
+            cargoPosition[1] = point[1];
+            float cargoClearance = HCVisualObjectRadius(owner) + VISUAL_CLEARANCE;
+            if (vector.DistanceSq(point, cargoPosition) <= cargoClearance * cargoClearance) { return "occupied_15m"; }
+        }
+        return "";
     }
 
     protected void Visual(int index, int now)
@@ -403,26 +521,21 @@ class HCSettlementDecay : HCModule
             m_Activity.HCHit("quiet_300m_60s");
             return;
         }
-        // One candidate geometry probe per selected town/tick, <=12 per slot
+        // One candidate geometry probe per selected town/tick, <=24 per slot
         // per boot; no orphan or foreign prop is ever adopted.
         vector point = HCVisualCandidate(index, slot);
         m_VisualAttempts[index] = m_VisualAttempts[index] + 1;
         m_Activity.HCHit("candidates");
         point[1] = GetGame().SurfaceY(point[0], point[2]);
         if (!HCWorldLimits.Position(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { HCVisualRefused(index, "position_or_water"); return; }
-        string surface;
-        GetGame().SurfaceGetType(point[0], point[2], surface);
-        surface.ToLower();
-        // Keep the conservative grass-only rule. SurfaceRoadY provides height,
-        // not a road predicate; asphalt/concrete are not admitted by guessing.
-        if (surface.IndexOf("road") >= 0 || surface.IndexOf("asphalt") >= 0 || surface.IndexOf("concrete") >= 0 || surface.IndexOf("grass") < 0) { HCVisualRefused(index, "surface"); return; }
+        if (!HCVisualSurface(point)) { HCVisualRefused(index, "surface"); return; }
         float sx = GetGame().SurfaceY(point[0] + 3, point[2]);
         float sz = GetGame().SurfaceY(point[0], point[2] + 3);
-        if (Math.AbsFloat(sx - point[1]) > 0.2 || Math.AbsFloat(sz - point[1]) > 0.2) { HCVisualRefused(index, "slope"); return; }
-        array<Object> nearby = new array<Object>;
-        array<CargoBase> cargo = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(point, 15, nearby, cargo);
-        if (nearby.Count() > 0 || cargo.Count() > 0) { HCVisualRefused(index, "occupied_15m"); return; }
+        float nx = GetGame().SurfaceY(point[0] - 3, point[2]);
+        float nz = GetGame().SurfaceY(point[0], point[2] - 3);
+        if (Math.AbsFloat(sx - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(sz - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(nx - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(nz - point[1]) > VISUAL_SLOPE_RISE) { HCVisualRefused(index, "slope"); return; }
+        string occupied = HCVisualOccupancy(point);
+        if (occupied != "") { HCVisualRefused(index, occupied); return; }
         string type = "StaticObj_Garbage_GroundSq_3m_NoLC";
         if (slot == 1) { type = "StaticObj_Furniture_fireplace_grill"; }
         if (slot == 2) { type = "StaticObj_Misc_NoticeBoard1"; }
@@ -436,6 +549,16 @@ class HCSettlementDecay : HCModule
         vector box[2];
         prop.ClippingInfo(box);
         vector size = box[1] - box[0];
+        // Validate the assumed origin-centred footprint too: a small model
+        // with offset bounds must not escape the pre-create clearance.
+        float extentX = Math.Max(Math.AbsFloat(box[0][0]), Math.AbsFloat(box[1][0]));
+        float extentZ = Math.Max(Math.AbsFloat(box[0][2]), Math.AbsFloat(box[1][2]));
+        if (extentX > 3 || extentZ > 3)
+        {
+            GetGame().ObjectDelete(prop);
+            HCVisualRefused(index, "bounds");
+            return;
+        }
         if (!(size[0] > 0 && size[0] <= 6 && size[1] >= 0 && size[1] <= 3 && size[2] > 0 && size[2] <= 6))
         {
             GetGame().ObjectDelete(prop);
