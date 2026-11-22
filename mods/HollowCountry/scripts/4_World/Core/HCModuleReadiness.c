@@ -38,7 +38,9 @@ class HCModuleReadiness
         s_UseFeatures.Insert(feature);
         s_UseCounts.Insert(0);
         s_UseFixtureCounts.Insert(0);
-        s_UsePrintedCounts.Insert(0);
+        // -1: the first summary prints every registered feature, count=0 included,
+        // so activity_check still sees (and fails) a feature that never fires.
+        s_UsePrintedCounts.Insert(-1);
         s_UseSlots.Insert(module + "/" + feature, slot);
         if (!s_UseScheduled && GetGame())
         {
@@ -121,9 +123,6 @@ class HCModuleReadiness
         }
         s_UseScheduled = false;
         s_UseRegistrationPrinted = false;
-        s_Reported.Clear();
-        s_BootReady.Clear();
-        s_LatePrinted.Clear();
         s_UseSlots.Clear();
         s_UseModules.Clear();
         s_UseFeatures.Clear();
