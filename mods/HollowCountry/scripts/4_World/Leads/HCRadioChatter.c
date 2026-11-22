@@ -175,6 +175,7 @@ class HCRadioChatter : HCModule
     protected bool m_ReceiptPending;
     protected bool m_FromFallback;
     protected bool m_Ready;
+    protected int m_SeedRevision = -1;
     protected bool m_AdmissionPrinted;
     protected string m_Refusal;
 
@@ -253,11 +254,17 @@ class HCRadioChatter : HCModule
                 channel.Frequency = Frequency(faction);
                 m_Store.Data.Channels.Insert(channel);
             }
-            if (!m_Store.Save())
+            // The scheduler job writes the seed; nothing in this boot reads the
+            // persisted channels (they live in memory), so readiness follows the
+            // in-memory seed. A failed or starved save stays visible in OnTick and
+            // HCFlush writes it at stop. A crash before it lands reseeds the same five.
+            m_SeedRevision = m_Store.HCRequestBarrier();
+            if (m_SeedRevision < 0)
             {
                 HCRefuse("channel_store_save_failed");
                 return;
             }
+            Print("[HC Radio] seed_save state=pending reason=lead_seed_save_pending revision=" + m_SeedRevision.ToString());
         }
         m_Ready = true;
         s_Instance = this;
@@ -446,10 +453,28 @@ class HCRadioChatter : HCModule
         Print("[HC Plan] HC-20 radio=refused morse=folded reports=" + m_Reports.ToString() + " reason=" + reason + " runtime=PENDING");
     }
 
+    // One pending seed save: report the scheduler job result once, never retry here.
+    protected void HCCheckSeed()
+    {
+        if (m_Store.HCDurable(m_SeedRevision))
+        {
+            Print("[HC Radio] seed_save state=durable revision=" + m_SeedRevision.ToString());
+            m_SeedRevision = -1;
+            return;
+        }
+        if (!m_Store.Healthy())
+        {
+            Print("[HC Radio] seed_save state=failed reason=lead_store_unavailable revision=" + m_SeedRevision.ToString() + " retry=next_boot");
+            m_SeedRevision = -1;
+        }
+    }
+
     override void OnTick(float deltaTime)
     {
         if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HC Radio]", " state=" + m_Status.HCState()); }
         if (!m_Ready || !(deltaTime > 0) || !GetGame().IsServer()) { return; }
+        if (m_Store) { m_Store.HCPollOpenSave(); }
+        if (m_SeedRevision >= 0 && m_Store) { HCCheckSeed(); }
         if (!m_Store || !m_Store.Healthy()) { HCRefuse("lead_store_fault"); return; }
         m_UnitBudget.HCReset(1);
         m_WorkBudget.HCReset(1);
@@ -521,6 +546,7 @@ class HCRadioChatter : HCModule
     {
         s_Instance = null;
         m_Ready = false;
+        m_SeedRevision = -1;
         m_Channel = null;
         m_Report = null;
         m_Store = null;
