@@ -32,6 +32,38 @@ class HCEventReviewedSites
         sites.Insert(Build("kumyrna-ambush-cache", "Ambush_Kumyrna", 8393.078, 292.062, 5998.555));
         return sites;
     }
+    // Authored stock for the single fill of each CE-created (empty) scene cache case: 3-5 vanilla
+    // survival or field items per site, one fill per case identity (HCEventCacheFill). Null for a
+    // site without a row: that case is never filled and the refusal is logged with a reason.
+    static HCEventRewardPlan StockPlan(string siteId)
+    {
+        HCEventRewardPlan plan = new HCEventRewardPlan;
+        plan.SiteId = siteId;
+        if (siteId == "kamenka-supply-cache")
+        {
+            plan.Items.Insert("BandageDressing");
+            plan.Items.Insert("TunaCan");
+            plan.Items.Insert("SodaCan_Cola");
+            plan.Items.Insert("Matchbox");
+            return plan;
+        }
+        if (siteId == "staroye-traffic-cache")
+        {
+            plan.Items.Insert("MetalWire");
+            plan.Items.Insert("Battery9V");
+            plan.Items.Insert("Chemlight_Green");
+            plan.Items.Insert("Rag");
+            return plan;
+        }
+        if (siteId == "kumyrna-ambush-cache")
+        {
+            plan.Items.Insert("BandageDressing");
+            plan.Items.Insert("Chemlight_Green");
+            plan.Items.Insert("TunaCan");
+            return plan;
+        }
+        return null;
+    }
     // V2 scene variety reuses INVESTIGATION and the exact reviewed anchors.
     // This definition grants no cache, item, AI body or reward capability.
     static HCEventMission SceneMission(HCEventSite site, string missionId, int lifetime)

@@ -19,6 +19,10 @@ class HCEventNativeLease
     bool SceneCache;
     float CacheProbeAfter;
     float CacheStartedAt;
+    // Scene cache only: the fill of the bound case reached a final state (HCEventCacheFill.Step);
+    // CacheGranted counts the items HC created in it (the real cargo_granted).
+    bool CacheFillResolved;
+    int CacheGranted;
 }
 class HCEventDwell
 {
@@ -27,13 +31,36 @@ class HCEventDwell
     int Since;
     int Last;
 }
-// Server-owned references only. No item is created, moved, consumed or deleted.
+// Server-owned references only. The only item creation is the scene-cache fill of a CE-created
+// case (HCEventCacheFill); the case itself and everything else is never created, moved, consumed
+// or deleted here.
 // Targets must be registered from a reviewed server site by the integration.
 class HCEventNativeObserver : HCEventObjectiveProvider
 {
     protected ref array<ref HCEventTarget> m_Targets = new array<ref HCEventTarget>();
     protected ref array<ref HCEventNativeLease> m_Leases = new array<ref HCEventNativeLease>();
     protected ref array<ref HCEventDwell> m_Dwells = new array<ref HCEventDwell>();
+    protected int m_CacheTickCursor;
+
+    // Called by HCEventModule every 10 s of module ticks (inside the shared core work budget): re-probes
+    // a waiting fill or a still unbound case without anyone joined. At most ONE lease is probed per
+    // pass (a probe is at most one 8-unit world query or one 4-unit fill step), round robin; each lease
+    // keeps its own 30 s gate.
+    void HCTickSceneCaches()
+    {
+        int total = m_Leases.Count();
+        for (int offset = 0; offset < total; offset++)
+        {
+            int index = (m_CacheTickCursor + offset) % total;
+            HCEventNativeLease binding = m_Leases[index];
+            if (!binding.SceneCache) { continue; }
+            if (binding.Item && binding.CacheFillResolved) { continue; }
+            if (GetGame().GetTickTime() < binding.CacheProbeAfter) { continue; }
+            m_CacheTickCursor = index + 1;
+            HCBindSceneCache(binding);
+            return;
+        }
+    }
 
     // Only the three unchanged reviewed recovery definitions use this asynchronous
     // CE route. Operator edits do not gain a new spawn/target capability.
@@ -50,19 +77,39 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         return false;
     }
-    // Normal CE events in events/cache-events.xml own creation and replenishment.
+    // Normal CE events in events/cache-events.xml own creation, lifetime and replacement of the
+    // (empty) case; its hourly replacement is the drain-and-replace of the owner's container rule.
     // Borrow one actual ground container, including persisted empty containers:
-    // the case itself is the recovery objective. Never manufacture cargo or claim
-    // that a class/position match proves incident ownership.
+    // the case itself is the recovery objective. HC adds one fill per case identity
+    // (HCEventCacheFill) and never claims that a class/position match proves incident ownership.
+    void HCFillSceneCache(HCEventNativeLease binding)
+    {
+        int granted;
+        int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
+        if (!HCServer.HCTickWork().HCTakeFor(consumer, 4)) { return; }
+        if (HCEventCacheFill.Step(binding.Objective, binding.Item, granted)) { binding.CacheFillResolved = true; }
+        binding.CacheGranted = binding.CacheGranted + granted;
+    }
     void HCBindSceneCache(HCEventNativeLease binding)
     {
-        if (binding.Item || GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
+        if (GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
+        if (binding.Item)
+        {
+            // Bound case whose fill is still waiting (min spacing, players near, budget, receipt
+            // scan): the same 30 s probe, driven by Observe and by HCEventModule through HCTickSceneCaches.
+            if (binding.CacheFillResolved) { return; }
+            binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
+            HCFillSceneCache(binding);
+            return;
+        }
         binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
         HCEventMission mission = binding.Objective;
         HCEventTarget current = Target(mission.Id);
         if (current && HCEventCacheSpawner.HCPhysicalGround(current.Item))
         {
             binding.Item = current.Item;
+            binding.CacheFillResolved = false;
+            HCFillSceneCache(binding);
             return;
         }
         int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
@@ -81,7 +128,9 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         if (!selected || !RegisterTarget(mission.Id, selected)) { return; }
         binding.Item = selected;
-        Print("[HC Events] scene cache bound; " + mission.Id + "; route=normal_ce; cargo_granted=0 runtime=PENDING");
+        binding.CacheFillResolved = false;
+        HCFillSceneCache(binding);
+        Print("[HC Events] scene cache bound; " + mission.Id + "; route=normal_ce; cargo_granted=" + binding.CacheGranted.ToString() + " runtime=PENDING");
     }
 
     // HC-41 uses a separate server receipt capability, never the retired quest
@@ -446,7 +495,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         string reason = "runtime_closed";
         if (!binding.Item) { reason = "target_unavailable_on_close"; }
         if (!binding.Item && GetGame().GetTickTime() - binding.CacheStartedAt >= binding.Objective.LifetimeSeconds) { reason = "ce_target_timeout"; }
-        Print("[HC Events] scene cache mission closed; " + binding.Objective.Id + "; reason=" + reason + "; refill=0 runtime=PENDING");
+        Print("[HC Events] scene cache mission closed; " + binding.Objective.Id + "; reason=" + reason + "; cargo_granted=" + binding.CacheGranted.ToString() + "; replace=ce_lifetime runtime=PENDING");
     }
     override bool Release(string lease)
     {
