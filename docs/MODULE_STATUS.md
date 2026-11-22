@@ -170,6 +170,18 @@ Source and offline tests only, **implemented-unverified**; the native compile ga
 | Receipt and gate shas (P3) | 64-hex required; the gate prints every compat sha and release/friendcycle compare them with the receipt | Unit-tested offline only; the lead runs the real gate |
 | Open: nested `No entry` RPT rows | Damage zones, optics and beam sub-classes of vanilla and third-party base classes are nested entries; the schema forbids them and no top-level class with a verified parent was found. No rule is filled; no content dropped for them | Owner decision on dropping or a verified top-level class from a future RPT; traceable here and in `docs/tools/COMPAT_ADDON.md` ("No dependency rules yet") |
 
+## Variety packs script integration fixes (wf-notes, 2026-11-22)
+
+Source, lint and perf only, **implemented-unverified**: the native compile gate (the temperature guard moves to the `Edible_Base` and `Inventory_Base` item roots and a `Cooking.CookWithEquipment` hook is new), a boot with each pack and the one-client checks in `docs/VARIETY_SCRIPTS.md` are pending (lead). No acceptance claim or release waiver added.
+
+| Item | State | Remaining evidence |
+| --- | --- | --- |
+| Lead-note counters | `notes_lead_protected` counts only real refusals with the reason (`rpc`, `write_action`, `recipe`); `notes_lead_tracked` is assignment evidence; `write_rpc_passed` replaces `notes_written` | Activity rows updated; one-client check 1 to 3 |
+| Food guard | Failing contract is refused with `food_compat_refused` and one `[HC Food]` line per reason; the guard covers pack boxes and bundles through `Inventory_Base` | Native compile; one-client check 4. The bundle `Open()` null dereference is not guardable from our side (pack override, native call); the RPT line that confirms it is in the doc |
+| Cooking module | `CookingCompat` is enabled by the cooking pack alone; `cooking_config_rpc_refused` moved here; `cooking_dish_cooked` added | One-client check 5; the config-RPC refusal needs HC loaded above the cooking pack |
+| Persistence with the notes pack added or removed | The layout effect cannot be read from scripts; the ledger already re-identifies by id or text | One-client check 6 (lead check) |
+| Upstream cooking pack null dereference | Exact report text is in `docs/VARIETY_SCRIPTS.md` | Sent by the lead |
+
 ## Autonomous validation tooling (spec 002 integrity, 2026-11-22)
 
 Offline tooling only, **implemented-unverified** as a native method: nothing here observes DayZ. Autotest evidence ranks below the owner's one-client smoke and never proves multiplayer. Details: `docs/tools/AUTOMATION.md`.
@@ -663,6 +675,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | CellarSampler | `class_measured` |
 | Cellars | `visual_applied` |
 | ClientUI | `earplugs_applied`, `inventory_open`, `map_open` |
+| CookingCompat | `cooking_dish_cooked` (enabled only with the cooking pack; `cooking_config_rpc_refused` is a fault counter registered on first refusal, no activity row) |
 | Crafting | `recipe_completed` |
 | DeadDrops | `cache_bound` |
 | DebugSnapshot | `snapshot_saved` |
@@ -671,6 +684,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Events | `police_supply_bound`, `cache_filled` (scene cache fill; registered at 0 in RegisterUses) |
 | FactionConflict | `outcome_recorded` |
 | Forage | `item_picked`, `item_spawned` |
+| FoodCompat | `food_compat_guard` (enabled only with the food pack; `food_compat_refused` is a fault counter registered on first refusal, no activity row) |
 | Grade | `grade_applied` |
 | Groups | `group_mutated`, `menu_open` |
 | Holdouts | `camp_committed` |
@@ -688,6 +702,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | MapPins | `pins_published` |
 | Materializer | `actors_materialized` |
 | Melee | `hit_processed`, `parity_probe` |
+| NotesCompat | `notes_lead_protected`, `notes_lead_tracked`, `write_rpc_passed` (enabled only with the writable-notes pack) |
 | Notes | `note_read` |
 | ObjectSpawner | `pathgraph_refresh` (boot batch reported by the World readiness hook; native routing verification pending) |
 | OptionalPacks | `animal_seen` |

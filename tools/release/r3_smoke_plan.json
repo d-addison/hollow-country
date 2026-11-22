@@ -701,6 +701,57 @@
       "steps": "1. Near an owned live neutral AI (for example the Chernogorsk police loop), stay in view at about 50 m. 2. Raise a weapon: the AI faces you and shouts (status text), keeps its own weapon up and does not fire. 3. Lower the weapon within 3 s (AILimits.CautionGraceSeconds): no shots, stance de-escalates. 4. Repeat after 45 s and keep the weapon raised past 3 s: the AI turns hostile about 3 s after the raise, as before. Require [HC Use] caution_warn count>=1 and one first-warn line with grace_s=3 and fire=none.",
       "est_minutes": 5,
       "prerequisites": "EnableEncounters; provider ownership/faction and emote observation readiness; one server plus at most one client."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "write_rpc_passed",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c#HCNotesCompat.WriteRpcPassed",
+      "trigger": "A client note write RPC reaches Paper.OnRPC for a paper that is not a lead note and passes through to the pack handler.",
+      "exercise": "client_action",
+      "steps": "1. With the writable-notes pack loaded, hold a pen and a pack note (or a blank pack note) in the inventory. 2. Write a line of text on the pack note with the pen and close the editor. 3. Re-open it and confirm the text reads back. 4. Require [HC Use] NotesCompat write_rpc_passed count>=1 and no lead id on that note.",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present (NotesCompat enabled); one server plus at most one client."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes_lead_protected",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.OnRPC",
+      "trigger": "A real refusal on a lead note: the note write/read RPC is dropped, the write action is vetoed in ActionCondition, or a recipe refuses the note as an ingredient.",
+      "exercise": "client_action",
+      "steps": "1. Obtain an HC lead note (see Notes/note_read) and hold a pen. 2. Try the write action on the lead note: it is not offered or does nothing, and the text is unchanged. 3. Optionally try a recipe that takes paper with the lead note: refused. 4. Require [HC Use] NotesCompat notes_lead_protected count>=1 and one '[HC Notes] lead_protected reason=<rpc|write_action|recipe>' line. Assignment alone does not count.",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present; a ledger-created lead note delivered through ordinary play; one server plus at most one client.",
+      "deterministic_exercise_proposal": "Stage a normal scene so HCNoteLedger delivers its factual note through the ordinary inventory flow; never spawn arbitrary Paper with a forged HCNoteId."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes_lead_tracked",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.HCAssignNote",
+      "trigger": "A lead note id is assigned to a vanilla paper on spawn or on restore after a restart.",
+      "exercise": "client_action",
+      "steps": "1. Receive an HC lead note (see Notes/note_read), then relog or restart the server once. 2. Confirm the note still reads with its original text. 3. Require [HC Use] NotesCompat notes_lead_tracked count>=1 (assignment evidence; it does not claim a refusal).",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present; a ledger-created lead note; one server plus at most one client."
+    },
+    {
+      "module": "FoodCompat",
+      "feature": "food_compat_guard",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#HCFoodCompat.Guarded",
+      "trigger": "Pack food, a pack box or a pack bundle initialises its temperature and the 1.30 contract holds.",
+      "exercise": "client_action",
+      "steps": "1. With the food pack loaded, spawn or find one pack food item, one pack loot box and one pack bundle (existing loot or the economy; no generic spawner is claimed). 2. Open the box and the bundle with the native Open action. 3. Require no SCRIPT (E) line and [HC Use] FoodCompat food_compat_guard count>=1. A '[HC Food] food_compat_refused reason=...' line means a contract refusal and must be investigated.",
+      "est_minutes": 5,
+      "prerequisites": "Food pack present (FoodCompat enabled); pack items reachable through loot or the existing HC menu; one server plus at most one client."
+    },
+    {
+      "module": "CookingCompat",
+      "feature": "cooking_dish_cooked",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#Cooking.CookWithEquipment",
+      "trigger": "A cooking pass changes a stage and leaves a finished pack dish in the pot.",
+      "exercise": "client_action",
+      "steps": "1. With the cooking pack loaded, put the ingredients of one pack dish in a pot on a lit fire. 2. Wait until the dish is done and take it from the pot (keep a free inventory slot). 3. Require [HC Use] CookingCompat cooking_dish_cooked count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 10,
+      "prerequisites": "Cooking pack present (CookingCompat enabled); a pot, fire source and the dish ingredients; one server plus at most one client."
     }
   ]
 }
