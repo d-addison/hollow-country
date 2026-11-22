@@ -398,13 +398,13 @@ class HCEventRuntime
         m_Busy = true;
         foreach (HCEventRun run : m_State.Runs)
         {
-            if (!run) { m_Busy = false; return; }
+            if (!run) { continue; }
             if (run.ProviderIntent && run.Phase != HCEventRunPhase.CLOSED)
             {
                 if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
                 {
                     HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
-                    if (!aiRecord) { m_Busy = false; return; }
+                    if (!aiRecord) { continue; }
                     int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
                     string aiLease = run.Lease + ":" + aiGeneration.ToString();
                     m_AI.Stop(aiLease);
