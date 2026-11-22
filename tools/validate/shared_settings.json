@@ -1149,6 +1149,14 @@
     "owner": "HCPerfConfig"
   },
   {
+    "key": "Performance.TickWeight_MISSION_BEACON",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
     "key": "Performance.EnableSharedSaves",
     "type": "bool",
     "default": true,

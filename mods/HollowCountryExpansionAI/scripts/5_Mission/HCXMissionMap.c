@@ -163,9 +163,9 @@ class HCXMissionMapLayer
         if (!mHCXOpen || !mHCXMap) return;
         HCMissionBeaconStore store = HCMissionBeaconStore.Get();
         float now = GetGame().GetTickTime();
-        int version = store.Poll(now);
+        int revision = store.Poll(now);
         bool stale = now < mHCXStamp || now - mHCXStamp >= 10;
-        if (version != mHCXVersion || stale) HCXBind(store, now, version);
+        if (revision != mHCXVersion || stale) HCXBind(store, now, revision);
         HCXProjectDiscs();
     }
 
@@ -206,7 +206,7 @@ class HCXMissionMapLayer
         return true;
     }
 
-    protected void HCXBind(HCMissionBeaconStore store, float now, int version)
+    protected void HCXBind(HCMissionBeaconStore store, float now, int revision)
     {
         int wanted = store.Count();
         if (wanted > HCX_MAX_SLOTS) wanted = HCX_MAX_SLOTS;
@@ -245,7 +245,7 @@ class HCXMissionMapLayer
         // An incomplete fill (creation budget) resumes on the next frame.
         if (complete)
         {
-            mHCXVersion = version;
+            mHCXVersion = revision;
             mHCXStamp = now;
         }
     }

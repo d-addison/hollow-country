@@ -1710,6 +1710,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | 50 | `HC_WORK_PICKERS` | Scavenger party trip admission. |
 | 51 | `HC_WORK_PICK_CARRY` | Scavenger carried-goods unload receipts. |
 | 52 | `HC_WORK_PICK_HOUSES` | Scavenger run house scan. |
+| 53 | `HC_WORK_MISSION_BEACON` | Public mission map table poll (one unit every two seconds). |
 
 Package hash caching serializes read/merge/replace with persistent OS-held locks; process exit releases ownership. Stop older lock-file builds before switching protocols. Windows contention remains unverified.
 

@@ -89,9 +89,9 @@ class HCInfoEventCache
     array<ref HCInfoPin> Pins(float now, float worldSize)
     {
         HCMissionBeaconStore store = HCMissionBeaconStore.Get();
-        int version = store.Poll(now);
-        if (version == mHCVersion && now >= mHCStamp && now - mHCStamp < 10) { return mHCPins; }
-        mHCVersion = version;
+        int revision = store.Poll(now);
+        if (revision == mHCVersion && now >= mHCStamp && now - mHCStamp < 10) { return mHCPins; }
+        mHCVersion = revision;
         mHCStamp = now;
         mHCPins.Clear();
         for (int index = 0; index < store.Count(); index++)

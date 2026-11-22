@@ -254,7 +254,7 @@ class HCMissionBeacon
         m_Elapsed = m_Elapsed + deltaTime;
         if (m_Elapsed < 2) { return; }
         HCUnitBudget sharedWork = HCServer.HCTickWork();
-        if (!sharedWork || !sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+        if (!sharedWork || !sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_MISSION_BEACON, 1)) { return; }
         m_Elapsed = 0;
         m_LastNow = context.Now;
         m_LastNowAt = GetGame().GetTickTime();
@@ -270,7 +270,7 @@ class HCMissionBeacon
             {
                 string reason = runtime.HCMissionOutcome(present.Id);
                 m_Entries.RemoveOrdered(index);
-                Print("[HC Events] mission ended id=" + present.Id + " reason=" + reason);
+                HCLogEnded(present.Id, reason);
                 HCNoticeEnded(present, reason);
                 changed = true;
             }
@@ -284,7 +284,7 @@ class HCMissionBeacon
                 if (!m_FullLogged)
                 {
                     m_FullLogged = true;
-                    Print("[HC Events] mission map table full cap=" + cap.ToString() + " refused id=" + source.Id + " reason=table_full");
+                    HCLogFull(cap, source.Id);
                 }
                 continue;
             }
@@ -293,6 +293,18 @@ class HCMissionBeacon
         }
         if (available <= cap) { m_FullLogged = false; }
         if (changed) { HCBroadcast(); }
+    }
+
+    // One line per mission end, at most the table cap per poll.
+    protected void HCLogEnded(string id, string reason)
+    {
+        Print("[HC Events] mission ended id=" + id + " reason=" + reason);
+    }
+
+    // Latched by m_FullLogged: one line per overflow episode.
+    protected void HCLogFull(int cap, string id)
+    {
+        Print("[HC Events] mission map table full cap=" + cap.ToString() + " refused id=" + id + " reason=table_full");
     }
 
     protected bool HCSourced(string id)
