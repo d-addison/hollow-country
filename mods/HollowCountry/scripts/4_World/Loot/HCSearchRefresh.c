@@ -345,7 +345,7 @@ class HCSearchRetirementStore
 
     bool HCQueueRetirement(string supplyId)
     {
-        if (m_Fault) { return false; }
+        if (m_Fault || !m_SaveJob) { return false; }
         if (Contains(supplyId)) { return true; }
         bool evicted = m_Data.Recent.Count() >= HCSearchLimits.HCGet().RetirementRecentEntries;
         HCSearchRetirementPolicy.Retain(m_Data, supplyId, HCSearchRetirementPolicy.Fingerprint(supplyId));
@@ -370,8 +370,8 @@ class HCSearchRetirementStore
     }
 
     // The find handle is a local opened and closed within each call (vanilla
-    // 5_Mission/GUI/NewUI/VideoPlayer.c:81 pattern): every pruned file is retired and
-    // deleted before the next one, so each call re-enumerates only what remains.
+    // 5_Mission/GUI/NewUI/VideoPlayer.c:81 pattern). Queue a bounded batch into
+    // one retirement image; only delete barriers from an already committed image.
     bool PruneLegacy(HCSearchHouseJournal journal, int limit)
     {
         string legacyName;
@@ -380,6 +380,7 @@ class HCSearchRetirementStore
         bool more = legacyName != "";
         bool ok = true;
         int examined = 0;
+        bool committedImage = !HCPendingCheckpoint();
         HCUnitBudget legacyWork = HCServer.HCTickWork();
         while (more && examined < limit)
         {
@@ -397,10 +398,10 @@ class HCSearchRetirementStore
             if (journal.TombstonePath(legacy.SupplyId) != legacyPath) { ok = false; break; }
             // Archive readback precedes deletion. An interruption retains both
             // barriers, or a poisoned .tmp that rejects the next journal open.
+            bool durable = committedImage && Contains(legacy.SupplyId);
             if (!HCQueueRetirement(legacy.SupplyId)) { ok = false; break; }
-            // Keep the legacy barrier until the archive readback commits.
-            if (HCPendingCheckpoint()) { break; }
-            if (!DeleteFile(legacyPath)) { ok = false; break; }
+            // Queued ids share an image; keep their legacy barriers until readback.
+            if (durable && !DeleteFile(legacyPath)) { ok = false; break; }
             more = FindNextFile(handle, legacyName, legacyAttributes);
         }
         CloseFindFile(handle);
@@ -936,25 +937,34 @@ class HCSearchRefreshSaveJob : HCSaveJob
 // borrows another pack's cooldown. Supply journals themselves remain immutable.
 modded class HCSearchHouseJournal
 {
-    protected int m_HCCompactIndex = -1;
+    protected ref array<int> m_HCCompactIndices = new array<int>;
+    protected int m_HCCompactCursor;
 
-    int HCPendingCompactIndex() { return m_HCCompactIndex; }
+    int HCPendingCompactIndex()
+    {
+        if (m_HCCompactIndices.Count() == 0) { return -1; }
+        if (m_HCCompactCursor >= m_HCCompactIndices.Count()) { m_HCCompactCursor = 0; }
+        return m_HCCompactIndices[m_HCCompactCursor];
+    }
+    void HCAdvanceCompact() { m_HCCompactCursor++; }
+    bool HCRetirementPending() { return m_Retired && m_Retired.HCPendingCheckpoint(); }
     void HCPumpRetirement() { if (m_Retired) { m_Retired.HCPump(); } }
     void HCStopRetirement() { if (m_Retired) { m_Retired.Stop(); } }
 
     override bool Compact(int index)
     {
-        if (m_HCCompactIndex >= 0) { index = m_HCCompactIndex; }
         HCSearchHouseRow row = Row(index);
         if (!Healthy() || !row || row.Phase < 2) { return false; }
         if (!EnsureRetirement()) { return false; }
         if (m_Retired.Faulted()) { return Fail("retirement checkpoint failed; preserve journal"); }
-        if (m_HCCompactIndex < 0)
+        int pendingSlot = m_HCCompactIndices.Find(index);
+        if (pendingSlot < 0)
         {
+            if (m_HCCompactIndices.Count() >= HCSearchLimits.HCGet().CompactRowsPerMinute) { return false; }
             if (TombstonePath(row.SupplyId) == "") { return Fail("unsafe compact supply identity"); }
             HCSearchRecord intent = Record(row.SiteId, row.SupplyId, row.ItemClass, "retired", row.Phase);
             if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "compact"), intent, 8192)) { return Fail("compact intent write/readback failed"); }
-            m_HCCompactIndex = index;
+            m_HCCompactIndices.Insert(index);
         }
         if (!m_Retired.HCQueueRetirement(row.SupplyId)) { return Fail("retirement queue failed; preserve journal"); }
         // A pending result is cooperative, never a journal fault. The durable
@@ -963,7 +973,7 @@ modded class HCSearchHouseJournal
         HCSearchRecord retired = LoadRecord(index, "compact");
         if (!FinishCompaction(index, retired)) { return false; }
         m_Rows[index] = null;
-        m_HCCompactIndex = -1;
+        m_HCCompactIndices.RemoveItem(index);
         Reindex();
         return true;
     }
@@ -1009,7 +1019,23 @@ modded class HCSearchHouses
 {
     protected int m_CompactNext;
 
-    void HCPumpRetirement() { if (m_Journal) { m_Journal.HCPumpRetirement(); } }
+    void HCPumpRetirement()
+    {
+        if (!m_Journal) { return; }
+        m_Journal.HCPumpRetirement();
+        if (m_Busy || m_Sessions.Count() > 0 || !m_Journal.Healthy() || m_Journal.HCRetirementPending()) { return; }
+        int index = m_Journal.HCPendingCompactIndex();
+        if (index < 0) { return; }
+        // At most one continuation per tick, rotating past a changed admission gate.
+        m_Journal.HCAdvanceCompact();
+        HCSearchHouseRow row = m_Journal.Row(index);
+        if (!row) { return; }
+        string scope = m_Journal.RefreshScope();
+        if (!HCSearchRefreshModule.Ready(scope, row.SiteId) || !m_Journal.BindingReleased(row.SiteId) || SiteResident(row.SiteId)) { return; }
+        HCUnitBudget work = HCServer.HCTickWork();
+        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { return; }
+        if (m_Journal.Compact(index) && !m_Journal.SiteBound(row.SiteId)) { HCSearchRefreshModule.ForgetCompacted(scope, row.SiteId); }
+    }
     override void Stop()
     {
         if (m_Journal) { m_Journal.HCStopRetirement(); }
@@ -1026,14 +1052,13 @@ modded class HCSearchHouses
         if (limit > m_Settings.MaxTickWorkItems) { limit = m_Settings.MaxTickWorkItems; }
         int legacyLimit = limits.LegacyFilesPerMinute;
         if (legacyLimit > m_Settings.MaxTickWorkItems) { legacyLimit = m_Settings.MaxTickWorkItems; }
-        if (!m_Journal.PruneLegacyTombstones(legacyLimit)) { return; }
+        if (m_Journal.HCPendingCompactIndex() < 0 && !m_Journal.PruneLegacyTombstones(legacyLimit)) { return; }
         if (limit > m_Journal.Count()) { limit = m_Journal.Count(); }
         // Wave 13 (#138): each inspected row takes one shared core-tick unit; a refused request keeps
         // m_CompactNext and the next minute resumes there.
         HCUnitBudget sharedWork = HCServer.HCTickWork();
         while (examined < limit)
         {
-            if (m_Journal.HCPendingCompactIndex() >= 0) { m_CompactNext = m_Journal.HCPendingCompactIndex(); }
             if (m_CompactNext >= m_Journal.Count()) { m_CompactNext = 0; }
             if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { break; }
             int compactIndex = m_CompactNext;
@@ -1048,7 +1073,11 @@ modded class HCSearchHouses
             if (m_Journal.BindingReleased(compactSite) && !SiteResident(compactSite))
             {
                 if (m_Registry && !m_Registry.Forget(candidate.SupplyId)) { return; }
-                if (!m_Journal.Compact(compactIndex)) { return; }
+                if (!m_Journal.Compact(compactIndex))
+                {
+                    if (!m_Journal.Healthy()) { return; }
+                    continue;
+                }
                 if (!m_Journal.SiteBound(compactSite)) { HCSearchRefreshModule.ForgetCompacted(scope, compactSite); }
             }
         }

@@ -161,6 +161,8 @@ class HCXAIFortification
             HCFinishPlacement();
             return;
         }
+        // A cancelled reservation must commit before another candidate can spawn.
+        if (HCPendingCheckpoint()) { return; }
         if (m_Queue.Count() == 0) { return; }
         m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
         if (!m_Work.HCContinue()) { return; }
@@ -237,8 +239,8 @@ class HCXAIFortification
     {
         HCXAIFortificationSite site = m_PendingSite;
         m_PendingSite = null;
-        // Recheck admission after the IO wait. A refused creation leaves its
-        // durable slot spent; never create in front of a newly arrived player.
+        // Recheck admission after the IO wait. No object exists on refusal, so
+        // remove the reservation durably before retrying another alternative.
         bool clear = HCBuildingClaim.HCAIFortificationAllowed(m_PendingAt);
         HCXZoneGuards guards = HCXZoneGuards.Active();
         if (guards && guards.BySite(site.Id) && !guards.Held(site.Id)) { clear = false; }
@@ -254,7 +256,19 @@ class HCXAIFortification
             if (fort) { m_Placed++; HCReached.Mark("camps.ai_fortification_spawn"); }
             else { m_SpawnFailed++; }
         }
-        else { m_Deferred++; }
+        else
+        {
+            m_Deferred++;
+            m_State.Reserved.RemoveItem(site.Id + ":" + site.PartIndex.ToString());
+            m_Revision++;
+            m_SaveJob.HCDirty = true;
+            m_SaveJob.HCUrgent = true;
+            m_SaveJob.HCDue = GetGame().GetTickTime();
+            site.Attempt++;
+            if (site.Attempt >= 8) { m_NoRoom++; site.PartIndex++; site.Attempt = 0; }
+            m_Queue.Insert(site);
+            return;
+        }
         site.PartIndex++;
         site.Attempt = 0;
         m_Queue.Insert(site);
