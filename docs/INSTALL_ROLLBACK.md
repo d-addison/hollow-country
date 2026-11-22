@@ -127,12 +127,56 @@ opened for mutation. It does not rewrite DayZ saves, convert Hollow Country
 runtime schemas, reconcile live inventories, reset building epochs, migrate CE
 ownership, or declare old saves compatible with new scripts.
 
-A future gameplay schema change needs its own versioned migrator: back up the
+A gameplay schema change needs its own versioned migration step: back up the
 stopped server's saves; migrate a disposable copy; test load/restart and state
 invariants in the pinned DayZ build; then test exact restore with the previous
 signed package and matching save snapshot. Package rollback alone cannot undo
 state written by a newer runtime. Never silently wipe or restore profiles to
 make an incompatible mod load. Those native save-migration gates remain open.
+
+### Runtime migration runner (`HCMigrationRunner`)
+
+The mod itself carries a boot-time runner for persisted Hollow Country profile
+files. It runs once per server start inside the persistence admission, after the
+recovery attestation is accepted and before any store module opens its file.
+It keeps no ledger: each boot every registered step inspects its target file, so
+a crash at any point leaves a state the next boot classifies and repairs. No
+step that changes behaviour is registered until a plan names the schema change;
+with none registered the runner only prints the line below and a self-test
+receipt. Native behaviour is `runtime=PENDING` until the lead's boot check.
+
+Per step, with target `T`, scratch image `P` (`T.mig-<id>.tmp`) and backup `B`
+(`T.pre-<id>.bak`, then `.bak2`..`.bak4` when a slot holds other bytes):
+
+1. Classify `T` as current, old, newer or unknown. Current is skipped; newer or
+   unknown is refused and never edited.
+2. Copy `T` to the first free backup slot and read it back. An occupied slot with
+   different bytes is evidence and is never overwritten or deleted.
+3. Write the full migrated image `P`; it must itself classify as current.
+4. Delete `T`, copy `P` over it, read `T` back, then delete `P`. The native API has
+   no rename, so this step is not atomic; `P` and `B` stay until readback passes.
+
+Every receipt is one RPT line: `[HC Migrate] id=<id> action=<applied|skipped|refused> reason=<r>`.
+A refusal (or a step deferred past the boot budget of 8 steps / 250 ms) closes only
+that step's store for this boot through the shared quarantine line
+`[HC Plan] HC-28 store=<name> recovery=quarantined reason=migration_<r> files=preserved`.
+Deferred steps then finish one per tick, so the next boot is clean. No file is
+deleted or wiped to make a refusal go away.
+
+| Interruption | Next boot |
+| --- | --- |
+| Before or during the backup copy | `T` is still old; a torn backup slot is skipped, a fresh slot is used |
+| After backup, before or during `P` | `T` is old; stale `P` is deleted and recomputed, an identical backup is reused |
+| After `P`, before deleting `T` | Same as above |
+| After deleting `T`, before the copy | `T` absent and `P` present: `P` is restored only if a backup slot proves it descends from that backup (old class plus the deterministic transform reproduces `P`) -> `recovered_missing_target` |
+| During the copy over `T` | `T` is an empty file or a torn prefix of `P`: same proof, then `recovered_torn_commit`. Any other content is refused as `target_schema_unknown` |
+| After the copy, before deleting `P` | `T` is current; the stale `P` is removed (`current_pending_removed`) |
+| Newer schema on disk (a rollback of the mod without the saves) | `refused reason=newer_schema`; install the matching mod version, or restore the matching `B` by hand with the server stopped |
+
+To undo a migration by hand with the server stopped, copy the `.pre-<id>.bak`
+file back over the target and install the previous PBOs. `storage_*` (the DayZ
+hive) is never touched. The runner never prunes `.pre-` backups; delete them only
+after the release has proven stable.
 
 ## Exact package rollback
 

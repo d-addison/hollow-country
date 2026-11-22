@@ -3390,6 +3390,206 @@
       "message": "DeleteFile reachable via HCXZoneGuards.OnTick -> HCXAISiteDirector.HCZoneService -> HCXAIDefaults.ProvisionLoadout",
       "native": false,
       "reason": "W3-01 R5: required synchronous zone-guard copy/readback barrier retained; safe HC loadout names only, shared HCProfileDefaults reads are capped at 1048576 bytes; stale-intent cleanup accepts only whole targets <=65536 bytes. Existing whole target retires only its HC intent, and target absence is rechecked before copy; cleanup DeleteFile failures refuse explicitly. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 300,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 301,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 322,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 322,
+      "symbol": "HCMigrationRunner.HCRunStep",
+      "key": "FileExist#3",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 355,
+      "symbol": "HCMigrationRunner.HCMigrate",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 394,
+      "symbol": "HCMigrationRunner.HCBackup",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 424,
+      "symbol": "HCMigrationRunner.HCProvenance",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCProvenance; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 461,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "FileExist#2",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 466,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 467,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "CopyFile#2",
+      "message": "CopyFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c",
+      "line": 475,
+      "symbol": "HCMigrationRunner.HCCommit",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCRecover -> HCMigrationRunner.HCCommit; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 294,
+      "symbol": "HCPersistenceDisposition.HCReadArchive",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCPersistenceDisposition.HCReadArchive; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 305,
+      "symbol": "HCPersistenceDisposition.HCArchive",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup -> HCPersistenceDisposition.HCArchive; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 306,
+      "symbol": "HCPersistenceDisposition.HCArchive",
+      "key": "CopyFile#1",
+      "message": "CopyFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCMigrationRunner.HCBackup -> HCPersistenceDisposition.HCArchive; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 315,
+      "symbol": "HCPersistenceDisposition.HCWriteRawNew",
+      "key": "FileExist#1",
+      "message": "FileExist in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCPersistenceDisposition.HCWriteRawNew; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
+    },
+    {
+      "rule": "HC-P009",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 316,
+      "symbol": "HCPersistenceDisposition.HCWriteRawNew",
+      "key": "OpenFile#1",
+      "message": "OpenFile in a synchronous startup loop via HCGroupModule.OnStart -> HCPersistenceDisposition.HCLoad -> HCMigrationRunner.HCBoot -> HCMigrationRunner.HCRunOne -> HCMigrationRunner.HCRunStep -> HCMigrationRunner.HCMigrate -> HCPersistenceDisposition.HCWriteRawNew; enqueue bounded startup work",
+      "native": false,
+      "reason": "W4-08 migration runner: bounded boot pass (<=8 steps and a 250 ms HCWorkBudget slice, the first step always runs; later steps are deferred one per tick and their store refuses that boot, never silently). Per step: <=4 fixed backup-slot probes and one <=8 MiB read/copy/readback. No step is registered by default, so the loop body does not run. Offline candidate; native disk latency unverified."
     }
   ]
 }
