@@ -18,7 +18,13 @@ class HCXAILoadoutImage : HCStagedSaveImage
         if (m_Phase == 3 && !m_CopyChecked)
         {
             m_CopyChecked = true;
-            if (FileExist(m_Path)) { return HCFail(); }
+            if (FileExist(m_Path))
+            {
+                // The target belongs to someone else now. Retire our private
+                // intent so a later operator file is never mistaken for our tear.
+                if (!DeleteFile(m_Temporary)) { Print("[HC Expansion AI] loadout default refused reason=intent_delete"); }
+                return HCFail();
+            }
             return HCSaveJob.STEP_MORE;
         }
         return super.HCStepImage();
@@ -57,6 +63,7 @@ class HCXAILoadoutSave : HCSaveJob
     protected string m_Existing;
     protected string m_Preserved;
     protected string m_Target;
+    protected string m_TornPath;
     bool Finished;
     int Provisioned;
     override string HCName() { return "HCX-loadouts"; }
@@ -163,13 +170,21 @@ class HCXAILoadoutSave : HCSaveJob
         }
         if (m_Phase == 15)
         {
-            if (!CopyFile(m_Target, m_Target + ".hcdefault.torn")) { this.HCRefused("torn_preserve"); this.HCNext(); }
+            // CopyFile is not assumed to overwrite: use the first free numbered
+            // slot (like HCPreserveRoute) and refuse when all five are taken.
+            m_TornPath = "";
+            for (int tornSlot = 0; tornSlot < 5; tornSlot++)
+            {
+                if (!FileExist(m_Target + ".hcdefault.torn-" + tornSlot.ToString())) { m_TornPath = m_Target + ".hcdefault.torn-" + tornSlot.ToString(); break; }
+            }
+            if (m_TornPath == "") { this.HCRefused("torn_preserve_slots_full"); this.HCNext(); }
+            else if (!CopyFile(m_Target, m_TornPath)) { this.HCRefused("torn_preserve"); this.HCNext(); }
             else { m_Phase = 17; }
             return STEP_MORE;
         }
         if (m_Phase == 17)
         {
-            m_Source = OpenFile(m_Target + ".hcdefault.torn", FileMode.READ);
+            m_Source = OpenFile(m_TornPath, FileMode.READ);
             m_Open = m_Source != 0;
             m_Preserved = "";
             if (!m_Open) { this.HCRefused("torn_preserve"); this.HCNext(); }
@@ -429,14 +444,21 @@ class HCXAIDefaults
         }
         // The target was absent before this copy, so a copy that fails readback is removed and retried next boot.
         bool provCopied = false;
+        bool provRecheckHit = false;
         bool provOk = HCProfileDefaults.WriteText(temporary, text);
-        if (provOk) { provOk = !FileExist(target); }
+        if (provOk) { provOk = !FileExist(target); provRecheckHit = !provOk; }
         if (provOk) { provCopied = CopyFile(temporary, target); provOk = provCopied; }
         if (provOk) { provOk = HCProfileDefaults.ReadText(target) == text; }
         if (!provOk)
         {
             // Remove our copied target on mismatch. On a failed copy retain
             // intent: a newly appeared whole operator file must be preserved.
+            if (provRecheckHit)
+            {
+                // The pre-copy recheck found a target that is not ours: retire
+                // our intent so it is never mistaken for our tear later.
+                if (!DeleteFile(temporary)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=intent_delete"); }
+            }
             if (provCopied)
             {
                 if (!DeleteFile(target)) { Print("[HC Expansion AI] loadout default refused name=" + name + " reason=torn_delete"); }

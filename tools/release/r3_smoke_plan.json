@@ -664,12 +664,12 @@
     {
       "module": "optional-expansion-human-ai",
       "feature": "actor_spawned",
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c:568",
-      "trigger": "Adapter native body creation, fairness/group checks, inventory and lease confirmation reach real actor accounting.",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISitePatrols.c:204",
+      "trigger": "A live site-patrol actor is created by the Expansion patrol, SetupAI runs and the fairness check passes; the counter increments once per spawned actor, never per attempt.",
       "exercise": "server_soak",
-      "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], allow ordinary qualified provider leases to materialize outside sight. 2. Require actor_spawned; site presence or config readiness alone is insufficient.",
+      "steps": "1. Near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], let the site patrol spawn a unit with a player in activation range but outside sight. 2. Require actor_spawned; site presence or config readiness alone is insufficient.",
       "est_minutes": 5,
-      "prerequisites": "Provider enabled; objective actor class, survey/loadout qualification, body/item budgets and journal health. Not every patrol factory necessarily uses this adapter."
+      "prerequisites": "Provider enabled; a qualified site with loadout, shared AI/site budgets and a safe spawn position. Actors removed by the fairness check do not count."
     },
     {
       "module": "optional-expansion-human-ai",

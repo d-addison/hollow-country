@@ -592,6 +592,31 @@ spawned (Expansion dynamic patrols spawn only near players). At start the log al
   rather than as a player is not observed.
 - Expansion AI lets a COT admin spectate one AI, which needs the AI's object in view.
 
+### `[HC XAI] caches refused reason=backup_only_rollback`
+
+The site cache journal is `HollowCountry/expansion-ai-caches.json` under the server
+profile, with its crash-recovery intent `expansion-ai-caches.json.tmp` and the prior
+committed image `expansion-ai-caches.json.bak`. At start, when neither the primary
+nor the `.tmp` is a whole image and a `.bak` exists, the server refuses to load the
+journal rather than guess that the older `.bak` matches the crates in the world. The
+log line is printed once; the site cache feature stays off for that run and nothing is
+reseeded or refilled from the old backup. The server cannot reset itself; recover by
+hand with the server stopped:
+
+1. Inspect the three files together (size and modified time). Keep a copy of all three
+   in a folder outside the profile before changing anything.
+2. If the primary or `.tmp` is a whole JSON object with `"SchemaVersion": 1` and a
+   `Rows` list that is merely unreadable to the loader for another reason, fix or
+   restore that file instead; do not use the `.bak`.
+3. To accept the rollback: copy `expansion-ai-caches.json.bak` over
+   `expansion-ai-caches.json` and delete the `.tmp`. The journal returns to the prior
+   committed save, so a cache looted or refilled since then may be seeded or timed
+   again.
+4. To start the journal fresh: move the primary, `.tmp` and `.bak` out of the profile.
+   Site caches are seeded again as the sites activate.
+5. Start the server and look for the absence of the refusal line. The recovery path is
+   source-built only; no native or soak evidence exists for it.
+
 ## Turning features off
 
 - A V2 feature: set its `Enable*` value to `false` in

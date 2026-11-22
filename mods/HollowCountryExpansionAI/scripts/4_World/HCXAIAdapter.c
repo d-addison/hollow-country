@@ -167,11 +167,6 @@ class HCXAIAdapter extends HCModule
         if (settings.DamageMultiplier != 1 || settings.DamageReceivedMultiplier != 1) { return "DamageMultiplier/DamageReceivedMultiplier must be 1"; }
         return "";
     }
-    // Expansion bridge callbacks remain callable. They only recorded retired
-    // spawner slots/kills; live site encounters observe their own actors through
-    // HCXAIEncounters, so there is no lease bookkeeping to perform here.
-    void RecordDelete(Object actor) {}
-    void RecordDeath(Object actor, string participantId) {}
     // Raw ticks use the same counter as HC Perf; divide by that window's
     // ticks_per_ms. Log only a new peak above the cooperative 16 ms target.
     protected void HCStageCost(string stage, int began)

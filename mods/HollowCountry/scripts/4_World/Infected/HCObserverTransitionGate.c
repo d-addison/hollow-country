@@ -7,25 +7,6 @@
 // EnString.c:199 Length, :526 string.Format; EnDebug.c:96 Print.
 // No raycasts, sight/optics/camera tracking, destinations or player data exports.
 // Cached samples are up to one second old; they cannot prove absence between samples.
-// Legacy policy validation remains for JSON profile compatibility.
-class HCObserverTransitionPolicy
-{
-    bool ProvisionalDiagnostic = false;
-    int Revision = 0;
-    float TimeBound = 0;
-    float DistanceBound = 0;
-    float DurationBound = 0;
-    float NearDistance = 0;
-    float FarDistance = 0;
-    float SnapshotTTL = 0;
-    float VisibilityGrace = 0;
-    float ProximityGrace = 0;
-    float QuietPeriod = 0;
-    float TransitionCooldown = 0;
-    int MaxObservers = 0;
-    int MaxSamples = 0;
-}
-
 // Session-local evidence only. Eviction/parameter changes always restart grace.
 class HCObserverTransitionSite extends Managed
 {
@@ -194,7 +175,7 @@ class HCObserverTransitionRuntime extends Managed
     }
 }
 
-// Shared session-local distance veto and legacy profile policy validation.
+// Shared session-local distance veto.
 class HCObserverTransitionGate
 {
     protected static ref HCObserverTransitionRuntime s_Runtime;
@@ -218,85 +199,5 @@ class HCObserverTransitionGate
     static bool Finite(float value)
     {
         return value == value && value - value == 0;
-    }
-
-    static bool Bounded(float value, float bound)
-    {
-        return HCObserverTransitionGate.Finite(value) && value >= 0 && value <= bound;
-    }
-
-    static bool Duration(float value, float bound)
-    {
-        return HCObserverTransitionGate.Bounded(value, bound) && value > 0;
-    }
-
-    static bool ValidPolicy(HCObserverTransitionPolicy policy)
-    {
-        if (!policy || !policy.ProvisionalDiagnostic || policy.Revision <= 0)
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Finite(policy.TimeBound) || !(policy.TimeBound > 0))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Finite(policy.DistanceBound) || !(policy.DistanceBound > 0))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.DurationBound, policy.TimeBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Bounded(policy.NearDistance, policy.DistanceBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Bounded(policy.FarDistance, policy.DistanceBound))
-        {
-            return false;
-        }
-        if (!(policy.FarDistance > policy.NearDistance))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.SnapshotTTL, policy.DurationBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.VisibilityGrace, policy.DurationBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.ProximityGrace, policy.DurationBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.QuietPeriod, policy.DurationBound))
-        {
-            return false;
-        }
-        if (!HCObserverTransitionGate.Duration(policy.TransitionCooldown, policy.DurationBound))
-        {
-            return false;
-        }
-        // Structural work ceiling, not a measured population or gameplay budget.
-        if (!(policy.MaxSamples >= 1 && policy.MaxSamples <= 32))
-        {
-            return false;
-        }
-        return policy.MaxObservers >= 1 && policy.MaxObservers <= policy.MaxSamples;
-    }
-
-    // Deliberately no caller-provided override. Actual remote camera coverage,
-    // CE lifecycle authority and durable entity transitions remain unresolved.
-    static bool ProviderCapabilityResolved()
-    {
-        return false;
-    }
-
-    static bool CanTransition()
-    {
-        return HCObserverTransitionGate.ProviderCapabilityResolved();
     }
 }

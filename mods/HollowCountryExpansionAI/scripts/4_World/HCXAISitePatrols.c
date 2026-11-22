@@ -199,6 +199,10 @@ class HCXAISitePatrol : HCXExpansionPatrol
             Print("[HC Expansion AI] site " + m_HCSiteId + " actor failed the fairness check; removed");
             HCXExpansionBridge.HCBaseDespawn(ai);
         }
+        else
+        {
+            HCModuleReadiness.HCUse("optional-expansion-human-ai", "actor_spawned");
+        }
     }
 }
 class HCXAISitePatrols : HCXAISiteSurvey
