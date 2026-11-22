@@ -119,6 +119,9 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    At a supported roadside wreck, hold `Wrench` -> **Salvage wreck**, finish and
    inspect the created part: **WreckSalvage/part_created**. Decorative furniture,
    unsupported wrecks and empty/unbound searches can refuse; do not count refusal.
+   In a House with a template search site, stand within 2.5 m of the site, run the
+   native search action to its commit and take the found item:
+   **Interiors/house_search_completed**. Empty, refused or interrupted searches do not count.
 5. [ ] On clear flat ground use Infected -> **sitter**; let pose settle, then
    approach/noise/hit to produce a real wake: **InfectedVariety/actor_woken**.
    Land an ordinary close melee hit on an infected:
@@ -399,6 +402,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `InfectedReach/vault_started` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:663`.
 - [ ] `InfectedReach/vehicle_battered` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c:812`.
 - [ ] `InfectedVariety/actor_woken` — `admin_action`; `mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c:121`.
+- [ ] `Interiors/house_search_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c:937`.
 - [ ] `Leads/lead_received` — `client_action`; `mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433`.
 - [ ] `Lighting/blend_applied` — `admin_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c:176`.
 - [ ] `LootRefresh/timer_rearmed` — `admin_action`; `mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c:840`.

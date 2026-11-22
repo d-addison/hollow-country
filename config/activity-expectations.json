@@ -507,6 +507,23 @@
       "note": "Build 117 newest RPT finishes 1500 template props about 43 minutes after first readiness; allow 60 minutes for bounded incremental placement. This is audit policy, not performance acceptance."
     },
     {
+      "module": "Interiors",
+      "feature": "house-search-completed",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Interiors feature=house_search_completed count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
+      "note": "A player completes one House search and the item move commits; the first-use line and bounded summaries carry the cumulative count."
+    },
+    {
       "module": "Leads",
       "feature": "active-leads",
       "signal": {

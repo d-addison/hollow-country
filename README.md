@@ -1638,7 +1638,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | Consumer ID | Constant | Work |
 | :--- | :--- | :--- |
 | 0 | `HC_WORK_INFECTED` | Infected sampling. |
-| 1 | `HC_WORK_INTERIORS` | Interior lock expiry. |
+| 1 | `HC_WORK_INTERIORS` | Interiors template pack loading and furnishing placement slices. |
 | 2 | `HC_WORK_SEARCH_BIND` | Search binding. |
 | 3 | `HC_WORK_SEARCH_MAINT` | Search maintenance and coverage reporting. |
 | 4 | `HC_WORK_SEARCH_REFRESH` | Revisit refresh. |

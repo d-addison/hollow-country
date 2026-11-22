@@ -929,7 +929,13 @@ class HCSearchHouses
             m_Busy = false;
         }
         site.Phase = 3;
-        if (phase == 2) site.Phase = 2;
+        if (phase == 2)
+        {
+            site.Phase = 2;
+            // The pilot's search counters are retired; this is the only live House search completion.
+            HCActivity().Add("house_completed");
+            HCModuleReadiness.HCUse("Interiors", "house_search_completed");
+        }
         return phase == 2;
     }
 

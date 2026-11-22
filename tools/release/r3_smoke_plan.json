@@ -343,6 +343,16 @@
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; EnableInfectedVariety; available body/pose capacity; fallback dormant queue only at an eligible authored site."
     },
     {
+      "module": "Interiors",
+      "feature": "house_search_completed",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c:937",
+      "trigger": "A House search commit moves one stock item to the player (journal phase 2); empty, refused or interrupted searches earn nothing.",
+      "exercise": "client_action",
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_search_completed.",
+      "est_minutes": 3,
+      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; a House site with stock CE items inside its sphere."
+    },
+    {
       "module": "Leads",
       "feature": "lead_received",
       "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c:433",

@@ -58,6 +58,7 @@ modded class HCModuleReadiness
         if (module == "Interiors")
         {
             HCRegisterUse("Interiors", "pathgraph_refresh");
+            HCRegisterUse("Interiors", "house_search_completed");
         }
         if (module == "Shelters") { HCRegisterUse("Shelters", "pathgraph_refresh"); }
         if (module == "ObjectSpawner") { HCRegisterUse("ObjectSpawner", "pathgraph_refresh"); }
