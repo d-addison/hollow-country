@@ -14,6 +14,9 @@ class HCAILimits
     static float CAUTION_RANGE = 30;
     static float CAUTION_HOSTILE_RANGE = 60;
     static float CAUTION_GUNFIRE_RANGE = 80;
+    // Seconds a non-hostile AI faces/warns a raised weapon (40 m < d <= 80 m) before hostility.
+    // CAUTION_HOSTILE_RANGE is reserved (no effect since the caution grace, 2026-11-22).
+    static int CAUTION_GRACE = 3;
     int MaxLiveGroups = 15;
     int MaxLiveAI = 72;
     int OccupationMin = 3;
@@ -41,6 +44,7 @@ class HCAILimits
     int CautionRangeM = 30;
     int CautionHostileRangeM = 60;
     int CautionGunfireRangeM = 80;
+    int CautionGraceSeconds = 3;
 
     static HCAILimits Get()
     {
@@ -55,6 +59,7 @@ class HCAILimits
         HCAILimits.CAUTION_RANGE = limits.CautionRangeM;
         HCAILimits.CAUTION_HOSTILE_RANGE = limits.CautionHostileRangeM;
         HCAILimits.CAUTION_GUNFIRE_RANGE = limits.CautionGunfireRangeM;
+        HCAILimits.CAUTION_GRACE = limits.CautionGraceSeconds;
         limits.Log();
     }
     static int Value(string key, int value, int low, int high)
@@ -95,9 +100,11 @@ class HCAILimits
         if (CautionRangeM == 0) { CautionRangeM = 30; }
         if (CautionHostileRangeM == 0) { CautionHostileRangeM = 60; }
         if (CautionGunfireRangeM == 0) { CautionGunfireRangeM = 80; }
+        if (CautionGraceSeconds == 0) { CautionGraceSeconds = 3; }
         CautionRangeM = HCAILimits.Value("CautionRangeM", CautionRangeM, 1, 100);
         CautionHostileRangeM = HCAILimits.Value("CautionHostileRangeM", CautionHostileRangeM, 1, 100);
         CautionGunfireRangeM = HCAILimits.Value("CautionGunfireRangeM", CautionGunfireRangeM, 1, 100);
+        CautionGraceSeconds = HCAILimits.Value("CautionGraceSeconds", CautionGraceSeconds, 1, 30);
         if (OccupationMin > OccupationMax)
         {
             Print("[HC AI] invalid AILimits.OccupationMin / AILimits.OccupationMax reversed; defaults restored");

@@ -248,6 +248,7 @@ class HCOperatorSettingsRegistry
         HCAdd("AILimits.CautionRangeM", "int", 30, 1, 100, "HCAILimits");
         HCAdd("AILimits.CautionHostileRangeM", "int", 60, 1, 100, "HCAILimits");
         HCAdd("AILimits.CautionGunfireRangeM", "int", 80, 1, 100, "HCAILimits");
+        HCAdd("AILimits.CautionGraceSeconds", "int", 3, 1, 30, "HCAILimits");
         HCAdd("MaxFamiliarityRows", "int", 0, 0, 128, "HCSettings");
         HCAdd("SearchDensityScale", "float", 0, 0.5, 2, "HCSettings");
         HCAdd("W38Situations.Version", "int", 1, 1, 1, "HCW38SituationPolicy");
@@ -718,6 +719,7 @@ class HCSettings
         if (HCLogNonDefault("AILimits.CautionRangeM", AILimits.CautionRangeM.ToString(), defaults.AILimits.CautionRangeM.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.CautionHostileRangeM", AILimits.CautionHostileRangeM.ToString(), defaults.AILimits.CautionHostileRangeM.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.CautionGunfireRangeM", AILimits.CautionGunfireRangeM.ToString(), defaults.AILimits.CautionGunfireRangeM.ToString())) { changed++; }
+        if (HCLogNonDefault("AILimits.CautionGraceSeconds", AILimits.CautionGraceSeconds.ToString(), defaults.AILimits.CautionGraceSeconds.ToString())) { changed++; }
         if (HCLogNonDefault("MaxFamiliarityRows", MaxFamiliarityRows.ToString(), defaults.MaxFamiliarityRows.ToString())) { changed++; }
         float effectiveSearchDensityScale = HCEffectiveSearchDensity();
         float defaultSearchDensityScale = defaults.HCEffectiveSearchDensity();
