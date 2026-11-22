@@ -512,10 +512,24 @@ class HCXJourneyReplans
     {
         for (int index = s_Queue.Count() - 1; index >= 0; index--)
         {
-            if (s_Queue[index].State == state) { s_Queue.RemoveOrdered(index); }
+            if (s_Queue[index].State == state)
+            {
+                HCClearFixture(s_Queue[index]);
+                s_Queue.RemoveOrdered(index);
+            }
         }
     }
-    static void HCClear() { s_Queue.Clear(); s_Frame = -1; }
+    // The turn owns its recovery observer, including the per-request fixture mark.
+    static void HCClearFixture(HCXJourneyReplanTurn turn)
+    {
+        turn.Recovery.Fixture = false;
+    }
+    static void HCClear()
+    {
+        foreach (HCXJourneyReplanTurn turn : s_Queue) { HCClearFixture(turn); }
+        s_Queue.Clear();
+        s_Frame = -1;
+    }
 
     static void HCQueue(HCXAISiteState state, eAIGroup group, vector destination)
     {
@@ -531,7 +545,9 @@ class HCXJourneyReplans
         turn.Destination = destination;
         turn.Recovery.Reason = "JOURNEY_REPLAN_QUEUED";
         s_Queue.Insert(turn);
-        Print("[HC XAI] recovery=waiting party=journey reason=JOURNEY_REPLAN_QUEUED runtime=PENDING");
+        string line = "[HC XAI] recovery=waiting party=journey reason=JOURNEY_REPLAN_QUEUED";
+        if (turn.Recovery.Fixture) { line += " fixture=1"; }
+        Print(line + " runtime=PENDING");
     }
 
     static void HCTick()

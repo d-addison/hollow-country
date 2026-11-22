@@ -97,10 +97,11 @@ class HCXAIStuckRecovery
         HCModuleReadiness.HCRegisterUse(s_Module, "convoy_astar");
         HCModuleReadiness.HCRegisterUse(s_Module, "stuck_recovery");
     }
-    static void HCRouteUsed()
+    static void HCRouteUsed(bool fixture = false)
     {
         s_Routes++;
-        HCModuleReadiness.HCUse(s_Module, "convoy_astar");
+        if (fixture) { HCModuleReadiness.HCUseFixture(s_Module, "convoy_astar"); }
+        else { HCModuleReadiness.HCUse(s_Module, "convoy_astar"); }
     }
     static void HCObservePops(int pops) { if (pops > s_PopsMax) { s_PopsMax = pops; } }
     static string HCSummary()
@@ -199,7 +200,7 @@ class HCXAIStuckRecovery
     bool HCBeginReplan(vector position, vector destination, HCConvoyPolicy policy, bool includeEnd = false)
     {
         Replan = new HCXConvoyRoute;
-        if (!Replan.HCPlan(position, destination, policy, includeEnd))
+        if (!Replan.HCPlan(position, destination, policy, includeEnd, this))
         {
             HCGiveUp(Replan.mHCReason);
             return false;
