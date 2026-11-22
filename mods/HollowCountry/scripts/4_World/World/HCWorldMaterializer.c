@@ -134,6 +134,9 @@ class HCWorldMaterializer : HCModule
     protected int m_CustodySnapshotRevision;
     protected string m_CustodySnapshot;
     protected int m_CustodyStage;
+    // Stage that returned the terminal failure, and whether the ceiling writer has finished draining.
+    protected int m_CustodyFailedStage = -1;
+    protected bool m_CustodyCeilingDrained;
     protected float m_CustodyStepTime = -1;
     protected ref HCWorkBudget m_CustodyStepBudget = new HCWorkBudget;
     protected bool m_CustodyFailurePrinted;
@@ -206,6 +209,8 @@ class HCWorldMaterializer : HCModule
         m_CustodyRetryRead = false;
         m_CustodyStepTime = -1;
         m_CustodyStage = 0;
+        m_CustodyFailedStage = -1;
+        m_CustodyCeilingDrained = false;
         m_CustodyRevision = 0;
         m_CustodyCommitted = 0;
         m_CustodyImage = new HCStagedSaveImage;
@@ -1169,7 +1174,7 @@ class HCWorldMaterializer : HCModule
         if (!m_CustodyFailurePrinted)
         {
             m_CustodyFailurePrinted = true;
-            Print("[HC " + GetName() + "] CUSTODY SAVE FAILED path=" + m_CustodyPath + "; ALL NEW AI BLOCKED; inspect active path and intent before restart runtime=PENDING");
+            Print("[HC " + GetName() + "] CUSTODY SAVE FAILED path=" + m_CustodyPath + " stage=" + m_CustodyFailedStage.ToString() + "; ALL NEW AI BLOCKED; inspect active path and intent before restart runtime=PENDING");
         }
         return false;
     }
@@ -1178,24 +1183,31 @@ class HCWorldMaterializer : HCModule
 
     // Routine scheduling owns its grant; only HCPumpCustodyFallback needs
     // the local guard. Flushes must never count no-op STEP_MORE as disk stages.
+    // One drain step per call: the ceiling writer's retained handles first, then the custody
+    // image's. Each call advances at most one native close.
     protected int HCAbortCustody()
     {
-        if (m_LeaseCeiling)
+        if (m_LeaseCeiling && !m_CustodyCeilingDrained)
         {
             int ceilingAbort = m_LeaseCeiling.HCAbort();
-            if (ceilingAbort == HCSaveJob.STEP_MORE) { return ceilingAbort; }
+            if (ceilingAbort != HCSaveJob.STEP_MORE) { m_CustodyCeilingDrained = true; }
+            return HCSaveJob.STEP_MORE;
         }
-        return m_CustodyImage.HCAbort();
+        m_CustodyImage.HCLatchFailed();
+        return m_CustodyImage.HCStepImage();
     }
 
+    // A failing stage only marks custody unusable and reports STEP_MORE; the next calls drain the
+    // retained handles (one close per stage) and the final call reports STEP_FAILED.
     int HCStepCustody()
     {
         if (!m_CustodyReady) { return this.HCAbortCustody(); }
         int result = this.HCWriteCustody();
         if (result == HCSaveJob.STEP_FAILED)
         {
+            m_CustodyFailedStage = m_CustodyStage;
             this.HCCustodySaveFailed();
-            return this.HCAbortCustody();
+            return HCSaveJob.STEP_MORE;
         }
         return result;
     }
@@ -1207,9 +1219,21 @@ class HCWorldMaterializer : HCModule
             // The required ceiling bound and new custody checkpoint have verified.
             // An already sufficient ceiling need not have been rewritten. A separate
             // scheduler stage retires the rollback witness only after that point.
+            // One native call per stage: the presence probe (here), then the delete (stage 6).
+            HCSaveJob.HCOperation = "custody_restore_witness_check";
+            if (FileExist("$profile:HollowCountry/ai-custody.json.restore_pending"))
+            {
+                m_CustodyStage = 6;
+                return HCSaveJob.STEP_MORE;
+            }
+            m_CustodyRestoreWitness = false;
+            m_CustodyReseedUnsafe = false;
+            return this.HCFinishCustodySnapshot();
+        }
+        if (m_CustodyStage == 6)
+        {
             HCSaveJob.HCOperation = "custody_restore_witness_retire";
-            string restoreWitness = "$profile:HollowCountry/ai-custody.json.restore_pending";
-            if (FileExist(restoreWitness) && !DeleteFile(restoreWitness)) { return HCSaveJob.STEP_FAILED; }
+            if (!DeleteFile("$profile:HollowCountry/ai-custody.json.restore_pending")) { return HCSaveJob.STEP_FAILED; }
             m_CustodyRestoreWitness = false;
             m_CustodyReseedUnsafe = false;
             return this.HCFinishCustodySnapshot();
@@ -1227,7 +1251,8 @@ class HCWorldMaterializer : HCModule
         {
             int ceilingResult = m_LeaseCeiling.AdvanceStep(m_CustodySnapshotRevision);
             if (ceilingResult != HCSaveJob.STEP_DONE) { return ceilingResult; }
-            m_CustodyStage = 4;
+            m_CustodyStage = 2;
+            if (m_CustodyText == "") { m_CustodyStage = 4; }
             return HCSaveJob.STEP_MORE;
         }
         if (m_CustodyStage == 4)
@@ -1235,12 +1260,9 @@ class HCWorldMaterializer : HCModule
             // Fresh-store absence must be checked explicitly: the shared prior
             // check with an empty expected image permits an existing primary.
             m_CustodyStage = 2;
-            if (m_CustodyText == "")
-            {
-                HCSaveJob.HCOperation = "custody_check_fresh";
-                if (FileExist(m_CustodyPath)) { return HCSaveJob.STEP_FAILED; }
-                return HCSaveJob.STEP_MORE;
-            }
+            HCSaveJob.HCOperation = "custody_check_fresh";
+            if (FileExist(m_CustodyPath)) { return HCSaveJob.STEP_FAILED; }
+            return HCSaveJob.STEP_MORE;
         }
         if (m_CustodyStage == 2)
         {

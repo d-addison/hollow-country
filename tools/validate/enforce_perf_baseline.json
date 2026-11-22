@@ -184,16 +184,6 @@
       "native": false
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1220,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
       "line": 1220,
@@ -609,32 +599,12 @@
       "reason": "One bounded file per grant: root/index/catalog/hash pages <=4096 bytes, manifest root <=6144; read cap+1 detects oversize before JSON parsing. Index and manifest pages read, hash <=128 bytes, and parse in separate visits; no second page or row resolution in that grant. Engine timing remains pending."
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1191,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
       "line": 1191,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "DeleteFile#1",
       "message": "DeleteFile in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
-      "native": false,
-      "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 687,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "DeleteFile#1",
-      "message": "DeleteFile reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep",
       "native": false,
       "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
     },
@@ -649,32 +619,12 @@
       "reason": "Persistence round-3: startup-only custody relocation remains globally capped at L <= 8; per-boot read bound approximately (L+3) x 21 MiB + 257 MiB, plus bounded 12-byte ceiling reads and metadata probes. Shared rejected archives use eight slots with no overwrite, raw fallback within the shared 128-comparison budget, and non-authoritative retirement after successful copy. Rollback witness and ceiling lower-bound recovery are boot-only; routine ceiling/custody writes remain shared scheduler stages. Offline acknowledgement only; native crash, upgrade and latency evidence pending."
     },
     {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
-      "line": 1231,
-      "symbol": "HCWorldMaterializer.HCWriteCustody",
-      "key": "FileExist#2",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
       "rule": "HC-P009",
       "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
       "line": 1231,
       "symbol": "HCWorldMaterializer.HCWriteCustody",
       "key": "FileExist#2",
       "message": "FileExist in a synchronous startup loop via HCCampModule.OnStart -> HCBuildingClaim.HCStop -> HCSaveScheduler.HCFlush -> HCWorldCustodySaveJob.HCStep -> HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody; enqueue bounded startup work",
-      "native": false,
-      "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
-    },
-    {
-      "rule": "HC-P003",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
-      "line": 767,
-      "symbol": "HCWorldLeaseCeiling.AdvanceStep",
-      "key": "FileExist#1",
-      "message": "FileExist reachable via HCWorldMaterializer.HCStepCustody -> HCWorldMaterializer.HCWriteCustody -> HCWorldLeaseCeiling.AdvanceStep",
       "native": false,
       "reason": "w5-persist-p3: one bounded existence guard in the existing cleanup scheduler stage avoids failing a verified ceiling/custody commit when an operator already removed its witness or lower-bound backup. No new drain loop; native cleanup/crash qualification remains pending."
     },

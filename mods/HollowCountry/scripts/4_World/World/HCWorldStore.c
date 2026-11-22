@@ -765,6 +765,7 @@ class HCWorldLeaseCeiling
     protected bool m_NeedsReseed;
     protected bool m_BackupLowerBound;
     protected bool m_CleanupReady;
+    protected bool m_CleanupBackupPresent;
     protected static bool s_IntentReadFailurePrinted;
     protected static bool s_PrimaryReadFailurePrinted;
     protected static bool s_BackupReadFailurePrinted;
@@ -918,7 +919,12 @@ class HCWorldLeaseCeiling
         return false;
     }
 
-    int HCAbort() { return m_Image.HCAbort(); }
+    // One drain stage per call, like HCStagedSaveImage.HCAbort; this image has no bounded child.
+    int HCAbort()
+    {
+        m_Image.HCLatchFailed();
+        return m_Image.HCStepImage();
+    }
 
     int Ceiling() { return m_Ceiling; }
     bool NeedsReseed() { return m_NeedsReseed || m_Ceiling == 0; }
@@ -931,7 +937,19 @@ class HCWorldLeaseCeiling
         {
             // The new primary has verified. One final bounded scheduler stage
             // retires the lower-bound backup, never before the ceiling commits.
-            if (FileExist(PATH + ".bak") && !DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+            // One native call per stage: the presence probe, then the delete.
+            if (!m_CleanupBackupPresent)
+            {
+                HCSaveJob.HCOperation = "custody_lease_ceiling_backup_check";
+                m_CleanupBackupPresent = FileExist(PATH + ".bak");
+                if (m_CleanupBackupPresent) { return HCSaveJob.STEP_MORE; }
+            }
+            else
+            {
+                HCSaveJob.HCOperation = "custody_lease_ceiling_backup_retire";
+                if (!DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+            }
+            m_CleanupBackupPresent = false;
             m_CleanupReady = false;
             m_BackupLowerBound = false;
             return HCSaveJob.STEP_DONE;
