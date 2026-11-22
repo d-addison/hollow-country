@@ -275,6 +275,8 @@ def main(argv=None):
         return run_main(arguments[1:])
     if arguments[:1] == ['coverage']:
         return coverage_main(arguments[1:])
+    if arguments[:1] == ['lane']:
+        return lane_main(arguments[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('catalog', type=Path, help='Portable test catalog JSON')
     parser.add_argument('--capability', action='append', default=[], metavar='NAME=STATUS',
@@ -627,6 +629,72 @@ def run_main(arguments):
         parser.error(discovery.redact(error))
     print(json.dumps({key: report[key] for key in ("run_id", "status", "complete", "counts", "task_counts")}, sort_keys=True))
     return 1 if report["status"] in ("FAIL", "INCOMPLETE") else 0
+
+
+# Local native lane (spec 002 AV-T029). A report, never a runner: it launches nothing.
+LANE_RULES = (
+    "native adapters run only on the owner's host, never in hosted CI",
+    "each native tool takes the shared host lock itself (tools.release.host_lock); one native run at a time",
+    "a native driver runs only when the capability report lists every capability it needs as available "
+    "and the caller names it with automation run --trust",
+    "this report never launches DayZ, DayZDiag or Workbench and never reports PASS",
+)
+LANE_UNIMPLEMENTED = ("native adapters of AV-T007 and later (orchestration, faults, geometry/data, client access, "
+                      "audio/perf) are not implemented; none is registered")
+
+
+def hosted_ci(environ=None):
+    environ = os.environ if environ is None else environ
+    return any(str(environ.get(name, "")).lower() == "true" for name in ("GITHUB_ACTIONS", "CI"))
+
+
+def native_lane(capabilities, registry=None, environ=None):
+    """Per native driver: BLOCKED (a needed capability is not available) or NOTRUN (nothing launched).
+
+    Bounded by the registry size. The outcome set is BLOCKED and NOTRUN only, so this lane can
+    never be mistaken for a native pass; a PASS exists only in a sealed run of a trusted driver.
+    """
+    registry = drivers.DRIVERS if registry is None else registry
+    refused = hosted_ci(environ)
+    rows = []
+    for driver_id, driver in sorted(registry.items()):
+        if driver.kind != "native":
+            continue
+        states = {name: capabilities.get(name, "unknown") for name in driver.needs}
+        missing = next((name for name in driver.needs if states[name] != "available"), None)
+        if refused:
+            outcome, reason = "BLOCKED", "hosted_ci_refused"
+        elif missing is not None:
+            outcome, reason = "BLOCKED", f"capability_{states[missing]}:{missing}"
+        else:
+            outcome, reason = "NOTRUN", "lane_never_launches_use_run_with_trust_on_owner_host"
+        rows.append({"id": driver_id, "kind": "driver", "needs": states, "outcome": outcome, "reason": reason})
+    for task_id, title in DEFERRED_TASKS.items():
+        rows.append({"id": task_id, "kind": "deferred_task", "needs": {}, "outcome": "NOTRUN", "reason": DEFERRED_REASON, "title": title})
+    blocked = any(row["outcome"] == "BLOCKED" for row in rows)
+    return {
+        "lane": "local-native",
+        "rules": list(LANE_RULES),
+        "unimplemented": LANE_UNIMPLEMENTED,
+        "hosted_ci": refused,
+        "drivers": rows,
+        "status": "BLOCKED" if blocked else "NOTRUN",
+    }
+
+
+def lane_main(arguments):
+    parser = argparse.ArgumentParser(prog="automation lane", description="Local native lane report; " + LANE_RULES[0])
+    parser.add_argument("--machine", action="store_true", help="include file-presence machine discovery")
+    args = parser.parse_args(arguments)
+    try:
+        machine = discovery.discover_machine() if args.machine else None
+        capabilities = discovery.planner_capabilities(discovery.inventory(ROOT, machine))
+    except ValueError as error:
+        parser.error(discovery.redact(error))
+    report = native_lane(capabilities)
+    print(json.dumps(report, sort_keys=True, indent=2, allow_nan=False))
+    # Exit 1 only for a hosted refusal; BLOCKED/NOTRUN are the honest result, never a pass.
+    return 1 if report["hosted_ci"] else 0
 
 
 if __name__ == '__main__':

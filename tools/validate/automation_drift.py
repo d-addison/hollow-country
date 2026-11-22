@@ -2,7 +2,13 @@
 
 Validates the checked-in catalog, capability inventory and runtime feature against the
 framework contract: exact original ID set, capability names and statuses, runtime scenario
-bindings and tags. When the local-only spec documents exist they are cross-checked too
+bindings and tags. The graph check (AV-T029) also requires the catalogue rows, the feature-file
+tags, the BDD bindings and the driver registry to agree: an unknown or missing ID, a driver
+needing an unlisted capability or a binding naming an unknown task is an error. The 001-only
+validators (tools.validate.bdd) never claim this graph; they print "002 graph not checked" and
+point here. Bindings whose bound unit-test file is gone are listed under "unexecutable_bindings"
+(information, not an error: the offline BDD lane cannot run them). When the local-only spec
+documents exist they are cross-checked too
 (original IDs in plan.md, runtime scenario names, acyclic task graph, deferred tasks); when
 absent that part is reported as skipped and never blocks. Reads files only.
 
@@ -14,13 +20,20 @@ from pathlib import Path
 import re
 import sys
 
-from tools.testing import automation, discovery
+from tools.testing import automation, discovery, drivers
 from tools.validate import bdd
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC_DIR = "docs/specs/002-autonomous-validation"
 TASK_HEADING = re.compile(r"^### (AV-T\d{3}):", re.M)
 ID_TAG = re.compile(r"@([A-Z]+-\d{3})\Z")
+TASK_ID = re.compile(r"AV-T\d{3}\Z")
+GRAPH = "002"
+# Tags that are not catalogue IDs: acceptance-criterion, issue and phase references and the
+# feature-level markers of the two feature files.
+REFERENCE_TAG = re.compile(r"@(?:AC-\d{3}|ISSUE-\d+|phase\d+)\Z")
+MARKER_TAGS = frozenset(bdd.RUNTIME_FEATURE_TAGS) | {"@offline", "@synthetic"}
+BINDING_TIERS = ("unit", "slow", "legacy")
 
 
 def _graph(tasks_text):
@@ -51,8 +64,121 @@ def _cycle(graph):
     return any(visit(node) for node in graph)
 
 
-def validate(root=ROOT):
+def _catalogue_errors(catalog, rows):
+    """Cross-references inside the catalogue itself: every named ID must be a row."""
+    errors = []
+    for key, row in sorted(rows.items()):
+        for other in row["related_ids"]:
+            if other not in rows:
+                errors.append(f"catalog row {key}: related ID {other} is not a catalog row")
+    coverage = catalog["coverage"] if isinstance(catalog["coverage"], dict) else {}
+    for key in coverage.get("row_sources", {}):
+        if key not in rows:
+            errors.append(f"coverage.row_sources names unknown row {key}")
+    declared = {source.get("id") for source in catalog["sources"] if isinstance(source, dict)}
+    for key, entries in coverage.get("row_sources", {}).items():
+        for entry in entries:
+            if entry.get("source") not in declared:
+                errors.append(f"coverage.row_sources {key}: source {entry.get('source')} is not declared")
+    for parent, parts in coverage.get("split_criteria", {}).items():
+        for part in parts:
+            if part not in rows:
+                errors.append(f"coverage.split_criteria {parent}: {part} is not a catalog row")
+    for issue, entry in coverage.get("extensions", {}).get("issues", {}).items():
+        for key in entry.get("test_ids", []):
+            if key not in rows:
+                errors.append(f"coverage.extensions issue {issue}: {key} is not a catalog row")
+    return errors
+
+
+def _tag_errors(label, tags, rows):
+    errors = []
+    for tag in tags:
+        if tag in MARKER_TAGS or REFERENCE_TAG.fullmatch(tag):
+            continue
+        match = ID_TAG.fullmatch(tag)
+        if not match:
+            errors.append(f"{label}: tag {tag} is neither a marker, a reference nor a catalog ID")
+        elif match.group(1) not in rows:
+            errors.append(f"{label}: tag {tag} is not a catalog ID")
+    return errors
+
+
+def _feature_errors(root, rows):
+    """Offline feature tags, scenarios and steps against the bindings; runtime tags against rows."""
+    errors = []
+    try:
+        text = (root / "tests/features/offline.feature").read_text(encoding="utf-8")
+        scenarios = bdd.parse_scenarios(text)
+        feature_tags, tags = bdd.parse_feature_tags(text)
+    except (OSError, ValueError) as error:
+        return [f"offline.feature: {error}"]
+    errors += _tag_errors("offline.feature", feature_tags, rows)
+    names = [name for name, _ in scenarios]
+    for name, steps in scenarios:
+        if name not in bdd.BINDINGS:
+            errors.append(f"offline.feature scenario has no binding: {name}")
+        elif steps != bdd.BINDINGS[name][0]:
+            errors.append(f"offline.feature scenario steps differ from its binding: {name}")
+        errors += _tag_errors("offline.feature", tags.get(name, ()), rows)
+    for name in sorted(set(bdd.BINDINGS) - set(names)):
+        errors.append(f"binding has no offline.feature scenario: {name}")
+    return errors
+
+
+def unexecutable_bindings(root):
+    """Bound scenarios whose unit-test file exists in no tier; the offline BDD lane cannot run them."""
     root = Path(root)
+    return sorted(name for name, (_, pattern) in bdd.BINDINGS.items()
+                  if not any(next((root / "tests" / tier).glob(pattern), None) for tier in BINDING_TIERS))
+
+
+def _binding_errors(rows):
+    errors = []
+    for name, (tags, steps, tasks) in bdd.RUNTIME_BINDINGS.items():
+        errors += _tag_errors(f"runtime binding {name}", tags, rows)
+        for task in tasks:
+            if not TASK_ID.fullmatch(task):
+                errors.append(f"runtime binding {name}: {task} is not a task ID")
+    for name, (steps, pattern) in bdd.BINDINGS.items():
+        if not steps or not pattern.startswith("test_") or not pattern.endswith(".py"):
+            errors.append(f"binding {name}: malformed steps or test file pattern")
+    return errors
+
+
+def _driver_errors(root, capabilities, registry):
+    """Registry entries against capability names, trust classes and the deferred-task constants."""
+    errors = []
+    for key, driver in sorted(registry.items()):
+        if driver.id != key or not re.fullmatch(r"(?:offline|native)\.[a-z_]+", key):
+            errors.append(f"driver {key}: ID does not match its registry key or the offline./native. form")
+        if driver.kind not in ("offline", "native") or not key.startswith(driver.kind + "."):
+            errors.append(f"driver {key}: kind does not match its ID")
+        for need in driver.needs:
+            if need not in capabilities:
+                errors.append(f"driver {key}: needs capability {need} that no catalog row lists")
+        if not driver.timeout > 0:
+            errors.append(f"driver {key}: timeout must be positive")
+        try:
+            argv = driver.argv(root, {})
+        except ValueError:
+            if not driver.inputs:
+                errors.append(f"driver {key}: argv failed without declared inputs")
+            continue
+        module = argv[argv.index("-m") + 1] if "-m" in argv else ""
+        if not module or not (root / (module.replace(".", "/") + ".py")).is_file():
+            errors.append(f"driver {key}: module {module or '?'} is not in the repository")
+    if automation.DEFERRED_DRIVER in registry:
+        errors.append("deferred.task must stay out of the registry; deferred tasks are never runnable")
+    for task in automation.DEFERRED_TASKS:
+        if not TASK_ID.fullmatch(task):
+            errors.append(f"deferred task {task} is not a task ID")
+    return errors
+
+
+def validate(root=ROOT, registry=None):
+    root = Path(root)
+    registry = drivers.DRIVERS if registry is None else registry
     errors, skipped = [], []
 
     def fail(message):
@@ -61,7 +187,8 @@ def validate(root=ROOT):
     try:
         catalog = automation.load_catalog(root / "tests/catalog.json")
     except ValueError as error:
-        return {"report_version": 1, "valid": False, "errors": [f"catalog: {error}"], "skipped": []}
+        return {"report_version": 1, "graph": GRAPH, "valid": False, "errors": [f"catalog: {error}"],
+                "skipped": [], "unexecutable_bindings": []}
     rows = {row["id"]: row for row in catalog["tests"]}
     originals = {key for key, row in rows.items() if row["origin"] == "original"}
     if originals != set(automation.ORIGINAL_IDS):
@@ -98,6 +225,12 @@ def validate(root=ROOT):
                 fail(f"capability {name}: deferred capability must stay unknown")
         if document.get("context", {}).get("machine_discovery_performed") is not False:
             fail("checked-in capabilities must be repository-only")
+
+    errors.extend(_catalogue_errors(catalog, rows))
+    errors.extend(_binding_errors(rows))
+    errors.extend(_feature_errors(root, rows))
+    capability_names = {name for row in rows.values() for name in row["requires"]}
+    errors.extend(_driver_errors(root, capability_names, registry))
 
     try:
         report = bdd.runtime_report((root / "tests/features/runtime.feature").read_text())
@@ -139,7 +272,8 @@ def validate(root=ROOT):
             for task in scenario["tasks"]:
                 if task not in graph:
                     fail(f"runtime scenario task {task} missing from tasks.md")
-    return {"report_version": 1, "valid": not errors, "errors": errors, "skipped": skipped}
+    return {"report_version": 1, "graph": GRAPH, "valid": not errors, "errors": errors, "skipped": skipped,
+            "unexecutable_bindings": unexecutable_bindings(root)}
 
 
 def main(argv=None):

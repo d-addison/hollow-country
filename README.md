@@ -1699,6 +1699,7 @@ Package hash caching serializes read/merge/replace with persistent OS-held locks
 - [Operator documentation](docs/README.md): configuration, persistence, backups and recovery.
 - [Addon development](docs/MOD_DEVELOPMENT.md): source layout and package workflow.
 - [Tools](tools/README.md): standard-library tooling, installers and validators.
+- [Automated validation](docs/tools/AUTOMATION.md): what the offline runner, driver registry, discovery, BDD bindings, artifact store and coverage report do today, the offline CI lane and the local native lane. No native adapter exists yet, and an automated result never replaces the owner's one-client smoke.
 - [Tests](tests/README.md): fast Python tooling: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit`; nightly/on-demand tiers use `-s tests/slow` (slow tooling) and `-s tests/legacy` (quarantined Enforce translators/source contracts). Offline checks do not establish DayZ behavior.
 - [Contributing](CONTRIBUTING.md): contribution requirements.
 

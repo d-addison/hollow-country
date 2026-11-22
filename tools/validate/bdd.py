@@ -13,6 +13,11 @@ import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+# This validator knows the 001 offline bindings and the runtime protocol only. It never says
+# anything about the 002 catalogue/feature/binding/driver graph (AV-T029): it reports that
+# graph as not checked and names the validator that does.
+GRAPH_002_STATUS = "not_checked"
+GRAPH_002_VALIDATOR = "tools.validate.automation_drift"
 BINDINGS = {
     "Retain every stock placement through reviewed measurement batches": (
         ("Given synthetic complete stock inventories reviewed poses and native acquisition receipts",
@@ -415,9 +420,10 @@ def main():
         try:
             report = runtime_report(path.read_text())
         except (ValueError, OSError) as exc:
-            print(json.dumps({"intact": False, "error": str(exc)}, sort_keys=True))
+            print(json.dumps({"intact": False, "error": str(exc), "graph_002": GRAPH_002_STATUS}, sort_keys=True))
             return 1
-        print(json.dumps(dict(report, intact=True), sort_keys=True))
+        print(json.dumps(dict(report, intact=True, graph_002=GRAPH_002_STATUS, graph_002_validator=GRAPH_002_VALIDATOR),
+                         sort_keys=True))
         return 0
     try:
         scenarios = parse_scenarios(args.feature.read_text())
@@ -432,6 +438,8 @@ def main():
             # Bindings live in whichever test tier (fast, slow, legacy) now holds them.
             tests = unittest.TestSuite()
             for tier in ("unit", "slow", "legacy"):
+                if not (ROOT / "tests" / tier).is_dir():
+                    continue
                 found = unittest.TestLoader().discover(str(ROOT / "tests" / tier), pattern=BINDINGS[name][1])
                 if found.countTestCases():
                     tests = found
@@ -440,7 +448,8 @@ def main():
                 raise ValueError(f"No behavior tests for {name}")
             suite.addTests(tests)
         result = unittest.TextTestRunner(verbosity=1).run(suite)
-        print(f"Bound offline scenarios: {len(scenarios)}; runtime acceptance: NOT EXECUTED")
+        print(f"Bound offline scenarios: {len(scenarios)}; runtime acceptance: NOT EXECUTED; "
+              f"002 graph: NOT CHECKED (run {GRAPH_002_VALIDATOR})")
         return 0 if result.wasSuccessful() else 1
     except (ValueError, OSError) as exc:
         print(str(exc), file=sys.stderr)
