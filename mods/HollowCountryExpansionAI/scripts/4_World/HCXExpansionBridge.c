@@ -1037,7 +1037,7 @@ modded class eAIPlayerTargetInformation
         int relation = HCXStance.Relation(ai, player);
         // Raised-weapon caution: the step BEFORE raised-weapon hostility. Observed
         // contacts only (LOS and fresh ray above). A non-zero result is the end of a
-        // bounded grace (neutral, 40 m < d <= caution range, weapon raised).
+        // bounded grace (non-hostile, 40 m < d <= 80 m, weapon raised).
         int graceEnd = HCXCautionObservation.Observe(ai, player, distance, raised, relation, warning.Hostile);
         bool cautionHold = graceEnd > 0;
         // Hostile factions skip the warning sequence. Non-hostile contacts engage

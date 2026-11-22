@@ -14,7 +14,8 @@ class HCAILimits
     static float CAUTION_RANGE = 30;
     static float CAUTION_HOSTILE_RANGE = 60;
     static float CAUTION_GUNFIRE_RANGE = 80;
-    // Seconds a neutral AI faces/warns a raised weapon (40 m < d <= caution range) before hostility.
+    // Seconds a non-hostile AI faces/warns a raised weapon (40 m < d <= 80 m) before hostility.
+    // CAUTION_HOSTILE_RANGE is reserved (no effect since the caution grace, 2026-11-22).
     static int CAUTION_GRACE = 3;
     int MaxLiveGroups = 15;
     int MaxLiveAI = 72;

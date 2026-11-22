@@ -6,14 +6,15 @@
 // Band table (non-hostile relation, player weapon raised; anything else is the
 // unchanged stance logic):
 //   d <= 40 m                      hostile at once (unchanged)
-//   40 m < d <= caution range      grace of AILimits.CautionGraceSeconds: actor stays
+//   40 m < d <= 80 m               grace of AILimits.CautionGraceSeconds: actor stays
 //                                  non-hostile, faces the player, shouts through the
 //                                  shared HCXWarnPlayer admission, holds fire
 //                                  (HCXWarningBlocked); then hostile if still raised
-//   caution range < d <= 80 m      hostile at once (unchanged)
 //   d > 80 m                       de-escalated (unchanged)
-// Caution range = HCStancePolicy.Evaluate: CautionRangeM, or CautionGunfireRangeM after
-// heard gunfire, clamped to 80 m. Hostile-relation actors never get a grace.
+// The grace band is the same 80 m line where raised-weapon hostility applies; the
+// caution ranges (CautionRangeM / CautionGunfireRangeM via HCStancePolicy.Evaluate)
+// no longer bound it and are only reported in the first-warn log line. Hostile-
+// relation actors (and so CautionHostileRangeM) never get a grace.
 // The grace never fires and no stop gesture is made at a raised weapon: the actor
 // keeps its own weapon up. Escalation stays with Expansion and the stance logic.
 // Per actor-group/player pair cooldown, bounded pair table, shared
@@ -51,10 +52,10 @@ class HCXCautionObservation
         return nowMs - lastMs <= GUNFIRE_WINDOW_MS;
     }
     // Pure: is this contact in the grace band (see table above)?
-    static bool InBand(float distance, bool raised, bool gunfire, int relation)
+    static bool InBand(float distance, bool raised, int relation)
     {
-        if (relation < 0 || distance != distance || distance <= HOSTILE_M || distance > MAX_M) { return false; }
-        return HCStancePolicy.Evaluate(raised, distance, gunfire, relation) == HCStancePolicy.WARN;
+        if (!raised || relation < 0 || distance != distance || distance <= HOSTILE_M || distance > MAX_M) { return false; }
+        return true;
     }
     // Free a slot only from expired rows; never evict a live grace or cooldown.
     protected static bool HasRoom(int nowMs)
@@ -77,8 +78,7 @@ class HCXCautionObservation
         if (alreadyHostile || !raised || relation < 0 || !GetGame() || !GetGame().IsServer() || !actor || !player || !player.GetIdentity()) { return 0; }
         int nowMs = GetGame().GetTime();
         if (nowMs < 0) { return 0; }
-        bool gunfire = HCXCautionObservation.RecentGunfire(actor.HCXLastGunfire, nowMs);
-        if (!HCXCautionObservation.InBand(distance, raised, gunfire, relation)) { return 0; }
+        if (!HCXCautionObservation.InBand(distance, raised, relation)) { return 0; }
         if (!HCXEmoteObservation.ControlReady()) { return 0; }
         eAIGroup actorGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor);
         if (!actorGroup || actorGroup == HCXExpansionBridge.HCDayZPlayerImplementGetGroup(player)) { return 0; }
@@ -106,7 +106,9 @@ class HCXCautionObservation
         if (!s_Logged)
         {
             s_Logged = true;
-            Print("[HollowCountry] Caution warn first: relation=" + relation.ToString() + " distance_m=" + Math.Round(distance).ToString() + " gunfire=" + gunfire.ToString() + " grace_s=" + HCAILimits.CAUTION_GRACE.ToString() + " fire=none runtime=PENDING");
+            bool gunfire = HCXCautionObservation.RecentGunfire(actor.HCXLastGunfire, nowMs);
+            bool inRange = HCStancePolicy.Evaluate(raised, distance, gunfire, relation) == HCStancePolicy.WARN;
+            Print("[HollowCountry] Caution warn first: relation=" + relation.ToString() + " distance_m=" + Math.Round(distance).ToString() + " gunfire=" + gunfire.ToString() + " in_caution_range=" + inRange.ToString() + " grace_s=" + HCAILimits.CAUTION_GRACE.ToString() + " fire=none runtime=PENDING");
         }
         return row.GraceEnd;
     }
