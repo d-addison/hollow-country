@@ -412,10 +412,23 @@ class HCXAISiteRules
         if (row.Waypoints) { points = row.Waypoints.Count(); }
         return 300 + 2 * (row.Key.Length() + row.SiteId.Length() + row.ValidityKey.Length()) + 6 * row.Reason.Length() + points * 128;
     }
-    static string HCRouteValidity(string build, string world, float maxLeg, int primaryInclude, int primaryExclude, int outdoorInclude, int outdoorExclude)
+    // Navmesh-content term of the route-validity key. HAND-BUMPED: raise this
+    // token (n1 -> n2 ...) in the same commit as any change to what the navmesh
+    // or the route sampling sees that the engine build does not capture: an
+    // object-spawner layer or prop change (e.g. #335), checkpoint or holdout
+    // props, pathgraph refresh rules, or the route sampling logic. A bump makes
+    // every cached route stale once; each is re-qualified on its next visit.
+    // Static method on purpose: a cross-class static const reads empty natively.
+    static string HCNavContent() { return "n1"; }
+    static bool HCManifestValid(string manifest)
+    {
+        return manifest != "" && manifest.Length() <= 64 && manifest.IndexOf("|") < 0;
+    }
+    static string HCRouteValidity(string build, string world, float maxLeg, int primaryInclude, int primaryExclude, int outdoorInclude, int outdoorExclude, string manifest)
     {
         if (!HCXAIRules.Token(build) || !HCXAIRules.Token(world) || !HCXAIRules.Finite(maxLeg) || maxLeg < 50 || maxLeg > 600) { return ""; }
-        string validity = "chain-v6|" + build + "|" + world + "|" + maxLeg.ToString() + "|" + primaryInclude.ToString() + ":" + primaryExclude.ToString() + ":0|" + outdoorInclude.ToString() + ":" + outdoorExclude.ToString() + ":0";
+        if (!HCXAISiteRules.HCManifestValid(manifest)) { return ""; }
+        string validity = "chain-v7|" + build + "|" + world + "|" + maxLeg.ToString() + "|" + primaryInclude.ToString() + ":" + primaryExclude.ToString() + ":0|" + outdoorInclude.ToString() + ":" + outdoorExclude.ToString() + ":0|m:" + manifest;
         if (validity.Length() > 256) { return ""; }
         return validity;
     }
@@ -430,13 +443,18 @@ class HCXAISiteRules
         if (!row || validity == "") { return "policy"; }
         if (row.ValidityKey != validity)
         {
+            if (row.ValidityKey == "") { return "policy"; }
             array<string> saved = new array<string>();
             array<string> current = new array<string>();
             row.ValidityKey.Split("|", saved);
             validity.Split("|", current);
-            if (saved.Count() != 6 || current.Count() != 6) { return "policy"; }
+            // A cache written before the manifest term (chain-v6, six fields)
+            // is stale, not corrupt: it is replaced row by row when visited.
+            if (current.Count() != 7) { return "policy"; }
+            if (saved.Count() != 7 || saved[0] != current[0]) { return "algorithm"; }
             if (saved[1] != current[1]) { return "build"; }
             if (saved[2] != current[2]) { return "world"; }
+            if (saved[6] != current[6]) { return "manifest"; }
             return "policy";
         }
         if (row.Key != key) { return "key"; }
