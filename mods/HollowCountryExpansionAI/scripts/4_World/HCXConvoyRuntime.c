@@ -35,6 +35,8 @@ class HCXConvoyRun
     string mHCReason;
     string mHCNote;
     eAIGroup mHCGroup;
+    // #334: eAIGroup is not Managed; the hold keeps mHCGroup valid for the run's life.
+    protected ref HCXAIGroupHold m_HCHold;
     eAIBase mHCLeader;
     CarScript mHCCar;
     HCConvoyPolicy mHCPolicy;
@@ -54,11 +56,17 @@ class HCXConvoyRun
     bool mHCReleased;
     bool mHCForeign;
 
+    void ~HCXConvoyRun()
+    {
+        HCXAIGroupHolds.Retire(m_HCHold);
+    }
+
     bool HCOpen(string id, eAIGroup group, HCConvoyPolicy policy, int now)
     {
         if (!group || !policy) { return false; }
         mHCId = id;
         mHCGroup = group;
+        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, mHCGroup);
         mHCPolicy = policy;
         mHCLeader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetFormationLeader(group));
         if (!mHCLeader) { return false; }
