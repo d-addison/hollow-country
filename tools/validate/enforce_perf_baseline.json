@@ -614,22 +614,22 @@
     {
       "rule": "HC-P010",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 218,
+      "line": 301,
       "symbol": "HCAdminTeleport.HCStep",
       "key": "HCTake#1",
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
-      "reason": "W1-11 legacy budget caller: HCAdminTeleport.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+      "reason": "Line moved by capped automatic catalogue refresh and frozen-index publication; budget call unchanged. W1-11 legacy budget caller: HCAdminTeleport.HCStep still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
     },
     {
       "rule": "HC-P010",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 404,
+      "line": 492,
       "symbol": "HCAdminTeleport.HCFindGround",
       "key": "HCTake#1",
       "message": "raw HCTake bypasses consumer fairness/attribution; use HCTakeFor with an owned HC_WORK slot",
       "native": false,
-      "reason": "W1-11 legacy budget caller: HCAdminTeleport.HCFindGround still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
+      "reason": "Line moved by capped automatic catalogue refresh and frozen-index publication; budget call unchanged. W1-11 legacy budget caller: HCAdminTeleport.HCFindGround still uses raw HCTake on a private or shared HCUnitBudget; the owner must review local-budget intent or allocate an owned fair consumer slot. No fairness or runtime acceptance is claimed."
     },
     {
       "rule": "HC-P010",
