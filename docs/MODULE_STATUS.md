@@ -651,7 +651,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | DebugSnapshot | `snapshot_saved` |
 | Ecology | `animal_observed` |
 | Escalation | `state_advanced` |
-| Events | `police_supply_bound`, `police_barrel_recreated` |
+| Events | `police_supply_bound` |
 | FactionConflict | `outcome_recorded` |
 | Forage | `item_picked`, `item_spawned` |
 | Grade | `grade_applied` |
@@ -706,8 +706,17 @@ cloning. The approximately 290-second Scenes readiness delay remains unresolved;
 no startup row/time ceiling is claimed. Lead native compile to Mission, boot/use
 receipts and one-server/at-most-one-client checks remain pending.
 
-## Police stock barrel recreation (wc-police74, 2026-11-22)
+## Police stock container lifecycle (wc-police74, 2026-11-22)
 
 Source only, **implemented-unverified**; native compile, boot and soak evidence pending. No acceptance claim or release waiver added.
 
-Owner 2026-11-22: when a police site's persisted record (`.txt` and `.pos`) exists but its barrel entity is gone, the Events module recreates an empty barrel at the recorded position and leaves the contents to the normal refill. Items are never restored or duplicated. The immutable ledger is not written, so every crash point leaves the same record; the capped site scan (no barrel within 2 m of the recorded position) is the only duplicate guard, plus one recreation per site per boot. Logged once as `[HC Police] site=<id> action=barrel_recreated reason=missing_entity`; counter `Events/police_barrel_recreated` (R1 table). The activity row is recovery-only: the release scenario shows it INERT unless the lead plants a fixture (delete the barrel while the `.pos` exists) or the owner accepts a waiver. The existing one-time orphan repair (`.txt` without `.pos`) is unchanged.
+Owner 2026-11-22: "a container item should refill and or drain and be replaced by a new one with new loot." The police stock barrel (`Barrel_Green`, one per site) now has a lifecycle, evaluated on police bind attempts inside the existing `PoliceWork` grant (one native create per grant, server-only, no new timer):
+
+- Refill in place: the container is empty, `RefillCooldownSeconds` has passed since its last generation and no player is within `RefillClearRadius` of the recorded position. A container that still holds anything is never topped up.
+- Drain and replace: the container is past `ContainerLifetimeSeconds`, ruined, or left incomplete by a crash. Only items whose parent is that container are deleted (never player-custody or ground items), the container is deleted and a new one is created at the recorded position with a fresh three-item plan, after the same cooldown and clear-radius gate.
+- Missing entity (the #74 case: `.txt` and `.pos` exist, the barrel is gone): recreated with fresh loot after the cooldown. A missing barrel inside the cooldown waits (`police_container_cooldown`, a wait reason for the bind retry), so carrying an emptied barrel off cannot be farmed by restarting; the clock is the durable receipt, not memory.
+- Persistence: immutable `<site>.gen-N` (intent, written before any native create/delete/item) and `<site>.ok-N` (complete, carries the generation time) beside the existing `.txt`/`.pos`/`.repair`. Legacy sites (including already-depleted ones on the never-wiped friend server) migrate in place with `ok-1` at first contact, so they start refilling one cooldown later; a receipt or clock failure falls back to stock lookup and never fails boot. A crash after `gen-N` loses that generation (regenerated after the cooldown) and never doubles items.
+- Registry settings under `W38Situations` (`w38-situations.json`, older policies keep the defaults): `RefillCooldownSeconds` 10800 (600..604800), `ContainerLifetimeSeconds` 604800 (3600..2592000), `RefillClearRadius` 50 (10..200).
+- Log: `[HC Police] site=<id> action=refilled|replaced|barrel_recreated reason=<...>`; HCUse `container_refilled`, `container_replaced`, `police_barrel_recreated` register on first use only (not pre-registered, no activity-expectation row; the release scenario needs a planted fixture before any of them can be asserted).
+
+Open: an empty barrel can still be picked up (`Barrel_ColorBase.c` CanPutIntoHands with zero items); the cooldown bounds that farming but a non-pickup HC subclass was not verified. The orphan repair (`.txt` without `.pos`) is unchanged. Other HC-owned stocked containers outside this scope are listed in the worker report, not changed.

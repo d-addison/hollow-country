@@ -297,6 +297,9 @@ These registry prefixes identify separate owners, not nested objects in `HollowC
 | `W38Situations.MaxIncidentItems` | `16` | Existing items exposed per incident. |
 | `W38Situations.PhysicalScanObjects` | `64` | Native object scan cap. |
 | `W38Situations.PhysicalScanCargo` | `16` | Native cargo scan cap. |
+| `W38Situations.RefillCooldownSeconds` | `10800` | Seconds before an emptied, ruined or missing police stock barrel is refilled or replaced (600 to 604800). |
+| `W38Situations.ContainerLifetimeSeconds` | `604800` | Age after which a police stock barrel is drained and replaced with fresh loot (3600 to 2592000). |
+| `W38Situations.RefillClearRadius` | `50` | No refill or replacement while a player is within this many metres (10 to 200). |
 | `W38Situations.MaxRaidMeters` | `600` | Maximum raid approach in metres. |
 | `W38Situations.ShelterMeters` | `20` | Shelter proximity in metres. |
 | `Performance.EnableSharedSaves` | `true` | Shared save scheduler preference; false refuses dependent owners before startup. |

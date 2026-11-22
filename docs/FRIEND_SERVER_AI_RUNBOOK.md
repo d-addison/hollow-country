@@ -706,7 +706,7 @@ What v1-test-14 does once, the first time a police event runs at that site:
   use up the repair):
   `[HC Events] police grant orphan repaired; <site>; runtime=PENDING`
   followed by
-  `[HC Events] police cache created; <site>; stock=finite; refill=never runtime=PENDING`
+  `[HC Events] police cache created; <site>; stock=finite_until_depleted; refill=after_cooldown runtime=PENDING`
 
 The `.repair` marker means the one-time repair allowance is used. It never repeats,
 so a repaired site cannot hand out a second barrel. If the server stops after the
