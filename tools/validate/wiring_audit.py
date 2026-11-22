@@ -13,6 +13,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from tools.audit import pbo_config
+from tools.validate import class_index
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKS = ('W001', 'W001b', 'W002', 'W003', 'W004', 'W005', 'W006', 'W007', 'W008', 'W009', 'W010')
@@ -195,7 +196,9 @@ class Audit:
                 name = node.get('name')
                 if name:
                     n = node.findtext('nominal')
-                    nominal[name.lower()].append((p, int(n) if n is not None else None))
+                    flags = node.find('flags')
+                    crafted = flags is not None and flags.get('crafted') == '1'
+                    nominal[name.lower()].append((p, int(n) if n is not None else None, crafted))
                     if name.lower() not in known:
                         at = re.search(r'<type\b[^>]*\bname\s*=\s*["\']' + re.escape(name) + r'["\']', t)
                         self.add('W007', name, p, line(t, at.start()) if at else 1,
@@ -209,13 +212,18 @@ class Audit:
                 self.add('W001', row['name'], row['path'], row['line'],
                          'No statically resolved production creation route' + ('; admin-only route present' if key in admin_routes else ''))
         for key, rows in sorted(nominal.items()):
-            if key not in ce_refs or not all(n == 0 for _, n in rows):
+            if key not in ce_refs or not all(n == 0 for _, n, _crafted in rows):
+                continue
+            # Nominal 0 is the intended state when a production creation route is resolved
+            # (the route, not CE loot, creates it) or every row declares the class a crafted
+            # output (crafted=1 rows are never placed as ambient loot).
+            if key in routes or all(crafted for _, _, crafted in rows):
                 continue
             for root, indexed in self.indexed.items():
                 if key in indexed and pbo_config.resolve_scope(indexed, key) == 2:
                     name, p, n = self.origins[(root, key)]
                     self.add('W001b', name, p, n,
-                             'Public CE-referenced class has nominal=0 in every HC types row; event/attachment routes require review')
+                             'Public CE-referenced class has nominal=0 in every HC types row, no resolved production route and no crafted=1 flag; event/attachment routes require review')
                     break
         self.zeroed_check(routes)
         self.bundle_check()
@@ -634,7 +642,7 @@ class Audit:
         r = self.rules
         merged = {k: {} for k in r['config_roots']}
         self.origins = {}
-        sources, indexed_roots = [], set()
+        sources, indexed_roots, indexed_sources = [], set(), set()
         manifest = json.loads(self.read(ROOT / r['workshop_manifest']))
         dependencies = {str(m['id']) for m in manifest['mods'] if m.get('id') and not m.get('publish')}
         for source in r['class_sources']:
@@ -653,6 +661,16 @@ class Audit:
                 doc = PrimitiveUnpickler(io.BytesIO(p.read_bytes())).load()['cfg']
             elif source['format'] == 'json':
                 doc = json.loads(self.read(p))
+            elif source['format'] == 'class-index':
+                if p.stat().st_size > 64 * 1024 * 1024:
+                    raise ValueError('class index exceeds budget')
+                stored = json.loads(self.read(p))
+                doc = class_index.load_rows(stored, r['config_roots'])
+                if stored.get('manifest_sha256') == class_index.manifest_digest(ROOT / r['workshop_manifest']):
+                    indexed_sources.update(stored['coverage'])
+                else:
+                    self.notes.append('Class index was built for a different Workshop manifest; rebuild it: '
+                                      'python3 -B -m tools.validate.class_index')
             elif source['format'] == 'config':
                 doc = pbo_config.parse_text_config(self.read(p), r['config_roots'])
             elif source['format'] == 'rap':
@@ -671,13 +689,18 @@ class Audit:
         self.notes.append('Class index sources: ' + (', '.join(sources) or 'repo only'))
         self.missing_class_roots = set(r['config_roots']) - indexed_roots
         missing = sorted(self.missing_class_roots)
-        coverage = 'cache absence is not proof of an undefined engine class'
         if missing:
             self.notes.append('External class-index roots missing: ' + ', '.join(missing))
         cached_deps = {str(s['dependency']) for s in r['class_sources'] if s.get('dependency') and
                        self.safe(s['path'] if s['path'].startswith('~') else ROOT / s['path']).is_file()}
-        if dependencies - cached_deps:
-            self.notes.append(f'Workshop class-index coverage incomplete: {len(dependencies - cached_deps)} declared dependencies lack a cache')
+        cached_deps |= indexed_sources
+        uncovered = dependencies - cached_deps
+        if uncovered:
+            self.notes.append(f'Workshop class-index coverage incomplete: {len(uncovered)} declared dependencies lack a cache')
+        if not missing and not uncovered and 'vanilla' in indexed_sources:
+            coverage = 'the complete vanilla (base and DLC) and declared-dependency class index does not declare it'
+        else:
+            coverage = 'cache absence is not proof of an undefined engine class'
         definitions = {}
         config_paths = self.paths(r['roots']['configs'])
         if not config_paths:
