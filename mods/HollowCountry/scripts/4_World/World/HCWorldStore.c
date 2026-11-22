@@ -59,6 +59,18 @@ class HCWorldStore
         return text;
     }
 
+    // Unlike Read(), preserve read failures separately from readable invalid JSON.
+    // An empty/oversize file was read successfully and must fail DTO validation.
+    static bool ReadChecked(string path, out string text)
+    {
+        text = "";
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, text, MAX_BYTES + 1);
+        CloseFile(handle);
+        return count >= 0 && count == text.Length();
+    }
+
     // JSON serializer compatibility can ignore unknown fields. Since the DTOs
     // use no maps, allow only authored field names at ANY nesting depth. In
     // particular PlayerId/PlayerPosition/standing cannot be silently discarded.

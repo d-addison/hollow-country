@@ -564,6 +564,9 @@ class HCStagedSaveImage
         m_Text = text;
         m_Limit = limit;
         m_Backup = backup;
+        // Backup rotation needs a readable prior image even when the caller
+        // skips expected-prior comparison (e.g. HCXAISites and HCHints). Refuse
+        // unreadable existing primaries rather than rotate unverified bytes.
         m_CheckPrior = checkPrior || backup;
         m_ExpectedPrior = expectedPrior;
         m_Phase = 0;
@@ -686,6 +689,7 @@ class HCStagedSaveImage
             }
             else
             {
+                m_PriorText = "";
                 m_Phase = 3;
                 return HCSaveJob.STEP_MORE;
             }
@@ -753,7 +757,7 @@ class HCStagedSaveImage
                         m_PrimaryExists = !m_SourceAbsent;
                     }
                     // Absent prior is legitimate only for an originally fresh store.
-                    if (m_SourceAbsent && m_CheckPrior && compare) { return HCFail(); }
+                    if (m_SourceAbsent && (m_Phase == 2 || (m_CheckPrior && compare))) { return HCFail(); }
                     return HCSaveJob.STEP_MORE;
                 }
             }
@@ -800,7 +804,7 @@ class HCStagedSaveImage
             if (count < 0 || count != piece.Length() || m_Offset + count > m_Limit) { return HCFail(); }
             if (m_CheckPrior && count > 0)
             {
-                m_PriorText += piece;
+                if (m_Backup) { m_PriorText += piece; }
                 if (m_Offset + count > m_Text.Length()) { m_Unchanged = false; }
                 else if (piece != m_Text.Substring(m_Offset, count)) { m_Unchanged = false; }
             }
@@ -855,6 +859,7 @@ class HCStagedSaveImage
         {
             m_PriorUnchanged = m_PrimaryExists && m_Unchanged && m_Offset == m_Text.Length();
         }
+        if (m_Phase == 2 && !m_CheckPrior) { m_PriorText = ""; }
         HCClose();
         if (m_CheckPrior) { m_CheckPrior = false; }
         else { m_Phase++; }
@@ -869,6 +874,8 @@ class HCStagedSaveImage
         m_Text = text;
         m_Phase = 0;
         m_Backup = false;
+        m_BackupStage = 0;
+        m_PriorText = "";
         m_CheckPrior = false;
         return true;
     }

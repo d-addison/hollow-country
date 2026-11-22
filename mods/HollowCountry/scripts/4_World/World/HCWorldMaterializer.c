@@ -11,8 +11,8 @@
 // HC-10 / #143-147, #139: no concurrent live copy of a party/cargo.
 // Native persistence evidence: scripts-1.30.164289/1_Core/proto/EnSystem.c:
 // 397 FileExist, 525 MakeDirectory, 528 DeleteFile, 531 CopyFile;
-// 3_Game/tools/JsonFileLoader.c:69,85 LoadData/MakeData. Bounded Read/Write
-// reuse HCWorldStore (same inspected native file APIs, verified readback).
+// 3_Game/tools/JsonFileLoader.c:69,85 LoadData/MakeData. Startup reads use
+// HCWorldStore; tick writes use HCStagedSaveImage with verified readback.
 // In process only Result confirms absence. On restart Persist=false provider
 // bodies cannot survive; unresolved claims finish unknown, without cargo replay.
 // HC has no dependency on the optional provider. No entities or inventory here.
@@ -136,7 +136,6 @@ class HCWorldMaterializer : HCModule
     protected int m_CustodyStage;
     protected float m_CustodyStepTime = -1;
     protected ref HCWorkBudget m_CustodyStepBudget = new HCWorkBudget;
-    protected bool m_CustodyStopping;
     protected bool m_CustodyFailurePrinted;
     protected string m_CustodyPath = "$profile:HollowCountry/ai-custody.json";
     protected int m_DuplicateRefused;
@@ -146,16 +145,12 @@ class HCWorldMaterializer : HCModule
     protected bool m_Running;
     protected bool m_AdmissionPrinted;
     protected bool m_StartedOnce;
+    protected int m_CustodyNextLeaseSeen = 1;
+    protected int m_CustodyReadRetries;
+    protected bool m_CustodyRetryRead;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Materializer"; }
-
-    override void RegisterUses()
-    {
-        super.RegisterUses();
-        HCModuleReadiness.HCRegisterUse(GetName(), "custody_tmp_recovered");
-        HCModuleReadiness.HCRegisterUse(GetName(), "custody_tmp_retired");
-    }
 
     // Wave 16: a running materializer whose party custody could not be read keeps the AI budget blocked
     // (HCAIBudget.Block above): that is a real degradation, never ready.
@@ -182,7 +177,6 @@ class HCWorldMaterializer : HCModule
         m_Clock = 0;
         m_RingSeconds = 0;
         m_LogSeconds = 0;
-        m_CustodyStopping = false;
         m_CustodyStepTime = -1;
         m_CustodyStage = 0;
         m_CustodyRevision = 0;
@@ -192,8 +186,17 @@ class HCWorldMaterializer : HCModule
         m_CustodyJob.Owner = this;
         HCSaveScheduler.HCRegister(m_CustodyJob);
         m_CustodyReady = this.HCLoadCustody();
-        if (!m_CustodyReady) { HCAIBudget.Block(); }
-        else if (!m_StartedOnce) { this.HCRestoreCustody(); }
+        if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
+        else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
+        m_Running = true;
+        s_Instance = this;
+        this.HCPlanLine("on");
+    }
+
+    // Shared completion for initial load and bounded transient-read retries.
+    protected void HCAcceptCustodyLoad()
+    {
+        if (!m_StartedOnce) { this.HCRestoreCustody(); }
         else
         {
             // A module off/on transition is not a process restart. Provider
@@ -223,17 +226,42 @@ class HCWorldMaterializer : HCModule
             m_Undelivered.Clear();
         }
         // A failed load or migration is still the first start on the next toggle.
-        if (m_CustodyReady) { m_StartedOnce = true; }
-        m_Running = true;
-        s_Instance = this;
-        this.HCPlanLine("on");
+        if (m_CustodyReady)
+        {
+            m_StartedOnce = true;
+            HCAIBudget.Release("custody:read_retry");
+        }
+    }
+
+    // A failed startup read retries initialization at most three times, outside
+    // routine OnTick/save dispatch. Recovery is the same bounded startup-only
+    // transaction, not a periodic store reader. Native queue API inspected in
+    // 2_GameLib/tools.c (ScriptCallQueue.CallLater/Remove), Game.c:1550.
+    protected void HCRetryCustodyLoad()
+    {
+        if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
+        m_CustodyReady = this.HCLoadCustody();
+        if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
+        else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
+    }
+
+    protected void HCPumpCustodyFallback()
+    {
+        if (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_CustodyJob)) { return; }
+        float now = GetGame().GetTickTime();
+        if (now != m_CustodyStepTime)
+        {
+            m_CustodyStepTime = now;
+            m_CustodyStepBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
+        }
+        if (m_CustodyStepBudget.HCContinue()) { HCSaveScheduler.HCPumpFallback(m_CustodyJob); }
     }
 
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0) || deltaTime > 3600) { return; }
         if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] V2 materializer", " active=" + m_Active.Count().ToString() + " custody_ready=" + m_CustodyReady.ToString()); }
-        HCSaveScheduler.HCPumpFallback(m_CustodyJob);
+        this.HCPumpCustodyFallback();
         m_Clock += deltaTime;
         m_RingSeconds += deltaTime;
         m_LogSeconds += deltaTime;
@@ -256,8 +284,21 @@ class HCWorldMaterializer : HCModule
     {
         // Mission shutdown owns provider cleanup. Unreported body outcomes are
         // not invented or replayed after restart; ledger facts remain durable.
-        m_CustodyStopping = true;
-        if (m_CustodyReady && !HCSaveScheduler.HCFlush(m_CustodyJob)) { this.HCCustodySaveFailed(); }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryCustodyLoad);
+        if (m_CustodyReady)
+        {
+            if (!HCSaveScheduler.HCFlush(m_CustodyJob)) { this.HCCustodySaveFailed(); }
+            else
+            {
+                // Resolve only finished results here. Expire may create new
+                // timeout results; those would need another flush before stop.
+                for (int finishedIndex = m_Active.Count() - 1; finishedIndex >= 0; finishedIndex--)
+                {
+                    HCWorldProposalLease finished = m_Active[finishedIndex];
+                    if (finished.Finished && m_CustodyCommitted >= finished.ResultRevision) { this.Resolve(finishedIndex, finished.Materialized, finished.Survivors); }
+                }
+            }
+        }
         HCSaveScheduler.HCUnregister(m_CustodyJob);
         m_Running = false;
         this.HCPlanLine("off");
@@ -291,7 +332,7 @@ class HCWorldMaterializer : HCModule
     {
         HCAIPartyCustodyData loaded;
         string error;
-        if (text == "" || !JsonFileLoader<HCAIPartyCustodyData>.LoadData(text, loaded, error) || !loaded) { return null; }
+        if (text == "" || text.Length() > HCWorldStore.MAX_BYTES || !JsonFileLoader<HCAIPartyCustodyData>.LoadData(text, loaded, error) || !loaded) { return null; }
         if (loaded.SchemaVersion == 1 && loaded.NextLease == 0) { loaded.NextLease = 1; }
         if (!this.HCValidCustody(loaded)) { return null; }
         string canonical;
@@ -302,18 +343,55 @@ class HCWorldMaterializer : HCModule
             if (!JsonFileLoader<HCAIPartyCustodyLegacyData>.MakeData(legacy, canonical, error) || canonical != text) { return null; }
         }
         else if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(loaded, canonical, error) || canonical != text) { return null; }
+        foreach (HCAIPartyCustodyRow decodedRow : loaded.Rows)
+        {
+            // V1 also admitted legacy non-sequence lease tokens. Keep those
+            // readable; sequence tokens must be canonical and below NextLease.
+            if (decodedRow.LeaseId.IndexOf("lease:") != 0) { continue; }
+            if (decodedRow.LeaseId.Length() <= 6) { return null; }
+            string suffix = decodedRow.LeaseId.Substring(6, decodedRow.LeaseId.Length() - 6);
+            int number = suffix.ToInt();
+            if (number < 1 || number >= 2147483647 || suffix != number.ToString()) { return null; }
+            // V1 had no NextLease field. Derive its watermark only after its
+            // exact legacy image passed canonical validation above.
+            if (loaded.SchemaVersion == 1) { loaded.NextLease = Math.Max(loaded.NextLease, number + 1); }
+            if (number >= loaded.NextLease) { return null; }
+        }
+        m_CustodyNextLeaseSeen = Math.Max(m_CustodyNextLeaseSeen, loaded.NextLease);
         return loaded;
+    }
+
+    // Read failures never authorize fallback or deletion. The materializer's
+    // readiness/debt queries refuse admission during three delayed startup retries;
+    // only exhaustion blocks the process-wide budget (Block has no inverse).
+    protected bool HCReadCustody(string path, out string text)
+    {
+        if (HCWorldStore.ReadChecked(path, text)) { return true; }
+        if (m_CustodyReadRetries < 3)
+        {
+            m_CustodyReadRetries++;
+            // A temporary reservation blocks all providers without latching
+            // the irreversible process-wide Block on a transient file error.
+            HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
+            m_CustodyRetryRead = true;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, 1000, false);
+            Print("[HC World] custody_read_failed retry=" + m_CustodyReadRetries.ToString());
+        }
+        else { Print("[HC World] custody_read_failed reason=retry_exhausted"); }
+        return false;
     }
 
     protected bool HCRecoverCustodyTmp()
     {
         string temporary = m_CustodyPath + ".tmp";
-        string intent = HCWorldStore.Read(temporary);
+        string intent;
+        if (!this.HCReadCustody(temporary, intent)) { return false; }
         HCAIPartyCustodyData next = this.HCDecodeCustody(intent);
-        string primaryText = HCWorldStore.Read(m_CustodyPath);
+        string primaryText;
+        if (FileExist(m_CustodyPath) && !this.HCReadCustody(m_CustodyPath, primaryText)) { return false; }
         HCAIPartyCustodyData primary = this.HCDecodeCustody(primaryText);
         string reason = "invalid";
-        if (next && (!primary || next.NextLease >= primary.NextLease))
+        if (next && next.NextLease >= m_CustodyNextLeaseSeen && (!primary || next.NextLease >= primary.NextLease))
         {
             // Keep intent throughout backup repair/promotion/readback. A crash
             // repeats this selection, never dispatches a claim or replays cargo.
@@ -321,14 +399,17 @@ class HCWorldMaterializer : HCModule
             {
                 string backup = m_CustodyPath + ".bak";
                 if (FileExist(backup) && !DeleteFile(backup)) { return false; }
-                if (!CopyFile(m_CustodyPath, backup) || HCWorldStore.Read(backup) != primaryText) { return false; }
+                if (!CopyFile(m_CustodyPath, backup)) { return false; }
+                string backupText;
+                if (!this.HCReadCustody(backup, backupText) || backupText != primaryText) { return false; }
             }
             if (primaryText != intent)
             {
                 if (FileExist(m_CustodyPath) && !DeleteFile(m_CustodyPath)) { return false; }
                 if (!CopyFile(temporary, m_CustodyPath)) { return false; }
             }
-            if (HCWorldStore.Read(m_CustodyPath) != intent || !DeleteFile(temporary)) { return false; }
+            string promotedText;
+            if (!this.HCReadCustody(m_CustodyPath, promotedText) || promotedText != intent || !DeleteFile(temporary)) { return false; }
             HCModuleReadiness.HCUse(GetName(), "custody_tmp_recovered");
             Print("[HC AI] custody_tmp action=recovered reason=valid_nondecreasing_revision runtime=PENDING");
             return true;
@@ -343,34 +424,66 @@ class HCWorldMaterializer : HCModule
 
     protected bool HCLoadCustody()
     {
+        // Retain the process watermark across failed loads and module toggles.
+        if (m_Custody) { m_CustodyNextLeaseSeen = Math.Max(m_CustodyNextLeaseSeen, m_Custody.NextLease); }
+        m_CustodyRetryRead = false;
         m_Custody = new HCAIPartyCustodyData();
         m_CustodyText = "";
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return false; }
         if (FileExist(m_CustodyPath + ".tmp") && !this.HCRecoverCustodyTmp()) { return false; }
         string text;
         HCAIPartyCustodyData loaded;
-        if (FileExist(m_CustodyPath))
+        bool primaryExists = FileExist(m_CustodyPath);
+        if (primaryExists)
         {
-            text = HCWorldStore.Read(m_CustodyPath);
+            if (!this.HCReadCustody(m_CustodyPath, text)) { return false; }
             loaded = this.HCDecodeCustody(text);
-        }
-        if (!loaded && FileExist(m_CustodyPath + ".bak"))
-        {
-            text = HCWorldStore.Read(m_CustodyPath + ".bak");
-            loaded = this.HCDecodeCustody(text);
-            if (!loaded) { return false; }
-            // Retain backup until the repaired primary passes readback. Any
-            // interruption repeats fallback; process restart never replays AI.
-            if (FileExist(m_CustodyPath) && !DeleteFile(m_CustodyPath)) { return false; }
-            if (!CopyFile(m_CustodyPath + ".bak", m_CustodyPath) || HCWorldStore.Read(m_CustodyPath) != text) { return false; }
         }
         if (!loaded)
         {
-            if (FileExist(m_CustodyPath)) { return false; }
-            m_CustodyRevision = m_Custody.NextLease;
-            m_CustodyCommitted = m_CustodyRevision;
-            return true;
+            // In-process bodies may still be alive: never roll back to backup.
+            if (m_StartedOnce) { return false; }
+            string backup = m_CustodyPath + ".bak";
+            if (FileExist(backup))
+            {
+                string backupText;
+                if (!this.HCReadCustody(backup, backupText)) { return false; }
+                HCAIPartyCustodyData prior = this.HCDecodeCustody(backupText);
+                if (!prior || prior.NextLease < m_CustodyNextLeaseSeen) { return false; }
+                if (primaryExists)
+                {
+                    // Keep readable rejected bytes exactly once. Never clobber
+                    // forensic evidence (including an interrupted rejected copy).
+                    string rejected = m_CustodyPath + ".rejected";
+                    if (FileExist(rejected))
+                    {
+                        Print("[HC World] custody_primary_rejected reason=rejected_exists_refused");
+                        return false;
+                    }
+                    if (!CopyFile(m_CustodyPath, rejected)) { return false; }
+                    string rejectedText;
+                    if (!this.HCReadCustody(rejected, rejectedText) || rejectedText != text) { return false; }
+                    HCModuleReadiness.HCUse("World", "custody_primary_rejected");
+                    Print("[HC World] custody_primary_rejected reason=read_ok_invalid_preserved");
+                }
+                // Backup never writes directly over primary. A torn copy here
+                // is retired on next load; a verified intent uses normal recovery.
+                string temporary = m_CustodyPath + ".tmp";
+                if (!CopyFile(backup, temporary)) { return false; }
+                string temporaryText;
+                if (!this.HCReadCustody(temporary, temporaryText) || temporaryText != backupText || !this.HCDecodeCustody(temporaryText)) { return false; }
+                if (!this.HCRecoverCustodyTmp()) { return false; }
+                if (!this.HCReadCustody(m_CustodyPath, text)) { return false; }
+                loaded = this.HCDecodeCustody(text);
+                if (!loaded) { return false; }
+            }
+            else
+            {
+                if (primaryExists || m_Custody.NextLease < m_CustodyNextLeaseSeen) { return false; }
+                loaded = m_Custody;
+            }
         }
+        if (loaded.NextLease < m_CustodyNextLeaseSeen) { return false; }
         m_Custody = loaded;
         m_CustodyText = text;
         m_CustodyRevision = loaded.NextLease;
@@ -434,6 +547,7 @@ class HCWorldMaterializer : HCModule
     {
         if (!m_CustodyReady || !this.HCValidCustody(m_Custody) || m_Custody.NextLease >= 2147483647) { return this.HCCustodySaveFailed(); }
         m_Custody.NextLease++;
+        m_CustodyNextLeaseSeen = m_Custody.NextLease;
         m_CustodyRevision = m_Custody.NextLease;
         m_CustodyJob.HCDirty = true;
         m_CustodyJob.HCUrgent = true;
@@ -454,21 +568,10 @@ class HCWorldMaterializer : HCModule
 
     bool HCCustodyCheckpointPending() { return m_CustodyCommitted != m_CustodyRevision; }
 
-    // The scheduler owns the global stage/time grant. This second guard also
-    // covers fallback calls and refuses repeated work once this tick's grant
-    // expires. Shutdown drains synchronously through the same image stages.
+    // Routine scheduling owns its grant; only HCPumpCustodyFallback needs
+    // the local guard. Flushes must never count no-op STEP_MORE as disk stages.
     int HCStepCustody()
     {
-        float now = GetGame().GetTickTime();
-        if (!m_CustodyStopping)
-        {
-            if (now != m_CustodyStepTime)
-            {
-                m_CustodyStepTime = now;
-                m_CustodyStepBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
-            }
-            if (!m_CustodyStepBudget.HCContinue()) { return HCSaveJob.STEP_MORE; }
-        }
         if (!m_CustodyReady) { return m_CustodyImage.HCAbort(); }
         int result = this.HCWriteCustody();
         if (result == HCSaveJob.STEP_FAILED)
@@ -965,6 +1068,7 @@ class HCWorldMaterializer : HCModule
             if (m_Custody.NextLease >= 2147483647) { m_Activity.HCRefuse("sequence"); return; }
             row.Id = "lease:" + m_Custody.NextLease.ToString();
             m_Custody.NextLease++;
+            m_CustodyNextLeaseSeen = m_Custody.NextLease;
             if (!HCAIBudget.TryReserve(row.Id, row.ActorCap)) { m_Activity.HCRefuse("reserve"); continue; }
             lease.Proposal = row;
             lease.Created = m_Clock;
