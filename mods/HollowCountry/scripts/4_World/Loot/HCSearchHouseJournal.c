@@ -209,6 +209,8 @@ class HCSearchHouseJournal
         if (!HCSearchLimits.HCGet().Healthy()) { return Fail("search limits invalid"); }
         if (!HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return Fail("invalid source id or pin");
         if (!HCSearchRules.TextValid(worldName, 128) || !HCSearchRules.TextValid(build, 64)) return Fail("invalid world or build");
+        // PinValid above admits only 64-character pins; consult Length() here so the 16-character slice is locally bounded.
+        if (sourcePin.Length() < 16) return Fail("invalid source id or pin");
         m_SourceId = sourceId;
         m_SourcePin = sourcePin;
         m_WorldName = worldName;
