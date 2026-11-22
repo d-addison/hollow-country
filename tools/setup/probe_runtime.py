@@ -12,6 +12,10 @@ stagers must agree on lives here so a hardening fix cannot land in only one of t
 * the server constants, the exact launcher argument list and the common plan fields.
 
 Nothing here proves how DayZ behaves. It only prepares files and refuses unsafe input.
+
+New launch-free path, quoting, JSON-source and host-lease primitives live in
+probe_core. Consumer migration is deferred: importing that library here also
+requires updating the release bundle's explicit transitive-file inventory.
 """
 import datetime
 import hashlib
