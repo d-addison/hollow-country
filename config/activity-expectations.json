@@ -1277,14 +1277,14 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c",
       "scope": "runtime",
-      "note": "Lead notes kept read-only with the writable-notes pack loaded (assigned, restored, or a write/crafting attempt refused). Module is enabled only when the pack is present."
+      "note": "A real refusal kept a lead note intact with the writable-notes pack loaded: a note write/read RPC dropped, the write action vetoed, or a recipe ingredient refused. Assignment alone does not count. Module is enabled only when the pack is present."
     },
     {
       "module": "NotesCompat",
-      "feature": "notes-written",
+      "feature": "notes-lead-tracked",
       "signal": {
         "tag": "[HC Use]",
-        "regex": "module=NotesCompat feature=notes_written count=(?P<count>\\d+)",
+        "regex": "module=NotesCompat feature=notes_lead_tracked count=(?P<count>\\d+)",
         "fields": [
           "count"
         ]
@@ -1295,7 +1295,25 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c",
       "scope": "runtime",
-      "note": "A player note write accepted by the server with the writable-notes pack loaded."
+      "note": "A lead note id was assigned to a paper on spawn or restore with the writable-notes pack loaded (assignment evidence only; nothing refused)."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "write-rpc-passed",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=NotesCompat feature=write_rpc_passed count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c",
+      "scope": "runtime",
+      "note": "A client note write RPC passed through to the pack handler (not a lead note). Pass-through evidence only; the server does not confirm a stored note."
     },
     {
       "module": "FoodCompat",
@@ -1313,7 +1331,25 @@
       "needs_player": false,
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c",
       "scope": "runtime",
-      "note": "Pack food passed the 1.30 temperature-init contract guard. Module is enabled only when the food pack is present."
+      "note": "Pack food, boxes or bundles passed the 1.30 temperature-init contract guard (pass-through evidence). Refusals are counted separately by food_compat_refused, a fault counter with no row. Module is enabled only when the food pack is present."
+    },
+    {
+      "module": "CookingCompat",
+      "feature": "cooking-dish-cooked",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=CookingCompat feature=cooking_dish_cooked count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c",
+      "scope": "runtime",
+      "note": "A cooking pass changed a stage and left a finished pack dish in the pot (cooking pack dish path ran). Module is enabled only when the cooking pack is present."
     },
     {
       "module": "Fortify",

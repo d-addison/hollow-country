@@ -421,12 +421,14 @@ modded class Paper
         if (id != "" && GetType() != "Paper") { return; }
         m_HCNoteId = id;
         HCNoteEntities.Track(this);
-        if (id != "") { HCNotesCompat.LeadProtected("assigned"); }
+        if (id != "") { HCNotesCompat.LeadTracked(); }
     }
 
     // Lead notes are read-only on the server whatever a client or a writable-notes
     // pack sends: the write/read note RPCs for such a Paper are dropped before any
-    // layer can change its text. Everything else passes through unchanged.
+    // layer can change its text. Everything else passes through unchanged. The pack
+    // handles these RPCs on the note data object that vanilla Paper.OnRPC forwards
+    // to, so this guard runs first in every load order.
     override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
     {
         if (!GetGame() || !GetGame().IsServer() || !GetGame().IsMultiplayer() || (rpc_type != ERPCs.RPC_WRITE_NOTE_CLIENT && rpc_type != ERPCs.RPC_WRITE_NOTE && rpc_type != ERPCs.RPC_READ_NOTE))
@@ -440,7 +442,7 @@ modded class Paper
             return;
         }
         super.OnRPC(sender, rpc_type, ctx);
-        if (rpc_type == ERPCs.RPC_WRITE_NOTE_CLIENT) { HCNotesCompat.Written(); }
+        if (rpc_type == ERPCs.RPC_WRITE_NOTE_CLIENT) { HCNotesCompat.WriteRpcPassed(); }
     }
 
     override void AfterStoreLoad()
@@ -464,7 +466,8 @@ modded class Paper
 
 // Writing needs a registered action (vanilla 1.30 has none; a writable-notes pack
 // adds one). The server re-runs this condition at action start, so a lead note is
-// never an accepted write target or write item.
+// never an accepted write target or write item. Other fire/attach actions on Paper
+// are untouched: a lead note can still be burned or attached as kindling.
 modded class ActionWritePaper
 {
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
@@ -496,8 +499,10 @@ modded class ActionConstructor
     {
         super.RegisterActions(actions);
         if (actions.Find(ActionReadPaper) < 0) { actions.Insert(ActionReadPaper); }
-        // A writable-notes pack inserts the same two actions; duplicate entries would
-        // construct duplicate action instances (a double read credit). Keep one each.
+        // A writable-notes pack inserts the same two actions after super. When HC loads
+        // above the pack this fold removes them; below it the duplicates survive, and
+        // are harmless: the constructor keeps only the first instance per type in its
+        // name map, so the second is never reached. Keep one each when possible.
         HCNotesCompat.DedupeAction(actions, ActionReadPaper);
         HCNotesCompat.DedupeAction(actions, ActionWritePaper);
     }
