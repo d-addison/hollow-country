@@ -976,6 +976,9 @@ class HCXAISiteStore
     static HCXAIRouteCache LoadRoutes()
     {
         string path = HCXAISiteDirector.ROUTES;
+        // Promotion, preservation and reset below rewrite the primary outside the image writer, so
+        // every writer's verified memo for it is retired before any of them can run.
+        HCStagedSaveImage.HCForget(path);
         for (int candidate = 0; candidate < 3; candidate++)
         {
             HCXAIRouteCache routes;

@@ -330,7 +330,12 @@ class HCXAILoadoutSave : HCSaveJob
         int result = m_Image.HCStepImage();
         if (result == STEP_FAILED)
         {
-            if (m_Appeared) { this.HCRefused("target_appeared"); }
+            if (m_Appeared)
+            {
+                // The operator's file now exists: it is a present loadout, not a missing one.
+                HCXAIDefaults.HCSetLoadoutPresent(name, true);
+                this.HCRefused("target_appeared");
+            }
             else { this.HCRefused("write_readback"); }
             m_Phase = 8;
         }

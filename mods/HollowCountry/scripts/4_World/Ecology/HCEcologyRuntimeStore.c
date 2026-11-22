@@ -151,6 +151,8 @@ class HCEcologyRuntimeStore
     // Existing backups retain the verified-predecessor rules unchanged.
     protected bool HCRecoverPrior(string imagePath, string pendingPath, string world)
     {
+        // Promotion, retirement and backup restore rewrite the primary outside the image writer.
+        HCStagedSaveImage.HCForget(imagePath);
         string pendingText = HCEcologyRuntimeIO.Read(pendingPath, 2048);
         HCEcologyCheckpoint intent = HCEcologyRuntimeIO.Decode(pendingText);
         string primaryText = HCEcologyRuntimeIO.Read(imagePath, 2048);
@@ -235,6 +237,8 @@ class HCEcologyRuntimeStore
 		string imagePath = m_Root + "/state-" + worldName + ".json";
 		string pendingName = "pending-" + worldName + ".json";
 		string pendingPath = m_Root + "/" + pendingName;
+		// Open recovers and quarantines around the primary outside the image writer.
+		HCStagedSaveImage.HCForget(imagePath);
 		bool pending = FileExist(pendingPath);
 		if (pending)
 		{

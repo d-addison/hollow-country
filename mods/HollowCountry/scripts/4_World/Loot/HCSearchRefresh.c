@@ -553,6 +553,8 @@ class HCSearchRefreshStore
 
     protected bool RecoverIntent()
     {
+        // Recovery promotes, restores or discards the primary outside the image writer.
+        HCStagedSaveImage.HCForget(PATH);
         string primaryText;
         string intentText;
         HCGroupIO.HCReadRaw(PATH, MAX_BYTES, primaryText);
@@ -607,6 +609,8 @@ class HCSearchRefreshStore
         if (state.LastUtc > HCGroupClock.Utc()) return Fault();
         // Poison before the first write: even partial temp writes remain evidence.
         m_Fault = true;
+        // This synchronous replace rewrites the primary outside the image writer.
+        HCStagedSaveImage.HCForget(PATH);
         if (!HCSearchJson<HCSearchRefreshState>.WriteNew(PATH + ".tmp", state, MAX_BYTES)) return Fault();
         if (FileExist(PATH))
         {
