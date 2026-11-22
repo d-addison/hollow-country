@@ -62,6 +62,25 @@ class HCEcologyRuntimeModule : HCModule
 
     override string GetName() { return "Ecology"; }
 
+    override void PerfSampleCosts(HCPerfSampler sampler, int slot, float ticksPerMs)
+    {
+        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
+        if (!runtime) { return; }
+        runtime.HCSetCalibration(ticksPerMs);
+        sampler.SampleCost(slot, 0, runtime.HCStartupTicks());
+        sampler.SampleCost(slot, 1, runtime.HCCallbackTicks());
+        sampler.SampleCost(slot, 2, runtime.HCSaveTicks());
+        sampler.SampleCost(slot, 3, runtime.HCAdmissionTicks());
+        runtime.HCResetCostTicks();
+    }
+
+    override string PerfExtraSummary()
+    {
+        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
+        if (!runtime) { return ""; }
+        return " visited=" + runtime.HCVisited().ToString() + " deferred=" + runtime.HCDeferred().ToString();
+    }
+
     override bool IsEnabled(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer()) { m_Status.HCPublish("off", "server_required"); return false; }

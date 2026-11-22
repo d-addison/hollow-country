@@ -66,11 +66,27 @@ def check_performance(rows, source, registry):
     fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
         r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
     rules = {r['key'].removeprefix('Performance.'): r for r in rows}
-    if fields.keys() != rules.keys(): errors.append('Performance registry/native key set differs')
+    weight_rules = {key: row for key, row in rules.items() if key.startswith('TickWeight_')}
+    scalar_rules = {key: row for key, row in rules.items() if key not in weight_rules}
+    if fields.keys() != scalar_rules.keys(): errors.append('Performance registry/native key set differs')
+    budget = (ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCUnitBudget.c').read_text()
+    budget = re.sub(r'//[^\n]*', '', budget)
+    consumers = re.findall(r'HCRegisterConsumer\(HC_WORK_(\w+), "(\w+)", (\d+)\);', budget)
+    weights = {'TickWeight_' + name: int(weight) for slot, name, weight in consumers if slot == name}
+    if weights.keys() != weight_rules.keys() or len(weights) != len(consumers):
+        errors.append('Performance consumer table/registry key set differs')
+    for key, row in weight_rules.items():
+        if row['owner'] != 'HCPerfConfig' or row['type'] != 'int' or weights.get(key) != row['default']:
+            errors.append(f'Performance consumer default/type/owner differs for {key}')
+    for binding in ('JsonFileLoader<int>.LoadData(number, value, error)',
+                    'HCOperatorSettingsRegistry.HCValid("Performance." + key, value)',
+                    'HCJsonFields.KeyMatchesAt(text, start, stop, key)',
+                    'm_WeightText = text;'):
+        if binding not in dto: errors.append('Performance dynamic weight binding differs')
     compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
     expected = render_native_registry(rows).splitlines()
     if compiled != expected: errors.append('Performance compiled registry differs (key/type/default/range/owner)')
-    for key, row in rules.items():
+    for key, row in scalar_rules.items():
         if row['owner'] != 'HCPerfConfig' or fields.get(key) != (row['type'], row['default']):
             errors.append(f'Performance DTO default/type/owner differs for {key}')
         guard = f'HCJsonFields.Has(text, "{key}")'

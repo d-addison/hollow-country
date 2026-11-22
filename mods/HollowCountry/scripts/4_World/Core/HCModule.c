@@ -47,6 +47,9 @@ class HCModule
     void OnStart(HCSettings settings) {}
     void OnTick(float deltaTime) {}
     void OnStop() {}
+    // Passive telemetry only: implementations forward cached maxima, never scan.
+    void PerfSampleCosts(HCPerfSampler sampler, int slot, float ticksPerMs) {}
+    string PerfExtraSummary() { return ""; }
     // HC-1: a module may return its cached admission status; null means unknown.
     HCOperationalStatus HCGetOperationalStatus() { return null; }
 }

@@ -41,8 +41,8 @@ or directly followed by return/break (once per call), is not per-item.
 P006 finds literal HC_WORK_* arguments to HCTakeFor/HCCharge shared across
 owner class names (modded definitions share their class name). It cannot
 resolve computed slots or prove that different classes compete at runtime.
-P007 checks consumer declarations against profile registration, weight fields
-and decoded assignments, settings registration and the report CONSUMERS list.
+P007 checks contiguous, unique consumer slots against HCRegisterConsumer table
+rows and shared_settings.json weight defaults/ranges. No profile DTO ceremony.
 HC_WORK_CONSUMERS is a count; HC_WORK_UNBOUNDED is an arithmetic sentinel,
 not a slot. This is structural completeness, not runtime settings validation.
 P008 finds Save calls on declared types ending in Store on P003's tick graph;
@@ -501,51 +501,46 @@ def slot_registrations(sources, root):
     def named(filename):
         return by_name.get(filename, [])
 
-    def has_call(filename, name, argument):
-        for s in named(filename):
-            for call in re.finditer(rf'\b{name}\s*\(\s*("[^"\n]*")', s.code):
-                # Quotes survive masking; recover only the matching literal.
-                if s.text[call.start(1):call.end(1)] == json.dumps(argument):
-                    return True
-        return False
-
-    consumers = set()
-    report = root / 'tools/validate/tick_cost_report.py'
-    if report.is_file():
-        tree = ast.parse(report.read_text(encoding='utf-8'))
-        for node in tree.body:
-            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'CONSUMERS' for t in node.targets):
-                value = node.value
-                if (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
-                        and value.func.attr == 'split' and not value.args and not value.keywords):
-                    literal = ast.literal_eval(value.func.value)
-                    if isinstance(literal, str):
-                        consumers.update(literal.split())
-                elif isinstance(value, (ast.List, ast.Tuple, ast.Set)):
-                    consumers.update(ast.literal_eval(value))
+    registry = root / 'tools/validate/shared_settings.json'
+    weights = {}
+    if registry.is_file():
+        for row in json.loads(registry.read_text(encoding='utf-8')):
+            key = row.get('key', '')
+            if key.startswith('Performance.TickWeight_'):
+                weights[key.removeprefix('Performance.TickWeight_')] = row
     for s in named('HCUnitBudget.c'):
         declarations = list(re.finditer(r'\bstatic\s+const\s+int\s+HC_WORK_(\w+)\s*=\s*(\d+)\s*;', s.code))
         slots = [d for d in declarations if d[1] not in {'CONSUMERS', 'UNBOUNDED'}]
         count = next((d for d in declarations if d[1] == 'CONSUMERS'), None)
+        registrations = {}
+        for call in re.finditer(r'\bHCRegisterConsumer\s*\(\s*HC_WORK_(\w+)\s*,\s*("[^"\n]*")\s*,\s*(\d+)\s*\)', s.code):
+            label = json.loads(s.text[call.start(2):call.end(2)])
+            registrations.setdefault(call[1], []).append((label, int(call[3])))
+        declared = {slot[1] for slot in slots}
+        seen_values = set()
         for slot in slots:
             name = slot[1]
-            field = 'TickWeight_' + name
+            entries = registrations.get(name, [])
+            row = weights.get(name, {})
             pieces = {
-                'profile': has_call('HCUnitProfile.c', 'HCRegister', name),
-                'field': any(f.name == field for source in named('HCPerfSlices.c') for c in source.classes for f in c.fields),
-                'load': any(re.search(rf'\b{field}\s*=\s*decoded\s*\.\s*{field}\s*;', source.code)
-                            for source in named('HCPerfSlices.c')),
-                'settings': has_call('HCPerfSettingsRegistry.c', 'HCAdd', 'Performance.' + field),
-                'report': name in consumers,
+                'table': len(entries) == 1 and entries[0][0] == name and 1 <= entries[0][1] <= 64,
+                'settings': row.get('type') == 'int' and row.get('owner') == 'HCPerfConfig'
+                            and len(entries) == 1 and row.get('default') == entries[0][1]
+                            and row.get('min') == 1 and row.get('max') == 64,
+                'unique': int(slot[2]) not in seen_values,
             }
+            seen_values.add(int(slot[2]))
             for piece, present in pieces.items():
                 if not present:
                     yield Finding('HC-P007', s.rel, s.line_of(slot.start()), 'HCUnitBudget',
                                   f'HC_WORK_{name}:{piece}', f'HC_WORK_{name} missing {piece} registration (see PERFORMANCE_PRACTICES)')
-        if slots and (count is None or int(count[2]) <= max(int(d[2]) for d in slots)):
+        for name in sorted((registrations.keys() | weights.keys()) - declared):
+            yield Finding('HC-P007', s.rel, 1, 'HCUnitBudget', f'HC_WORK_{name}:undeclared',
+                          f'consumer {name} registered without an HC_WORK slot')
+        if slots and (count is None or int(count[2]) != len(slots) or seen_values != set(range(int(count[2])))):
             yield Finding('HC-P007', s.rel, s.line_of(count.start() if count else slots[0].start()),
                           'HCUnitBudget', 'HC_WORK_CONSUMERS:capacity',
-                          'HC_WORK_CONSUMERS must exceed the largest consumer slot value')
+                          'HC_WORK_CONSUMERS must match contiguous unique consumer slots')
 
 
 def raw_budget_calls(model, i):
