@@ -172,6 +172,7 @@ class HCAdminJsonRows
     protected string m_Row;
     protected int m_Depth;
     protected bool m_Array;
+    bool HCArrayStarted() { return m_Array; }
     protected bool m_Quoted;
     protected bool m_Escape;
 
@@ -262,7 +263,7 @@ class HCAdminWorldCatalog
         string text;
         bool found = m_Stream.Step(text);
         string error;
-        if (!m_Checked && m_Stream.Preamble.IndexOf("[") >= 0)
+        if (!m_Checked && m_Stream.HCArrayStarted())
         {
             HCAdminWorldCatalogHeader header;
             if (!JsonFileLoader<HCAdminWorldCatalogHeader>.LoadData(m_Stream.Preamble + "]}", header, error) || !header || header.Version != VERSION || header.Count != COUNT)

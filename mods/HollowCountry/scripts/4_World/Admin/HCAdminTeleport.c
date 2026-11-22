@@ -415,7 +415,7 @@ class HCAdminTeleport
         string text;
         bool found = m_SiteStream.Step(text);
         string error;
-        if (!m_SitesHeaderChecked && m_SiteStream.Preamble.IndexOf("[") >= 0)
+        if (!m_SitesHeaderChecked && m_SiteStream.HCArrayStarted())
         {
             HCAdminTeleportSites header;
             string world = GetGame().GetWorldName();
@@ -750,9 +750,12 @@ modded class HCAdminModule
     {
         HCOperationalStatus baseStatus = super.HCGetOperationalStatus();
         if (!m_Running || !m_HCTeleport) { return baseStatus; }
-        // Permissions and transport are safe to serve while the optional
-        // teleport catalogue warms. Its own status/refusals remain feature-local.
-        HCModuleReadiness.HCDerive(m_Status, m_Running, "", "", "allowlist_loaded_transport_bound_native_pending");
+        // Warming destinations does not block the map. Preserve real teleport
+        // faults, including configuration, missing sites and empty catalogues.
+        HCOperationalStatus teleportStatus = m_HCTeleport.HCGetOperationalStatus();
+        string fault;
+        if (teleportStatus && teleportStatus.HCState() == "degraded" && teleportStatus.HCReason() != "teleport-destinations-building") { fault = teleportStatus.HCReason(); }
+        HCModuleReadiness.HCDerive(m_Status, m_Running, "", fault, "allowlist_loaded_transport_bound_native_pending");
         return m_Status;
     }
 
