@@ -104,6 +104,16 @@ class HCXAICaravanRoads : Managed
     protected bool m_CompactProject;
     protected string m_ReadWindow;
     protected int m_ReadCursor;
+    protected bool m_WindowEof;
+    protected bool m_InstalledPending;
+    protected bool m_InstalledHeader;
+    // One ReadFile of this many bytes per visit refills the parse window; a unit of
+    // parsing (a token, the compact tail, an installed header) consumes well under
+    // HC_WINDOW_LOW bytes, so the parse never reads and never straddles a refill.
+    static const int HC_WINDOW_BYTES = 4096;
+    static const int HC_WINDOW_LOW = 1152;
+    static const int HC_WINDOW_MAX = 5248;
+    static const int HC_INSTALLED_BYTES = 67108864;
     protected int m_WindowBracket = -1;
     protected int m_CompactBytes;
     protected int m_CompactArray;
@@ -136,12 +146,31 @@ class HCXAICaravanRoads : Managed
         if (s_Instance && s_Instance.m_FileOpen) { CloseFile(s_Instance.m_File); s_Instance.m_FileOpen = false; }
         s_Instance = null;
     }
-    string HCLine()
+    // Next installed-source line from the prefetched window (no native call): at
+    // most 96 bytes, a CR before the newline is dropped, a last line may lack a newline.
+    // An empty line is refused (it is a torn or corrupt record, never a value) except
+    // for the provider flags field, whose content this reader never uses.
+    string HCLine(bool allowEmpty = false)
     {
-        string line;
-        if (!m_FileOpen || FGets(m_File, line) <= 0 || line.Length() > 96)
+        int end = -1;
+        if (m_FileOpen && m_ReadCursor < m_ReadWindow.Length()) { end = m_ReadWindow.IndexOfFrom(m_ReadCursor, "\n"); }
+        if (end < 0 && m_FileOpen && m_WindowEof && m_ReadCursor < m_ReadWindow.Length()) { end = m_ReadWindow.Length(); }
+        if (end < 0 || end - m_ReadCursor > 97)
         {
             HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED");
+            return "";
+        }
+        string line = m_ReadWindow.Substring(m_ReadCursor, end - m_ReadCursor);
+        m_ReadCursor = end + 1;
+        if (line.Length() > 0 && line.Get(line.Length() - 1) == "\r") { line = line.Substring(0, line.Length() - 1); }
+        if (line.Length() > 96)
+        {
+            HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED");
+            return "";
+        }
+        if (line.Length() == 0 && !allowEmpty)
+        {
+            HCRefuse("CARAVAN_ROAD_DATA_EMPTY_LINE");
             return "";
         }
         return line;
@@ -187,11 +216,9 @@ class HCXAICaravanRoads : Managed
         }
         this.HCCompactFallback();
     }
-    void HCLoadInstalled()
+    // Installed-source header: four lines from the prefetched window, one loop unit.
+    void HCLoadInstalledHeader()
     {
-        m_File = OpenFile(Config.RoadDataPath, FileMode.READ);
-        if (m_File == 0) { HCRefuse("CARAVAN_INSTALLED_ROAD_DATA_MISSING"); return; }
-        m_FileOpen = true;
         string version = HCLine();
         string width = HCLine();
         string height = HCLine();
@@ -202,7 +229,50 @@ class HCXAICaravanRoads : Managed
         {
             HCRefuse("CARAVAN_ROAD_DATA_HEADER_INVALID"); return;
         }
-        this.HCStartLoading();
+        m_InstalledHeader = true;
+    }
+    bool HCWindowLow()
+    {
+        return m_FileOpen && !m_WindowEof && m_ReadWindow.Length() - m_ReadCursor < HC_WINDOW_LOW;
+    }
+    // At most ONE native file call per visit, ahead of the parse loop: the deferred
+    // open of the installed source, else one window refill. The parse loop itself
+    // never reads; it stops at the low-water mark and the next visit refills.
+    void HCStepIO()
+    {
+        if (m_InstalledPending)
+        {
+            m_InstalledPending = false;
+            m_File = OpenFile(Config.RoadDataPath, FileMode.READ);
+            if (m_File == 0) { HCRefuse("CARAVAN_INSTALLED_ROAD_DATA_MISSING"); return; }
+            m_FileOpen = true;
+            return;
+        }
+        if (!this.HCWindowLow()) { return; }
+        // Keep the unparsed tail (below the low-water mark) and append one read.
+        int remaining = m_ReadWindow.Length() - m_ReadCursor;
+        if (remaining > HC_WINDOW_LOW) { HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED"); return; }
+        if (remaining > 0) { m_ReadWindow = m_ReadWindow.Substring(m_ReadCursor, remaining); }
+        else { m_ReadWindow = ""; }
+        m_ReadCursor = 0;
+        string chunk;
+        int bytes = ReadFile(m_File, chunk, HC_WINDOW_BYTES);
+        m_CompactBytes += bytes;
+        // The compact road graph's cap is the literal below: the loader-cap gate
+        // (tools/validate/json_loader_caps) reads it from this comparison.
+        bool overCap = m_CompactBytes > HC_INSTALLED_BYTES;
+        if (m_Compact) { overCap = m_CompactBytes > 4194304; }
+        if (bytes < 0 || bytes != chunk.Length() || overCap)
+        {
+            if (m_Compact) { this.HCCompactFallback(); }
+            else { HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED"); }
+            return;
+        }
+        if (bytes == 0) { m_WindowEof = true; }
+        m_ReadWindow = m_ReadWindow + chunk;
+        // Scan once per window; the large Positions array has no closing
+        // bracket in most windows. Repeating this per token was quadratic.
+        m_WindowBracket = m_ReadWindow.IndexOfFrom(0, "]");
     }
     void HCStartLoading()
     {
@@ -241,26 +311,18 @@ class HCXAICaravanRoads : Managed
         m_LoadTick = -1;
         m_LoadField = 0;
         m_LoadNode = null;
-        this.HCLoadInstalled();
+        m_WindowEof = false;
+        m_InstalledHeader = false;
+        // The installed source opens on a later visit (HCStepIO), never inside the parse loop.
+        m_InstalledPending = true;
+        this.HCStartLoading();
     }
-    // Native EnSystem.c:425 ReadFile, EnString.c:448 Get. A 4 KiB window
-    // bounds string.Get cost; no whole-file character scans or growing image.
+    // Native EnSystem.c:425 ReadFile (HCStepIO), EnString.c:448 Get. The parse reads
+    // the prefetched window only: no whole-file character scans or growing image.
+    // "" means end of the stream (or window), exactly as the old zero-byte read.
     string HCStreamAt()
     {
-        if (m_ReadCursor >= m_ReadWindow.Length())
-        {
-            m_ReadCursor = 0;
-            // A zero-byte read must not leave the previous window observable.
-            m_ReadWindow = "";
-            int bytes = ReadFile(m_File, m_ReadWindow, 4096);
-            m_CompactBytes += bytes;
-            if (bytes < 0 || bytes != m_ReadWindow.Length() || m_CompactBytes > 4194304)
-            { m_StreamFault = true; return ""; }
-            // Scan once per window; the large Positions array has no closing
-            // bracket in most windows. Repeating this per token was quadratic.
-            m_WindowBracket = m_ReadWindow.IndexOfFrom(0, "]");
-            if (bytes == 0) { return ""; }
-        }
+        if (m_ReadCursor >= m_ReadWindow.Length()) { return ""; }
         return m_ReadWindow.Get(m_ReadCursor);
     }
     // Canonical generated JSON contains no escapes or whitespace in tokens.
@@ -304,7 +366,7 @@ class HCXAICaravanRoads : Managed
         for (int part = 0; part < 2; part++)
         {
             string first = this.HCStreamAt();
-            if (first == "" || m_StreamFault || m_ReadWindow.Length() > 4096) { return ""; }
+            if (first == "" || m_StreamFault || m_ReadWindow.Length() > HC_WINDOW_MAX) { return ""; }
             int stop = m_ReadWindow.IndexOfFrom(m_ReadCursor, ",");
             if (m_WindowBracket >= 0 && m_WindowBracket < m_ReadCursor)
             { m_WindowBracket = m_ReadWindow.IndexOfFrom(m_ReadCursor, "]"); }
@@ -515,7 +577,7 @@ class HCXAICaravanRoads : Managed
     {
         // One file line per unit, including each edge. A high-degree node can
         // no longer consume an entire slice without a shared deadline check.
-        string value = HCLine();
+        string value = HCLine(m_LoadField == 2);
         if (Phase == "failed") { return; }
         if (m_LoadField == 0)
         {
@@ -629,13 +691,16 @@ class HCXAICaravanRoads : Managed
         // Reserve headroom below the 8 ms target; native calls are cooperative.
         if (loading) { m_Work.HCReset(limit, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 4))); }
         else { m_Work.HCReset(limit); }
+        // The only native file call of the visit (open or one window refill), before the loop.
+        if (loading) { this.HCStepIO(); }
         int unit = 0;
         for (unit = 0; unit < limit; unit++)
         {
+            if (Phase != "loading" || m_InstalledPending || this.HCWindowLow()) { break; }
             if (!m_Work.HCContinue()) { break; }
-            if (Phase == "loading" && m_Compact) { this.HCLoadCompact(); }
-            else if (Phase == "loading") { HCLoadNode(); }
-            else { break; }
+            if (m_Compact) { this.HCLoadCompact(); }
+            else if (!m_InstalledHeader) { this.HCLoadInstalledHeader(); }
+            else { HCLoadNode(); }
         }
         if (loading)
         {

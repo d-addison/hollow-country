@@ -152,11 +152,84 @@ class HCGapcodeRouteHash : ExpansionSHA256
     }
 }
 
+// Staged bounded file read: ONE native call (open, read or close) per visit, so a
+// slice never stacks the three calls. The read length is a fixed constant above
+// the largest admitted file (6144 bytes); the per-file cap is checked on the
+// bytes returned, so an oversized file is refused exactly as before (cap + 1 rule).
+// A visit that fails or finishes always leaves no handle open; a handle retained
+// by an abandoned read is closed by the destructor.
+class HCGapcodeRouteRead
+{
+    static const int READ_BYTES = 6145;
+    protected FileHandle m_File;
+    protected bool m_Open;
+    protected string m_Path;
+    protected int m_Cap;
+    protected int m_Stage;
+    protected int m_Count;
+    protected string m_Data;
+    bool Ok;
+    string Content;
+
+    void ~HCGapcodeRouteRead() { this.HCCloseNow(); }
+
+    protected void HCCloseNow()
+    {
+        if (m_Open) { CloseFile(m_File); m_Open = false; }
+    }
+    void HCRelease()
+    {
+        this.HCCloseNow();
+        m_Path = "";
+        m_Stage = 0;
+        m_Count = 0;
+        m_Data = "";
+        Ok = false;
+        Content = "";
+    }
+    // True once the read has ended (Ok and Content are then final); the caller
+    // consumes them and calls HCRelease. One native file call per visit.
+    bool HCStepRead(string path, int cap)
+    {
+        if (m_Path != path)
+        {
+            this.HCRelease();
+            m_Path = path;
+            m_Cap = cap;
+        }
+        if (m_Stage >= 3) { return true; }
+        if (m_Stage == 0)
+        {
+            m_File = OpenFile(m_Path, FileMode.READ);
+            if (!m_File) { m_Stage = 3; return true; }
+            m_Open = true;
+            m_Stage = 1;
+            return false;
+        }
+        if (m_Stage == 1)
+        {
+            string data;
+            m_Count = ReadFile(m_File, data, READ_BYTES);
+            m_Data = data;
+            m_Stage = 2;
+            return false;
+        }
+        CloseFile(m_File);
+        m_Open = false;
+        m_Stage = 3;
+        Ok = m_Count > 0 && m_Count <= m_Cap && m_Data.Length() == m_Count;
+        if (Ok) { Content = m_Data; }
+        m_Data = "";
+        return true;
+    }
+}
+
 class HCGapcodeRoutesCatalog
 {
     ref HCGapcodeRoutesData Data;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCGapcodeRouteRead m_Reader = new HCGapcodeRouteRead;
     protected ref array<string> m_Ids = new array<string>;
     protected bool m_Enabled;
     protected int m_Cursor;
@@ -228,9 +301,20 @@ class HCGapcodeRoutesCatalog
         Print(HCV2Admission.Line("RegionalRoadCandidates", m_Enabled, "GAPCOV-NATIVE-ROUTES", false) + " runtime=PENDING");
         if (!m_Enabled) { return; }
         HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "regional_road_site_binding");
+        // The header read and parse run as bounded slices in HCStep, never in Start.
+        m_Phase = "header";
+        m_Reason = "ROUTE_HEADER_PENDING";
+    }
+    static const string HEADER_PATH = "$mission:hollow-country/travel/gapcov-roads/index.json";
+    static const string MANIFEST_PATH = "$mission:hollow-country/travel/routes-manifest.json";
+    // One native file call per visit while reading the header; the parse runs on
+    // the visit that closes the file (the same 4 KiB parse the old Start did).
+    void HCHeaderStep()
+    {
         string content;
-        if (!this.HCReadBounded("$mission:hollow-country/travel/gapcov-roads/index.json", 4096, content))
-        { this.HCRefuse("ROUTE_HEADER_SIZE_OR_MISSING"); return; }
+        int state = this.HCReadVisit(HEADER_PATH, 4096, content);
+        if (state == 0) { return; }
+        if (state < 0) { this.HCRefuse("ROUTE_HEADER_SIZE_OR_MISSING"); return; }
         string error;
         if (!JsonFileLoader<HCGapcodeRoutesData>.LoadData(content, Data, error) || !Data)
         { this.HCRefuse("ROUTE_DATA_MISSING_OR_INVALID"); return; }
@@ -243,14 +327,17 @@ class HCGapcodeRoutesCatalog
         m_Phase = "index";
         m_Reason = "ROUTE_INDEX_PENDING";
     }
-    // Read at most cap+1 bytes; reject oversized inputs before JSON parsing.
-    bool HCReadBounded(string path, int cap, out string content)
+    // Staged bounded read of one file; each call makes at most one native file call.
+    // Returns 0 while the read is in flight, -1 when it failed or the file is
+    // missing/empty/over the cap, 1 when `content` holds the admitted bytes.
+    int HCReadVisit(string path, int cap, out string content)
     {
-        FileHandle file = OpenFile(path, FileMode.READ);
-        if (!file) { return false; }
-        int count = ReadFile(file, content, cap + 1);
-        CloseFile(file);
-        return count > 0 && count <= cap && content.Length() == count;
+        if (!m_Reader.HCStepRead(path, cap)) { return 0; }
+        bool readOk = m_Reader.Ok;
+        content = m_Reader.Content;
+        m_Reader.HCRelease();
+        if (!readOk) { return -1; }
+        return 1;
     }
     bool HCIndexRefuse(string reason)
     {
@@ -258,7 +345,7 @@ class HCGapcodeRoutesCatalog
         this.HCRefuse(reason);
         return false;
     }
-    // One bounded read, budgeted hash batch, or <=4 KiB parse per visit.
+    // One native read call, budgeted hash batch, or <=4 KiB parse per visit.
     // Reuse the manifest scratch state; the phases never overlap.
     bool HCIndexPageStep()
     {
@@ -277,8 +364,12 @@ class HCGapcodeRoutesCatalog
         { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_INVALID"); }
         if (m_ManifestText == "")
         {
-            if (!this.HCReadBounded(expected, identity.Bytes, m_ManifestText) || m_ManifestText.Length() != identity.Bytes)
+            string pageText;
+            int pageRead = this.HCReadVisit(expected, identity.Bytes, pageText);
+            if (pageRead == 0) { return false; }
+            if (pageRead < 0 || pageText.Length() != identity.Bytes)
             { return this.HCIndexRefuse("ROUTE_INDEX_PAGE_SIZE_OR_MISSING"); }
+            m_ManifestText = pageText;
             m_ManifestHash = new HCGapcodeRouteHashState;
             m_ManifestHashCursor = 0;
             m_ManifestHashVerified = false;
@@ -328,7 +419,9 @@ class HCGapcodeRoutesCatalog
     {
         HCGapcodeRoutesPageIdentity identity = Data.pages[m_CatalogPage];
         string content;
-        if (!this.HCReadBounded(identity.Path, identity.Bytes, content) || content.Length() != identity.Bytes)
+        int state = this.HCReadVisit(identity.Path, identity.Bytes, content);
+        if (state == 0) { return; }
+        if (state < 0 || content.Length() != identity.Bytes)
         { m_ValidityMismatch++; this.HCRefuse("ROUTE_PAGE_SIZE_OR_MISSING"); return; }
         string error;
         HCGapcodeRoutesPage page;
@@ -340,10 +433,8 @@ class HCGapcodeRoutesCatalog
         m_CatalogRows += identity.Rows;
         m_CatalogPage++;
     }
-    bool HCManifestMatches()
+    bool HCManifestMatches(string text)
     {
-        string text;
-        if (!this.HCReadBounded("$mission:hollow-country/travel/routes-manifest.json", 6144, text)) { return false; }
         string error;
         HCGapcodeRoutesManifest manifest;
         if (!JsonFileLoader<HCGapcodeRoutesManifest>.LoadData(text, manifest, error) || !manifest) { return false; }
@@ -375,7 +466,7 @@ class HCGapcodeRoutesCatalog
         m_Manifest = manifest;
         return true;
     }
-    // Each visit does one bounded read, a budgeted hash batch, or one <=4 KiB
+    // Each visit does one native read call, a budgeted hash batch, or one <=4 KiB
     // parse. Never combine the final hash block with JSON parsing.
     bool HCManifestPageStep()
     {
@@ -392,8 +483,12 @@ class HCGapcodeRoutesCatalog
         { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_INVALID"); return false; }
         if (m_ManifestText == "")
         {
-            if (!this.HCReadBounded(expected, identity.Bytes, m_ManifestText) || m_ManifestText.Length() != identity.Bytes)
+            string hashPageText;
+            int hashPageRead = this.HCReadVisit(expected, identity.Bytes, hashPageText);
+            if (hashPageRead == 0) { return false; }
+            if (hashPageRead < 0 || hashPageText.Length() != identity.Bytes)
             { this.HCRefuse("ROUTE_MANIFEST_HASH_PAGE_SIZE_OR_MISSING"); return false; }
+            m_ManifestText = hashPageText;
             m_ManifestHash = new HCGapcodeRouteHashState;
             m_ManifestHashCursor = 0;
             m_ManifestHashVerified = false;
@@ -620,6 +715,14 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
+        if (m_Phase == "header")
+        {
+            // Data (and its page_size) is unknown until the header is admitted; 8 is the page_size ceiling.
+            if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 8)) { return; }
+            m_Slices++;
+            this.HCHeaderStep();
+            return;
+        }
         if (m_Phase == "index")
         {
             if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, Data.limits.page_size)) { return; }
@@ -638,7 +741,9 @@ class HCGapcodeRoutesCatalog
             bool manifestComplete = false;
             if (!m_Manifest)
             {
-                if (!this.HCManifestMatches())
+                string manifestText;
+                int manifestRead = this.HCReadVisit(MANIFEST_PATH, 6144, manifestText);
+                if (manifestRead < 0 || (manifestRead > 0 && !this.HCManifestMatches(manifestText)))
                 {
                     if (m_Phase != "failed") { this.HCRefuse("ROUTE_MANIFEST_MISSING_OR_INVALID"); }
                 }
@@ -724,15 +829,19 @@ class HCGapcodeRoutesCatalog
     {
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_opt_out"); }
         else if (m_Phase == "failed") { m_Status.HCPublish("degraded", m_Reason); }
+        else if (m_Phase == "resolving")
+        {
+            // Not ready: the shared road graph is still loading and candidates are still
+            // resolving, so no [HC Ready] ready=true is published until phase "loaded".
+            // The reason is distinct from the header/index/manifest "catalog_loading"
+            // stage. A failure in this window flips to degraded (phase "failed" above)
+            // and HCRefuse prints "[HC Routes] catalog=degraded reason=...".
+            if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
+            else { m_Status.HCPublish("requested", "routes_resolving"); }
+        }
         else if (m_Phase != "loaded")
         {
-            HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
-            string loadingReason = "catalog_loading";
-            if (m_Phase == "resolving")
-            {
-                if (!roads || roads.Phase == "cold" || roads.Phase == "loading") { loadingReason = "roads_loading"; }
-            }
-            m_Status.HCPublish("requested", loadingReason);
+            m_Status.HCPublish("requested", "catalog_loading");
         }
         else if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
         // Candidate-local refusals (island access, a site binding) keep every other
