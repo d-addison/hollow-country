@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from tools.release.acceptance_targets import load_targets
+from tools.validate import json_loader_caps
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / 'tools/validate/shared_settings.json'
@@ -545,6 +546,7 @@ def main():
         errors = check_consistency() + check_profile_mirrors()
         size_errors, warnings = check_profile_default_sizes()
         errors.extend(size_errors)
+        errors.extend(json_loader_caps.check()[0])
     except (OSError, ValueError, TypeError) as exc:
         errors = [str(exc)]
     print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors, 'warnings': warnings,

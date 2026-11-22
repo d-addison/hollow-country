@@ -41,6 +41,7 @@ def contracts():
     from tools.package import admin_world_catalog as admin, economy, gui_icons as icons
     from tools.package import snafu_optional as snafu, tactical_flava_optional as tf
     from tools.package import inventory_sizes, new_buildings, ai_route_precompute
+    from tools.audit import gapcov_regions
     delta = tuple(sorted(economy.DELTA_FILES))
     package_data = ('tools/package/*.json', 'config/military-loot.json')
     common = (*package_data, 'config/loot-dispositions.json', 'mission/hollow-country/economy-profiles/*.json')
@@ -69,7 +70,8 @@ def contracts():
                  ('config/map-overlays/**/*.json', 'mission/hollow-country/ce/hc-event-sites.json',
                   'config/loot-*.json', 'tools/package/*.json', 'tools/package/interior_themes/*.json')),
         Contract('economy', 'tools.package.economy', (), common, delta),
-        Contract('ai_patrols', 'tools.audit.gapcov_regions', ('mission/hollow-country/ai/sites.json',)),
+        Contract('ai_patrols', 'tools.audit.gapcov_regions',
+                 ('mission/hollow-country/ai/sites.json', gapcov_regions.DERIVED_SIDECAR)),
         Contract('anims_config', 'tools.anim.ce_variants',
                  ('mods/HollowCountryAnims/config.cpp', 'mission/hollow-country/infected/variants.json')),
     )
@@ -291,8 +293,12 @@ def regenerate(contract, values, scratch):
     if name == 'ai_patrols':
         # The legacy ai_patrols seed is now authored (routes/tuning/HC43). The
         # final producer preserves it and rebuilds only gapcov regional rows.
-        # Copy all repository inputs; the writer's three outputs stay disposable.
+        # Copy all repository inputs; the writer's outputs stay disposable.
         shutil.copytree(ROOT / 'mission/hollow-country', scratch / 'mission/hollow-country')
+        # The repository-only derived sidecar carries the alternate-world rows forward.
+        sidecar = ROOT / module.DERIVED_SIDECAR
+        (scratch / module.DERIVED_SIDECAR).parent.mkdir(parents=True)
+        shutil.copyfile(sidecar, scratch / module.DERIVED_SIDECAR)
         if module.main(['--repo', str(scratch), '--stock-mission', str(source), '--write']):
             raise ValueError('regional AI sites generation refused')
         return {p: (scratch / p).read_bytes() for p in contract.outputs}
