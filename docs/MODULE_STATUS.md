@@ -20,7 +20,13 @@ The automatic raw-compare self-test uses printable 5000-byte fixtures: it checks
 4096/904/0 read counts, equality, a difference beyond the first chunk and empty-file
 refusal. It no longer covers embedded NUL bytes or `AsciiToString(0)`; a passing
 `[HC WorldStore] custody_raw_compare_selftest pass=true` does not establish either.
-Failure prints `[HC WorldStore] custody_raw_compare_disabled reason=native_selftest_failed string_fallback=true`.
+Raw comparison turning off, by self-test failure (`reason=native_selftest_failed`) or by an
+unexpected ceiling read count (`reason=unexpected_count`), prints one latched
+`[HC WorldStore] custody_raw_compare_disabled reason=<reason> raw_compare=disabled string_fallback=true`;
+the ceiling count anomaly itself prints one shared `custody_ceiling_read reason=unexpected_count` line.
+World store: an existing `world.json`, `.tmp` or `.bak` that cannot be opened or read is
+`world_read_unavailable` (this boot refuses the store, files kept, retry next boot), never
+`world_parse_or_schema_failure` and never an empty start.
 
 Lead-only diag evidence (pending; use a fresh disposable, CE-disabled runtime,
 shared host lock and 180-second external watchdog; never a live profile):
