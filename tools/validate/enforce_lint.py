@@ -68,6 +68,8 @@ RULES = {
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
     'HC-E024': 'typename cannot return null; declare an empty typename and return it',
+    'HC-E026': 'fresh unowned call result passed as an argument; hold it in a local first (build 161 crash)',
+    'HC-O026': 'unresolved call-result ownership; inspect the factory and hold fresh results in a local',
     'HC-E025': 'method collides with a native global function or class and is called unqualified; rename it',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
@@ -118,12 +120,13 @@ class Finding:
     key: str
     message: str
     native: bool = False
+    severity: str = 'error'
 
     def identity(self):
         return (self.rule, self.path, self.symbol, self.key)
 
     def render(self):
-        return f'{self.path}:{self.line}: {self.rule} {self.symbol}: {self.message}'
+        return f'{self.path}:{self.line}: {self.rule} [{self.severity}] {self.symbol}: {self.message}'
 
 
 class Project:
@@ -1051,6 +1054,243 @@ def rule_expansion_bridge(project, source):
                        key=f'{call[1]}.{call[3]}')
 
 
+
+class _Ownership:
+    """Declared receiver resolution and conservative, cycle-safe factory summaries.
+
+    No method-name-only factory inference: ambiguous overloads/modded bodies must
+    agree. Native calls and borrowed member returns never establish freshness.
+    """
+
+    def __init__(self, project):
+        self.project = project
+        self.cache = {}
+        self.sources = {id(m): item for item in project.sources for m in _all_methods(item)}
+        self.declarations = {}
+        self.initializers = []
+
+    def locals(self, method):
+        key = id(method)
+        if key not in self.declarations:
+            self.declarations[key] = self.sources[key].local_declarations(method)
+        return self.declarations[key]
+
+    def kind(self, text):
+        return self.project.resolve_typedef(re.sub(r'\s+', '', text))
+
+    def reference(self, kind):
+        return bool(re.match(r'^(array|map|set)<', kind) or kind in self.project.links)
+
+    def receiver(self, expression, method, offset):
+        expression = expression.strip()
+        if expression.startswith('(') and es.matching_paren(expression, 0) == len(expression) - 1:
+            return self.receiver(expression[1:-1], method, offset)
+        call = self.call(expression, method, offset)
+        if call:
+            candidates, _, _ = call
+            kinds = {self.kind(m.return_type) for m in candidates}
+            return kinds.pop() if len(kinds) == 1 else ''
+        parts = es.split_top(expression, '.')
+        first = parts.pop(0).strip()
+        source = self.sources[id(method)]
+        fields = self.project.receiver_members(method.owner.name, source.layer)[1] if method.owner else {}
+        bindings = dict(fields)
+        if method.owner:
+            bindings.update(this=method.owner.name, super=method.owner.base)
+        bindings.update(_locals(method.params + ')'))
+        bindings.update({name: kind for name, kind, start, end in self.locals(method)
+                         if start <= offset < end})
+        kind = bindings.get(first, first if first in self.project.links else '')
+        for member in parts:
+            kind = self.project.receiver_members(self.kind(kind), source.layer)[1].get(member.strip(), '')
+        return self.kind(kind)
+
+    def call(self, expression, method, offset):
+        expression = expression.strip()
+        if expression.startswith('(') and es.matching_paren(expression, 0) == len(expression) - 1:
+            return self.call(expression[1:-1], method, offset)
+        # Find the opening paren paired with the final close, allowing receivers
+        # such as Holder.Get().Factory(). Operators are not complete calls.
+        if not expression.endswith(')'):
+            return None
+        depth, opening = 0, None
+        for index in range(len(expression) - 1, -1, -1):
+            if expression[index] == ')':
+                depth += 1
+            elif expression[index] == '(':
+                depth -= 1
+                if depth == 0:
+                    opening = index
+                    break
+        if opening is None:
+            return None
+        head = es.split_top(expression[:opening], '.')
+        name = head.pop().strip()
+        if not re.fullmatch(r'[A-Za-z_]\w*', name) or name in _KEYWORDS:
+            return None
+        if head and any(re.search(r'[+*/!<>=&|?:]', part) for part in head):
+            return None
+        kind = (self.receiver('.'.join(head), method, offset) if head
+                else method.owner.name if method.owner else '')
+        source = self.sources[id(method)]
+        candidates = []
+        for ancestor in self.project.lineage(kind):
+            candidates = [m for d in self.project.links.get(ancestor, ())
+                          if source.layer is None or d.source.layer is None or d.source.layer <= source.layer
+                          for m in d.methods if m.name == name]
+            if candidates:
+                break
+        if not head and not candidates:
+            candidates = [m for item in self.project.sources for m in item.functions if m.name == name]
+        return candidates, kind, name
+
+    def summary(self, method, visiting=frozenset()):
+        key = id(method)
+        if key in self.cache:
+            return self.cache[key]
+        if key in visiting:
+            return 'unresolved'
+        kind = self.kind(method.return_type)
+        if not self.reference(kind):
+            return 'borrowed'
+        source = self.sources[id(method)]
+        body = source.body(method)
+        states = []
+        for returned in re.finditer(r'\breturn\s+([^;]+);', body):
+            value = returned[1].strip()
+            offset = method.body_start + returned.start()
+            if value == 'null':
+                continue
+            if re.match(r'^new\s+', value):
+                states.append('fresh')
+                continue
+            if re.fullmatch(r'\w+', value):
+                locals_ = [d for d in self.locals(method)
+                           if d[0] == value and d[2] <= offset < d[3]]
+                if not locals_:
+                    states.append('borrowed')
+                    continue
+                # Every write must be an allocation; mixed aliases stay unknown.
+                writes = list(re.finditer(r'\b' + re.escape(value) + r'\s*=(?!=)\s*([^;]+);', body))
+                states.append('fresh' if writes and all(re.match(r'new\s+', w[1]) for w in writes)
+                              else 'unresolved')
+                continue
+            call = self.call(value, method, offset)
+            states.append(self.calls_state(call, visiting | {key}) if call else 'unresolved')
+        result = ('fresh' if states and all(s == 'fresh' for s in states)
+                  else 'borrowed' if not states or all(s == 'borrowed' for s in states)
+                  else 'unresolved')
+        self.cache[key] = result
+        return result
+
+    def calls_state(self, call, visiting=frozenset()):
+        if not call or not call[0]:
+            return 'unresolved'
+        states = {self.summary(m, visiting) for m in call[0]}
+        return states.pop() if len(states) == 1 else 'unresolved'
+
+
+def rule_fresh_arguments(project, source):
+    ownership = getattr(project, '_ownership', None)
+    if ownership is None:
+        ownership = project._ownership = _Ownership(project)
+    methods = list(_all_methods(source))
+    for definition in source.classes:
+        for field in definition.fields:
+            if not field.initializer:
+                continue
+            end = source.code.find(';', field.offset, definition.body_end)
+            begin = source.code.find('=', field.offset, end)
+            if begin >= 0:
+                method = es.Method('<initializer:' + field.name + '>', field.type, frozenset(), '',
+                                   field.offset, begin + 1, end - 1, definition)
+                ownership.sources[id(method)] = source
+                ownership.initializers.append(method)
+                methods.append(method)
+    for method in methods:
+        body = source.body(method)
+
+        def receiver_start(end):
+            cursor = end - 1
+            while cursor >= 0 and body[cursor].isspace():
+                cursor -= 1
+            if cursor >= 0 and body[cursor] in ')]':
+                closing = body[cursor]
+                opening_char = '(' if closing == ')' else '['
+                depth = 1
+                cursor -= 1
+                while cursor >= 0 and depth:
+                    if body[cursor] == closing:
+                        depth += 1
+                    elif body[cursor] == opening_char:
+                        depth -= 1
+                    cursor -= 1
+            while cursor >= 0 and body[cursor].isspace():
+                cursor -= 1
+            while cursor >= 0 and (body[cursor].isalnum() or body[cursor] == '_'):
+                cursor -= 1
+            before = cursor
+            while before >= 0 and body[before].isspace():
+                before -= 1
+            return receiver_start(before) if before >= 0 and body[before] == '.' else cursor + 1
+
+        for match in _ANY_CALL.finditer(body):
+            start = receiver_start(match.start(1) + len(match[1]))
+            opening = match.end() - 1
+            closing = es.matching_paren(body, opening)
+            offset = method.body_start + start
+            outer = ownership.call(body[start:closing + 1], method, offset)
+            if not outer:
+                continue
+            candidates, receiver, name = outer
+            # Native collection adoption only; a user-defined Insert is a call.
+            adopted = set()
+            collection = re.fullmatch(r'(array|map|set)<(.+)>', receiver)
+            if collection and not candidates and name in {'Insert', 'InsertAt'}:
+                # Map Insert owns both declared slots; array/set InsertAt owns
+                # slot zero only (the second parameter is an integer index).
+                slots, depth, begin = [], 0, 0
+                for position, char in enumerate(collection[2]):
+                    depth += (char == '<') - (char == '>')
+                    if char == ',' and depth == 0:
+                        slots.append(collection[2][begin:position])
+                        begin = position + 1
+                slots.append(collection[2][begin:])
+                if collection[1] != 'map' or name == 'Insert':
+                    adopted = {i for i, slot in enumerate(slots) if slot.startswith('ref')}
+            fresh, unknown = [], []
+            for index, argument in enumerate(es.split_top(body[opening + 1:closing], ',')):
+                call = ownership.call(argument, method, offset)
+                if not call:
+                    continue
+                if not call[0]:
+                    # Only authored HC candidates belong to this ownership check;
+                    # native/provider return ownership is outside this model.
+                    if not call[1] and any(m.owner and m.owner.name.startswith('HC')
+                                          and ownership.reference(ownership.kind(m.return_type))
+                                          for m in project.methods.get(call[2], ())):
+                        unknown.append(index)
+                    continue
+                if not any(ownership.reference(ownership.kind(m.return_type)) for m in call[0]):
+                    continue
+                state = ownership.calls_state(call)
+                if state == 'fresh' and index not in adopted:
+                    kinds = {ownership.kind(m.return_type) for m in call[0]}
+                    fresh.append((index, all(re.match(r'^(array|map|set)<', k) for k in kinds)))
+                elif state == 'unresolved':
+                    unknown.append(index)
+            call_key = re.sub(r'\s+', ' ', source.text[offset:method.body_start + closing + 1]).strip()
+            severity = 'error' if sum(collection for _, collection in fresh) >= 2 else 'warning'
+            for index, _ in fresh:
+                finding = _finding('HC-E026', source, offset, _symbol(method), RULES['HC-E026'],
+                                   key=f'{call_key} [argument {index + 1}]')
+                yield Finding(**dict(asdict(finding), severity=severity))
+            for index in unknown:
+                finding = _finding('HC-O026', source, offset, _symbol(method), RULES['HC-O026'],
+                                   key=f'{call_key} [argument {index + 1}]')
+                yield Finding(**dict(asdict(finding), severity='warning'))
+
+
 def rule_receiver_methods(project, source):
     """Resolve explicit typed receivers; no cast, return-type or auto inference.
 
@@ -1602,7 +1842,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
@@ -1655,7 +1895,9 @@ def compare(findings, baseline, native_available):
     seen = Counter(f.identity() for f in findings)
     new, budget = [], Counter(allowed)
     for finding in findings:
-        if budget[finding.identity()] > 0:
+        if finding.rule == 'HC-E026' and finding.severity == 'error':
+            new.append(finding)  # Crash-shape errors cannot be waived by warning baselines.
+        elif budget[finding.identity()] > 0:
             budget[finding.identity()] -= 1
         else:
             new.append(finding)
@@ -1666,6 +1908,7 @@ def compare(findings, baseline, native_available):
 def baseline_from(findings, review):
     counts = Counter(f.identity() for f in findings)
     native = {f.identity(): f.native for f in findings}
+    severity = {f.identity(): f.severity for f in findings}
     lines = {}
     for f in findings:
         lines.setdefault(f.identity(), f.line)
@@ -1674,6 +1917,8 @@ def baseline_from(findings, review):
         rule, path, symbol, key = identity
         entry = {'rule': rule, 'path': path, 'symbol': symbol, 'key': key, 'count': counts[identity],
                  'line_at_review': lines[identity], 'review': review}
+        if rule in {'HC-E026', 'HC-O026'}:
+            entry['severity'] = severity[identity]
         if native[identity]:
             entry['native'] = True
         entries.append(entry)

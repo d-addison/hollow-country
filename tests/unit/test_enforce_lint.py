@@ -226,5 +226,115 @@ class NativeCompileRetroRules(unittest.TestCase):
             result = lint.native_global_functions(root, names)
         self.assertEqual({'Global': {0}, 'Other': {0}}, result)
 
+
+class FreshArgumentOwnershipTests(unittest.TestCase):
+    def findings(self, body, support=''):
+        factory = '''
+        class HCFactory {
+            static array<float> Make() { return new array<float>; }
+            static array<float> Local() { array<float> values = new array<float>; return values; }
+            static array<float> Forward() { return Local(); }
+            static HCThing Object() { return new HCThing; }
+            static array<float> Borrow() { return Saved; }
+            static array<float> Saved;
+        }
+        class HCThing {}
+        '''
+        return lint.lint_texts({W + 'Ownership.c': factory + support + body},
+                               rules=(lint.rule_fresh_arguments,))
+
+    def test_two_fresh_collections_are_errors_and_single_results_warn(self):
+        result = self.findings('''class HCUse { void Run() {
+            Check(HCFactory.Make(), HCFactory.Forward());
+            Check(HCFactory.Local()); Check(HCFactory.Object());
+        } }''')
+        self.assertEqual(['error', 'error', 'warning', 'warning'], [f.severity for f in result])
+        self.assertTrue(all(f.rule == 'HC-E026' for f in result))
+
+    def test_declared_ref_adoption_and_shadowed_or_unrelated_insert(self):
+        for collection, expected in [('array<ref HCThing>', []),
+                                      ('array<HCThing>', ['HC-E026']),
+                                      ('HCSink', ['HC-E026'])]:
+            with self.subTest(collection=collection):
+                result = self.findings('class HCUse { void Run() { ' + collection +
+                                       ' sink; sink.Insert(HCFactory.Object()); } }',
+                                       'class HCSink { void Insert(HCThing value) {} }')
+                self.assertEqual(expected, [f.rule for f in result])
+        self.assertEqual([], self.findings('''class HCUse {
+            void Run(array<ref HCThing> sink) { sink.InsertAt(HCFactory.Object(), 0); }
+        }'''))
+        self.assertEqual(['HC-E026'], [f.rule for f in self.findings('''class HCUse {
+            ref array<ref HCThing> sink;
+            void Run() { { array<HCThing> sink; sink.Insert(HCFactory.Object()); } }
+        }''')])
+
+    def test_borrowed_locals_scalars_and_compound_expressions_are_not_fresh_arguments(self):
+        self.assertEqual([], self.findings('''class HCUse { void Run() {
+            array<float> held = HCFactory.Make(); Check(held);
+            Check(HCFactory.Borrow()); Check(HCFactory.Make().Count() > 0);
+            // Check(HCFactory.Make());
+            string text = "Check(HCFactory.Make())";
+        } }'''))
+
+    def test_typed_inherited_receiver_and_forwarding_cycle(self):
+        result = self.findings('''class HCBase { HCFactory factory; }
+        class HCUse : HCBase { void Run() { Check(factory.Forward()); Check(HCCycle.Make()); } }
+        class HCCycle { static array<float> Make() { return Other(); }
+                       static array<float> Other() { return Make(); } }''')
+        self.assertEqual(['HC-E026', 'HC-O026'], [f.rule for f in result])
+
+    def test_unresolved_receiver_is_separate_and_never_an_error(self):
+        result = self.findings('class HCUse { void Run() { Check(unknown.Make()); } }')
+        self.assertEqual(['HC-O026'], [f.rule for f in result])
+        self.assertEqual('warning', result[0].severity)
+
+    def test_result_receivers_aliases_and_class_results(self):
+        result = self.findings('''typedef array<ref HCThing> HCThings;
+        class HCUse {
+            HCUse Self() { return this; }
+            void Run(HCThings adopted) {
+                Self().Consume(HCFactory.Make());
+                adopted.Insert(HCFactory.Object());
+                Check(HCFactory.Object(), HCFactory.Make());
+            }
+        }''')
+        self.assertEqual(['warning', 'warning', 'warning'], [f.severity for f in result])
+        self.assertTrue(all(f.rule == 'HC-E026' for f in result))
+
+    def test_unrelated_factory_name_and_mixed_local_are_not_guessed_fresh(self):
+        result = self.findings('''class HCOther {
+            array<float> Saved;
+            array<float> Make() { return Saved; }
+            array<float> Mixed(bool useSaved) {
+                array<float> value = new array<float>;
+                if (useSaved) { value = Saved; }
+                return value;
+            }
+            void Run() { Check(Make()); Check(Mixed(true)); }
+        }''')
+        self.assertEqual(['HC-O026'], [f.rule for f in result])
+
+    def test_crash_shape_cannot_be_hidden_by_a_baseline(self):
+        findings = self.findings('class HCUse { void Run() { Check(HCFactory.Make(), HCFactory.Local()); } }')
+        baseline = lint.baseline_from(findings, 'synthetic review')
+        new, _ = lint.compare(findings, baseline, False)
+        self.assertEqual(findings, new)
+
+
+    def test_map_insert_uses_declared_value_slot(self):
+        for kind, expected in [('map<string, ref HCThing>', []),
+                               ('map<string, HCThing>', ['HC-E026'])]:
+            with self.subTest(kind=kind):
+                result = self.findings('class HCUse { void Run(' + kind + ' items) {'
+                                       'items.Insert("key", HCFactory.Object()); } }')
+                self.assertEqual(expected, [f.rule for f in result])
+
+
+    def test_class_field_initializers_are_checked(self):
+        result = self.findings("class HCUse { HCThing held = Consume(HCFactory.Object()); }")
+        self.assertEqual(['HC-E026'], [f.rule for f in result])
+        self.assertEqual('HCUse.<initializer:held>', result[0].symbol)
+
+
 if __name__ == '__main__':
     unittest.main()
