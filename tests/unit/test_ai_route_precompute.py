@@ -65,6 +65,16 @@ class RoutePrecomputeTests(unittest.TestCase):
         self.local.write_bytes(b'{"sites":["new"]}\n')
         outputs = self.plan()
         manifest = json.loads(outputs[routes.OUTPUTS[0]])
+        hash_pages = []
+        for identity in manifest['HashPages']:
+            data = outputs[identity['Path'].replace('$mission:', 'mission/', 1)]
+            self.assertEqual(len(data), identity['Bytes'])
+            self.assertEqual(routes.sha(data), identity['Sha256'])
+            self.assertLessEqual(len(data), routes.MANIFEST_PAGE_BYTES)
+            page = json.loads(data)
+            self.assertEqual(len(hash_pages), page['PageStart'])
+            hash_pages.extend(page['Hashes'])
+        self.assertLessEqual(len(outputs[routes.OUTPUTS[0]]), routes.MANIFEST_PAGE_BYTES)
         cursor = 0
         for row, data in zip(manifest['Files'], (self.roads.read_bytes(), self.local.read_bytes())):
             self.assertEqual(cursor, row['PageStart'])
@@ -72,7 +82,7 @@ class RoutePrecomputeTests(unittest.TestCase):
             self.assertEqual(routes.sha(data), row['Sha256'])
             pages = [routes.sha(data[i:i + manifest['ChunkBytes']])
                      for i in range(0, len(data), manifest['ChunkBytes'])]
-            self.assertEqual(pages, row['Pages'])
+            self.assertEqual(pages, hash_pages[cursor:cursor + row['PageCount']])
             self.assertEqual(len(pages), row['PageCount'])
             cursor += len(pages)
         self.assertEqual(cursor, manifest['PageCount'])

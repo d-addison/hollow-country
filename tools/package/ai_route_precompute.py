@@ -23,6 +23,25 @@ ROAD_PATH = 'DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads'
 OUTPUTS = ('mission/hollow-country/travel/routes-manifest.json',
            'mission/hollow-country/ai/road-graph.compact.json', *gapcov_routes.OUTPUTS)
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
+MANIFEST_PAGE_BYTES = 6144
+MANIFEST_HASHES_PER_PAGE = 80
+
+
+def manifest_page_paths(root=ROOT):
+    pins = json.loads((root / PINS).read_bytes())
+    count = 0
+    for row in pins['Files']:
+        if row['Path'] == ROAD_PATH:
+            count += len(row['Pages'])
+        else:
+            name = row['Path'].replace('$mission:', 'mission/', 1)
+            size = (root / name).stat().st_size
+            count += (size + pins['ChunkBytes'] - 1) // pins['ChunkBytes']
+    return tuple('mission/hollow-country/travel/routes-manifest-%03d.json' % i
+                 for i in range(1 + (count + MANIFEST_HASHES_PER_PAGE - 1) // MANIFEST_HASHES_PER_PAGE))
+
+
+OUTPUTS = (*OUTPUTS, *manifest_page_paths())
 
 
 def sha(data):
@@ -161,7 +180,31 @@ def plan(root=ROOT, *, workshop=WORKSHOP, roads=None):
         manifest['CatalogIdentitySha256'] = header['identity_sha256']
         manifest['CatalogSha256'] = sha(derived[index_path])
         manifest['CatalogPages'] = header['pages']
-    return {OUTPUTS[0]: encode(manifest), OUTPUTS[1]: graph, **derived}
+    # Keep graph fields/schema compatible with the shared compact-road reader.
+    # The catalog pin list and source hash arrays each get bounded atomic parses.
+    hashes = [value for row in files for value in row.pop('Pages')]
+    catalog_pages = manifest.pop('CatalogPages', [])
+    documents = [{'SchemaVersion': 1, 'PageStart': 0, 'Hashes': [],
+                  'CatalogPages': catalog_pages}]
+    for start in range(0, len(hashes), MANIFEST_HASHES_PER_PAGE):
+        documents.append({'SchemaVersion': 1, 'PageStart': start,
+                          'Hashes': hashes[start:start + MANIFEST_HASHES_PER_PAGE],
+                          'CatalogPages': []})
+    manifest['HashPageVersion'] = 1
+    manifest['HashPages'] = []
+    paged = {}
+    for index, document in enumerate(documents):
+        name = 'mission/hollow-country/travel/routes-manifest-%03d.json' % index
+        data = encode(document)
+        if len(data) > MANIFEST_PAGE_BYTES:
+            raise ValueError('manifest hash page exceeds byte cap')
+        paged[name] = data
+        manifest['HashPages'].append({'Path': name.replace('mission/', '$mission:', 1),
+                                      'Bytes': len(data), 'Sha256': sha(data)})
+    header_data = encode(manifest)
+    if len(header_data) > MANIFEST_PAGE_BYTES:
+        raise ValueError('manifest header exceeds byte cap')
+    return {OUTPUTS[0]: header_data, OUTPUTS[1]: graph, **derived, **paged}
 
 
 def check(root=ROOT, **kwargs):
