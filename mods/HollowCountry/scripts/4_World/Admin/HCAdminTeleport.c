@@ -117,6 +117,13 @@ class HCAdminTeleport
     protected bool m_Enabled;
     protected bool m_Complete;
     protected bool m_CatalogStarted;
+    protected ref HCStartupAdminTeleport m_StartupCatalog;
+    // At most six stage IDs; a refresh revisits late providers without changing
+    // indices in a completed catalogue before the explicit tprefresh request.
+    protected ref array<int> m_DeferredStages = new array<int>;
+    protected ref array<int> m_LateStages = new array<int>;
+    protected int m_LateProviderRows;
+    protected int m_Refreshes;
     protected int m_Stage;
     protected int m_Cursor;
     protected int m_SiteStride = 1;
@@ -175,6 +182,26 @@ class HCAdminTeleport
         m_CatalogStarted = true;
         m_Names = "CfgWorlds " + GetGame().GetWorldName() + " Names";
         m_NameCount = Math.Clamp(GetGame().ConfigGetChildrenCount(m_Names), 0, m_Config.MaxNameEntries);
+        m_StartupCatalog = new HCStartupAdminTeleport;
+        m_StartupCatalog.Catalog = this;
+        HCStartupPump.HCRegister(m_StartupCatalog, "admin_teleport");
+    }
+
+    bool HCBuilding() { return m_CatalogStarted && m_Enabled && !m_Complete; }
+
+    void HCStop()
+    {
+        m_CatalogStarted = false;
+        HCStartupPump.HCFinish(m_StartupCatalog);
+        if (m_StartupCatalog) { m_StartupCatalog.Catalog = null; }
+    }
+
+    protected void HCComplete()
+    {
+        m_Complete = true;
+        HCStartupPump.HCFinish(m_StartupCatalog);
+        if (m_Destinations.Count() == 0) { m_Fault = "teleport-no-destinations"; HCRefuse(m_Fault); }
+        Print("[HC AdminTeleport] catalog_complete rows=" + m_Destinations.Count().ToString() + " deferred_providers=" + m_DeferredStages.Count().ToString() + " late_provider_rows=" + m_LateProviderRows.ToString() + " refreshes=" + m_Refreshes.ToString());
     }
 
     HCOperationalStatus HCGetOperationalStatus()
@@ -194,6 +221,7 @@ class HCAdminTeleport
         entry.Label = label;
         entry.Position = position;
         m_Destinations.Insert(entry);
+        if (m_LateStages.Find(m_Stage) >= 0) { m_LateProviderRows++; }
     }
 
     // A refresh keeps indices frozen until the next explicit list request. No
@@ -201,6 +229,11 @@ class HCAdminTeleport
     bool HCRefresh()
     {
         if (!m_Enabled || !m_CatalogStarted) { return false; }
+        m_LateStages = m_DeferredStages;
+        m_DeferredStages = new array<int>;
+        m_LateProviderRows = 0;
+        if (m_Refreshes < 2147483647) { m_Refreshes++; }
+        if (m_Fault == "teleport-no-destinations") { m_Fault = ""; }
         m_Destinations.Clear();
         m_EventSnapshot = null;
         m_Stage = 0;
@@ -212,11 +245,13 @@ class HCAdminTeleport
     void HCStep()
     {
         if (!m_CatalogStarted || !m_Enabled || m_Complete) { return; }
-        m_Work.HCReset(m_Config.RowsPerTick);
+        // Shared frame admission replaces the tick pool only during startup.
+        // HCPerfSlices retains the configured SliceMs ceiling as well.
+        m_Work.HCReset(m_Config.RowsPerTick, HCStartupPump.HCSliceMs(2));
         while (m_Work.HCContinue())
         {
-            if (!HCServer.Get().HCTickWork().HCTake(1)) { return; }
-            if (m_Destinations.Count() >= m_Config.MaxDestinations) { m_Complete = true; return; }
+            if (!HCStartupPump.HCInSlice() && !HCServer.Get().HCTickWork().HCTake(1)) { return; }
+            if (m_Destinations.Count() >= m_Config.MaxDestinations) { HCComplete(); return; }
             if (m_Stage == 0)
             {
                 HCWorldIncidents incidents;
@@ -238,6 +273,7 @@ class HCAdminTeleport
                 {
                     HCEventModule events = HCEventModule.Get();
                     if (events && events.Runtime()) { m_EventSnapshot = events.Runtime().Snapshot(); }
+                    if (!m_EventSnapshot || !m_EventSnapshot.Runs || m_EventSnapshot.Runs.Count() == 0) { m_DeferredStages.Insert(m_Stage); }
                 }
                 if (m_Config.IncludeActiveSituations && m_EventSnapshot && m_EventSnapshot.Runs && m_Cursor < m_EventSnapshot.Runs.Count())
                 {
@@ -254,6 +290,7 @@ class HCAdminTeleport
             else if (m_Stage == 2)
             {
                 HCCampModule camps = HCCampModule.Get();
+                if (m_Cursor == 0 && (!camps || camps.HCEncounterCount() == 0)) { m_DeferredStages.Insert(m_Stage); }
                 if (camps && m_Cursor < camps.HCEncounterCount())
                 {
                     HCCampRecord camp = camps.HCEncounterTarget(m_Cursor, HCWorldClock.UTC());
@@ -265,6 +302,7 @@ class HCAdminTeleport
             else if (m_Stage == 3)
             {
                 HCHoldouts homes = HCHoldouts.Get();
+                if (m_Cursor == 0 && (!homes || homes.Count() == 0)) { m_DeferredStages.Insert(m_Stage); }
                 if (homes && m_Cursor < homes.Count())
                 {
                     HCWorldHoldout home = homes.Snapshot(m_Cursor);
@@ -295,6 +333,7 @@ class HCAdminTeleport
             }
             else if (m_Stage == 5)
             {
+                if (!m_Sites) { m_DeferredStages.Insert(m_Stage); }
                 // #235: AI sites come last and share the slots the short lists left,
                 // strided across the whole catalogue so every region stays reachable.
                 if (m_Sites && m_Cursor == 0)
@@ -310,8 +349,7 @@ class HCAdminTeleport
                     if (site && site.Waypoints && site.Waypoints.Count() > 0) { HCAdd("AI " + site.Id, site.Waypoints[0]); }
                     continue;
                 }
-                m_Complete = true;
-                if (m_Destinations.Count() == 0) { m_Fault = "teleport-no-destinations"; HCRefuse(m_Fault); }
+                HCComplete();
                 return;
             }
             m_Stage = m_Stage + 1;
@@ -638,6 +676,7 @@ modded class HCAdminModule
 
     override void OnStop()
     {
+        if (m_HCTeleport) { m_HCTeleport.HCStop(); }
         m_HCTeleport = null;
         m_HCTour = null;
         super.OnStop();

@@ -32,6 +32,8 @@ class HCAdminPermissionAdapter
     protected ref HCAdminPermissionPort m_Port;
     protected string m_Reason;
     protected float m_NextPortRefusalAt;
+    protected int m_PortRefusals;
+    int HCPortRefusals() { return m_PortRefusals; }
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     HCOperationalStatus HCGetOperationalStatus()
@@ -82,7 +84,8 @@ class HCAdminPermissionAdapter
 
     bool HCAllowed(PlayerIdentity sender)
     {
-        if (!m_Running || !m_Enabled || !GetGame() || !GetGame().IsServer() || !sender || !m_Port) { return false; }
+        if (!m_Running || !m_Enabled || !GetGame() || !GetGame().IsServer() || !m_Port) { return false; }
+        if (!sender) { HCRefuse("IDENTITY_REQUIRED", true); return false; }
         if (!m_Port.HCReady()) { HCRefuse(m_Port.HCProblem(), true); return false; }
         if (!m_Port.HCAllowed(sender, HCAdminPermissionAdapter.PERMISSION))
         {
@@ -94,9 +97,16 @@ class HCAdminPermissionAdapter
 
     protected void HCRefuse(string reason, bool portRefusal = false)
     {
-        if (m_Reason == reason || !GetGame() || !GetGame().IsServer()) { return; }
-        // Bound permission failures separately so startup readiness cannot hide
-        // the first denied check. Existing readiness transitions stay visible.
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (portRefusal)
+        {
+            // Count every refused check, even repeated or rate-limited failures.
+            if (m_PortRefusals < 2147483647) { m_PortRefusals++; }
+            // Ordinary authorization outcomes do not describe provider health.
+            if (reason == "COT_PERMISSION_DENIED" || reason == "COT_PLAYER_MISSING" || reason == "IDENTITY_REQUIRED") { return; }
+        }
+        if (m_Reason == reason) { return; }
+        // Bound not-ready/provider failures separately from readiness transitions.
         if (portRefusal)
         {
             float now = GetGame().GetTickTime();
@@ -735,4 +745,12 @@ modded class HCModuleRegistry
         super.RegisterModules();
         Register(new HCAdminModule());
     }
+}
+
+// The pump owns scheduling only; catalogue cursors and row/time bounds stay here.
+class HCStartupAdminTeleport : HCStartupOwner
+{
+    HCAdminTeleport Catalog;
+    override bool HCNeedsWork() { return Catalog && Catalog.HCBuilding(); }
+    override void HCSlice() { if (Catalog) { Catalog.HCStep(); } }
 }
