@@ -39,6 +39,7 @@ class HCEventWorldBinding
     protected static bool s_StartupReported;
     protected static ref array<string> s_BindReported;
     protected static ref array<string> s_BindReasons;
+    protected static ref array<string> s_PoliceStockReported = new array<string>;
 
     // HC-41 integration seam. Called once by the owner, including its off path.
     // Default source explicitly refuses CE ownership before any query/store IO.
@@ -197,13 +198,33 @@ class HCEventWorldBinding
         if (!found) { s_FailReason = "no_candidate"; }
         return found;
     }
+    // Finite police site stock has no refill clock or event-owned reservation.
+    // A later native stock observation can still bind; retry_at is the module
+    // clock's earliest scan time, with roster rotation/work admission after it.
+    static bool PoliceStockWaiting()
+    {
+        if (s_FailReason == "police_cache_grant_spent") { return true; }
+        if (s_FailReason == "police_cache_position_recorded") { return true; }
+        if (s_FailReason == "police_cache_repair_spent") { return true; }
+        return s_FailReason == "police_cache_depleted";
+    }
+    static void PoliceStockDeferred(HCEventMission mission, float retryAt)
+    {
+        if (!PoliceStockWaiting() || s_PoliceStockReported.Find(mission.SiteId) >= 0) { return; }
+        if (s_PoliceStockReported.Count() >= 8) { return; }
+        s_PoliceStockReported.Insert(mission.SiteId);
+        string receipt = "[HC Events] police stock waiting; " + mission.SiteId + "; reason=" + s_FailReason;
+        receipt = receipt + "; refill=never; retry_mission=" + mission.Id + "; retry_at=" + retryAt.ToString();
+        receipt = receipt + "; retry_clock=event_context_seconds; retry=physical_stock_scan; retry_at_bound=earliest runtime=PENDING";
+        Print("" + receipt);
+    }
     // Logs once per reason change, retaining at most 64 mission entries.
     static bool BindFailed(HCEventMission mission)
     {
         string reason = s_FailReason;
         // BindCandidate resets this at entry. Keep the result through the caller's
         // retry accounting: logging must not erase a waiting-for-player refusal.
-        if (reason == "" || reason == "police_work_budget") { return false; }
+        if (reason == "" || reason == "police_work_budget" || PoliceStockWaiting()) { return false; }
         if (!s_BindReported)
         {
             s_BindReported = new array<string>();
