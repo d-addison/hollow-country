@@ -1,5 +1,5 @@
 // W5-PERF: production lifecycle uses HCInteriorPlacementCursor: <=1 prop attempt per
-// cursor step, <=2 tiny spatial queries; the module's HCUnitBudget bounds steps per tick.
+// cursor step, <=1 resolver native query per grant; HCUnitBudget bounds steps per tick.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:923 GetObjectsAtPosition;
 // Object.c:287/305/311/873 position/orientation/set/model transform;
 // 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert;
@@ -25,7 +25,7 @@ class HCInteriorTemplatePlacement
     protected static string s_LastType;
     // Objects the last house resolve query returned; the step line shows it as heaviest=<type>#q<n>.
     protected static int s_LastQuery;
-    // ":query"/":filter" from the cursor's last resolve visit; empty for direct resolves.
+    // ":ray"/":query3d"/":query"/":filter" from the last visit; empty for direct resolves.
     protected static string s_LastPhase;
     protected static ref HCPathgraphRefresh s_TemplateRegion;
     protected static HCInteriorFurnishRow s_PathgraphRow;
@@ -200,8 +200,9 @@ class HCInteriorTemplatePlacement
         return entry;
     }
 
-    // Publish only completed snapshots. A proximity hold discards private
-    // partial queries; other rows must never consume an unfinished union.
+    // Publish only completed sphere/circle snapshots. A ray hit binds its row
+    // privately; it is not a candidate enumeration and must never enter this cache.
+    // Other rows must never consume an unfinished tiled union.
     static void HCStoreResolveObjects(HCInteriorResolveEntry entry)
     {
         if (s_ResolveCache.Count() < RESOLVE_CACHE_LIMIT)

@@ -160,7 +160,8 @@ class HCInteriorResolvedBuilding
     ref HCInteriorResolveCursor Pending;
 }
 
-// One resolve chunk per admitted HCWorkBudget visit. Measured-heavy cache misses cover the
+// One resolve chunk per admitted HCWorkBudget visit. Cold misses first try one
+// vertical ray, then the existing sphere. Measured-heavy circle fallbacks cover the
 // original 0.75 m circle with four overlapping 0.531 m circles, one per tick.
 // Each circle covers a quadrant's 0.75 x 0.75 m bounding square (half diagonal
 // sqrt(2)*0.375). Merge drops overlap and origins outside the original circle;
@@ -175,6 +176,7 @@ class HCInteriorResolveCursor
     protected static int s_SphereFrame = -1;
     protected ref HCInteriorResolveEntry m_Entry;
     protected ref HCInteriorResolvedBuilding m_Binding;
+    protected bool m_RayAttempted;
     protected bool m_TrySphere;
     protected bool m_Sphere;
     protected bool m_Fresh;
@@ -234,25 +236,33 @@ class HCInteriorResolveCursor
             if (m_Entry) { m_QueryComplete = true; m_Sphere = m_Entry.Sphere; }
             else
             {
+                if (!m_RayAttempted)
+                {
+                    if (!HCNativeQueryAdmitted(row, mark)) { return false; }
+                    m_RayAttempted = true;
+                    Object rayHouse = HCRayBuilding(position, row.BuildingClass);
+                    int raySize = 0;
+                    if (rayHouse)
+                    {
+                        // Private single-hit entry: never publish it as a complete
+                        // sphere/circle snapshot. The normal filter binds the row.
+                        m_Entry = new HCInteriorResolveEntry;
+                        m_Entry.Position = position;
+                        m_Entry.Objects.Insert(rayHouse);
+                        m_Entry.QuerySize = 1;
+                        m_QueryComplete = true;
+                        raySize = 1;
+                        HCModuleReadiness.HCUse("Interiors", "resolve_ray_hit");
+                    }
+                    else { HCModuleReadiness.HCUse("Interiors", "resolve_ray_fallback"); }
+                    HCInteriorTemplatePlacement.HCRecordResolve(row, raySize, "ray", TickCount(mark));
+                    // A miss leaves the existing sphere and tiled paths intact,
+                    // starting on their own grants; never two native queries here.
+                    return false;
+                }
                 if (m_TrySphere)
                 {
-                    // Native queries cannot be preempted. Wait for pack/journal
-                    // recovery, and admit at most one sphere per frame,
-                    // even if another caller advances a resolver in that frame.
-                    if (!HCStartupPump.HCInteriorQueriesReady())
-                    {
-                        m_FrameWait = true;
-                        if (!m_StartupDeferred)
-                        {
-                            m_StartupDeferred = true;
-                            HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
-                        }
-                        HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "startup_wait", TickCount(mark));
-                        return false;
-                    }
-                    int sphereFrame = GetGame().GetTime();
-                    if (s_SphereFrame == sphereFrame) { m_FrameWait = true; return false; }
-                    s_SphereFrame = sphereFrame;
+                    if (!HCNativeQueryAdmitted(row, mark)) { return false; }
                     m_Entry = new HCInteriorResolveEntry;
                     m_Entry.Position = position;
                     m_Entry.Sphere = true;
@@ -314,6 +324,59 @@ class HCInteriorResolveCursor
             m_Binding.Pending = null;
         }
         return done;
+    }
+
+    // Shared cold-query admission for ray and sphere. GetTime is the existing
+    // frame token; no caller can perform both native calls in that frame.
+    protected bool HCNativeQueryAdmitted(HCInteriorFurnishRow row, int mark)
+    {
+        if (!HCStartupPump.HCInteriorQueriesReady())
+        {
+            m_FrameWait = true;
+            if (!m_StartupDeferred)
+            {
+                m_StartupDeferred = true;
+                HCModuleReadiness.HCUse("Interiors", "resolve_startup_deferred");
+            }
+            HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "startup_wait", TickCount(mark));
+            return false;
+        }
+        int queryFrame = GetGame().GetTime();
+        if (s_SphereFrame == queryFrame) { m_FrameWait = true; return false; }
+        s_SphereFrame = queryFrame;
+        return true;
+    }
+
+    // Installed scripts-1.30.164289: 3_Game/Global/DayZPhysics.c:49-92
+    // RaycastRVParams (zero radius, NEARESTCONTACT); :98-107 hit obj/parent;
+    // :208 RaycastRVProxy reports those handles, including landscape proxies.
+    // One 66 m vertical segment through the recorded building origin. A roof
+    // outside this bound, an occluder or no geometry at that X/Z falls back.
+    // This bounds requests, not native latency: ray cost needs retail soak evidence.
+    protected Object HCRayBuilding(vector position, string buildingClass)
+    {
+        RaycastRVParams ray = new RaycastRVParams(position + "0 64 0", position + "0 -2 0");
+        ray.type = ObjIntersectGeom;
+        array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+        if (!DayZPhysics.RaycastRVProxy(ray, hits)) { return null; }
+        if (hits.Count() != 1) { return null; }
+        RaycastRVResult hit = hits[0];
+        if (!hit) { return null; }
+        if (HCRayObjectMatches(hit.obj, position, buildingClass)) { return hit.obj; }
+        if (HCRayObjectMatches(hit.parent, position, buildingClass)) { return hit.parent; }
+        return null;
+    }
+
+    // Installed 3_Game/Entities/Object.c:287/305 position/orientation;
+    // 1_Core/proto/EnConvert.c:210 DistanceSq. Same exact filter and tilt rules.
+    protected bool HCRayObjectMatches(Object candidate, vector position, string buildingClass)
+    {
+        if (!candidate) { return false; }
+        if (candidate.GetType() != buildingClass) { return false; }
+        if (vector.DistanceSq(position, candidate.GetPosition()) > 0.5625) { return false; }
+        vector orientation = candidate.GetOrientation();
+        if (!HCInteriorRules.SaneVector(orientation, 360)) { return false; }
+        return HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES);
     }
 
     // Build 131's five heaviest query-labelled classes. Avoid multiplying
@@ -420,7 +483,7 @@ class HCInteriorResolveCursor
     }
 }
 
-// Only pack loading and house recovery delay cold sphere queries. Shelters may
+// Only pack loading and house recovery delay cold ray/sphere queries. Shelters may
 // itself be a pump owner; waiting for the whole pump would deadlock its resolver.
 modded class HCStartupPump
 {
