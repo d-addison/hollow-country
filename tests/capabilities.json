@@ -2,39 +2,161 @@
   "schema_version": 1,
   "catalog_id": "hollow-country-portable-acceptance-v1",
   "capabilities": {
-    "pinned_inputs": "unknown",
-    "qualified_measurement": "unknown",
-    "schema_validator": "unknown",
-    "signed_package": "unknown",
-    "qualified_scenario_driver": "unknown",
-    "native_state_capture": "unknown",
-    "dayzdiag": "unknown",
-    "normal_server": "unknown",
-    "native_ce_accounting": "unknown",
-    "licensed_authenticated_rendered_client": "unknown",
-    "criterion_reviewer": "unknown",
-    "qualified_persistence_fault_driver": "unknown",
-    "licensed_authenticated_rendered_client_pair": "unknown",
-    "synchronized_client_capture": "unknown",
-    "surveyed_geometry": "unknown",
-    "native_inventory_ledger": "unknown",
-    "complete_recipe_audit": "unknown",
-    "resource_conservation_oracle": "unknown",
-    "paired_rendered_audio_capture": "unknown",
-    "validated_policy_bounds": "unknown",
-    "qualified_production_horde_provider": "unknown",
-    "complete_fresh_observer_coverage": "unknown",
-    "qualified_network_fault_driver": "unknown",
-    "secret_scan": "unknown",
-    "recorded_scope_decisions": "unknown",
-    "rights_review": "unknown",
-    "qualified_map_adapter": "unknown",
-    "separate_six_and_ninety_player_load": "unknown",
     "complete_feature_audit": "unknown",
-    "qualified_native_provider": "unknown"
+    "complete_fresh_observer_coverage": "unknown",
+    "complete_recipe_audit": "unknown",
+    "criterion_reviewer": "unknown",
+    "dayzdiag": "unknown",
+    "licensed_authenticated_rendered_client": "unknown",
+    "licensed_authenticated_rendered_client_pair": "unknown",
+    "native_ce_accounting": "unknown",
+    "native_inventory_ledger": "unknown",
+    "native_state_capture": "unknown",
+    "normal_server": "unknown",
+    "paired_rendered_audio_capture": "unknown",
+    "pinned_inputs": "available",
+    "qualified_map_adapter": "unknown",
+    "qualified_measurement": "unknown",
+    "qualified_native_provider": "unknown",
+    "qualified_network_fault_driver": "unknown",
+    "qualified_persistence_fault_driver": "unknown",
+    "qualified_production_horde_provider": "unknown",
+    "qualified_scenario_driver": "unknown",
+    "recorded_scope_decisions": "unknown",
+    "resource_conservation_oracle": "unknown",
+    "rights_review": "unknown",
+    "schema_validator": "available",
+    "secret_scan": "available",
+    "separate_six_and_ninety_player_load": "unknown",
+    "signed_package": "unknown",
+    "surveyed_geometry": "unknown",
+    "synchronized_client_capture": "unknown",
+    "validated_policy_bounds": "unknown"
+  },
+  "observations": {
+    "complete_feature_audit": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "complete_fresh_observer_coverage": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "complete_recipe_audit": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "criterion_reviewer": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "dayzdiag": {
+      "status": "unverified",
+      "evidence": "machine discovery not performed"
+    },
+    "licensed_authenticated_rendered_client": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "licensed_authenticated_rendered_client_pair": {
+      "status": "unverified",
+      "evidence": "deferred_owner_2026-11-22: two licensed clients (AV-T017/AV-T018)"
+    },
+    "native_ce_accounting": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "native_inventory_ledger": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "native_state_capture": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "normal_server": {
+      "status": "unverified",
+      "evidence": "machine discovery not performed"
+    },
+    "paired_rendered_audio_capture": {
+      "status": "unverified",
+      "evidence": "deferred_owner_2026-11-22: rendered audio capture and judgement (AV-T019)"
+    },
+    "pinned_inputs": {
+      "status": "known",
+      "evidence": "catalog sources carry sha256 pins"
+    },
+    "qualified_map_adapter": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "qualified_measurement": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "qualified_native_provider": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "qualified_network_fault_driver": {
+      "status": "unverified",
+      "evidence": "deferred_owner_2026-11-22: network fault adapter (AV-T018)"
+    },
+    "qualified_persistence_fault_driver": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "qualified_production_horde_provider": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "qualified_scenario_driver": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "recorded_scope_decisions": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "resource_conservation_oracle": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "rights_review": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "schema_validator": {
+      "status": "known",
+      "evidence": "evidence-v1 validator present"
+    },
+    "secret_scan": {
+      "status": "known",
+      "evidence": "repository hygiene scan present"
+    },
+    "separate_six_and_ninety_player_load": {
+      "status": "unverified",
+      "evidence": "deferred_owner_2026-11-22: co-op-6 and public-90 load qualification (AV-T022)"
+    },
+    "signed_package": {
+      "status": "unverified",
+      "evidence": "needs an official signing and positive check run"
+    },
+    "surveyed_geometry": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    },
+    "synchronized_client_capture": {
+      "status": "unverified",
+      "evidence": "deferred_owner_2026-11-22: two licensed clients (AV-T017)"
+    },
+    "validated_policy_bounds": {
+      "status": "unverified",
+      "evidence": "no read-only probe can establish this; needs a qualified driver or human review"
+    }
   },
   "context": {
-    "environment": "unverified",
+    "environment": "repository-only",
     "session_id": null,
     "machine_discovery_performed": false,
     "availability_values": [
@@ -42,6 +164,11 @@
       "blocked",
       "unknown"
     ],
-    "verification": "No probes performed or acceptance inferred."
+    "observation_values": [
+      "known",
+      "absent",
+      "unverified"
+    ],
+    "verification": "Repository seams only. known means present, never qualified; unverified stays unknown to the planner. No acceptance is inferred."
   }
 }

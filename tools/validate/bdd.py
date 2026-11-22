@@ -6,6 +6,7 @@ This intentionally supports Scenario/Given/When/Then/And, no general Gherkin eng
 Use `banso bdd validate` for full syntax validation separately.
 """
 import argparse
+import json
 from pathlib import Path
 import re
 import sys
@@ -262,6 +263,103 @@ BINDINGS = {
 }
 
 
+# Runtime protocols (spec 002 plan.md, "Existing runtime BDD"): name -> (tags, steps, tasks).
+# Names and steps stay exactly as authored; changing one fails closed. Nothing here executes
+# DayZ: every scenario reports BLOCKED until its driver tasks are qualified, and the last
+# scenario's task list includes tasks the owner deferred on 2026-11-22.
+RUNTIME_FEATURE_TAGS = ("@manual", "@runtime", "@pending")
+RUNTIME_BINDINGS = {
+    "Local official server loads the signed smoke mod": (
+        ("@AC-002",),
+        ("Given matching installed DayZ client and dedicated server builds",
+         "And a diagnostic hello-world and officially built signed PBO",
+         "When a normal client joins and reconnects after server restart",
+         "Then the smoke event and persistence checks have captured logs and hashes"),
+        ("AV-T007", "AV-T008", "AV-T009", "AV-T015")),
+    "Apartment and barracks have real eligible opportunities": (
+        ("@AC-004", "@CE-003", "@CE-004"),
+        ("Given verified building classnames and vanilla CE control fixtures",
+         "When the minimal native economy change runs in the same controlled mission",
+         "Then valid accessible placements are observed without CE errors or inflation"),
+        ("AV-T012", "AV-T013")),
+    "Two clients race to claim a persistent search site": (
+        ("@AC-005", "@INT-007", "@NET-002"),
+        ("Given a server allocated site and two eligible clients",
+         "When both search concurrently and retry across a server restart",
+         "Then exactly one allocation commits and the site stays depleted"),
+        ("AV-T009", "AV-T010", "AV-T014", "AV-T017", "AV-T018")),
+    "Interrupted salvage does not create free materials": (
+        ("@AC-006", "@CRF-004", "@CRF-005"),
+        ("Given a verified native recipe and server owned inputs",
+         "When clients race or disconnect and the inventory is full",
+         "Then outputs and consumed inputs recover as a single valid transaction"),
+        ("AV-T010", "AV-T014", "AV-T015", "AV-T017")),
+    "A player can escape an audible searcher": (
+        ("@AC-007", "@AI-004", "@AI-006", "@AUD-004"),
+        ("Given two observing clients and a native navigation and audio control",
+         "When the player breaks sight quietly and changes location",
+         "Then the searcher follows observed clues and expires its memory",
+         "And locomotion stays physically audible without hidden live tracking"),
+        ("AV-T016", "AV-T017", "AV-T019", "AV-T020")),
+    "Hordes and local chains coexist without visible materialization": (
+        ("@AC-008", "@HOR-002", "@HOR-006", "@HOR-009", "@HOR-010"),
+        ("Given a persistent horde and finite shared infected and alert budgets",
+         "When a real audible chain attracts the group across two observers and restart",
+         "Then population and identity reconcile without doubling or visible pop-in"),
+        ("AV-T009", "AV-T010", "AV-T011", "AV-T013", "AV-T016", "AV-T017", "AV-T018",
+         "AV-T019", "AV-T020")),
+    "The private transfer is reversible at the intended co-op load": (
+        ("@AC-009", "@AC-011"),
+        ("Given calibrated repeated representative benchmarks and a signed package",
+         "When an operator installs on a matching server and restores a save backup",
+         "Then module combinations and rollback preserve state within approved budgets"),
+        ("AV-T021", "AV-T022", "AV-T024", "AV-T025", "AV-T026")),
+}
+
+
+def parse_feature_tags(text):
+    """Return (feature_tags, {scenario name: tags}) from the supported subset."""
+    feature_tags, pending, result, seen_feature = (), [], {}, False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("@"):
+            pending.extend(line.split())
+        elif line.startswith("Feature:"):
+            feature_tags, pending, seen_feature = tuple(pending), [], True
+        elif line.startswith("Scenario:"):
+            result[line.removeprefix("Scenario:").strip()] = tuple(pending)
+            pending = []
+        elif line and not line.startswith("#") and seen_feature:
+            pending = []
+    return feature_tags, result
+
+
+def runtime_report(text):
+    """Check the runtime feature against RUNTIME_BINDINGS; every scenario stays BLOCKED.
+
+    Raises ValueError on any drift in names, order, steps or tags so a changed protocol can
+    never be silently treated as bound. A pending/manual scenario is never PASS.
+    """
+    scenarios = parse_scenarios(text)
+    feature_tags, tags = parse_feature_tags(text)
+    if feature_tags != RUNTIME_FEATURE_TAGS:
+        raise ValueError("Runtime feature tags changed")
+    names = [name for name, _ in scenarios]
+    if names != list(RUNTIME_BINDINGS):
+        raise ValueError("Runtime scenario names or order changed: " + "; ".join(
+            sorted(set(names) ^ set(RUNTIME_BINDINGS))))
+    rows = []
+    for name, steps in scenarios:
+        expected_tags, expected_steps, tasks = RUNTIME_BINDINGS[name]
+        if steps != expected_steps:
+            raise ValueError(f"Runtime scenario steps changed: {name}")
+        if tags.get(name) != expected_tags:
+            raise ValueError(f"Runtime scenario tags changed: {name}")
+        rows.append({"scenario": name, "tags": list(expected_tags), "tasks": list(tasks),
+                     "outcome": "BLOCKED", "reason": "manual_runtime_protocol_pending"})
+    return {"feature_tags": list(feature_tags), "scenarios": rows}
+
+
 def parse_scenarios(text):
     """Parse only the supported subset, rejecting anything that could hide steps."""
     scenarios, name, steps, feature = [], None, [], False
@@ -309,7 +407,18 @@ def parse_scenarios(text):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("feature", type=Path, nargs="?", default=ROOT / "tests/features/offline.feature")
+    parser.add_argument("--runtime", action="store_true",
+                        help="check the runtime protocol bindings and print JSON; scenarios stay BLOCKED")
     args = parser.parse_args()
+    if args.runtime:
+        path = ROOT / "tests/features/runtime.feature" if args.feature.name == "offline.feature" else args.feature
+        try:
+            report = runtime_report(path.read_text())
+        except (ValueError, OSError) as exc:
+            print(json.dumps({"intact": False, "error": str(exc)}, sort_keys=True))
+            return 1
+        print(json.dumps(dict(report, intact=True), sort_keys=True))
+        return 0
     try:
         scenarios = parse_scenarios(args.feature.read_text())
         for name, steps in scenarios:
