@@ -1,6 +1,6 @@
 """Conservative, offline shelf reach audit; never establishes native acceptance.
 
-Uses the generator's hash-pinned external ODOL reader and installed vanilla PBOs.
+Uses the in-repo clean-room ODOL reader (tools/audit/odol56.py) and installed vanilla PBOs.
 No asset extraction is written. --fix only removes refused points and parallel
 surface evidence, recalculating container capacity; it never invents support.
 Run as ``python3 -B -m tools.package.loot_reach_audit --help``.
@@ -262,8 +262,9 @@ def segment_box_hit(start, end, box):
 
 class Audit:
     def __init__(self, addons, reader, stock, repo):
+        # ``reader`` is a legacy positional argument, ignored: the in-repo reader is always used.
         self.repo = Path(repo)
-        self.reader = gen.Reader(reader)
+        self.reader = gen.Reader()
         self.assets = gen.Assets(addons, require_visual=True)
         self.stock_bytes = Path(stock).read_bytes()
         self.stock = {g.get('name'): g for g in ET.fromstring(self.stock_bytes).findall('group')}
@@ -598,13 +599,13 @@ class Audit:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--addons', type=Path, required=True)
-    parser.add_argument('--reader', type=Path, required=True, help='generator hash-pinned external reader directory')
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--stock-proto', type=Path, required=True, help='unmodified pre-boost mapgroupproto.xml')
     parser.add_argument('--repo', type=Path, default=ROOT)
     parser.add_argument('--report', type=Path, help='optional local JSON diagnostic (never an asset dump)')
     parser.add_argument('--fix', action='store_true', help='drop refused shelf points; never moves unsupported points')
     args = parser.parse_args()
-    result = Audit(args.addons, args.reader, args.stock_proto, args.repo).run(args.fix)
+    result = Audit(args.addons, None, args.stock_proto, args.repo).run(args.fix)
     if args.report:
         args.report.write_text(json.dumps(result, sort_keys=True, indent=2)+'\n')
     print(json.dumps({k: v for k, v in result.items() if k != 'failures'}, sort_keys=True, indent=2))

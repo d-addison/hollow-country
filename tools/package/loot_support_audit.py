@@ -1,6 +1,6 @@
 """Collision-only support/enclosure gate for HC CE points; native acceptance pending.
 
-Installed PBOs and the hash-pinned ODOL reader are read-only inputs. No visual
+Installed PBOs and the in-repo ODOL reader (tools/audit/odol56.py) are read-only inputs. No visual
 triangles or optional runtime furniture can supply support, roofs or walls.
 Run with --fix to prune failing points and align their source arrays. Never
 moves a point: an uncertain surface is removed rather than guessed.
@@ -78,8 +78,9 @@ class SupportScene(Scene):
 
 class Audit:
     def __init__(self, addons, reader, stock_proto, repo=ROOT):
+        # ``reader`` is a legacy positional argument, ignored: the in-repo reader is always used.
         self.repo = Path(repo)
-        self.reader = gen.Reader(reader)
+        self.reader = gen.Reader()
         self.assets = gen.Assets(addons)
         self.stock_bytes = Path(stock_proto).read_bytes()
         self.stock = {g.get('name'): g for g in ET.fromstring(self.stock_bytes).findall('group')}
@@ -307,13 +308,13 @@ class Audit:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--addons', type=Path, required=True)
-    parser.add_argument('--reader', type=Path, required=True)
+    parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--stock-proto', type=Path, required=True)
     parser.add_argument('--repo', type=Path, default=ROOT)
     parser.add_argument('--report', type=Path)
     parser.add_argument('--fix', action='store_true')
     args = parser.parse_args()
-    audit = Audit(args.addons, args.reader, args.stock_proto, args.repo)
+    audit = Audit(args.addons, None, args.stock_proto, args.repo)
     report = {'method': METHOD, 'native_acceptance': 'pending', 'files': {}}
     for path in sorted((args.repo / loot.POINTS_DIR).glob('additions*.json')):
         raw = path.read_bytes()

@@ -160,13 +160,16 @@ class HCInteriorResolvedBuilding
     ref HCInteriorResolveCursor Pending;
 }
 
-// One resolve chunk per admitted HCWorkBudget visit. Cold misses first try one
-// vertical ray, then the existing sphere. Measured-heavy circle fallbacks cover the
-// original 0.75 m circle with four overlapping 0.531 m circles, one per tick.
-// Rows ray-miss up to RAY_ATTEMPTS times (vertical, then two horizontal probes, each on its own
-// grant) before any sphere. The sphere is one indivisible native call (build 174 soak: 24 ms on
-// Land_Tenement_Small), so a class listed in HCQuerySliced, or whose sphere/circle call measured
-// >= HEAVY_MS, skips it and takes the four-tile path for every later row (one native call per grant).
+// One resolve chunk per admitted HCWorkBudget visit. Cold misses first try up to RAY_ATTEMPTS
+// geometry rays (one native call per grant, see HCRayBuilding), then the existing sphere.
+// Measured-heavy circle fallbacks cover the original 0.75 m circle with four overlapping
+// 0.531 m circles, one per tick.
+// The sphere is one indivisible native call whose cost is the building's proxy count, not the
+// radius (soaks 165-175: 17-29 ms on Land_Tenement_Small, 92-98 ms on Land_House_2B04; sliced 2D
+// tiles cost the same). A class in HCRayHeavy therefore never pays the sphere, the tiled path or
+// the plain query: when every ray misses, the row is refused this boot with `heavy_ray_miss`
+// and the miss is not stored in the binding, so the next boot retries the rays. A class listed in
+// HCQuerySliced, or whose sphere/circle call measured >= HEAVY_MS, takes the four-tile path.
 // Each circle covers a quadrant's 0.75 x 0.75 m bounding square (half diagonal
 // sqrt(2)*0.375). Merge drops overlap and origins outside the original circle;
 // exact 3D/class/ambiguity/tilt checks below still decide placement. Native
@@ -177,13 +180,28 @@ class HCInteriorResolvedBuilding
 class HCInteriorResolveCursor
 {
     static const int CANDIDATES_PER_STEP = 8;
-    static const int RAY_ATTEMPTS = 3;
-    static const int RAY_HITS_SCANNED = 8;
+    // Probe order (cheapest and most likely first), see HCRayBuilding: 0 vertical through the
+    // origin, 1-2 vertical onto the roof offset by RAY_ROOF_OFFSET_M, 3-4 horizontal at 3 m on X
+    // and Z, 5-6 horizontal at 6 m, 7-8 horizontal at 1.5 m.
+    static const int RAY_ATTEMPTS = 9;
+    // Horizontal rays cross every object on a 2 x RAY_REACH_M line, so the scan must outlast them.
+    static const int RAY_HITS_SCANNED = 32;
+    static const int RAY_DIAG_HITS = 4;
     static const int HEAVY_CLASS_CAP = 64;
     static const float HEAVY_MS = 10;
-    static const float RAY_SIDE_M = 20;
-    static const float RAY_SIDE_HEIGHT_M = 1.5;
+    // Horizontal rays start and end this far from the recorded origin, outside any footprint
+    // (the repo holds no per-class size outside two apartment prototypes of +-10 and +-20 m).
+    static const float RAY_REACH_M = 48;
+    static const float RAY_ROOF_OFFSET_M = 3;
+    static const float RAY_LOW_HEIGHT_M = 1.5;
+    static const float RAY_MID_HEIGHT_M = 3;
+    static const float RAY_HIGH_HEIGHT_M = 6;
     protected static int s_SphereFrame = -1;
+    // Once per class and boot (bounded by HEAVY_CLASS_CAP, never persisted).
+    protected static ref array<string> s_RayMissLogged = new array<string>;
+    protected static ref array<string> s_HeavyMissLogged = new array<string>;
+    // Hits of the last ray, kept only for the all-miss diagnostic; no extra native call.
+    protected ref array<ref RaycastRVResult> m_RayHits;
     // Classes whose single native resolve call measured >= HEAVY_MS this boot (bounded, never persisted).
     protected static ref array<string> s_HeavyClasses = new array<string>;
     protected ref HCInteriorResolveEntry m_Entry;
@@ -258,6 +276,7 @@ class HCInteriorResolveCursor
                     if (!HCNativeQueryAdmitted(row, mark)) { return false; }
                     int rayIndex = m_RayAttempts;
                     m_RayAttempts = m_RayAttempts + 1;
+                    m_RayHits = null;
                     Object rayHouse = HCRayBuilding(position, row.BuildingClass, rayIndex);
                     int raySize = 0;
                     string rayPhase = "ray";
@@ -274,16 +293,25 @@ class HCInteriorResolveCursor
                         raySize = 1;
                         HCModuleReadiness.HCUse("Interiors", "resolve_ray_hit");
                         if (rayIndex > 0) { HCModuleReadiness.HCUse("Interiors", "resolve_ray_hit_alt"); }
+                        m_RayHits = null;
                     }
                     else
                     {
-                        if (m_RayAttempts >= RAY_ATTEMPTS) { HCModuleReadiness.HCUse("Interiors", "resolve_ray_fallback"); }
+                        if (m_RayAttempts >= RAY_ATTEMPTS)
+                        {
+                            HCModuleReadiness.HCUse("Interiors", "resolve_ray_fallback");
+                            HCRayMissDiagnostic(position, row.BuildingClass);
+                            m_RayHits = null;
+                        }
                     }
                     HCInteriorTemplatePlacement.HCRecordResolve(row, raySize, rayPhase, TickCount(mark));
                     // A miss leaves the next probe, the sphere and the tiled paths intact,
                     // each starting on its own grant; never two native queries here.
                     return false;
                 }
+                // Measured-heavy class: the building's proxy count makes any query that
+                // includes it cost 17-98 ms, so no sphere, tile or plain query is ever made.
+                if (HCRayHeavy(row.BuildingClass)) { return HCRefuseHeavy(row, mark); }
                 if (m_TrySphere)
                 {
                     if (!HCNativeQueryAdmitted(row, mark)) { return false; }
@@ -378,34 +406,125 @@ class HCInteriorResolveCursor
         return true;
     }
 
+    // Measured-heavy classes, committed list (no list type exists in the settings registry).
+    // Evidence: soaks 165-175, window 2, `[HC Step] owner=Interiors ... heaviest=<class>#q2:query3d`,
+    // one GetObjectsAtPosition3D(position, 0.75) costing 16.9, 20.8, 25.05 and 29.1 ms on
+    // Land_Tenement_Small and 92-98 ms on Land_House_2B04 (soaks 170-172). No repo data shows that
+    // Land_Tenement_Big or the other Land_House_2B variants share those models, so they stay unlisted
+    // until a soak measures them. One comparison per statement (a continued "||" fails to compile).
+    protected static bool HCRayHeavy(string buildingClass)
+    {
+        if (buildingClass == "Land_Tenement_Small") { return true; }
+        return buildingClass == "Land_House_2B04";
+    }
+
+    // All rays missed for a heavy class: refuse this row for this boot. The binding is NOT marked
+    // complete, so nothing is cached and the next boot retries the rays. No native call here.
+    protected bool HCRefuseHeavy(HCInteriorFurnishRow row, int mark)
+    {
+        m_Entry = new HCInteriorResolveEntry;
+        m_Found = null;
+        m_Reason = "heavy_ray_miss";
+        m_Complete = true;
+        if (m_Binding) { m_Binding.Pending = null; }
+        HCModuleReadiness.HCUse("Interiors", "resolve_heavy_ray_miss");
+        if (s_HeavyMissLogged.Find(row.BuildingClass) < 0 && s_HeavyMissLogged.Count() < HEAVY_CLASS_CAP)
+        {
+            s_HeavyMissLogged.Insert(row.BuildingClass);
+            int rayCount = RAY_ATTEMPTS;
+            Print("[HC Interiors] resolve heavy_ray_miss class=" + row.BuildingClass + " rays=" + rayCount.ToString() + " runtime=PENDING");
+        }
+        HCInteriorTemplatePlacement.HCRecordResolve(row, 0, "heavy_ray_miss", TickCount(mark));
+        return true;
+    }
+
+    // First RAY_DIAG_HITS entries of the last ray's result array, already held: hit type, parent type
+    // and distance of the contact from the row position. At most one line per class and boot.
+    // Installed 3_Game/Global/DayZPhysics.c:96-107 RaycastRVResult obj/parent/pos;
+    // 1_Core/proto/EnConvert.c:196 vector.Distance.
+    protected void HCRayMissDiagnostic(vector position, string buildingClass)
+    {
+        if (s_RayMissLogged.Find(buildingClass) >= 0 || s_RayMissLogged.Count() >= HEAVY_CLASS_CAP) { return; }
+        s_RayMissLogged.Insert(buildingClass);
+        int hitTotal = 0;
+        if (m_RayHits) { hitTotal = m_RayHits.Count(); }
+        int rayCount = RAY_ATTEMPTS;
+        string line = "[HC Interiors] ray_miss class=" + buildingClass + " rays=" + rayCount.ToString() + " last_ray_hits=" + hitTotal.ToString();
+        int diagStop = Math.Min(hitTotal, RAY_DIAG_HITS);
+        int diagIndex = 0;
+        while (diagIndex < diagStop)
+        {
+            RaycastRVResult diagHit = m_RayHits[diagIndex];
+            string hitType = "none";
+            string parentType = "none";
+            float hitDistance = -1;
+            if (diagHit)
+            {
+                if (diagHit.obj) { hitType = diagHit.obj.GetType(); }
+                if (diagHit.parent) { parentType = diagHit.parent.GetType(); }
+                hitDistance = vector.Distance(position, diagHit.pos);
+            }
+            line = line + " h" + diagIndex.ToString() + "=" + hitType + "/" + parentType + "/" + hitDistance.ToString() + "m";
+            diagIndex = diagIndex + 1;
+        }
+        Print(line + " runtime=PENDING");
+        m_RayHits = null;
+    }
+
     // Installed scripts-1.30.164289: 3_Game/Global/DayZPhysics.c:49-92
-    // RaycastRVParams (zero radius, NEARESTCONTACT); :98-107 hit obj/parent;
-    // :208 RaycastRVProxy reports those handles, including landscape proxies.
-    // Probe 0 is one 66 m vertical segment through the recorded building origin; probes 1 and 2
-    // are 40 m horizontal segments at RAY_SIDE_HEIGHT_M along X and Z through the origin, which
-    // reach a wall when the roof probe misses. A roof outside the bound, an occluder or no
-    // geometry on that line falls through to the next probe. Every hit (bounded) is checked, since
-    // a proxy hierarchy can return more than one result; only a unique exact class/position
+    // RaycastRVParams; :98-107 hit obj/parent; :208 RaycastRVProxy reports those handles,
+    // including landscape proxies. 1_Core/proto/EnDebug.c:140-148 CollisionFlags; the vanilla
+    // callers 4_World/Classes/Hologram.c:1439 and UserActionsComponent/ActionTargets.c:249 use
+    // ALLOBJECTS ("first contact for each object") to get several results from one ray.
+    // Each probe is ONE RaycastRVProxy (the caller holds the native grant). Order, cheapest first:
+    //   0    vertical 66 m segment through the recorded origin (zero radius, NEARESTCONTACT as before);
+    //   1,2  the same vertical segment offset by RAY_ROOF_OFFSET_M on (+X,+Z) and (-X,-Z), for an
+    //        open stairwell, courtyard or roof opening under the centre;
+    //   3,4  horizontal segments along X then Z at RAY_MID_HEIGHT_M;
+    //   5,6  the same at RAY_HIGH_HEIGHT_M;
+    //   7,8  the same at RAY_LOW_HEIGHT_M (door and window openings can pass this height).
+    // Horizontal segments run from -RAY_REACH_M to +RAY_REACH_M, so they begin and end outside the
+    // footprint and cross an outer face (the former +-20 m probes could start inside a long building).
+    // They use ALLOBJECTS because NEARESTCONTACT could return only a neighbour or tree nearest to the
+    // start. Every hit (bounded by RAY_HITS_SCANNED) is checked, since a proxy hierarchy can return
+    // several results; the unchanged exact class/0.75 m/tilt filter below decides, only a unique
     // match binds, so a wrong or ambiguous hit never places anything. This bounds requests, not
     // native latency: ray cost needs retail soak evidence.
     protected Object HCRayBuilding(vector position, string buildingClass, int probe)
     {
         vector rayStart = position + "0 64 0";
         vector rayEnd = position + "0 -2 0";
-        if (probe == 1)
+        bool horizontal = probe >= 3;
+        if (probe == 1 || probe == 2)
         {
-            rayStart = position + Vector(-RAY_SIDE_M, RAY_SIDE_HEIGHT_M, 0);
-            rayEnd = position + Vector(RAY_SIDE_M, RAY_SIDE_HEIGHT_M, 0);
+            float roofOffset = RAY_ROOF_OFFSET_M;
+            if (probe == 2) { roofOffset = -RAY_ROOF_OFFSET_M; }
+            rayStart = position + Vector(roofOffset, 64, roofOffset);
+            rayEnd = position + Vector(roofOffset, -2, roofOffset);
         }
-        if (probe == 2)
+        if (horizontal)
         {
-            rayStart = position + Vector(0, RAY_SIDE_HEIGHT_M, -RAY_SIDE_M);
-            rayEnd = position + Vector(0, RAY_SIDE_HEIGHT_M, RAY_SIDE_M);
+            float rayHeight = RAY_MID_HEIGHT_M;
+            if (probe == 5 || probe == 6) { rayHeight = RAY_HIGH_HEIGHT_M; }
+            if (probe == 7 || probe == 8) { rayHeight = RAY_LOW_HEIGHT_M; }
+            if (probe % 2 == 1)
+            {
+                rayStart = position + Vector(-RAY_REACH_M, rayHeight, 0);
+                rayEnd = position + Vector(RAY_REACH_M, rayHeight, 0);
+            }
+            else
+            {
+                rayStart = position + Vector(0, rayHeight, -RAY_REACH_M);
+                rayEnd = position + Vector(0, rayHeight, RAY_REACH_M);
+            }
         }
         RaycastRVParams ray = new RaycastRVParams(rayStart, rayEnd);
         ray.type = ObjIntersectGeom;
+        if (horizontal) { ray.flags = CollisionFlags.ALLOBJECTS; }
         array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-        if (!DayZPhysics.RaycastRVProxy(ray, hits)) { return null; }
+        bool rayHit = DayZPhysics.RaycastRVProxy(ray, hits);
+        m_RayHits = hits;
+        if (!rayHit) { return null; }
         Object matched;
         int hitStop = Math.Min(hits.Count(), RAY_HITS_SCANNED);
         int hitIndex = 0;

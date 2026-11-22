@@ -22,7 +22,8 @@ import subprocess
 import sys
 import time
 
-from tools.testing import discovery, drivers
+from tools.testing import artifacts, discovery, drivers
+from tools.validate import evidence
 
 MAX_INPUT_BYTES = 1_048_576
 MAX_TESTS = 1024
@@ -43,6 +44,7 @@ ADAPTERS = {
 # Owner decision 2026-11-22: two licensed clients, audio judgement and load qualification
 # are deferred. They stay traceable here as NOTRUN and are never claimed.
 DEFERRED_REASON = "deferred_owner_2026-11-22"
+DEFERRED_DRIVER = "deferred.task"
 DEFERRED_TASKS = {
     "AV-T017": "Distinct two-client barriers, observation and races",
     "AV-T018": "Owned network delay/retry/adversarial request adapter",
@@ -271,6 +273,10 @@ def main(argv=None):
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments[:1] == ['run']:
         return run_main(arguments[1:])
+    if arguments[:1] == ['coverage']:
+        return coverage_main(arguments[1:])
+    if arguments[:1] == ['lane']:
+        return lane_main(arguments[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('catalog', type=Path, help='Portable test catalog JSON')
     parser.add_argument('--capability', action='append', default=[], metavar='NAME=STATUS',
@@ -352,7 +358,7 @@ def _fresh_output(output_dir):
     out = Path(output_dir)
     if out.is_symlink() or (out.exists() and (not out.is_dir() or any(out.iterdir()))):
         raise ValueError("output_dir must be a new or empty directory")
-    (out / "evidence/logs").mkdir(parents=True)
+    (out / "work").mkdir(parents=True)  # live driver output; only sealed store snapshots are evidence
     return out
 
 
@@ -395,16 +401,11 @@ def _launch(argv, cwd, timeout, log_path):
     return code, status
 
 
-def _text_artifact(path, text):
-    data = discovery.redact(text).encode("utf-8", errors="replace")[:MAX_LOG_BYTES]
-    path.write_bytes(data)
-    return hashlib.sha256(data).hexdigest()
-
-
-def _record(out, task_id, outcome, reason, method, log_name, digest, steps):
-    """Write one evidence-v1 record. Only an offline PASS is documented, all else is blocked."""
+def _record(attempt, task_id, outcome, reason, method, steps):
+    """Snapshot the log and write one evidence-v1 record into the attempt. Only an offline PASS is documented."""
+    log = attempt.artifacts[0]
     base = {"version": 1, "capability_id": FRAMEWORK_CAPABILITY,
-            "artifacts": [{"path": "logs/" + log_name, "sha256": digest}],
+            "artifacts": [{"path": log["path"].rsplit("/", 1)[1], "sha256": log["sha256"]}],
             "method": method}
     if outcome == "PASS":
         base.update(status="documented",
@@ -412,17 +413,14 @@ def _record(out, task_id, outcome, reason, method, log_name, digest, steps):
     else:
         base.update(status="blocked", obstacle={
             "description": f"{task_id} {outcome} reason={reason}", "steps": steps})
-    path = out / "evidence" / (task_id + ".json")
-    path.write_text(json.dumps(base, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    from tools.validate import evidence
-    result = evidence.validate(str(path))
+    relative = attempt.add("record.json", json.dumps(base, indent=2, sort_keys=True) + "\n", "evidence_record")
+    result = evidence.validate(str(attempt.path("record.json")))
     errors = [error["code"] + ":" + error["field"] for error in result["errors"]]
-    return {"path": "evidence/" + task_id + ".json", "valid": result["valid"], "errors": errors}
+    return {"path": "evidence/" + relative, "valid": result["valid"], "errors": errors}
 
 
-def _run_task(out, root, task_id, driver, argv, trusted, capabilities):
-    log_name = task_id + ".log"
-    log_path = out / "evidence/logs" / log_name
+def _run_task(out, store, root, task_id, driver, argv, trusted, capabilities):
+    log_path = out / "work" / (artifacts.task_slug(task_id) + ".log")
     outcome = reason = None
     if driver.kind == "native" and driver.id not in trusted:
         outcome, reason = "NOTRUN", "untrusted_native"
@@ -433,26 +431,33 @@ def _run_task(out, root, task_id, driver, argv, trusted, capabilities):
         elif driver.memory and not shutil.which("agent-run"):
             outcome, reason = "BLOCKED", "agent_run_missing"
     if outcome is not None:
-        digest = _text_artifact(log_path, f"{task_id}: not launched; {outcome} reason={reason}\n")
+        text = f"{task_id}: not launched; {outcome} reason={reason}\n"
         output = ""
     else:
         launch = ["agent-run", "--memory", driver.memory, "--", *argv] if driver.memory else argv
         code, status = _launch(launch, root, driver.timeout, log_path)
         raw = log_path.read_bytes().decode("utf-8", errors="replace") if log_path.exists() else ""
         # The footer keeps a silent child's artifact nonempty and records how it ended.
-        digest = _text_artifact(log_path, raw + f"\n[runner] driver={driver.id} exit={code} status={status}\n")
+        text = (raw + f"\n[runner] driver={driver.id} exit={code} status={status}\n")
         output = discovery.redact(raw)
         if status != "ok":
             outcome, reason = "FAIL", status
         else:
             outcome, reason = driver.judge(code, output)
+    actor, presented = artifacts.producer_for(driver)
+    attempt = store.begin(task_id, driver.id, actor=actor, presented_as=presented, client_count=0,
+                          pin=artifacts.method_pin(driver))
+    # Raw native (zero-client) output is its own role; it never backs a runtime claim.
+    log_role = "driver_log" if driver.kind == "offline" else "zero_client_report"
+    attempt.add("driver.log", text, log_role)
     steps = ["Read the redacted raw output in the artifact", "Resolve the reason, then rerun in a new output directory"]
     method = f"{driver.id} layer={driver.layer} clients=0 (never multiplayer)"
-    evidence = _record(out, task_id, outcome, reason, method, log_name, digest, steps)
-    if not evidence["valid"]:
-        outcome, reason = "FAIL", "evidence_invalid:" + ",".join(evidence["errors"])
+    result = _record(attempt, task_id, outcome, reason, method, steps)
+    if not result["valid"]:
+        outcome, reason = "FAIL", "evidence_invalid:" + ",".join(result["errors"])
+    attempt.finish(outcome, reason)
     return {"task": task_id, "driver": driver.id, "layer": driver.layer, "outcome": outcome,
-            "reason": reason, "evidence": evidence}
+            "reason": reason, "evidence": result}
 
 
 def _row_outcomes(base, capabilities, selection, task_results, covers):
@@ -507,19 +512,28 @@ def run_automation(manifest, output_dir, *, trusted_drivers=(), capabilities=Non
     base = plan(catalog, capabilities=capabilities, selected=selected)  # validates both inputs
     selection = identifiers if selected is None else set(selected)
     out = _fresh_output(output_dir)
+    store = artifacts.ArtifactStore(out / "evidence", manifest["run_id"])
+    pins = artifacts.pins_for(registry, {DEFERRED_DRIVER: artifacts.text_pin(DEFERRED_DRIVER + DEFERRED_REASON)})
 
     task_results, covers = [], {}
     for task_id, driver, covered, argv in planned:
         covers[task_id] = set(covered)
-        task_results.append(_run_task(out, root, task_id, driver, argv, trusted, capabilities))
+        task_results.append(_run_task(out, store, root, task_id, driver, argv, trusted, capabilities))
     for task_id, title in DEFERRED_TASKS.items():
-        log = out / "evidence/logs" / (task_id + ".log")
-        digest = _text_artifact(log, f"{task_id} {title}: NOTRUN {DEFERRED_REASON}\n")
-        evidence = _record(out, task_id, "NOTRUN", DEFERRED_REASON,
-                           "deferred task layer=none clients=0 (never multiplayer)", task_id + ".log", digest,
-                           ["Wait for the owner to lift the 2026-11-22 deferral", "Build the adapter and qualify it natively"])
+        attempt = store.begin(task_id, DEFERRED_DRIVER, actor="offline", presented_as="offline_framework",
+                              client_count=0, pin=pins[DEFERRED_DRIVER])
+        attempt.add("driver.log", f"{task_id} {title}: NOTRUN {DEFERRED_REASON}\n", "driver_log")
+        result = _record(attempt, task_id, "NOTRUN", DEFERRED_REASON,
+                         "deferred task layer=none clients=0 (never multiplayer)",
+                         ["Wait for the owner to lift the 2026-11-22 deferral", "Build the adapter and qualify it natively"])
+        attempt.finish("NOTRUN", DEFERRED_REASON)
         task_results.append({"task": task_id, "driver": None, "layer": "none", "title": title,
-                             "outcome": "NOTRUN", "reason": DEFERRED_REASON, "evidence": evidence})
+                             "outcome": "NOTRUN", "reason": DEFERRED_REASON, "evidence": result})
+
+    # Completeness: the sealed store must validate strictly and hold every task, or the run is incomplete.
+    sealed = store.validate(pins, expected_tasks=[result["task"] for result in task_results])
+    stored = {"manifest": "evidence/" + evidence.STORE_MANIFEST, "sha256": store.manifest_sha256(),
+              "valid": sealed["valid"], "errors": [e["code"] + ":" + e["field"] for e in sealed["errors"]]}
 
     rows = _row_outcomes(base, capabilities, selection, task_results, covers)
     original = {row["id"]: row for row in rows if row["id"] in ORIGINAL_IDS}
@@ -531,21 +545,71 @@ def run_automation(manifest, output_dir, *, trusted_drivers=(), capabilities=Non
     for row in list(original.values()) + [r for r in rows if r["id"] not in ORIGINAL_IDS]:
         counts[row["outcome"]] += 1
     task_counts = {name: sum(1 for t in task_results if t["outcome"] == name) for name in drivers.OUTCOMES}
-    overall = next((name for name in ("FAIL", "BLOCKED", "NOTRUN") if counts[name] or task_counts[name]), "PASS")
+    order = ("FAIL", "BLOCKED", "NOTRUN") if stored["valid"] else ("FAIL", "INCOMPLETE")
+    # No valid manifest: the run is incomplete (below FAIL, above everything else), never passed.
+    overall = next((name for name in order if name == "INCOMPLETE" or counts[name] or task_counts[name]), "PASS")
     report = {
         "report_version": 1, "mode": "execution", "acceptance": "not_evaluated",
         "evidence_label": "offline-framework", "clients": 0, "run_id": manifest["run_id"],
         "catalog_id": base["catalog_id"], "catalog_sha256": base["catalog_sha256"],
         "capabilities": dict(sorted(capabilities.items())),
         "trusted_drivers": sorted(trusted),
+        "complete": stored["valid"], "store": stored,
         "tasks": task_results, "task_counts": task_counts,
         "counts": counts,
         "coverage": {"original": {"expected": len(ORIGINAL_IDS), "listed": len(original),
                                   "rows": [original[key] for key in sorted(original)]}},
         "tests": rows, "status": overall,
     }
+    report["coverage_report"] = _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins)
     (out / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
+
+
+def _write_coverage(out, store, catalog, manifest, covers, capabilities, selected, pins, reviews=None):
+    """Post-run hook (AV-T027): coverage.json and coverage.md next to the sealed store, never in the repo."""
+    from tools.testing import coverage
+    built = coverage.build_report(
+        catalog, store.root, run_id=manifest["run_id"], covers=covers, capabilities=capabilities,
+        selected=selected, pins=pins, manifest_sha256=store.manifest_sha256(), reviews=reviews,
+        expected_tasks=[entry["task"] for entry in store.entries])
+    try:
+        written = coverage.write_outputs(out, built)
+    except ValueError as error:
+        return {"written": False, "reason": discovery.redact(error)}
+    return dict(written, written=True, status=built["status"], complete=built["complete"])
+
+
+def coverage_main(arguments):
+    """Rebuild the coverage report of a finished run from its sealed store and the run manifest."""
+    from tools.testing import coverage
+    parser = argparse.ArgumentParser(prog="automation coverage",
+                                     description="Coverage, human-review and blocker report for a sealed run")
+    parser.add_argument("run_dir", type=Path, help="the run's output directory (holds evidence/)")
+    parser.add_argument("manifest", type=Path, help="the manifest the run used (names the covering tasks)")
+    parser.add_argument("--reviews", type=Path, help="JSON object id -> {decision, reviewer, artifact:{path, sha256}}")
+    parser.add_argument("--out", type=Path, help="directory for coverage.json and coverage.md (default: the run dir)")
+    args = parser.parse_args(arguments)
+    try:
+        manifest = _load_json_file(args.manifest)
+        catalog = load_catalog(ROOT / _manifest_catalog(manifest))
+        covers = coverage.covers_from_manifest(manifest, {row["id"] for row in catalog["tests"]})
+        previous = _load_json_file(args.run_dir / "report.json") if (args.run_dir / "report.json").exists() else {}
+        capabilities = previous.get("capabilities", {}) if isinstance(previous, dict) else {}
+        reviews = _load_json_file(args.reviews) if args.reviews else None
+        store_manifest = coverage._load_store(args.run_dir / "evidence")
+        if store_manifest is None or store_manifest.get("run_id") != manifest["run_id"]:
+            raise ValueError("manifest run_id does not match the sealed store")
+        built = coverage.build_report(
+            catalog, args.run_dir / "evidence", run_id=manifest["run_id"], covers=covers,
+            capabilities=capabilities, selected=manifest.get("selected"),
+            pins=coverage.pins_for_run(drivers.DRIVERS), reviews=reviews)
+        written = coverage.write_outputs(args.out or args.run_dir, built)
+    except ValueError as error:
+        parser.error(discovery.redact(error))
+    print(json.dumps(dict(written, status=built["status"], complete=built["complete"], counts=built["counts"]),
+                     sort_keys=True))
+    return 1 if built["status"] in ("FAIL", "INCOMPLETE") else 0
 
 
 def run_main(arguments):
@@ -563,8 +627,74 @@ def run_main(arguments):
                                 trusted_drivers=args.trust, capabilities=capabilities)
     except ValueError as error:
         parser.error(discovery.redact(error))
-    print(json.dumps({key: report[key] for key in ("run_id", "status", "counts", "task_counts")}, sort_keys=True))
-    return 1 if report["status"] == "FAIL" else 0
+    print(json.dumps({key: report[key] for key in ("run_id", "status", "complete", "counts", "task_counts")}, sort_keys=True))
+    return 1 if report["status"] in ("FAIL", "INCOMPLETE") else 0
+
+
+# Local native lane (spec 002 AV-T029). A report, never a runner: it launches nothing.
+LANE_RULES = (
+    "native adapters run only on the owner's host, never in hosted CI",
+    "each native tool takes the shared host lock itself (tools.release.host_lock); one native run at a time",
+    "a native driver runs only when the capability report lists every capability it needs as available "
+    "and the caller names it with automation run --trust",
+    "this report never launches DayZ, DayZDiag or Workbench and never reports PASS",
+)
+LANE_UNIMPLEMENTED = ("native adapters of AV-T007 and later (orchestration, faults, geometry/data, client access, "
+                      "audio/perf) are not implemented; none is registered")
+
+
+def hosted_ci(environ=None):
+    environ = os.environ if environ is None else environ
+    return any(str(environ.get(name, "")).lower() == "true" for name in ("GITHUB_ACTIONS", "CI"))
+
+
+def native_lane(capabilities, registry=None, environ=None):
+    """Per native driver: BLOCKED (a needed capability is not available) or NOTRUN (nothing launched).
+
+    Bounded by the registry size. The outcome set is BLOCKED and NOTRUN only, so this lane can
+    never be mistaken for a native pass; a PASS exists only in a sealed run of a trusted driver.
+    """
+    registry = drivers.DRIVERS if registry is None else registry
+    refused = hosted_ci(environ)
+    rows = []
+    for driver_id, driver in sorted(registry.items()):
+        if driver.kind != "native":
+            continue
+        states = {name: capabilities.get(name, "unknown") for name in driver.needs}
+        missing = next((name for name in driver.needs if states[name] != "available"), None)
+        if refused:
+            outcome, reason = "BLOCKED", "hosted_ci_refused"
+        elif missing is not None:
+            outcome, reason = "BLOCKED", f"capability_{states[missing]}:{missing}"
+        else:
+            outcome, reason = "NOTRUN", "lane_never_launches_use_run_with_trust_on_owner_host"
+        rows.append({"id": driver_id, "kind": "driver", "needs": states, "outcome": outcome, "reason": reason})
+    for task_id, title in DEFERRED_TASKS.items():
+        rows.append({"id": task_id, "kind": "deferred_task", "needs": {}, "outcome": "NOTRUN", "reason": DEFERRED_REASON, "title": title})
+    blocked = any(row["outcome"] == "BLOCKED" for row in rows)
+    return {
+        "lane": "local-native",
+        "rules": list(LANE_RULES),
+        "unimplemented": LANE_UNIMPLEMENTED,
+        "hosted_ci": refused,
+        "drivers": rows,
+        "status": "BLOCKED" if blocked else "NOTRUN",
+    }
+
+
+def lane_main(arguments):
+    parser = argparse.ArgumentParser(prog="automation lane", description="Local native lane report; " + LANE_RULES[0])
+    parser.add_argument("--machine", action="store_true", help="include file-presence machine discovery")
+    args = parser.parse_args(arguments)
+    try:
+        machine = discovery.discover_machine() if args.machine else None
+        capabilities = discovery.planner_capabilities(discovery.inventory(ROOT, machine))
+    except ValueError as error:
+        parser.error(discovery.redact(error))
+    report = native_lane(capabilities)
+    print(json.dumps(report, sort_keys=True, indent=2, allow_nan=False))
+    # Exit 1 only for a hosted refusal; BLOCKED/NOTRUN are the honest result, never a pass.
+    return 1 if report["hosted_ci"] else 0
 
 
 if __name__ == '__main__':

@@ -170,7 +170,8 @@ class HCVisualSeasonStore
         if (HCUnsavedSeconds() >= interval) { m_Job.HCDirty = true; }
     }
 
-    // The scheduler has no priority selection API. Its existing urgent fallback
+    // The scheduler picks by priority (preempt, then urgent, then routine; issue #333) and drives
+    // urgent jobs per frame, but a job withdrawn from it uses the owner fallback below, which
     // can advance an unregistered durable continuation by ONE stage per call.
     // Withdraw only a waiting job: an in-flight scheduler image retains its
     // exclusive owner until completion. Never flush/drain from the clock tick.

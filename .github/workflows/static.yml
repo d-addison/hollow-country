@@ -37,6 +37,26 @@ jobs:
           python-version: '3.12'
       - name: Python tooling behavior
         run: python3 -B -m unittest discover -s tests/unit -v
+  automation-offline:
+    name: Offline validation framework (standard library only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Catalogue, feature, binding and driver graph integrity
+        run: python3 -B -m tools.validate.automation_drift
+      - name: Framework unit tests
+        run: >-
+          python3 -B -m unittest -v
+          tests.unit.test_bdd_bindings
+          tests.unit.test_automation
+          tests.unit.test_automation_runner
+          tests.unit.test_artifact_store
+          tests.unit.test_coverage_report
+          tests.unit.test_s002_integrity
 # Native package PowerShell tests need an installed DayZ/Workshop stack, which
 # GitHub-hosted runners do not have. Native package/compile/boot/release checks
 # remain local lead gates. Legacy source pins and the broad nightly/BDD suite
