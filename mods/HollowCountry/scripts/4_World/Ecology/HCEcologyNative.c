@@ -284,12 +284,21 @@ class HCEcologyNative
 		filter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
 		vector sampledStart;
 		vector sampledEnd;
-		if (!world.SampleNavmeshPosition(origin, 1.5, filter, sampledStart)) { return null; }
-		if (!world.SampleNavmeshPosition(desired, 1.5, filter, sampledEnd)) { return null; }
+        int originStart = TickCount(0);
+        bool originOk = world.SampleNavmeshPosition(origin, 1.5, filter, sampledStart);
+        HCEcologySteps.Item("hc29_nav_origin", originStart);
+        if (!originOk) { return null; }
+        int destinationStart = TickCount(0);
+        bool destinationOk = world.SampleNavmeshPosition(desired, 1.5, filter, sampledEnd);
+        HCEcologySteps.Item("hc29_nav_destination", destinationStart);
+        if (!destinationOk) { return null; }
 		if (!HCEcologyRuntimeRules.PositionValid(sampledStart) || !HCEcologyRuntimeRules.PositionValid(sampledEnd)) { return null; }
 		if (vector.DistanceSq(sampledStart, origin) > 2.25 || vector.DistanceSq(sampledEnd, desired) > 2.25) { return null; }
 		TVectorArray path = new TVectorArray;
-		if (!world.FindPath(sampledStart, sampledEnd, filter, path) || !path) { return null; }
+        int probeStart = TickCount(0);
+        bool probeOk = world.FindPath(sampledStart, sampledEnd, filter, path);
+        HCEcologySteps.Item("hc29_findpath", probeStart);
+        if (!probeOk || !path) { return null; }
 		if (path.Count() < 2 || path.Count() > 64) { return null; }
 		float length = 0;
 		int i = 0;

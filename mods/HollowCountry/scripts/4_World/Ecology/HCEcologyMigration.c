@@ -159,6 +159,14 @@ class HCEcologyMigration
     // native goal before durable prepare; never manufacture HCInfectedClue.
     static int SubmitTown(int groupId, HCNativeInfectedPack pack, array<ref HCInfectedActor> actors, float now)
     {
+        int townStart = TickCount(0);
+        int townResult = SubmitTownWork(groupId, pack, actors, now);
+        HCEcologySteps.Deferred(townStart);
+        return townResult;
+    }
+
+    static int SubmitTownWork(int groupId, HCNativeInfectedPack pack, array<ref HCInfectedActor> actors, float now)
+    {
         HCEcologyCycle cycle = HCEcologyCycle.Active();
         if (!s_Service || s_Service.m_Fault || !cycle || !cycle.Ready() || !cycle.NeedsMigration() || !actors || actors.Count() > 256 || !pack) { return 0; }
         array<HCInfectedActor> members = new array<HCInfectedActor>;
@@ -229,7 +237,10 @@ class HCEcologyMigration
 	static int Submit(string id, HCNativeInfectedPack pack, array<HCInfectedActor> members, float nativeNow, bool visualAdmitted, bool heardAdmitted)
 	{
 		if (!s_Service) { return 0; }
-		return s_Service.SubmitOwned(id, pack, members, HCEcologyMigrationNative.Utc(), nativeNow, visualAdmitted, heardAdmitted);
+        int migrationStart = TickCount(0);
+        int migrationResult = s_Service.SubmitOwned(id, pack, members, HCEcologyMigrationNative.Utc(), nativeNow, visualAdmitted, heardAdmitted);
+        HCEcologySteps.Deferred(migrationStart);
+        return migrationResult;
 	}
 
 	int SubmitOwned(string id, HCNativeInfectedPack pack, array<HCInfectedActor> members, int utc, float nativeNow, bool visualAdmitted, bool heardAdmitted)

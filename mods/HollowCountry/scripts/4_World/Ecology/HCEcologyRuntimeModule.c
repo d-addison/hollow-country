@@ -146,21 +146,32 @@ class HCEcologyRuntimeModule : HCModule
 
     override void OnTick(float deltaTime)
     {
+        int ecologyStart = TickCount(0);
+        HCEcologySteps.Begin();
+        int ecologyPart = TickCount(0);
         HCEcologyRuntime.Tick(GetGame().GetTime());
+        HCEcologySteps.Record(0, ecologyPart, "hc29");
+        ecologyPart = TickCount(0);
         if (m_Started && m_Cycle)
         {
             m_Cycle.Tick();
             if (!m_Cycle.Healthy()) { m_Status.HCPublish("refused", "ecology_cycle_save_or_clock"); }
             else if (m_Cycle.NeedsMigration() && (!m_MigrationStarted || !HCEcologyMigration.Operational())) { m_Status.HCPublish("refused", "ecology_migration_store_unavailable"); }
         }
+        HCEcologySteps.Cycle(ecologyPart);
+        ecologyPart = TickCount(0);
         if (m_Started) { HCWildlifeObservation.HCTick(GetGame().GetTime()); }
+        HCEcologySteps.Record(6, ecologyPart, "wildlife");
+        ecologyPart = TickCount(0);
         if (m_Started) { HCReached.Mark("ecology.observation_tick"); }
         if (m_Started && m_WildlifeScenes && m_WildlifeScenes.HCActive())
         {
             int utc = HCGroupClock.Utc();
             if (utc >= 1577836801) { m_WildlifeScenes.HCStep(utc - 1577836800, GetGame().GetTime()); }
         }
+        HCEcologySteps.Record(7, ecologyPart, "scenes");
         HCObserveWildlife(m_Started);
+        HCEcologySteps.End(ecologyStart);
     }
 
     override void OnStop()
