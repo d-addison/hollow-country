@@ -1,4 +1,7 @@
-"""Synthetic data contract tests; route geometry needs native acceptance."""
+"""Synthetic data contract tests; route geometry needs native acceptance.
+
+PatrolTests cover the RETIRED offline Missions validator (no HCXAIMission runtime consumer remains).
+"""
 import copy
 import json
 from pathlib import Path
