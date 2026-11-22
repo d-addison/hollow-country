@@ -1,0 +1,105 @@
+HIERARCHY
+ROOT Hips
+{
+ OFFSET 0 100 0
+ CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+ JOINT Spine
+ {
+  OFFSET 0 10 0
+  CHANNELS 3 Zrotation Xrotation Yrotation
+  JOINT Spine2
+  {
+   OFFSET 0 10 0
+   CHANNELS 3 Zrotation Xrotation Yrotation
+   JOINT Spine3
+   {
+    OFFSET 0 10 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    JOINT Neck
+    {
+     OFFSET 0 10 0
+     CHANNELS 3 Zrotation Xrotation Yrotation
+     JOINT Head
+     {
+      OFFSET 0 10 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      End Site { OFFSET 0 10 0 }
+     }
+    }
+    JOINT LeftArm
+    {
+     OFFSET -15 0 0
+     CHANNELS 3 Zrotation Xrotation Yrotation
+     JOINT LeftForeArm
+     {
+      OFFSET -25 0 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT LeftHand
+      {
+       OFFSET -20 0 0
+       CHANNELS 3 Zrotation Xrotation Yrotation
+       End Site { OFFSET -5 0 0 }
+      }
+     }
+    }
+    JOINT RightArm
+    {
+     OFFSET 15 0 0
+     CHANNELS 3 Zrotation Xrotation Yrotation
+     JOINT RightForeArm
+     {
+      OFFSET 25 0 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT RightHand
+      {
+       OFFSET 20 0 0
+       CHANNELS 3 Zrotation Xrotation Yrotation
+       End Site { OFFSET 5 0 0 }
+      }
+     }
+    }
+   }
+  }
+ }
+ JOINT LeftUpLeg
+ {
+  OFFSET -10 0 0
+  CHANNELS 3 Zrotation Xrotation Yrotation
+  JOINT LeftLeg
+  {
+   OFFSET 0 -45 0
+   CHANNELS 3 Zrotation Xrotation Yrotation
+   JOINT LeftFoot
+   {
+    OFFSET 0 -45 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    End Site { OFFSET 0 0 15 }
+   }
+  }
+ }
+ JOINT RightUpLeg
+ {
+  OFFSET 10 0 0
+  CHANNELS 3 Zrotation Xrotation Yrotation
+  JOINT RightLeg
+  {
+   OFFSET 0 -45 0
+   CHANNELS 3 Zrotation Xrotation Yrotation
+   JOINT RightFoot
+   {
+    OFFSET 0 -45 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    End Site { OFFSET 0 0 15 }
+   }
+  }
+ }
+}
+MOTION
+Frames: 6
+Frame Time: 0.03333333333333333
+0 0 0 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
+0 0 4 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 -8 0  0 0 0  0 0 0  0 8 0  0 0 0  0 0 0  0 12 0  0 -5 0  0 0 0  0 -12 0  0 5 0  0 0 0
+0 1 8 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 -16 0  0 0 0  0 0 0  0 16 0  0 0 0  0 0 0  0 24 0  0 -10 0  0 0 0  0 -24 0  0 10 0  0 0 0
+0 0 12 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0
+0 0 16 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 8 0  0 0 0  0 0 0  0 -8 0  0 0 0  0 0 0  0 -12 0  0 5 0  0 0 0  0 12 0  0 -5 0  0 0 0
+0 1 20 0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 0 0  0 16 0  0 0 0  0 0 0  0 -16 0  0 0 0  0 0 0  0 -24 0  0 10 0  0 0 0  0 24 0  0 -10 0  0 0 0
