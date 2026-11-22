@@ -36,6 +36,11 @@ DEFAULTS = {
     'setting_write_only_variables': ['settings', 'defaults', 'decoded'],
     'minimum_path_literal_length': 5,
     'setting_metadata_helpers': ['HCValid', 'HCDefault', 'HCMinimum', 'HCMaximum', 'Has', 'HasKey'],
+    # Table-driven keys: '<prefix><NAME>' resolves only when the owner class builds
+    # the key as "<literal>" + name and NAME appears in the declared name table.
+    'setting_key_tables': [{'key_prefix': 'Performance.TickWeight_', 'read_owner': 'HCPerfConfig',
+                            'read_literal': 'TickWeight_',
+                            'names': r'\bHCRegisterConsumer\s*\(\s*\w+\s*,\s*"(\w+)"'}],
     'module_base': 'HCModule', 'module_register': 'Register', 'module_registry_class': 'HCModuleRegistry',
     'readiness_base_patterns': ['HCModuleReadiness.HCPrint('],
     'readiness_dispatch_patterns': ['.HCReadyCapture(', '.HCReadyReport('],
@@ -840,10 +845,20 @@ class Audit:
                         ambiguous.add(part)
                     owners = set().union(*(fields[o].get(part, set()) for o in owners)) if owners else set()
             bare_fields[owner].update(re.findall(r'(?<![\w.])\b(\w+)\b(?!\s*\()', body))
+        table_keys = set()
+        for table in r['setting_key_tables']:
+            read = re.compile(r'"' + re.escape(table['read_literal']) + r'"\s*\+\s*\w+')
+            if not any(c['name'] == table['read_owner'] and read.search(mask(c['body']))
+                       for _, c in script_classes):
+                continue
+            names = set()
+            for t in scripts.values():
+                names.update(re.findall(table['names'], mask(t)))
+            table_keys.update(table['key_prefix'] + name for name in names)
         for key, (p, n) in sorted(registry.items()):
             field = key.rsplit('.', 1)[-1]
             # Getter-key literals and member access are the explicit common paths.
-            getter = key in getter_keys
+            getter = key in getter_keys or key in table_keys
             owner = registered_owners.get(key, mirror.get(key, {}).get('owner'))
             read_owners = {owner}
             for (method_owner, method_name), types in method_returns.items():

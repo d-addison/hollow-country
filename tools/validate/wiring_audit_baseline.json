@@ -219,14 +219,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCAdminTeleport",
-      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 108,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCAdminTeleportConfig",
       "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
       "line": 22,
@@ -686,14 +678,6 @@
       "subject": "HCForageState",
       "file": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
       "line": 186,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCGapBodySceneProducer",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_body_scene.c",
-      "line": 11,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1939,14 +1923,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCStorySettings",
-      "file": "mods/HollowCountry/scripts/4_World/Scenes/HCStorySchedule.c",
-      "line": 16,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCSurvivalAlignmentModule",
       "file": "mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c",
       "line": 11,
@@ -2523,14 +2499,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCXAITactics",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
-      "line": 332,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCXAITacticsConfig",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
       "line": 198,
@@ -2638,14 +2606,6 @@
       "subject": "HCXTacticsView",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
       "line": 310,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCXWarning",
-      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c",
-      "line": 74,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
