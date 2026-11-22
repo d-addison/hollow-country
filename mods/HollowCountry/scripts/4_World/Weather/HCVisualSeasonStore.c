@@ -56,6 +56,14 @@ class HCVisualSeasonIO
             config.MaxUncheckpointedSeconds = 300;
             Print("[HC Plan] HC-6 checkpoint_cap=300 reason=legacy_cap_floor runtime=PENDING");
         }
+        // The season clock is cosmetic and a checkpoint is a full image write (about ten native
+        // calls), so an older profile's 60 s cadence is raised to two minutes. The unsaved cap
+        // stays 300 s, so a crash still loses at most the same bounded span.
+        if (config.CheckpointSeconds < 120)
+        {
+            config.CheckpointSeconds = 120;
+            Print("[HC Plan] HC-6 checkpoint_seconds=120 reason=legacy_cadence_floor runtime=PENDING");
+        }
         HCSeasonVisualPolicy.HCConfigure(config);
         return config;
     }

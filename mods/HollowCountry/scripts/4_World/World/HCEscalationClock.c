@@ -223,6 +223,8 @@ class HCV2ThreatStore<Class T>
     // Any existing backup keeps the verified-predecessor recovery below.
     static void HCRecoverInterrupted(string path)
     {
+        // Promotion, backup restore and archive rewrite the primary outside the image writer.
+        HCStagedSaveImage.HCForget(path);
         string tmp = path + ".tmp";
         string bak = path + ".bak";
         bool hasTmp = FileExist(tmp);

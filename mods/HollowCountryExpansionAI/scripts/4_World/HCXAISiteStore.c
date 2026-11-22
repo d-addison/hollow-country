@@ -14,14 +14,26 @@ class HCXAILocalitySave : HCSaveJob
     static const string LEGACY_BACKUP = "$profile:HollowCountry/expansion-ai-locality-rotation.bak.json";
     ref HCXAILocalityRotation Data;
     bool Fault;
+    // The cursor came from the backup (the primary was missing or unreadable): the owner
+    // must write a fresh primary even though no row changed.
+    bool Recovered;
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
     protected int m_SnapshotRevision;
     protected string m_Text;
     override string HCName() { return "HC-18-localities"; }
+    // Coverage observations are not durability barriers (selection changes set HCUrgent), and the
+    // image is a full rewrite of every locality row, so routine checkpoints wait five minutes.
+    override float HCInterval() { return Math.Max(HCWorldRuntimeConfig.HCGet().SaveCoalesceSeconds, 300); }
     void HCChanged() { m_Revision++; HCDirty = true; }
+    // A selection waits only for a selection checkpoint (urgent) or a write in flight. Routine-dirty
+    // observations and refusals ride the next image and must not hold selection for a coalesce interval.
+    bool HCSelectionBlocked() { return HCInFlight || (HCUrgent && HCDirty); }
     bool HCLoad(string world)
     {
+        // Load deletes the intent and the primary when it restores from a backup.
+        HCStagedSaveImage.HCForget(PATH);
+        m_Image.HCForgetVerified();
         if (FileExist(INTENT))
         {
             Print("[HC Plan] HC-18 rotation interrupted cursor intent discarded; primary then backup runtime=PENDING");
@@ -31,6 +43,7 @@ class HCXAILocalitySave : HCSaveJob
         if (this.HCRestore(BACKUP, world) || this.HCRestore(LEGACY_BACKUP, world))
         {
             Print("[HC Plan] HC-18 rotation cursor recovered from backup runtime=PENDING");
+            Recovered = true;
             if (FileExist(PATH)) { DeleteFile(PATH); }
             return true;
         }
@@ -261,18 +274,29 @@ class HCXAISiteStorage : HCXAISiteBase
         }
         m_LocalitySave = new HCXAILocalitySave();
         if (!m_LocalitySave.HCLoad(m_Localities.WorldName)) { m_LocalityStatus = "refused:rotation_quarantined"; return false; }
+        // A restart with every locality already covered and a readable primary changes nothing:
+        // no image is written (a full rewrite of every row is ~250 stages) until a row changes.
+        bool seeded = m_LocalitySave.Recovered || !FileExist(HCXAILocalitySave.PATH);
         foreach (HCXAILocality locality : m_Localities.Localities)
         {
             if (HCXAISiteRules.HCCoverage(m_LocalitySave.Data, locality.Id)) { continue; }
+            seeded = true;
             if (m_LocalitySave.Data.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { m_LocalityStatus = "refused:coverage_history_full"; return false; }
             HCXAILocalityCoverage added = new HCXAILocalityCoverage();
             added.LocalityId = locality.Id;
             added.PendingSinceSerial = m_LocalitySave.Data.SelectionSerial;
             m_LocalitySave.Data.Rows.Insert(added);
         }
-        if (m_LocalitySave.Data.NextId == "") { m_LocalitySave.Data.NextId = m_Localities.Localities[0].Id; }
-        m_LocalitySave.HCChanged();
-        if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { m_LocalityStatus = "refused:rotation_save"; return false; }
+        if (m_LocalitySave.Data.NextId == "")
+        {
+            m_LocalitySave.Data.NextId = m_Localities.Localities[0].Id;
+            seeded = true;
+        }
+        if (seeded)
+        {
+            m_LocalitySave.HCChanged();
+            if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { m_LocalityStatus = "refused:rotation_save"; return false; }
+        }
         m_SiteLocalities.Clear();
         m_CoverageRows.Clear();
         for (int localityIndex = 0; localityIndex < m_Localities.Localities.Count(); localityIndex++)

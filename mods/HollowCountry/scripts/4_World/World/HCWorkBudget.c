@@ -206,8 +206,9 @@ class HCSaveJob
     int HCStep() { return STEP_FAILED; }
 }
 
-// Bound: <=32 registered stores examined (operator may lower), SaveStagesPerTick
-// stages under the cooperative SaveStageTargetMs deadline. Only ONE job advances per dispatch.
+// Bound: <=32 registered stores examined (operator may lower), one stage per routine dispatch
+// (HC_DISPATCH_STAGES) and up to HC_URGENT_DISPATCH_STAGES per preempt/urgent dispatch, both under the
+// cooperative SaveStageTargetMs deadline. Only ONE job advances per dispatch.
 // Issue #333: dispatch picks by priority (HCPreempt journal, then HCUrgent, then routine) at
 // stage boundaries, so a higher-priority job parks a retained lower one that resumes where it
 // stopped; jobs own their cursors and handles, so a parked job is exactly a job that waited.
@@ -234,6 +235,7 @@ class HCSaveScheduler : HCModule
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref HCSaveStageBudget m_StageBudget = new HCSaveStageBudget;
     protected int m_TickStages;
+    protected int m_StageLimit = 1; // stage cap of the dispatch that is running or ran last
     protected HCSaveJob m_Active;
     protected int m_SelectIndex;
     protected bool m_InDispatch;      // set for the whole of a dispatch; still set on entry = the last one aborted
@@ -247,8 +249,19 @@ class HCSaveScheduler : HCModule
     protected int m_FrameWorst;
     protected int m_FrameWorstStages;
     protected string m_FrameWorstJob;
-    // Per-frame urgent dispatch budget (ms, cooperative); routine jobs never run per frame.
+    // Per-frame dispatch budget (ms, cooperative). Urgent and preempt jobs run per frame from
+    // their first stage; a routine job is STARTED by the 1 Hz module tick and then driven per frame
+    // until it completes, so no image waits one second per stage.
     static const int HC_FRAME_MS = 2;
+    // A routine dispatch, tick or frame, runs exactly one stage (one native file operation) and at most
+    // one dispatch runs per frame. A preempt or urgent dispatch runs up to HC_URGENT_DISPATCH_STAGES
+    // stages while the dispatch budget lasts (the first stage always runs). The SaveStagesPerTick
+    // setting no longer widens this; it bounds the owner fallback pump only.
+    static const int HC_DISPATCH_STAGES = 1;
+    // Preempt and urgent jobs (custody, journals, durable continuations) may run up to this many
+    // stages in one dispatch, still inside the dispatch time budget (HC_FRAME_MS per frame): a
+    // one-stage dispatch made a ~10 call image take ten frames. Routine jobs stay at one stage.
+    static const int HC_URGENT_DISPATCH_STAGES = 8;
     protected bool m_FrameInstalled;
     protected bool m_Started;
     protected string m_Fault;
@@ -283,7 +296,7 @@ class HCSaveScheduler : HCModule
             m_FrameInstalled = true;
             GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Insert(HCFrame);
         }
-        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=" + HCWorldRuntimeConfig.HCGet().SaveStagesPerTick.ToString() + " target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages frame_ms=" + HC_FRAME_MS.ToString() + " frame_scope=urgent_preempt cooperative_only=1 runtime=PENDING");
+        Print("[HC PerfControl] WorldSaves target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages stages_per_dispatch=" + HC_DISPATCH_STAGES.ToString() + " urgent_stages_per_dispatch=" + HC_URGENT_DISPATCH_STAGES.ToString() + " frame_ms=" + HC_FRAME_MS.ToString() + " frame_scope=urgent_preempt_in_flight cooperative_only=1 runtime=PENDING");
     }
 
     override void OnStop()
@@ -437,7 +450,7 @@ class HCSaveScheduler : HCModule
                 job.HCPeakTicks = job.HCStatStageMax;
                 string timing = "[HC Save] job=" + job.HCName() + " stages=" + job.HCStatStages.ToString() + " max_stage_ticks=" + job.HCStatStageMax.ToString() + " total_ticks=" + job.HCStatTotalTicks.ToString();
                 timing += " scheduler_ticks=" + job.HCStatJobTicks.ToString() + " max_stages_per_tick=" + job.HCStatMaxPerTick.ToString();
-                timing += " slowest_stage=" + job.HCStatStageMaxIndex.ToString() + " op=" + job.HCStatStageMaxOperation + " runtime=PENDING";
+                timing += " stage_limit=" + m_StageLimit.ToString() + " slowest_stage=" + job.HCStatStageMaxIndex.ToString() + " op=" + job.HCStatStageMaxOperation + " runtime=PENDING";
                 Print("" + timing);
             }
         }
@@ -461,7 +474,9 @@ class HCSaveScheduler : HCModule
     {
         int targetMs = HCPerfConfig.HCGet().SaveStageTargetMs;
         if (budgetMs > 0) { targetMs = Math.Min(targetMs, budgetMs); }
-        m_StageBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, targetMs);
+        m_StageLimit = HC_DISPATCH_STAGES;
+        if (job.HCPreempt || job.HCUrgent) { m_StageLimit = HC_URGENT_DISPATCH_STAGES; }
+        m_StageBudget.HCReset(m_StageLimit, targetMs);
         // A job not in flight starts a new checkpoint; a flush may have left old counters.
         if (!job.HCInFlight) { job.HCResetStats(); }
         job.HCStatJobTicks = job.HCStatJobTicks + 1;
@@ -482,9 +497,10 @@ class HCSaveScheduler : HCModule
         return 0;
     }
 
-    // Highest ranked dispatchable job. Rank: preempt 8; routine mode: due/in-flight routine 4, plain urgent 0;
-    // frame mode (routine=false): urgent 4, routine never. Ties keep the active job (+2), then any in-flight
-    // job (+1), then ring order from m_Next. Preempt and urgent jobs are scanned without the scan cap;
+    // Highest ranked dispatchable job. Rank: preempt 16; tick mode (routine=true): due/in-flight routine 4,
+    // plain urgent 0; frame mode (routine=false): urgent 8, in-flight routine 2, a routine job that is not
+    // in flight never. Ties keep the active job (+2), then any in-flight job (+1), then ring order from m_Next;
+    // the bonuses never lift a lower class over a higher one. Preempt and urgent jobs are scanned without the scan cap;
     // routine positions are bounded by SaveScanLimit and examined reports how many ring positions were
     // covered (count when the routine scan was not cut). No allocation.
     protected HCSaveJob HCSelect(float now, bool routine, out int examined)
@@ -503,19 +519,34 @@ class HCSaveScheduler : HCModule
             int priority = HCPriority(job);
             if (priority == 0)
             {
-                if (!routine) { continue; }
-                if (!routineCut && !m_Budget.HCContinue())
+                // Frame mode never starts a routine job; it only continues one already in flight.
+                if (!routine)
                 {
-                    routineCut = true;
-                    examined = scanned - 1;
+                    if (!job.HCInFlight) { continue; }
                 }
-                if (routineCut) { continue; }
+                else
+                {
+                    if (!routineCut && !m_Budget.HCContinue())
+                    {
+                        routineCut = true;
+                        examined = scanned - 1;
+                    }
+                    if (routineCut) { continue; }
+                }
             }
             if (job.HCFaulted || (!job.HCDirty && !job.HCInFlight)) { continue; }
             if (priority == 0 && !job.HCInFlight && (now < job.HCDue || (job.HCHasCommitted && now < job.HCLastCommitSeconds + job.HCInterval()))) { continue; }
+            // Frame mode: every urgent job (8..10) outranks every routine job (2..4), and preempt
+            // (16..18) outranks both, so a custody checkpoint never waits for a routine backlog.
+            // Tick mode keeps routine (4..6) ahead of plain urgent (0..2); the frame drive serves urgent.
             int rank = 4;
-            if (priority == 2) { rank = 8; }
-            else if (priority == 1 && routine) { rank = 0; }
+            if (priority == 2) { rank = 16; }
+            else if (priority == 1)
+            {
+                rank = 8;
+                if (routine) { rank = 0; }
+            }
+            else if (!routine) { rank = 2; }
             if (job == m_Active) { rank = rank + 2; }
             else if (job.HCInFlight) { rank = rank + 1; }
             if (rank > bestRank)
@@ -607,8 +638,9 @@ class HCSaveScheduler : HCModule
         {
             HCSaveJob job = s_Jobs[i];
             i = i + 1;
-            if (job.HCFaulted || (!job.HCPreempt && !job.HCUrgent)) { continue; }
-            if (job.HCDirty || job.HCInFlight) { return true; }
+            if (job.HCFaulted) { continue; }
+            if (job.HCInFlight) { return true; }
+            if ((job.HCPreempt || job.HCUrgent) && job.HCDirty) { return true; }
         }
         return false;
     }
@@ -626,8 +658,9 @@ class HCSaveScheduler : HCModule
         m_FrameWorstJob = "";
     }
 
-    // Issue #333: one bounded urgent/preempt dispatch per frame. The module tick is 1 Hz, which made
-    // every journal image take ~31 s at 8 stages per tick. Routine jobs are not driven here.
+    // Issue #333: one bounded dispatch (one stage) per frame for urgent/preempt jobs and for any job
+    // already in flight. The module tick is 1 Hz, which made every journal image take ~31 s at 8
+    // stages per tick. A routine job is only started by the tick, never here.
     void HCFrame(float timeslice)
     {
         if (!m_Started) { return; }
@@ -715,6 +748,70 @@ class HCStagedSaveImage
     protected bool m_StreamDone;
     protected string m_Piece;
     protected int m_PrimaryOpenStage;
+    // Phase 5 reached with nothing modified (the verified primary already holds the candidate):
+    // there is no intent file to clear. Never set once this transaction has written an intent.
+    protected bool m_NoIntent;
+    // True from the moment this transaction opens its intent file for writing. A refreshed
+    // candidate that equals the primary must still clear that intent (clear_intent), so the
+    // no-intent shortcut is only legal while this stays false.
+    protected bool m_IntentWritten;
+    // One verified primary per image instance: the path, the exact text this instance wrote or
+    // read back and verified into it, and the invalidation epoch of that path when it did.
+    // A candidate is skipped only when the path, the epoch and the whole text still match, so a
+    // hash collision can never skip a write. Memory is one image per instance (<= the image cap).
+    protected string m_VerifiedPath;
+    protected string m_VerifiedText;
+    protected int m_VerifiedEpoch;
+    // Path -> invalidation epoch. Only paths a memo currently covers are tracked (the fixed set of
+    // REPLACE stores, capped), so recovery, migration, disposition and REMOVE writers can retire
+    // every instance's memo for a path with one call. A path beyond the cap is never memoised.
+    static const int HC_MEMO_PATHS = 64;
+    protected static ref map<string, int> s_VerifiedEpoch = new map<string, int>;
+
+    // Every writer that changes a covered primary outside HCStagedSaveImage (recovery, migration,
+    // quarantine, delete) calls this with the exact path. Cheap: one map lookup, no native call.
+    static void HCForget(string path)
+    {
+        int epoch;
+        if (!s_VerifiedEpoch.Find(path, epoch)) { return; }
+        if (epoch < 2147483647) { epoch = epoch + 1; }
+        else { epoch = 0; }
+        s_VerifiedEpoch.Set(path, epoch);
+    }
+
+    protected void HCDropVerified()
+    {
+        m_VerifiedPath = "";
+        m_VerifiedText = "";
+    }
+
+    protected void HCRemember(string path, string text)
+    {
+        int epoch;
+        if (!s_VerifiedEpoch.Find(path, epoch))
+        {
+            if (s_VerifiedEpoch.Count() >= HC_MEMO_PATHS)
+            {
+                HCDropVerified();
+                return;
+            }
+            epoch = 0;
+            s_VerifiedEpoch.Set(path, epoch);
+        }
+        m_VerifiedPath = path;
+        m_VerifiedEpoch = epoch;
+        m_VerifiedText = text;
+    }
+
+    // Length first, then the whole text: no hash, so a collision cannot skip a write and no stage
+    // spends time hashing an image. A native string compare ends at the first differing byte.
+    protected bool HCRemembered(string path, string text)
+    {
+        if (m_VerifiedPath != path || m_VerifiedText.Length() != text.Length()) { return false; }
+        int epoch;
+        if (!s_VerifiedEpoch.Find(path, epoch) || epoch != m_VerifiedEpoch) { return false; }
+        return m_VerifiedText == text;
+    }
 
     void ~HCStagedSaveImage() { HCClose(); }
 
@@ -738,9 +835,23 @@ class HCStagedSaveImage
         // The failing stage may already have made its native call. Drain retained
         // handles on subsequent stages before exposing terminal failure.
         m_Failed = true;
+        HCDropVerified();
         if (m_ReadOpen || m_WriteOpen) { return HCSaveJob.STEP_MORE; }
         return HCSaveJob.STEP_FAILED;
     }
+
+    // Latches the failure without stepping; the owner then drains with HCStepImage, one retained
+    // handle per stage. For owners whose image never carries a bounded child writer
+    // (HCAbort is the same latch plus the first drain step).
+    void HCLatchFailed()
+    {
+        m_Failed = true;
+        HCDropVerified();
+    }
+
+    // Owners that read, recover or delete their primary outside this writer call this on the
+    // instance that wrote it; static HCForget(path) retires every instance's memo for the path.
+    void HCForgetVerified() { HCDropVerified(); }
 
     // Owners whose validation fails mid-image still drain one handle per stage.
     int HCAbort()
@@ -764,9 +875,20 @@ class HCStagedSaveImage
             Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
             return false;
         }
+        // This instance already wrote or read back exactly these bytes into the primary and
+        // cleared its own intent: nothing to write, read or compare. Begin's one primary probe
+        // proves the primary is still on disk; an absent primary (deleted or recovered file) drops
+        // the skip and runs the full transaction. An intent that appeared since could only come
+        // from outside; the next changed image checks for it.
+        bool verified = mode == HC_IMAGE_REPLACE && HCRemembered(path, text);
+        bool primaryPresent = false;
+        if (mode != HC_IMAGE_REMOVE && (verified || mode == HC_IMAGE_CREATE)) { primaryPresent = FileExist(path); }
+        if (verified && !primaryPresent) { verified = false; }
+        // A removal retires every instance's memo for that exact path.
+        if (mode == HC_IMAGE_REMOVE) { HCForget(path); }
         // Refuse without latching failure/active state, so owners can recover
         // stale intents or immutable targets before retrying Begin.
-        if (mode != HC_IMAGE_REMOVE && (FileExist(temporary) || (mode == HC_IMAGE_CREATE && FileExist(path))))
+        if (!verified && mode != HC_IMAGE_REMOVE && (FileExist(temporary) || (mode == HC_IMAGE_CREATE && primaryPresent)))
         {
             Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
             return false;
@@ -791,8 +913,21 @@ class HCStagedSaveImage
         m_CheckPrior = checkPrior || backup;
         m_ExpectedPrior = expectedPrior;
         m_Phase = 0;
+        m_NoIntent = false;
+        m_IntentWritten = false;
         if (mode != HC_IMAGE_REPLACE) { m_CheckPrior = false; m_Backup = false; }
         if (mode == HC_IMAGE_REMOVE) { m_Phase = 5; }
+        if (verified)
+        {
+            m_CheckPrior = false;
+            m_NoIntent = true;
+            m_Phase = 5;
+        }
+        else if (mode == HC_IMAGE_REPLACE)
+        {
+            // The primary may change from here on; it is trusted again only after verification.
+            HCDropVerified();
+        }
         return true;
     }
 
@@ -951,6 +1086,18 @@ class HCStagedSaveImage
             return HCSaveJob.STEP_MORE;
         }
         else if (m_Phase == 4) { HCSaveJob.HCOperation = "read_primary"; source = m_Path; expected = m_Text; compare = true; }
+        else if (m_NoIntent)
+        {
+            // Nothing was written, so there is no intent to clear and no native call to make.
+            HCSaveJob.HCOperation = "unchanged_done";
+            HCRemember(m_Path, m_Text);
+            HCClose();
+            m_NoIntent = false;
+            m_Phase = -1;
+            m_Text = "";
+            m_ExpectedPrior = "";
+            return HCSaveJob.STEP_DONE;
+        }
         else
         {
             HCSaveJob.HCOperation = "clear_intent";
@@ -966,6 +1113,8 @@ class HCStagedSaveImage
             bool removed = true;
             if (m_Mode != HC_IMAGE_REMOVE || m_TargetExists) { removed = DeleteFile(intent); }
             if (!removed) { return HCFail(); }
+            // Primary and backup are verified and the intent is gone: the primary is now known.
+            if (m_Mode == HC_IMAGE_REPLACE) { HCRemember(m_Path, m_Text); }
             HCClose();
             m_Phase = -1;
             m_Text = "";
@@ -1015,6 +1164,8 @@ class HCStagedSaveImage
                 if (target != "")
                 {
                     HCSaveJob.HCOperation = operation + "_open_write";
+                    // From here an intent may exist on disk: the no-intent shortcut is off.
+                    if (target == m_Temporary) { m_IntentWritten = true; }
                     m_Write = OpenFile(target, FileMode.WRITE);
                     if (!m_Write) { return HCFail(); }
                     m_WriteOpen = true;
@@ -1108,7 +1259,22 @@ class HCStagedSaveImage
         }
         if (m_Phase == 2 && !m_CheckPrior) { m_PriorChunks.Clear(); m_PriorBytes = 0; }
         HCClose();
-        if (m_CheckPrior) { m_CheckPrior = false; }
+        if (m_CheckPrior)
+        {
+            m_CheckPrior = false;
+            if (m_PriorUnchanged && m_Mode == HC_IMAGE_REPLACE && !m_IntentWritten)
+            {
+                // The verified primary already holds the candidate: skip the tmp write and
+                // readback, the backup rotation and the intent. Nothing has been modified, so
+                // a crash here leaves exactly the verified primary and backup. Phase 5 stays
+                // reachable so owners may still refresh a newer snapshot.
+                m_PriorChunks.Clear();
+                m_PriorBytes = 0;
+                m_NoIntent = true;
+                m_Phase = 5;
+                Print("[HC SaveImage] state=unchanged reason=verified_primary_retained runtime=PENDING");
+            }
+        }
         else { m_Phase++; }
         return HCSaveJob.STEP_MORE;
     }
@@ -1123,6 +1289,8 @@ class HCStagedSaveImage
         // image must not suppress promotion of this newer candidate.
         m_ExpectedPrior = m_Text;
         m_Text = text;
+        m_NoIntent = false;
+        HCDropVerified();
         m_Phase = 0;
         m_Backup = true;
         m_PriorUnchanged = false;

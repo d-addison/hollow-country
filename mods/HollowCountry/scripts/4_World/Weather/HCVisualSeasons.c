@@ -20,7 +20,7 @@ class HCVisualSeasonConfig : HCc2SeasonTuning
     int SchemaVersion = 1;
     bool EnableVisualSeasons = true;
     int PhaseSeconds = 604800;
-    int CheckpointSeconds = 60;
+    int CheckpointSeconds = 120;
     int MaxUncheckpointedSeconds = 300;
     float MaxClockDeltaSeconds = 10;
 

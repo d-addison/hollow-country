@@ -2,7 +2,7 @@
   "SchemaVersion": 1,
   "EnableVisualSeasons": true,
   "PhaseSeconds": 604800,
-  "CheckpointSeconds": 60,
+  "CheckpointSeconds": 120,
   "MaxUncheckpointedSeconds": 300,
   "MaxClockDeltaSeconds": 10
 }

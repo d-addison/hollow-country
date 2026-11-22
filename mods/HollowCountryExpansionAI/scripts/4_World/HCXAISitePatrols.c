@@ -291,7 +291,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
             else { this.HCMakeNearbyRoom(); }
         }
         if (this.HCLocalityPageCount() >= HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites)) { return; }
-        if (m_LocalitySave.HCDirty || m_LocalitySave.HCInFlight) { return; }
+        if (m_LocalitySave.HCSelectionBlocked()) { return; }
         if (m_SelectionPending)
         {
             foreach (HCXAISite pendingSite : m_SelectionPending)
@@ -384,7 +384,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
         }
         bool admissionTurn = m_LocalityAdmissionTurn;
         m_LocalityAdmissionTurn = !m_LocalityAdmissionTurn;
-        if (!m_LocalitySave.HCDirty && !m_LocalitySave.HCInFlight && (m_SelectionPending || (admissionTurn && (m_NearSite >= 0 || now >= m_LocalityNextAttemptAt))))
+        if (!m_LocalitySave.HCSelectionBlocked() && (m_SelectionPending || (admissionTurn && (m_NearSite >= 0 || now >= m_LocalityNextAttemptAt))))
         {
             if (m_LocalityWork.HCContinue() && this.HCTakeLocalityUnit())
             {
