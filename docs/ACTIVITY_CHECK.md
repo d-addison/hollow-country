@@ -438,3 +438,44 @@ git diff --check: PASS
 
 This newer snapshot still has 41 findings; it is not a current-build paired
 server/client acceptance run.
+
+
+## Neon R3 RPT ceilings and R4 ratchet (B-03 / W4-09)
+
+`tools.audit.rpt_config_audit` supplies all 15 section 3.5 taxonomy matchers.
+Rows 1 (No entry) and 3 (Trying to access error value) are separate. Specific
+categories take precedence over row 4's generic Warning Message fallback.
+Unknown diagnostics appear as category 0 in sanitized numeric diagnostic rows
+and `unclassified_count`; raw excerpts and resource/config names are never emitted.
+`taxonomy_complete=true` means matcher coverage, not that every observed line was
+classified. Oversized lines are counted separately. Local category-pattern overrides
+are for investigations; release auditing always uses the built-in matchers.
+
+`release_gate.audit` applies the same bounded reader and taxonomy to server RPTs,
+including upgrade boots and the final soak audit. Every occurrence counts, including
+dependency-caused and vanilla lines; provenance and baseline matches do not subtract
+from totals. It rejects a count above `rpt_category_ceilings`, unclassified diagnostics,
+oversized lines, and an unmeasured (`null`) ceiling. Client checks retain their
+separate VME/texture limits. The acceptance-target loader requires exactly the 15
+category IDs as JSON string keys, nonnegative integer counts (never booleans or
+floats), or explicit `null` for missing measurements. Unknown policy keys are errors.
+
+Initial ceilings for rows 1–14 come from the recorded Build 159 section 3.5 census.
+These are provisional regression limits, not acceptance of outstanding defects.
+Row 15 has no measured count and remains `null`, so release is blocked until the
+lead supplies a complete current/vanilla census. Do not replace missing evidence
+with zero. The final zero/vanilla targets and the Build 164 unclassified backlog
+remain pending lead RPT verification. Rerun the full taxonomy before tightening
+ceilings; changes to category boundaries invalidate comparisons with older audits.
+Never raise a ceiling simply to pass a candidate.
+
+R4 now requires timestamped, same-boot Hive init-finished and module readiness
+evidence through the shared `ReadinessTiming` parser. Missing/invalid timing,
+multiple boots, pending enabled modules or late readiness reject release. Its
+limit is the smaller of `readiness_max_after_hive_seconds` and
+`readiness_ratchet_max_after_hive_seconds`. Hive init-finished is the established
+vanilla baseline; the existing owner allowance is 30 seconds after that marker.
+The ratchet starts at that owner cap and must be tightened against measured boots,
+never increased to admit regression. It cannot exceed the owner cap. This worker
+change provides offline tooling evidence only; native compile, a fresh census,
+soak, paired client smoke and upgrade acceptance remain lead-owned and unverified.

@@ -10,6 +10,25 @@ from tools.audit import rpt_config_audit as audit
 from tests.unit.test_pbo_config import klass, pbo, rap
 
 
+SAMPLE_LINES = {
+    1: "Warning Message: No entry 'CfgVehicles.Synthetic.missing'",
+    2: '[CE][LootRespawner] Item [1] is hard to place',
+    3: 'Trying to access error value',
+    5: '[CE][Point] Removing 1, 2 from synthetic proxy',
+    6: '[CE][VehicleRespawner] Synthetic - Failed to spawn',
+    8: '[CE][SpawnRandomLoot] lootmax != containermaxsum',
+    10: 'Convex component selection faces are less then 3',
+    13: 'Placement slopelandcontact failed on model synthetic.p3d',
+    14: "Graph Snake/anims/animgraph/snake.agr doesn't have variable synthetic",
+    4: "Warning Message: Size: '/' not an array",
+    7: 'Warning Message: Cannot load synthetic/clip.anm',
+    9: 'Warning Message: Wrong inventory shape="synthetic/case.p3d"',
+    11: "Warning Message: Unknown object class 'SyntheticPond'",
+    12: 'Warning Message: String STR_SYNTHETIC not found in localization table',
+    15: 'Warning Message: UAGestureSlot inputs inserted twice',
+}
+
+
 class ConfigAuditTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -30,27 +49,23 @@ class ConfigAuditTests(unittest.TestCase):
         path.write_bytes(pbo({'config.bin': rap(config), 'clip.anm': b'SYNTHETIC'}, prefix=name))
         return path
 
-    def test_supplied_categories_have_specific_precedence_and_unknowns(self):
-        samples = {
-            1: "Warning Message: No entry 'CfgVehicles.Synthetic.missing'",
-            4: "Warning Message: Size: '/' not an array",
-            7: 'Warning Message: Cannot load synthetic/clip.anm',
-            9: 'Warning Message: Wrong inventory shape="synthetic/case.p3d"',
-            11: "Warning Message: Unknown object class 'SyntheticPond'",
-            12: 'Warning Message: String STR_SYNTHETIC not found in localization table',
-            15: 'Warning Message: UAGestureSlot inputs inserted twice',
-        }
+    def test_all_categories_have_specific_precedence_and_unknowns(self):
+        samples = SAMPLE_LINES
         rules = audit.category_rules()
         for category, line in samples.items():
             with self.subTest(category=category):
                 self.assertEqual(audit.classify(line, rules), category)
+                self.assertEqual(audit.classify('Warning Message: ' + line, rules), category)
         self.assertEqual(audit.classify('ZSUSkeleton missing bone SyntheticBone', rules), 15)
         self.assertEqual(audit.classify('Unknown synthetic warning', rules), 0)
         self.assertIsNone(audit.classify('Server ready', rules))
-        self.logs('\n'.join(samples.values()) + '\nUnknown synthetic warning\n')
+        unknown = 'Unknown synthetic warning\n'
+        self.logs('\n'.join(samples.values()) + '\n' + unknown)
         result = audit.audit(self.rpt, self.vanilla)
         self.assertEqual({row['category'] for row in result['diagnostics']}, set(samples) | {0})
-        self.assertFalse(result['taxonomy_complete'])
+        self.assertTrue(result['taxonomy_complete'])
+        self.assertEqual(set(samples), set(audit.RULES))
+        self.assertEqual(result['unclassified_count'], len(unknown.splitlines()))
         self.assertTrue(all(row['matcher_available'] == (row['category'] in rules)
                             for row in result['categories']))
 
@@ -92,7 +107,7 @@ class ConfigAuditTests(unittest.TestCase):
 
     def test_complete_local_taxonomy_is_possible_without_serializing_patterns(self):
         rules = audit.category_rules()
-        missing = set(range(1, 16)) - set(rules)
+        missing = set(rules)
         patterns = [f'{key}=synthetic_category_{key}\\b' for key in sorted(missing)]
         self.logs('\n'.join(f'synthetic_category_{key}' for key in missing))
         result = audit.audit(self.rpt, self.vanilla, overrides=patterns)

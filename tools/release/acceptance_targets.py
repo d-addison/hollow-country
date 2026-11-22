@@ -3,6 +3,8 @@ import json
 import math
 from pathlib import Path
 
+from tools.audit.rpt_config_audit import RULES
+
 DEFAULT_TARGETS = Path(__file__).resolve().parents[2] / 'config/acceptance-targets.json'
 _FIELDS = {
     'release_gate_doc': str,
@@ -21,6 +23,10 @@ _FIELDS = {
     'target_players_max': int,
     'budgets_provisional': bool,
     'benchmark_doc': str,
+    'rpt_category_ceilings': dict,
+    'rpt_category_ceilings_doc': str,
+    'readiness_ratchet_max_after_hive_seconds': (int, float),
+    'readiness_ratchet_doc': str,
 }
 
 
@@ -29,7 +35,7 @@ class TargetsError(ValueError):
 
 
 def load_targets(path=None):
-    """Load strict flat keys, exact types (bool is not int), and sane ranges."""
+    """Load strict keys, exact types (bool is not int), and sane ranges."""
     try:
         data = json.loads(Path(DEFAULT_TARGETS if path is None else path).read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -50,6 +56,15 @@ def load_targets(path=None):
             raise TargetsError('acceptance targets require finite nonnegative value: ' + key)
         if kind is str and not value.strip():
             raise TargetsError('acceptance targets require documentation: ' + key)
+    ceilings = data['rpt_category_ceilings']
+    if set(ceilings) != {str(category) for category in RULES}:
+        raise TargetsError('acceptance targets require every known RPT category and no unknown categories')
+    for value in ceilings.values():
+        # null records missing measurement; the release gate refuses it.
+        if value is not None and (type(value) is not int or value < 0):
+            raise TargetsError('acceptance targets RPT ceilings require nonnegative integer or null')
+    if not 0 < data['readiness_ratchet_max_after_hive_seconds'] <= data['readiness_max_after_hive_seconds']:
+        raise TargetsError('acceptance targets readiness ratchet must be positive and no greater than R4 limit')
     if data['soak_minutes'] <= 0 or data['perf_r2_max_ms'] <= 0:
         raise TargetsError('acceptance targets soak_minutes and perf_r2_max_ms must be positive')
     if data['readiness_max_after_hive_seconds'] <= 0:
