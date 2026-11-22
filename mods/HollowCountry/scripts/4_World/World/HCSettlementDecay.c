@@ -60,7 +60,8 @@ class HCWorldActivityCounters
 }
 
 // W5-PERF: <=32 fact references/tick, <=1 town/10s after its history
-// cursor completes, <=1 visual query/create, routine dirty save/60s.
+// cursor completes, <=1 visual candidate (small sphere + static box)/tick,
+// <=1 create, routine dirty save/60s.
 // Native timing/proximity cache evidence: World/HCWorkBudget.c header.
 // #118 settlement decay. Native references in scripts-1.30.164289:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705
@@ -176,8 +177,11 @@ class HCSettlementDecay : HCModule
     static const float VISUAL_FOOTPRINT_RADIUS = 4.25;
     static const float VISUAL_CLEARANCE = 5.0;
     static const float VISUAL_BUILDING_STANDOFF = 8.0;
-    static const float VISUAL_QUERY_RADIUS = 64.0;
-    static const int VISUAL_QUERY_CAP = 512;
+    static const float VISUAL_QUERY_RADIUS = VISUAL_FOOTPRINT_RADIUS + VISUAL_CLEARANCE + 1;
+    static const float VISUAL_BOX_EDGE = 2 * (VISUAL_FOOTPRINT_RADIUS + VISUAL_BUILDING_STANDOFF);
+    static const float VISUAL_BOX_HEIGHT = 4.0;
+    static const int VISUAL_QUERY_CAP = 64;
+    protected int m_MaxQueryTicks;
     // 0.35 / 3 (~6.7 degrees) admits gentle ground without conspicuous tilt
     // or burying a <=6 m decorative prop. Probe both signs of both axes.
     static const float VISUAL_SLOPE_RISE = 0.35;
@@ -422,77 +426,67 @@ class HCSettlementDecay : HCModule
         return true;
     }
 
-    protected float HCVisualObjectRadius(Object obstacle)
+    protected bool HCVisualClutter(Object obstacle)
     {
-        // Object.c:358 ClippingInfo; EnConvert.c:169 vector.Length. Include
-        // offset bounds as well as the engine radius, conservatively enclosing
-        // rotated geometry and door owners rather than just their origins.
-        vector bounds[2];
-        float radius = obstacle.ClippingInfo(bounds);
-        vector extent;
-        extent[0] = Math.Max(Math.AbsFloat(bounds[0][0]), Math.AbsFloat(bounds[1][0]));
-        extent[1] = Math.Max(Math.AbsFloat(bounds[0][1]), Math.AbsFloat(bounds[1][1]));
-        extent[2] = Math.Max(Math.AbsFloat(bounds[0][2]), Math.AbsFloat(bounds[1][2]));
-        return Math.Max(radius, extent.Length());
+        // Object.c:595/613/965/970. EntityAI (items, actors, vehicles) and
+        // our own decorative props never receive a terrain clutter exemption.
+        if (m_Props.Find(obstacle) >= 0 || obstacle.IsEntityAI()) { return false; }
+        return obstacle.IsTree() || obstacle.IsBush() || (obstacle.IsPlainObject() && obstacle.IsScenery());
     }
 
     protected string HCVisualOccupancy(vector point)
     {
-        // At most 24 owned props, checked independently before any clutter
-        // exemption. No nested ownership scan over the broad-phase result.
+        // At most 24 owned props; refuse before any scenery exemption.
         foreach (Object placed : m_Props)
         {
             if (!placed) { continue; }
             vector placedPosition = placed.GetPosition();
             placedPosition[1] = point[1];
-            float placedClearance = HCVisualObjectRadius(placed) + VISUAL_CLEARANCE;
+            float placedClearance = VISUAL_FOOTPRINT_RADIUS + VISUAL_CLEARANCE;
             if (vector.DistanceSq(point, placedPosition) <= placedClearance * placedClearance) { return "occupied_15m"; }
         }
         array<Object> nearby = new array<Object>;
         array<CargoBase> cargo = new array<CargoBase>;
-        // One spatial query per candidate. Broad phase includes building
-        // origins outside the small prop clearance; narrow phase uses bounds.
+        // Game.c:930. Small local broad phase only; no building-origin search
+        // and no per-result ClippingInfo. Cap bounds script classification work.
         GetGame().GetObjectsAtPosition3D(point, VISUAL_QUERY_RADIUS, nearby, cargo);
         if (nearby.Count() > VISUAL_QUERY_CAP || cargo.Count() > VISUAL_QUERY_CAP) { return "occupancy_cap"; }
+        if (cargo.Count() > 0) { return "occupied_15m"; }
         foreach (Object obstacle : nearby)
         {
             if (!obstacle) { return "occupied_15m"; }
-            float radius = HCVisualObjectRadius(obstacle);
-            vector position = obstacle.GetPosition();
-            position[1] = point[1];
-            float distanceSq = vector.DistanceSq(point, position);
             // Building.Cast includes House and door owners even where a
             // specialized building overrides IsBuilding to false.
             Building building = Building.Cast(obstacle);
-            if (building || obstacle.IsBuilding())
-            {
-                float standoff = radius + VISUAL_FOOTPRINT_RADIUS + VISUAL_BUILDING_STANDOFF;
-                if (distanceSq <= standoff * standoff) { return "building_standoff"; }
-                continue;
-            }
-            // Owned scenery never gets the vegetation/clutter exemption.
-            // Object.c:595/613/965/970; static-without-config alone is NOT
-            // clutter (it may be a fence). Only native terrain scenery qualifies.
-            if (!obstacle.IsEntityAI())
-            {
-                if (obstacle.IsTree() || obstacle.IsBush() || (obstacle.IsPlainObject() && obstacle.IsScenery())) { continue; }
-            }
-            float clearance = radius + VISUAL_CLEARANCE;
-            // Legacy counter key retained for consumers; now footprint-based,
-            // not a 15 m veto. Unknown objects, items, vehicles and all actors
-            // are obstacles; no foreign/orphan prop adoption occurs.
-            if (distanceSq <= clearance * clearance) { return "occupied_15m"; }
+            if (building || obstacle.IsBuilding()) { return "building_standoff"; }
+            if (HCVisualClutter(obstacle)) { continue; }
+            // Legacy counter key retained; now footprint-based, not 15 m.
+            // Unknown objects, items, vehicles and all actors remain obstacles.
+            return "occupied_15m";
         }
-        foreach (CargoBase proxy : cargo)
+        array<Object> excluded = new array<Object>;
+        array<Object> collided = new array<Object>;
+        vector boxCentre = point;
+        boxCentre[1] = boxCentre[1] + VISUAL_BOX_HEIGHT * 0.5;
+        vector boxSize = Vector(VISUAL_BOX_EDGE, VISUAL_BOX_HEIGHT, VISUAL_BOX_EDGE);
+        // Game.c:1336-1366: whole edge lengths, centre at half-height so
+        // bottom is at ground. Geometry hits catch walls/door owners regardless
+        // of building origin; the square conservatively encloses the radial
+        // footprint + 8 m standoff. ONLYSTATIC excludes distant actors/items;
+        // those are refused by the small sphere above. Both geometry LODs are
+        // checked, matching the installed API example, without clipping calls.
+        bool hit = GetGame().IsBoxCollidingGeometry(boxCentre, "0 0 0", boxSize, ObjIntersectView, ObjIntersectGeom, excluded, collided, CollisionFlags.ONLYSTATIC);
+        if (collided.Count() > VISUAL_QUERY_CAP) { return "occupancy_cap"; }
+        if (hit && collided.Count() == 0) { return "occupied_15m"; }
+        foreach (Object geometry : collided)
         {
-            if (!proxy) { return "occupied_15m"; }
-            // Installed 3_Game/Systems/Inventory/Cargo.c:12 GetCargoOwner.
-            EntityAI owner = proxy.GetCargoOwner();
-            if (!owner) { return "occupied_15m"; }
-            vector cargoPosition = owner.GetPosition();
-            cargoPosition[1] = point[1];
-            float cargoClearance = HCVisualObjectRadius(owner) + VISUAL_CLEARANCE;
-            if (vector.DistanceSq(point, cargoPosition) <= cargoClearance * cargoClearance) { return "occupied_15m"; }
+            if (!geometry) { return "occupied_15m"; }
+            Building owner = Building.Cast(geometry);
+            if (owner || geometry.IsBuilding()) { return "building_standoff"; }
+            if (HCVisualClutter(geometry)) { continue; }
+            // Non-clutter static geometry (fence, wall, wreck, owned scenery)
+            // stays an obstacle. No foreign/orphan prop adoption occurs.
+            return "occupied_15m";
         }
         return "";
     }
@@ -521,7 +515,7 @@ class HCSettlementDecay : HCModule
             m_Activity.HCHit("quiet_300m_60s");
             return;
         }
-        // One candidate geometry probe per selected town/tick, <=24 per slot
+        // One candidate geometry probe per module tick, <=24 per slot
         // per boot; no orphan or foreign prop is ever adopted.
         vector point = HCVisualCandidate(index, slot);
         m_VisualAttempts[index] = m_VisualAttempts[index] + 1;
@@ -534,7 +528,12 @@ class HCSettlementDecay : HCModule
         float nx = GetGame().SurfaceY(point[0] - 3, point[2]);
         float nz = GetGame().SurfaceY(point[0], point[2] - 3);
         if (Math.AbsFloat(sx - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(sz - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(nx - point[1]) > VISUAL_SLOPE_RISE || Math.AbsFloat(nz - point[1]) > VISUAL_SLOPE_RISE) { HCVisualRefused(index, "slope"); return; }
+        // EnSystem.c:106 returns raw performance-counter ticks since start.
+        // Include both native queries and bounded classification, even refusals.
+        int queryStart = TickCount(0);
         string occupied = HCVisualOccupancy(point);
+        int queryTicks = TickCount(queryStart);
+        m_MaxQueryTicks = Math.Max(m_MaxQueryTicks, queryTicks);
         if (occupied != "") { HCVisualRefused(index, occupied); return; }
         string type = "StaticObj_Garbage_GroundSq_3m_NoLC";
         if (slot == 1) { type = "StaticObj_Furniture_fireplace_grill"; }
@@ -575,7 +574,12 @@ class HCSettlementDecay : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] V2 settlement decay", " initialized=" + m_Initialized.ToString() + " fault=" + m_Fault.ToString()); }
+        if (m_Activity.HCDue(deltaTime))
+        {
+            string gauges = " initialized=" + m_Initialized.ToString() + " fault=" + m_Fault.ToString();
+            m_Activity.HCLog("[HollowCountry] V2 settlement decay", gauges + " max_query_ticks=" + m_MaxQueryTicks.ToString());
+            m_MaxQueryTicks = 0;
+        }
         if (m_Fault || !(deltaTime > 0)) { return; }
         m_Elapsed += Math.Min(deltaTime, 60);
         if (!m_HistoryPending && m_Elapsed < 10) { return; }
@@ -632,6 +636,7 @@ class HCSettlementDecay : HCModule
             m_PassChanged = 0;
             m_PassSaved = 0;
         }
+        // No town loop or catch-up: at most one Visual call per module tick.
         Visual(index, now);
     }
 
