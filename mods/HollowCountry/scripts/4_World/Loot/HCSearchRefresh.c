@@ -253,6 +253,12 @@ class HCSearchRetirementStore
     // Hot supply admission uses a bounded hash-map lookup, not a FIFO scan.
     protected ref map<string, bool> m_RecentIds = new map<string, bool>;
     protected bool m_EvictionLogged;
+    protected ref HCSearchRetirementSaveJob m_SaveJob;
+    protected ref HCV2ThreatStore<HCSearchRetirementState> m_Writer = new HCV2ThreatStore<HCSearchRetirementState>;
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    protected int m_CommittedRevision;
+    protected bool m_Fault;
 
     bool Open(string root)
     {
@@ -275,7 +281,7 @@ class HCSearchRetirementStore
             m_Data.Version = 1;
             m_Data.RecentCount = 0;
             while (m_Data.Archive.Count() < HCSearchRetirementPolicy.BUCKETS) { m_Data.Archive.Insert(0); }
-            if (!HCV2ThreatStore<HCSearchRetirementState>.Save(m_Path, m_Data, MAX_BYTES)) { return false; }
+            m_Revision++;
         }
         if (!m_Data || m_Data.Version != 1 || !m_Data.Recent || !m_Data.Archive) { return false; }
         if (m_Data.Recent.Count() > HCSearchRetirementPolicy.MAX_RECENT) { return false; }
@@ -294,7 +300,33 @@ class HCSearchRetirementStore
             if (m_RecentIds.Contains(entry.SupplyId)) { return false; }
             m_RecentIds.Set(entry.SupplyId, true);
         }
+        m_SaveJob = new HCSearchRetirementSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
+        m_SaveJob.HCDirty = HCPendingCheckpoint();
+        m_SaveJob.HCUrgent = m_SaveJob.HCDirty;
         return true;
+    }
+
+    bool HCPendingCheckpoint() { return m_Revision != m_CommittedRevision; }
+    bool Faulted() { return m_Fault; }
+    void HCPump() { HCSaveScheduler.HCPumpFallback(m_SaveJob); }
+    void Stop()
+    {
+        if (!m_SaveJob) { return; }
+        if (!m_Fault && !HCSaveScheduler.HCFlush(m_SaveJob)) { m_Fault = true; }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
+        m_SaveJob.Owner = null;
+        m_SaveJob = null;
+    }
+    int HCStepRetirement()
+    {
+        if (m_Fault) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Writer.SaveInFlight()) { m_SnapshotRevision = m_Revision; }
+        int result = m_Writer.SaveStep(m_Path, m_Data, MAX_BYTES);
+        if (result == HCSaveJob.STEP_FAILED) { m_Fault = true; }
+        if (result == HCSaveJob.STEP_DONE) { m_CommittedRevision = m_SnapshotRevision; }
+        return result;
     }
 
     bool Contains(string supplyId)
@@ -303,13 +335,25 @@ class HCSearchRetirementStore
         return HCSearchRetirementPolicy.ArchiveContains(m_Data, HCSearchRetirementPolicy.Fingerprint(supplyId));
     }
 
+    // Boot recovery remains a durability barrier. Tick compaction calls
+    // HCQueueRetirement first and resumes only when that image has committed.
     bool Retire(string supplyId)
     {
+        if (!HCQueueRetirement(supplyId)) { return false; }
+        return HCSaveScheduler.HCFlush(m_SaveJob);
+    }
+
+    bool HCQueueRetirement(string supplyId)
+    {
+        if (m_Fault) { return false; }
         if (Contains(supplyId)) { return true; }
         bool evicted = m_Data.Recent.Count() >= HCSearchLimits.HCGet().RetirementRecentEntries;
         HCSearchRetirementPolicy.Retain(m_Data, supplyId, HCSearchRetirementPolicy.Fingerprint(supplyId));
         m_Data.RecentCount = m_Data.Recent.Count();
-        if (!HCV2ThreatStore<HCSearchRetirementState>.Save(m_Path, m_Data, MAX_BYTES)) { return false; }
+        m_Revision++;
+        m_SaveJob.HCDirty = true;
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
         if (evicted)
         {
             m_RecentIds.Clear();
@@ -353,7 +397,10 @@ class HCSearchRetirementStore
             if (journal.TombstonePath(legacy.SupplyId) != legacyPath) { ok = false; break; }
             // Archive readback precedes deletion. An interruption retains both
             // barriers, or a poisoned .tmp that rejects the next journal open.
-            if (!Retire(legacy.SupplyId) || !DeleteFile(legacyPath)) { ok = false; break; }
+            if (!HCQueueRetirement(legacy.SupplyId)) { ok = false; break; }
+            // Keep the legacy barrier until the archive readback commits.
+            if (HCPendingCheckpoint()) { break; }
+            if (!DeleteFile(legacyPath)) { ok = false; break; }
             more = FindNextFile(handle, legacyName, legacyAttributes);
         }
         CloseFindFile(handle);
@@ -788,6 +835,9 @@ class HCSearchRefreshModule : HCModule
         HCReportActivity();
         if (!Active() || !(deltaTime > 0.0)) return;
         HCSaveScheduler.HCPumpFallback(m_SaveJob);
+        HCSearchHouses retirementOwner = HCSearchBinding.Houses();
+        if (retirementOwner) { retirementOwner.HCPumpRetirement(); }
+        if (m_Pilot && m_Pilot != retirementOwner) { m_Pilot.HCPumpRetirement(); }
         m_Minute += deltaTime;
         HCReached.Mark("search_refresh.tick");
         if (m_Minute >= 60.0 && m_BatchLeft < 1)
@@ -886,6 +936,38 @@ class HCSearchRefreshSaveJob : HCSaveJob
 // borrows another pack's cooldown. Supply journals themselves remain immutable.
 modded class HCSearchHouseJournal
 {
+    protected int m_HCCompactIndex = -1;
+
+    int HCPendingCompactIndex() { return m_HCCompactIndex; }
+    void HCPumpRetirement() { if (m_Retired) { m_Retired.HCPump(); } }
+    void HCStopRetirement() { if (m_Retired) { m_Retired.Stop(); } }
+
+    override bool Compact(int index)
+    {
+        if (m_HCCompactIndex >= 0) { index = m_HCCompactIndex; }
+        HCSearchHouseRow row = Row(index);
+        if (!Healthy() || !row || row.Phase < 2) { return false; }
+        if (!EnsureRetirement()) { return false; }
+        if (m_Retired.Faulted()) { return Fail("retirement checkpoint failed; preserve journal"); }
+        if (m_HCCompactIndex < 0)
+        {
+            if (TombstonePath(row.SupplyId) == "") { return Fail("unsafe compact supply identity"); }
+            HCSearchRecord intent = Record(row.SiteId, row.SupplyId, row.ItemClass, "retired", row.Phase);
+            if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "compact"), intent, 8192)) { return Fail("compact intent write/readback failed"); }
+            m_HCCompactIndex = index;
+        }
+        if (!m_Retired.HCQueueRetirement(row.SupplyId)) { return Fail("retirement queue failed; preserve journal"); }
+        // A pending result is cooperative, never a journal fault. The durable
+        // compact intent lets boot recovery finish if the process stops here.
+        if (m_Retired.HCPendingCheckpoint()) { return false; }
+        HCSearchRecord retired = LoadRecord(index, "compact");
+        if (!FinishCompaction(index, retired)) { return false; }
+        m_Rows[index] = null;
+        m_HCCompactIndex = -1;
+        Reindex();
+        return true;
+    }
+
     string RefreshScope() { return m_WorldName + "/" + m_SourcePin; }
 
     bool RefreshHasHistory(string siteId)
@@ -927,6 +1009,13 @@ modded class HCSearchHouses
 {
     protected int m_CompactNext;
 
+    void HCPumpRetirement() { if (m_Journal) { m_Journal.HCPumpRetirement(); } }
+    override void Stop()
+    {
+        if (m_Journal) { m_Journal.HCStopRetirement(); }
+        super.Stop();
+    }
+
     // <=32 inspected slots per minute, no index movement and no session invalidation.
     void CompactSettled()
     {
@@ -944,6 +1033,7 @@ modded class HCSearchHouses
         HCUnitBudget sharedWork = HCServer.HCTickWork();
         while (examined < limit)
         {
+            if (m_Journal.HCPendingCompactIndex() >= 0) { m_CompactNext = m_Journal.HCPendingCompactIndex(); }
             if (m_CompactNext >= m_Journal.Count()) { m_CompactNext = 0; }
             if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { break; }
             int compactIndex = m_CompactNext;
@@ -1258,5 +1348,17 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCSearchRefreshModule);
+    }
+}
+
+class HCSearchRetirementSaveJob : HCSaveJob
+{
+    HCSearchRetirementStore Owner;
+    override string HCName() { return "SearchRetirement"; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCPendingCheckpoint(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepRetirement();
     }
 }

@@ -30,6 +30,17 @@ class HCXAIFortification
     protected ref array<string> m_Seen = new array<string>;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected bool m_Fault;
+    protected ref HCXAIFortificationSaveJob m_SaveJob;
+    protected ref HCV2ThreatStore<HCXAIFortificationState> m_Writer = new HCV2ThreatStore<HCXAIFortificationState>;
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    protected int m_CommittedRevision;
+    protected ref HCXAIFortificationSite m_PendingSite;
+    protected vector m_PendingAt;
+    protected float m_PendingBearing;
+    protected string m_PendingKind;
+    protected vector m_PendingCenter;
+    protected vector m_PendingSize;
     protected int m_Placed;
     protected int m_NoRoom;
     protected int m_Deferred;
@@ -43,7 +54,33 @@ class HCXAIFortification
         s_Active = new HCXAIFortification;
         s_Active.Load();
     }
-    static void Close() { s_Active = null; }
+    static void Close()
+    {
+        if (s_Active) { s_Active.Stop(); }
+        s_Active = null;
+    }
+    void Stop()
+    {
+        if (m_SaveJob)
+        {
+            if (!m_Fault && !HCSaveScheduler.HCFlush(m_SaveJob)) { m_Fault = true; }
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.Owner = null;
+            m_SaveJob = null;
+        }
+        // Shutdown commits reservations but never creates a world object.
+        m_PendingSite = null;
+    }
+    bool HCPendingCheckpoint() { return m_Revision != m_CommittedRevision; }
+    int HCStepReservation()
+    {
+        if (m_Fault) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Writer.SaveInFlight()) { m_SnapshotRevision = m_Revision; }
+        int result = m_Writer.SaveStep(STORE, m_State, 32768);
+        if (result == HCSaveJob.STEP_FAILED) { m_Fault = true; Summary(); }
+        if (result == HCSaveJob.STEP_DONE) { m_CommittedRevision = m_SnapshotRevision; }
+        return result;
+    }
     static void Enqueue(HCXAISitePatrol patrol, vector anchor)
     {
         if (!s_Active || !patrol || patrol.m_HCTransient || patrol.m_HCFinished) { return; }
@@ -67,6 +104,12 @@ class HCXAIFortification
                 if (key.Length() < 3 || key.Length() > 100 || unique.Contains(key)) { m_Fault = true; break; }
                 unique.Set(key, true);
             }
+        }
+        if (!m_Fault)
+        {
+            m_SaveJob = new HCXAIFortificationSaveJob;
+            m_SaveJob.Owner = this;
+            HCSaveScheduler.HCRegister(m_SaveJob);
         }
         Summary();
     }
@@ -108,7 +151,17 @@ class HCXAIFortification
     void Step()
     {
         if (GetGame().GetTickTime() >= m_LogAfter) { Summary(); }
-        if (m_Fault || m_Queue.Count() == 0) { return; }
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
+        if (m_Fault) { return; }
+        if (m_PendingSite)
+        {
+            if (HCPendingCheckpoint()) { return; }
+            m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
+            if (!m_Work.HCContinue()) { return; }
+            HCFinishPlacement();
+            return;
+        }
+        if (m_Queue.Count() == 0) { return; }
         m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
         if (!m_Work.HCContinue()) { return; }
         HCXAIFortificationSite site = m_Queue[0];
@@ -165,15 +218,43 @@ class HCXAIFortification
             return;
         }
         m_State.Reserved.Insert(key);
-        if (!HCV2ThreatStore<HCXAIFortificationState>.Save(STORE, m_State, 32768))
+        // No second reservation until this image commits. A crash before
+        // intent loses no object; after commit a lost continuation spends the
+        // slot without replay, matching the existing conservative crash policy.
+        m_PendingSite = site;
+        m_PendingAt = at;
+        m_PendingBearing = bearing;
+        m_PendingKind = kind;
+        m_PendingCenter = center;
+        m_PendingSize = size;
+        m_Revision++;
+        m_SaveJob.HCDirty = true;
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
+    }
+
+    protected void HCFinishPlacement()
+    {
+        HCXAIFortificationSite site = m_PendingSite;
+        m_PendingSite = null;
+        // Recheck admission after the IO wait. A refused creation leaves its
+        // durable slot spent; never create in front of a newly arrived player.
+        bool clear = HCBuildingClaim.HCAIFortificationAllowed(m_PendingAt);
+        HCXZoneGuards guards = HCXZoneGuards.Active();
+        if (guards && guards.BySite(site.Id) && !guards.Held(site.Id)) { clear = false; }
+        foreach (Man observer : HCPerfPlayers.HCGet())
         {
-            m_Fault = true;
-            Summary();
-            return;
+            if (observer && vector.DistanceSq(observer.GetPosition(), m_PendingAt) < 40000) { clear = false; }
         }
-        BaseBuildingBase fort = HCCampFortification.Place(kind, at, Vector(bearing, 0, 0));
-        if (fort) { m_Placed++; HCReached.Mark("camps.ai_fortification_spawn"); }
-        else { m_SpawnFailed++; }
+        array<Object> exclude = new array<Object>;
+        if (GetGame().IsBoxCollidingGeometry(m_PendingCenter, Vector(m_PendingBearing, 0, 0), m_PendingSize, ObjIntersect.View, ObjIntersect.Geom, exclude)) { clear = false; }
+        if (clear)
+        {
+            BaseBuildingBase fort = HCCampFortification.Place(m_PendingKind, m_PendingAt, Vector(m_PendingBearing, 0, 0));
+            if (fort) { m_Placed++; HCReached.Mark("camps.ai_fortification_spawn"); }
+            else { m_SpawnFailed++; }
+        }
+        else { m_Deferred++; }
         site.PartIndex++;
         site.Attempt = 0;
         m_Queue.Insert(site);
@@ -228,5 +309,17 @@ modded class HCXAIAdapter
             return m_HCFortificationStatus;
         }
         return inheritedStatus;
+    }
+}
+
+class HCXAIFortificationSaveJob : HCSaveJob
+{
+    HCXAIFortification Owner;
+    override string HCName() { return "AIFortification"; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCPendingCheckpoint(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepReservation();
     }
 }

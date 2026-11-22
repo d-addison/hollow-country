@@ -44,6 +44,11 @@ class HCInfectedMemory
     protected ref HCInfectedMemoryState m_State;
     protected bool m_Healthy;
     protected bool m_Dirty;
+    protected ref HCInfectedMemorySaveJob m_SaveJob;
+    protected ref HCV2ThreatStore<HCInfectedMemoryState> m_Writer = new HCV2ThreatStore<HCInfectedMemoryState>;
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    protected int m_CommittedRevision;
     protected int m_LastUtc;
     protected ref HCActivityWindow m_Activity = new HCActivityWindow("[HC InfectedMemory]", "reads heat_writes capped saves investigations_started investigations_refused");
     protected int m_RecordUtc;
@@ -212,6 +217,9 @@ class HCInfectedMemory
         m_Healthy = true;
         m_LastUtc = nowUtc;
         s_Instance = this;
+        m_SaveJob = new HCInfectedMemorySaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         Tick();
         return m_Healthy;
     }
@@ -288,14 +296,36 @@ class HCInfectedMemory
         m_Dirty = true;
     }
 
-    protected bool Save(int nowUtc)
+    // Heat since the last encoded checkpoint can be lost on a crash. The
+    // retained writer preserves the shared fail-closed tmp/backup protocol.
+    protected void HCRequestSave()
     {
-        if (!m_Dirty) return true;
-        m_State.SavedUtc = nowUtc;
-        if (!HCV2ThreatStore<HCInfectedMemoryState>.Save(PATH, m_State, 16384)) { Fail(); return false; }
-        m_Activity.Add("saves");
+        if (!m_Dirty || !m_SaveJob) { return; }
+        m_Revision++;
+        m_SaveJob.HCDirty = true;
         m_Dirty = false;
-        return true;
+    }
+
+    bool HCPendingCheckpoint() { return m_Revision != m_CommittedRevision; }
+
+    int HCStepRoutine()
+    {
+        if (!m_Healthy || !m_State) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Writer.SaveInFlight())
+        {
+            int nowUtc = Now(true);
+            if (nowUtc < 1) { return HCSaveJob.STEP_FAILED; }
+            m_State.SavedUtc = nowUtc;
+            m_SnapshotRevision = m_Revision;
+        }
+        int result = m_Writer.SaveStep(PATH, m_State, 16384);
+        if (result == HCSaveJob.STEP_FAILED) { Fail(); }
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_CommittedRevision = m_SnapshotRevision;
+            m_Activity.Add("saves");
+        }
+        return result;
     }
 
     void Tick()
@@ -316,7 +346,7 @@ class HCInfectedMemory
             m_State.CellMetres = HCInfectedTuning.Get().Memory.CellMetres;
             m_Dirty = true;
         }
-        Save(nowUtc);
+        HCRequestSave();
         m_Activity.Report("cells=" + m_State.Cells.Count().ToString() + " hottest=" + hottest.ToString() + " healthy=" + m_Healthy.ToString());
     }
 
@@ -325,8 +355,15 @@ class HCInfectedMemory
         if (m_Healthy)
         {
             int nowUtc = Now(true);
-            if (nowUtc > 0) Save(nowUtc);
+            if (nowUtc > 0)
+            {
+                HCRequestSave();
+                if (!HCSaveScheduler.HCFlush(m_SaveJob)) { Fail("shutdown checkpoint"); }
+            }
         }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
+        if (m_SaveJob) { m_SaveJob.Owner = null; }
+        m_SaveJob = null;
         m_Activity.Report("healthy=" + m_Healthy.ToString(), true);
         m_Healthy = false;
         if (s_Instance == this) s_Instance = null;
@@ -458,5 +495,17 @@ modded class HCInfectedModule
         super.TryInvestigate(actor);
         if (actor.SearchAttempts > attempts)
             HCInfectedMemory.HCRecordInvestigation(actor.SearchPack != null);
+    }
+}
+
+class HCInfectedMemorySaveJob : HCSaveJob
+{
+    HCInfectedMemory Owner;
+    override string HCName() { return "InfectedMemory"; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCPendingCheckpoint(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepRoutine();
     }
 }

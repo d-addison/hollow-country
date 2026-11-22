@@ -435,6 +435,9 @@ class HCHoldouts : HCModule
         // False in a cooperative tick means pending, never a store failure.
         // The caller must yield to phase 12 before any dependent side effect.
         if (m_MeasuringTick) { return false; }
+        // Admin occupancy commands and native spend/raid callbacks require a
+        // committed image before publishing/replying. Tick work yields above;
+        // retain this synchronous durability barrier until callers can resume.
         bool saved = m_Store.Save(m_State);
         if (!saved) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_store_uncertain"); HCSyncLights(); return false; }
         m_Dirty = false;
