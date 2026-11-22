@@ -4,10 +4,13 @@ User steering: implement/package before their client connection; defer client
 acceptance rather than blocking source work. Engine APIs must still be inspected
 in the exact installed snapshot and runtime results must not be invented.
 
-Single authored addon: `mods/HollowCountry`, PBO prefix `HollowCountry`.
-Core owns config.cpp, scripts/3_Game, scripts/4_World/Core and scripts/5_Mission.
-Workers own only their respective scripts/4_World/{Interiors,Crafting,Infected}
-directories and assigned tests/research. No purchased assets are included.
+Authored addons under `mods/`: `HollowCountry` (PBO prefix `HollowCountry`, the main
+addon), `HollowCountryExpansionAI`, `HollowCountryAnims` and `HollowCountryAssets` (an
+empty authored-assets package built offline, no scripts). Core owns the main addon's
+config.cpp, scripts/3_Game, scripts/4_World/Core and scripts/5_Mission. Workers own
+only the directories and files named in their brief. No purchased assets are included.
+Dependency calls go only through the HC bridge classes; no direct eAI*/COT calls
+elsewhere.
 
 Installed source snapshot (local, never commit): use an external directory
 containing the scripts extracted from the installed DayZ 1.30.164289 build.
@@ -44,11 +47,15 @@ be bounded and scan intervals may be longer than core ticks.
 
 `HCSettings` in 3_Game has SchemaVersion=1 and default-true feature preferences:
 EnableInteriors, EnableSearch, EnableCrafting, EnableInfected, EnableHordes,
-EnableAlertChains, EnableGroups, EnableAtmosphere. Explicit disables in existing operator files
-remain authoritative. Enabled preferences never imply provider availability,
+EnableAlertChains, EnableGroups, EnableAtmosphere, and the later additive flags
+(for example EnableGrade, EnableTravel, EnableWorld, EnableCamps, EnableMelee,
+EnableForage, EnableFortify); the complete list is the generated block in
+`HCSettings.c` and the README settings tables. `EnableSmokeFixtures` is the only
+default-false flag (lead-only R3 smoke, never a feature admission). Explicit disables
+in existing operator files remain authoritative. Enabled preferences never imply provider availability,
 measured geometry, native qualification or runtime success. Missing prerequisites
 must produce a clear admission diagnostic. Additional core limits: TickIntervalMs=1000,
-MaxTickWorkItems=32, MaxActiveHordes=2, MaxActiveHordeMembers=24,
+MaxTickWorkItems=32, MaxActiveHordes=4, MaxActiveHordeMembers=160,
 MaxActiveInteriors=12, MaxPropsPerInterior=5. Modules use their own validated
 JSON DTO/config/state types and never change shared fields. These are pilot
 limits, not calibrated product promises. Persistence roots are under
@@ -67,7 +74,9 @@ not write disablePersonalLight. Between 20:00 and 05:00 the native overcast limi
 most a 60 s transition, dawn restores 0..1), and the forecast, rain and wind derived
 from cloud are capped too, so a storm band cannot darken the night; daytime storms
 are unchanged. The separate cfgGameplay delta owner must not write those two
-settings.
+settings. `HCServer.Stop` calls `HCStopAtmosphere` (which removes the queued
+`HCAtmosphereTick`) before the server stops, and the V2 weather-days module calls it
+too when it takes the weather owner over from v1 and when it stops.
 
 Search/crafting use native actions/recipes and server inventory authority; do
 not invent a generic client command RPC. Cross-module requests must be narrow,
@@ -115,15 +124,16 @@ markers. These do not prove successful client presentation, crafting, mounting,
 spawn, or native gameplay acceptance. Morse is disabled/folded into Radio and has
 no separate main path to mark. `runtime=PENDING` remains unchanged by any marker.
 
-Events instrumentation is open and not yet added in source (no Events files were changed by this contract):
-put `HCReached.Mark("events.police_bind");` in
-`HCEventWorldBinding.BindPolice` after successful target/container registration
-beside the `police supply bound` diagnostic, including its already-bound success
-branch when a real target/container is confirmed. A generic `Bind` return alone
-is insufficient: some families return true without a physical source.
-Native compilation, readiness/late-update ordering, time values, overflow shutdown
-summary and actual marker paths still require an engine run; offline lint does not
-establish those behaviours.
+Events police supply binding is counted by the shared use counter, not a reached
+marker: `HCEventWorldBinding.BindPolice` calls
+`HCModuleReadiness.HCUse("Events", "police_supply_bound")` after the target (and, for
+deliveries, the container) is registered, and again for an already-bound mission only
+when a real target or container is confirmed. A generic `Bind` return alone is
+insufficient: some families return true without a physical source. The evidence line is
+`[HC Use] module=Events feature=police_supply_bound count=<n>`; `[HC Events] police
+supply bound` stays as the diagnostic. Native compilation, readiness/late-update
+ordering, time values and actual counter values still require an engine run; offline
+lint does not establish those behaviours.
 
 ### Events public mission beacon (implemented-unverified)
 

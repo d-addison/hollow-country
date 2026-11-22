@@ -85,5 +85,74 @@ class RetiredSettingsTests(unittest.TestCase):
             self.assertEqual([], [k for k in keys if k in sc.flatten(json.loads(path.read_text()))])
 
 
+WILDLIFE_RULES = {
+    'WildlifeProviders.TickMs': {'key': 'WildlifeProviders.TickMs', 'type': 'int', 'default': 5000, 'min': 1,
+                                 'max': 60000, 'owner': 'HCWildlifeProviderConfig'},
+    'WildlifeProviders.MinPlayerDistanceM': {'key': 'WildlifeProviders.MinPlayerDistanceM', 'type': 'float',
+                                             'default': 200.0, 'min': 100, 'max': 1000,
+                                             'owner': 'HCWildlifeProviderConfig'},
+    'WildlifeProviders.Enabled': {'key': 'WildlifeProviders.Enabled', 'type': 'bool', 'default': True, 'min': 0,
+                                  'max': 1, 'owner': 'HCWildlifeProviderConfig'},
+}
+WILDLIFE_JSON = {'TickMs': 5000, 'MinPlayerDistanceM': 200.0, 'Enabled': True}
+WILDLIFE_SOURCE = (
+    'class HCWildlifeProviderConfig\n{\n    bool Enabled;\n    int TickMs;\n    float MinPlayerDistanceM;\n'
+    '    string WorldName;\n}\n'
+    'class HCWildlifeProviders\n{\n'
+    '    static bool HCValid(HCWildlifeProviderConfig config)\n    {\n'
+    '        if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.TickMs", config.TickMs)) { return false; }\n'
+    '        if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.MinPlayerDistanceM", config.MinPlayerDistanceM)) { return false; }\n'
+    '        return true;\n    }\n'
+    '    bool Probe() { return HCOperatorSettingsRegistry.HCValid("WildlifeProviders.TickMs", 1); }\n}\n')
+
+
+class WildlifeProviderTests(unittest.TestCase):
+    def check(self, rules=None, provider=None, source=None):
+        return sc.check_wildlife_providers(
+            dict(WILDLIFE_RULES) if rules is None else rules,
+            dict(WILDLIFE_JSON) if provider is None else provider,
+            WILDLIFE_SOURCE if source is None else source)
+
+    def test_matching_registry_json_dto_and_bindings_pass(self):
+        self.assertEqual([], self.check())
+
+    def test_json_default_missing_or_wrong_type_is_flagged(self):
+        self.assertEqual(['Wildlife provider default/type differs for WildlifeProviders.TickMs'],
+                         self.check(provider={**WILDLIFE_JSON, 'TickMs': 5001}))
+        self.assertEqual(['Wildlife provider default/type differs for WildlifeProviders.MinPlayerDistanceM'],
+                         self.check(provider={**WILDLIFE_JSON, 'MinPlayerDistanceM': 200}))
+        missing = {k: v for k, v in WILDLIFE_JSON.items() if k != 'Enabled'}
+        self.assertEqual(['Wildlife provider JSON missing WildlifeProviders.Enabled'], self.check(provider=missing))
+
+    def test_numeric_scalar_needs_its_registry_binding(self):
+        source = WILDLIFE_SOURCE.replace('HCValid("WildlifeProviders.TickMs", config.TickMs)', 'HCValid("TickMs", config.TickMs)')
+        errors = self.check(source=source)
+        self.assertIn('Wildlife provider validation binding differs for WildlifeProviders.TickMs', errors)
+
+    def test_binding_must_name_a_registered_key_and_read_its_own_field(self):
+        wrong_field = WILDLIFE_SOURCE.replace('config.TickMs)) {', 'config.MinPlayerDistanceM)) {', 1)
+        self.assertIn('Wildlife provider validation reads the wrong field for WildlifeProviders.TickMs', self.check(source=wrong_field))
+        unregistered = {k: v for k, v in WILDLIFE_RULES.items() if k != 'WildlifeProviders.TickMs'}
+        errors = self.check(rules=unregistered)
+        self.assertIn('Wildlife provider validates unregistered key WildlifeProviders.TickMs', errors)
+
+    def test_registry_row_needs_its_owner_and_a_same_typed_dto_field(self):
+        wrong_owner = {k: dict(v) for k, v in WILDLIFE_RULES.items()}
+        wrong_owner['WildlifeProviders.Enabled']['owner'] = 'HCSettings'
+        self.assertEqual(['Wildlife provider owner differs for WildlifeProviders.Enabled'], self.check(rules=wrong_owner))
+        retyped = WILDLIFE_SOURCE.replace('    int TickMs;', '    float TickMs;')
+        self.assertIn('Wildlife provider DTO field/type differs for WildlifeProviders.TickMs', self.check(source=retyped))
+        dropped = WILDLIFE_SOURCE.replace('    bool Enabled;\n', '')
+        self.assertEqual(['Wildlife provider DTO field/type differs for WildlifeProviders.Enabled'], self.check(source=dropped))
+
+    def test_the_real_tree_passes_and_a_synthetic_registry_skips_the_real_files(self):
+        rows = sc.load_registry(include_scoped=True)
+        rules = {r['key']: r for r in rows if r['key'].startswith(sc.WILDLIFE_PREFIX)}
+        self.assertTrue(rules)
+        self.assertEqual([], sc.check_wildlife_providers(rules))
+        self.assertEqual([], [e for e in sc.check_consistency(registry=[r for r in rows if r['key'] not in rules])
+                              if 'Wildlife' in e])
+
+
 if __name__ == '__main__':
     unittest.main()

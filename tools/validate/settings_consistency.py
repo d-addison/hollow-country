@@ -483,7 +483,9 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     for key, row in nested.items():
         if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
             errors.append(f'AILimits default/range differs for {key}')
-    errors.extend(check_wildlife_providers({k: r for k, r in rules.items() if k.startswith('WildlifeProviders.')}))
+    wildlife = {k: r for k, r in rules.items() if k.startswith(WILDLIFE_PREFIX)}
+    if registry is None or wildlife:  # a synthetic registry without wildlife rows skips the real files
+        errors.extend(check_wildlife_providers(wildlife))
     # External owners use their own optional profile JSON, not HCSettings.
     for owner, (path, prefix, var) in EXTERNAL_OWNERS.items():
         errors.extend(check_external_owner(rules, owner, ROOT / path, prefix, var))
@@ -492,27 +494,45 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
 
 WILDLIFE_JSON = ROOT / 'mission/hollow-country/ecology/HCWildlife-providers.json'
 WILDLIFE_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c'
+WILDLIFE_OWNER = 'HCWildlifeProviderConfig'
+WILDLIFE_PREFIX = 'WildlifeProviders.'
 
 
 def check_wildlife_providers(rules, provider=None, source=None):
-    """The wildlife module owns a separate mission DTO; its scalar registry rows
-    must match the shipped mission JSON and be validated through the registry."""
+    """The wildlife module owns a separate mission DTO (not a field of HCSettings).
+
+    Its registry rows must be owned by that DTO, name a field of the same type, match
+    the shipped mission JSON default, and every scalar must be range-checked through
+    the registry. Conversely a registry-bound HCValid call must name a registered key
+    and read the field of the same name, so a typo cannot refuse the provider at boot.
+    """
     errors = []
-    if not rules:
-        return errors
     provider = json.loads(WILDLIFE_JSON.read_text()) if provider is None else provider
     source = WILDLIFE_NATIVE.read_text() if source is None else source
+    head = source.split('class ' + WILDLIFE_OWNER + '\n', 1)
+    dto = head[1].split('\n}', 1)[0] if len(head) == 2 else ''
+    fields = {name: kind for kind, name in re.findall(r'^    (bool|int|float|string) (\w+);', dto, re.M)}
     for key, row in sorted(rules.items()):
-        field = key.removeprefix('WildlifeProviders.')
+        field = key.removeprefix(WILDLIFE_PREFIX)
+        if row['owner'] != WILDLIFE_OWNER:
+            errors.append('Wildlife provider owner differs for ' + key)
+        if fields.get(field) != row['type']:
+            errors.append('Wildlife provider DTO field/type differs for ' + key)
         if field not in provider:
             errors.append('Wildlife provider JSON missing ' + key)
-            continue
-        if provider[field] != row['default'] or type(provider[field]) is not type(row['default']):
+        elif provider[field] != row['default'] or type(provider[field]) is not type(row['default']):
             errors.append('Wildlife provider default/type differs for ' + key)
         if row['type'] in ('int', 'float'):
             binding = 'HCOperatorSettingsRegistry.HCValid("' + key + '", config.' + field + ')'
             if binding not in source:
                 errors.append('Wildlife provider validation binding differs for ' + key)
+    for field, value in re.findall(r'HCOperatorSettingsRegistry\.HCValid\("' + re.escape(WILDLIFE_PREFIX)
+                                   + r'(\w+)", ([\w.]+)\)', source):
+        key = WILDLIFE_PREFIX + field
+        if key not in rules:
+            errors.append('Wildlife provider validates unregistered key ' + key)
+        elif value.startswith('config.') and value != 'config.' + field:  # a literal is a registry-presence probe
+            errors.append('Wildlife provider validation reads the wrong field for ' + key)
     return errors
 
 
