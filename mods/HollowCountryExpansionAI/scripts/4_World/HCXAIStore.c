@@ -5,7 +5,7 @@ class HCXAIStore
     protected static bool s_JournalUncertain;
     protected static ref HCXAIJournalData s_BootJournal;
     // Called by the site director's Start before encounters can tick. A failed
-    // boot read stays refused; never retry a disk read from lease maintenance.
+    // boot read stays refused; encounter maintenance never retries a disk read.
     static void HCPrimeJournal()
     {
         if (s_JournalPrimed) { return; }
@@ -18,15 +18,6 @@ class HCXAIStore
         string version;
         GetGame().GetVersion(version);
         return HCBuildIdentity.Normalize(version);
-    }
-    static HCXAIProfile Freeze(HCXAIProfile profile)
-    {
-        string data;
-        string error;
-        HCXAIProfile frozen;
-        if (!JsonFileLoader<HCXAIProfile>.MakeData(profile, data, error) || data.Length() > 32768) { return null; }
-        if (!JsonFileLoader<HCXAIProfile>.LoadData(data, frozen, error)) { return null; }
-        return frozen;
     }
     static HCXAIJournalData LoadJournal()
     {
@@ -43,6 +34,8 @@ class HCXAIStore
         if (!FileExist(path)) { return new HCXAIJournalData(); }
         return HCXAIStore.ReadJournal(path);
     }
+    // Keep the legacy journal DTO/path and native loader: retiring the spawner
+    // must not reject older encounter rows or introduce a schema migration.
     static HCXAIJournalData ReadJournal(string path)
     {
         FileHandle handle = OpenFile(path, FileMode.READ);
@@ -84,33 +77,5 @@ class HCXAIStore
         s_JournalUncertain = false;
         s_BootJournal = journal;
         return true;
-    }
-    static HCXAIProfile Load()
-    {
-        string path = "$profile:HollowCountry/expansion-ai.json";
-        string error;
-        MakeDirectory("$profile:HollowCountry");
-        if (!FileExist(path))
-        {
-            HCXAIProfile template = new HCXAIProfile();
-            if (!JsonFileLoader<HCXAIProfile>.SaveFile(path, template, error))
-            {
-                Print("[HC Expansion AI] enabled preference; template write failed");
-            }
-            else
-            {
-                Print("[HC Expansion AI] enabled preference template created; pinned prerequisites and explicit budgets required");
-            }
-            return null;
-        }
-        FileHandle handle = OpenFile(path, FileMode.READ);
-        if (!handle) { return null; }
-        string data;
-        int count = ReadFile(handle, data, 32769);
-        CloseFile(handle);
-        if (count < 1 || count > 32768) { return null; }
-        HCXAIProfile profile;
-        if (!JsonFileLoader<HCXAIProfile>.LoadData(data, profile, error)) { return null; }
-        return profile;
     }
 }
