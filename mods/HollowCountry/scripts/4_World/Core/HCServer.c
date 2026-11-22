@@ -20,6 +20,15 @@ class HCServer
     // False until the first queued Tick after Start rebaselines the clock.
     protected bool m_TickBaselined;
     protected float m_OperationalRefreshAt;
+    // R4 (build 176): a late-ready module was only observed on the 15 s refresh, so a module ready
+    // 20 s after Hive printed [HC Ready] at 33 s. While a started module still reports a non-ready
+    // state, refresh every HC_REFRESH_FAST_S for at most HC_REFRESH_FAST_WINDOW_S after the first
+    // tick, then fall back to 15 s. Bounded: <=128 cached status reads per pass, no I/O.
+    static const float HC_REFRESH_FAST_S = 1.0;
+    static const float HC_REFRESH_SLOW_S = 15.0;
+    static const float HC_REFRESH_FAST_WINDOW_S = 300.0;
+    protected float m_FirstTickAt;
+    protected bool m_RefreshPending;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
     // Wave 13 (#138): ONE shared per-tick work budget, reset to MaxTickWorkItems at the top of Tick()
     // and read by every module item loop through HCServer.HCTickWork(). Allocated once, no per-tick
@@ -191,7 +200,9 @@ class HCServer
         {
             m_TickBaselined = true;
             m_LastTick = now;
-            m_OperationalRefreshAt = now + 15;
+            m_FirstTickAt = now;
+            m_RefreshPending = true;
+            m_OperationalRefreshAt = now + HC_REFRESH_FAST_S;
             return;
         }
         float elapsed = now - m_LastTick;
@@ -234,8 +245,8 @@ class HCServer
         // The registry caps 128; keep the refresh independently bounded as well.
         if (now >= m_OperationalRefreshAt)
         {
-            m_OperationalRefreshAt = now + 15;
             int refreshIndex = 0;
+            bool refreshPending = false;
             HCOperationalOwner refreshOwner = null;
             HCOperationalStatus refreshStatus = null;
             string refreshLine = "";
@@ -249,11 +260,16 @@ class HCServer
                     refreshStatus = refreshModule.HCGetOperationalStatus();
                     refreshOwner.HCObserve(true, refreshStatus, now);
                     refreshModule.HCReadyLate(refreshStatus);
+                    if (refreshStatus && refreshStatus.HCState() != "ready") { refreshPending = true; }
                     // Wave 16: one line per state change after boot ("" when unchanged: no allocation).
                     refreshLine = m_Changes.HCChange(refreshIndex - 1, refreshModule.GetName(), refreshStatus);
                     if (refreshLine != "") { Print("" + refreshLine); }
                 }
             }
+            m_RefreshPending = refreshPending;
+            float refreshStep = HC_REFRESH_SLOW_S;
+            if (m_RefreshPending && now - m_FirstTickAt < HC_REFRESH_FAST_WINDOW_S) { refreshStep = HC_REFRESH_FAST_S; }
+            m_OperationalRefreshAt = now + refreshStep;
         }
         m_Perf.Sample(elapsed, TickCount(perfStart));
     }
