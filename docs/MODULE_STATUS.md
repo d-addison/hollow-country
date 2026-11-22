@@ -75,6 +75,16 @@ live in the separate 3_Game registry. Extending automatic scoped-profile checkin
 coordinated change in `tools/validate/settings_consistency.py`; no duplicate registration
 was introduced here.
 
+## Dropped-content waivers — W1-10 (2026-11-22)
+
+Owner approved dropping content responsible for dependency RPT errors. These
+waivers record content removal, not native acceptance or a release-gate pass.
+
+| Dropped content | Reason / replacement | Remaining evidence |
+| --- | --- | --- |
+| Ambient Animals `Dayz_Snake` mission content | Exclude Snake types, events, spawn positions and territories from new optional-overlay installs because `Snake/anims/animgraph/snake.agr` reports missing variables. Healthy ambient species remain installed; no Ambient Animals PBO is patched or repacked. Existing overlays require stopped-server rollback and reapply; persisted or independently installed snakes are not deleted | Implemented-unverified. Lead native boot/soak must establish zero `snake.agr` warnings; loading the unchanged dependency may still emit an addon-level warning |
+| `Land_Mil_Radar_Mobile1` in `comms-post` and `radio-relay` | Replace both HC-added mobile radar slots with `StaticObj_Misc_Antenna` to avoid adding defective convex geometry instances. Vanilla baked radar instances remain the baseline | Implemented-unverified. Lead native boot/soak must establish zero HC-added convex radar warnings; one-client placement/appearance check pending |
+
 ## Earlier implementation snapshots
 
 Older tables and round notes preserve evidence for their stated source versions. Their old
