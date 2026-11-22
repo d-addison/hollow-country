@@ -622,11 +622,14 @@ class HCEventPoliceStockSlice
 // case identity (the persistent id) and never creates, moves or deletes the case or anything in it.
 // Durable order, same intent-then-ok pattern as the police generations (immutable WriteNew files):
 //   <site>.<id key>.int  written BEFORE any item exists (id, utc, planned count);
-//   <site>.<id key>.ok   written after the items exist (id, the fill utc = cooldown anchor, real count).
+//   <site>.<id key>.ok   written after the items exist (id, the fill utc = min-spacing anchor, real count).
 // Reload with an open intent: a non-empty case is adopted as filled (ok written, never refilled); an
 // empty one is filled again (no plan item can be duplicated into an empty case). An ok means this
 // identity is never filled again, even once a player emptied the case. A case already holding
 // anything without a receipt is skipped (logged once). An unreadable or zero id fails closed.
+// The site RefillCooldownSeconds does NOT gate this fill: one fill per id is the duplicate guard and the
+// CE lifetime is the replace cadence. Only a small MIN_SPACING_SECONDS floor from the site's last fill
+// receipt guards against CE recreating a case at once (reason=min_spacing).
 // Receipts older than ContainerLifetimeSeconds are pruned (bounded) when a site is scanned.
 // Native: EntityAI.c:3374 GetPersistentID; Inventory.c CreateInInventory/GetCargo; EnSystem.c FindFile.
 class HCEventCacheFillIO : HCEventJournalIO
@@ -640,7 +643,7 @@ class HCEventCacheFillIO : HCEventJournalIO
 class HCEventCacheFillSite
 {
     bool Loaded;
-    // Newest completed fill (items > 0) of this site: the refill cooldown anchor.
+    // Newest completed fill (items > 0) of this site: the min-spacing anchor.
     int LastUtc;
     int Attempts;
 }
@@ -650,6 +653,7 @@ class HCEventCacheFill
     static const int SCAN_LIMIT = 48;
     static const int PRUNE_LIMIT = 4;
     static const int ATTEMPT_LIMIT = 3;
+    static const int MIN_SPACING_SECONDS = 600;
     protected static ref HCEventCacheFillIO s_IO;
     protected static ref map<string, ref HCEventCacheFillSite> s_Sites = new map<string, ref HCEventCacheFillSite>;
     protected static ref array<string> s_Done = new array<string>;
@@ -733,7 +737,7 @@ class HCEventCacheFill
         string text = tag + " v1 " + siteId + " id " + id + " utc " + utc.ToString() + " items " + items.ToString();
         return s_IO.WriteNew(name, text, RECEIPT_LIMIT);
     }
-    // One scan per site and process: the newest completed fill becomes the cooldown anchor, and
+    // One scan per site and process: the newest completed fill becomes the min-spacing anchor, and
     // receipts older than the container lifetime (never the current identity) are pruned, at most
     // PRUNE_LIMIT per scan. At most SCAN_LIMIT names are read.
     protected static void ScanSite(string siteId, string keepKey, int now, int lifetime, HCEventCacheFillSite site)
@@ -839,7 +843,7 @@ class HCEventCacheFill
         {
             int last = site.LastUtc;
             if (last > now) { last = now; }
-            if (now - last < policy.RefillCooldownSeconds) { return Wait(siteId, "cooldown"); }
+            if (now - last < MIN_SPACING_SECONDS) { return Wait(siteId, "min_spacing"); }
         }
         if (HCEventCacheSpawner.PolicePlayersWithin(item.GetPosition(), policy.RefillClearRadius)) { return Wait(siteId, "players_near"); }
         // One fill per tick across all sites; the caller took the shared work budget for this step.

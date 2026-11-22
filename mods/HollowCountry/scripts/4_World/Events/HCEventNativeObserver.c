@@ -73,7 +73,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         if (GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
         if (binding.Item)
         {
-            // Bound case whose fill is still waiting (cooldown, players near, budget): same 30 s probe.
+            // Bound case whose fill is still waiting (min spacing, players near, budget): same 30 s probe.
             if (binding.CacheFillResolved) { return; }
             binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
             HCFillSceneCache(binding);
