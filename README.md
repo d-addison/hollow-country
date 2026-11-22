@@ -280,6 +280,9 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `AILimits.MaxCampItems` | `64` | Item cap per camp. |
 | `AILimits.WorldSeed` | `18473` | Deterministic world-selection seed. |
 | `AILimits.MaxObservedAI` | `1024` | Observed AI record cap. |
+| `AILimits.CautionRangeM` | `30` | Metres within which an AI warns a player holding a raised weapon (1-100). |
+| `AILimits.CautionHostileRangeM` | `60` | Same range when the player's standing with that faction is hostile (1-100). |
+| `AILimits.CautionGunfireRangeM` | `80` | Same range after recent gunfire (1-100). |
 
 ### Performance, situations and camp theft profiles
 

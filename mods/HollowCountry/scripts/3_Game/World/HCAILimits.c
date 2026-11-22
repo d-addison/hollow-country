@@ -9,6 +9,11 @@ class HCAILimits
     static const int SIZE_CEILING = 12;
     static const int WORLD_CEILING = 128;
     protected static ref HCAILimits s_Effective;
+    // Raised-weapon caution ranges (metres), cached once from the loaded limits by Use().
+    // HCStancePolicy.Evaluate reads these; defaults hold until settings load.
+    static float CAUTION_RANGE = 30;
+    static float CAUTION_HOSTILE_RANGE = 60;
+    static float CAUTION_GUNFIRE_RANGE = 80;
     int MaxLiveGroups = 15;
     int MaxLiveAI = 72;
     int OccupationMin = 3;
@@ -33,6 +38,9 @@ class HCAILimits
     int MaxCamps = 32;
     int MaxCampItems = 64;
     int WorldSeed = 18473;
+    int CautionRangeM = 30;
+    int CautionHostileRangeM = 60;
+    int CautionGunfireRangeM = 80;
 
     static HCAILimits Get()
     {
@@ -44,6 +52,9 @@ class HCAILimits
         s_Effective = limits;
         HCWorldLimits.HOLDOUTS = limits.MaxHoldouts;
         HCWorldLimits.PARTIES = limits.MaxParties;
+        HCAILimits.CAUTION_RANGE = limits.CautionRangeM;
+        HCAILimits.CAUTION_HOSTILE_RANGE = limits.CautionHostileRangeM;
+        HCAILimits.CAUTION_GUNFIRE_RANGE = limits.CautionGunfireRangeM;
         limits.Log();
     }
     static int Value(string key, int value, int low, int high)
@@ -80,6 +91,13 @@ class HCAILimits
         MaxCamps = HCAILimits.Value("MaxCamps", MaxCamps, 1, 128);
         MaxCampItems = HCAILimits.Value("MaxCampItems", MaxCampItems, 1, 128);
         WorldSeed = HCAILimits.Value("WorldSeed", WorldSeed, 0, 1000003);
+        // Older operator files lack these keys; a zero-filled read restores the default.
+        if (CautionRangeM == 0) { CautionRangeM = 30; }
+        if (CautionHostileRangeM == 0) { CautionHostileRangeM = 60; }
+        if (CautionGunfireRangeM == 0) { CautionGunfireRangeM = 80; }
+        CautionRangeM = HCAILimits.Value("CautionRangeM", CautionRangeM, 1, 100);
+        CautionHostileRangeM = HCAILimits.Value("CautionHostileRangeM", CautionHostileRangeM, 1, 100);
+        CautionGunfireRangeM = HCAILimits.Value("CautionGunfireRangeM", CautionGunfireRangeM, 1, 100);
         if (OccupationMin > OccupationMax)
         {
             Print("[HC AI] invalid AILimits.OccupationMin / AILimits.OccupationMax reversed; defaults restored");

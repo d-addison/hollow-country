@@ -8,18 +8,6 @@
 // never measured budgets or native acceptance. UTC uses HCGroupClock.Utc.
 class HCSurvivalPolicy
 {
-    static int MealExpiry(bool enabled, int stage, float temperature, float amount, int now)
-    {
-        // HC-2 / #150: compatibility tombstone. Legacy callers cannot grant heat.
-        return 0;
-    }
-
-    static float MealHeat(int now, int expires)
-    {
-        // Includes a previously granted, unexpired meal: native thermal inputs only.
-        return 0;
-    }
-
     static bool CanRefill(bool itemPresent, int cellLive, int totalLive, int now, int ready)
     {
         if (itemPresent || now < ready) { return false; }

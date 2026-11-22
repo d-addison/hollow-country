@@ -10,9 +10,10 @@ class HCStancePolicy
         // Lowering always de-escalates, including a hostile faction encounter.
         if (!weaponRaised) { return HCStancePolicy.WATCH; }
         if (distance != distance || distance < 0 || distance > 100) { return HCStancePolicy.WATCH; }
-        float cautionRange = 30;
-        if (relation < 0) { cautionRange = 60; }
-        if (recentGunfire) { cautionRange = 80; }
+        // Ranges are cached once from AILimits at settings load (defaults 30/60/80 m).
+        float cautionRange = HCAILimits.CAUTION_RANGE;
+        if (relation < 0) { cautionRange = HCAILimits.CAUTION_HOSTILE_RANGE; }
+        if (recentGunfire) { cautionRange = HCAILimits.CAUTION_GUNFIRE_RANGE; }
         if (distance <= cautionRange) { return HCStancePolicy.WARN; }
         return HCStancePolicy.WATCH;
     }
