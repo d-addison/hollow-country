@@ -890,6 +890,113 @@ class RetiredSharedKeyTests(unittest.TestCase):
         self.assertIn(retired[self.folder.casefold()] + '/keys/Author.bikey', [r['path'] for r in rows])
 
 
+class RetiredKeyReceiptTests(unittest.TestCase):
+    """Review P1: a root key that stays on the server after its retired folder goes must not leave a receipt row that
+    the next load_receipt refuses; a receipt an earlier release already left in that shape repairs itself."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.root = self.tmp / 'server'
+        self.manifest = ws.load_manifest()
+        self.retired = self.manifest['retired'][0]['folder']
+        self.active = self.manifest['mods'][0]['folder']
+        self.managed = {m['folder'] for m in self.manifest['mods'] + self.manifest['retired']}
+        self.author = b'author key bytes'
+        self.warnings = []
+
+    def put(self, rel, data):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    def write(self, copies, dirs):
+        """A receipt on disk: root keys/Author.bikey plus the given copies (paths of key copies in mod folders)."""
+        files = {}
+        for rel in ['keys/Author.bikey'] + list(copies):
+            self.put(rel, self.author)
+            files[rel] = {'path': rel, 'sha256': hashlib.sha256(self.author).hexdigest(), 'size': len(self.author),
+                          'item': 'x'}
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, ws.receipt_data(files, set(dirs)))
+
+    def load(self, **kwargs):
+        return ws.load_receipt(self.root, self.managed, warn=self.warnings.append, **kwargs)
+
+    def retire(self, **kwargs):
+        receipt = self.load()
+        ws.retire_items(self.root, receipt, self.manifest, **kwargs)
+        return self.load()
+
+    def rows(self, receipt):
+        return {e['path'] for e in receipt['files']}
+
+    def test_a_root_key_kept_because_another_mod_provides_it_leaves_the_receipt(self):
+        self.write([self.retired + '/keys/Author.bikey'], [self.retired, self.retired + '/keys'])
+        self.put('@OtherMod/keys/another-name.bikey', self.author)  # not in the receipt; same bytes
+        receipt = self.retire()
+        self.assertEqual(self.rows(receipt), set())
+        self.assertEqual((self.root / 'keys/Author.bikey').read_bytes(), self.author)
+        self.assertFalse((self.root / self.retired).exists())
+        self.assertEqual(self.warnings, [])
+
+    def test_a_root_key_kept_because_the_bundle_provides_it_leaves_the_receipt(self):
+        self.write([self.retired + '/keys/Author.bikey'], [self.retired, self.retired + '/keys'])
+        bundle_keys = self.tmp / 'bundle-keys'
+        bundle_keys.mkdir()
+        (bundle_keys / 'Author.bikey').write_bytes(b'bundle copy')
+        receipt = self.load()
+        ws.retire_items(self.root, receipt, self.manifest, extra_key_dirs=[bundle_keys])
+        self.assertEqual(self.rows(self.load()), set())
+        self.assertTrue((self.root / 'keys/Author.bikey').is_file())
+
+    def test_an_active_folder_with_the_exact_key_name_keeps_the_row(self):
+        self.write([self.retired + '/keys/Author.bikey', self.active + '/keys/Author.bikey'],
+                   [self.retired, self.retired + '/keys', self.active, self.active + '/keys'])
+        receipt = self.retire()
+        self.assertEqual(self.rows(receipt), {'keys/Author.bikey', self.active + '/keys/Author.bikey'})
+        self.assertTrue((self.root / 'keys/Author.bikey').is_file())
+
+    def test_an_active_folder_with_the_key_in_another_case_drops_the_row_and_keeps_the_file(self):
+        self.write([self.retired + '/keys/Author.bikey', self.active + '/keys/author.bikey'],
+                   [self.retired, self.retired + '/keys', self.active, self.active + '/keys'])
+        receipt = self.retire()
+        self.assertEqual(self.rows(receipt), {self.active + '/keys/author.bikey'})
+        self.assertTrue((self.root / 'keys/Author.bikey').is_file())
+
+    def test_a_receipt_left_orphaned_by_an_earlier_release_repairs_itself_with_a_warning(self):
+        self.write([], [])
+        self.put('@OtherMod/keys/Author.bikey', self.author)
+        receipt = self.load()
+        self.assertEqual(self.rows(receipt), set())
+        self.assertEqual(len(self.warnings), 1)
+        self.assertTrue(self.warnings[0].startswith('WARN'))
+        self.assertIn('keys/Author.bikey', self.warnings[0])
+        self.assertIn('@OtherMod/keys/Author.bikey', self.warnings[0])
+        self.assertTrue((self.root / 'keys/Author.bikey').is_file())
+
+    def test_the_bundle_keys_folder_repairs_an_orphaned_row_too(self):
+        self.write([], [])
+        bundle_keys = self.tmp / 'bundle-keys'
+        bundle_keys.mkdir()
+        (bundle_keys / 'author.bikey').write_bytes(b'other bytes, same name')
+        self.assertEqual(self.rows(self.load(extra_key_dirs=[bundle_keys])), set())
+
+    def test_an_orphaned_row_nothing_else_provides_is_still_refused(self):
+        self.write([], [])
+        with self.assertRaises(ws.SyncError) as caught:
+            self.load()
+        self.assertIn('no matching copy', str(caught.exception))
+
+    def test_a_repaired_receipt_rolls_back_without_deleting_the_kept_key(self):
+        self.write([self.retired + '/keys/Author.bikey'], [self.retired, self.retired + '/keys'])
+        self.put('@OtherMod/keys/Author.bikey', self.author)
+        self.retire()
+        out = io.StringIO()
+        code = ws.main(['rollback', '--server-root', str(self.root), '--assume-stopped'], out=out)
+        self.assertEqual(code, 0, out.getvalue())
+        self.assertEqual((self.root / 'keys/Author.bikey').read_bytes(), self.author)
+
+
 class Documentation(unittest.TestCase):
     def test_docs_cover_the_workshop_flow(self):
         text = (REPO / 'docs/FRIEND_SERVER.md').read_text()

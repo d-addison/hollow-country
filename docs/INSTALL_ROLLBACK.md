@@ -458,7 +458,18 @@ upgrade so nothing of value is inside a bike that disappears.
   A root `keys/*.bikey` is also kept when any live `@*/keys` folder (not only the ones the
   receipt names) or the bundle's own `keys/` folder provides the same key name (compared
   ignoring case) or the same bytes, so an author key several mods share is never deleted;
-  the plan prints "kept shared key <path>: <reason>".
+  the plan prints "kept shared key <path>: <reason>". A kept key stays on the server but its
+  row leaves the Workshop receipt (unless a mod folder the receipt keeps holds the same key
+  under the exact same name), so the receipt stays valid and a rollback never deletes a key
+  another mod needs. A receipt an earlier release already left with such an orphaned key row
+  repairs itself when it is loaded: the row is dropped with a WARN naming the mod folder or
+  bundle key that provides it, and the key file is never touched. A key row no other key
+  backs is still refused (a receipt that names a key this tool never copied).
+- The start-server.bat step removes a retired folder from `-mod=` or `-serverMod=` only when
+  the Workshop receipt recorded that folder as created by this installer and the Workshop
+  step removes it (or removed it in an earlier run: the install receipt keeps a
+  `retired_removed` list for that). A retired folder the operator brought themselves stays
+  in their list and the preview prints a WARN for it.
 - An existing install that carried the bicycle overlay upgrades the normal way: the friend
   installer runs `bundle-rollback`, which restores the byte-exact backup recorded in the
   receipt (it does not depend on the current pack list), then `bundle-apply` installs the
@@ -562,7 +573,8 @@ or kept exactly as they are. Before the restore, a copy of the partial tree is m
 under a temporary name and renamed to `hard-exit-partial-<run id>` inside the run
 backup once it is complete (the path is printed; a later attempt on the same run
 adds `-2`, `-3`, so no stash is ever overwritten, and an unfinished temporary copy
-is removed on the next try). A copy that fails halfway therefore never counts as a
+is removed on the next try; if it cannot be removed the run refuses as `stash_cleanup` and
+names it, so a leftover is never reused). A copy that fails halfway therefore never counts as a
 stash, and the operator's mission edits are still in the tree for the retry. Without
 that explicit step nothing in the tree is changed.
 
@@ -597,15 +609,23 @@ lists and keeps the port, `-profiles`, `-cpuCount` and every other argument. The
 are read as whole tokens (quoted up to the closing quote, so `"-mod=@A;@Base Building Plus"`
 stays intact; otherwise up to the next whitespace). The merged list is the bundle's
 folders in bundle order, then every entry the installer does not manage in the operator's
-own order (the operator's other mods and an operator `-serverMod=` list are kept); names
-are compared ignoring case, and retired folders (the manifest's `retired` list) are
-removed. The preview names each mod as `added`, `removed` (retired) or `kept`, and the
-old file goes to the run backup. Only the unedited launcher an older bundle wrote is
+own order (the operator's other mods and an operator `-serverMod=` list are kept). Entries
+are compared by their last path component, ignoring case and slash style, so
+`C:\mods\@CF` and `.\@CF` count as the bundle's `@CF` and are replaced by the bundle form.
+All bundle folders of both lists are installer-managed for both: one the operator listed
+in the other argument moves to the argument the bundle puts it in. Retired folders (the
+manifest's `retired` list) are removed only when this installer installed them (see the
+retired-dependencies note above). The preview names each mod as `added`, `removed`
+(retired), `moved`, `replaced` (path form), `kept` or WARN (a retired folder the installer
+did not install), and the old file goes to the run backup. `@rem`, `rem` and `::` lines
+are comments. Only the unedited launcher an older bundle wrote is
 replaced as a whole. A launcher that cannot be merged (no `-mod=` argument, not UTF-8
-text, a value built from a `%variable%`, an unclosed quote), recorded or not, is a
+text, a value built from a `%variable%` or holding `!` (delayed expansion) or `^`, an
+unclosed quote), recorded or not, is a
 refusal with that reason under `--repair` and `--yes` alike: fix it by hand or move it
 away. `install-hollow-country.bat`
-never passes `--repair`; in an interactive run the installer instead asks "repair
+never passes `--repair`; `--check` reports such a launcher as `launcher_problem` with the
+same reason (not as a wrong mod order). In an interactive run the installer instead asks "repair
 these (each backed up)? [y/N]" when the preview has blocked rows.
 
 Operator `db/globals.xml` values survive an upgrade. The installer rebuilds the
@@ -619,6 +639,11 @@ back to its stock bytes is read the same way (every boosted variable is a reset)
 the stock value on purpose, run with `--keep-stock-globals`: the variables that are back at
 stock are recorded as an opt-out in the install receipt (`globals_optout`), the run keeps
 their stock values, and no later run applies the boost to them again (the plan lists them).
+`globals_optout` must be a list of variable names; any other value is refused as
+`receipt_optout_invalid` and `--apply --repair` rebuilds the list from the loot-boost state
+on disk (the variables at their stock value), keeping the rest of the receipt. A receipt
+rebuilt by `--repair` because it was not valid JSON keeps the opt-out too: from the old
+text when the array is still readable, otherwise from the loot-boost state.
 The run lists each carried value and keeps the operator's exact file in the run
 backup. When the receipt or backup cannot prove what the installer wrote, the file
 is left untouched and the run refuses with the reason. After a carry-forward the

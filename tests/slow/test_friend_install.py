@@ -2970,3 +2970,212 @@ def with_mods(launcher, *extras):
 def live_snapshot_of(rows):
     return {rel: value for rel, value in rows.items()
             if rel != fi.BACKUP_DIR and not rel.startswith(fi.BACKUP_DIR + '/')}
+
+
+class RoundFourTests(InstallerCase):
+    """Opus round-3 review fixes (launcher merge ownership, path-form entries, comments, receipts) on synthetic trees."""
+    inject_after = RunRollbackTests.inject_after
+    tuned_server = SelfHealingTests.tuned_server
+    upgraded_bundle = SelfHealingTests.upgraded_bundle
+    latest_run = SelfHealingTests.latest_run
+    receipt = SelfHealingTests.receipt
+    reset_edits = WaveCRoundTwoTests.reset_edits
+    crash_inside_the_mission_writer = WaveCRoundTwoTests.crash_inside_the_mission_writer
+    seed_old_install = RetiredDependencyTests.seed_old_install
+    BUNDLE = (b'start "" DayZServer_x64.exe -port=2302 "-mod=@CF;@COT;@HollowCountry" "-serverMod=@S" -dologs\r\n')
+    BUNDLE_AB = (b'@echo off\r\nstart "" DayZServer_x64.exe -port=2302 "-mod=@CF;@HollowCountry;@New" '
+                 b'"-serverMod=@S" -dologs\r\n')
+
+    def setUp(self):
+        super().setUp()
+        self.retired = ws.load_manifest()['retired']
+
+    def lists(self, data):
+        text = data.decode('utf-8')
+        return {name: fi.launcher_entries(text[start:end]) for name, start, end, _q in fi.launcher_args(text)}
+
+    def live_launcher(self):
+        return (self.server / 'start-server.bat').read_bytes()
+
+    # Retired folders are removed only when this installer put them there
+
+    def test_a_retired_folder_the_operator_brought_stays_in_the_mod_list_with_a_warning(self):
+        self.assertEqual(self.apply()[0], 0)
+        folder = self.retired[-1]['folder']
+        put(self.server, folder + '/addons/own.pbo', b'the operator\'s own copy')
+        bundle_mods = fi.parse_mod_list(self.live_launcher().decode())
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), folder))
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + [folder])
+        self.assertRegex(out, r'WARN\s+-mod %s is a retired' % re.escape(folder))
+        self.assertTrue((self.server / folder / 'addons/own.pbo').is_file())
+        before = snapshot(self.server)
+        self.assertEqual(self.apply('--repair')[0], 0)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_retired_folders_this_installer_removed_leave_the_launcher_even_in_a_later_attempt(self):
+        self.seed_old_install()
+        bundle_mods = fi.parse_mod_list(self.live_launcher().decode())
+        names = [item['folder'] for item in self.retired]
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), *names, '@Mine'))
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + ['@Mine'])
+        self.assertEqual(self.receipt()['retired_removed'], sorted(names))
+        for name in names:
+            self.assertFalse((self.server / name).exists())
+        # The Workshop receipt no longer lists them; the install receipt remembers, so a launcher still naming them
+        # (a refused launcher step, an older copy) is repaired by the next run.
+        (self.server / 'start-server.bat').write_bytes(with_mods(self.live_launcher(), *names))
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.lists(self.live_launcher())['mod'], bundle_mods + ['@Mine'])
+
+    def test_merge_keeps_an_unowned_retired_folder_and_removes_an_owned_one(self):
+        owned, unowned = [item['folder'] for item in self.retired]
+        current = ('start x "-mod=@CF;%s;%s" -dologs\r\n' % (owned, unowned)).encode()
+        merged, changes = fi.merge_launcher(current, self.BUNDLE, [owned], [unowned])
+        self.assertEqual(self.lists(merged)['mod'], ['@CF', '@COT', '@HollowCountry', unowned])
+        lines = fi.launcher_change_lines(changes)
+        self.assertIn('removed -mod %s (retired by this bundle)' % owned, lines)
+        self.assertTrue([line for line in lines if line.startswith('WARN') and unowned in line])
+        self.assertFalse([line for line in lines if line.startswith('kept') and unowned in line])
+
+    # Entries are compared by their last path component
+
+    def test_path_form_entries_of_bundle_folders_are_replaced_by_the_bundle_form(self):
+        for operator in (r'C:\mods\@CF;@COT;@HollowCountry;@Mine', r'.\@CF;@COT;@HollowCountry;@Mine',
+                         r'C:/mods/@CF/;@cot;.\@HollowCountry\;@Mine'):
+            with self.subTest(operator):
+                current = ('start x "-mod=%s" -dologs\r\n' % operator).encode()
+                merged, changes = fi.merge_launcher(current, self.BUNDLE)
+                self.assertEqual(self.lists(merged)['mod'], ['@CF', '@COT', '@HollowCountry', '@Mine'])
+                self.assertTrue([line for line in fi.launcher_change_lines(changes) if line.startswith('replaced')])
+                self.assertEqual(fi.merge_launcher(merged, self.BUNDLE), (merged, []))
+
+    def test_a_path_form_retired_entry_is_removed_and_an_unowned_one_kept(self):
+        owned, unowned = [item['folder'] for item in self.retired]
+        current = ('start x "-mod=@CF;C:\\mods\\%s;.\\%s" -dologs\r\n' % (owned, unowned)).encode()
+        merged, _changes = fi.merge_launcher(current, self.BUNDLE, [owned], [unowned])
+        self.assertEqual(self.lists(merged)['mod'], ['@CF', '@COT', '@HollowCountry', '.\\' + unowned])
+
+    # -mod= and -serverMod= are one managed set
+
+    def test_a_bundle_folder_in_the_other_list_moves_to_its_own_list(self):
+        current = (b'start x "-mod=@CF;@S;@Mine" "-serverMod=@New;@OperatorServerSide" -dologs\r\n')
+        merged, changes = fi.merge_launcher(current, self.BUNDLE_AB)
+        lists = self.lists(merged)
+        self.assertEqual(lists['mod'], ['@CF', '@HollowCountry', '@New', '@Mine'])
+        self.assertEqual(lists['servermod'], ['@S', '@OperatorServerSide'])
+        lines = fi.launcher_change_lines(changes)
+        self.assertIn('moved   -mod @S (the bundle lists it in the other argument)', lines)
+        self.assertIn('moved   -serverMod @New (the bundle lists it in the other argument)', lines)
+        self.assertEqual(fi.merge_launcher(merged, self.BUNDLE_AB), (merged, []))
+
+    def test_a_retired_folder_in_the_server_mod_list_is_removed_too(self):
+        owned = self.retired[0]['folder']
+        current = ('start x "-mod=@CF" "-serverMod=@S;%s;@OperatorServerSide" -dologs\r\n' % owned).encode()
+        merged, _changes = fi.merge_launcher(current, self.BUNDLE_AB, [owned])
+        self.assertEqual(self.lists(merged)['servermod'], ['@S', '@OperatorServerSide'])
+
+    # Comments, delayed expansion and escapes
+
+    def test_at_rem_lines_are_comments_like_rem_and_double_colon(self):
+        for word in ('@rem', '@REM', '@@Rem', 'rem', 'REM', '::', '@::'):
+            with self.subTest(word):
+                self.assertTrue(fi._launcher_comment('%s start x -mod=@Old\r\n' % word))
+        self.assertFalse(fi._launcher_comment('@echo off'))
+        self.assertFalse(fi._launcher_comment('remote x'))
+        current = (b'@rem start x -mod=@Old\r\n@REM "-mod=@Older"\r\n'
+                   b'start x "-mod=@CF;@Mine" -dologs\r\n')
+        self.assertEqual(fi.live_mod_list(current.decode()), ['@CF', '@Mine'])
+        merged, _changes = fi.merge_launcher(current, self.BUNDLE)
+        self.assertTrue(merged.startswith(b'@rem start x -mod=@Old\r\n@REM "-mod=@Older"\r\n'))
+        self.assertEqual(self.lists(merged.split(b'\r\n', 2)[2])['mod'], ['@CF', '@COT', '@HollowCountry', '@Mine'])
+
+    def test_delayed_expansion_and_escape_characters_in_a_value_are_refused_with_a_reason(self):
+        for data, reason in ((b'start x "-mod=@A;!MODS!" -dologs\r\n', 'delayed expansion'),
+                             (b'start x -mod=@A^;@B -dologs\r\n', 'escape character ^'),
+                             (b'start x -mod=@A;%MODS% -dologs\r\n', 'batch variable')):
+            with self.subTest(reason):
+                self.assertIsNone(fi.merge_launcher(data, self.BUNDLE))
+                self.assertIn(reason, fi.launcher_problem(data, self.BUNDLE))
+                self.assertIn(reason, fi.live_launcher_problem(data.decode()))
+
+    def test_check_with_an_unreadable_launcher_reports_the_launcher_problem_not_a_wrong_order(self):
+        self.assertEqual(self.apply()[0], 0)
+        (self.server / 'start-server.bat').write_bytes(b'start x -mod=%MODS% -dologs\r\n')
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 1, out + err)
+        self.assertRegex(out + err, r'FAIL\s+mod_order')
+        self.assertIn('launcher_problem', out + err)
+        self.assertNotIn('wrong_mod_order', out + err)
+
+    # Stash cleanup and the journal
+
+    def test_an_unfinished_stash_copy_that_cannot_be_removed_is_a_refusal_not_a_silent_reuse(self):
+        self.crash_inside_the_mission_writer()
+        root = self.server / fi.BACKUP_DIR / self.latest_run()
+        leftover = root / (fi.STASH_TEMP + '-earlier')
+        put(root, leftover.name + '/mpmissions/old.txt', 'older partial copy')
+        with mock.patch.object(fi.shutil, 'rmtree'):
+            code, out, err = self.apply('--repair')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('stash_cleanup', err)
+        self.assertIn(fi.STASH_TEMP, err)
+        self.assertIn(fi.shown(leftover), err)
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<partial/>')
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertFalse(leftover.exists())
+
+    def test_journal_rows_are_sliced_by_path_parts_when_case_folding_changes_the_length(self):
+        row = {'path': 'mpmissions/stra\u00dfe', 'kind': 'tree', 'written': {}}
+        ctx = mock.Mock(journal={'entries': [row]}, backup_root=self.tmp)
+        rel = 'MPMISSIONS/STRASSE/Db/Globals.xml'
+        self.assertEqual(rel.casefold().split('/')[1], row['path'].casefold().split('/')[1])
+        with mock.patch.object(fi, 'track_target'), mock.patch.object(ws, 'write_json_atomic'):
+            fi.record_written(ctx, rel, 'b' * 64)
+        self.assertEqual(row['written'], {'Db/Globals.xml': ['b' * 64]})
+
+    # globals_optout
+
+    def test_a_globals_optout_that_is_not_a_list_of_names_is_refused_and_repaired_under_repair(self):
+        edits, stock = self.reset_edits()
+        path = self.tuned_server(edits)
+        self.assertEqual(self.apply('--keep-stock-globals')[0], 0)
+        self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+        for bad in ('RespawnTypes', [1, 2], [''], {'RespawnTypes': True}):
+            with self.subTest(bad=bad):
+                data = self.receipt()
+                data['globals_optout'] = bad
+                (self.server / fi.RECEIPT).write_text(json.dumps(data))
+                code, out, err = self.apply()
+                self.assertEqual(code, 2, out + err)
+                self.assertIn('receipt_optout_invalid', err)
+                code, out, err = self.apply('--repair')
+                self.assertEqual(code, 0, out + err)
+                self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+                self.assertEqual(var_values(path)['RespawnTypes'], stock)
+
+    def test_a_rebuilt_receipt_keeps_the_globals_optout_from_the_old_text_or_the_overlay_state(self):
+        edits, stock = self.reset_edits()
+        path = self.tuned_server(edits)
+        self.assertEqual(self.apply('--keep-stock-globals')[0], 0)
+        receipt_path = self.server / fi.RECEIPT
+        good = receipt_path.read_text()
+        # Damaged JSON that still holds the array.
+        receipt_path.write_text(good.rstrip()[:-1] + ' garbage')
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+        self.assertEqual(var_values(path)['RespawnTypes'], stock)
+        # Bytes that are not text at all: the opt-out is read back from the loot-boost state on disk.
+        receipt_path.write_bytes(b'\xff\xfe not text')
+        code, out, err = self.apply('--repair')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.receipt()['globals_optout'], ['RespawnTypes'])
+        self.assertEqual(var_values(path)['RespawnTypes'], stock)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(var_values(path)['RespawnTypes'], stock)
