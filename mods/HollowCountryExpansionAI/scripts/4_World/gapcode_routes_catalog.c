@@ -116,7 +116,7 @@ class HCGapcodeRouteHash : ExpansionSHA256
     }
 }
 
-class HCGapcodeRoutesCatalog : HCStartupOwner
+class HCGapcodeRoutesCatalog
 {
     ref HCGapcodeRoutesData Data;
     protected ref HCGapcodeRoutesPins m_Pins;
@@ -390,13 +390,7 @@ class HCGapcodeRoutesCatalog : HCStartupOwner
         // The nearest mainland node cannot establish island-local access.
         if (row.island) { this.HCRowRefuse(row, "ROUTE_ISLAND_LOCAL_ACCESS_PENDING"); }
     }
-    HCXAISiteDirector StartupDirector;
-    override void HCSlice()
-    {
-        if (!StartupDirector || !StartupDirector.HCStartupRoutesPending()) { HCStartupPump.HCFinish(this); return; }
-        StartupDirector.HCStartupRoutesSlice();
-    }
-    override bool HCNeedsWork() { return m_Enabled && m_Phase != "failed" && m_Phase != "loaded"; }
+    bool HCNeedsWork() { return m_Enabled && m_Phase != "failed" && m_Phase != "loaded"; }
 
     HCXAICaravanRoads HCGraph()
     {
@@ -423,7 +417,7 @@ class HCGapcodeRoutesCatalog : HCStartupOwner
         HCXAICaravanRoads roads = this.HCGraph();
         if (!roads || m_Phase == "failed") { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
-        if (roads.Phase == "loading") { roads.HCStep(); }
+        if (roads.Phase == "loading" && !HCStartupPump.HCInSlice()) { roads.HCStep(); }
         // #275: the owner visits every other core tick. One row per visit
         // paced 88 cheap bindings over 176 s even after the graph was loaded
         // (131: graph 33.496 s, source checks ~71 s). Admit one bounded page,
@@ -432,7 +426,7 @@ class HCGapcodeRoutesCatalog : HCStartupOwner
         // without waiting another two seconds per 64 reads. Never run a second
         // completed page digest in this visit or combine it with candidate work.
         int limit = Data.limits.page_size;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
+        if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, limit)) { return; }
         // Half-slice headroom for the final non-preemptible hash block.
         m_Work.HCReset(limit, HCStartupPump.HCSliceMs(Math.Min(HCPerfConfig.HCGet().SliceMs, 2)));
         m_Slices++;

@@ -35,7 +35,7 @@ modded class HCInteriorsModule
     // One budgeted slice of load steps; returns the raw ticks it took.
     protected int HCPackSlice()
     {
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, 1)) { return 0; }
+        if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, 1)) { return 0; }
         int sliceStart = TickCount(0);
         HCPerfConfig config = HCPerfConfig.HCGet();
         m_PrepareBudget.HCReset(config.InteriorPackUnitsPerTick, HCPackSliceMs());

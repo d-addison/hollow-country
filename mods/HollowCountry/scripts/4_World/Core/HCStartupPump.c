@@ -59,6 +59,9 @@ class HCStartupPump
         Print("[HC Startup] owner=" + owner.Name + " catchup_s=" + elapsed.ToString() + " frames=" + owner.Frames.ToString() + " slices=" + owner.Slices.ToString() + " ms_max=" + owner.MsMax.ToString());
     }
 
+    // The shared frame deadline replaces tick-pool admission only during a pump slice.
+    static bool HCInSlice() { return s_InSlice; }
+
     // Called only inside catch-up slices; tick callers retain their existing caps.
     static float HCSliceMs(float cap)
     {

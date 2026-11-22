@@ -141,6 +141,15 @@ stop and opt-out end catch-up; normal tick drivers remain. One receipt per owner
 `[HC Startup] owner=... catchup_s=... frames=... slices=... ms_max=...`.
 `frames` counts frames served; `ms_max` is the largest measured owner slice.
 
+Startup registrations use small adapters with non-owning back pointers; the story,
+routes and roads loaders do not inherit pump bookkeeping fields. Inside a pump
+slice, `HCStartupPump.HCInSlice()` replaces tick-pool admission for AI_ROUTES,
+STORY_INDEX loading, INTERIORS pack loading and ROADS loading with the shared frame
+deadline. Normal tick admission is unchanged, including story observer selection.
+Each loader retains its unit/line cap and slice clock; roads only loads on its own
+round-robin turn during catch-up. Story loading preserves its scene owner when
+called without one, and source parsing/refusal/logging never dereferences it.
+
 No slice can preempt an atomic engine operation. Existing row/line limits,
 READS_PER_UNIT, page length checks, sampling policy and hash context isolation are unchanged. The existing hasher
 processes 128-byte parts with private saved context and restores Expansion's incoming

@@ -66,9 +66,17 @@ class HCXAICaravanRoadNode
     // Native EnScript.c:902/917 map Set/Contains; built once with Links.
     ref map<int, bool> LinkIds = new map<int, bool>;
 }
-class HCXAICaravanRoads : HCStartupOwner
+class HCStartupRoads : HCStartupOwner
+{
+    HCXAICaravanRoads Roads;
+    override bool HCNeedsWork() { return Roads && Roads.Phase == "loading"; }
+    override void HCSlice() { if (Roads && Roads.Phase == "loading") { Roads.HCLoadFrame(0); } }
+}
+
+class HCXAICaravanRoads
 {
     protected static ref HCXAICaravanRoads s_Instance;
+    protected ref HCStartupRoads m_StartupRoads;
     ref HCCaravanCorridor Config;
     ref array<ref HCXAICaravanRoadNode> Nodes = new array<ref HCXAICaravanRoadNode>;
     static const float HC_CELL_METERS = 250;
@@ -122,15 +130,13 @@ class HCXAICaravanRoads : HCStartupOwner
     }
     // Native Game.c:1552 / DayZGame.c:3027: SYSTEM update invokes timeslice
     // every server frame, independently of the one-second core module cadence.
-    override bool HCNeedsWork() { return Phase == "loading"; }
-    override void HCSlice() { this.HCLoadFrame(0); }
     void HCLoadFrame(float timeslice)
     {
         if (Phase == "loading") { HCStep(true); }
     }
     void HCStopLoading()
     {
-        HCStartupPump.HCFinish(this);
+        HCStartupPump.HCFinish(m_StartupRoads);
     }
     void HCRefuse(string reason)
     {
@@ -159,7 +165,9 @@ class HCXAICaravanRoads : HCStartupOwner
         }
         m_LoadStarted = GetGame().GetTickTime();
         Phase = "loading";
-        HCStartupPump.HCRegister(this, "road_graph");
+        m_StartupRoads = new HCStartupRoads;
+        m_StartupRoads.Roads = this;
+        HCStartupPump.HCRegister(m_StartupRoads, "road_graph");
     }
     void HCLoadNode()
     {
@@ -264,15 +272,15 @@ class HCXAICaravanRoads : HCStartupOwner
             }
             return;
         }
-        if (Phase == "loading" && !loadFrame && !Finished) { return; }
+        if (Phase == "loading" && !loadFrame && m_StartupRoads && !m_StartupRoads.Finished) { return; }
         if (Phase == "loading" && !loadFrame)
         {
             if (m_LoadTick == GetGame().GetTime()) { return; }
             m_LoadTick = GetGame().GetTime();
         }
-        // One ROADS admission per visit; frame loading uses the shared idle
-        // admission outside core ticks. HCWorkBudget bounds elapsed work. Taking TRADE per 8 nodes after AITrade held the graph at 8 nodes per tick (099).
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
+        // Normal visits retain ROADS admission. Catch-up uses the shared frame
+        // deadline instead; the same line/unit and elapsed slice caps remain.
+        if (!HCStartupPump.HCInSlice() && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
         bool loading = Phase == "loading";
         int limit = Config.RoadWorkPerTick;
         if (loading)
