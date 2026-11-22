@@ -125,6 +125,9 @@ class HCWildlifeCarcassLedger : HCEventRewardLedger
     }
 
     bool HCBusy() { return m_Writer != null || m_RenewStage != 0; }
+    // True once the ledger faulted (or never started): no grant can be issued this
+    // session, so the provider must not claim a site it cannot serve.
+    bool HCFaulted() { return m_Fault || !m_Ready; }
 
     // Same decision as Commit, split in two: this step spends the allowance in
     // memory (before any file or item exists) and prepares the grant file; HCGrantStep
@@ -230,15 +233,19 @@ class HCWildlifeProviders
     // Alternate creation/refill with maintenance on the existing slot.
     // Neither path can consume the other path's starvation allowance first.
     protected bool m_CarcassTurn = true;
-    // Staged carcass pipeline. One native file operation (or one creation) per
-    // carcass slice: 1 claim save, 2 grant file, 3 refill save, 4 ledger renewal,
-    // 5 body creation. Persisted order is unchanged: claim, then grant, then body.
+    // Staged carcass pipeline: 1 claim save, 2 grant file, 3 refill save, 4 ledger
+    // renewal, 5 body creation. Persisted order is unchanged: claim, then grant, then
+    // body. File jobs (1-4) run every tick while in flight, up to 8 stages within 1 ms,
+    // one native operation per stage; creation (5) is its own cost-8 gated slice.
     protected int m_Job;
-    protected int m_JobSlices;
+    protected int m_JobStages;
     protected int m_JobHolds;
+    protected int m_HoldExhausted;
+    // Stage budget for file steps: at most 8 stages inside 1 ms, one native op each.
+    protected ref HCWorkBudget m_JobBudget = new HCWorkBudget;
     protected ref HCWildlifeProviderSite m_JobSite;
     protected ref HCEventRewardPlan m_JobPlan;
-    static const int HC_JOB_MAX_SLICES = 160;
+    static const int HC_JOB_MAX_STAGES = 160;
     static const int HC_JOB_MAX_HOLDS = 120;
     protected int m_LastReport = -1;
     protected int m_Attempts;
@@ -474,7 +481,7 @@ class HCWildlifeProviders
         m_State.SpentSites.Clear();
         m_State.RefillAfterUtc = 0;
         m_Job = 3;
-        m_JobSlices = 0;
+        m_JobStages = 0;
         return true;
     }
 
@@ -493,7 +500,7 @@ class HCWildlifeProviders
     void HCJobEnd()
     {
         m_Job = 0;
-        m_JobSlices = 0;
+        m_JobStages = 0;
         m_JobHolds = 0;
         m_JobSite = null;
         m_JobPlan = null;
@@ -506,12 +513,25 @@ class HCWildlifeProviders
         HCJobEnd();
     }
 
+    // File jobs only: up to 8 stages inside a 1 ms slice, one native operation per
+    // stage. A job that reaches creation stops here; creation is its own slice.
+    void HCJobSlice()
+    {
+        m_JobBudget.HCReset(8, 1.0);
+        for (int stage = 0; stage < 8; stage++)
+        {
+            if (!m_JobBudget.HCContinue()) { return; }
+            HCJobStep();
+            if (m_Job == 0 || m_Job == 5) { return; }
+        }
+    }
+
     // One bounded step. The claim save, the grant write and the renewal each
     // return to the scheduler after a single native operation.
     void HCJobStep()
     {
-        m_JobSlices = m_JobSlices + 1;
-        if (m_Job != 5 && m_JobSlices > HC_JOB_MAX_SLICES) { HCJobFail("carcass_job_overrun"); return; }
+        m_JobStages = m_JobStages + 1;
+        if (m_Job != 5 && m_JobStages > HC_JOB_MAX_STAGES) { HCJobFail("carcass_job_overrun"); return; }
         int result;
         if (m_Job == 1 || m_Job == 3)
         {
@@ -523,7 +543,7 @@ class HCWildlifeProviders
                 else { HCJobFail("allocation_refill_failed"); }
                 return;
             }
-            m_JobSlices = 0;
+            m_JobStages = 0;
             if (m_Job == 1)
             {
                 m_JobPlan = m_Ledger.HCGrantBegin(m_JobSite.Id);
@@ -544,7 +564,7 @@ class HCWildlifeProviders
             if (result == HCSaveJob.STEP_MORE) { return; }
             if (result != HCSaveJob.STEP_DONE) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); HCJobEnd(); return; }
             m_Job = 5;
-            m_JobSlices = 0;
+            m_JobStages = 0;
             return;
         }
         if (m_Job == 4)
@@ -561,16 +581,18 @@ class HCWildlifeProviders
         HCJobEnd();
     }
 
-    bool HCHidden(vector point)
+    // count=false is the recheck before creation: a proximity hold is normal and
+    // must not inflate the refusal counters on every retry.
+    bool HCHidden(vector point, bool count = true)
     {
         array<Man> players = HCPerfPlayers.HCGet();
-        if (!players || players.Count() > m_Config.MaxPlayerChecks) { m_RefusedPlayers++; return false; }
+        if (!players || players.Count() > m_Config.MaxPlayerChecks) { if (count) { m_RefusedPlayers++; } return false; }
         foreach (Man candidate : players)
         {
             PlayerBase observer = PlayerBase.Cast(candidate);
-            if (!observer) { m_RefusedPlayers++; return false; }
-            if (vector.DistanceSq(observer.GetPosition(), point) <= m_Config.MinPlayerDistanceM * m_Config.MinPlayerDistanceM) { m_RefusedNear++; return false; }
-            if (!HCEcologyMigrationNative.PointHidden(observer, null, point)) { m_RefusedVisible++; return false; }
+            if (!observer) { if (count) { m_RefusedPlayers++; } return false; }
+            if (vector.DistanceSq(observer.GetPosition(), point) <= m_Config.MinPlayerDistanceM * m_Config.MinPlayerDistanceM) { if (count) { m_RefusedNear++; } return false; }
+            if (!HCEcologyMigrationNative.PointHidden(observer, null, point)) { if (count) { m_RefusedVisible++; } return false; }
         }
         return true;
     }
@@ -580,11 +602,13 @@ class HCWildlifeProviders
     bool HCCreate(HCWildlifeProviderSite site)
     {
         if (!m_Running || m_Fault || m_Job != 0 || !HCEcologyNative.Authority()) { return false; }
+        // A faulted ledger can issue no grant: do not spend (and waste) a site on it.
+        if (!m_Ledger || m_Ledger.HCFaulted()) { m_RefusedEconomy++; HCRefuse("carcass_economy_faulted"); return false; }
         if (!HCHidden(site.Position)) { return false; }
         if (!HCClaimBegin(site.Id)) { m_RefusedAllocation++; HCRefuse("carcass_allocation_claim_failed"); return false; }
         m_JobSite = site;
         m_Job = 1;
-        m_JobSlices = 0;
+        m_JobStages = 0;
         return true;
     }
 
@@ -593,13 +617,14 @@ class HCWildlifeProviders
     void HCJobSpawn()
     {
         if (!HCEcologyNative.Authority()) { HCJobFail("carcass_authority_lost_allocation_spent"); return; }
-        if (!HCHidden(m_JobSite.Position))
+        if (!HCHidden(m_JobSite.Position, false))
         {
+            // A player camping at the site is normal: hold quietly, never fault the module.
             m_JobHolds = m_JobHolds + 1;
             if (m_JobHolds > HC_JOB_MAX_HOLDS)
             {
-                m_RefusedCreation++;
-                HCRefuse("carcass_creation_not_hidden_allocation_spent");
+                m_HoldExhausted++;
+                Print("[HC Wildlife] carcass_creation_hold_exhausted site=" + m_JobSite.Id + " holds=" + HC_JOB_MAX_HOLDS.ToString() + " allocation=spent exhausted_total=" + m_HoldExhausted.ToString() + " runtime=PENDING");
                 HCJobEnd();
             }
             return;
@@ -642,6 +667,15 @@ class HCWildlifeProviders
         if (m_Fault) { HCObserve(); return; }
         if (nowMs < 0 || nowMs < m_LastNow) { m_Fault = true; HCRefuse("provider_clock_invalid"); return; }
         m_LastNow = nowMs;
+        // File stages of an in-flight job run every tick (bounded to 8 stages in 1 ms);
+        // everything else, including creation, keeps the TickMs cadence.
+        if (m_Job != 0 && m_Job != 5)
+        {
+            HCUnitBudget stageWork = HCServer.HCTickWork();
+            if (stageWork.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { HCJobSlice(); }
+            if (m_Job == 0) { HCReport(false); HCObserve(); }
+            return;
+        }
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
         bool busy = m_Job != 0;
@@ -653,11 +687,9 @@ class HCWildlifeProviders
             // observers (six native rays each). Never reuse stale sight checks.
             // Cost 8 is the shared budget's object-creation convention; use the
             // named consumer so exhausted earlier modules cannot starve it. A
-            // staged file step costs one unit; only the creation slice costs 8.
+            // file stages are budgeted separately above; the creation slice costs 8.
             HCUnitBudget work = HCServer.HCTickWork();
-            int cost = 8;
-            if (busy && m_Job != 5) { cost = 1; }
-            if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, cost))
+            if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 8))
             {
                 m_CarcassTurn = false;
                 if (busy)
@@ -719,7 +751,7 @@ class HCWildlifeProviders
         m_LastReport = m_LastNow;
         int spent = 0;
         if (m_State) { spent = m_State.SpentSites.Count(); }
-        Print("[HC Wildlife] carcasses attempts=" + m_Attempts.ToString() + " spawned=" + m_Spawned.ToString() + " spent=" + spent.ToString() + " cap=" + m_Config.MaxCarcasses.ToString() + " refills=" + m_Refills.ToString() + " refill_after_utc=" + HCRefillDeadline().ToString() + " enabled=" + m_Config.CarcassesEnabled.ToString() + " refused_budget=" + m_RefusedBudget.ToString() + " refused_observers=" + m_RefusedPlayers.ToString() + " refused_near=" + m_RefusedNear.ToString() + " refused_visible=" + m_RefusedVisible.ToString() + " refused_position=" + m_RefusedPosition.ToString() + " skipped_spent=" + m_RefusedSpent.ToString() + " refused_allocation=" + m_RefusedAllocation.ToString() + " refused_economy=" + m_RefusedEconomy.ToString() + " refused_creation=" + m_RefusedCreation.ToString() + " pairs_admitted=" + m_PairsAdmitted.ToString() + " pairs_refused=" + m_PairsRefused.ToString() + " target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " runtime=PENDING");
+        Print("[HC Wildlife] carcasses attempts=" + m_Attempts.ToString() + " spawned=" + m_Spawned.ToString() + " spent=" + spent.ToString() + " cap=" + m_Config.MaxCarcasses.ToString() + " refills=" + m_Refills.ToString() + " refill_after_utc=" + HCRefillDeadline().ToString() + " enabled=" + m_Config.CarcassesEnabled.ToString() + " refused_budget=" + m_RefusedBudget.ToString() + " refused_observers=" + m_RefusedPlayers.ToString() + " refused_near=" + m_RefusedNear.ToString() + " refused_visible=" + m_RefusedVisible.ToString() + " refused_position=" + m_RefusedPosition.ToString() + " skipped_spent=" + m_RefusedSpent.ToString() + " refused_allocation=" + m_RefusedAllocation.ToString() + " refused_economy=" + m_RefusedEconomy.ToString() + " refused_creation=" + m_RefusedCreation.ToString() + " hold_exhausted=" + m_HoldExhausted.ToString() + " pairs_admitted=" + m_PairsAdmitted.ToString() + " pairs_refused=" + m_PairsRefused.ToString() + " target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " runtime=PENDING");
     }
 
     protected ref HCWildlifeInteractions m_Interactions;

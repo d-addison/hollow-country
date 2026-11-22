@@ -26,6 +26,9 @@ Finish is deliberately traversed because it drains stages synchronously.
 A load-once latch (a bool/ref field tested first and set unconditionally before any
 return/continue/break, with no reset on a tick path) makes the code it guards once-only:
 neither its I/O, calls, Print nor Save sites are reported (see once_spans).
+Retry window (once_spans): `if (!latch) { float now = ..; if (now >= window) { if (attempt()) { latch = true; }
+else { window = now + K; } } }` (bool latch, float window field, K a positive literal or static const number)
+bounds a retry-until-success probe to one attempt per window, and the guarded block counts as once-only.
 Consume latch (once_spans): `if (!latch) { return; }` at method level, then a method-level
 `latch = null/false;` later, makes the code after the last exit before that reset, to the
 end of the method, run once per arming; it counts unless a tick path assigns the latch a
@@ -656,6 +659,28 @@ def once_spans(model, i):
                 return True
         return False
 
+    def retry_window(start, end, key):
+        """Retry-until-success latch with a time window (the attempt repeats at most once per window):
+          if (!latch) { float now = ...; if (now >= window) { if (attempt()) { latch = true; } else { window = now + K; } } }
+        window is a float field and K a positive literal or static const number."""
+        block = code[start:end]
+        spelled = (rf'\s*float\s+(\w+)\s*=[^;{{}}]*;\s*if\s*\(\s*\1\s*>=\s*({_CHAIN})\s*\)\s*\{{\s*'
+                   rf'if\s*\([^{{}}]*\)\s*\{{\s*(?:this\s*\.\s*)?{re.escape(key[1])}\s*=\s*true\s*;\s*\}}\s*'
+                   rf'else\s*\{{\s*(?:this\s*\.\s*)?\2\s*=\s*\1\s*\+\s*([\w.]+)\s*;\s*\}}\s*\}}\s*')
+        found = re.fullmatch(spelled, block)
+        if not found or key[2] != 'bool' or not m.owner:
+            return False
+        window = model.field_of(m.owner.name, found.group(2).replace('this.', '').strip())
+        if not window or window.type != 'float':
+            return False
+        step = found.group(3)
+        if re.fullmatch(r'\d+(?:\.\d+)?', step):
+            return float(step) > 0
+        constant = model.field_of(m.owner.name, step)
+        return bool(constant and {'static', 'const'} <= set(constant.modifiers)
+                    and re.fullmatch(r'\d+(?:\.\d+)?', constant.initializer.strip() or 'x')
+                    and float(constant.initializer.strip()) > 0)
+
     for guard in re.finditer(r'\bif\s*\(', code[m.body_start + 1:m.body_end]):
         start = m.body_start + 1 + guard.start()
         opening = code.find('(', start)
@@ -665,7 +690,7 @@ def once_spans(model, i):
         wrapped = re.fullmatch(rf'\s*(?:!\s*({_CHAIN})|({_CHAIN})\s*==\s*(?:false|null|NULL))\s*', condition)
         if wrapped:
             latch = _latch_field(model, i, wrapped.group(1) or wrapped.group(2))
-            if latch and sets_latch(a, b, latch):
+            if latch and (sets_latch(a, b, latch) or retry_window(a, b, latch)):
                 spans.append((a, b, latch))
             continue
         # Early-return form, only as a top-level statement of the method.

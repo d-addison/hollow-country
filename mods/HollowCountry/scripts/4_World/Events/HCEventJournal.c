@@ -18,20 +18,27 @@ class HCEventJournalIO
         }
         return false;
     }
-    // Directory availability is probed once per instance (three FileExist/MakeDirectory
-    // calls); every later Ensure answers from the remembered result. A directory that
+    // Directory availability is probed until it succeeds (three FileExist/MakeDirectory
+    // calls), then remembered. A failed probe is never cached: it retries at most once
+    // per HC_PROBE_RETRY_SECONDS, so one transient failure cannot disable a journal
+    // until restart and a persistent one cannot probe every call. A directory that
     // disappears later still fails the file operation that needs it, and the staged
     // journal save probes the same three directories again on every save.
+    static const float HC_PROBE_RETRY_SECONDS = 30.0;
     protected bool m_Probed;
-    protected bool m_ProbeResult;
+    protected float m_ProbeRetryAt;
     bool Ensure()
     {
         if (!m_Probed)
         {
-            m_Probed = true;
-            m_ProbeResult = HCProbeDirectories();
+            float now = GetGame().GetTickTime();
+            if (now >= m_ProbeRetryAt)
+            {
+                if (HCProbeDirectories()) { m_Probed = true; }
+                else { m_ProbeRetryAt = now + HC_PROBE_RETRY_SECONDS; }
+            }
         }
-        return m_ProbeResult;
+        return m_Probed;
     }
     protected bool HCProbeDirectories()
     {
@@ -91,31 +98,49 @@ class HCEventJournalIO
         return Read(name, limit) == text;
     }
     // Copy every surviving top-revision file before deleting any of them.
-    // The torn set is the three immutable files of one revision. A separate attempt
-    // directory preserves earlier crashes of a reused revision: sixteen attempts per
-    // revision, after which recovery refuses (files stay untouched) instead of
-    // probing without a bound at startup.
+    // The torn set is the three immutable files of one revision. Each preservation
+    // gets its own directory named from the UTC stamp, so a reused revision's earlier
+    // crashes never collide and the names cannot run out (a same-second collision
+    // takes one of 16 suffixes). Nothing is deleted until every file is verified as
+    // copied. When preservation cannot proceed the torn files stay in place, the
+    // reason is logged once, and recovery continues: the journal loads its last
+    // committed revision, and its save admission then refuses until a later boot
+    // preserves them. Readiness is never blocked by this path.
     protected string m_TornDirectory;
+    protected string m_TornReason;
     string HCTornDirectory() { return m_TornDirectory; }
+    string HCTornReason() { return m_TornReason; }
+    protected bool HCTornFail(string reason, string emptyDirectory)
+    {
+        m_TornReason = reason;
+        // A directory made for a failed copy must not linger as a spent slot.
+        if (emptyDirectory != "") { DeleteFile(emptyDirectory); }
+        Print("[HC Events] torn preservation skipped reason=" + reason + " files=kept_in_place");
+        return false;
+    }
     bool PreserveTorn(array<string> names, int revision)
     {
-        if (!names || names.Count() > 3) { return false; }
+        if (!names || names.Count() > 3) { return HCTornFail("torn_copy_failed", ""); }
         string root = "$profile:HollowCountry/Events/torn";
-        if (!FileExist(root) && !MakeDirectory(root)) { return false; }
+        if (!FileExist(root) && !MakeDirectory(root)) { return HCTornFail("torn_copy_failed", ""); }
+        string stamp = HCGroupClock.Utc().ToString();
         string target;
-        int attempt = 0;
+        string leaf;
         bool vacant = false;
         for (int probe = 0; probe < 16; probe++)
         {
-            target = root + "/" + revision.ToString() + "-" + probe.ToString();
+            leaf = revision.ToString() + "-" + stamp;
+            if (probe > 0) { leaf = leaf + "-" + probe.ToString(); }
+            target = root + "/" + leaf;
             if (!FileExist(target))
             {
-                attempt = probe;
                 vacant = true;
                 break;
             }
         }
-        if (!vacant || !MakeDirectory(target)) { return false; }
+        if (!vacant) { return HCTornFail("torn_attempts_exhausted", ""); }
+        if (!MakeDirectory(target)) { return HCTornFail("torn_copy_failed", ""); }
+        int copied = 0;
         for (int index = 0; index < 3 && index < names.Count(); index++)
         {
             string name = names[index];
@@ -123,24 +148,31 @@ class HCEventJournalIO
             // Verify raw bytes, including an empty torn file, before any delete.
             string original = Read(name, 4194304);
             int originalCount = HCReadCount();
-            if (originalCount < 0 || originalCount > 4194304 || original.Length() != originalCount) { return false; }
+            if (originalCount < 0 || originalCount > 4194304 || original.Length() != originalCount) { return HCTornFail("torn_copy_failed", HCEmptyOnly(target, copied)); }
             string copy = target + "/" + name;
-            if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return false; }
+            if (!CopyFile(HCPath(name), copy) || !FileExist(copy)) { return HCTornFail("torn_copy_failed", HCEmptyOnly(target, copied)); }
+            copied = copied + 1;
             FileHandle handle = OpenFile(copy, FileMode.READ);
-            if (!handle) { return false; }
+            if (!handle) { return HCTornFail("torn_copy_failed", ""); }
             string actual;
             actual = "";
             int count = ReadFile(handle, actual, 4194305);
             CloseFile(handle);
-            if (count != originalCount || actual != original) { return false; }
+            if (count != originalCount || actual != original) { return HCTornFail("torn_copy_failed", ""); }
         }
         for (int last = 0; last < 3 && last < names.Count(); last++)
         {
             string obsolete = names[last];
-            if (Exists(obsolete) && !Remove(obsolete)) { return false; }
+            if (Exists(obsolete) && !Remove(obsolete)) { return HCTornFail("torn_copy_failed", ""); }
         }
-        m_TornDirectory = "Events/torn/" + revision.ToString() + "-" + attempt.ToString();
+        m_TornDirectory = "Events/torn/" + leaf;
         return true;
+    }
+    // Only a directory that received nothing may be removed; evidence never is.
+    protected string HCEmptyOnly(string directory, int copied)
+    {
+        if (copied > 0) { return ""; }
+        return directory;
     }
     bool Remove(string name) { return DeleteFile(m_Root + "/" + name); }
 }
@@ -368,8 +400,15 @@ class HCEventJournal : HCEventPersistence
             names.Insert(Name("intent-", latest));
             names.Insert(Name("image-", latest));
             names.Insert(Name("commit-", latest));
-            if (!m_IO.PreserveTorn(names, latest)) { Fault(); return null; }
-            Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=" + m_IO.HCTornDirectory());
+            if (m_IO.PreserveTorn(names, latest))
+            {
+                Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=" + m_IO.HCTornDirectory());
+            }
+            else
+            {
+                // Evidence stays in place; the journal still loads its committed revision.
+                Print("[HC Events] journal recovered torn_revision=" + latest.ToString() + " loaded=" + loaded.ToString() + " preserved=none reason=" + m_IO.HCTornReason());
+            }
         }
         m_Latest = loaded;
         // Normalize legacy eight-revision journals too. Seven retained triples
@@ -887,14 +926,40 @@ class HCEventJournalSaveJob : HCSaveJob
     int Result = HCSaveJob.STEP_MORE;
     // The runtime builds one job per publish, and the scheduler prints its "[HC Save]"
     // line once per job instance (its peak starts at 0): 32 summaries in a 30 minute soak.
-    // Carry the slowest stage across instances so a summary prints only on a new
-    // high-water mark for the process; the timings stay visible, the repeats stop.
-    static int s_PeakTicks;
-    void HCEventJournalSaveJob() { HCPeakTicks = s_PeakTicks; }
+    // Keep the slowest stage per stage operation across instances (bounded to 64
+    // operations, then one shared "other" row) so a summary prints only on a new
+    // high-water mark for that operation: one slow boot stage never silences the
+    // later lines of a different stage.
+    static ref array<string> s_PeakOps;
+    static ref array<int> s_PeakTicks;
     override void HCCommitted(float now)
     {
         super.HCCommitted(now);
-        if (HCStatStageMax > s_PeakTicks) { s_PeakTicks = HCStatStageMax; }
+        if (HCStatStageMax < 1) { return; }
+        if (!s_PeakOps)
+        {
+            s_PeakOps = new array<string>;
+            s_PeakTicks = new array<int>;
+        }
+        string key = HCStatStageMaxOperation;
+        int row = s_PeakOps.Find(key);
+        if (row < 0)
+        {
+            if (s_PeakOps.Count() >= 64)
+            {
+                key = "other";
+                row = s_PeakOps.Find(key);
+            }
+            if (row < 0)
+            {
+                s_PeakOps.Insert(key);
+                s_PeakTicks.Insert(0);
+                row = s_PeakOps.Count() - 1;
+            }
+        }
+        // The scheduler prints when HCStatStageMax exceeds HCPeakTicks, then stores it.
+        HCPeakTicks = s_PeakTicks[row];
+        if (HCStatStageMax > s_PeakTicks[row]) { s_PeakTicks[row] = HCStatStageMax; }
     }
     override string HCName() { return "EventJournal"; }
     override int HCStep()
