@@ -153,6 +153,13 @@ class HCEcologyRuntimeStore
         string primaryText = HCEcologyRuntimeIO.Read(imagePath, 2048);
         HCEcologyCheckpoint primary = HCEcologyRuntimeIO.Decode(primaryText);
         bool primaryValid = HCEcologyRuntimeRules.CheckpointValid(primary, world);
+        if (!primaryValid && !FileExist(imagePath + ".bak"))
+        {
+            bool retired = HCV2ThreatStore<HCEcologyCheckpoint>.HCRetireFirstPending(imagePath, pendingPath, 2048);
+            if (retired) { Print("[HC Ecology] action=archived_first_pending reason=no_predecessor runtime=PENDING"); }
+            else { Print("[HC Ecology] action=left_for_operator reason=first_pending_retirement_failed runtime=PENDING"); }
+            return retired;
+        }
         if (!HCEcologyRuntimeRules.CheckpointValid(intent, world)) { return primaryValid; }
         // Legacy writer had no backup: a fully promoted pending revision is
         // already authoritative even if it crashed before deleting the intent.
@@ -192,7 +199,16 @@ class HCEcologyRuntimeStore
 		bool pending = FileExist(pendingPath);
 		if (pending)
 		{
-            if (!HCRecoverPrior(imagePath, pendingPath, worldName)) { m_Fault = true; return null; }
+            if (!HCRecoverPrior(imagePath, pendingPath, worldName))
+            {
+                Print("[HC Ecology] state=refused reason=no_verified_predecessor_or_recovery_io runtime=PENDING");
+                m_Fault = true;
+                return null;
+            }
+            pending = FileExist(pendingPath);
+        }
+        if (pending)
+        {
 			// HC-28 logical rename: verified archive before removing the active name.
 			// No native rename exists. EnSystem.c:528/531 DeleteFile/CopyFile;
 			// HCGroupClock.Utc uses EnSystem.c:76/100 UTC time/date.

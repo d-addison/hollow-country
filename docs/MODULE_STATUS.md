@@ -1,5 +1,7 @@
 # Gameplay implementation and remaining work
 
+Persistence W3-03 note (implemented-unverified): a crash under the old release immediately after a refresh can recover one revision older (no duplication); native upgrade/crash evidence remains pending.
+
 Custody recovery (W2-08 round 8) remains **implemented-unverified**. Rejected
 archives are bounded to eight slots; cap retirement prints a reason. A crash
 mid-rotation can drop older archives; the current rejected source stays intact

@@ -14,7 +14,8 @@
 // below uses a verified temporary intent, backup, copy/readback, then intent
 // removal. This is NOT atomic rename or fsync. The first open of a path per
 // session recovers an interrupted save from whole images (HCRecoverInterrupted);
-// when no whole image exists the files stay untouched and the store fails closed.
+// A first pending image without any predecessor is archived, never promoted;
+// other unverified recovery states fail closed.
 class HCV2ThreatStore<Class T>
 {
     // Paths already crash-checked this session. Only the first open recovers:
@@ -49,6 +50,32 @@ class HCV2ThreatStore<Class T>
         return JsonFileLoader<T>.LoadData(text, probe, error) && probe != null;
     }
 
+    // Boot-only evidence copy keyed by content, not time. A crash after copy
+    // but before delete reuses the same byte-verified archive on the next boot.
+    // Hash/length name collisions refuse; equality, never the hash, admits reuse.
+    static bool HCArchiveFirstPending(string path, int limit)
+    {
+        string original;
+        if (!HCPersistenceDisposition.HCReadArchive(path, limit, original, true)) { return false; }
+        string suffix = ".interrupted-first-" + original.Length().ToString() + "-" + original.Hash().ToString();
+        if (!FileExist(path + suffix)) { return HCPersistenceDisposition.HCArchive(path, suffix, limit, true); }
+        string archived;
+        return HCPersistenceDisposition.HCReadArchive(path + suffix, limit, archived, true) && archived == original;
+    }
+
+    // Only with no valid primary AND no backup at all. A torn first promotion
+    // never committed: keep its evidence, retire active names, start empty.
+    // An invalid existing backup remains an operator case, never a reset.
+    static bool HCRetireFirstPending(string path, string pending, int limit)
+    {
+        if (!HCArchiveFirstPending(pending, limit)) { return false; }
+        if (FileExist(path))
+        {
+            if (!HCArchiveFirstPending(path, limit) || !DeleteFile(path)) { return false; }
+        }
+        return DeleteFile(pending) && !FileExist(pending);
+    }
+
     // Boot only: pending bytes are evidence, never an authoritative image.
     // A readable primary wins. If promotion tore it, restore a verified backup,
     // retaining pending/torn bytes in verified archives before any deletion.
@@ -60,6 +87,16 @@ class HCV2ThreatStore<Class T>
         bool hasTmp = FileExist(tmp);
         bool primaryWhole = HCWholeImage(path);
         if (!hasTmp && (primaryWhole || !FileExist(bak))) { return; }
+        if (hasTmp && !primaryWhole && !FileExist(bak))
+        {
+            bool retired = HCRetireFirstPending(path, tmp, HCGroupIO.HC_RAW_READ_CAP);
+            string firstName = path;
+            int firstSlash = firstName.LastIndexOf("/");
+            if (firstSlash >= 0) { firstName = firstName.Substring(firstSlash + 1, firstName.Length() - firstSlash - 1); }
+            if (retired) { Print("[HC Store] crash_recovery file=" + firstName + " action=archived_first_pending reason=no_predecessor runtime=PENDING"); }
+            else { Print("[HC Store] crash_recovery file=" + firstName + " action=left_for_operator reason=first_pending_retirement_failed runtime=PENDING"); }
+            return;
+        }
         string action = "left_for_operator";
         string reason = "no_verified_predecessor";
         string suffix = ".interrupted-" + HCGroupClock.Utc().ToString();

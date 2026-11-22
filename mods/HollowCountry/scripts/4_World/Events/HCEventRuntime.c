@@ -394,6 +394,10 @@ class HCEventRuntime
         if (HCAnnouncePending()) { return false; }
         // Refuse before any mutation. Callers return BLOCKED/false and may retry;
         // player ingress must never drain hundreds of journal stages in one tick.
+        // The scheduler retains an active large job until it completes: an
+        // urgent journal can wait behind that job (up to its bounded stage count,
+        // e.g. <=10,304 stages at 8 MiB). BLOCKED lasts through that wait plus
+        // journal commit; callers retry without mutating or losing an action.
         if (m_PendingPublish) { return false; }
         return HCReadAllowed(context);
     }

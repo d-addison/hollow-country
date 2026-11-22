@@ -181,7 +181,6 @@ modded class HCStagedSaveImage
         if (m_Failed || m_CheckPrior || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path)) { return HCStepImage(); }
         if (m_Phase == 2 && m_PriorUnchanged) { return HCStepImage(); }
         bool backupCopy = m_Phase == 2 && m_Backup && m_PrimaryKnown && m_PrimaryExists;
-        if (backupCopy && m_PriorUnchanged && m_BackupExists) { backupCopy = false; }
         if (backupCopy && m_BackupStage == 1 && !m_BackupExists)
         {
             m_BackupStage = 2;
@@ -207,7 +206,9 @@ modded class HCStagedSaveImage
         if (result == HCSaveJob.STEP_MORE) { return result; }
         m_BoundedWriter = null;
         HCClose();
-        if (backupCopy) { m_BackupStage = 3; }
+        // Child CREATE already verified these exact predecessor bytes. Skip
+        // the duplicate outer read_backup; primary is still untouched here.
+        if (backupCopy) { m_PriorChunks.Clear(); m_PriorBytes = 0; m_Phase = 3; }
         // CREATE already read back the primary: no duplicate outer readback.
         else { m_PrimaryExists = true; m_Phase = 5; }
         return HCSaveJob.STEP_MORE;
@@ -481,6 +482,7 @@ class HCEventJournal : HCEventPersistence
     protected int HCStageFault()
     {
         HCCloseHandles();
+        m_EncodePages.Clear();
         m_Writer = null;
         m_Pending = null;
         m_SaveStage = -1;
@@ -732,6 +734,7 @@ class HCEventJournal : HCEventPersistence
             if (result == HCSaveJob.STEP_FAILED || m_NextImage.Length() > m_Settings.MaxStoreBytes)
             {
                 // No files written yet: refuse this candidate, retain the committed journal.
+                m_EncodePages.Clear();
                 m_NextImage = "";
                 m_NextReceipt = "";
                 m_Pending = null;

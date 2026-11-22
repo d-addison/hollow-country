@@ -276,7 +276,12 @@ class HCSaveScheduler : HCModule
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
         // Custody alone needs room for two maximum-size images (an older snapshot
         // plus a refresh). Explicit lower operator limits remain authoritative.
-        // 8 MiB / 4096 = 2048 chunks; two guards derived from the raw cap, plus 64 owner stages.
+        // Replacement core: prior + tmp write/read + backup read + primary read
+        // <=5*N+64 stages (CopyFile is one stage), N=ceil(bytes/4096).
+        // At 8 MiB: <=10,304/image; two <=20,608 < 33,088 (2*16,512+64).
+        // SearchRefresh.Stop opts into this barrier; its 6 MiB cap needs
+        // <=7,744/image, two <=15,488. Finish's 16,512 covers one max image.
+        // Explicit limits below the default 4096 still intentionally refuse.
         int flushLimit = config.SaveFlushStageLimit;
         // Journal shutdown drains need room for three capped immutable images,
         // their prior checks and pruning, even with a low routine operator limit.

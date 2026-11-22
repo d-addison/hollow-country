@@ -43,7 +43,7 @@ class HCEncounterStore<Class T>
     void HCEncounterStore(string name)
     {
         m_Path = "$profile:HollowCountry/" + name + ".json";
-        if (name == "holdouts") { m_SaveTimer = new HCStepTimer("Holdouts"); }
+        if (name == "holdouts") { m_SaveTimer = new HCStepTimer("HoldoutsSave"); }
     }
     bool Healthy() { return !m_Fault; }
     string HCTakeLoadedText()
@@ -119,7 +119,6 @@ class HCEncounterStore<Class T>
             {
                 m_SaveTimer.HCItem("holdouts_encode", encodeTicks);
                 m_SaveTimer.HCEndTick(encodeTicks);
-                m_SaveTimer.HCCloseWindow();
             }
             if (!encoded) { Fault(); return HCSaveJob.STEP_FAILED; }
             if (m_SaveText.Length() < 1 || m_SaveText.Length() > 262144) { Fault(); return HCSaveJob.STEP_FAILED; }
