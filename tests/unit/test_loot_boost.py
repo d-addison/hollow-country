@@ -301,10 +301,11 @@ class Settings(unittest.TestCase):
                     {'Town': float('nan')}, [], {1: 2}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost._capacity_map(bad)
-        for bad in ({'weapons': 2.0}, {'food': 0.9}, {'food': 3.1}, {'food': True}):
+        for bad in ({'weapons': 2.0}, {'food': 0.9}, {'food': boost.MAX_CATEGORY + 0.1}, {'food': True}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost._category_map(bad, 2.0)
-        self.assertEqual(boost._category_map({'food': 3.0}, 2.0), {'food': 3.0})
+        # a target may exceed Multiplier: the owner's food and medical totals are ~4-6x stock under Multiplier 2
+        self.assertEqual(boost._category_map({'food': 4.2, 'medical': 5.7}, 2.0), {'food': 4.2, 'medical': 5.7})
         for bad in (0.9, 3.1, True, 'x', float('nan')):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost._military_multiplier(bad)
@@ -365,8 +366,8 @@ class PlanFromStock(unittest.TestCase):
     def test_plan_applies_the_capacity_map_and_category_targets(self):
         with tempfile.TemporaryDirectory() as tmp:
             mission = stock_mission(tmp)
-            result = boost.plan(mission, 2.0, **PLAN, capacity={'Police': 2.0}, categories={'food': 3.0})
-            plain = boost.plan(mission, 2.0, **PLAN, capacity={}, categories={})
+            result = boost.plan(mission, 2.0, **PLAN, capacity={'Police': 2.0}, categories={'food': 3.0}, knobs={})
+            plain = boost.plan(mission, 2.0, **PLAN, capacity={}, categories={}, knobs={})
             self.assertEqual((result['capacity_multiplier'], result['category_multiplier']),
                              ({'Police': 2.0}, {'food': 3.0}))
             files = {name: after for name, _before, after in result['files']}
@@ -404,9 +405,9 @@ class PlanFromStock(unittest.TestCase):
     def test_plan_is_a_pure_function_of_the_bytes_and_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             mission = stock_mission(tmp)
-            first = boost.plan(mission, 2.0, **PLAN, capacity={'Police': 2.0}, categories={'food': 3.0})
-            other = boost.plan(mission, 2.0, **PLAN, capacity={'Town': 1.5}, categories={'tools': 2.0})
-            again = boost.plan(mission, 2.0, **PLAN, capacity={'Town': 1.5}, categories={'tools': 2.0})
+            first = boost.plan(mission, 2.0, **PLAN, capacity={'Police': 2.0}, categories={'food': 3.0}, knobs={})
+            other = boost.plan(mission, 2.0, **PLAN, capacity={'Town': 1.5}, categories={'tools': 2.0}, knobs={})
+            again = boost.plan(mission, 2.0, **PLAN, capacity={'Town': 1.5}, categories={'tools': 2.0}, knobs={})
             self.assertEqual(other['files'], again['files'])
             self.assertNotEqual(first['files'], other['files'])
             self.assertEqual(mission_bytes(mission), {n: t.encode() for n, t in STOCK_FILES.items()})
@@ -448,6 +449,236 @@ class PlanFromStock(unittest.TestCase):
             path.write_bytes(json.dumps(receipt).encode())
             with self.assertRaises(ValueError):
                 boost.rollback(mission)
+
+
+SUPPLY_A = (', "UsageMultiplier": {"Town": 3.0}, "MilitaryTierMultiplier": {"Tier4": 2.0},'
+            ' "FirearmsMultiplier": {"weapon": 2.0}, "LootDamageMax": 0.6, "Refill": {"RestockMin": 5000}')
+SUPPLY_B = ', "UsageMultiplier": {"Police": 2.5}'
+
+
+def supply_row(name, usages, nominal=10, minimum=6, category='tools', tiers=(), restock=300):
+    return (f'<type name="{name}"><nominal>{nominal}</nominal><min>{minimum}</min><restock>{restock}</restock>'
+            f'<category name="{category}"/>' + ''.join(f'<usage name="{u}"/>' for u in usages)
+            + ''.join(f'<value name="{t}"/>' for t in tiers) + '</type>')
+
+
+class SupplyKnobs(unittest.TestCase):
+    def scale(self, rows, multiplier=2, **kw):
+        return rows_of(boost.scale_types(('<types>' + ''.join(rows) + '</types>').encode(), multiplier, **kw)[0])
+
+    def test_row_factor_is_the_largest_over_its_usages_and_unlisted_usages_count_as_multiplier(self):
+        rows = self.scale([supply_row('Town1', ['Town']), supply_row('Mixed', ['Town', 'Farm']),
+                           supply_row('Farm1', ['Farm']), supply_row('NoUsage', [])],
+                          knobs={'usage': {'Town': 3.5}})
+        self.assertEqual(rows['Town1'], (35, 21))
+        self.assertEqual(rows['Mixed'], (35, 21))   # max(3.5, Multiplier for Farm)
+        self.assertEqual(rows['Farm1'], (20, 12))   # no entry: Multiplier
+        self.assertEqual(rows['NoUsage'], (20, 12))
+        rows = self.scale([supply_row('Mixed', ['Town', 'Farm'])], knobs={'usage': {'Town': 1.0}})
+        self.assertEqual(rows['Mixed'], (20, 12))   # an entry below Multiplier cannot lower a row that has a better usage
+
+    def test_usage_map_replaces_the_legacy_military_step_for_its_usages(self):
+        usages = frozenset({'Military', 'Police', 'Prison'})
+        rows = self.scale([supply_row('Mil', ['Military']), supply_row('Pol', ['Police'])], military=(usages, 1.5),
+                          knobs={'usage': {'Military': 3.0}})
+        self.assertEqual(rows['Mil'], (30, 18))   # the usage factor, not 2 x 3.0 x 1.5
+        self.assertEqual(rows['Pol'], (30, 18))   # the legacy step still covers a usage the map leaves out
+
+    def test_tier_factor_is_the_mean_over_a_military_rows_tiers(self):
+        tiers = {'Tier1': 1.0, 'Tier2': 1.0, 'Tier3': 1.5, 'Tier4': 1.5}
+        rows = self.scale([supply_row('Low', ['Military'], tiers=['Tier1', 'Tier2']),
+                           supply_row('All', ['Military'], tiers=['Tier1', 'Tier2', 'Tier3', 'Tier4']),
+                           supply_row('High', ['Military'], tiers=['Tier3', 'Tier4']),
+                           supply_row('Plain', ['Military']), supply_row('Town', ['Town'], tiers=['Tier4'])],
+                          knobs={'tier': tiers})
+        self.assertEqual([rows[k] for k in ('Low', 'All', 'High', 'Plain', 'Town')],
+                         [(20, 12), (25, 15), (30, 18), (20, 12), (20, 12)])
+
+    def test_roster_rows_scale_by_kind_only_with_a_kind_map_and_a_firearms_factor(self):
+        data = [supply_row('Gun', ['Police'], category='weapons'), supply_row('Mag', ['Police'], category='weapons'),
+                supply_row('Pot', ['Police'])]
+        roster = {'gun': 'weapon', 'mag': 'magazine'}
+        rows = self.scale(data, roster=roster, knobs={'firearms': {'weapon': 1.5}})
+        self.assertEqual((rows['Gun'], rows['Mag'], rows['Pot']), ((15, 9), (10, 6), (20, 12)))
+        rows = self.scale(data, roster=frozenset(roster), knobs={'firearms': {'weapon': 1.5}})
+        self.assertEqual(rows['Gun'], (10, 6))     # a plain roster set keeps the old behaviour
+        rows = self.scale(data, roster=roster)
+        self.assertEqual(rows['Gun'], (10, 6))
+
+    def test_restock_floor_raises_only_lower_restocks_and_is_verified(self):
+        data = ('<types>' + supply_row('Low', ['Town'], restock=300) + supply_row('High', ['Town'], restock=90000)
+                + '</types>').encode()
+        stats = {}
+        output, _ = boost.scale_types(data, 2, stats=stats, knobs={'refill': {'RestockMin': 3600}})
+        found = {t.get('name'): int(t.findtext('restock')) for t in ET.fromstring(output)}
+        self.assertEqual(found, {'Low': 3600, 'High': 90000})
+        self.assertEqual(stats['restock_rows'], 1)
+        output, _ = boost.scale_types(data, 2, knobs={})
+        self.assertEqual({t.get('name'): int(t.findtext('restock')) for t in ET.fromstring(output)},
+                         {'Low': 300, 'High': 90000})
+
+    def test_settings_validation(self):
+        for key, bad in (('UsageMultiplier', {'Nowhere': 2.0}), ('UsageMultiplier', {'Town': 0.5}),
+                         ('UsageMultiplier', {'Town': 8.5}), ('MilitaryTierMultiplier', {'Tier9': 1.0}),
+                         ('MilitaryTierMultiplier', {'Tier3': 5.0}), ('FirearmsMultiplier', {'grenade': 2.0}),
+                         ('FirearmsMultiplier', {'weapon': 0.5}), ('LootDamageMax', 1.5), ('LootDamageMax', True),
+                         ('Refill', {'RestockMin': -1}), ('Refill', {'RestockMin': 1.5}),
+                         ('Refill', {'RespawnTypesFactor': 9.0}), ('Refill', {'Other': 1})):
+            with self.subTest(key=key, bad=bad), self.assertRaises(ValueError):
+                boost.knobs_of({key: bad})
+        self.assertEqual(boost.knobs_of({})['refill'], {'RestockMin': 0, 'RespawnTypesFactor': 1.0})
+        self.assertIsNone(boost.knobs_of({})['loot_damage_max'])
+
+    def test_shipped_supply_settings_meet_the_owner_targets(self):
+        knobs = boost.default_knobs()
+        self.assertEqual(knobs['loot_damage_max'], 0.6)
+        self.assertGreater(knobs['tier']['Tier3'], knobs['tier']['Tier1'])
+        self.assertGreater(knobs['tier']['Tier4'], knobs['tier']['Tier2'])
+        self.assertGreater(boost.default_category_map()['medical'], boost.default_multiplier())  # exceeds Multiplier
+        for usage in ('Village', 'Farm', 'Town', 'Military', 'Police', 'Prison', 'Hunting', 'Medic', 'Firefighter',
+                      'Industrial', 'School'):
+            self.assertIn(usage, knobs['usage'])
+        self.assertEqual(knobs['refill'], {'RestockMin': 0, 'RespawnTypesFactor': 1.0})  # today's behaviour
+
+
+class GlobalsKnobs(unittest.TestCase):
+    STOCK = ('<variables><var name="LootDamageMax" type="1" value="0.82"/>'
+             '<var name="RespawnTypes" type="0" value="12"/></variables>').encode()
+
+    def values(self, data):
+        return {v.get('name'): v.get('value') for v in ET.fromstring(data)}
+
+    def test_loot_damage_max_is_lowered_never_raised(self):
+        output, report = boost.scale_globals(self.STOCK, 2, 0.6)
+        self.assertEqual(self.values(output), {'LootDamageMax': '0.6', 'RespawnTypes': '24'})
+        self.assertEqual(report['LootDamageMax'], '0.82->0.6')
+        output, report = boost.scale_globals(self.STOCK, 2, 0.9)
+        self.assertEqual(self.values(output)['LootDamageMax'], '0.82')
+        self.assertNotIn('->', report['LootDamageMax'])
+        self.assertEqual(self.values(boost.scale_globals(self.STOCK, 2)[0])['LootDamageMax'], '0.82')
+
+    def test_respawn_types_factor(self):
+        self.assertEqual(self.values(boost.scale_globals(self.STOCK, 2, None, 0.5)[0])['RespawnTypes'], '12')
+        self.assertEqual(self.values(boost.scale_globals(self.STOCK, 2, None, 4.0)[0])['RespawnTypes'], '64')
+
+    def test_the_receipt_report_rebuilds_the_written_bytes(self):
+        output, report = boost.scale_globals(self.STOCK, 2, 0.6, 1.25)
+        self.assertEqual(boost.globals_from_report(self.STOCK, report), output)
+
+
+FITS = {'guna': {'scope', 'mag', 'ghost', 'zero'}, 'gunb': {'scope'}, 'shed': {'scope'}}
+
+
+def fit_rows(**usage):
+    return boost.type_rows([('<types>' + supply_row('GunA', ['Military'], category='weapons')
+                             + supply_row('GunB', ['Town'], category='weapons')
+                             + supply_row('Shed', ['Town'], category='tools')
+                             + supply_row('Scope', usage.get('scope', ['Police']), category='weapons')
+                             + supply_row('Mag', ['Military'], category='weapons')
+                             + supply_row('Zero', ['Military'], nominal=0, minimum=0, category='weapons')
+                             + '</types>').encode()])
+
+
+class AttachmentCoverage(unittest.TestCase):
+    def test_gaps_are_classified_and_non_guns_ignored(self):
+        report = boost.attachment_coverage(fit_rows(), FITS)
+        self.assertEqual((report['guns'], report['attachments'], report['ok']), (2, 4, 1))  # Shed is not a weapon
+        self.assertEqual({k: v['kind'] for k, v in report['gaps'].items()},
+                         {'ghost': 'norow', 'scope': 'usage', 'zero': 'nominal'})
+        self.assertEqual(report['gaps']['scope']['usages'], ['Military', 'Town'])
+        self.assertEqual(boost.attachment_coverage(fit_rows(scope=['Town']), FITS)['gaps'].keys(), {'ghost', 'zero'})
+
+    def test_repair_raises_nominal_and_adds_the_gun_usages_only(self):
+        data = ('<types>' + supply_row('Scope', ['Police'], category='weapons')
+                + supply_row('Zero', [], nominal=0, minimum=0, category='weapons')
+                + supply_row('Other', ['Town']) + '</types>').encode()
+        gaps = {'scope': {'kind': 'usage', 'guns': 2, 'usages': ['Military', 'Town']},
+                'zero': {'kind': 'nominal', 'guns': 1, 'usages': ['Military']},
+                'ghost': {'kind': 'norow', 'guns': 1, 'usages': ['Town']}}
+        output, fixed = boost.repair_attachments(data, gaps)
+        self.assertEqual(fixed, ['scope', 'zero'])
+        found = {t.get('name'): (int(t.findtext('nominal')), sorted(u.get('name') for u in t.findall('usage')))
+                 for t in ET.fromstring(output)}
+        self.assertEqual(found, {'Scope': (10, ['Military', 'Police', 'Town']), 'Zero': (1, ['Military']),
+                                 'Other': (10, ['Town'])})
+        self.assertEqual(boost.repair_attachments(output, {})[0], output)
+
+    def test_plan_reports_and_repairs_from_the_missions_spawnabletypes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = stock_mission(tmp)
+            (mission / 'db/types.xml').write_text('<types>' + supply_row('Rifle', ['Police'], category='weapons')
+                                                  + supply_row('Scope', ['Farm'], category='weapons') + '</types>')
+            (mission / 'cfgspawnabletypes.xml').write_text(
+                '<spawnabletypes><type name="Rifle"><attachments chance="1"><item name="Scope"/></attachments>'
+                '</type></spawnabletypes>')
+            result = boost.plan(mission, 2.0, **PLAN, knobs={})
+            cover = result['counts']['attachments']
+            self.assertEqual((cover['guns'], cover['gaps'], cover['repaired'], cover['unrepairable']),
+                             (1, {'usage': 1}, 1, []))
+            types = {name: after for name, _b, after in result['files']}['db/types.xml']
+            self.assertIn('Police', {u.get('name') for t in ET.fromstring(types) if t.get('name') == 'Scope'
+                                     for u in t.findall('usage')})
+            self.assertTrue(any('attachment coverage' in l and 'repaired 1' in l for l in boost.describe(result)))
+            self.assertEqual(boost.plan(mission, 2.0, **PLAN, knobs={}, fits={'rifle': ['scope']})['counts']['attachments'],
+                             cover)
+
+
+class PlanSupply(unittest.TestCase):
+    def test_receipt_records_the_knobs_and_the_globals_change(self):
+        with tempfile.TemporaryDirectory() as tmp, settings_file(SUPPLY_A):
+            mission = stock_mission(tmp)
+            (mission / 'db/globals.xml').write_text(GlobalsKnobs.STOCK.decode())
+            boost.install(mission, None, None, floor_policy=None)
+            receipt = json.loads((mission / boost.MANAGED / 'receipt.json').read_bytes())
+            self.assertEqual(receipt['knobs']['usage'], {'Town': 3.0})
+            self.assertEqual(receipt['knobs']['loot_damage_max'], 0.6)
+            self.assertEqual(receipt['knobs']['refill']['RestockMin'], 5000)
+            self.assertEqual(receipt['counts']['globals']['LootDamageMax'], '0.82->0.6')
+            installed = (mission / 'db/globals.xml').read_bytes()
+            self.assertEqual(boost.globals_from_report(GlobalsKnobs.STOCK, receipt['counts']['globals']), installed)
+            self.assertEqual(rows_of((mission / 'db/types.xml').read_bytes())['Hammer'], (30, 18))
+            boost.rollback(mission)
+            self.assertEqual((mission / 'db/globals.xml').read_bytes(), GlobalsKnobs.STOCK)
+
+    def test_supply_settings_b_does_not_depend_on_supply_settings_a(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as fresh:
+            mission, clean = stock_mission(tmp), stock_mission(fresh)
+            stock = mission_bytes(mission)
+            with settings_file(SUPPLY_A):
+                boost.install(mission, None, None, floor_policy=None)
+            self.assertNotEqual(mission_bytes(mission), stock)
+            boost.rollback(mission)
+            self.assertEqual(mission_bytes(mission), stock)
+            with settings_file(SUPPLY_B):
+                boost.install(mission, None, None, floor_policy=None)
+                boost.install(clean, None, None, floor_policy=None)
+            self.assertEqual(mission_bytes(mission), mission_bytes(clean))
+            self.assertEqual(rows_of(mission_bytes(mission)['db/types.xml'])['Hammer'], (25, 15))  # Police 2.5, not A's Town 3.0
+
+    def test_a_receipt_without_knobs_still_rolls_back_and_a_malformed_one_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp, settings_file(SUPPLY_A):
+            mission = stock_mission(tmp)
+            stock = mission_bytes(mission)
+            boost.install(mission, None, None, floor_policy=None)
+            path = mission / boost.MANAGED / 'receipt.json'
+            receipt = json.loads(path.read_bytes())
+            receipt['knobs'] = 3
+            path.write_bytes(json.dumps(receipt).encode())
+            with self.assertRaises(ValueError):
+                boost.rollback(mission)
+            del receipt['knobs']
+            path.write_bytes(json.dumps(receipt).encode())
+            boost.rollback(mission)
+            self.assertEqual(mission_bytes(mission), stock)
+
+    def test_describe_lists_every_supply_knob(self):
+        with tempfile.TemporaryDirectory() as tmp, settings_file(SUPPLY_A):
+            mission = stock_mission(tmp)
+            (mission / 'db/globals.xml').write_text(GlobalsKnobs.STOCK.decode())
+            text = '\n'.join(boost.describe(boost.plan(mission, **PLAN)))
+            for needle in ('usage targets {Town: 3.0}', 'military tiers {Tier4: 2.0}', 'firearms {weapon: 2.0}',
+                           'refill: restock >= 5000s', 'LootDamageMax=0.82->0.6', 'attachment coverage'):
+                self.assertIn(needle, text)
 
 
 if __name__ == '__main__':

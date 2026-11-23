@@ -1903,6 +1903,10 @@ def globals_installed_bytes(before, row, receipt):
         candidates.append(loot_boost._encode(loot_boost._apply(text, [(start, end, tag)]), before))
     except (ValueError, KeyError, TypeError, IndexError, AttributeError):
         pass
+    try:  # every old->new change the receipt records (RespawnTypes, LootDamageMax), without the knobs behind them
+        candidates.append(loot_boost.globals_from_report(before, receipt['counts']['globals']))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        pass
     candidates.append(before)
     for data in candidates:
         if sha256_bytes(data) == row['after']:

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 REPO = Path(__file__).resolve().parents[2]
@@ -140,6 +141,13 @@ class FloorPolicyAdmission(unittest.TestCase):
         from tools.package import loot_boost
         self.lb = loot_boost
         self.temp = tempfile.TemporaryDirectory()
+        # The floor policy is checked on its own: pin settings.json to a bare Multiplier (no capacity, category,
+        # usage, tier, firearms or refill knobs; those are unit-tested in tests/unit/test_loot_boost.py).
+        bare = Path(self.temp.name) / 'bare-settings.json'
+        bare.write_text(json.dumps({'schema': 1, 'kind': loot_boost.SETTINGS_KIND, 'Multiplier': 1.0}))
+        patch = mock.patch.object(loot_boost, 'SETTINGS', bare)
+        patch.start()
+        self.addCleanup(patch.stop)
         self.mission = Path(self.temp.name) / 'mission'
         self.before = write_mission(self.mission)
 
@@ -349,10 +357,9 @@ class FloorPolicyAdmission(unittest.TestCase):
         plain = Path(self.temp.name) / 'plain'
         write_mission(plain)
         self.lb.install(plain, multiplier=1.0, points=None, floor_policy=None)
-        self.lb.rollback(plain)
         self.install(enabled=False)
         for name in ('db/types.xml', 'mapgroupproto.xml'):
-            self.assertEqual((self.mission / name).read_bytes(), self.before[name], name)
+            self.assertEqual((self.mission / name).read_bytes(), (plain / name).read_bytes(), name)
         report = json.loads((self.mission / self.lb.MANAGED / 'receipt.json').read_bytes())
         self.assertFalse(report['counts']['floor_policy']['enabled'])
 
