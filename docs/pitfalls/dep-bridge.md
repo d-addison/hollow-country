@@ -25,7 +25,6 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 ### `mods/HollowCountryExpansionAI/scripts/4_World/HCXConvoyRuntime.c`
 
 - #210 road branch: an HC-38 raid/column party already walking its situation route may borrow ONE qualified world car (never created, moved, repaired or refuelled here), drive bounded road waypoints, stop on contact/stall/timeout
-- #334: eAIGroup is not Managed; the hold keeps mHCGroup valid for the run's life.
 
 ### `mods/HollowCountryExpansionAI/scripts/4_World/HCXExpansionBridge.c`
 
