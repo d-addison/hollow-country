@@ -6,6 +6,12 @@
   python3 -B -m tools.testing.soak_campaign restore   # put every staged byte back; a no-op when nothing is staged
   python3 -B -m tools.testing.soak_campaign report    # works/broken table of the last run
 
+Targeted runs (plan and run): --changed <git ref> maps the changed mods/**/*.c files to their counters through
+the reach map's code: tokens; --modules A,B and --only-phases a,b select directly. Only the phases those counters
+need (plus join, and every earlier phase that holds one of their steps or fixtures) are driven, and the idle lasts
+max(10, the longest selected timer) minutes. A targeted run is never release evidence: its report says so and
+marks the counters of phases it did not drive "not run". The full campaign stays the release-candidate run.
+
 The campaign uses the dev-only test addon (mods/HollowCountryTest, never shipped) on the local server and the
 owner's local client. Everything it adds is a COPY or a new file: the server runs from a copy of the profile
 folders, a test copy of serverDZ.cfg and its own start file; only the mission's cfggameplay.json is edited in
@@ -35,7 +41,7 @@ PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'fixtures',
 # Test-profile settings the staging writes (the shipped defaults stay untouched): the smoke fixtures, and a
 # short Fortify breach window so one scripted barricade can be breached inside the run.
 SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
-RESULTS = ('active', 'zero', 'owner check', 'friend playtest')
+RESULTS = ('active', 'zero', 'owner check', 'friend playtest', 'not run')
 MANUAL_KINDS = {'owner_check': 'owner check', 'friend_playtest': 'friend playtest'}
 # Only the two-player and subjective items of the shared contract may be a manual row.
 ALLOWED_MANUAL = frozenset({'TeamPing/ping_recipients', 'TeamPing/ping_delivered', 'Cellars/visual_applied'})
@@ -88,6 +94,9 @@ SCRIPT_ERROR = 'SCRIPT    (E)'
 POLL_SECONDS = 30
 SERVER_READY_MINUTES = 20
 JOIN_MINUTES = 10
+# A targeted run idles this long unless a selected counter waits on a longer timer.
+TARGETED_IDLE_MINUTES = 10
+SELECTION_FILE = 'selection.json'
 
 
 class Refused(ValueError):
@@ -300,6 +309,158 @@ def reach_lines(rows):
         lines += ['            unreached: ' + problem for problem in problems]
     lines.append('rows=%d reached=%d' % (len(rows), len(rows) - len(bad)))
     return lines, len(bad)
+
+
+# ------------------------------------------------------------------ targeted selection
+
+def changed_files(ref, root=ROOT):
+    """Repo paths changed since the merge base with `ref`, committed or not (never the ref's own later work)."""
+    import subprocess
+    if not ref or ref.startswith('-'):
+        raise Refused('--changed needs a git ref')
+    base = subprocess.run(['git', 'merge-base', ref, 'HEAD'], cwd=root, capture_output=True, text=True)
+    if base.returncode:
+        raise Refused('git merge-base with %s failed' % ref)
+    diff = subprocess.run(['git', 'diff', '--name-only', base.stdout.strip(), '--'], cwd=root,
+                          capture_output=True, text=True)
+    if diff.returncode:
+        raise Refused('git diff against %s failed' % ref)
+    return sorted({line.strip() for line in diff.stdout.splitlines() if line.strip()})
+
+
+def _step_index():
+    try:
+        from tools.testing import driver_script
+    except ImportError:
+        raise Refused('tools.testing.driver_script is not in this checkout') from None
+    return driver_script.phase_index()
+
+
+def timer_minutes(how):
+    """The longest timer:<n>m token of a reach row, 0 without one."""
+    return max([int(t[6:-1]) for t in how if re.fullmatch(r'timer:\d{1,3}m', t)] or [0])
+
+
+# Script layer folders hold unrelated files side by side; only a feature subfolder groups one feature.
+_LAYER_FOLDERS = frozenset({'3_Game', '4_World', '5_Mission'})
+# The dev-only test addon drives every phase; a change there selects nothing by itself.
+_HARNESS_PREFIX = 'mods/HollowCountryTest/'
+
+
+def feature_folder(folder):
+    """'<mod>/<feature subfolder>' of a repo folder, the same across script layers; None in a flat layer folder."""
+    parts = folder.split('/')
+    if len(parts) < 3 or parts[-1] in _LAYER_FOLDERS:
+        return None
+    return parts[1] + '/' + parts[-1]
+
+
+def source_folders(root=ROOT):
+    """{file name: {feature folder}} of every mods/**/*.c file in a feature subfolder."""
+    folders = {}
+    for path in sorted((Path(root) / 'mods').rglob('*.c')):
+        key = feature_folder(path.parent.relative_to(root).as_posix())
+        if key:
+            folders.setdefault(path.name, set()).add(key)
+    return folders
+
+
+def select_targets(phases, *, changed=None, modules=(), only_phases=(), index=None, folders=None):
+    """The targeted selection, or None for the full campaign.
+
+    changed: repo paths. A changed mods/**/*.c file selects the counters whose reach row names it in a code:
+    token; failing that, the counters of the code: files in a same-named feature subfolder of the same mod
+    in any script layer (never a flat layer folder). Files that reach no counter are listed, and refused only when nothing else is selected.
+    modules and only_phases select directly. A counter brings its own phase, every earlier phase holding
+    one of its step or fixture tokens, and its timer. join and idle are always driven.
+    """
+    if changed is None and not modules and not only_phases:
+        return None
+    reach = phases.get('reach', {})
+    counters, unmapped_files, sources, harness = set(), [], [], []
+    by_folder = None
+    for path in changed or ():
+        if not (path.startswith('mods/') and path.endswith('.c')):
+            continue
+        if path.startswith(_HARNESS_PREFIX):
+            harness.append(path)
+            continue
+        sources.append(path)
+        folder, _, name = path.rpartition('/')
+        hits = {key for key, row in reach.items() if 'code:' + name in row.get('how', [])}
+        group = feature_folder(folder)
+        if not hits and group:
+            if by_folder is None:
+                by_folder = source_folders() if folders is None else folders
+            hits = {key for key, row in reach.items()
+                    if any(t.startswith('code:') and group in by_folder.get(t[5:], ()) for t in row.get('how', []))}
+        counters |= hits
+        if not hits:
+            unmapped_files.append(path)
+    for module in modules:
+        hits = {key for key in reach if key.partition('/')[0] == module}
+        if not hits:
+            raise Refused('module %s has no reach row' % module)
+        counters |= hits
+    for phase in only_phases:
+        if phase not in PHASE_ORDER:
+            raise Refused('unknown phase %s (known: %s)' % (phase, ', '.join(PHASE_ORDER)))
+    if not counters and not only_phases:
+        named = unmapped_files + harness
+        raise Refused('nothing to run: no changed mods/**/*.c file reaches a counter; pass --modules or '
+                      '--only-phases' + (': ' + ', '.join(named) if named else ''))
+    index = _step_index() if index is None else index
+    wanted = {'join', 'idle'} | set(only_phases)
+    timers = [0]
+    for key in counters:
+        row = reach[key]
+        wanted.add(row['phase'])
+        timers.append(timer_minutes(row['how']))
+        limit = PHASE_ORDER.index(row['phase'])
+        for token in row['how']:
+            kind, _, value = token.partition(':')
+            if kind not in ('step', 'fixture'):
+                continue
+            needle = value if kind == 'step' else token
+            wanted |= {name for name in PHASE_ORDER[:limit + 1] if needle in index.get(name, {})}
+    ordered = [name for name in PHASE_ORDER if name in wanted]
+    driven = sum(p['minutes'] for p in phases['phases'] if p['name'] in wanted and p['name'] != 'idle')
+    idle = max(TARGETED_IDLE_MINUTES, *timers)
+    return {'targeted': True, 'phases': ordered, 'counters': sorted(counters), 'idle_minutes': idle,
+            'window_minutes': driven + idle, 'sources': sources, 'unmapped_sources': unmapped_files,
+            'harness_sources': harness,
+            'modules': list(modules), 'only_phases': list(only_phases)}
+
+
+def judged(selection, phases, key, phase):
+    """Whether a counter of `phase` could fire in this run; always true for the full campaign."""
+    if not selection:
+        return True
+    if phase not in selection['phases']:
+        return False
+    row = phases.get('reach', {}).get(key, {})
+    return timer_minutes(row.get('how', [])) <= selection['window_minutes']
+
+
+def selection_lines(selection, phases):
+    driven = [p for p in phases['phases'] if p['name'] in selection['phases'] and p['name'] != 'idle']
+    out = ['Targeted soak selection (not release evidence; the full campaign stays the release-candidate run)', '']
+    out.append('phases: ' + ', '.join(selection['phases']))
+    out.append('minutes: driven %d (driver budget %d) + idle %d' % (
+        sum(p['minutes'] for p in driven), int(sum(p['minutes'] for p in driven) * 1.5) + JOIN_MINUTES,
+        selection['idle_minutes']))
+    if selection['sources']:
+        out.append('changed sources: %d (%d reach no counter)' % (len(selection['sources']),
+                                                                  len(selection['unmapped_sources'])))
+        out += ['  no counter: ' + path for path in selection['unmapped_sources']]
+    if selection['harness_sources']:
+        out.append('test addon changes (they select nothing; add --only-phases for the steps they change): %d'
+                   % len(selection['harness_sources']))
+    if selection['modules']:
+        out.append('modules: ' + ', '.join(selection['modules']))
+    out.append('selected counters (%d):' % len(selection['counters']))
+    out += ['  ' + key for key in selection['counters']]
+    return out
 
 
 # ------------------------------------------------------------------ staged content (pure)
@@ -813,8 +974,8 @@ class Campaign:
     """The lead's run. Every process and clock interaction goes through host/clock so tests never start DayZ."""
 
     def __init__(self, stager, host, phases, *, addon_build, step_script, sleep=time.sleep, now=time.monotonic,
-                 log=print, win=default_win):
-        self.stager, self.host, self.phases = stager, host, phases
+                 log=print, win=default_win, selection=None):
+        self.stager, self.host, self.phases, self.selection = stager, host, phases, selection
         self.addon_build, self.step_script = addon_build, step_script
         self.sleep, self.now, self.log, self.win = sleep, now, log, win
 
@@ -867,6 +1028,17 @@ class Campaign:
                 raise Refused('%s did not start within %d s of the %s launch' % (image, PROCESS_APPEAR_SECONDS, what))
             self.sleep(APPEAR_POLL_SECONDS)
 
+    def record_selection(self):
+        """The report of this run reads it: a targeted run is marked, a full run removes any earlier mark."""
+        path = Path(self.stager.state) / 'last-run' / SELECTION_FILE
+        if self.selection:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(self.selection, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+            self.log('run: targeted (%s; idle %d min); not release evidence' % (
+                ', '.join(self.selection['phases']), self.selection['idle_minutes']))
+        else:
+            path.unlink(missing_ok=True)
+
     def newest(self, folder, pattern):
         found = sorted(Path(folder).glob(pattern), key=lambda p: p.stat().st_mtime)
         return found[-1] if found else None
@@ -874,8 +1046,9 @@ class Campaign:
     def run(self):
         self.preflight()
         stager = self.stager
-        idle_minutes = self.phases['min_idle_minutes']
-        total = sum(p['minutes'] for p in self.phases['phases'] if p['name'] != 'idle')
+        driven = self.selection['phases'] if self.selection else PHASE_ORDER
+        idle_minutes = self.selection['idle_minutes'] if self.selection else self.phases['min_idle_minutes']
+        total = sum(p['minutes'] for p in self.phases['phases'] if p['name'] != 'idle' and p['name'] in driven)
         started = {'server': False, 'client': False}
         failure = None
         try:
@@ -883,6 +1056,7 @@ class Campaign:
             self.log('run: test addon built and signed')
             stager.stage(addon, self.step_script)
             self.log('run: test profile staged')
+            self.record_selection()  # after staging, which clears last-run
             server_win = self.win(stager.server)
             started['server'] = True
             self.host.launch_server(server_win)
@@ -1031,7 +1205,7 @@ def evidence_of(kind, row):
     return '%s count=%d%s' % (row['status'], row['count'], extra)
 
 
-def report_rows(phases, legacy, release, errors=()):
+def report_rows(phases, legacy, release, errors=(), selection=None):
     rows = []
     sources = (('expect', legacy['features'] if legacy else None), ('use', release['features'] if release else None))
     for kind, features in sources:
@@ -1042,7 +1216,13 @@ def report_rows(phases, legacy, release, errors=()):
             counter = '%s/%s' % (row['module'], row['feature'])
             seen = evidence_of(kind, row)
             if mapped[0] == 'phase':
-                result = 'active' if row['status'] == 'ACTIVE' else 'zero'
+                key = row['module'] + '/' + norm(row['feature'])
+                if row['status'] == 'ACTIVE':
+                    result = 'active'
+                elif judged(selection, phases, key, mapped[1]):
+                    result = 'zero'
+                else:
+                    result, seen = 'not run', 'targeted run did not reach it (observed: ' + seen + ')'
                 rows.append((kind, counter, mapped[1], result, seen))
             else:
                 rows.append((kind, counter, mapped[0], mapped[0], mapped[1] + ' (observed: ' + seen + ')'))
@@ -1053,15 +1233,23 @@ def report_rows(phases, legacy, release, errors=()):
     return rows
 
 
-def render_report(rows, drivers, release_summary):
+def render_report(rows, drivers, release_summary, selection=None):
     totals = {r: sum(1 for row in rows if row[3] == r) for r in RESULTS}
-    lines = ['# Soak campaign report', '',
-             'works=%d broken=%d owner_check=%d friend_playtest=%d' % (
-                 totals['active'], totals['zero'], totals['owner check'], totals['friend playtest']), '']
+    lines = ['# Soak campaign report', '']
+    if selection:
+        lines += ['**Targeted run: not release evidence.** Phases %s; idle %d min. Counters of phases it did not '
+                  'drive (or whose timer is longer than the run) are "not run".' % (
+                      ', '.join(selection['phases']), selection['idle_minutes']), '']
+        if selection.get('unmapped_sources'):
+            lines += ['Changed sources this run did not reach (no counter names them): '
+                      + ', '.join('`%s`' % path for path in selection['unmapped_sources']), '']
+    lines += ['works=%d broken=%d owner_check=%d friend_playtest=%d not_run=%d' % (
+                 totals['active'], totals['zero'], totals['owner check'], totals['friend playtest'],
+                 totals['not run']), '']
     if release_summary:
         lines += ['activity_check --release: `%s`' % release_summary, '']
     lines += ['| source | counter | phase | result | evidence |', '| --- | --- | --- | --- | --- |']
-    order = {'zero': 0, 'active': 1, 'owner check': 2, 'friend playtest': 3}
+    order = {'zero': 0, 'active': 1, 'owner check': 2, 'friend playtest': 3, 'not run': 4}
     for kind, counter, phase, result, evidence in sorted(rows, key=lambda r: (order[r[3]], r[1], r[0])):
         lines.append('| %s | %s | %s | %s | %s |' % (kind, counter, phase, result, evidence.replace('|', '/')))
     lines += ['', '## Driver', '']
@@ -1069,14 +1257,14 @@ def render_report(rows, drivers, release_summary):
     return '\n'.join(lines) + '\n', totals
 
 
-def build_report(phases, server_rpt, client_rpt):
+def build_report(phases, server_rpt, client_rpt, selection=None):
     legacy, release, errors = activity_results(server_rpt, client_rpt)
-    rows = report_rows(phases, legacy, release, errors)
+    rows = report_rows(phases, legacy, release, errors, selection)
     drivers = driver_lines(client_rpt) if client_rpt else []
     summary = None
     if release:
         summary = 'activity=%s count=%d' % (release['activity'], release['count'])
-    return render_report(rows, drivers, summary)
+    return render_report(rows, drivers, summary, selection)
 
 
 def last_run_logs(state=STATE):
@@ -1090,7 +1278,9 @@ def command_report(phases, state, out):
     server, client = last_run_logs(state)
     if server is None or client is None:
         raise Refused('no last run to report (both a server and a client RPT are needed)')
-    text, totals = build_report(phases, server, client)
+    marker = Path(state) / 'last-run' / SELECTION_FILE
+    selection = json.loads(marker.read_text(encoding='utf-8')) if marker.is_file() else None
+    text, totals = build_report(phases, server, client, selection)
     (Path(state) / 'last-run' / 'report.md').write_text(text, encoding='utf-8')
     out.write(text)
     return 8 if totals['zero'] else 0
@@ -1098,7 +1288,7 @@ def command_report(phases, state, out):
 
 # ------------------------------------------------------------------ plan
 
-def step_script():
+def step_script(route=PHASE_ORDER):
     try:
         from tools.testing import driver_script
     except ImportError:
@@ -1106,7 +1296,7 @@ def step_script():
     if tuple(driver_script.PHASES) != PHASE_ORDER:
         raise Refused('driver_script phases differ from the campaign phases')
     try:
-        return driver_script.build_route(list(PHASE_ORDER))
+        return driver_script.build_route(list(route))
     except ValueError as error:
         raise Refused('driver_script refused the route: ' + str(error)) from None
 
@@ -1190,11 +1380,20 @@ def main(argv=None, *, host=None, out=None):
     parser.add_argument('--state-dir', type=Path, default=STATE)
     parser.add_argument('--phases', type=Path, default=PHASES_FILE)
     parser.add_argument('--yes', action='store_true', help='run only: the lead confirms the owner is not playing')
+    parser.add_argument('--changed', metavar='REF', help='targeted: counters of the mods/**/*.c files changed since REF')
+    parser.add_argument('--modules', default='', help='targeted: comma-separated modules to drive')
+    parser.add_argument('--only-phases', default='', help='targeted: comma-separated phases to drive')
     args = parser.parse_args(argv)
     try:
         phases = load_phases(args.phases)
+        listed = lambda text: [x.strip() for x in text.split(',') if x.strip()]
+        selection = select_targets(phases, changed=changed_files(args.changed) if args.changed else None,
+                                   modules=listed(args.modules), only_phases=listed(args.only_phases))
         if args.mode == 'plan':
             lines, problems = plan_text(phases)
+            if selection:
+                lines = selection_lines(selection, phases) + ['', 'phase map problems: %d' % len(problems)]
+                lines += ['  ' + problem for problem in problems]
             reasons = plan_checks()
             for line in lines:
                 print(line, file=out)
@@ -1215,18 +1414,19 @@ def main(argv=None, *, host=None, out=None):
         if client is None:
             raise Refused('the DayZ client install was not found; pass --client-root')
         from tools.testing import test_addon
-        script = step_script()
+        script = step_script(selection['phases'] if selection else PHASE_ORDER)
         if args.mode == 'stage':
             addon = Path(test_addon.build()['path'])
             for line in stager.stage(addon, script):
                 print('staged [%s] %s' % line, file=out)
             return 0
         if not args.yes:
-            raise Refused('run is lead-only and idles at least %d minutes; pass --yes' % phases['min_idle_minutes'])
+            raise Refused('run is lead-only and idles at least %d minutes; pass --yes' % (
+                selection['idle_minutes'] if selection else phases['min_idle_minutes']))
         from tools.release.host_lock import host_lock, LockRefused
         try:
             with host_lock('soak_campaign'):
-                campaign = Campaign(stager, host, phases, step_script=script,
+                campaign = Campaign(stager, host, phases, step_script=script, selection=selection,
                                     addon_build=lambda: Path(test_addon.build()['path']),
                                     log=lambda text: print(text, file=out, flush=True))
                 campaign.run()

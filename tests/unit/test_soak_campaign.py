@@ -421,11 +421,12 @@ class CampaignTests(Tmp):
         self.clock = Clock()
         self.original = {p: p.read_bytes() for p in self.server.rglob('*') if p.is_file()}
 
-    def campaign(self, **options):
+    def campaign(self, selection=None, **options):
         host = FakeHost(self.stager, self.clock, **options)
         addon = make_addon(self.root)
         run = camp.Campaign(self.stager, host, PHASES, addon_build=lambda: addon, step_script={'version': 1, 'steps': []},
-                            sleep=self.clock.sleep, now=self.clock.now, log=lambda text: None, win=str)
+                            sleep=self.clock.sleep, now=self.clock.now, log=lambda text: None, win=str,
+                            selection=selection)
         return run, host
 
     def snapshot(self):
@@ -444,6 +445,19 @@ class CampaignTests(Tmp):
         server, client = camp.last_run_logs(self.state)
         self.assertIsNotNone(server)
         self.assertIn('[HC Driver] done', client.read_text())
+
+    def test_a_targeted_run_idles_short_and_marks_the_last_run(self):
+        selection = camp.select_targets(PHASES, only_phases=['actions'], index={})
+        run, host = self.campaign(selection)
+        self.assertTrue(run.run())
+        self.assertLess(self.clock.t, PHASES['min_idle_minutes'] * 60)
+        self.assertGreaterEqual(self.clock.t, camp.TARGETED_IDLE_MINUTES * 60)
+        marker = self.state / 'last-run' / camp.SELECTION_FILE
+        self.assertEqual(json.loads(marker.read_text())['phases'], ['join', 'actions', 'idle'])
+        self.assertEqual(self.snapshot(), self.original)
+        run, host = self.campaign()
+        self.assertTrue(run.run())
+        self.assertFalse(marker.exists())
 
     def test_a_client_the_launcher_starts_late_is_waited_for(self):
         run, host = self.campaign(late=3)
@@ -656,7 +670,98 @@ class CampaignTests(Tmp):
         self.assertEqual(1, len(host.winproc.scripts))
 
 
+def synthetic_phases(reach):
+    phases = copy.deepcopy(PHASES)
+    phases['reach'] = reach
+    return phases
+
+
+class SelectionTests(unittest.TestCase):
+    INDEX = {'walk_town': {'walk:site:town': ['s1']}, 'fixtures': {'fixture:fx_a': ['s2']}}
+    REACH = {
+        'Radio/delivered': {'phase': 'actions', 'how': ['step:walk:site:town', 'code:HCRadio.c']},
+        'Cellars/sampled': {'phase': 'idle', 'how': ['timer:60m', 'code:HCCellarSampler.c']},
+        'Fix/started': {'phase': 'fixtures', 'how': ['fixture:fx_a', 'code:HCFix.c']},
+    }
+    FOLDERS = {'HCRadio.c': {'HollowCountry/Radio'}, 'HCCellarSampler.c': {'HollowCountry/Cellars'}}
+
+    def select(self, **options):
+        options.setdefault('index', self.INDEX)
+        options.setdefault('folders', self.FOLDERS)
+        return camp.select_targets(synthetic_phases(self.REACH), **options)
+
+    def test_no_option_is_the_full_campaign(self):
+        self.assertIsNone(self.select())
+
+    def test_a_changed_file_brings_its_phase_and_the_earlier_phase_of_its_step(self):
+        got = self.select(changed=['mods/HollowCountry/scripts/4_World/Radio/HCRadio.c', 'docs/x.md'])
+        self.assertEqual(got['phases'], ['join', 'walk_town', 'actions', 'idle'])
+        self.assertEqual(got['counters'], ['Radio/delivered'])
+        self.assertEqual(got['idle_minutes'], camp.TARGETED_IDLE_MINUTES)
+        self.assertEqual(got['sources'], ['mods/HollowCountry/scripts/4_World/Radio/HCRadio.c'])
+
+    def test_a_timer_lengthens_the_idle(self):
+        got = self.select(changed=['mods/HollowCountry/scripts/4_World/Cellars/HCCellarSampler.c'])
+        self.assertEqual(got['idle_minutes'], 60)
+        self.assertEqual(got['phases'], ['join', 'idle'])
+
+    def test_an_unnamed_file_falls_back_to_its_feature_folder_in_any_layer(self):
+        got = self.select(changed=['mods/HollowCountry/scripts/3_Game/Radio/HCRadioSettings.c'])
+        self.assertEqual(got['counters'], ['Radio/delivered'])
+        self.assertEqual(got['unmapped_sources'], [])
+
+    def test_a_flat_layer_file_is_listed_and_refused_alone(self):
+        flat = 'mods/HollowCountry/scripts/3_Game/HCSettings.c'
+        with self.assertRaisesRegex(camp.Refused, 'HCSettings.c'):
+            self.select(changed=[flat])
+        got = self.select(changed=[flat, 'mods/X/scripts/4_World/HCFix.c'])
+        self.assertEqual(got['unmapped_sources'], [flat])
+        self.assertEqual(got['phases'], ['join', 'fixtures', 'idle'])
+        got = self.select(changed=[flat], only_phases=['scene'])
+        self.assertEqual(got['phases'], ['join', 'scene', 'idle'])
+
+    def test_test_addon_changes_select_nothing_alone(self):
+        harness = 'mods/HollowCountryTest/scripts/5_Mission/HCClientDriver.c'
+        with self.assertRaisesRegex(camp.Refused, 'HCClientDriver.c'):
+            self.select(changed=[harness])
+        self.assertEqual(self.select(changed=[harness], modules=['Fix'])['harness_sources'], [harness])
+
+    def test_unknown_module_or_phase_is_refused(self):
+        with self.assertRaisesRegex(camp.Refused, 'module Nope'):
+            self.select(modules=['Nope'])
+        with self.assertRaisesRegex(camp.Refused, 'unknown phase'):
+            self.select(only_phases=['nope'])
+
+    def test_judged_needs_a_driven_phase_and_a_timer_inside_the_run(self):
+        phases = synthetic_phases(self.REACH)
+        got = self.select(modules=['Radio'])
+        self.assertTrue(camp.judged(got, phases, 'Radio/delivered', 'actions'))
+        self.assertFalse(camp.judged(got, phases, 'Fix/started', 'fixtures'))
+        self.assertFalse(camp.judged(got, phases, 'Cellars/sampled', 'idle'))
+        self.assertTrue(camp.judged(None, phases, 'Fix/started', 'fixtures'))
+
+    def test_the_real_reach_map_selects_a_module(self):
+        got = camp.select_targets(PHASES, modules=['Radio'])
+        self.assertIn('join', got['phases'])
+        self.assertTrue(all(key.startswith('Radio/') for key in got['counters']))
+
+
 class ReportTests(Tmp):
+    def test_a_targeted_report_marks_undriven_counters_not_run(self):
+        phases = synthetic_phases(SelectionTests.REACH)
+        selection = camp.select_targets(phases, modules=['Radio'], index=SelectionTests.INDEX)
+        release = {'features': [dict(module='Radio', feature='delivered', status='INERT', count=0, fixture=0),
+                                dict(module='Fix', feature='started', status='INERT', count=0, fixture=0),
+                                dict(module='Cellars', feature='sampled', status='ACTIVE', count=1, fixture=0)],
+                   'activity': 'inert', 'count': 1}
+        phases['features'].update({'Radio/delivered': 'actions', 'Fix/started': 'fixtures', 'Cellars/sampled': 'idle'})
+        rows = camp.report_rows(phases, None, release, (), selection)
+        by = {r[1]: r[3] for r in rows if r[0] == 'use'}
+        self.assertEqual(by, {'Radio/delivered': 'zero', 'Fix/started': 'not run', 'Cellars/sampled': 'active'})
+        text, totals = camp.render_report(rows, [], None, selection)
+        self.assertIn('Targeted run: not release evidence', text)
+        self.assertEqual(totals['not run'], 1)
+
     def test_rows_separate_active_zero_owner_and_friend(self):
         legacy = {'features': [
             dict(module='Crafting', feature='craft-completed', status='ACTIVE', value=2, samples=2, window_minutes=60,
