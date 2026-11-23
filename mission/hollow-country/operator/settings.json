@@ -43,6 +43,9 @@
   "MaxBindQueriesPerTick": 2,
   "FortifyUnclaimedBuild": true,
   "FortifyBreachSeconds": 90,
+  "GunPileEnabled": true,
+  "GunPileChance": 0.75,
+  "GunPilePerTick": 4,
   "AILimits": {
     "MaxLiveGroups": 15,
     "MaxLiveAI": 72,

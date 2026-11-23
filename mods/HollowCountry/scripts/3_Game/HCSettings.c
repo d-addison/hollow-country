@@ -225,6 +225,9 @@ class HCOperatorSettingsRegistry
         HCAdd("MaxBindQueriesPerTick", "int", 2, 1, 8, "HCSettings");
         HCAdd("FortifyUnclaimedBuild", "bool", 1, 0, 1, "HCSettings");
         HCAdd("FortifyBreachSeconds", "int", 90, 10, 900, "HCSettings");
+        HCAdd("GunPileEnabled", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("GunPileChance", "float", 0.75, 0, 1, "HCSettings");
+        HCAdd("GunPilePerTick", "int", 4, 1, 16, "HCSettings");
         HCAdd("AILimits", "object", 0, 0, 0, "HCAILimits");
         HCAdd("AILimits.MaxLiveGroups", "int", 15, 1, 24, "HCAILimits");
         HCAdd("AILimits.MaxLiveAI", "int", 72, 1, 128, "HCAILimits");
@@ -566,6 +569,10 @@ class HCSettings
     int MaxBindQueriesPerTick = 2;
     bool FortifyUnclaimedBuild = true;
     int FortifyBreachSeconds = 90;
+    // #338: a CE-created gun may get its own magazine and ammo lying beside it (HCGunPile, 4_World/Loot).
+    bool GunPileEnabled = true;
+    float GunPileChance = 0.75;
+    int GunPilePerTick = 4;
 
     ref HCAILimits AILimits = new HCAILimits;
 
@@ -606,6 +613,9 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableSites")) { settings.EnableSites = defaults.EnableSites; }
         if (!HCJsonFields.Has(content, "FortifyUnclaimedBuild")) { settings.FortifyUnclaimedBuild = defaults.FortifyUnclaimedBuild; }
         if (!HCJsonFields.Has(content, "FortifyBreachSeconds")) { settings.FortifyBreachSeconds = defaults.FortifyBreachSeconds; }
+        if (!HCJsonFields.Has(content, "GunPileEnabled")) { settings.GunPileEnabled = defaults.GunPileEnabled; }
+        if (!HCJsonFields.Has(content, "GunPileChance")) { settings.GunPileChance = defaults.GunPileChance; }
+        if (!HCJsonFields.Has(content, "GunPilePerTick")) { settings.GunPilePerTick = defaults.GunPilePerTick; }
         if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
         if (!HCJsonFields.Has(content, "MaxFurnishedProps")) { settings.MaxFurnishedProps = defaults.MaxFurnishedProps; }
     }
@@ -637,6 +647,8 @@ class HCSettings
         else if (!HCOperatorSettingsRegistry.HCValid("InfectedBindRadius", InfectedBindRadius)) error = "Infected bind radius outside 5..60";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxBindQueriesPerTick", MaxBindQueriesPerTick)) error = "Bind query budget outside 1..8";
         else if (!HCOperatorSettingsRegistry.HCValid("FortifyBreachSeconds", FortifyBreachSeconds)) error = "Fortify breach seconds outside 10..900";
+        else if (!HCOperatorSettingsRegistry.HCValid("GunPileChance", GunPileChance)) error = "Gun pile chance outside 0..1";
+        else if (!HCOperatorSettingsRegistry.HCValid("GunPilePerTick", GunPilePerTick)) error = "Gun pile per tick outside 1..16";
         else if (EnableSearch && !EnableInteriors) error = "Search requires interiors";
         else if ((EnableHordes || EnableAlertChains) && !EnableInfected) error = "Hordes/chains require infected";
         return error == "";
@@ -724,6 +736,9 @@ class HCSettings
         if (HCLogNonDefault("MaxBindQueriesPerTick", MaxBindQueriesPerTick.ToString(), defaults.MaxBindQueriesPerTick.ToString())) { changed++; }
         if (HCLogNonDefault("FortifyUnclaimedBuild", FortifyUnclaimedBuild.ToString(), defaults.FortifyUnclaimedBuild.ToString())) { changed++; }
         if (HCLogNonDefault("FortifyBreachSeconds", FortifyBreachSeconds.ToString(), defaults.FortifyBreachSeconds.ToString())) { changed++; }
+        if (HCLogNonDefault("GunPileEnabled", GunPileEnabled.ToString(), defaults.GunPileEnabled.ToString())) { changed++; }
+        if (HCLogNonDefault("GunPileChance", GunPileChance.ToString(), defaults.GunPileChance.ToString())) { changed++; }
+        if (HCLogNonDefault("GunPilePerTick", GunPilePerTick.ToString(), defaults.GunPilePerTick.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.MaxLiveGroups", AILimits.MaxLiveGroups.ToString(), defaults.AILimits.MaxLiveGroups.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.MaxLiveAI", AILimits.MaxLiveAI.ToString(), defaults.AILimits.MaxLiveAI.ToString())) { changed++; }
         if (HCLogNonDefault("AILimits.OccupationMin", AILimits.OccupationMin.ToString(), defaults.AILimits.OccupationMin.ToString())) { changed++; }
