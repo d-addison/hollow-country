@@ -31,6 +31,7 @@ class HCDriverArgs
     string item;
     string target;
     string freq;
+    string use;
 }
 
 class HCDriverStep

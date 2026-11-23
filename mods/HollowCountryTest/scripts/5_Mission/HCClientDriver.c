@@ -203,6 +203,14 @@ class HCClientDriver
             mission.Pause();
             return HCDriverResult.RUNNING;
         }
+        if (name == "admin")
+        {
+            // The same path the admin key takes (HCAdminGameplay.c OnUpdate): HCOpen sends the status
+            // request and HCTick enters the menu once the server answers an admin.
+            if (ui.GetMenu()) { m_Text = "another-menu-open"; return HCDriverResult.REFUSED; }
+            HCAdminClient.HCGet().HCOpen();
+            return HCDriverResult.RUNNING;
+        }
         m_Text = "unknown-menu";
         return HCDriverResult.REFUSED;
     }
@@ -212,6 +220,7 @@ class HCClientDriver
         UIManager ui = GetGame().GetUIManager();
         if (name == "map") { return ui.IsMenuOpen(MENU_MAP); }
         if (name == "inventory") { return ui.IsMenuOpen(MENU_INVENTORY); }
+        if (name == "admin") { return ui.IsMenuOpen(HCAdminWire.MENU); }
         return GetGame().GetMission().IsPaused();
     }
 
@@ -227,6 +236,11 @@ class HCClientDriver
         }
         if (name == "inventory") { mission.HideInventory(); }
         if (name == "pause") { mission.Continue(); }
+        if (name == "admin")
+        {
+            UIScriptedMenu adminMenu = ui.FindMenu(HCAdminWire.MENU);
+            if (adminMenu) { adminMenu.Close(); }
+        }
     }
 
     // Stages: 0 open, 1 verify and hold, 2 close and check it closed.
@@ -243,7 +257,8 @@ class HCClientDriver
         if (m_Stage == 1)
         {
             if (m_StepAge < 0.5) { return HCDriverResult.RUNNING; }
-            if (m_Mark == 0)
+            // Polled until the hold ends: the admin menu opens only after the server's reply.
+            if (m_Mark != 2)
             {
                 m_Mark = 1;
                 if (MenuIsOpen(step.name)) { m_Mark = 2; }
@@ -456,5 +471,17 @@ modded class MissionGameplay
             m_HCDriver = null;
         }
         super.OnMissionFinish();
+    }
+}
+
+// Test-only access to the earplugs key handler: the driver cannot press a key, and HCEarplugs.Press
+// is the real handler (applies the sound volume and bumps its own counter, which this never touches).
+modded class HCEarplugs
+{
+    static bool HCTestPress()
+    {
+        if (!s_Client) { return false; }
+        s_Client.Press();
+        return true;
     }
 }

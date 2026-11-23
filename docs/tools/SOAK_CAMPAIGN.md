@@ -36,11 +36,11 @@ Everything is a copy or a new file, except one in-place edit with a byte backup:
 
 | where | what |
 | --- | --- |
-| server `soak-profiles/` | copy of the profile folders (not the loose root logs). `HollowCountry/settings.json` gets `EnableSmokeFixtures=true`; the `HollowCountry/measure-cellars` marker is added |
+| server `soak-profiles/` | copy of the profile folders (not the loose root logs). `HollowCountry/settings.json` gets `EnableSmokeFixtures=true` and `FortifyBreachSeconds=20` (so one scripted barricade is breached inside the run); the `HollowCountry/measure-cellars` marker is added |
 | server `hc-soak.cfg` | copy of `serverDZ.cfg` with a forage-season date (2026/07/15 08:00, 1x so it stays daytime), `instanceId=99` (own storage folder, the real one is untouched) and no persistent time. Contents are never printed (passwords) |
 | server `start-server-soak.bat` | copy of `start-server.bat` with `-config=hc-soak.cfg`, `-profiles=soak-profiles` and `@HollowCountryTest` appended to `-mod` |
 | server `@HollowCountryTest` | the signed test addon (the existing dev-key public key already sits in the server keys folder) |
-| mission `hollow-country-gameplay/gear/soak-test.json` | spawn gear: KitchenKnife, CamoNet, PersonalRadio, Mich2001Helmet, UniversalLight, 9V batteries, DuctTape, Crowbar, Wrench, AKM with a full magazine and a spare |
+| mission `hollow-country-gameplay/gear/soak-test.json` | spawn gear: every item a default driver action needs (KitchenKnife, CamoNet, PersonalRadio, Mich2001Helmet, TortillaBag, UniversalLight x2, Flashlight, 9V batteries, DuctTape x2, Crowbar, Wrench, Pliers, Rag, Paper, Pen_Black) and an AKM with a full magazine and a spare |
 | mission `cfggameplay.json` | `PlayerData.spawnGearPresetFiles` points at the test preset (original bytes saved in the state folder receipt) |
 | client `soak-client-profile/HollowCountry/acceptance/client_driver.json` | the step file from `tools.testing.driver_script.build_route` |
 
@@ -58,14 +58,60 @@ server), every other mod from the client's `!Workshop` folder matched by `meta.c
 
 ## Phases (`soak_phases.json`)
 
-`join`, `group`, `walk_ai`, `walk_zone`, `walk_town`, `fixtures`, `actions`, then `idle` (at least 125 minutes, longer
-than every 120-minute window; DebugSnapshot fires every 300 s). `soak_phases.json` maps every module, and where one
-module spans phases a `features` override, so every counter in `config/activity-expectations.json` and every
-`[HC Use]` registry literal in the sources has a phase. The only rows that are not a phase are the two-player and
-subjective items: `TeamPing/ping_recipients` and `TeamPing/ping_delivered` (friend playtest), and the non-counter
+`join`, `group`, `walk_ai`, `walk_zone`, `walk_town`, `fixtures`, `actions`, `scene`, `forest`, then `idle` (at least
+125 minutes, longer than every 120-minute window; DebugSnapshot fires every 300 s). `soak_phases.json` maps every
+module, and where one module spans phases a `features` override, so every counter in
+`config/activity-expectations.json` and every `[HC Use]` registry literal in the sources has a phase. The only rows
+that are not a phase are the two-player and subjective items: `TeamPing/ping_recipients` and
+`TeamPing/ping_delivered` (friend playtest), `Cellars/visual_applied` (owner check, see below), and the non-counter
 look rows (lighting, grade, audio: owner check; group sharing, team-ping delivery: friend playtest).
 `tests/unit/test_soak_campaign.py` fails on any unmapped counter or module and on any manual row outside that list.
 Adding a module or a counter to the sources means adding it to the phase file in the same change.
+
+## Reach map
+
+Every counter row also has a `reach` entry (`counter -> {phase, class, how}`) naming the concrete mechanism that
+produces it in one scripted soak. `plan` prints one line per row and `unreached=<n>`; it fails when n is above 0,
+and a unit test asserts the shipped map has `unreached=0`. A `how` is a list of tokens, each checked against the
+checkout:
+
+| token | meaning |
+| --- | --- |
+| `boot` | fires from the module start, no input |
+| `timer:<N>m` | a background timer within the 125-minute idle (N from 1 to 125) |
+| `step:<token>` | a driver step on or before the counter's phase (`walk:<source>`, `menu:<name>`, `admin:<cmd>`, `group:<op>`, `action:<name>`, `stand`, `sprint`, `wait`, `ping`) |
+| `fixture:<fx_cmd>` | a setup-only fixture the driver sends; the command must exist in a source and be a step of the plan |
+| `setting:<Key>` | a test-profile setting written by staging (`SOAK_SETTINGS`) |
+| `gear:<Class>` | an item in the soak gear preset |
+| `marker:measure-cellars` | the cellar-sampler marker file staged with the profile |
+| `code:<File.c>` | the file holding the counter call; must exist under `mods` |
+
+Every row needs at least one `code:` token and one trigger token (`boot`, `timer`, `step`, `fixture`, `setting` or
+`marker`). Classes are `required` (default-on activity expectation) and `diagnostic` (optional counters).
+
+New phases: `scene` walks to the Kamenka scene chain site, asks for its scene (`admin scene`), takes paper, reads the
+lead notes and writes one; `forest` walks to the existing Bor South Rest shelter, forces the forage tick
+(`admin forage`), picks forage and stands under the trees for the wind loop. The `scene:<chain id>` waypoint source
+reads the first stop of `events/scene-chains.json` (the other sources are `ai/sites.json`, `ai/zones.json` and
+`travel/route-surveys.json`); the driver still walks there on foot.
+
+Setup-only fixtures added in the test addon (`mods/HollowCountryTest/scripts/4_World/HCTestReachFixtures.c`, catalog
+rows `fx_animal`, `fx_food`, `fx_cooking`, `fx_kit_place`, `fx_kit_refuse`, `fx_barricade`, `fx_melee`, `fx_shoot` in
+`HCAdminCatalog.c`) log `[HC Fixture] cmd=<c> fixture=1 result=ok` and then the real code path runs: `fx_kit_place` and
+`fx_kit_refuse` finish a real deploy action (Fortify placed and refused), `fx_barricade` presses an infected
+against the barricade (breached after 20 s), `fx_food` and `fx_cooking` create a `_DON` food and a `CookZ_` pot
+(FoodCompat guard, CookingCompat dish), `fx_animal` places an animal for the pack counter, `fx_shoot` fires a
+native `Weapon.Fire` round at the nearest HC AI (InfectedMemory heat, AITactics fire events, AISelfDefence
+hit reaction), and `fx_melee` calls `ProcessMeleeHitName` on a spawned infected (Melee hit, wall veto, parity
+probe). No fixture bumps or credits a counter.
+
+`Cellars/visual_applied` is an owner check: the client counter needs the player more than 2 m below terrain inside
+a building, no repo file names a cellar, and a player may not be teleported, so there is no honest scripted
+exercise (`r3_smoke_plan.json` records the same). The cellar sampler itself (`CellarSampler/class_measured`,
+`Cellars/cellars_measured`) is scripted through the marker.
+
+The `actions` phase crouches the player before world crafting, and the default craft, mount, salvage and flip items are
+all in the soak gear preset (a unit test checks the preset against the action arguments).
 
 ## Report
 
@@ -77,6 +123,10 @@ log `fixture=1` and the real feature code then runs.
 
 ## Known limits
 
-- `plan` fails until `mods/HollowCountryTest` and `tools.testing.driver_script` (drv and fxsetup briefs) are in the checkout.
-- `SettlementDecay` has a 1440-minute window, so its window rows cannot become active in one soak; they report zero.
-- Counters no driver step reaches (for example Fortify, Notes, CookingCompat) report zero rather than pass.
+- Retail DayZ has no scripted client melee input: melee is started from the player's own input
+  (native `3_Game/human.c`, the UAInput `SyncedOverride` exists only under `INPUT_OVERRIDE`), so the driver
+  cannot press an attack. The Melee player-attacker counters are reached server-side by `fx_melee` calling the
+  native `DayZPlayer.ProcessMeleeHitName` (native `3_Game/dayzplayer.c`). A real
+  infected or AI hit on a player only raises the victim-side melee counters (poise, block, guard break, glance).
+- `SettlementDecay`'s `w=` value is an upper bound on its window, not the time it takes: the first decay pass
+  and the `admin decay` command in the `actions` phase produce the counters inside one soak.

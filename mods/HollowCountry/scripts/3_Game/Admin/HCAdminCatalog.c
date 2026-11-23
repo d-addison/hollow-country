@@ -113,6 +113,14 @@ class HCAdminCatalog
         HCAdd("fx_car_side", "world", "Test setup: car on its side", "Dev test addon only: roll one parked or new car onto its side 8-15 m away; the real flip code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_camp_setup", "world", "Test setup: built camp", "Dev test addon only: pitch a tent, crate and lit fire 6-15 m away; the real camp code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_wreck", "world", "Test setup: salvage wreck", "Dev test addon only: place one reviewed car wreck 8-15 m away; the real salvage code runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_animal", "world", "Test setup: otter", "Dev test addon only: place one Animal_Otter 8-15 m away when the animal pack is loaded; its normal init runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_food", "world", "Test setup: pack food", "Dev test addon only: place one food-pack item 3-8 m away; its normal temperature init runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_cooking", "world", "Test setup: cooking pot", "Dev test addon only: light a fire with a tripod and a pot holding a pack dish 6-12 m away; the normal cooking tick runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_kit_place", "world", "Test setup: shelter kit", "Dev test addon only: run the real deploy finish for a shelter-scale fortification kit; the normal claim gate decides.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_kit_refuse", "world", "Test setup: oversize kit", "Dev test addon only: run the real deploy finish for a non-shelter RaG kit; the normal claim gate refuses it.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_barricade", "world", "Test setup: barricaded door", "Dev test addon only: build a door barricade at the nearest building door with infected outside; the real breach code runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_melee", "world", "Test setup: melee strikes", "Dev test addon only: strike infected ahead of you with your melee weapon through the engine melee entry; the real melee code runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_shoot", "world", "Test setup: one shot", "Dev test addon only: one chambered round from a world weapon through the native fire call, aimed at the nearest AI or ahead of you; the real shot handlers run.", false, true, false, 0, 0, 0, "");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");
         HCAdd("event", "world", "Start reviewed event", "Request the nearest reviewed site through normal event admission.", false, true, false, 0, 0, 0, "");
         HCAdd("scene", "world", "Place due scene", "Request the nearest due reviewed scene; maximum two scene leases.", false, true, false, 0, 0, 0, "");
