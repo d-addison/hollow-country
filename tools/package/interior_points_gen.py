@@ -496,7 +496,7 @@ def near(point, others):
                for q in others)
 
 
-def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
+def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, only=None):
     # Reuse the independent audit without relaxing any of its limits. Evaluate
     # before spacing/capping so refused candidates do not crowd out good tops.
     from tools.package.loot_reach_audit import Audit
@@ -523,6 +523,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
                              'sha256': sha(path.read_bytes()), 'box': doc['Box']})
     groups, surfaces, rejected, refused = {}, {}, Counter(), {}
     ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
+    if only is not None:
+        ordered = [g for g in ordered if g.get('name', '') in set(only)]
     if partition is not None:
         index, count = partition
         if not 0 <= index < count <= 32:
@@ -1042,7 +1044,7 @@ def floor_candidate(position, support_context):
 
 
 def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
-                    surfaces=None, partition=None, only=None):
+                    surfaces=None, partition=None, only=None, replace=False, cells_per_point=None):
     """Floor points for lootable stock groups with no HC floor or surface points yet.
 
     Existing floor groups in ``base`` are kept as they are and re-audited by the
@@ -1074,7 +1076,8 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         covered = set()
         doc = {'schema': 1, 'kind': loot.OVERLAY_KIND, 'frame': 'stock-mapgroupproto',
                'runtime_acceptance': loot.PENDING, 'sources': {}, 'groups': {}}
-        wanted = set(only) - existing
+        wanted = set(only) if replace else set(only) - existing
+        existing = set()
     added, refused, refusals, refreshed = {}, {}, Counter(), []
     group_diagnostics = {}
     ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
@@ -1139,7 +1142,7 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         support_context = support.context(name, spec)
         area = round(area_cells * FLOOR_STEP * FLOOR_STEP, 2)
         limit = min(loot.MAX_FLOOR_POINTS,
-                    max(2, int(area_cells * FLOOR_STEP * FLOOR_STEP) // loot.CELLS_PER_POINT))
+                    max(2, int(area_cells * FLOOR_STEP * FLOOR_STEP) // (cells_per_point or loot.CELLS_PER_POINT)))
         chosen, witnesses, points = [], [], []
         for wall_side, pool in ((True, wall), (False, inner)):
             def spread(c):
@@ -1266,15 +1269,15 @@ def resize_lootmax(raw):
     return out
 
 
-def add_floor_groups(base, additions):
-    """Base floor overlay plus new floor groups (Round 8): additive, never replacing a group."""
+def add_floor_groups(base, additions, replace=False, label='hc_floor_round8'):
+    """Base floor overlay plus new floor groups: additive; only replace=True may swap a group."""
     doc = loot.parse_overlay(Path(base).read_bytes())
     for name, spec in additions['groups'].items():
-        if name in doc['groups']:
+        if name in doc['groups'] and not replace:
             raise ValueError('floor group already present: ' + name)
         doc['groups'][name] = spec
     info = additions['sources']['hc_floor_generation']
-    doc['sources']['hc_floor_round8'] = {
+    doc['sources'][label] = {
         'method': info['method'], 'stock_proto_sha256': info['stock_proto_sha256'],
         'added_groups': sorted(additions['groups']),
         'added_points': sum(len(g['containers']['lootHCFloor']['points']) for g in additions['groups'].values()),
@@ -1316,6 +1319,11 @@ def main():
     parser.add_argument('--only', type=Path,
                         help='floor pass: file of group names (one per line). Adds floor containers to exactly these groups, '
                              'even ones that already have surface points; writes only the new groups unless --merge-partitions with --base')
+    parser.add_argument('--replace', action='store_true',
+                        help='floor pass with --only: regenerate groups that already have a floor container (replaces them)')
+    parser.add_argument('--cells-per-point', type=int, metavar='M2',
+                        help='floor pass: one floor point per M2 of reached floor instead of the shared default (never above 12 points)')
+    parser.add_argument('--label', default='hc_floor_round8', help='floor pass --only merge: sources key for the added groups')
     parser.add_argument('--resize', nargs='+', type=Path, metavar='OVERLAY',
                         help='rewrite every container lootmax of the given overlay files with the point-density rule and exit')
     args = parser.parse_args()
@@ -1337,7 +1345,7 @@ def main():
         if args.merge_partitions and only is not None:
             # every group was audited inside its partition; join them and add to the base
             additions = merge_floor_partitions(args.merge_partitions, None)
-            raw = add_floor_groups(args.base, additions) if args.base else (
+            raw = add_floor_groups(args.base, additions, args.replace, args.label) if args.base else (
                 json.dumps(additions, sort_keys=True, indent=2) + '\n').encode()
         elif args.merge_partitions:
             doc = merge_floor_partitions(args.merge_partitions, args.base)
@@ -1347,7 +1355,7 @@ def main():
             loot.parse_overlay(raw)
         else:
             raw = generate_floors(args.addons, args.stock_proto, args.reader, args.map_pos, args.base,
-                                  args.surface_overlay, args.partition, only)
+                                  args.surface_overlay, args.partition, only, args.replace, args.cells_per_point)
         out.write_bytes(raw)
         report(raw)
         return
@@ -1359,8 +1367,9 @@ def main():
         parser.error('--merge-partitions and --partition are mutually exclusive')
     if args.prior_overlay and not args.merge_partitions:
         parser.error('--prior-overlay requires --merge-partitions')
+    only = [line.strip() for line in args.only.read_text().splitlines() if line.strip()] if args.only else None
     raw = (merge_partitions(args.merge_partitions, args.addons, args.stock_proto, args.reader, args.prior_overlay)
-           if args.merge_partitions else generate(args.addons, args.stock_proto, args.reader, args.map_pos, args.partition))
+           if args.merge_partitions else generate(args.addons, args.stock_proto, args.reader, args.map_pos, args.partition, only))
     args.out.write_bytes(raw)
     report(raw)
 

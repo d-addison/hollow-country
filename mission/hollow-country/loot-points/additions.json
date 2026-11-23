@@ -2463,7 +2463,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               3.5,
@@ -2608,7 +2608,7 @@
       "collision_support": {
         "lootHCFloor": [
           {
-            "gap_m": 0.005005,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "roadway",
@@ -2616,7 +2616,18 @@
               "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
               "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
             },
-            "support_height_m": -2.828505
+            "support_height_m": 8.821781
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 9,
+              "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
+              "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
+            },
+            "support_height_m": 8.821781
           },
           {
             "gap_m": 0.005005,
@@ -2630,7 +2641,7 @@
             "support_height_m": -2.828505
           },
           {
-            "gap_m": 0.005005,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "roadway",
@@ -2638,7 +2649,7 @@
               "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
               "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
             },
-            "support_height_m": -2.828505
+            "support_height_m": 8.821781
           },
           {
             "gap_m": 0.005005,
@@ -2652,7 +2663,7 @@
             "support_height_m": -2.828505
           },
           {
-            "gap_m": 0.005005,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "roadway",
@@ -2660,10 +2671,10 @@
               "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
               "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
             },
-            "support_height_m": -2.828505
+            "support_height_m": 8.821781
           },
           {
-            "gap_m": 0.005005,
+            "gap_m": 0.005004,
             "open_structure": false,
             "support": {
               "kind": "roadway",
@@ -2671,10 +2682,10 @@
               "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
               "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
             },
-            "support_height_m": -2.828505
+            "support_height_m": 1.794836
           },
           {
-            "gap_m": 0.005005,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "roadway",
@@ -2682,7 +2693,51 @@
               "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
               "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
             },
-            "support_height_m": -2.828505
+            "support_height_m": 8.821781
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 9,
+              "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
+              "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
+            },
+            "support_height_m": 1.794834
+          },
+          {
+            "gap_m": 0.005004,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 9,
+              "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
+              "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
+            },
+            "support_height_m": 1.794836
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 9,
+              "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
+              "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
+            },
+            "support_height_m": 8.821781
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 9,
+              "model": "dz\\structures\\specific\\castles\\castle_bergfrit2.p3d",
+              "sha256": "711254115b3e6bf706dc29b1845fdd779cfcde8847c596e7e7de954f1af0a2dd"
+            },
+            "support_height_m": 8.821781
           }
         ]
       },
@@ -2694,42 +2749,67 @@
             "clothes",
             "food"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
-              -4.0,
-              -2.8235,
-              -3.0
+              4.5,
+              8.826781,
+              3.0
             ],
             [
-              -4.0,
-              -2.8235,
-              2.5
-            ],
-            [
-              2.5,
-              -2.8235,
-              1.0
-            ],
-            [
-              -2.5,
-              -2.8235,
-              2.5
-            ],
-            [
-              -4.0,
-              -2.8235,
+              4.5,
+              8.826781,
               -1.5
             ],
             [
-              -2.5,
+              -4.0,
               -2.8235,
               -3.0
             ],
             [
-              -3.0,
+              1.5,
+              8.826781,
+              3.0
+            ],
+            [
+              -4.0,
               -2.8235,
+              2.5
+            ],
+            [
+              -2.5,
+              8.826781,
+              -1.5
+            ],
+            [
+              2.5,
+              1.79984,
+              1.5
+            ],
+            [
+              4.5,
+              8.826781,
               1.0
+            ],
+            [
+              0.0,
+              1.799834,
+              1.0
+            ],
+            [
+              3.0,
+              1.79984,
+              -1.0
+            ],
+            [
+              3.0,
+              8.826781,
+              2.0
+            ],
+            [
+              -0.5,
+              8.826781,
+              -1.5
             ]
           ],
           "tags": [
@@ -2740,6 +2820,27 @@
       "family": "civic",
       "floor_sources": [
         {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            -3.0,
+            8.82178,
+            4.5
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            1.5,
+            8.82178,
+            4.5
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
           "floor_model": [
             3.0,
             -2.8285,
@@ -2749,6 +2850,17 @@
           "wall_side": true
         },
         {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            -3.0,
+            8.82178,
+            1.5
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
           "floor_model": [
             -2.5,
             -2.8285,
@@ -2758,53 +2870,77 @@
           "wall_side": true
         },
         {
+          "collision_lift_m": 1e-06,
           "floor_model": [
-            -1.0,
-            -2.8285,
+            1.5,
+            8.82178,
+            -2.5
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            -1.5,
+            1.79484,
             2.5
           ],
           "reached_cells": 769,
           "wall_side": true
         },
         {
-          "floor_model": [
-            -2.5,
-            -2.8285,
-            -2.5
-          ],
-          "reached_cells": 769,
-          "wall_side": true
-        },
-        {
-          "floor_model": [
-            1.5,
-            -2.8285,
-            -4.0
-          ],
-          "reached_cells": 769,
-          "wall_side": true
-        },
-        {
-          "floor_model": [
-            3.0,
-            -2.8285,
-            -2.5
-          ],
-          "reached_cells": 769,
-          "wall_side": true
-        },
-        {
+          "collision_lift_m": 1e-06,
           "floor_model": [
             -1.0,
-            -2.8285,
-            -3.0
+            8.82178,
+            4.5
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 4e-06,
+          "floor_model": [
+            -1.0,
+            1.79483,
+            0.0
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            1.0,
+            1.79484,
+            3.0
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            -2.0,
+            8.82178,
+            3.0
+          ],
+          "reached_cells": 769,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            1.5,
+            8.82178,
+            -0.5
           ],
           "reached_cells": 769,
           "wall_side": true
         }
       ],
       "interior_area_m2": 192.25,
-      "map_instances": 7,
       "stock_sha256": "9e29e6c30c9cf6edb21dbf7ced8ba6caf7612fbd5bf0a500a4c19065f8e0d8a2"
     },
     "Land_Castle_Gate": {
@@ -2939,7 +3075,6 @@
         }
       ],
       "interior_area_m2": 123.0,
-      "map_instances": 7,
       "stock_sha256": "733892d2e652f201537d39671251b247ffc5c033c3195fca556e13edb2e96061"
     },
     "Land_CementWorks_ExpeditionA": {
@@ -5507,7 +5642,106 @@
       "collision_support": {
         "lootHCFloor": [
           {
-            "gap_m": 3e-05,
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -0.10087
+          },
+          {
+            "gap_m": 0.005265,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.349578
+          },
+          {
+            "gap_m": 0.005039,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005039,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005039,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005039,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -3.57809
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.306727
+          },
+          {
+            "gap_m": 0.005039,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -5518,15 +5752,26 @@
             "support_height_m": -7.3511
           },
           {
-            "gap_m": 3e-05,
+            "gap_m": 0.005039,
             "open_structure": false,
             "support": {
-              "kind": "geometry",
-              "lod": 4,
+              "kind": "roadway",
+              "lod": 6,
               "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
               "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
             },
-            "support_height_m": -7.3511
+            "support_height_m": -7.341172
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\city_hospital.p3d",
+              "sha256": "5e8828c50eaca375d4c5fea31ae208b8beb510c78267c3cbee4962cbbc07c759"
+            },
+            "support_height_m": -0.10087
           }
         ]
       },
@@ -5537,17 +5782,67 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 1,
+          "lootmax": 6,
           "points": [
             [
-              0.204242,
-              -7.35107,
-              1.89919
+              1.5,
+              -0.09587,
+              -21.0
             ],
             [
-              10.204,
-              -7.35107,
-              15.8991
+              0.0,
+              -7.344313,
+              2.0
+            ],
+            [
+              -5.5,
+              -7.336133,
+              -2.0
+            ],
+            [
+              -5.5,
+              -7.336133,
+              3.0
+            ],
+            [
+              -5.5,
+              -7.336133,
+              -10.0
+            ],
+            [
+              -5.5,
+              -7.336133,
+              9.5
+            ],
+            [
+              -0.5,
+              -3.57309,
+              -20.5
+            ],
+            [
+              6.0,
+              -7.301727,
+              -21.0
+            ],
+            [
+              -5.5,
+              -7.336133,
+              -6.0
+            ],
+            [
+              10.0,
+              -7.3461,
+              16.5
+            ],
+            [
+              -5.5,
+              -7.336133,
+              -17.5
+            ],
+            [
+              -0.5,
+              -0.09587,
+              -18.5
             ]
           ],
           "tags": [
@@ -5556,7 +5851,129 @@
         }
       },
       "family": "medical",
-      "interior_area_m2": 912.75,
+      "floor_sources": [
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            21.0,
+            -0.10087,
+            1.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.000267,
+          "floor_model": [
+            -2.0,
+            -7.34958,
+            0.0
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            2.0,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            -3.0,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            10.0,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            -9.5,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            20.5,
+            -3.57809,
+            -0.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            21.0,
+            -7.30673,
+            6.0
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            6.0,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -16.5,
+            -7.3511,
+            10.0
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3.7e-05,
+          "floor_model": [
+            17.5,
+            -7.34117,
+            -5.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            18.5,
+            -0.10087,
+            -0.5
+          ],
+          "reached_cells": 3635,
+          "wall_side": true
+        }
+      ],
+      "interior_area_m2": 908.75,
       "stock_sha256": "3deb8a6090401619e3a49ee02c34ed75a0d3a1f085729b451df658f5ef1651a4"
     },
     "Land_City_PoliceStation": {
@@ -8490,7 +8907,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               6.0,
@@ -8830,7 +9247,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               3.5,
@@ -9512,7 +9929,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -4.5,
@@ -9852,7 +10269,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               3.5,
@@ -10192,7 +10609,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -4.5,
@@ -10532,7 +10949,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -4.0,
@@ -10911,7 +11328,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -1.5,
@@ -11155,7 +11572,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -1.0,
@@ -11327,7 +11744,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 3,
+          "lootmax": 5,
           "points": [
             [
               -2.5,
@@ -12529,7 +12946,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -2.5,
@@ -15271,7 +15688,6 @@
         }
       ],
       "interior_area_m2": 6.5,
-      "map_instances": 7,
       "stock_sha256": "33637146e4aa2e6f7fd99fdd342ee50748f40dd5ef6d5d311c16981fbfadc392"
     },
     "Land_Medical_Tent_Big": {
@@ -15322,6 +15738,39 @@
               "sha256": "3eef7bdd67f6ead5d89ef95fc02dab90933069e5546c97f1dd407abcd472dce5"
             },
             "support_height_m": 0.015
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": true,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\medical_tent_big.p3d",
+              "sha256": "3eef7bdd67f6ead5d89ef95fc02dab90933069e5546c97f1dd407abcd472dce5"
+            },
+            "support_height_m": 0.015
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": true,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\medical_tent_big.p3d",
+              "sha256": "3eef7bdd67f6ead5d89ef95fc02dab90933069e5546c97f1dd407abcd472dce5"
+            },
+            "support_height_m": 0.015
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": true,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\medical_tent_big.p3d",
+              "sha256": "3eef7bdd67f6ead5d89ef95fc02dab90933069e5546c97f1dd407abcd472dce5"
+            },
+            "support_height_m": 0.015
           }
         ]
       },
@@ -15332,7 +15781,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               0.0,
@@ -15353,6 +15802,21 @@
               -2.0,
               0.02,
               5.0
+            ],
+            [
+              -0.5,
+              0.02,
+              1.0
+            ],
+            [
+              -2.5,
+              0.02,
+              -3.5
+            ],
+            [
+              2.5,
+              0.02,
+              2.5
             ]
           ],
           "tags": [
@@ -15363,6 +15827,7 @@
       "family": "medical",
       "floor_sources": [
         {
+          "collision_lift_m": 0.0,
           "floor_model": [
             -5.0,
             0.015,
@@ -15372,6 +15837,7 @@
           "wall_side": true
         },
         {
+          "collision_lift_m": 0.0,
           "floor_model": [
             -0.5,
             0.015,
@@ -15381,6 +15847,7 @@
           "wall_side": true
         },
         {
+          "collision_lift_m": 0.0,
           "floor_model": [
             -4.5,
             0.015,
@@ -15390,6 +15857,7 @@
           "wall_side": true
         },
         {
+          "collision_lift_m": 0.0,
           "floor_model": [
             -5.0,
             0.015,
@@ -15397,10 +15865,39 @@
           ],
           "reached_cells": 144,
           "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            -1.0,
+            0.015,
+            -0.5
+          ],
+          "reached_cells": 144,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            3.5,
+            0.015,
+            -2.5
+          ],
+          "reached_cells": 144,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.0,
+          "floor_model": [
+            -2.5,
+            0.015,
+            2.5
+          ],
+          "reached_cells": 144,
+          "wall_side": true
         }
       ],
-      "interior_area_m2": 36.25,
-      "map_instances": 9,
+      "interior_area_m2": 36.0,
       "stock_sha256": "c0d58338356fdc69ea97273eb0145b5690b00e106e85add91b680d7f2de4cf82"
     },
     "Land_Medical_Tent_Shower": {
@@ -15418,6 +15915,17 @@
               "sha256": "bf489de68ec818bf80289bbdf219f789d1225fc9c1a019f95b6781867be35a27"
             },
             "support_height_m": -1.529324
+          },
+          {
+            "gap_m": 0.010522,
+            "open_structure": true,
+            "support": {
+              "kind": "roadway",
+              "lod": 11,
+              "model": "dz\\structures\\residential\\medical\\medical_tent_shower.p3d",
+              "sha256": "bf489de68ec818bf80289bbdf219f789d1225fc9c1a019f95b6781867be35a27"
+            },
+            "support_height_m": -1.528821
           }
         ]
       },
@@ -15434,6 +15942,11 @@
               0.5,
               -1.52432,
               -1.0
+            ],
+            [
+              1.0,
+              -1.518299,
+              1.5
             ]
           ],
           "tags": [
@@ -15444,6 +15957,7 @@
       "family": "medical",
       "floor_sources": [
         {
+          "collision_lift_m": 0.0,
           "floor_model": [
             1.0,
             -1.52932,
@@ -15451,10 +15965,19 @@
           ],
           "reached_cells": 50,
           "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.005521,
+          "floor_model": [
+            -1.5,
+            -1.52882,
+            1.0
+          ],
+          "reached_cells": 50,
+          "wall_side": true
         }
       ],
       "interior_area_m2": 12.5,
-      "map_instances": 5,
       "stock_sha256": "11ca564de264c1c1d7d3e6af1244f780d51cb1237f7bf9f2fc2f292455232a56"
     },
     "Land_Mil_ATC_Big": {
@@ -15799,7 +16322,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -2.0,
@@ -16360,7 +16883,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               2.5,
@@ -16671,7 +17194,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 3,
+          "lootmax": 4,
           "points": [
             [
               3.0,
@@ -16950,7 +17473,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               2.0,
@@ -17291,7 +17814,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -0.5,
@@ -17630,7 +18153,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -6.0,
@@ -17969,7 +18492,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -6.0,
@@ -19093,7 +19616,7 @@
             "food",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               1.0,
@@ -19201,7 +19724,7 @@
             "food",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -1.0,
@@ -19309,7 +19832,7 @@
             "food",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               1.5,
@@ -19866,7 +20389,6 @@
         }
       ],
       "interior_area_m2": 4.25,
-      "map_instances": 120,
       "stock_sha256": "40903295b25c882365a02cbecb75c667670ea601aebe87a73d2d8d1783427b7d"
     },
     "Land_Misc_FeedShack": {
@@ -19948,7 +20470,6 @@
         }
       ],
       "interior_area_m2": 8.75,
-      "map_instances": 117,
       "stock_sha256": "0b59db204fb6c9c2d658646e869d645a1b3f2535717e5aecc936b4a1e23df945"
     },
     "Land_Misc_Greenhouse": {
@@ -20445,7 +20966,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               1.0,
@@ -21127,7 +21648,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -3.0,
@@ -21327,18 +21848,7 @@
       "collision_support": {
         "lootHCFloor": [
           {
-            "gap_m": 5e-06,
-            "open_structure": false,
-            "support": {
-              "kind": "roadway",
-              "lod": 8,
-              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
-              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
-            },
-            "support_height_m": -2.219435
-          },
-          {
-            "gap_m": 5e-06,
+            "gap_m": 0.005005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -21349,7 +21859,7 @@
             "support_height_m": -2.219435
           },
           {
-            "gap_m": 5e-06,
+            "gap_m": 0.005005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -21360,7 +21870,7 @@
             "support_height_m": -2.219435
           },
           {
-            "gap_m": 5e-06,
+            "gap_m": 0.005005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -21371,7 +21881,7 @@
             "support_height_m": -2.219435
           },
           {
-            "gap_m": 5e-06,
+            "gap_m": 0.005005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -21382,18 +21892,7 @@
             "support_height_m": -2.219435
           },
           {
-            "gap_m": 5e-06,
-            "open_structure": false,
-            "support": {
-              "kind": "roadway",
-              "lod": 8,
-              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
-              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
-            },
-            "support_height_m": -2.219435
-          },
-          {
-            "gap_m": 5e-06,
+            "gap_m": 0.005005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -21404,7 +21903,73 @@
             "support_height_m": -2.219435
           },
           {
-            "gap_m": 9e-06,
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
+              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
+            },
+            "support_height_m": -2.219435
+          },
+          {
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "view-geometry",
@@ -21413,28 +21978,6 @@
               "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
             },
             "support_height_m": -5.867599
-          },
-          {
-            "gap_m": 1e-05,
-            "open_structure": false,
-            "support": {
-              "kind": "view-geometry",
-              "lod": 9,
-              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
-              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
-            },
-            "support_height_m": -5.8676
-          },
-          {
-            "gap_m": 5e-06,
-            "open_structure": false,
-            "support": {
-              "kind": "geometry",
-              "lod": 6,
-              "model": "dz\\structures\\specific\\prison\\prison_side.p3d",
-              "sha256": "993635a3d52f1deee7b548316b8b98f21a5d7667ebdb82cb8266e7c6873ff6db"
-            },
-            "support_height_m": -2.219435
           }
         ]
       },
@@ -21445,57 +21988,67 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 5,
+          "lootmax": 6,
           "points": [
             [
-              8.50391,
-              -2.21943,
-              14.3042
+              -7.5,
+              -2.21443,
+              14.5
             ],
             [
-              -9.49589,
-              -2.21943,
-              14.3043
+              9.0,
+              -2.21443,
+              14.0
             ],
             [
-              -6.49592,
-              -2.21943,
-              8.30428
+              -6.5,
+              -2.21443,
+              -8.0
             ],
             [
-              -1.49611,
-              -2.21943,
-              0.304307
+              -1.5,
+              -2.21443,
+              0.5
             ],
             [
-              0.504117,
-              -2.21943,
-              -4.69568
+              -3.0,
+              -2.21443,
+              -1.5
             ],
             [
-              -3.4959,
-              -2.21943,
-              7.30437
+              -1.5,
+              -2.21443,
+              5.0
             ],
             [
-              -1.49599,
-              -2.21943,
-              5.3041
+              0.5,
+              -2.21443,
+              -5.0
             ],
             [
-              -2.49336,
-              -5.86759,
-              14.3015
+              -2.0,
+              -2.21443,
+              11.5
             ],
             [
-              -3.49339,
-              -5.86759,
-              -3.69851
+              2.5,
+              -2.21443,
+              0.5
             ],
             [
-              -6.49582,
-              -2.21943,
-              -7.69569
+              2.0,
+              -2.21443,
+              7.0
+            ],
+            [
+              1.0,
+              -2.21443,
+              11.5
+            ],
+            [
+              3.0,
+              -5.862599,
+              2.5
             ]
           ],
           "tags": [
@@ -21504,6 +22057,128 @@
         }
       },
       "family": "police",
+      "floor_sources": [
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -14.5,
+            -2.21943,
+            -7.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -14.0,
+            -2.21943,
+            9.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            8.0,
+            -2.21943,
+            -6.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -0.5,
+            -2.21943,
+            -1.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            1.5,
+            -2.21943,
+            -3.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -5.0,
+            -2.21943,
+            -1.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            5.0,
+            -2.21943,
+            0.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -11.5,
+            -2.21943,
+            -2.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -0.5,
+            -2.21943,
+            2.5
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -7.0,
+            -2.21943,
+            2.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -11.5,
+            -2.21943,
+            1.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 1e-06,
+          "floor_model": [
+            -2.5,
+            -5.8676,
+            3.0
+          ],
+          "reached_cells": 1548,
+          "wall_side": true
+        }
+      ],
       "interior_area_m2": 387.0,
       "stock_sha256": "b966eafd6ca71434c1891e7a6de796dc6a1cad686101027878f0e5eb7c6d4dbf"
     },
@@ -24355,7 +25030,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               -12.5,
@@ -25282,7 +25957,7 @@
       "collision_support": {
         "lootHCFloor": [
           {
-            "gap_m": 7e-06,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -25293,7 +25968,7 @@
             "support_height_m": -2.966037
           },
           {
-            "gap_m": 7e-06,
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -25304,7 +25979,18 @@
             "support_height_m": -2.966037
           },
           {
-            "gap_m": 7e-06,
+            "gap_m": 0.005239,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.959489
+          },
+          {
+            "gap_m": 0.005,
             "open_structure": false,
             "support": {
               "kind": "geometry",
@@ -25313,6 +25999,108 @@
               "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
             },
             "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 6,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 4,
+              "model": "dz\\structures\\furniture\\hospital_transport_bed\\hospital_transport_bed.p3d",
+              "sha256": "06a8ecaab8e9c082d3dbd6cd6e899967604db9a04cc69d4d78c263c7def43bcd",
+              "transform": [
+                0.019708896055817604,
+                -0.9996954798698425,
+                -0.014854364097118378,
+                -0.9901173114776611,
+                -0.017452422529459,
+                -0.13915181159973145,
+                0.1388501673936844,
+                0.017450088635087013,
+                -0.9901596307754517,
+                -5.030825138092041,
+                -2.5990400314331055,
+                -4.6666388511657715
+              ]
+            },
+            "support_height_m": -2.943276
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "view-geometry",
+              "lod": 10,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.966037
+          },
+          {
+            "gap_m": 0.005311,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.964194
+          },
+          {
+            "gap_m": 0.005269,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\medical\\village_healthcare.p3d",
+              "sha256": "0a209c19864cc074179dfe2e0dda2b7d5ca1957ed552e6c6b0ef11325a3a201a"
+            },
+            "support_height_m": -2.959331
           }
         ]
       },
@@ -25323,22 +26111,67 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 2,
+          "lootmax": 6,
           "points": [
             [
-              -1.54042,
-              -2.96603,
-              -2.81893
+              -1.5,
+              -2.961037,
+              -4.0
             ],
             [
-              -2.54021,
-              -2.96603,
-              11.1821
+              -2.5,
+              -2.961037,
+              -1.5
             ],
             [
-              -5.53996,
-              -2.96603,
-              1.18182
+              -5.0,
+              -2.95425,
+              -6.5
+            ],
+            [
+              -1.0,
+              -2.961037,
+              6.0
+            ],
+            [
+              0.5,
+              -2.961037,
+              4.0
+            ],
+            [
+              -3.0,
+              -2.961037,
+              7.0
+            ],
+            [
+              -5.5,
+              -2.961037,
+              1.0
+            ],
+            [
+              -2.5,
+              -2.961037,
+              11.0
+            ],
+            [
+              -5.5,
+              -2.938276,
+              5.0
+            ],
+            [
+              2.5,
+              -2.961037,
+              11.0
+            ],
+            [
+              -1.0,
+              -2.958883,
+              -6.0
+            ],
+            [
+              1.0,
+              -2.954062,
+              -7.5
             ]
           ],
           "tags": [
@@ -25347,6 +26180,128 @@
         }
       },
       "family": "medical",
+      "floor_sources": [
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            4.0,
+            -2.96604,
+            -1.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            1.5,
+            -2.96604,
+            -2.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.00024,
+          "floor_model": [
+            6.5,
+            -2.95949,
+            -5.0
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -6.0,
+            -2.96604,
+            -1.0
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -4.0,
+            -2.96604,
+            0.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -7.0,
+            -2.96604,
+            -3.0
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -1.0,
+            -2.96604,
+            -5.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -11.0,
+            -2.96604,
+            -2.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.022764,
+          "floor_model": [
+            -5.0,
+            -2.96604,
+            -5.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 3e-06,
+          "floor_model": [
+            -11.0,
+            -2.96604,
+            2.5
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.000307,
+          "floor_model": [
+            6.0,
+            -2.96419,
+            -1.0
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": 0.000268,
+          "floor_model": [
+            7.5,
+            -2.95933,
+            1.0
+          ],
+          "reached_cells": 679,
+          "wall_side": true
+        }
+      ],
       "interior_area_m2": 169.75,
       "stock_sha256": "13e44c451cfe6518c4d98684993184849ba7503158e06c7a5d76c228ea96b2db"
     },
@@ -25496,7 +26451,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 6,
           "points": [
             [
               6.0,
@@ -25801,6 +26756,17 @@
               "sha256": "9a58013097fae1276a03eff58e580c20279acf2ed5d57d81aa03397c7317c016"
             },
             "support_height_m": -2.239014
+          },
+          {
+            "gap_m": 0.005004,
+            "open_structure": false,
+            "support": {
+              "kind": "roadway",
+              "lod": 8,
+              "model": "dz\\structures\\residential\\stores\\village_store.p3d",
+              "sha256": "9a58013097fae1276a03eff58e580c20279acf2ed5d57d81aa03397c7317c016"
+            },
+            "support_height_m": -2.239014
           }
         ]
       },
@@ -25811,7 +26777,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -0.5,
@@ -25827,6 +26793,11 @@
               1.5,
               -2.23401,
               1.0
+            ],
+            [
+              5.5,
+              -2.23401,
+              0.5
             ]
           ],
           "tags": [
@@ -25862,6 +26833,16 @@
             -1.0,
             -2.23901,
             1.5
+          ],
+          "reached_cells": 127,
+          "wall_side": true
+        },
+        {
+          "collision_lift_m": -0.0,
+          "floor_model": [
+            -0.5,
+            -2.23901,
+            5.5
           ],
           "reached_cells": 127,
           "wall_side": true
@@ -30569,6 +31550,43 @@
         "Land_City_Stand_News1": "no-supported-floor-point",
         "Land_Mil_Tent_Big1_1": "no-supported-floor-point",
         "Land_Mil_Tent_Big1_4": "no-supported-floor-point"
+      },
+      "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+    },
+    "hc_floor_round9": {
+      "added_groups": [
+        "Land_Camp_House_brown",
+        "Land_Camp_House_white",
+        "Land_Castle_Bergfrit2",
+        "Land_Castle_Gate",
+        "Land_City_Hospital",
+        "Land_Lunapark_Shooting_Gallery",
+        "Land_Medical_Tent_Big",
+        "Land_Medical_Tent_Shower",
+        "Land_Mil_Barracks5_Basement",
+        "Land_Misc_DeerStand2",
+        "Land_Misc_FeedShack",
+        "Land_Prison_Main",
+        "Land_Prison_Side",
+        "Land_Village_HealthCare",
+        "Land_Village_store"
+      ],
+      "added_points": 99,
+      "method": "hc-floor-v2: native stock points on building Geometry/Roadway floors seed a 0.50m walk lattice; every cell needs a clear standing body (0.22m radius, 1.8m) and a swept same-storey corridor with sampled floor from a reached neighbour (closed doors block); points avoid stock spawn discs (stock range + 0.5m), 1.0m of door leaves and stair steps (highest collision plane at each neighbour, never slab undersides); floor item base clears the highest Geometry/Roadway footprint sample by 5mm (local height span <=25mm); wall-side cells first, farthest-point spacing 1.5m, one point per 8m2 reached (2..12); collision support/enclosure gate before admission; optional props block bodies and points",
+      "native_acceptance": "pending",
+      "refusal_counts": {
+        "collision_above_item_support": 15,
+        "collision_support_footprint_edge": 44,
+        "no_building_roof_over_footprint": 296,
+        "open_structure_outside_native_loot_footprint": 1,
+        "outside_enclosing_building_walls": 303
+      },
+      "rejected_groups": {
+        "Land_Camp_House_red": "no-supported-floor-point",
+        "Land_Castle_Stairs_nolc": "no-supported-floor-point",
+        "Land_Misc_DeerStand1": "no-spare-floor-cell",
+        "Land_Misc_TrailRoof_Big": "no-spare-floor-cell",
+        "Land_Misc_TrailRoof_Small": "no-supported-floor-point"
       },
       "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
     },

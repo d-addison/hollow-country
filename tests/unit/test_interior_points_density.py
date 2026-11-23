@@ -54,5 +54,26 @@ class ResizeOverlay(unittest.TestCase):
         self.assertEqual(containers['lootHCFloor']['lootmax'], 3)
 
 
+class ReplaceFloorGroups(unittest.TestCase):
+    def additions(self, floor_points):
+        doc = overlay(0, floor_points)
+        doc['sources'] = {'hc_floor_generation': {'method': 'test', 'stock_proto_sha256': 'b' * 64,
+                                                  'refusal_counts': {}, 'rejected_groups': {}}}
+        return doc
+
+    def test_replace_swaps_only_with_the_flag(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / 'base.json'
+            base.write_bytes((json.dumps(overlay(0, 3), sort_keys=True, indent=2) + '\n').encode())
+            with self.assertRaises(ValueError):
+                gen.add_floor_groups(base, self.additions(5))
+            raw = gen.add_floor_groups(base, self.additions(5), replace=True, label='hc_floor_test')
+        group = json.loads(raw)['groups']['Land_Test']['containers']['lootHCFloor']
+        self.assertEqual(len(group['points']), 5)
+        self.assertIn('hc_floor_test', json.loads(raw)['sources'])
+
+
 if __name__ == '__main__':
     unittest.main()

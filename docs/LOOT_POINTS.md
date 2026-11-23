@@ -1394,3 +1394,54 @@ points) with every container inside the point and lootmax limits. Per-usage HC p
 before to after: Town 8,643 to 10,896, Farm 4,623 to 4,637, Military 8,709 to 9,398, Police 1,801 to 2,101, Prison 134 to
 146, Hunting 2,542 to 2,691, Medic 902 to 908, Firefighter 109 to 109, School 301 to 315. The generated digests and
 receipts that pin the overlay hashes are refreshed by the lead after merge.
+
+## Round 9 dense floors for Medic, Hunting and Prison (wh-points 2026-11-22)
+
+The brief asked for more supported points in Hunting, Medic and Prison groups so the projected slots reach Hunting
+6.4k, Medic 3.1k and Prison 450 after the econ `GroupLootmaxCap` and `CapacityMultiplier` settings landed. The generator
+gained three options (all additive, deterministic): `--only FILE` limits a scan to the named groups, `--replace` lets a
+floor pass swap an existing group, and `--cells-per-point M2` sets a denser floor lattice than the default
+(`loot_boost.CELLS_PER_POINT`) while the 1.5 m spacing, the per-point collision support gate and the 12-point container
+cap stay. Surface regeneration over the same groups reproduced the shipped counts, so no surface points were added.
+`--resize` must run last after any floor pass: the support-audit filter inside the pass recomputes the size-realistic
+lootmax and would otherwise leave the round 8 floor groups with the smaller value.
+
+Twenty groups were regenerated with the denser floor (hunting stands and cabins, the two Barracks/Castle structures,
+Lunapark shooting gallery, Medical_Tent_Shower and Medical_Tent_Big, Village_HealthCare, City_Hospital, the two Prison
+groups, Village_store); the overlay now holds 970 floor points in 175 groups (was 939) and 1,301 surface points in 142
+groups. Gains came where floor space is supported: City_Hospital 2 to 12 floor points, Village_HealthCare 3 to 12,
+Medical_Tent_Big 4 to 7, Medical_Tent_Shower 1 to 2, Castle_Bergfrit2 +5, Village_store +1.
+
+### Projected slots
+
+Slots are the sum over groups of `min(group lootmax, sum of min(container lootmax, points))`, read with the econ
+placement budget. Two models are reported because they differ for Medic:
+
+| usage | target | econ pre-map mission (before to after) | staged final map (before to after) |
+| --- | --- | --- | --- |
+| Hunting | 6,400 | 4,323 to 4,344 | 4,161 to 4,182 |
+| Medic | 3,100 | 2,460 to 2,705 | 4,322 to 4,749 |
+| Prison | 450 | 360 to 362 | 358 to 360 |
+| Town | | 22,530 (unchanged) | 22,020 to 22,463 |
+| Military | | 9,890 (unchanged) | 13,903 to 13,987 |
+| Police | | 4,201 (unchanged) | 4,345 to 4,397 |
+| Farm, School, Firefighter | | 12,014, 1,132, 518 (unchanged) | 12,243, 1,132, 518 (unchanged) |
+
+The econ mission has only 9 `Land_Medical_Tent_Big` instances; the staged final map adds the map layer (65 tents), which
+is why Medic differs by about 1,900 slots. Medic reaches its target on the final map.
+
+### What points cannot raise
+
+Hunting and Prison are bound by container lootmax, not by points. In the final map Hunting carries 4,989 points against a
+container capacity of 4,189, and Prison 481 points against 358. In the Prison groups the HC containers already sit at the
+hard limits (`MAX_FLOOR_POINTS` 12 and `MAX_SURFACE_POINTS` 32), and every group's slots equal its group lootmax
+(Hospital 134, HealthCare 90, Tent_Big 35, Prison_Main 132, Prison_Side 228), so more points in those groups add nothing.
+Hunting-only structures (deer stands, feed shack, trail roofs, camp houses) are small and have no spare supported floor
+cells. Reaching 6.4k Hunting and 450 Prison therefore needs the stock-container lootmax or capacity levers in
+`loot_boost.py` and `settings.json`, which are econ scope and untouched here.
+
+### Audits and validation
+
+`loot_support_audit` checked all 2,271 points (1,301 surface, 970 floor) and refused 0, with no failure counts;
+`loot_reach_audit` checked the 1,301 shelf points and refused 0; `loot_point_preserve --check` reports
+`unreported_losses: 0` (1,292 prior points); the unit tests of `tests.unit.test_interior_points_density` (5) and the hygiene check pass.
