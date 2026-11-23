@@ -378,7 +378,7 @@ class HCNativeInfectedPack
         m_Filter = HCNavFilters.HCFor(HCNavFilters.PROFILE_OUTDOOR);
     }
 
-    // Route lookup order: shared route cache, 32 m flow cache, then one FindPath. A deferrable caller
+    // Route lookup order: shared route cache, 8 m flow cache, then one FindPath. A deferrable caller
     // is refused (NAV_DEFERRED) when this tick's FindPath token is spent; a mandatory caller always runs
     // and is counted as forced when it exceeds the token. Failed searches are cached as "no route".
     protected int HCFindRoute(vector from, vector goal, int profile, bool mandatory, TVectorArray path)
@@ -754,7 +754,11 @@ class HCNativeInfectedPack
             m_Drops++;
             HCModuleReadiness.HCUse("Infected", "straggler_drop");
             HCNavSpots.HCNote(position, now);
-            Print("[HC Infected] nav straggler dropped from pack count drops=" + m_Drops.ToString() + " runtime=PENDING");
+            // Lifetime throttle: the first 8, then every 16th.
+            if (m_Drops <= 8 || m_Drops % 16 == 0)
+            {
+                Print("[HC Infected] nav straggler dropped from pack count drops=" + m_Drops.ToString() + " runtime=PENDING");
+            }
         }
     }
 

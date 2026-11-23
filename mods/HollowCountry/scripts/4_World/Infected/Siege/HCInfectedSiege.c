@@ -4,23 +4,32 @@
 // spot is sieged instead:
 //   1. Open.   One row per target player (at most MaxSieges), holding up to 6 infected that gave up.
 //   2. Settle. After GatherSeconds, with the player still up and within 25 m, the siege starts. The anchor
-//              is the navmesh point under the player's feet, or the bottom of the nearest ladder of the
-//              building under the player (ladder_guard); it only centres the reinforcement ring. No
+//              is the navmesh point under the LAST-KNOWN position (the give-up event's position, never the
+//              player's live position), or the bottom of the nearest ladder of the building there
+//              (ladder_guard); it marks the siege site and is never a movement goal. No
 //              waypoint is ever written: no native pack group is steered to the anchor, so infected that
 //              gave up come back only through real perception and noise (no position writes, no group
 //              moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
 //   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAt),
 //              at most one per tick server-wide. The engine propagates it; nothing is pulled.
-//   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate at a
-//              ring 320..360 m from the anchor (HCHidden: out of sight of every player). Reinforcements
+//   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate on a
+//              ring around the real siege noise position (the member's own position of step 3), 320 m out
+//              (HCHidden: 300 m from, and out of sight of, every player) and never beyond the noise's
+//              hearing radius: the strength of the noise config entry minus the environment reduction
+//              there (NoiseActionDefault strength, read from config, unobserved as a hearing range). When
+//              the radius is under the 320 m ring the batch is refused (reason=noise_out_of_range) and
+//              counted; the rules are never loosened. Reinforcements
 //              are NEVER steered: no waypoint is written to any group of a body this module created (a
 //              new body may have joined a wild group of agents we did not create). They only come
-//              through real perception, e.g. the noise of step 3. A per-player window
+//              through real perception, i.e. the noise of step 3. A per-player window
 //              (ReinforcePerPlayerWindow bodies per 10 minutes, keyed by the persistent player id kept
 //              server-side, never logged) caps what one player can draw; when every window slot is in use
 //              the batch is refused (reason=window_full) instead of recycling another player's slot.
 //   5. End.    The player comes down (dy under the reach band), walks 25 m from the spot the siege opened
-//              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Nothing
+//              at, or 180 s pass (a dead or gone target counts as left). A row with no live member left
+//              ends at once with reason no_live_member and its slot and reinforcement lease are released
+//              in the same evaluation. Ending only withdraws the siege; the live player position is read
+//              for these end tests and the open-time haven gate, never to place, steer or target anything. Nothing
 //              is restored by hand: this module wrote no waypoint to any group, so no group is left on a
 //              last waypoint and there is nothing to park; members stay in their native group.
 // An infected sits in at most one siege row. A siege with no usable anchor (no navmesh point and no ladder)
@@ -29,8 +38,9 @@
 // Doors, positions and inventories are never touched. Runtime only, never persisted: no stored format.
 // Lines (formats are fixed):
 //   [HC Nav] siege start anchor=<mesh|ladder|none> members=<m> n=<count>
-//   [HC Nav] siege end reason=<down|left|timeout> n=<count of ends for the reason> members= secs= noise= reinforced=
-//   [HC Nav] siege refused reason=<no_anchor|window_full|no_identity> n=<count for the reason>
+//   [HC Nav] siege end reason=<down|left|timeout|no_live_member> n=<count of ends for the reason> members= secs= noise= reinforced=
+//   [HC Nav] siege refused reason=<no_anchor|window_full|no_identity|noise_out_of_range> n=<count for the reason>
+// Start, refused and end lines share one throttle (first 8 per count, then every 16th).
 //   [HC Use] module=InfectedSiege feature=siege_started|siege_noise|ladder_guard|reinforce count=<n>
 // siege_started is registered at start and counted only for a usable anchor (mesh or ladder); the other
 // three register on their first real event, so a feature a scenario cannot exercise is not listed as a
@@ -60,7 +70,9 @@ class HCInfectedSiegeRow
     PlayerBase Target;
     ref array<DayZInfected> Members = new array<DayZInfected>;
     vector Origin;
+    vector LastKnown;
     vector Anchor;
+    vector NoisePos;
     string AnchorKind = "none";
     float BaseY;
     float Opened;
@@ -104,6 +116,7 @@ class HCInfectedSiegeModule : HCModule
     protected int m_EndedDown;
     protected int m_EndedLeft;
     protected int m_EndedTimeout;
+    protected int m_EndedNoMember;
     protected float m_NoiseAt = -1;
 
     override string GetName() { return "InfectedSiege"; }
@@ -188,19 +201,31 @@ class HCInfectedSiegeModule : HCModule
         {
             if (m_Rows[taken].Members.Find(infected) >= 0) { return; }
         }
+        vector known = HCKnownPoint(infected, anchor);
         HCInfectedSiegeRow row = HCRowOf(player);
         if (!row)
         {
             if (m_Rows.Count() >= m_Limits.MaxSieges) { return; }
             row = new HCInfectedSiegeRow;
             row.Target = player;
-            row.Origin = player.GetPosition();
+            row.Origin = known;
             row.BaseY = infected.GetPosition()[1];
             row.Opened = GetGame().GetTickTime();
             m_Rows.Insert(row);
         }
+        row.LastKnown = known;
         if (row.Members.Count() >= HCInfectedSiegePolicy.MAX_MEMBERS) { return; }
         row.Members.Insert(infected);
+    }
+
+    // What the give-up event told the infected: the position it was given, or its own position when that
+    // is invalid or further than the siege radius from it. Never the target's live position.
+    protected vector HCKnownPoint(DayZInfected infected, vector anchor)
+    {
+        vector own = infected.GetPosition();
+        if (!HCInfectedStore.ValidPosition(anchor)) { return own; }
+        if (HCInfectedSiegePolicy.HCHorizontal(own, anchor) > HCInfectedSiegePolicy.LEAVE_METRES) { return own; }
+        return anchor;
     }
 
     protected HCInfectedSiegeRow HCRowOf(PlayerBase player)
@@ -235,8 +260,13 @@ class HCInfectedSiegeModule : HCModule
     protected bool HCEvaluate(HCInfectedSiegeRow row, float now)
     {
         HCPrune(row);
+        if (row.Members.Count() == 0)
+        {
+            HCEnd(row, HCInfectedSiegePolicy.END_NO_LIVE_MEMBER, now);
+            return false;
+        }
         PlayerBase player = row.Target;
-        if (!player || !player.IsAlive() || row.Members.Count() == 0)
+        if (!player || !player.IsAlive())
         {
             HCEnd(row, HCInfectedSiegePolicy.END_LEFT, now);
             return false;
@@ -273,7 +303,7 @@ class HCInfectedSiegeModule : HCModule
     protected bool HCActivate(HCInfectedSiegeRow row, float now)
     {
         PlayerBase player = row.Target;
-        vector feet = player.GetPosition();
+        vector feet = row.LastKnown;
         row.Active = true;
         row.NextNoise = now;
         row.NextReinforce = now;
@@ -284,7 +314,7 @@ class HCInfectedSiegeModule : HCModule
             row.AnchorKind = "mesh";
         }
         vector bottom;
-        if (HCLadderBottom(player, bottom))
+        if (HCLadderBottom(player, feet, bottom))
         {
             row.Anchor = bottom;
             row.AnchorKind = "ladder";
@@ -306,11 +336,10 @@ class HCInfectedSiegeModule : HCModule
         return true;
     }
 
-    // The bottom (world space) of the ladder of the building under the player whose top is nearest to the
-    // player. False without a building, a ladder in range or a coordinate space that checks out.
-    protected bool HCLadderBottom(PlayerBase player, out vector bottom)
+    // The bottom (world space) of the ladder of the building under the last-known position whose top is
+    // nearest to it. False without a building, a ladder in range or a coordinate space that checks out.
+    protected bool HCLadderBottom(PlayerBase player, vector feet, out vector bottom)
     {
-        vector feet = player.GetPosition();
         vector contact;
         vector normal;
         int component;
@@ -363,7 +392,8 @@ class HCInfectedSiegeModule : HCModule
         m_NoiseAt = now;
         row.NextNoise = now + m_Limits.NoiseSeconds;
         row.Noises++;
-        HCSearchNoise.EmitAt(source, source.GetPosition());
+        row.NoisePos = source.GetPosition();
+        HCSearchNoise.EmitAt(source, row.NoisePos);
         HCModuleReadiness.HCUseGuarded(GetName(), "siege_noise", source);
     }
 
@@ -372,6 +402,14 @@ class HCInfectedSiegeModule : HCModule
     protected void HCReinforce(HCInfectedSiegeRow row, float now)
     {
         if (row.ReinforceDone || now < row.NextReinforce) { return; }
+        if (row.Noises == 0) { return; }
+        float radius = HCNoiseRadius(row.NoisePos);
+        if (!HCInfectedSiegePolicy.HCRingFits(radius))
+        {
+            row.ReinforceDone = true;
+            HCRefuse("noise_out_of_range");
+            return;
+        }
         PlayerBase player = row.Target;
         string playerId = HCPlayerId(player);
         if (playerId == "")
@@ -401,8 +439,9 @@ class HCInfectedSiegeModule : HCModule
         row.NextReinforce = now + HCInfectedSiegePolicy.REINFORCE_GAP_SECONDS;
         DayZInfected template = row.Members[0];
         if (!template) { return; }
-        vector entry = HCRingPoint(row.Anchor);
+        vector entry = HCRingPoint(row.NoisePos, radius);
         if (!HCNavMesh(entry)) { return; }
+        if (!HCInfectedSiegePolicy.HCHears(HCInfectedSiegePolicy.HCHorizontal(entry, row.NoisePos), radius)) { return; }
         if (!row.Pack)
         {
             row.Pack = new HCSiegeReinforcePack;
@@ -417,14 +456,25 @@ class HCInfectedSiegeModule : HCModule
         HCModuleReadiness.HCUseGuarded(GetName(), "reinforce", body);
     }
 
-    // A point on the hidden ring around the anchor; the caller still needs a navmesh point and HCHidden.
-    protected vector HCRingPoint(vector anchor)
+    // The hearing radius of the siege noise at its position: the configured strength of the noise entry minus
+    // the environment reduction there (3_Game/Noise.c GetEnvironmentNoiseReduction). 0 when the entry is absent.
+    protected float HCNoiseRadius(vector at)
+    {
+        float strength = HCConfigHelper.GetFloat(HCSearchNoise.NOISE_PATH + " strength", 0);
+        NoiseSystem noise = GetGame().GetNoiseSystem();
+        if (noise) { strength = strength - noise.GetEnvironmentNoiseReduction(at); }
+        return strength;
+    }
+
+    // A point on the ring around the noise position, inside the hearing radius; the caller still needs a navmesh
+    // point and HCHidden.
+    protected vector HCRingPoint(vector centre, float radius)
     {
         float angle = Math.RandomFloat(0, 6.2831853);
-        float metres = Math.RandomFloat(HCInfectedSiegePolicy.RING_MIN_METRES, HCInfectedSiegePolicy.RING_MAX_METRES);
-        vector point = anchor;
-        point[0] = anchor[0] + Math.Sin(angle) * metres;
-        point[2] = anchor[2] + Math.Cos(angle) * metres;
+        float metres = Math.RandomFloat(HCInfectedSiegePolicy.RING_MIN_METRES, HCInfectedSiegePolicy.HCRingMax(radius));
+        vector point = centre;
+        point[0] = centre[0] + Math.Sin(angle) * metres;
+        point[2] = centre[2] + Math.Cos(angle) * metres;
         return point;
     }
 
@@ -497,13 +547,16 @@ class HCInfectedSiegeModule : HCModule
         int count;
         if (reason == HCInfectedSiegePolicy.END_DOWN) { m_EndedDown++; count = m_EndedDown; }
         else if (reason == HCInfectedSiegePolicy.END_TIMEOUT) { m_EndedTimeout++; count = m_EndedTimeout; }
+        else if (reason == HCInfectedSiegePolicy.END_NO_LIVE_MEMBER) { m_EndedNoMember++; count = m_EndedNoMember; }
         else { m_EndedLeft++; count = m_EndedLeft; }
         if (row.Pack) { row.Pack.HCSetLive(false); }
+        // The slot is released first, in this call; the line is throttled like the start line (first 8, then every 16th).
+        int index = m_Rows.Find(row);
+        if (index >= 0) { m_Rows.Remove(index); }
+        if (!HCInfectedSiegePolicy.HCPrintStart(count)) { return; }
         string line = "[HC Nav] siege end reason=" + reason + " n=" + count.ToString() + " members=" + row.Members.Count().ToString();
         int seconds = Math.Round(now - row.Opened);
         Print(line + " secs=" + seconds.ToString() + " noise=" + row.Noises.ToString() + " reinforced=" + row.Reinforced.ToString() + " active=" + HCV2Admission.OnOff(row.Active) + " runtime=PENDING");
-        int index = m_Rows.Find(row);
-        if (index >= 0) { m_Rows.Remove(index); }
     }
 }
 
