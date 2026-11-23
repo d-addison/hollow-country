@@ -6,7 +6,13 @@ establish orchestration behaviour, never DayZ or multiplayer acceptance.
 ```sh
 python3 -B -m tools.release.release_gate --commit FULL_40_CHARACTER_SHA \
   --bundle /mnt/e/HollowCountryLocal/candidate \
-  --previous-bundle /mnt/e/HollowCountryLocal/previous
+  --previous-bundle /mnt/e/HollowCountryLocal/previous \
+  --smoke-use map=ClientUI/map_open \
+  --smoke-use inventory=ClientUI/inventory_open \
+  --smoke-use groups=Groups/menu_open \
+  --smoke-use admin=AdminMap/window_open \
+  --smoke-use ai=optional-expansion-human-ai/site_radius_entered \
+  --smoke-use event=Events/mission_radius_entered
 ```
 
 The tool writes `release-gate-verdict.json` (override with `--verdict`) and prints
@@ -35,9 +41,9 @@ exempt only where the declared element type is `ref`.
 
 Order:
 
-1. Compile that commit using `compile_gate`; require PASS with
-   `mission-loaded-runtime-json` explicitly. Other successful compile statuses
-   do not satisfy this release contract.
+1. Compile that commit using `compile_gate` and require a verified clean
+   Mission load. The older `mission-loaded-runtime-json` PASS certifies Mission.
+   An `initialized` or `timeout` PASS also needs the explicit clean Mission marker.
 2. Require the candidate `BUILD_MANIFEST.json` commit to match exactly.
 3. Install the previous bundle, boot for a minute, gracefully stop, install the
    candidate with the same server/storage, boot and stop. Refuse error/readiness
@@ -55,8 +61,10 @@ Order:
    with positive counts. Apply `client_max_vme`, `max_script_errors` and `client_max_missing_textures`
    from the targets file to client errors.
 
-The tester should join during the soak, open the M map, inventory, group menu
-and admin window, and enter an AI site and event radius. The checklist is also
+The tester should join during the soak, open the M map with group controls,
+inventory and admin window, and approach an AI site and published mission zone
+from outside their radii. Stay in each area long enough for the server sampler
+to observe the crossing. The checklist is also
 printed before soak so activity can exist before step 5. The client RPT must
 be created during this run; stale reports cannot satisfy smoke. Profiles use
 the retail Windows LocalAppData/DayZ location, resolved without printing it;
@@ -103,30 +111,17 @@ Nothing lands on `main` while the friend-bundle cycle runs, and the cycle pins a
 explicit full commit hash. GitHub Releases and Workshop uploads follow the owner's
 approval for that release. The friend runbook is separate and is not changed here.
 
-## Integration prerequisites (currently unverified)
+## Smoke evidence
 
-The current activity checker lacks `--release` and has no shared `[HC Use]`
-release parser. It must gain release-mode validation in its owning workstream;
-this gate deliberately refuses unsupported arguments. It does not fall back to
-ordinary ACTIVE/WAITING activity acceptance.
-
-Smoke signals must be registered by the owning feature workstreams and exposed
-as client-scoped activity features using the shared `[HC Use]` format. Supply
-six distinct mappings, one for each checklist category:
-
-```text
---smoke-use map=MODULE/FEATURE
---smoke-use inventory=MODULE/FEATURE
---smoke-use groups=MODULE/FEATURE
---smoke-use admin=MODULE/FEATURE
---smoke-use ai=MODULE/FEATURE
---smoke-use event=MODULE/FEATURE
-```
-
-These are placeholders for real registered module/feature names, not invented
-counter names. Missing mappings fail closed. Current expectations cannot prove
-all six actions. No native acceptance or successful R3 run is claimed until
-these prerequisites and the lead's engine experiments are complete.
+The six mappings above are client-scoped cumulative `[HC Use]` counters in
+`config/activity-expectations.json`. The Hollow Country M menu opens both
+the map and the group controls. The AI site director samples its existing site
+activation geometry, and the event owner samples the live public mission circle.
+Both require an observed outside position followed by an inside position for
+the same living character and radius, then send a one-int observation only to
+that character's identity. The receipt carries no site details or player data.
+Fixture counts and server log lines cannot satisfy client evidence. Native
+delivery, observations and a full R3 pass remain unverified.
 
 ## Native host lock (R18) and capacity check (R15)
 

@@ -11,6 +11,7 @@ class HCXAISiteState : Managed
 {
     ref HCXAISite Site;
     HCXAISitePatrol Patrol;
+    ref HCReleaseRadius ReleaseRadius;
     ref array<vector> Points = new array<vector>();
     ref array<vector> Sampled = new array<vector>();
     ref array<vector> PatrolPoints = new array<vector>();
@@ -72,6 +73,7 @@ class HCXAISiteBase : Managed
     protected float m_SpawnLogAt;
     protected string m_SitesLogLine;
     protected float m_SitesLogAt;
+    protected int m_ReleaseRadiusCursor;
     static const string POLICY = "$profile:HollowCountry/expansion-ai-sites.json";
     static const string ROUTES = "$profile:HollowCountry/expansion-ai-routes.json";
     static const string CACHES = "$profile:HollowCountry/expansion-ai-caches.json";
@@ -575,7 +577,9 @@ class HCXAISiteBase : Managed
                 this.HCStepSurvey();
                 return;
             }
+            int runBegan = TickCount(0);
             this.StepRun();
+            if (TickCount(runBegan) < 120000) { this.HCSampleReleaseRadius(); }
         }
     }
     protected void HCRoutesWarm() {  }
@@ -838,6 +842,23 @@ class HCXAISiteBase : Managed
             m_SitesLogLine = sitesStatusLine;
             m_SitesLogAt = sitesStatusLineNow;
         }
+    }
+
+    protected void HCSampleReleaseRadius()
+    {
+        if (m_States.Count() == 0 || !this.HCTakeSiteUnits(1)) { return; }
+        if (m_ReleaseRadiusCursor >= m_States.Count()) { m_ReleaseRadiusCursor = 0; }
+        HCXAISiteState state = m_States[m_ReleaseRadiusCursor];
+        m_ReleaseRadiusCursor++;
+        if (!state.Qualified || state.Failed || !state.Patrol || state.Transient)
+        {
+            state.ReleaseRadius = null;
+            return;
+        }
+        if (!state.ReleaseRadius) { state.ReleaseRadius = new HCReleaseRadius; }
+        vector centre = this.HCSiteAnchor(state.Site);
+        float radius = this.HCActivationRadius(state.Site, false);
+        state.ReleaseRadius.HCSample(centre, radius, HCReleaseRadiusWire.AI_SITE);
     }
     protected void StepDiagnostic()
     {

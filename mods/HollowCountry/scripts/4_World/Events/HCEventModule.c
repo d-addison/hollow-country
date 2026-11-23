@@ -99,6 +99,7 @@ class HCEventModule : HCModule
         // Public mission map: rows published to clients and toasts sent, counted at 0 from start.
         HCModuleReadiness.HCRegisterUse("Events", "mission_marker");
         HCModuleReadiness.HCRegisterUse("Events", "mission_notice");
+        HCModuleReadiness.HCRegisterUse("Events", "mission_radius_entered");
     }
     override bool IsEnabled(HCSettings settings)
     {

@@ -521,6 +521,13 @@
     "code:HCMissionBeacon.c"
    ]
   },
+  "Events/mission_radius_entered": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "code:HCMissionBeacon.c"
+   ]
+  },
   "Events/police_barrel_recreated": {
    "phase": "walk_zone",
    "how": [
@@ -1836,6 +1843,13 @@
     "step:walk:site:police-chernogorsk",
     "timer:30m",
     "code:HCXAIAdapter.c"
+   ]
+  },
+  "optional-expansion-human-ai/site_radius_entered": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "code:HCXAISites.c"
    ]
   },
   "optional-expansion-human-ai/stuck_recovery": {

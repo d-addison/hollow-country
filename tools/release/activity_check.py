@@ -60,6 +60,8 @@ class UseActivity:
     """
     def __init__(self):
         self.targets = load_targets()
+        self.client_smoke = {(entry['module'], entry['feature']) for entry in load_expectations()
+                             if entry.get('release_smoke')}
         self.modules = {}
         self.counts = {}
         self.fixtures = {}
@@ -100,6 +102,11 @@ class UseActivity:
         key = (module, feature)
         if key not in self.counts and len(self.counts) >= 512:
             raise ValueError('feature limit')
+        if key in self.client_smoke:
+            # Server zero lines declare the feature; only play on the observed
+            # client can satisfy it. These smoke counters have no fixture source.
+            count = count if client and not fixture else 0
+            fixture = 0
         self.counts[key] = max(self.counts.get(key, 0), count)
         self.fixtures[key] = max(self.fixtures.get(key, 0), fixture)
 
@@ -183,6 +190,8 @@ def load_expectations(path=DEFAULT_EXPECTATIONS):
             raise ValueError('presence floor must be 1')
         if entry.get('scope', 'runtime') not in SCOPES:
             raise ValueError('expectations scope')
+        if 'release_smoke' in entry and (entry['release_smoke'] is not True or entry.get('scope') != 'client'):
+            raise ValueError('expectations release smoke scope')
         if 'signal' not in entry:
             raise ValueError('missing signal')
         signal = entry['signal']
@@ -318,7 +327,8 @@ class Activity:
         declared = {e['module'] for e in self.entries}
         for state in self.states:
             entry = state['entry']
-            if not self.modules.get(entry['module'], False):
+            client_ui = entry['module'] == 'ClientUI' and entry.get('release_smoke')
+            if not client_ui and not self.modules.get(entry['module'], False):
                 continue
             elapsed = self.elapsed(entry)
             status = 'WAITING'

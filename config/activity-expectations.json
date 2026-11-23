@@ -1476,6 +1476,120 @@
       "source": "mods/HollowCountry/scripts/4_World/Loot/HCGunPile.c",
       "scope": "runtime",
       "note": "A CE-created gun got its own magazine and/or ammo stack lying beside it (queued from Weapon_Base.EEOnCECreate, placed by a bounded drain). Counts placed piles, never a restored gun."
+    },
+    {
+      "module": "ClientUI",
+      "feature": "map_open",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=ClientUI feature=map_open count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "An opened native or Hollow Country map layout."
+    },
+    {
+      "module": "ClientUI",
+      "feature": "inventory_open",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=ClientUI feature=inventory_open count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "An opened native inventory layout."
+    },
+    {
+      "module": "Groups",
+      "feature": "menu_open",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Groups feature=menu_open count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "The group controls in the opened Hollow Country M map."
+    },
+    {
+      "module": "AdminMap",
+      "feature": "window_open",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=AdminMap feature=window_open count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "The opened admin layout."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "site_radius_entered",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=optional-expansion-human-ai feature=site_radius_entered count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "A server-confirmed approach into the activation radius of a reviewed AI site."
+    },
+    {
+      "module": "Events",
+      "feature": "mission_radius_entered",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Events feature=mission_radius_entered count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCMissionBeacon.c",
+      "scope": "client",
+      "release_smoke": true,
+      "note": "A server-confirmed approach into the radius of a currently published mission zone."
     }
   ]
 }
