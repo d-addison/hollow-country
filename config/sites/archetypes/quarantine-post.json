@@ -1,0 +1,25 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "quarantine-post",
+  "version": 1,
+  "title": "Quarantine post",
+  "story": "A medical team set up at the edge of town to screen everyone coming in: a tent facing the road, a shower tent beside it, a fence line with beds and hazmat bags, and a barrier that funnels traffic through one gap.",
+  "frame": {"kind": "road", "forward": "into_town"},
+  "location": {"road": {"surface": ["asphalt"], "straight_m": 50, "max_turn_deg": 12, "max_grade_pct": 5}, "settlement_edge_m": [0, 150], "medical_building_m": 600, "slope_pct_max": 4, "not_in": ["military"]},
+  "lane": "passable",
+  "allowed_roles": ["medical", "barrier", "fence", "scene dressing"],
+  "loot_theme": "medical",
+  "zones": [{"id": "ward_yard", "of": "table", "shape": "disc", "r_m": 7}],
+  "story_items": {"note": {"key": "quarantine-triage-log", "on": "table"}},
+  "density": {"max_per_map": 4, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "tent", "class": "Land_Medical_Tent_Big", "op": "offroad", "anchor": true, "loot": "proto", "side": "left", "s": 10, "offset_m": 19, "faces": "axis"},
+    {"id": "shower", "class": "Land_Medical_Tent_Shower", "op": "beside", "loot": "proto", "of": "tent", "dist_m": 17, "side": "right", "align": "anchor"},
+    {"id": "gate", "class": "StaticObj_Mil_HBarrier_6m", "op": "across_lane", "s": 0, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "fence", "class": "StaticObj_Misc_Razorwire", "op": "row", "side": "left", "s": 4, "offset_m": 4.5, "count": 4, "spacing_m": 6, "run": "forward", "faces": "axis"},
+    {"id": "beds", "class": "StaticObj_Furniture_hospital_transport_bed", "op": "row", "side": "left", "s": 6, "offset_m": 8, "count": 3, "spacing_m": 3, "run": "forward", "faces": "axis"},
+    {"id": "hazmat", "class": "StaticObj_Decon_HazmatBag_01_F", "op": "row", "side": "left", "s": 8, "offset_m": 3, "count": 4, "spacing_m": 2, "run": "forward", "faces": "axis"},
+    {"id": "table", "class": "StaticObj_Furniture_medical_table", "op": "facing", "of": "tent", "dist_m": 11, "from": "front"},
+    {"id": "litter", "class": ["StaticObj_Furniture_MedicalGarbage_Bandage", "StaticObj_Garbage_Pile1"], "op": "scatter", "zone": "ward_yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

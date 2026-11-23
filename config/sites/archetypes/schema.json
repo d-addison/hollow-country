@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hollow-country-site-archetype",
+  "title": "Hollow Country site archetype template (version 1)",
+  "description": "Authored composition template: a story, a frame, a location rule and parts placed relative to a named part with a closed operator set. Units are metres and degrees. See docs/SITES.md for the operator reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "id", "version", "title", "story", "frame", "location", "lane", "allowed_roles",
+               "loot_theme", "parts", "density"],
+  "properties": {
+    "kind": {"const": "hollow-country-site-archetype"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 32},
+    "version": {"const": 1},
+    "title": {"type": "string", "minLength": 4, "maxLength": 60},
+    "story": {"type": "string", "minLength": 60, "maxLength": 400},
+    "frame": {"$ref": "#/$defs/frame"},
+    "location": {"$ref": "#/$defs/location"},
+    "lane": {"enum": ["passable", "blocking", "none"]},
+    "zone_role": {"enum": ["hq", "perimeter", "outpost", "depot"]},
+    "allowed_roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/class_role"}},
+    "loot_theme": {"enum": ["civilian", "military", "medical", "scavenged"]},
+    "loot_none_reason": {"type": "string", "minLength": 20, "maxLength": 200},
+    "variants": {"type": "array", "uniqueItems": true, "maxItems": 3, "items": {"$ref": "#/$defs/part_id"}},
+    "external_anchors": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/external_anchor"}},
+    "zones": {"type": "array", "maxItems": 6, "items": {"$ref": "#/$defs/zone"}},
+    "parts": {"type": "array", "minItems": 4, "maxItems": 24, "items": {"$ref": "#/$defs/part"}},
+    "story_items": {"$ref": "#/$defs/story_items"},
+    "density": {"$ref": "#/$defs/density"}
+  },
+  "$defs": {
+    "part_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,23}$"},
+    "class_name": {"type": "string", "pattern": "^(Land|StaticObj)_[A-Za-z0-9_]+$"},
+    "class_role": {"enum": ["net", "mast", "tower", "scene dressing", "tent", "fence", "fuel", "wreck", "medical",
+                            "radar", "nest", "shed", "container", "wall", "furnishing", "barrier"]},
+    "range": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}},
+    "num_or_range": {"oneOf": [{"type": "number"}, {"$ref": "#/$defs/range"}]},
+    "int_or_range": {"oneOf": [{"type": "integer", "minimum": 1, "maximum": 12},
+                               {"type": "array", "minItems": 2, "maxItems": 2,
+                                "items": {"type": "integer", "minimum": 1, "maximum": 12}}]},
+    "frame": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "forward"],
+      "properties": {
+        "kind": {"enum": ["road", "approach", "view", "fall_line", "building"]},
+        "forward": {"enum": ["toward_protected", "into_town", "toward_settlement", "travel_direction",
+                             "toward_larger_road", "toward_road_access", "from_road_into_camp",
+                             "along_access_track", "view_sector", "downhill", "toward_open_side",
+                             "toward_dirt_road", "yard_approach"]}
+      }
+    },
+    "location": {
+      "type": "object", "additionalProperties": false, "minProperties": 2,
+      "properties": {
+        "road": {
+          "type": "object", "additionalProperties": false, "minProperties": 1,
+          "properties": {
+            "surface": {"type": "array", "minItems": 1, "uniqueItems": true,
+                        "items": {"enum": ["asphalt", "gravel", "dirt"]}},
+            "straight_m": {"type": "number", "minimum": 20, "maximum": 400},
+            "max_turn_deg": {"type": "number", "minimum": 0, "maximum": 90},
+            "max_grade_pct": {"type": "number", "minimum": 0, "maximum": 20},
+            "min_chain_m": {"type": "number", "minimum": 50, "maximum": 2000},
+            "bend_or_grade": {"type": "boolean"}
+          }
+        },
+        "at_junction": {"type": "boolean"},
+        "junction_m": {"$ref": "#/$defs/range"},
+        "settlement_edge_m": {"$ref": "#/$defs/range"},
+        "base_m": {"$ref": "#/$defs/range"},
+        "near_any": {"type": "boolean"},
+        "medical_building_m": {"type": "number", "minimum": 50, "maximum": 2000},
+        "no_vanilla_within_m": {
+          "type": "object", "additionalProperties": false, "minProperties": 1,
+          "properties": {"fuel_station": {"type": "number", "minimum": 100, "maximum": 5000}}
+        },
+        "road_access_m_max": {"type": "number", "minimum": 10, "maximum": 400},
+        "road_distance_m": {"$ref": "#/$defs/range"},
+        "water_m_max": {"type": "number", "minimum": 50, "maximum": 2000},
+        "prefer_water_m": {"type": "number", "minimum": 50, "maximum": 2000},
+        "slope_pct": {"$ref": "#/$defs/range"},
+        "slope_pct_max": {"type": "number", "minimum": 1, "maximum": 20},
+        "tree_free_radius_m": {"type": "number", "minimum": 5, "maximum": 100},
+        "cover_within_m": {"type": "number", "minimum": 5, "maximum": 100},
+        "forest_edge": {
+          "type": "object", "additionalProperties": false, "required": ["trees_within_m", "open_opposite"],
+          "properties": {"trees_within_m": {"type": "number", "minimum": 3, "maximum": 50},
+                         "open_opposite": {"type": "boolean"}}
+        },
+        "highest_flat_within_m": {"type": "number", "minimum": 100, "maximum": 1000},
+        "hidden_from_road": {"type": "boolean"},
+        "crest": {
+          "type": "object", "additionalProperties": false, "required": ["drop_m_min", "over_m", "covers"],
+          "properties": {"drop_m_min": {"type": "number", "minimum": 5, "maximum": 200},
+                         "over_m": {"type": "number", "minimum": 50, "maximum": 1000},
+                         "covers": {"type": "array", "minItems": 1, "uniqueItems": true,
+                                    "items": {"enum": ["road", "base_approach"]}}}
+        },
+        "not_in": {"type": "array", "uniqueItems": true, "items": {"enum": ["military", "town_core"]}}
+      }
+    },
+    "external_anchor": {
+      "type": "object", "additionalProperties": false, "required": ["id", "match_prefix", "required"],
+      "properties": {
+        "id": {"$ref": "#/$defs/part_id"},
+        "match_prefix": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^Land_[A-Za-z0-9]+_$"}},
+        "required": {"type": "boolean"}
+      }
+    },
+    "zone": {
+      "type": "object", "additionalProperties": false, "required": ["id", "of", "shape", "r_m"],
+      "properties": {
+        "id": {"$ref": "#/$defs/part_id"},
+        "of": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,23}$"},
+        "shape": {"enum": ["disc", "cone", "strip"]},
+        "r_m": {"type": "number", "minimum": 3, "maximum": 60},
+        "arc_deg": {"type": "number", "minimum": 10, "maximum": 180},
+        "width_m": {"type": "number", "minimum": 2, "maximum": 20},
+        "dir": {"enum": ["forward", "-forward", "uphill", "downhill", "left", "right", "outward", "toward_road"]}
+      }
+    },
+    "centre": {
+      "type": "object", "additionalProperties": false, "required": ["s", "side", "offset_m"],
+      "properties": {"s": {"type": "number"}, "side": {"enum": ["left", "right", "center"]},
+                     "offset_m": {"type": "number", "minimum": 0}}
+    },
+    "part": {
+      "type": "object", "additionalProperties": false, "required": ["id", "class", "op"],
+      "properties": {
+        "id": {"$ref": "#/$defs/part_id"},
+        "anchor": {"const": true},
+        "class": {"oneOf": [{"$ref": "#/$defs/class_name"},
+                            {"type": "array", "minItems": 2, "maxItems": 6, "uniqueItems": true,
+                             "items": {"$ref": "#/$defs/class_name"}}]},
+        "loot": {"const": "proto"},
+        "op": {"enum": ["in_lane", "across_lane", "shoulder", "offroad", "row", "ring", "facing", "beside",
+                        "behind", "scatter", "on_slope"]},
+        "s": {"type": "number", "minimum": -120, "maximum": 120},
+        "side": {"enum": ["left", "right", "center", "forward", "back"]},
+        "lane": {"enum": ["left", "right", "center"]},
+        "offset_m": {"$ref": "#/$defs/num_or_range"},
+        "align": {"enum": ["road", "anchor", "contour", "fall_line"]},
+        "faces": {"type": "string", "pattern": "^-?[a-z][a-z0-9_]{0,23}$"},
+        "jitter_deg": {"type": "number", "minimum": 0, "maximum": 45},
+        "angle_deg": {"$ref": "#/$defs/num_or_range"},
+        "count": {"$ref": "#/$defs/int_or_range"},
+        "spacing_m": {"$ref": "#/$defs/num_or_range"},
+        "gap_m": {"type": "number", "minimum": 3.5, "maximum": 8},
+        "of": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,23}$"},
+        "dist_m": {"$ref": "#/$defs/num_or_range"},
+        "from": {"enum": ["front", "back", "left", "right", "road_side"]},
+        "r_m": {"type": "number", "minimum": 1, "maximum": 60},
+        "arc_deg": {"type": "number", "minimum": 20, "maximum": 360},
+        "centre_on": {"enum": ["forward", "-forward", "left", "right", "back", "toward_road"]},
+        "centre": {"$ref": "#/$defs/centre"},
+        "run": {"enum": ["forward", "lateral"]},
+        "zone": {"$ref": "#/$defs/part_id"},
+        "min_gap_m": {"type": "number", "minimum": 1, "maximum": 10},
+        "mode": {"enum": ["fall_line", "crest"]},
+        "instance": {"enum": ["all", "first", "last"]},
+        "stack_on": {"$ref": "#/$defs/part_id"},
+        "variant": {"$ref": "#/$defs/part_id"},
+        "optional": {"const": true},
+        "reverse_slope": {"const": true},
+        "guard_post": {"const": true}
+      },
+      "allOf": [
+        {"if": {"properties": {"op": {"const": "in_lane"}}, "required": ["op"]},
+         "then": {"required": ["s", "lane"]}},
+        {"if": {"properties": {"op": {"const": "across_lane"}}, "required": ["op"]},
+         "then": {"required": ["s", "count"]}},
+        {"if": {"properties": {"op": {"const": "shoulder"}}, "required": ["op"]},
+         "then": {"required": ["side", "s", "offset_m"], "properties": {"side": {"enum": ["left", "right"]}}}},
+        {"if": {"properties": {"op": {"const": "offroad"}}, "required": ["op"]},
+         "then": {"required": ["side", "s", "offset_m"], "properties": {"side": {"enum": ["left", "right", "center"]}}}},
+        {"if": {"properties": {"op": {"const": "row"}}, "required": ["op"]},
+         "then": {"required": ["count", "spacing_m"],
+                  "anyOf": [{"required": ["faces"]}, {"required": ["align"]}]}},
+        {"if": {"properties": {"op": {"const": "ring"}}, "required": ["op"]},
+         "then": {"required": ["of", "r_m", "count", "arc_deg", "faces", "centre_on"],
+                  "properties": {"faces": {"enum": ["of", "outward"]}}}},
+        {"if": {"properties": {"op": {"const": "facing"}}, "required": ["op"]},
+         "then": {"required": ["of", "dist_m", "from"]}},
+        {"if": {"properties": {"op": {"const": "beside"}}, "required": ["op"]},
+         "then": {"required": ["of", "dist_m", "side"],
+                  "properties": {"side": {"enum": ["left", "right", "forward", "back"]}}}},
+        {"if": {"properties": {"op": {"const": "behind"}}, "required": ["op"]},
+         "then": {"required": ["of", "dist_m"]}},
+        {"if": {"properties": {"op": {"const": "scatter"}}, "required": ["op"]},
+         "then": {"required": ["zone", "count", "min_gap_m"]}},
+        {"if": {"properties": {"op": {"const": "on_slope"}}, "required": ["op"]},
+         "then": {"required": ["mode"]}}
+      ]
+    },
+    "story_items": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": {
+        "note": {
+          "type": "object", "additionalProperties": false, "required": ["key", "on"],
+          "properties": {"key": {"type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$", "maxLength": 40},
+                         "on": {"$ref": "#/$defs/part_id"}}
+        },
+        "ai": {
+          "type": "object", "additionalProperties": false, "required": ["role", "guard_posts"],
+          "properties": {"role": {"enum": ["military", "raider", "scavenger", "local", "volunteer", "traveller"]},
+                         "guard_posts": {"type": "array", "minItems": 1, "uniqueItems": true,
+                                         "items": {"$ref": "#/$defs/part_id"}}}
+        }
+      }
+    },
+    "density": {
+      "type": "object", "additionalProperties": false, "required": ["max_per_map", "min_same_m", "min_any_m"],
+      "properties": {
+        "max_per_map": {"type": "integer", "minimum": 1, "maximum": 12},
+        "min_same_m": {"type": "number", "minimum": 300, "maximum": 6000},
+        "min_any_m": {"const": 300},
+        "count_basis": {"enum": ["map", "holdout"]}
+      }
+    }
+  }
+}

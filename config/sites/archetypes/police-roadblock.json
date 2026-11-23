@@ -1,0 +1,26 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "police-roadblock",
+  "version": 1,
+  "title": "Abandoned police roadblock",
+  "story": "Two police cars were nosed into a V across the approach to a town, barriers staggered behind them. The desk and chair are still on the shoulder and hazmat bags are stacked on the town side.",
+  "frame": {"kind": "road", "forward": "into_town"},
+  "location": {"road": {"surface": ["asphalt"], "straight_m": 50, "max_turn_deg": 12, "max_grade_pct": 6}, "settlement_edge_m": [150, 400], "junction_m": [60, 900], "slope_pct_max": 5, "not_in": ["military", "town_core"]},
+  "lane": "passable",
+  "allowed_roles": ["barrier", "furnishing", "scene dressing"],
+  "loot_theme": "civilian",
+  "zones": [{"id": "shoulder_yard", "of": "desk", "shape": "disc", "r_m": 8}],
+  "story_items": {"note": {"key": "police-shift-log", "on": "desk"}},
+  "density": {"max_per_map": 6, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "carl", "class": "Land_Wreck_sed01_aban1_police", "op": "in_lane", "anchor": true, "loot": "proto", "s": 0, "lane": "left", "angle_deg": 35, "jitter_deg": 5},
+    {"id": "carr", "class": "Land_Wreck_sed01_aban2_police", "op": "in_lane", "loot": "proto", "s": 3, "lane": "right", "angle_deg": -35, "jitter_deg": 5},
+    {"id": "bar", "class": "StaticObj_Misc_RoadBarrier", "op": "across_lane", "s": 14, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "far", "class": "StaticObj_Misc_RoadBarrier", "op": "across_lane", "s": -12, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "desk", "class": "Land_Roadblock_Table", "op": "shoulder", "side": "right", "s": 6, "offset_m": 2.5, "align": "road"},
+    {"id": "chair", "class": "StaticObj_Misc_Chair_Camp1", "op": "facing", "of": "desk", "dist_m": 0.9, "from": "road_side"},
+    {"id": "crate", "class": "Land_Roadblock_WoodenCrate", "op": "beside", "of": "desk", "dist_m": 2.5, "side": "forward"},
+    {"id": "hazmat", "class": "StaticObj_Decon_HazmatBag_01_F", "op": "row", "side": "left", "s": 18, "offset_m": 2.5, "count": 4, "spacing_m": 1.6, "run": "forward", "faces": "axis"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_MedicalGarbage_Bandage"], "op": "scatter", "zone": "shoulder_yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}
