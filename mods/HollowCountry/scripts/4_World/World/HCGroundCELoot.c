@@ -36,6 +36,10 @@ class HCGroundCELoot
     protected static int s_Processed;
     protected static int s_Ineligible;
     protected static int s_Peak;
+    protected static ref array<ItemBase> s_Held = new array<ItemBase>;
+    protected static bool s_HeldScheduled;
+    protected static int s_SiteDropped;
+    protected static int s_SiteHeldTotal;
     protected static int s_Shifted;
     protected static int s_Settled;
     protected static int s_Retried;
@@ -156,6 +160,62 @@ class HCGroundCELoot
         else { s_RetryFailed++; }
     }
 
+    // W6 site guard: fresh CE loot inside a loot box of a refused or retired site is removed (it never held a
+    // player item: Eligible() excludes anything with a parent), and loot inside a box of a site that is still
+    // undecided waits in a bounded held queue. Everything else is corrected as before.
+    static void SiteRoute(ItemBase item)
+    {
+        int verdict = HCSiteGuard.HCLootVerdict(item);
+        if (verdict == HCSiteGuard.LOOT_DROP)
+        {
+            s_SiteDropped++;
+            item.DeleteSafe();
+            return;
+        }
+        if (verdict == HCSiteGuard.LOOT_HOLD && s_Held.Count() < 1024)
+        {
+            s_Held.Insert(item);
+            s_SiteHeldTotal++;
+            ScheduleHeld();
+            return;
+        }
+        Correct(item, KIND_CE);
+    }
+
+    protected static void ScheduleHeld()
+    {
+        if (s_HeldScheduled || s_Held.Count() < 1) { return; }
+        s_HeldScheduled = true;
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.DrainHeld, 1000, false);
+    }
+
+    // At most four held items per second, front to back; an item whose site is still undecided rotates to the back.
+    static void DrainHeld()
+    {
+        s_HeldScheduled = false;
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        int examine = Math.Min(4, s_Held.Count());
+        for (int step = 0; step < examine; step++)
+        {
+            ItemBase held = s_Held[0];
+            s_Held.RemoveOrdered(0);
+            if (!Eligible(held))
+            {
+                s_Ineligible++;
+                continue;
+            }
+            int verdict = HCSiteGuard.HCLootVerdict(held);
+            if (verdict == HCSiteGuard.LOOT_HOLD) { s_Held.Insert(held); }
+            else if (verdict == HCSiteGuard.LOOT_DROP)
+            {
+                s_SiteDropped++;
+                held.DeleteSafe();
+            }
+            else { Correct(held, KIND_CE); }
+        }
+        ScheduleHeld();
+    }
+
     static void Drain()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
@@ -175,8 +235,9 @@ class HCGroundCELoot
                 chunk.Next = null;
                 if (!s_Head) { s_Tail = null; }
             }
-            if (Eligible(item)) { Correct(item, kind); }
-            else { s_Ineligible++; }
+            if (!Eligible(item)) { s_Ineligible++; continue; }
+            if (kind == KIND_CE) { SiteRoute(item); }
+            else { Correct(item, kind); }
         }
         bool pending = s_Count > 0;
         if (pending) { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Drain, 50, false); }
@@ -194,6 +255,7 @@ class HCGroundCELoot
         line += " overflow=0 enqueued=" + s_Enqueued.ToString();
         line += " processed=" + s_Processed.ToString() + " pending=" + s_Count.ToString();
         line += " peak=" + s_Peak.ToString() + " ineligible=" + s_Ineligible.ToString();
+        line += " site_dropped=" + s_SiteDropped.ToString() + " site_held=" + s_Held.Count().ToString();
         // Each of the three lines has an independent change/heartbeat receipt.
         float receiptNow = GetGame().GetTickTime();
         if (line != s_LastReceipt || receiptNow < s_LastReceiptAt || receiptNow - s_LastReceiptAt >= 1800)
@@ -262,6 +324,8 @@ modded class ItemBase
     override void AfterStoreLoad()
     {
         super.AfterStoreLoad();
+        // Tents and storage restored from storage tell the site guard the storage load is still running.
+        if (m_HCBasesRegistered) { HCSiteBaseRegistry.Touch(); }
         HCGroundCELoot.EnqueueRestored(this);
     }
 }

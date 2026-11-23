@@ -156,6 +156,17 @@ waivers record content removal, not native acceptance or a release-gate pass.
 | Ambient Animals `Dayz_Snake` mission content | Exclude Snake types, events, spawn positions and territories from new optional-overlay installs because `Snake/anims/animgraph/snake.agr` reports missing variables. Healthy ambient species remain installed; no Ambient Animals PBO is patched or repacked. Existing overlays require stopped-server rollback and reapply; persisted or independently installed snakes are not deleted | Implemented-unverified. Lead native boot/soak must establish zero `snake.agr` warnings; loading the unchanged dependency may still emit an addon-level warning |
 | `Land_Mil_Radar_Mobile1` in `comms-post` and `radio-relay` | Replace both HC-added mobile radar slots with `StaticObj_Misc_Antenna` to avoid adding defective convex geometry instances. Vanilla baked radar instances remain the baseline | Implemented-unverified. Lead native boot/soak must establish zero HC-added convex radar warnings; one-client placement/appearance check pending |
 
+## Runtime site guard (W6, `Sites` module, 2026-11-22)
+
+Source only, **implemented-unverified**; native compile, boot and the one-client check are pending (lead). The W4 composer has not landed: the guard is built against the manifest format of the W6 review (section 4.2) and with no installed manifest and no profile state prints `[HC Ready] module=Sites enabled=false reason=no_manifest`.
+
+| Item | State | Evidence still required |
+|---|---|---|
+| Sites guard (`HCSiteGuard`, `EnableSites` default on, `Sites.*` tunables) | The spawner holds every composed row that is not recorded admitted for the installed layer set; the guard decides after the storage load (registry evidence, hard-piece boxes, class check), spawns the admitted rows, persists decisions through the staged store (`$profile:HollowCountry/sites.json`, version 1, quarantine on a torn file), drops fresh CE loot only in boxes of refused or retired sites and settles bare items in retired boxes (never deletes a player item) | Lead native boot with a manifest and a test base inside one site: `decide_start` after the base `AfterStoreLoad`, `refused site=<id> reason=player_base`, `composed_sites` > 0, `site_refusals` >= 1, `orphan_sweep` > 0 on the legacy-upgrade boot, `sites_ground` and `sites_clear` pass=true, then a second boot with `decisions_loaded` |
+| C2 engine experiment: storage-loaded gate | **planned**, not accepted. No engine event says the storage load finished, so the pass starts after `Sites.DecideDelaySeconds` and a `Sites.QuietWindowSeconds` quiet window without a watched `AfterStoreLoad` (forced at five times the delay, `gate=forced`) | `decide_start` line: `store_loads`, `bases`, `storage` counts and `gate=quiet` against a known test base |
+| Residual waiver: rollback with the old mod | An older mod that does not read `sites.json` spawns every composed row of the installed layers including over player bases; only the new mod can refuse a site | Owner-listed waiver, not a pass |
+| Residual waiver: player logged out inside a deferred footprint | A player who logs out inside a site footprint is not seen by the box check (offline players are not objects); the site spawns around the persisted character on the next admission | Owner-listed waiver, not a pass |
+
 ## Expansion AI sites and defaults follow-ups (w9-xai-cleanup, 2026-11-22)
 
 Source only, **implemented-unverified**; native compile, boot and soak evidence pending. No acceptance claim or release waiver added.

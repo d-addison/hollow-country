@@ -19,6 +19,8 @@ AI_NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCAILimits.c'
 PERF_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c'
 PERF_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/HCPerfSettingsRegistry.c'
 HEARTH_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c'
+SITES_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c'
+SITES_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCSiteSettingsRegistry.c'
 HEARTH_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/Atmosphere/HCHearthSettingsRegistry.c'
 ZONE_GUARDS_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/AI/HCZoneGuardsSettingsRegistry.c'
 ZONE_GUARDS_NATIVE = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuardsConfig.c'
@@ -29,7 +31,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.', 'Sites.'))]
 
 
 def find_apply(source, key, target, decoded, text):
@@ -150,6 +152,31 @@ def check_hearth(rows, source, registry):
             rf'HCOperatorSettingsRegistry\.HCValid\("HearthFires\.{k}", decoded\.{k}\)|HCRegistry(?:Int|Float)\("{k}",'))
         if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
             errors.append(f'HearthFires literal range bypasses registry for {key}')
+    return errors
+
+
+def check_sites(rows, source, registry):
+    """Optional sites-config.json has no shipped image; check the HCSiteConfig constructor."""
+    errors = []
+    source = re.sub(r'//[^\n]*', '', source)
+    registry = re.sub(r'//[^\n]*', '', registry)
+    dto = source.split('class HCSiteConfig\n', 1)[-1].split('\nclass ', 1)[0]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+    rules = {r['key'].removeprefix('Sites.'): r for r in rows}
+    if fields.keys() != rules.keys(): errors.append('Sites registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
+    expected = render_native_registry(rows).splitlines()
+    if compiled != expected: errors.append('Sites compiled registry differs (key/type/default/range/owner)')
+    if 'HCOperatorSettingsRegistry.HCValid("Sites." + key, candidate)' not in dto:
+        errors.append('Sites registry gate helper does not validate against the registry')
+    for key, row in rules.items():
+        if row['owner'] != 'HCSiteGuard' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'Sites DTO default/type/owner differs for {key}')
+        if f'HCRegistryInt("{key}",' not in dto:
+            errors.append(f'Sites apply does not use the registry gate for {key}')
+        if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
+            errors.append(f'Sites literal range bypasses registry for {key}')
     return errors
 
 
@@ -430,6 +457,8 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_season_leaves([r for r in rows if r['key'].startswith('SeasonLeaves.')]))
     hearth_rows = [r for r in rows if r['key'].startswith('HearthFires.')]
     errors.extend(check_hearth(hearth_rows, HEARTH_NATIVE.read_text(), HEARTH_REGISTRY.read_text()))
+    sites_rows = [r for r in rows if r['key'].startswith('Sites.')]
+    errors.extend(check_sites(sites_rows, SITES_NATIVE.read_text(), SITES_REGISTRY.read_text()))
     perf_rows = [r for r in rows if r['key'].startswith('Performance.')]
     errors.extend(check_performance(perf_rows,
         PERF_NATIVE.read_text() if perf_native is None else perf_native,
@@ -440,7 +469,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_local_policy(rows))
     errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
     errors.extend(check_zone_guards([r for r in rows if r['key'].startswith('HCZoneGuards.')]))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.', 'Sites.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
