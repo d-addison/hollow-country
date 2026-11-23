@@ -1,6 +1,19 @@
 {
+  "CapacityMultiplier": {
+    "Farm": 1.25,
+    "Hunting": 1.5,
+    "Military": 1.5,
+    "Police": 2.0,
+    "Prison": 3.0,
+    "School": 2.0
+  },
+  "CategoryMultiplier": {
+    "containers": 2.0,
+    "food": 2.0,
+    "medical": 2.0,
+    "tools": 2.0
+  },
   "Multiplier": 2.0,
-  "MilitaryCapacityMultiplier": 1.5,
   "kind": "hollow-country-loot-boost-settings",
   "schema": 1
 }

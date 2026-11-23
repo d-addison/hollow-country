@@ -1196,7 +1196,7 @@ Pristine-mission `loot_boost.plan(..., points=loot_boost.shipped_points())` ran 
 
 No server/client or native compile gate was run. Lead acceptance still requires one server and at most one client: no `Can't compile`, crash/stall or enabled `[HC Ready]` line with `ready=false`; expected interiors readiness shape is `[HC Ready] module=Interiors enabled=true ready=true reason=<actual reason> runtime=PENDING`. This Python/data change adds no new RPT line and readiness alone cannot prove CE behavior. Inspect actual CE spawning, item support, vicinity pickup/search access and restart retention at Chapel, Fortified Nest Big, Slum House6, Office1, 2W04 Yellow, Pub, police stations, Barracks1, Garage Office and HouseBlock 2F6. Native item fit, doorway/stair access, CE capacity/tag matching, persistence and target-load budgets remain unverified. Never claim multiplayer proven.
 
-## Military capacity layer (wh-loot, 2026-11-22)
+## Capacity and category layer (wh-loot 2026-11-22, wh-econ 2026-11-22)
 
 Owner report from the live server: military buildings have many empty spots. Diagnosis (offline, from the stock
 and generated missions used by the CE fill probe, `docs/tools/CE_FILL_PROBE.md`): the limiter is the per-group
@@ -1207,28 +1207,46 @@ about 21% of the physical points (1,869 of 9,065); after the 2x boost and the HC
 (7,195 of 16,899). Military weapon demand already exceeds its slots ("hard to place" lines), so more
 capacity mostly helps the non-weapon Military rows and the shared Military weapon pools.
 
-`MilitaryCapacityMultiplier` (default 1.5, range 1.0 to 3.0, 1.0 turns it off) lives in
-`mission/hollow-country/loot-points/settings.json` next to `Multiplier`; an older settings file without the key
-means 1.0. The generator is `tools/package/loot_boost.py` (`scale_military_proto`, and `scale_types` with its
-`military` argument); it runs after the receiver and `military_loot.spread_proto` steps:
+Owner request (wh-econ, 2026-11-22): every building needs more loot because the point additions raised the
+physical points but not the limits. Three knobs in `mission/hollow-country/loot-points/settings.json`, all applied
+by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the scoped shelf limit in `plan`):
 
-- groups whose usages include Military, Police or Prison (the usages `config/military-loot.json` already treats
-  as the military weapon receivers) get group and container `lootmax` raised by the factor. Hunting groups are
-  not changed: they are not in that usage set and their sparsity was not reported.
-- any container that lists a firearm or explosive category (mixed ones too, as in the base boost) keeps its limit
-  (weapon packs stay at 2x), containers the floor policy
-  zeroed stay zero, a container never exceeds its points and a group never exceeds the sum of its containers, so
-  the existing capacity checks still hold.
-- non-firearm types rows whose every usage is Military, Police or Prison get `nominal` and `min` multiplied by
-  the factor on top of `Multiplier`, with `min <= nominal` kept. Rows shared with civilian usages are untouched.
+- `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 3.0, usage must be a vanilla
+  `cfglimitsdefinition.xml` usageflag); the shipped map is in `settings.json` only. A group takes the largest factor among its usages that are in the map. Group `lootmax` becomes
+  `min(sum of container limits, max(stock, min(ceil(lootmax x f), 80)))`; a group already above 80 keeps its limit.
+  Every container with at least one non-firearm, non-explosive category becomes
+  `max(current, min(points, ceil(current x f)))` (mixed containers now scale; weapon-only, explosive-only,
+  category-less, zero and self-closing containers keep their limit). Non-firearm types rows whose every usage is
+  Military, Police or Prison also get `nominal` and `min` x the Military factor, as before. The older single
+  `MilitaryCapacityMultiplier` key still reads as `{Military, Police, Prison}: factor`; both keys together are refused.
+- `CategoryMultiplier` is `{category: target}` (food, tools, medical, containers, clothes, books; 1.0 up to 1.5 x
+  `Multiplier`; the shipped targets are in `settings.json` only). A row's `nominal` and `min` become at least `ceil(stock x target)`, so a target lifts only rows
+  whose boost is lower than the target. Medical is a name
+  class of tools rows (bandages, saline, injectors and so on); without a `medical` key it falls back to `tools`.
+  Weapons, ammo, explosives and the firearms roster are never targeted.
+- The shelf limit is scoped. The first plan finds the `usage/shelves` buckets whose nominal exceeds their point
+  slots; the re-plan holds a shelf-routed row at 1x only when all of its usages are in that pressured set (a row
+  with a usage that has slack keeps the boost), instead of holding every shelf row on the map. The describe line
+  reports `shelf_boost_limited=[...]`.
 
-Stock-mission rehearsal, factor 1.0 against 1.5: 114 groups and 19 containers change; prototype `lootmax`
-1,461 to 1,966; weighted by placed buildings (727) 5,054 to 7,230; 173 rows get scaled nominal/min; effective
-Military slots by tier (clothes) Tier1 657 to 945, Tier2 1,167 to 1,547, Tier3 1,495 to 1,923, Tier4 574 to
-723; Military-only non-firearm nominal Tier1 55 to 71, Tier2 383 to 543, Tier3 545 to 786, Tier4 506 to 734.
-These are offline estimates and prove nothing about CE spawning; the evidence to check after a boot is the
-census t0/t3 totals and the install line `military capacity x1.5`.
+At the shipped values the category targets equal `Multiplier` (2.0), so for rows that are not held they are a
+no-op (`rows=0` in the describe line); the nominal gain comes from the scoped limit releasing rows the old global
+hold kept at 1x. A target above `Multiplier` (up to 1.5 x) is where the knob bites.
 
-Upgrades: the overlay fingerprint covers the generated files, so a re-install rolls back the old loot-boost
-receipt and applies the new one from the friend's own mission bytes; the factor is never stacked. The receipt
-records `military_multiplier`. No installer change is needed.
+Rule (owner, 2026-11-22): `settings.json` is the single source of these numbers. `loot_boost` applies every knob
+from the mission's own stock bytes on each install, after rolling back the previous receipt; no install-time
+default and no second copy of the numbers exist in the installer, packer or docs. The receipt records the
+effective `capacity_multiplier` and `category_multiplier`, and the overlay fingerprint covers `settings.json`
+(it ships in the bundle's mission overlay), so an edited settings file is detected and reapplied from stock and
+factors never compound. Rollback still reads receipts that carry the older `military_multiplier`.
+
+Stock-mission rehearsal (offline, `plan(..., points=shipped_points())`, old single-factor layer against this one):
+groups changed 114 to 165, containers 19 to 237; prototype `lootmax` 1,461 to 1,966 before and 1,880 to 2,742
+now; weighted by placed buildings 5,054 to 7,230 before and 16,695 to 25,381 now (the map has more usages;
+the two are not like for like); nominal by category
+(stock to boosted): food 831 to 1,552 (was 831, held), containers 767 to 1,624 (was 1,196), medical 611 to
+1,221, tools 5,871 to 11,598 (was 6,482 with medical inside), clothes 7,954 to 16,655 and weapons 3,677 to
+3,677 unchanged; total 21,090 to 37,706 (was 31,400). `ce_slot_pressure --feasibility` on an installed copy:
+demand 30,479 to 36,545, deficit 863 to 823, weapons unassigned 50 to 29 (Town shelves). Farm remains pressured
+after its 1.25 factor, so Farm-only shelf rows stay at 1x. These are offline estimates and prove nothing about
+CE spawning; the evidence after a boot is the census totals and the install line `capacity map {...}`.

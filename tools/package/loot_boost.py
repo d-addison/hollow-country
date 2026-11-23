@@ -22,11 +22,17 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   emitted group/container limits are clamped to their physical point capacity. The
   committed contextual points overlay (``mission/hollow-country/loot-points/additions.json``) adds
   ``lootHCFloor``/``lootHCSurface`` containers to buildings whose stock group still matches its pin.
-* Military capacity layer (``MilitaryCapacityMultiplier`` in loot-points/settings.json, default 1.5, range
-  1.0-3.0; 1.0 disables it): after the above, groups whose usages include Military, Police or Prison get
-  group and container ``lootmax`` raised by that factor (any container listing a firearm/explosive category and floor-policy zeroed
-  containers keep theirs; every limit stays within its points), and Military/Police/Prison-only non-firearm
-  types rows get ``nominal``/``min`` scaled by it on top of ``Multiplier`` so the extra slots can fill.
+* Capacity layer (``CapacityMultiplier`` in loot-points/settings.json, a per-usage map of factors 1.0-3.0; the
+  legacy ``MilitaryCapacityMultiplier`` x means {Military, Police, Prison: x}): after the above, a group takes the
+  largest factor over its usages and its group and container ``lootmax`` are raised by it. Containers listing only
+  firearm/explosive categories and floor-policy zeroed containers keep theirs; mixed containers scale; every limit
+  stays within its points and the group limit within its containers and 80 (a group already above 80 keeps its
+  value). Military/Police/Prison-only non-firearm types rows get ``nominal``/``min`` scaled again by the Military
+  factor so the extra slots can fill.
+* Category targets (``CategoryMultiplier``): a target multiple of the stock nominal per category (food, tools,
+  medical, containers, clothes, books; 1.0 up to Multiplier x 1.5), applied to boosted rows whose factor is lower.
+* Scoped shelf limit: when a usage's shelf slots are over-subscribed, only shelf-routed rows whose usages are
+  all over-subscribed are held at their native quantities; rows with any usage that has slack keep the boost.
 
 The overlay is produced offline by ``points`` from native interior sampler censuses (model-frame floor
 hits; furniture surfaces need a ``--intersect view`` census). Nothing here observes DayZ: whether the CE
@@ -71,11 +77,29 @@ OPTIONAL_FOLDER = 'hollow-country-optional-packs'  # generated hunting/vehicle t
 SCALED_CATEGORIES = frozenset({'tools', 'containers', 'clothes', 'food', 'books'})
 KEPT_CATEGORIES = frozenset({'weapons', 'explosives'})
 MIN_MULTIPLIER, MAX_MULTIPLIER = 1.0, 4.0
-# Military-tier capacity (owner, live server 2026-11-22: "so many empty areas within buildings"). Applied on top of
-# Multiplier to groups whose usage is Military-adjacent (config/military-loot.json weapon_receivers.usages) and to
-# non-firearm rows used only by those usages. 1.0 turns it off.
+# Per-usage capacity (owner, live server 2026-11-22: "so many empty areas within buildings"; "in general all
+# buildings need increased loot spawns"). CapacityMultiplier maps a CE usage to a lootmax factor; the legacy
+# MilitaryCapacityMultiplier x means {Military, Police, Prison: x}. 1.0 turns an entry off. The nominal side stays
+# keyed to the Military factor and to rows used only by Military-adjacent usages (military_usages()).
 MILITARY_KEY = 'MilitaryCapacityMultiplier'
+CAPACITY_KEY = 'CapacityMultiplier'
+CATEGORY_KEY = 'CategoryMultiplier'
 MIN_MILITARY, MAX_MILITARY = 1.0, 3.0
+MIN_CAPACITY, MAX_CAPACITY = 1.0, 3.0
+LEGACY_MILITARY_USAGES = ('Military', 'Police', 'Prison')
+GROUP_CAPACITY_CAP = 80  # a scaled group limit never grows past this (a larger stock limit is kept)
+# usageflags of the vanilla cfglimitsdefinition.xml
+CE_USAGES = frozenset({'Military', 'Police', 'Medic', 'Firefighter', 'Industrial', 'Farm', 'Coast', 'Town', 'Village',
+                       'Hunting', 'Office', 'School', 'Prison', 'Lunapark', 'SeasonalEvent', 'ContaminatedArea',
+                       'Historical'})
+TARGET_CATEGORIES = frozenset({'food', 'tools', 'medical', 'containers', 'clothes', 'books'})
+CATEGORY_TARGET_HEADROOM = 1.5  # a category target may reach Multiplier x this
+# medical is a name classifier over the tools rows (the CE has no medical category).
+MEDICAL_CLASSES = frozenset(n.casefold() for n in (
+    'BandageDressing', 'Rag', 'SewingKit', 'TetracyclineAntibiotics', 'PainkillerTablets', 'CharcoalTablets',
+    'VitaminBottle', 'PurificationTablets', 'Epinephrine', 'Morphine', 'IodineTincture', 'DisinfectantAlcohol',
+    'DisinfectantSpray', 'SalineBag', 'SalineBagIV', 'StartKitIV', 'BloodBagEmpty', 'BloodBagFull', 'BloodBagIV',
+    'BloodTestKit', 'Thermometer', 'ChelatingTablets', 'AntiChemInjector'))
 RESPAWN_TYPES_CAP = 64
 MAX_GROUP_LOOTMAX = 40
 # Stock groups authored with lootmax 0 and no points (Land_Tenement_Small/Big,
@@ -131,10 +155,14 @@ def _multiplier(value):
 
 def _settings(repo):
     doc = json.loads((Path(repo) / SETTINGS).read_bytes())
+    optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY}
     if (not isinstance(doc, dict) or not {'schema', 'kind', 'Multiplier'} <= set(doc)
-            or set(doc) - {'schema', 'kind', 'Multiplier', MILITARY_KEY} or doc['schema'] != 1
+            or set(doc) - {'schema', 'kind', 'Multiplier'} - optional or doc['schema'] != 1
             or doc['kind'] != SETTINGS_KIND):
-        raise ValueError('loot-points/settings.json must be {schema 1, kind, Multiplier[, %s]}' % MILITARY_KEY)
+        raise ValueError('loot-points/settings.json must be {schema 1, kind, Multiplier[, %s]}'
+                         % ', '.join(sorted(optional)))
+    if MILITARY_KEY in doc and CAPACITY_KEY in doc:
+        raise ValueError('loot-points/settings.json: %s and %s are mutually exclusive' % (MILITARY_KEY, CAPACITY_KEY))
     return doc
 
 
@@ -151,9 +179,57 @@ def _military_multiplier(value):
     return value
 
 
+def legacy_capacity_map(value):
+    """The per-usage map a MilitaryCapacityMultiplier stands for: the same factor on Military, Police and Prison."""
+    value = _military_multiplier(value)
+    return {usage: value for usage in LEGACY_MILITARY_USAGES}
+
+
+def _factor_map(value, what, usages, low, high):
+    if not isinstance(value, dict):
+        raise ValueError(f'{what} must be a map')
+    out = {}
+    for key, factor in value.items():
+        if not isinstance(key, str) or key not in usages:
+            raise ValueError(f'{what}: unknown name {key!r}')
+        if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not math.isfinite(factor):
+            raise ValueError(f'{what}: {key} must be a number')
+        factor = float(factor)
+        if not low <= factor <= high:
+            raise ValueError(f'{what}: {key} must be within {low}..{high}')
+        out[key] = factor
+    return {key: out[key] for key in sorted(out)}
+
+
+def _capacity_map(value):
+    """Validated {usage: factor}: usages from the vanilla CE list, factors within 1.0..3.0."""
+    return _factor_map(value, CAPACITY_KEY, CE_USAGES, MIN_CAPACITY, MAX_CAPACITY)
+
+
+def _category_map(value, multiplier):
+    """Validated {category: target multiple of the stock nominal}: 1.0 up to Multiplier x 1.5."""
+    return _factor_map(value, CATEGORY_KEY, TARGET_CATEGORIES, 1.0, float(multiplier) * CATEGORY_TARGET_HEADROOM)
+
+
+def default_capacity_map(repo=REPO_ROOT):
+    """CapacityMultiplier of the settings file; the legacy key maps to Military/Police/Prison; neither means {}."""
+    doc = _settings(repo)
+    if CAPACITY_KEY in doc:
+        return _capacity_map(doc[CAPACITY_KEY])
+    if MILITARY_KEY in doc:
+        return legacy_capacity_map(doc[MILITARY_KEY])
+    return {}
+
+
+def default_category_map(repo=REPO_ROOT):
+    """CategoryMultiplier of the settings file; a file without the key means no targets."""
+    doc = _settings(repo)
+    return _category_map(doc.get(CATEGORY_KEY, {}), _multiplier(doc['Multiplier']))
+
+
 def default_military_multiplier(repo=REPO_ROOT):
-    """MilitaryCapacityMultiplier of the settings file; an older file without the key means 1.0 (no change)."""
-    return _military_multiplier(_settings(repo).get(MILITARY_KEY, 1.0))
+    """The Military factor of the capacity map (1.0 when absent): the legacy single-factor view."""
+    return default_capacity_map(repo).get('Military', 1.0)
 
 
 def military_usages():
@@ -272,11 +348,47 @@ def _scales(categories, name, roster):
             and name.casefold() not in {n.casefold() for n in economy.CONSTRUCTION_KITS})
 
 
-def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=None, stats=None):
+def ceil_scaled(value, factor):
+    """ceil(value x factor), immune to float noise (10 x 1.1 is 11, not 12)."""
+    return int(math.ceil(round(value * factor, 6)))
+
+
+def is_medical(name):
+    return name.casefold() in MEDICAL_CLASSES
+
+
+def row_target(name, categories, targets):
+    """Target multiple of the stock nominal for a row (1.0 when none): the largest over its categories.
+
+    Rows in the medical classifier use the medical target when the map has one, otherwise the tools target."""
+    best = 1.0
+    for category in categories:
+        key = category.lower()
+        if key == 'tools' and 'medical' in targets and is_medical(name):
+            key = 'medical'
+        best = max(best, targets.get(key, 1.0))
+    return best
+
+
+def shelf_held(usages, held):
+    """Whether a shelf-routed row stays at its native quantity: always without a usage scope (held is None), else only
+    when every usage of the row is over-subscribed (a row without usages competes in the shared '*' bucket)."""
+    if held is None:
+        return True
+    if not usages:
+        return '*' in held
+    return set(usages) <= set(held)
+
+
+def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=None, stats=None, held=None,
+                targets=None):
     """Scale eligible building loot; floor_only preserves shelf quantities under pressure.
 
     military=(usages, factor) multiplies the scale again for rows whose every usage is in usages (so shared civilian
-    rows are untouched); stats['military_rows'] counts them."""
+    rows are untouched); stats['military_rows'] counts them. With floor_only set, a shelf-routed row is held at its
+    native quantity when held is None or all its usages are in held (see shelf_held). targets={category: T} raises a
+    boosted row to at least ceil(stock x T) (stats['target_rows'], stats['target_nominal'] count rows and added
+    nominal); held rows are never raised."""
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
     masked = _mask(text)
@@ -289,12 +401,14 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
             raise ValueError('unclosed type row')
         name = _attr(opening.group(0), 'name') or ''
         body = masked[opening.end():close]
-        if not _scales(re.findall(r'<category\s+name="([^"]*)"', body), name, roster):
+        categories = re.findall(r'<category\s+name="([^"]*)"', body)
+        if not _scales(categories, name, roster):
             continue
+        row_usages = set(re.findall(r'<usage\s+name="([^"]*)"', body))
         if floor_only is not None:
             from tools.package import loot_floor_policy
-            categories = re.findall(r'<category\s+name="([^"]*)"', body)
-            if not all(loot_floor_policy.floor_eligible(name, c, floor_only) for c in categories):
+            if (not all(loot_floor_policy.floor_eligible(name, c, floor_only) for c in categories)
+                    and shelf_held(row_usages, held)):
                 continue  # keep authored/native quantities; scarce shelves cannot absorb an extra boost
         values = {}
         for field in ('nominal', 'min'):
@@ -307,12 +421,19 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
         nominal, minimum = values['nominal'][1], values['min'][1]
         factor = multiplier
         if military is not None and military[1] > 1.0:
-            row_usages = set(re.findall(r'<usage\s+name="([^"]*)"', body))
             if row_usages and row_usages <= military[0]:
                 factor = multiplier * military[1]
                 if stats is not None:
                     stats['military_rows'] = stats.get('military_rows', 0) + 1
         new_nominal, new_min = scaled(nominal, factor), scaled(minimum, factor)
+        target = row_target(name, categories, targets) if targets else 1.0
+        if target > 1.0:
+            raised = max(new_nominal, ceil_scaled(nominal, target))
+            new_min = max(new_min, ceil_scaled(minimum, target))
+            if raised > new_nominal and stats is not None:
+                stats['target_rows'] = stats.get('target_rows', 0) + 1
+                stats['target_nominal'] = stats.get('target_nominal', 0) + raised - new_nominal
+            new_nominal = raised
         if minimum <= nominal:
             new_min = min(new_min, new_nominal)
         for field, value in (('nominal', new_nominal), ('min', new_min)):
@@ -753,19 +874,25 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
     return output, report
 
 
-def scale_military_proto(data, factor, usages, placed=None):
-    """Raise group and container lootmax of Military-adjacent groups by factor (returns (bytes, report)).
+def scale_capacity_proto(data, capacity, placed=None):
+    """Raise group and container lootmax by a per-usage factor map (returns (bytes, report)).
 
-    Only CE-owned limits move; points, tags, categories and every other byte stay. Any container listing a firearm or
-    explosive category keeps its limit (the weapon exceptions are owner-reviewed), a container the floor policy zeroed stays zero, a
-    container never exceeds its points and a group never exceeds the sum of its containers, so the physical-capacity
-    checks of _verify_proto_caps still hold. Re-applying to its own output is not meant to be idempotent: the install
-    runs it once per receipted install. placed maps group name -> placed buildings for the weighted report.
+    A group takes the largest factor of capacity over its usages (usages outside the map count 1.0; a map entry of
+    1.0 or less changes nothing). In such a group every container that lists any category other than firearms and
+    explosives gets min(points, ceil(lootmax x factor)): mixed containers scale, weapons-only/explosives-only
+    containers, category-less containers and containers the floor policy zeroed keep their limit. The group limit
+    becomes min(container capacity, max(old, min(ceil(old x factor), GROUP_CAPACITY_CAP))), so a group already above
+    the cap keeps its value, a container never exceeds its points and a group never exceeds the sum of its
+    containers: the checks of _verify_proto_caps still hold. Only CE-owned limits move; points, tags, categories and
+    every other byte stay. Re-applying to its own output is not meant to be idempotent: the install runs it once per
+    receipted install, from the mission's own stock bytes. placed maps group name -> placed buildings for the
+    weighted report.
     """
-    report = {'factor': factor, 'groups': 0, 'containers': 0, 'prototype_lootmax_before': 0,
+    capacity = {usage: factor for usage, factor in capacity.items() if factor > 1.0}
+    report = {'map': dict(sorted(capacity.items())), 'groups': 0, 'containers': 0, 'prototype_lootmax_before': 0,
               'prototype_lootmax_after': 0, 'placed_lootmax_before': 0, 'placed_lootmax_after': 0,
-              'placed_groups': 0, 'usages': sorted(usages)}
-    if factor <= 1.0:
+              'placed_groups': 0, 'usages': sorted(capacity), 'by_usage': {}}
+    if not capacity:
         return data, report
     root = economy.xml(data, 'prototype')
     defaults = _proto_defaults(root)
@@ -778,25 +905,27 @@ def scale_military_proto(data, factor, usages, placed=None):
         if opening.group(0).endswith('/>'):
             continue
         limit = int(group.get('lootmax', str(defaults.get('group', 0))))
-        if limit <= 0 or not {u.get('name') for u in group.findall('usage')} & set(usages):
+        hit = sorted(u for u in {u.get('name') for u in group.findall('usage')} if u in capacity)
+        if limit <= 0 or not hit:
             continue
+        factor = max(capacity[u] for u in hit)
         close = masked.find('</group>', opening.end())
         containers = iter(group.findall('container'))
-        capacity = 0
+        total = 0
         for cm in re.finditer(r'<container\b[^>]*>', masked[opening.end():close]):
             container = next(containers)
             points = len(container.findall('point'))
             current = int(container.get('lootmax', str(defaults.get('container', 0))))
             cats = {c.get('name').lower() for c in container.findall('category')}
             new = current
-            if current > 0 and cats and not cats & KEPT_CATEGORIES and not cm.group(0).endswith('/>'):
-                new = max(current, min(points, scaled(current, factor)))
+            if current > 0 and cats - KEPT_CATEGORIES and not cm.group(0).endswith('/>'):
+                new = max(current, min(points, ceil_scaled(current, factor)))
             if new != current:
                 start = opening.end() + cm.start()
                 edits.append((start, start + len(cm.group(0)), _with_lootmax(cm.group(0), new)))
                 report['containers'] += 1
-            capacity += min(new, points)
-        new_limit = max(limit, min(scaled(limit, factor), capacity))
+            total += min(new, points)
+        new_limit = min(total, max(limit, min(ceil_scaled(limit, factor), GROUP_CAPACITY_CAP)))
         if new_limit != limit or group.get('lootmax') is None:
             edits.append((opening.start(), opening.end(), _with_lootmax(opening.group(0), new_limit)))
         count = (placed or {}).get(group.get('name'), 0)
@@ -806,8 +935,21 @@ def scale_military_proto(data, factor, usages, placed=None):
         report['placed_groups'] += count
         report['placed_lootmax_before'] += limit * count
         report['placed_lootmax_after'] += new_limit * count
+        for usage in hit:
+            row = report['by_usage'].setdefault(usage, {'groups': 0, 'placed_lootmax_before': 0,
+                                                        'placed_lootmax_after': 0})
+            row['groups'] += 1
+            row['placed_lootmax_before'] += limit * count
+            row['placed_lootmax_after'] += new_limit * count
     output = _encode(_apply(text, edits), data)
     _verify_proto_caps(economy.xml(output, 'prototype'))
+    return output, report
+
+
+def scale_military_proto(data, factor, usages, placed=None):
+    """One factor on a usage set: scale_capacity_proto with {usage: factor} (kept for the single-factor callers)."""
+    output, report = scale_capacity_proto(data, {usage: factor for usage in usages}, placed)
+    report['factor'] = factor
     return output, report
 
 
@@ -869,15 +1011,31 @@ def _new_buildings(proto, positions, buildings):
     return new_buildings.apply(proto, positions, raw)
 
 
+def _effective_capacity(capacity, military_multiplier):
+    """The capacity map a plan uses: explicit capacity, else the legacy single factor, else the settings file."""
+    if capacity is not None and military_multiplier is not None:
+        raise ValueError('capacity and military_multiplier are mutually exclusive')
+    if capacity is not None:
+        return _capacity_map(capacity)
+    if military_multiplier is not None:
+        return legacy_capacity_map(military_multiplier)
+    return default_capacity_map()
+
+
 def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False, buildings=SHIPPED,
-         military_multiplier=None):
-    """All edits computed in memory from the mission's current bytes; nothing written."""
+         military_multiplier=None, capacity=None, categories=None):
+    """All edits computed in memory from the mission's current bytes; nothing written.
+
+    capacity ({usage: factor}) and categories ({category: target multiple of stock}) default to the settings file;
+    military_multiplier is the legacy single factor for Military, Police and Prison. _limit_shelves is internal: the
+    frozenset of usages whose shelf slots were over-subscribed in the first pass."""
     from tools.package import loot_floor_policy
     mission = _target(mission)
     multiplier = default_multiplier() if multiplier is None else _multiplier(multiplier)
-    military_multiplier = (default_military_multiplier() if military_multiplier is None
-                           else _military_multiplier(military_multiplier))
-    military = (military_usages(), military_multiplier)
+    capacity = _effective_capacity(capacity, military_multiplier)
+    categories = default_category_map() if categories is None else _category_map(categories, multiplier)
+    military = (military_usages(), capacity.get('Military', 1.0))
+    held = frozenset(_limit_shelves) if _limit_shelves else None
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names()
     policy, policy_sha = _floor_policy(floor_policy)
@@ -887,7 +1045,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         after, count = before, 0
         if not name.startswith(OPTIONAL_FOLDER + '/'):
             after, count = scale_types(before, multiplier, roster, policy if _limit_shelves else None, military,
-                                       counts.setdefault('military_types', {}))
+                                       counts.setdefault('type_stats', {}), held, categories)
         counts['types'][name] = count
         if policy is not None:
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
@@ -926,7 +1084,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         placed = {}
         for group in economy.xml(pos_after, 'map').findall('group'):
             placed[group.get('name')] = placed.get(group.get('name'), 0) + 1
-    proto_after, counts['military_capacity'] = scale_military_proto(proto_after, military_multiplier, military[0], placed)
+    proto_after, counts['capacity'] = scale_capacity_proto(proto_after, capacity, placed)
     spread_outputs = []
     counts['spread_types'] = {}
     for name, before, after in outputs:
@@ -957,19 +1115,20 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         if shared['nominal'] > available:
             pressure.append(shared_key)
         if pressure and not _limit_shelves and multiplier > 1:
-            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=True, buildings=buildings,
-                           military_multiplier=military_multiplier)
+            pressured = frozenset(k.split('/')[0] for k in pressure)
+            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=pressured, buildings=buildings,
+                           capacity=capacity, categories=categories)
             limited['counts']['placement_budget']['before_shelf_limit'] = budget
             limited['counts']['placement_budget']['trigger_usages'] = pressure
             return limited
-        budget['shelf_boost_limited'] = _limit_shelves
+        budget['shelf_boost_limited'] = sorted(held) if held else []
         budget['remaining_pressure'] = pressure
         counts['placement_budget'] = budget
     else:
         counts['placement_budget'] = {'runtime_acceptance': 'pending',
                                     'unavailable': 'usage/tag budgeting needs mapgrouppos and floor policy'}
     files = [(n, b, a) for n, b, a in outputs if a != b]
-    return {'multiplier': multiplier, 'military_multiplier': military_multiplier,
+    return {'multiplier': multiplier, 'capacity_multiplier': capacity, 'category_multiplier': categories,
             'points_sha256': _sha(points) if points is not None else None,
             'floor_policy_sha256': policy_sha, 'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
 
@@ -997,7 +1156,8 @@ def install(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     for index, (name, before, after) in enumerate(result['files']):
         rows.append({'name': name, 'before': _sha(before), 'after': _sha(after), 'backup': '%02d.backup' % index})
     receipt = {'schema': 1, 'kind': 'hollow-country-loot-boost', 'multiplier': result['multiplier'],
-               'military_multiplier': result['military_multiplier'],
+               'capacity_multiplier': result['capacity_multiplier'],
+               'category_multiplier': result['category_multiplier'],
                'points_sha256': result['points_sha256'],
                'floor_policy_sha256': result['floor_policy_sha256'], 'files': rows, 'counts': result['counts'],
                'sources': {PROTO: result['proto_before']}, 'runtime_acceptance': PENDING}
@@ -1109,6 +1269,10 @@ def _receipt(managed):
     if (not isinstance(receipt, dict) or receipt.get('schema') != 1 or receipt.get('kind') != 'hollow-country-loot-boost'
             or receipt.get('runtime_acceptance') != PENDING or not isinstance(receipt.get('files'), list)):
         return None
+    # Older receipts record military_multiplier instead of the capacity map and category targets; rollback needs
+    # only the file rows, so both shapes are read and the newer keys are checked only when present.
+    if any(k in receipt and not isinstance(receipt[k], dict) for k in ('capacity_multiplier', 'category_multiplier')):
+        return None
     for row in receipt['files']:
         if (not isinstance(row, dict) or set(row) != {'name', 'before', 'after', 'backup'}
                 or not all(isinstance(row[k], str) for k in row)
@@ -1193,6 +1357,10 @@ def rollback_inputs(mission):
     return [row['name'] for row in receipt['files']] if receipt else []
 
 
+def _show_map(values):
+    return '{' + ', '.join('%s: %s' % (k, values[k]) for k in sorted(values)) + '}'
+
+
 def describe(result):
     counts = result['counts']
     lines = ['loot boost multiplier=%s (firearms/ammo/explosives/vehicle-part supply quantities unchanged)' % result['multiplier']]
@@ -1207,21 +1375,26 @@ def describe(result):
                     len(proto['stale'])))
     for family, row in sorted(proto['families'].items()):
         lines.append('    family %s groups=%d points=%d' % (family, row['groups'], row['points']))
-    mil = counts.get('military_capacity')
-    if mil:
-        lines.append('  military capacity x%s (usages %s): groups=%d containers=%d lootmax %d->%d per prototype, '
+    cap = counts.get('capacity')
+    if cap and cap['map']:
+        lines.append('  capacity map %s: groups=%d containers=%d lootmax %d->%d per prototype, '
                      '%d->%d over %d placed buildings; nominal/min x%s on %d Military-only non-firearm rows'
-                     % (mil['factor'], '/'.join(mil['usages']), mil['groups'], mil['containers'],
-                        mil['prototype_lootmax_before'], mil['prototype_lootmax_after'], mil['placed_lootmax_before'],
-                        mil['placed_lootmax_after'], mil['placed_groups'], result.get('military_multiplier'),
-                        counts.get('military_types', {}).get('military_rows', 0)))
+                     % (_show_map(cap['map']), cap['groups'], cap['containers'], cap['prototype_lootmax_before'],
+                        cap['prototype_lootmax_after'], cap['placed_lootmax_before'], cap['placed_lootmax_after'],
+                        cap['placed_groups'], cap['map'].get('Military', 1.0),
+                        counts.get('type_stats', {}).get('military_rows', 0)))
+    targets = result.get('category_multiplier')
+    if targets:
+        stats = counts.get('type_stats', {})
+        lines.append('  category targets %s: rows=%d nominal +%d'
+                     % (_show_map(targets), stats.get('target_rows', 0), stats.get('target_nominal', 0)))
     from tools.package import loot_floor_policy
     lines.append('  ' + loot_floor_policy.describe(counts.get('floor_policy', {'enabled': False})))
     budget = counts.get('placement_budget', {})
     if 'nominal' in budget:
         before = budget.get('before_shelf_limit', budget)
-        lines.append('  CE nominal=%d->%d shelf_boost_limited=%s usage_tag_pressure=%d (offline estimate)'
-                     % (before['nominal'], budget['nominal'], budget['shelf_boost_limited'],
+        lines.append('  CE nominal=%d->%d shelf_boost_limited=[%s] usage_tag_pressure=%d (offline estimate)'
+                     % (before['nominal'], budget['nominal'], ', '.join(budget['shelf_boost_limited']),
                         len(budget['remaining_pressure'])))
     lines.append('  runtime acceptance pending: ' + ADVISORY)
     return lines
@@ -1428,8 +1601,9 @@ def main(argv=None):
             data = shipped_points()
             overlay = parse_overlay(data) if data is not None else None
             parse_policy((REPO_ROOT / FAMILIES).read_bytes())
-            print('loot boost multiplier=%s overlay_groups=%s runtime_acceptance=pending'
-                  % (multiplier, len(overlay['groups']) if overlay else 'absent'))
+            print('loot boost multiplier=%s capacity=%s categories=%s overlay_groups=%s runtime_acceptance=pending'
+                  % (multiplier, _show_map(default_capacity_map()), _show_map(default_category_map()),
+                     len(overlay['groups']) if overlay else 'absent'))
             return 0
         if args.command == 'rollback':
             print('loot boost rolled back restored=%d' % rollback(args.mission)['restored'])
@@ -1441,7 +1615,8 @@ def main(argv=None):
                 print(line)
             return 0
         receipt = install(args.mission, args.multiplier, points)
-        for line in describe({'multiplier': receipt['multiplier'], 'counts': receipt['counts']}):
+        for line in describe({'multiplier': receipt['multiplier'], 'counts': receipt['counts'],
+                              'category_multiplier': receipt.get('category_multiplier')}):
             print(line)
         print('loot boost installed files=%d receipt=%s/receipt.json' % (len(receipt['files']), MANAGED))
         return 0
