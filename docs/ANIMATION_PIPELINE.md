@@ -88,6 +88,19 @@ for inspection. They are an alternate pair, not randomly selected or bound to co
 state remains supine. Selecting another idle while a scripted command is running is not supported.
 The body never consumes or creates food/loot through these visual clips.
 
+Seated/feeding art pass (2026-11-22): both idles now close exactly over four seconds
+(the feeding loop supersedes the original 1.2-second entry above). The wall sitter
+has ground-level hips, an extended left leg, a raised right knee, a back lean, a
+lolled head and slack hands; layered breathing/head motion and small wrist twitches
+break up the stillness. Its 1.6-second rise snaps alert, braces both palms, draws the
+feet in on lifted paths, pushes through a forward crouch and settles unevenly. The
+feeder folds over the body with planted knees and hands, layered bite/shoulder pulls
+and a trailing head; its 2.0-second rise looks up, plants one foot through a half-kneel
+and transfers into the standing footprint. World-space limb solves preserve support
+targets between eased phases. These are offline FK observations only: the skinned
+in-game look and contacts remain **PENDING** the lead's one-client check.
+
+
 ## Graph and package
 
 Only the public posed classes use our graph: the admin/herd `HC_ZmbM_Sitter` and the generated per-outfit
