@@ -217,6 +217,13 @@ class HCXAISitePatrol : HCXExpansionPatrol
         m_HCPendingMembers = 0;
         m_HCLive = false;
         if (!m_HCTransient && !this.HCHasGroup()) { HCAIBudget.Release("site:" + m_HCSiteId); }
+        // No hold means the group was never read: not intact, not raided. Leave the respawn timer
+        // alone and do not report the despawn as a raid outcome.
+        if (holdLost)
+        {
+            if (wasLive) { Print("[HC Expansion AI] site " + m_HCSiteId + " despawn without a group hold; respawn timer and outcome left unchanged"); }
+            return;
+        }
         if (intact || raided) { m_TimeSinceLastSpawn = m_RespawnTime; }
         if (wasLive && director) { director.Despawned(this, intact); }
     }
@@ -328,7 +335,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
         {
             HCXAISiteState state = m_States[index];
             if (state.Transient || state.LocalityId == "" || this.HCWithinActivation(state.Site)) { continue; }
-            if (state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()) > 0))) { continue; }
+            if (state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (HCXExpansionBridge.HCHoldCountFinal(state.Patrol.HCGroupHold()) > 0))) { continue; }
             if (encounters && encounters.SiteBound(state.Site.Id)) { continue; }
             float gap = this.HCPlayerGap(state.Site);
             if (gap <= farthest) { continue; }
@@ -481,8 +488,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
             if (state.LocalityId == "") { m_LocalityCursor++; continue; }
             this.HCRecordRouteState(state);
             bool expired = m_Policy.Sites.Count() > HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) && now >= state.OpportunityAt + HCXAISiteRules.HCOpportunitySeconds(m_Localities);
-            bool live = state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()) > 0));
-            if (state.Patrol && HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()) > 0)
+            bool live = state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (HCXExpansionBridge.HCHoldCountFinal(state.Patrol.HCGroupHold()) > 0));
+            if (state.Patrol && HCXExpansionBridge.HCHoldCountFinal(state.Patrol.HCGroupHold()) > 0)
             {
                 HCXAILocalityCoverage observed = HCXAISiteRules.HCCoverage(m_LocalitySave.Data, state.LocalityId);
                 if (observed.Pending)
@@ -555,7 +562,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
             if (exceptPatrol && reservation.Patrol == exceptPatrol) { continue; }
             if (!(reservation.Transient && !reservation.Materialized))
             {
-                if (!reservation.Patrol || !HCXExpansionBridge.HCHoldAlive(reservation.Patrol.HCGroupHold()) || (HCXExpansionBridge.HCHoldCount(reservation.Patrol.HCGroupHold()) == 0 && reservation.Patrol.m_HCPendingMembers <= 0))
+                if (!reservation.Patrol || !HCXExpansionBridge.HCHoldAliveFinal(reservation.Patrol.HCGroupHold()) || (HCXExpansionBridge.HCHoldCountFinal(reservation.Patrol.HCGroupHold()) == 0 && reservation.Patrol.m_HCPendingMembers <= 0))
                 {
                     if (!reservation.Transient) { HCAIBudget.Release("site:" + reservation.Site.Id); }
                     continue;
@@ -696,8 +703,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
         int activeAI = 0;
         foreach (HCXAISiteState state : m_States)
         {
-            if (state.Completed || !state.Patrol || state.Patrol == patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { continue; }
-            if (HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()) == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
+            if (state.Completed || !state.Patrol || state.Patrol == patrol || !HCXExpansionBridge.HCHoldAliveFinal(state.Patrol.HCGroupHold())) { continue; }
+            if (HCXExpansionBridge.HCHoldCountFinal(state.Patrol.HCGroupHold()) == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
             activeSites++;
             activeAI = activeAI + state.Patrol.m_NumberOfAI;
         }

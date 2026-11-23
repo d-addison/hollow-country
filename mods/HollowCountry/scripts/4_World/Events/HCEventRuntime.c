@@ -149,7 +149,7 @@ class HCEventRuntime
             // Bounded wait: open the gate; the run loop keeps retrying the unconfirmed release.
             m_StartupCleanup = false;
             if (m_StartupCleanupExpired < 1000000000) { m_StartupCleanupExpired++; }
-            Print("[HC Events] startup cleanup wait expired pending=" + pendingRows.ToString());
+            Print("[HC Events] startup cleanup wait expired pending=" + pendingRows.ToString() + " gate_opened_with_pending=" + pendingRows.ToString());
             return false;
         }
         return true;
