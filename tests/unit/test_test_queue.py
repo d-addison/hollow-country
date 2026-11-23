@@ -240,5 +240,15 @@ class QueueTests(unittest.TestCase):
         self.assertIn('<full commit sha>', queue.submit_line(sha='short'))
 
 
+class CalibrationTests(unittest.TestCase):
+    def test_wb_is_calibrated_only_when_every_corpus_row_agrees(self):
+        size = queue.corpus_size()
+        self.assertGreater(size, 0)
+        for found, expected in (((size, size), True), ((0, size), False), ((size - 1, size), False),
+                                ((size + 1, size + 1), False), (None, False)):
+            with patch.object(queue, 'calibration', lambda found=found: found):
+                self.assertEqual(expected, queue.wb_calibrated(), found)
+
+
 if __name__ == '__main__':
     unittest.main()

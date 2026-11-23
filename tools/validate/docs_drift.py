@@ -14,6 +14,9 @@ Three classes of drift fail automatically, each reported as (code, path, line):
                          one level deep, for the thin entry points that delegate their parser) never declares.
   doc_command_subcommand a documented command passes a first word its module's subcommands do not declare.
   doc_script_path        a document cites `tools/.../x.py|sh` that is not in the checkout.
+  doc_test_reference     a document cites a test module (`tests.unit.test_x`, `tests/slow/test_x.py`, a bare
+                         `test_x` on a `-m unittest` line whose PYTHONPATH lacks its directory), a test class or a test method that is not in
+                         the checkout, or any other `tests/...` file path that does not exist.
   doc_calibration        docs/tools/WORKBENCH_COMPILE.md lacks the `Calibration status: N/M` line that
                          tools/release/test_queue.py parses, or M differs from the number of rows in the
                          wb_calibrate CORPUS.
@@ -46,6 +49,12 @@ SCRIPT_PATH = re.compile(r"(?<![\w/.-])(tools/(?:[\w-]+/)*[\w-]+\.(?:py|sh))\b")
 SUBCOMMAND = re.compile(r"[a-z][a-z0-9_-]*\Z")
 FENCE = re.compile(r"^\s*(```|~~~)")
 FLAG_FREE = frozenset({"--help"})
+
+TEST_DOTTED = re.compile(r"(?<![\w./-])(tests(?:\.[A-Za-z_]\w*)+)")
+TEST_PATH = re.compile(r"(?<![\w./-])(tests/(?:[\w-]+/)*[\w-]+\.(?:py|json|md))(?:::(\w+)(?:::(\w+))?)?")
+UNITTEST_LINE = re.compile(r"-m unittest\b(?!\s+discover)")
+BARE_TEST = re.compile(r"(?<![\w./:-])(test_\w+)((?:\.\w+){0,2})")
+PYTHONPATH = re.compile(r"PYTHONPATH=(\S+)")
 
 
 def _module_file(root, module):
@@ -147,6 +156,62 @@ def command_drift(root, documents):
     return sorted(set(findings))
 
 
+def _test_members(path):
+    """{class name: {method names}} of a test module, read from source."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeError):
+        return {}
+    return {node.name: {item.name for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            for node in tree.body if isinstance(node, ast.ClassDef)}
+
+
+def _member_missing(members, names):
+    """True when a documented Class[.method] tail names a class or method the module does not define."""
+    if not names:
+        return False
+    if names[0] not in members:
+        return True
+    return len(names) > 1 and names[1] not in members[names[0]]
+
+
+def _dotted_missing(root, dotted):
+    parts = dotted.split(".")
+    for end in range(len(parts), 0, -1):
+        base = Path(root).joinpath(*parts[:end])
+        if base.with_suffix(".py").is_file():
+            return _member_missing(_test_members(base.with_suffix(".py")), parts[end:])
+        if base.is_dir() and end == len(parts):
+            return False
+    return True
+
+
+def tests_drift(root, documents):
+    """(code, path, line) for every documented test module, class, method or tests/ file that is gone."""
+    findings = []
+    for relative, text in sorted(documents.items()):
+        if relative.startswith("tests/fixtures/"):
+            continue  # synthetic inputs for the document linters, not claims about this tree
+        for number, line in enumerate(text.splitlines(), 1):
+            if any(_dotted_missing(root, m[1]) for m in TEST_DOTTED.finditer(line)):
+                findings.append(("doc_test_reference", relative, number))
+            for match in TEST_PATH.finditer(line):
+                path = Path(root) / match[1]
+                names = [name for name in match.groups()[1:] if name]
+                if not path.is_file() or (path.suffix == ".py" and _member_missing(_test_members(path), names)):
+                    findings.append(("doc_test_reference", relative, number))
+            if UNITTEST_LINE.search(line):
+                # A bare module name runs only from a directory the same line puts on PYTHONPATH.
+                search = [part for found in PYTHONPATH.findall(line) for part in found.split(":") if part not in ("", ".")]
+                for match in BARE_TEST.finditer(line):
+                    paths = [Path(root) / folder / (match[1] + ".py") for folder in search]
+                    found = [path for path in paths if path.is_file()]
+                    tail = [name for name in match[2].split(".") if name]
+                    if not found or _member_missing(_test_members(found[0]), tail):
+                        findings.append(("doc_test_reference", relative, number))
+    return sorted(set(findings))
+
+
 def known_rules(root=ROOT):
     """(lint ids, perf ids, other ids) from the live rule tables of the checked-out tools."""
     from tools.validate import enforce_lint, enforce_perf
@@ -207,6 +272,7 @@ def check(root, documents):
     """Every drift finding for the checked root as (code, path, line)."""
     root = Path(root).absolute()
     findings = list(command_drift(root, documents))
+    findings += tests_drift(root, documents)
     findings += calibration_drift(documents, corpus_total(root))
     if root == ROOT.absolute():
         lint, perf, other = known_rules(root)

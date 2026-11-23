@@ -4,7 +4,8 @@ Standard library only. The cards are derived, never hand-edited:
   * every HC-E / HC-L / HC-O / HC-S / HC-P rule message in enforce_lint.RULES and enforce_perf.RULES,
   * every comment under mods/**/*.c that cites a build ("build NNN") or an issue ("#NNN") and says what
     failed natively (crash, compile error, engine behaviour),
-  * the compile pitfalls of 2026-11-22 that the lint does not catch yet.
+  * the compile pitfalls the lint cannot see (HC-E042..HC-E048 cover the 2026-11-22 keyword, Wait,
+    bitwise, field-read and signature failures).
 Each rule and each comment lands in exactly one of four cards: enforce-pitfalls, persistence, dep-bridge,
 perf-tick. Output carries no line numbers or dates, so unrelated edits do not churn it.
 
@@ -60,23 +61,12 @@ RULE_CARD = {
     'HC-E022': 'dep-bridge', 'HC-E027': 'dep-bridge',
 }
 
-# 2026-11-22 native compile failures the lint does not catch yet.
+# Native compile failures no script-only lint can detect.
 COMPILE_PITFALLS = (
-    ('Enforce keyword as an identifier',
-     'A variable, member or parameter named `owned`, `out`, `inout`, `local`, `auto`, `ref`, `autoptr`, '
-     '`proto`, `native`, `volatile`, `notnull`, `private`, `protected`, `static`, `const`, `typename`, '
-     '`thread` or `event` fails the native compile ("Expected name"). Rename it.'),
-    ('Method named `Wait`',
-     'A method named `Wait` clashes with the engine. Name it for what it waits on.'),
-    ('Bitwise operator in a float expression',
-     '`&`, `|`, `^`, `<<` and `>>` inside a float expression fail the native compile. Keep bitwise work in '
-     'int-only statements and convert afterwards.'),
-    ('Reading a field the class no longer has',
-     'Removing or renaming a field leaves readers in other files compiling only until the native pass. '
-     'Search every file of the modded-class chain for the old name before reporting done.'),
-    ('Modded override with a different signature',
-     'A modded override must match the native signature exactly (name, parameter types, return type). Open the '
-     'installed native script and copy the declaration.'),
+    ('Parents the lint cannot read',
+     'HC-E042 and HC-E046 skip a class whose ancestors include packed Workshop scripts, because those '
+     'declarations are not visible here. A wrong override signature or a read of a removed field through such '
+     'a class fails only the native compile. Compare with the installed script by hand and run the compile gate.'),
 )
 
 _COMMENT_LINE = re.compile(r'^\s*//+\s?(.*)$')
@@ -194,7 +184,7 @@ def render_card(name, rules, comments):
         lines += [f'| {rule_id} | {cell(message)} |' for rule_id, message in mine]
         lines.append('')
     if name == 'enforce-pitfalls':
-        lines += ['## Native compile pitfalls the lint does not catch yet', '']
+        lines += ['## Native compile pitfalls the lint cannot see', '']
         lines += [f'- **{title}.** {body}' for title, body in COMPILE_PITFALLS]
         lines.append('')
     cited = [(path, text) for path, text in comments if comment_card(path, text) == name]

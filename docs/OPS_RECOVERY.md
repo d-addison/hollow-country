@@ -136,98 +136,28 @@ store Fault and internal service Stop close only the group gate. No HCModule,
 registry or config.cpp edits are needed from the lead. `.gitignore` explicitly
 includes this runbook. No new distances or calibrated performance claims.
 
-## TDD receipts and trace
+## Specification trace
 
 Trace: HC-28/#143/#144 -> `.banso-writer/inputs/task.md` (original package) ->
-`.banso-writer/inputs/task-r2.md` (binding review corrections) -> store/lifecycle
-sources -> `tests/unit/test_hc_recovery.py` and `test_v2_world.py`.
+`.banso-writer/inputs/task-r2.md` (binding review corrections) -> store/lifecycle sources.
 `docs/SPECIFICATION.md` and `docs/specs/001-survival-overhaul/spec.md` are absent
 from this confined worktree. The available brief and runtime implementation
 contract supplied the design input; no missing engine experiment is accepted.
 
-Actual Round 2 behavioral RED, before implementation:
-
-```text
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_recovery -v
-AssertionError: False is not true : normal boot must not require restore receipts
-AssertionError: False is not true : one damaged store cannot refuse all admission
-AssertionError: False is not true : unclosed intent is a warning, not damage
-AssertionError: False is not true : first boot must not require restore receipts
-AssertionError: False is not true                           [group revision 0]
-AssertionError: ... : restore attestation must be consumed  [group revision 9]
-Ran 5 tests; FAILED (failures=6)
-```
-
-Additional actual RED before pair validation:
-
-```text
-AssertionError: True is not false : damaged pair or revision regression must refuse world
-AssertionError: True is not false : corrupt clock pair or watermark regression must refuse
-```
-
-Both corrupt-backup and older-primary subcases failed for each store. Synthetic
-ports explicitly provide files, DTO decoding, checksum, UTC and scheduler/native
-IO boundaries; authored recovery, store and lifecycle decisions execute.
-
-A further RED check found that a legitimate persisted admin-day epoch change
-was mistaken for damage: `AssertionError: False is not true : persisted admin
-epoch change must remain valid`. Backup comparison now permits that adjustment
-while rejecting a regressing saved UTC watermark.
-
-Final GREEN (all use explicit synthetic fixtures; no native acceptance):
-
-```text
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_recovery test_v2_world -v
-Ran 13 tests; OK
-
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_recovery test_v2_world test_script_syntax test_enforce_locals test_script_identifiers test_hygiene -v
-Ran 66 tests; OK
-
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_admin_test_kit test_event_integration test_group_native_checks test_group_persistence test_group_round2 test_group_server test_hc_ai_signals test_hc_recovery test_hc_unit_budget test_hygiene test_v1_combined_flags test_v2_escalation test_v2_holdouts test_v2_materializer test_v2_pins test_v2_world -v
-Ran 389 tests; OK (expected failures=1)
-
-python3 -B -m tools.validate.enforce_lint --no-native
-enforce_lint: pass findings=133 new=0 stale=0 native=no
-```
-
-The affected module list comes from `rg -l -F` over the changed store/class
-names, test filenames, runbook name and `.gitignore` in `tests/unit`. The sole
-expected failure is the existing combined-module work-budget check; it is not
-reclassified as accepted. No full test discovery was run.
+A legitimate persisted admin-day epoch change must not be mistaken for damage: backup
+comparison permits that adjustment while rejecting a regressing saved UTC watermark.
+Offline checks use explicit synthetic ports for files, DTO decoding, checksum, UTC and
+scheduler/native IO boundaries; they establish no native acceptance.
 
 ### Issue #170: interrupted lone-receipt cleanup
 
 Scoped specification: a byte-identical consumed copy authorizes removal of only
 the lone active receipt; an unmatched lone receipt refuses only the restore.
-Inconsistent pairs retain existing fail-closed startup behavior. Plan/tasks:
-add authored-handler synthetic regressions first; isolate the lone path before
-pair decoding; bound and verify archive lookup; update operator instructions;
-run focused behavioral and native-syntax guards. Native acceptance remains
-pending.
-
-Actual RED before changing `HCPersistenceDisposition.c`:
-
-```text
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_recovery -v
-AssertionError: False is not true : lone receipt must not refuse healthy stores
-Ran 15 tests; FAILED (failures=16)
-```
-
-GREEN with the same command: `Ran 15 tests; OK`. The new cases cover either lone
-receipt, exact raw-byte identity, wrong bytes/names, another receipt's archive,
-bounded enumeration/handle cleanup, failed removal, healthy store writes and
-unchanged refusal of inconsistent pairs. Filesystem enumeration is an explicit
-synthetic port; it does not establish native wildcard behavior or durability.
-
-Related-file modules and required guards also passed:
-
-```text
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_recovery test_v2_world test_hc_recovery_integrity test_v1_combined_flags test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
-Ran 119 tests; OK (expected failures=1)
-```
-
-The expected failure remains the existing combined-module work-budget check.
-No full discovery or native server run was performed for #170.
+Inconsistent pairs retain existing fail-closed startup behavior. The lone path is
+isolated before pair decoding, archive lookup is bounded and verified, and operator
+instructions are updated. Filesystem enumeration is an explicit synthetic port in
+offline checks; it does not establish native wildcard behavior or durability. Native
+acceptance remains pending.
 
 ## Native checks still to run
 

@@ -133,30 +133,9 @@ were subsequently inspected under `/code/dayzsa_mods/docs/`. Active owner decisi
 and this worker's file boundaries take precedence. No git metadata or external
 service was written, and no native/Expansion/COT source was copied.
 
-Offline TDD (explicit synthetic fixtures only):
-
-- RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove -v`
-  -> `AssertionError: Missing authored method HCCampModule.HCAdminTier in HCAdminDirectors.c`;
-  `ModuleNotFoundError: No module named 'tools.package.overlay_remove'`;
-  `Ran 12 tests`, `FAILED (failures=5, errors=7)`.
-- Shared-budget RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls.CampSelection -v`
-  -> `AssertionError: namespace(Position=2) is not None`; `Ran 1 test`, `FAILED (failures=1)`.
-- GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove -v`
-  -> `Ran 14 tests`, `OK`.
-- Required/referencing suite result: `Ran 187 tests in 332.064s`, `OK`.
-  Exact command (no full discovery):
-
-  ```sh
-  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_admin_test_kit tests.unit.test_admin_ui tests.unit.test_hc_operational_snapshot tests.unit.test_hc_threat_posture_wiring tests.unit.test_infected_memory_clock tests.unit.test_map_layers tests.unit.test_menu_input tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
-  ```
-
-- `python3 -B -m tools.validate.enforce_lint --no-native`
-  -> `enforce_lint: pass findings=1 new=0 stale=0 native=no`.
-- `python3 -B -m tools.validate.settings_consistency` -> `status: pass`, no errors.
-- Existing tests were retained; no old refusal expectation was deleted. Physical
-  dormant spawning is still refused for a real missing port, now explicitly named.
-  Round 2 applies the catalog-set changes and retains the physical refusal
-  expectations. Offline results establish no DayZ behavior.
+Existing refusal expectations were retained: physical dormant spawning is still refused for a real
+missing port, now explicitly named. Round 2 applies the catalog-set changes and retains the physical
+refusal expectations. Offline results establish no DayZ behavior.
 
 ### Round 2 integration record (2026-11-19)
 
@@ -168,55 +147,7 @@ No new engine calls or settings were added. OPS-05 and OPS-09 are complete offli
 OPS-06 through OPS-08 remain open. Bundled `README.txt` contains removal commands,
 stopped-server/backup instructions and the source-rebuild inventory limitation.
 
-Actual RED commands/results before the corresponding implementations:
-
-```sh
-python3 -B -m unittest tests.unit.test_ops_admin_controls.CatalogRPCIngress tests.unit.test_admin_ui.CatalogContracts tests.unit.test_admin_test_kit.KnownCommands tests.unit.test_admin_test_kit.KitListing tests.slow.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
-```
-
-`Ran 15 tests`, `FAILED (failures=8)`, including
-`AssertionError: namespace(Command='camptier', Ticket=1, Value=3) is not None : camptier`.
-All three IDs failed to queue; catalog/kit sets, tier bounds and bundled helper
-presence also failed. Existing set tests were expanded to include the actual
-operator handler and three newly exposed IDs; old refusal behavior was retained.
-
-```sh
-python3 -B -m unittest tests.slow.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
-```
-
-After shipping the file but before removing the eager import: `Ran 1 test`,
-`FAILED (failures=1)`,
-`ImportError: cannot import name 'inventory_sizes' from 'tools.package' (unknown location)`.
-The subprocess runs with `-I`, outside the checkout, using only bundle modules;
-it also verifies the exact inventory refusal without importing that generator.
-
-```sh
-python3 -B -m unittest tests.slow.test_ops_overlay_remove.PortableHandoff -v
-```
-
-Before the PBO helper allowlist updates: `Ran 1 test`, `FAILED (failures=1)`,
-`AssertionError: 'tools/package/overlay_remove.py' not found` in the handoff.
-The test now checks both the exporter and `verify_handoff` allowlist.
-
-GREEN:
-
-```sh
-python3 -B -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove tests.unit.test_admin_ui tests.unit.test_admin_test_kit tests.slow.test_friend_bundle -v
-```
-
-`Ran 123 tests in 41.629s`, `OK`.
-
-`python3 -B -m tools.validate.enforce_lint --no-native`:
-`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
-
-Additional GREEN (package/deploy, installer, required static and referencing suites):
-
-```sh
-python3 -B -m unittest tests.unit.test_package tests.slow.test_deploy tests.unit.test_package_manifest tests.slow.test_friend_install tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.slow.test_fuel_probe_runner tests.unit.test_hc_furnishing tests.unit.test_hc_horde_routes tests.unit.test_hc_locality_rotation tests.unit.test_hc_operational_snapshot tests.unit.test_hc_recovery_integrity tests.unit.test_hc_threat_posture_wiring tests.slow.test_hc_wildlife_wiring tests.unit.test_infected_memory_clock tests.unit.test_local_test_session tests.unit.test_loot_boost tests.unit.test_map_layers tests.unit.test_menu_input tests.slow.test_native_startup_runner tests.slow.test_v2_optional_overlays tests.unit.test_workshop_meta -v
-```
-
-`Ran 655 tests in 711.072s`, `OK (skipped=1)`. The existing skip remains pending;
-no native acceptance follows from these checks. `git diff --check` passed.
+Offline results establish no DayZ behavior; no native acceptance follows from them.
 
 ## Which tool for what
 
@@ -489,7 +420,7 @@ server documentation; it is not used to build or enable UI cards.
 Run the focused checks and standard-library layout linter:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_admin_ui tests.unit.test_layout_lint tests.unit.test_admin_test_kit tests.unit.test_admin_client_feedback -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_layout_lint -v
 python3 -B -m tools.validate.layout_lint
 python3 -B -m tools.validate.enforce_lint --no-native
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
@@ -544,47 +475,10 @@ Tasks / acceptance trace:
 Visual result is **unrendered until someone opens it in DayZ**. Budgets remain
 provisional; runtime acceptance is pending.
 
-Offline TDD evidence (synthetic collaborators and source checks only):
-
-- Initial RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_admin_ui tests.unit.test_layout_lint -v`
-  → `Ran 11 tests`, `FAILED (failures=4, errors=7)`: missing catalog/linter,
-  generic cards, serial checks and bounded console.
-- Focus-order RED: `python3 -B -m unittest tests.unit.test_admin_ui.CardBehavior.test_invalid_value_stays_invalid_when_edit_loses_focus_before_run -v`
-  → `Ran 1 test`, `FAILED (failures=1)`, `[] != [('weather', 1)]` after invalid
-  text lost focus. Invalid text now remains visible and cannot dispatch.
-- Modularity RED: `test_new_catalog_integer_ranges_do_not_need_menu_changes`
-  → `FAILED (failures=1)`, rejected the explicit synthetic future value `99999`.
-  Parsing now supports signed native integer ranges, checks overflow before
-  conversion, and clamps to catalog bounds. The synthetic command is never shipped.
-- Limit-step RED: `test_step_at_native_integer_limits_never_overflows`
-  → `FAILED (failures=1)`, missing `HCAdminCommand.HCStep`. Step bounds are now
-  checked before arithmetic, including native minimum/maximum integers.
-- Same-tab RED: `test_selecting_current_tab_does_not_rebuild_or_reset_values`
-  → `FAILED (errors=1)`, attempted widget access/rebuild for the active tab.
-  An early return now preserves controls and values.
-- CLI RED: `test_command_line_script_runs_from_another_directory`
-  → `FAILED (failures=1)`, `ModuleNotFoundError: No module named 'tools'`.
-  The linter now supports both module and direct script invocation.
-- GREEN: the four-suite command above → `Ran 76 tests`, `OK`.
-- `python3 -B -m tools.validate.enforce_lint --no-native`
-  → `enforce_lint: pass findings=144 new=0 stale=0 native=no`.
-- `python3 -B tools/validate/layout_lint.py`
-  → `layout_lint: layouts=9 findings=4`; **zero admin findings**. The four review
-  findings are `HCMapOverlay`, `HCGrid`, `HCNavigation`, `HCKnownEvents` lookups in
-  `5_Mission/Groups/HCGroupMapLayers.c`. They exist in `hc_group_map.layout`, whose
-  root is passed by `HCGroupMapMenu`; the per-file linter cannot trace that
-  borrowed root. Its exit status is 1 to retain those review findings. No other
-  owner's layout or script was edited.
-- Packer `collect_addon` → in-memory `pack` → `parse` round-trip: 259 entries,
-  all four admin layouts plus the catalog present; no game assets or package file
-  written. `git diff --check` passed.
-- Native-identifier RED from full discovery: `Ran 5884 tests`,
-  `FAILED (failures=1, skipped=1, expected failures=3)`; the local name `map`
-  collided with the installed Enforce `map` type. Renamed to `showMap`.
-  GREEN including `tests.slow.test_script_identifiers`: `Ran 82 tests`, `OK`.
-- Final full GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
-  → `Ran 5884 tests in 271.781s`, `OK (skipped=1, expected failures=3)`.
-  The skip/expected failures remain existing pending work, not runtime acceptance.
+Offline evidence is source checks only. `python3 -B tools/validate/layout_lint.py` reports zero admin
+findings; its review findings are `HCMapOverlay`, `HCGrid`, `HCNavigation` and `HCKnownEvents` lookups in
+`5_Mission/Groups/HCGroupMapLayers.c`. They exist in `hc_group_map.layout`, whose root is passed by
+`HCGroupMapMenu`; the per-file linter cannot trace that borrowed root. No runtime acceptance follows.
 
 ## Admin-only test teleport (w67-admintp)
 
@@ -692,28 +586,7 @@ unmoved. Plan: reuse admin ingress and generic catalog picker, build the snapsho
 incrementally from existing sources, derive status, then use native sender-only
 placement. Source/test/doc tasks are complete; native acceptance tasks are open.
 
-`tests/unit/test_w67_admintp.py` executes authored methods with explicit synthetic
-natives. It covers non-admin refusal, vehicle/unconscious/restraint refusal,
-server destination clamp, safe-Y placement, disable switches, pending/empty
-catalogs, unsafe ground, configuration defaults/ranges/zero-fill, shared-budget
-refusal, incremental construction and the existing authorized dispatch.
-
-RED command:
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_w67_admintp -v`
-against the initial unimplemented handler produced `FAILED (failures=4)`;
-actual lines included
-`AssertionError: Lists differ: [10, 17.2, 20] != [0, 0, 0]` and
-`AssertionError: Tuples differ: (False, -1, 'non-admin') != (False, -1, 'unimplemented')`.
-The same command now passes the implemented behavior (13 tests).
-
-The existing `test_admin_ui` has two old exact-set expectations outside this
-worker's file scope. Integration must extend
-`CatalogContracts.test_sections_and_metadata`'s read-only set with `tplist` and
-`tprefresh`, and `test_value_ranges_match_server_clamps_and_validation`'s value
-map with `'tp': (0, 255), 'tplist': (0, 255)`. These assertions are preserved;
-their failure reflects intentionally expanded catalog metadata. The existing
-catalog/dispatch equality test already passes. No menu value-picker change is
-needed.
+Offline checks establish no DayZ behavior; the native checklist below is open.
 
 ### w67 native checklist (pending)
 

@@ -60,13 +60,9 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-S004 | literal engine/build version comparison without a Print or log in the same method |
 | HC-S006 | registered HCModule subclass has no authored GetName override |
 
-## Native compile pitfalls the lint does not catch yet
+## Native compile pitfalls the lint cannot see
 
-- **Enforce keyword as an identifier.** A variable, member or parameter named `owned`, `out`, `inout`, `local`, `auto`, `ref`, `autoptr`, `proto`, `native`, `volatile`, `notnull`, `private`, `protected`, `static`, `const`, `typename`, `thread` or `event` fails the native compile ("Expected name"). Rename it.
-- **Method named `Wait`.** A method named `Wait` clashes with the engine. Name it for what it waits on.
-- **Bitwise operator in a float expression.** `&`, `|`, `^`, `<<` and `>>` inside a float expression fail the native compile. Keep bitwise work in int-only statements and convert afterwards.
-- **Reading a field the class no longer has.** Removing or renaming a field leaves readers in other files compiling only until the native pass. Search every file of the modded-class chain for the old name before reporting done.
-- **Modded override with a different signature.** A modded override must match the native signature exactly (name, parameter types, return type). Open the installed native script and copy the declaration.
+- **Parents the lint cannot read.** HC-E042 and HC-E046 skip a class whose ancestors include packed Workshop scripts, because those declarations are not visible here. A wrong override signature or a read of a removed field through such a class fails only the native compile. Compare with the installed script by hand and run the compile gate.
 
 ## Native failures cited in the code
 

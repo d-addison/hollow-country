@@ -213,9 +213,9 @@ A deliberate difference is recorded in the registry with a reason.
 | WP-2 | The search spin (A) and every predicted action explain refusals | `mods/HollowCountry/scripts/3_Game/Core/HCRefusal.c` (enum + `HCRefusalReport`), `4_World/Loot/HCSearchHouses.c`, `4_World/Interiors/HCInteriorModule.c`, the six S003 actions; baseline entries removed | S001/S002/S003 entries for those files gone from the baseline; DayZDiag shows `[HC Search] refuse reason=` plus a client message | partly: `HCRefusal`/`HCRefusalReport` and the search path landed; the remaining S003 actions are in #160 |
 | WP-3 | Real Substring risk | `HCEventNativeObserver.c:343` (LastIndexOf may be -1) and the three other E006 entries | E006 baseline empty | done: the one remaining E006 entry was reviewed as bounded (`PinValid` checks the length) |
 | WP-4 | Identity gate (B) | `HCBuildIdentity.c`, new rule HC-S004 in `enforce_lint.py`, its test | a literal build compare without a log is flagged; Matches logs the mismatch once | done: HC-S004 in the lint |
-| WP-5 | Silent feature-off (E) | `3_Game/Core/HCServer.c` skip line, readiness lint rule HC-S005, test | every `HCModule` has one ready/off line; skipped modules are logged | done (#157): every module prints `ready`/`degraded`/`off`/`started`, `HCServer` prints per-module readiness on a settings failure, and `tests/unit/test_hc_module_readiness.py` checks it. The lint id HC-S005 was later used for the JSON zero-fill rule instead |
+| WP-5 | Silent feature-off (E) | `3_Game/Core/HCServer.c` skip line, readiness lint rule HC-S005, test | every `HCModule` has one ready/off line; skipped modules are logged | done (#157): every module prints `ready`/`degraded`/`off`/`started`, `HCServer` prints per-module readiness on a settings failure. The lint id HC-S005 was later used for the JSON zero-fill rule instead |
 | WP-6 | Settings drift (E) | `tools/validate/shared_settings.json`, `tools/validate/settings_consistency.py`, its test | registry covers observer/spawn distances; deliberate differences carry reasons | done (#158): `tools/validate/settings_consistency.py` and `shared_settings.json` landed; boot prints the effective shared settings |
-| WP-7 | One lexer | `tests/unit/test_script_syntax.py`, `test_enforce_locals.py`, `test_script_identifiers.py` moved onto `enforce_source` | same findings, one parser | done: #159 moved the sibling checks onto `enforce_source` |
+| WP-7 | One lexer | `tests/slow/test_script_syntax.py`, `test_enforce_locals.py`, `test_script_identifiers.py` moved onto `enforce_source` | same findings, one parser | done: #159 moved the sibling checks onto `enforce_source` |
 | WP-8 | Burn down S001/S002 in the remaining modules | per-module source owners | baseline ratchets to zero, module by module | open: #160 |
 
 ## 9. Limits
@@ -262,7 +262,7 @@ resolve its configured read-only layout; no acceptance gate was advanced.
 Actual RED, before implementation:
 
 ```text
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_optional_ce_composition -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_optional_ce_composition -v
 ValueError: existing CE extensions need explicit operator reconciliation
 Ran 4 tests in 1.056s
 FAILED (errors=23)
@@ -277,7 +277,7 @@ invented mod PBOs/classes and tiny XML, never an installed DayZ mission.
 Additional packaging RED, before adding the shared helper to the bundle allowlist:
 
 ```text
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
 AssertionError: 'tools/package/ce_extensions.py' not found in [exported files]
 Ran 1 test in 0.071s
 FAILED (failures=1)
@@ -293,13 +293,13 @@ rechecked immediately before installation writes.
 GREEN:
 
 ```text
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_optional_ce_composition -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_optional_ce_composition -v
 Ran 4 tests in 1.621s
 OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
 Ran 1 test in 0.192s
 OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_snafu_optional tests.unit.test_tactical_flava_optional tests.unit.test_economy_contract tests.unit.test_v2_optional_overlays tests.unit.test_optional_ce_composition tests.unit.test_friend_bundle -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_snafu_optional tests.slow.test_tactical_flava_optional tests.slow.test_economy_contract tests.slow.test_v2_optional_overlays tests.slow.test_optional_ce_composition tests.slow.test_friend_bundle -v
 Ran 190 tests in 26.097s
 OK
 python3 -B -m tools.validate.hygiene

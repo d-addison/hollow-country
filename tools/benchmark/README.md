@@ -10,7 +10,7 @@ python3 -m tools.benchmark.compare --baseline before.csv --candidate after.csv \
 The threshold above is an example, not a recommended or calibrated DayZ target.
 Supply a threshold only after calibration and approval for the intended hardware,
 players and baseline. No threshold is inferred from the provisional targets in
-`docs/TESTING_PERFORMANCE.md`.
+`config/acceptance-targets.json` or `docs/PERFORMANCE_PRACTICES.md`.
 
 JSON is printed to stdout; `--output` also writes the same report. Exit codes:
 0 = PASS, 1 = FAIL, 2 = INCOMPLETE or INVALID (or an argparse usage error).

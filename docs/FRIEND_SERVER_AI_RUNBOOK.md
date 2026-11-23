@@ -874,19 +874,8 @@ files absent from this confined worktree were read from the primary checkout;
 active session constraints take precedence. Banso status was unavailable because
 its configured clone-root is read-only in this run; no lifecycle dispatch ran.
 
-RED, before implementation:
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_162_followups -v`
-→ `Ran 9 tests ... FAILED (failures=10)` (including subtests).
-The failures included missing diagnostic fields/startup summary and
-`missing authored HCX missing-FSM guard`.
-Review RED for unreadable query/ground diagnostic cases:
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_162_followups.BindingDiagnostics.test_unreadable_startup_query_is_unknown_rather_than_proof_of_bad_anchor tests.unit.test_162_followups.BindingDiagnostics.test_unreadable_ground_still_identifies_the_wanted_class -v`
-→ `Ran 2 tests ... FAILED (failures=2)`.
-
-GREEN after implementation, same follow-up module command:
-`Ran 11 tests ... OK`. Explicit synthetic collaborators execute the authored
-Enforce bodies; an optional local read-only map test checks stock placements.
-Native math/super/cast seams are explicit and do not simulate engine acceptance.
+Offline checks use explicit synthetic collaborators that execute the authored Enforce bodies. Native
+math/super/cast seams are explicit and do not simulate engine acceptance.
 
 Pending: DayZDiag compilation, signed normal PBO/server reproduction with the
 friend dependency set, supported weapon/abort regression, late native CE
@@ -895,18 +884,7 @@ confirmation, and single-client replication/visibility tests. Offline passes do 
 enable production or accept an unrun engine experiment. Performance at 3–6
 players remains unmeasured.
 
-Final validation commands and actual results for this source change:
-
-- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_162_followups tests.unit.test_event_police tests.unit.test_event_sites tests.unit.test_v1_events_behavior tests.unit.test_hcx_self_defence -v`
-  → `Ran 133 tests ... OK`.
-- `python3 -B -m tools.validate.enforce_lint`
-  → `enforce_lint: pass findings=144 new=0 stale=0 native=yes`.
-- `python3 -B -m tools.validate.hygiene` → `valid: true`.
-- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit`
-  → `Ran 5611 tests in 444.124s ... OK (skipped=1, expected failures=3)`.
-- In-memory authored-only PBO pack/parse roundtrips succeeded for both addons:
-  255 core files and 23 Expansion-adapter files, including `HCXWeaponGuard.c`.
-  This is package-format validation, not signed/native runtime testing.
+Offline results are package-format and source checks only, not signed/native runtime testing.
 
 No debug/admin/snapshot contributor files changed. No network, Git metadata
 mutation, third-party rewrite, public upload or DayZ/Windows process control was

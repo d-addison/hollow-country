@@ -113,6 +113,31 @@ class DocsDriftTests(unittest.TestCase):
         self.assertEqual(2, docs_drift.corpus_total(self.root))
         self.assertIsNone(docs_drift.corpus_total(self.root / "missing"))
 
+    def test_dangling_test_references_fail_and_current_ones_pass(self):
+        self.put("tests/unit/test_alpha.py",
+                 "import unittest\n\n\nclass AlphaTests(unittest.TestCase):\n    def test_one(self):\n        pass\n")
+        self.put("tests/slow/test_beta.py", "x = 1\n")
+        current = ("Run `python3 -m unittest tests.unit.test_alpha.AlphaTests.test_one` and "
+                   "`tests/unit/test_alpha.py::AlphaTests::test_one` and tests/slow/test_beta.py.\n")
+        self.assertEqual([], docs_drift.tests_drift(self.root, {"docs/G.md": current}))
+        for text in ("`tests.unit.test_gone`\n", "`tests.unit.test_alpha.GoneTests`\n",
+                     "`tests.unit.test_alpha.AlphaTests.test_gone`\n", "`tests/unit/test_gone.py`\n",
+                     "`tests/unit/test_alpha.py::GoneTests`\n"):
+            self.assertEqual([("doc_test_reference", "docs/G.md", 1)],
+                             docs_drift.tests_drift(self.root, {"docs/G.md": text}), text)
+
+    def test_bare_test_name_needs_its_directory_on_the_same_line_pythonpath(self):
+        self.put("tests/unit/test_alpha.py", "x = 1\n")
+        ok = "PYTHONPATH=.:tests/unit python3 -m unittest test_alpha\n"
+        self.assertEqual([], docs_drift.tests_drift(self.root, {"docs/G.md": ok}))
+        for text in ("python3 -m unittest test_alpha\n", "PYTHONPATH=.:tests/unit python3 -m unittest test_gone\n"):
+            self.assertEqual([("doc_test_reference", "docs/G.md", 1)],
+                             docs_drift.tests_drift(self.root, {"docs/G.md": text}), text)
+        self.assertEqual([], docs_drift.tests_drift(self.root, {"docs/G.md": "unittest discover -s tests/unit\n"}))
+
+    def test_fixture_documents_are_not_checked_for_test_references(self):
+        self.assertEqual([], docs_drift.tests_drift(self.root, {"tests/fixtures/briefs/good.md": "`tests/unit/test_gone.py`\n"}))
+
     def test_the_checked_in_documents_have_no_drift(self):
         import subprocess
         names = subprocess.run(["git", "-C", str(docs_drift.ROOT), "ls-files", "*.md"], check=True,

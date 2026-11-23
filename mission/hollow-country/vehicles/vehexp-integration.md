@@ -170,7 +170,7 @@ Nothing observed in DayZ yet.
 
 - `python3 -B -m tools.validate.enforce_lint --no-native`:
   pass, findings=1 new=0 stale=0 native=no.
-- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers`:
+- `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers`:
   15 tests, OK (27.781s).
 - `python3 -B -m tools.validate.settings_consistency`: status=pass, errors=[].
 
