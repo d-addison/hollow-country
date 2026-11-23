@@ -854,6 +854,12 @@ class HCSiteGuard : HCModule
 
     // ---- gate and pump ---------------------------------------------------------------------------------
 
+    // The whole site box counts: every player within PlayerClearM of the site circle (centre, radius).
+    protected bool PlayerNearSite(HCSiteManifestSite site)
+    {
+        return PlayerWithin(site.Centre[0], site.Centre[2], site.Radius + m_Config.PlayerClearM);
+    }
+
     protected bool PlayerWithin(float x, float z, float range)
     {
         array<Man> players = HCPerfPlayers.HCGet();
@@ -1078,9 +1084,10 @@ class HCSiteGuard : HCModule
             Log("resume site=" + m_CurSite + " row=" + resumeRow.ToString());
             return;
         }
-        bool invalid = ObjectSpawnerHandler.HCSiteInvalid.Contains(m_CurSite);
-        // An admitted site that only needs its deferred rows spawned (state-unknown recovery) skips the checks.
-        if (decision.State == 1 && !invalid) { m_CurStep = HCSiteGuard.ST_CLASS; }
+        // An admitted site whose rows are still deferred (state-unknown recovery) runs the same evaluation
+        // as an undecided one: the player and base evidence may have changed since the admission, so the
+        // full clearance (players around the whole site, registry evidence, hard-piece boxes) is checked
+        // again right before its first row spawns.
         if (!m_Logged.Contains(m_CurSite))
         {
             m_Logged.Set(m_CurSite, true);
@@ -1128,7 +1135,23 @@ class HCSiteGuard : HCModule
     {
         string invalidReason;
         if (ObjectSpawnerHandler.HCSiteInvalid.Find(site.Id, invalidReason)) { return Refuse(site, decision, invalidReason); }
-        if (PlayerWithin(site.Centre[0], site.Centre[2], site.Radius + 5)) { return Postpone(site, "player_near", 30, now); }
+        if (PlayerNearSite(site)) { return Postpone(site, "player_near", 30, now); }
+        if (HCSiteBaseRegistry.Overflow() > 0)
+        {
+            // The base and stash evidence lists are capped; once an entry was dropped a base could sit on the
+            // site unseen. Nothing is admitted or spawned this boot and no refusal is stored, so a later boot
+            // with room decides the site normally. Its loot box is dropped meanwhile like any parked site.
+            m_SiteStatus.Set(site.Id, 2);
+            string overflowKey = site.Id + ":base_registry_overflow";
+            if (!m_Logged.Contains(overflowKey))
+            {
+                m_Logged.Set(overflowKey, true);
+                Log("refused site=" + site.Id + " reason=base_registry_overflow dropped=" + HCSiteBaseRegistry.Overflow().ToString() + " stored=0");
+                HCModuleReadiness.HCUse("Sites", "site_refusals");
+            }
+            m_CurSite = "";
+            return 0;
+        }
         string reason = RegistryReason(site, now);
         if (reason != "") { return Refuse(site, decision, reason); }
         if (m_FortIgnored > 0) { Log("fort_ignored site=" + site.Id + " count=" + m_FortIgnored.ToString()); }
@@ -1383,13 +1406,14 @@ class HCSiteGuard : HCModule
         if (m_CurRow < rows.Count())
         {
             ITEM_SpawnerObject row = rows[m_CurRow];
-            if (PlayerWithin(row.pos[0], row.pos[2], 6))
+            if (PlayerNearSite(site))
             {
-                // Skip this site for now and go on with the next one; the spawn resumes at this row.
+                // A player inside the clear zone of the site (any row, admitted or undecided sites alike): skip
+                // this site for now and go on with the next one; the spawn resumes at this row.
                 m_ResumeRow.Set(site.Id, m_CurRow);
                 m_ResumePieces.Set(site.Id, m_CurSpawned);
                 m_CurSpawned = new array<Object>;
-                return Postpone(site, "player_near_row", 30, now);
+                return Postpone(site, "player_near_site", 30, now);
             }
             HCGroundRowJson ground = null;
             if (m_CurRow < grounds.Count()) { ground = grounds[m_CurRow]; }

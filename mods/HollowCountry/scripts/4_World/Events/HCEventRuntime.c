@@ -60,6 +60,7 @@ class HCEventRuntime
     // Staged publishes refused because the store is not the staged journal. Counted,
     // logged once; the runtime faults exactly as a failed save does.
     protected int m_UnstagedStoreRefusals;
+    protected int m_FlushCloneRefusals;
     // Journal write coalescing. Routine membership publishes (join/leave) that arrive inside
     // m_JournalIntervalSeconds of the last completed journal write are applied to the in-memory
     // state only and counted; the next write (any publish, the dirty flush or the shutdown flush)
@@ -1136,14 +1137,25 @@ class HCEventRuntime
         }
         HCEventRecord joinedRecord = HCEventDirector.FindRecord(candidate.Director, id);
         if (!joinedRecord) { return HCEventCode.NOT_FOUND; }
+        bool statusChanged = false;
         if (joinedRecord.Status == HCEventStatus.ANNOUNCED)
         {
             if (Operation(candidate, id, HCEventOp.ACTIVATE, "", context) != HCEventCode.OK)
             {
                 return HCEventCode.BLOCKED;
             }
+            statusChanged = true;
         }
-        if (!HCPublishRoutine(candidate))
+        // Only pure membership changes are coalesced: the ANNOUNCED -> ACTIVE transition is a status
+        // change and goes through the Publish barrier so it is never held in memory.
+        if (statusChanged)
+        {
+            if (!Publish(candidate))
+            {
+                return HCEventCode.BLOCKED;
+            }
+        }
+        else if (!HCPublishRoutine(candidate))
         {
             return HCEventCode.BLOCKED;
         }
@@ -1347,6 +1359,22 @@ class HCEventRuntime
             m_PendingExpiryAt = context.Now;
         }
     }
+    // One staged write of the held in-memory state. A Clone refusal is counted, logged once and faults the
+    // runtime through HCPublishRefused like every other refused publish, so it is never a silent stall.
+    protected void HCFlushHeldJournal()
+    {
+        HCEventRuntimeState flushed = m_Store.Clone(m_State);
+        if (!flushed)
+        {
+            if (m_FlushCloneRefusals < 1000000000) { m_FlushCloneRefusals++; }
+            if (m_FlushCloneRefusals == 1) { Print("[HC Events] journal flush refused reason=clone_refused count=" + m_FlushCloneRefusals.ToString()); }
+            m_Ready = false;
+            FaultCleanup();
+            HCPublishRefused();
+            return;
+        }
+        HCBeginPublish(flushed);
+    }
     void Tick(HCEventContext context)
     {
         // One shared four-millisecond slice, retained across all maintenance
@@ -1375,17 +1403,22 @@ class HCEventRuntime
             if (m_PendingPublish) { m_WorkBudget.HCDeferred("Events", 1); }
             return;
         }
+        // The restarted session image is flushed before the context gate: a tick whose context is refused
+        // must not leave the restarted session memory-only until Stop. Only the runtime's own readiness
+        // is required here; the flush clones m_State and uses no caller context.
+        if (m_JournalDirty && m_JournalFlushNow && m_Ready && !m_Busy && !m_StopRequested && m_State && m_State.Runs && m_Store)
+        {
+            HCFlushHeldJournal();
+            return;
+        }
         if (!Allowed(context))
         {
             return;
         }
-        if (m_JournalDirty && (m_JournalFlushNow || HCJournalDue()))
+        if (m_JournalDirty && HCJournalDue())
         {
-            // Held routine changes and the restarted session image are written as one staged
-            // journal write through HCSaveScheduler.
-            HCEventRuntimeState flushed = m_Store.Clone(m_State);
-            if (!flushed) { return; }
-            HCBeginPublish(flushed);
+            // Held routine changes are written as one staged journal write through HCSaveScheduler.
+            HCFlushHeldJournal();
             return;
         }
         if (m_SceneRetirements.Count() > 0)

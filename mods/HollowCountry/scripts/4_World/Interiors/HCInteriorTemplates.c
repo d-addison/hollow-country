@@ -1151,7 +1151,9 @@ class HCInteriorTemplates
 // extension's instance guard.
 modded class HCInteriorsModule
 {
+    static const float HC_PACK_LOAD_STALL_S = 300;
     protected bool m_PackLoading;
+    protected float m_PackLoadStarted;
     protected ref HCOperationalStatus m_PackStatus = new HCOperationalStatus;
 
     override HCOperationalStatus HCGetOperationalStatus()
@@ -1162,8 +1164,16 @@ modded class HCInteriorsModule
         string reason = "template_owner_not_running";
         if (m_PackLoading)
         {
-            state = "requested";
-            reason = "template_pack_loading";
+            // The load streams on the startup pump and the module tick. Placement, search and the room
+            // layers all refuse until HCInteriorTemplates.Loaded(), so the module is ready with the wait
+            // as its reason. A load that makes no progress for HC_PACK_LOAD_STALL_S degrades with a reason.
+            state = "ready";
+            reason = "template_pack_loading_placement_waits";
+            if (GetGame().GetTickTime() - m_PackLoadStarted > HC_PACK_LOAD_STALL_S)
+            {
+                state = "degraded";
+                reason = "template_pack_load_stalled";
+            }
         }
         if (HCInteriorTemplates.HCLoadFinished())
         {
@@ -1187,6 +1197,7 @@ modded class HCInteriorsModule
     {
         super.OnStart(settings);
         m_PackLoading = GetGame().IsServer() && IsEnabled(settings);
+        m_PackLoadStarted = GetGame().GetTickTime();
     }
 
     override void OnTick(float deltaTime)

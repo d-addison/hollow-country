@@ -102,13 +102,21 @@ class HCBodyStories : HCModule
     {
         if (!m_Ready) { return; }
         if (!m_Store || !m_Store.Healthy()) { m_Status.HCPublish("refused", "LEAD_STORE_UNCERTAIN"); return; }
-        if (!s_Producer || !s_Producer.HCReady()) { m_Status.HCPublish("degraded", "BODY_SCENE_PRODUCER_UNAVAILABLE"); return; }
         if (!HCWorldModule.Get()) { m_Status.HCPublish("degraded", "WORLD_FACT_PROVIDER_UNAVAILABLE"); return; }
+        // The store and the world ledger are up, so the module is ready. A producer that is still loading
+        // (the Expansion AI site director runs later) only refuses each observation, with its reason in
+        // HCCanObserveOwnedDeath; this refresh runs every tick and is the bounded retry.
+        if (!HCProducerReady()) { m_Status.HCPublish("ready", "scene_producer_wait_observations_refused"); return; }
         m_Status.HCPublish("ready", "owned_scene_death_producer_bound_runtime_pending");
+    }
+    bool HCProducerReady()
+    {
+        return s_Producer && s_Producer.HCReady();
     }
     bool HCCanObserveOwnedDeath()
     {
         if (!m_Ready || !m_Store || !m_Store.Healthy()) { return false; }
+        if (!HCProducerReady()) { return HCRefuse("BODY_SCENE_PRODUCER_UNAVAILABLE"); }
         if (m_Pending.Count() + m_Store.Data.Bodies.Count() >= m_Config.MaxBodies) { return HCRefuse("OBSERVED_BODY_CAP"); }
         return true;
     }
