@@ -118,6 +118,7 @@ class HCMissionBeaconEntry
     float Radius = 0;
     float Offset = 0;
     int Expires = 0;
+    ref HCReleaseRadius ReleaseRadius = new HCReleaseRadius;
 }
 
 // Server owner of the public mission map: derives the public set from the
@@ -135,6 +136,7 @@ class HCMissionBeacon
     protected bool m_Open = false;
     protected float m_Elapsed = 0;
     protected int m_Sequence = 0;
+    protected int m_ReleaseRadiusCursor = 0;
     protected int m_LastNow = 0;
     protected float m_LastNowAt = 0;
     protected float m_NoticeWindow = -100;
@@ -153,6 +155,7 @@ class HCMissionBeacon
         m_Sources.Clear();
         m_Elapsed = 0;
         m_Sequence = 0;
+        m_ReleaseRadiusCursor = 0;
         m_NoticeWindow = -100;
         m_NoticeCount = 0;
         m_CapLogged = false;
@@ -256,8 +259,8 @@ class HCMissionBeacon
         return remaining;
     }
 
-    // One bounded poll every two seconds of committed runtime state; one shared
-    // work-budget unit per poll, no engine queries.
+    // One bounded poll every two seconds of committed runtime state, including
+    // at most one published radius sample within the shared work-budget unit.
     void HCTick(HCEventRuntime runtime, HCEventContext context, float deltaTime)
     {
         if (!m_Open || !runtime || !context || !context.Server) { return; }
@@ -304,6 +307,17 @@ class HCMissionBeacon
         }
         if (available <= cap) { m_FullLogged = false; }
         if (changed) { HCBroadcast(); }
+        HCSampleReleaseRadius();
+    }
+
+    protected void HCSampleReleaseRadius()
+    {
+        if (!m_Config.MissionMapMarkers || m_Entries.Count() == 0) { return; }
+        if (m_ReleaseRadiusCursor >= m_Entries.Count()) { m_ReleaseRadiusCursor = 0; }
+        HCMissionBeaconEntry entry = m_Entries[m_ReleaseRadiusCursor];
+        m_ReleaseRadiusCursor++;
+        vector centre = Vector(entry.ZoneX, 0, entry.ZoneZ);
+        entry.ReleaseRadius.HCSample(centre, entry.Radius, HCReleaseRadiusWire.MISSION);
     }
 
     // One line per mission end, at most the table cap per poll.

@@ -45,6 +45,7 @@ modded class HCModuleReadiness
             HCRegisterUse("optional-expansion-human-ai", "route_cache");
             HCRegisterUse("optional-expansion-human-ai", "convoy_astar");
             HCRegisterUse("optional-expansion-human-ai", "stuck_recovery");
+            HCRegisterUse("optional-expansion-human-ai", "site_radius_entered");
             return;
         }
         if (module == "v2-expansion-living-world")

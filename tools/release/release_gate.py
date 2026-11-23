@@ -18,8 +18,9 @@ from tools.setup import winproc
 from tools.validate.tick_cost_report import perf_rules
 
 CATEGORIES = ('map', 'inventory', 'groups', 'admin', 'ai', 'event')
-CHECKLIST = ('One tester: join; open M map, inventory, group menu and admin window; '
-             'walk into one AI site and one event radius. Keep this client connected through activity validation.')
+CHECKLIST = ('One tester: join; open the M map with group controls, inventory and admin window; '
+             'walk from outside into one reviewed AI site activation radius and one published mission zone. '
+             'Keep this client connected through activity validation.')
 
 
 class Refused(ValueError):
@@ -152,8 +153,14 @@ class NativeSteps:
     def compile(self):
         output = command([sys.executable, '-B', '-m', 'tools.release.compile_gate',
                           '--commit', self.args.commit], 1200)
-        if not re.search(r'^compile_gate: PASS status=mission-loaded-runtime-json\s*$', output, re.M):
-            raise Refused('compile did not establish mission-loaded-runtime-json')
+        passed = re.search(r'^compile_gate: PASS status=(mission-loaded-runtime-json|initialized|timeout)$',
+                           output, re.M)
+        mission = re.search(r'^compile_gate: Mission loaded with zero compile errors; runtime acceptance pending$',
+                            output, re.M)
+        # The legacy status already certifies Mission; native initialized and
+        # timeout statuses require the wrapper's explicit Mission observation.
+        if not passed or (passed[1] != 'mission-loaded-runtime-json' and not mission):
+            raise Refused('compile did not establish a clean Mission load')
 
     def manifest(self):
         manifest = json.loads((self.args.bundle / 'BUILD_MANIFEST.json').read_text())
