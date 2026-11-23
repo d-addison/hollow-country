@@ -131,6 +131,22 @@ log `fixture=1` and the real feature code then runs.
 
 ## Known limits
 
+- `Events/mission_radius_entered` requires foot travel across a live, published mission circle. The scripted
+  `walk_zone` step resolves a static Balota guard zone. Its reach-map token verifies that the step exists, and
+  the idle phase can outlast the driver, so a mission published during idle may have no movement at all.
+  The client receives up to 16 expiring circles from committed missions already published to its map. The
+  Hollow Country map needs ordinary map access and the mission layer enabled both in the group snapshot and
+  in the client's layer controls. A visible circle within walking distance still depends on live mission
+  publication, remaining time and traversable terrain. The driver accepts fixed destinations and cannot wait
+  for a circle or replace a destination when one expires.
+- For a focused leader-run check with one client, wait for a live circle to appear in the ordinary map. Pick one
+  with enough time left to reach its edge on foot and hold on each side. Start outside, or first leave the circle
+  if the character is already inside. Stay outside for more than one full sampling rotation, then walk across and
+  stay inside the same circle through another rotation. The server samples at most one of up to 16 circles per
+  two-second poll, so a full stable rotation is nominally up to 32 seconds. Shared work-budget deferrals can
+  delay it. Use `[HC Use] module=Events feature=mission_radius_entered count=1` in this client's RPT as proof of
+  the crossing. If no eligible circle appears, the circle expires or the counter stays at zero, leave the row
+  unverified.
 - Retail DayZ has no scripted client melee input: melee is started from the player's own input
   (native `3_Game/human.c`, the UAInput `SyncedOverride` exists only under `INPUT_OVERRIDE`), so the driver
   cannot press an attack. The Melee player-attacker counters are reached server-side by `fx_melee` calling the
