@@ -298,7 +298,7 @@ class HCGunPile
     // At most one line per 300 s and only when a number changed.
     static void Summary()
     {
-        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString();
+        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString();
         if (line == s_LastSummary) { return; }
         s_LastSummary = line;
         Print("" + line);
