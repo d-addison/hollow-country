@@ -984,6 +984,36 @@ class MainTests(Tmp):
         lock.assert_called_once_with('soak_campaign')
         host.state.assert_not_called()
 
+    def test_stage_requires_the_game_processes_to_be_stopped_before_building(self):
+        make_server(self.root)
+        client = make_client(self.root)
+        host = mock.Mock()
+        host.state.side_effect = lambda image: 'running' if image == camp.SERVER_IMAGE else 'gone'
+        with mock.patch.object(camp, 'step_script', return_value={'steps': []}), \
+                mock.patch('tools.testing.test_addon.build', side_effect=AssertionError('built')):
+            code, text = self.run_main(['stage', '--client-root', str(client)], host=host)
+        self.assertEqual(code, 2)
+        self.assertIn('stage refused: DayZServer_x64.exe is not stopped (state=running)', text)
+        self.assertFalse((self.root / 'state' / 'receipt.json').exists())
+
+    def test_run_reports_before_releasing_the_host_lock(self):
+        make_server(self.root)
+        client = make_client(self.root)
+        events = mock.Mock()
+        lease = mock.MagicMock()
+        events.attach_mock(lease, 'lease')
+        events.run.return_value = True
+        events.report.return_value = 8
+        with mock.patch.object(camp, 'step_script', return_value={'steps': []}), \
+                mock.patch.object(camp.Campaign, 'run', events.run), \
+                mock.patch.object(camp, 'command_report', events.report):
+            code, _ = self.run_main(['run', '--yes', '--client-root', str(client)], host=mock.Mock(),
+                                    lock=lambda holder: lease)
+        self.assertEqual(code, 8)
+        self.assertEqual(events.mock_calls, [mock.call.lease.__enter__(), mock.call.run(),
+                                            mock.call.report(PHASES, self.root / 'state', mock.ANY),
+                                            mock.call.lease.__exit__(None, None, None)])
+
     def test_run_needs_the_lead_flag(self):
         make_server(self.root)
         make_client(self.root)
