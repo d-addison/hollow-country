@@ -90,14 +90,9 @@ def audit(path, *, client=False, targets=None):
     if not client:
         # Use the audit's exact taxonomy and bounded reader, including lines that
         # do not contain generic warning/error words. Never serialize raw text.
-        counts, oversized = rpt_config_audit.scan_rpt(path, rpt_config_audit.category_rules())
-        totals = {category: 0 for category in rpt_config_audit.RULES}
-        unclassified = 0
-        for (category, _diagnostic), count in counts.items():
-            if category == 0:
-                unclassified += count
-            else:
-                totals[category] += count
+        counts, oversized = rpt_config_audit.scan_rpt_totals(path, rpt_config_audit.category_rules())
+        totals = {category: counts[category] for category in rpt_config_audit.RULES}
+        unclassified = counts[0]
         if oversized or unclassified:
             raise Refused(f'R3 incomplete RPT census unclassified={unclassified} oversized={oversized}')
         for category, count in totals.items():
