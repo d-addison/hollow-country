@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.audit import rpt_config_audit as audit
 from tests.unit.test_pbo_config import klass, pbo, rap
@@ -182,6 +183,25 @@ class ConfigAuditTests(unittest.TestCase):
         result = audit.audit(self.rpt, self.vanilla)
         self.assertEqual(result['oversized_lines'], 1)
         self.assertEqual(sum(row['count'] for row in result['diagnostics']), 1)
+
+    def test_totals_keep_all_occurrences_when_detailed_diagnostics_overflow(self):
+        self.logs('No entry CensusCanaryAlpha\nNo entry CensusCanaryBeta\nNo entry CensusCanaryAlpha\nUnknown warning\n' +
+                  'x' * (audit.MAX_LINE * 2) + '\nWarning Message: UAGestureSlot inserts twice\n',
+                  'No entry CensusCanaryAlpha\n')
+        output = self.root / 'totals.json'
+        with patch.object(audit, 'MAX_DIAGNOSTICS', 1):
+            with self.assertRaisesRegex(audit.InputError, 'diagnostic_budget'):
+                audit.audit(self.rpt, self.vanilla)
+            status, _ = self.invoke([str(self.rpt), '--vanilla-rpt', str(self.vanilla), '--totals-only',
+                                     '--output', str(output)])
+        self.assertEqual(status, 0)
+        result = json.loads(output.read_text())
+        rows = {row['category']: row for row in result['categories']}
+        self.assertEqual((rows[1]['count'], rows[1]['vanilla_count']), (3, 1))
+        self.assertEqual(rows[15]['count'], 1)
+        self.assertEqual(result['unclassified_count'], 1)
+        self.assertEqual(result['oversized_lines'], 1)
+        self.assertNotIn('censuscanary', output.read_text().lower())
 
     def test_rap_cycles_are_rejected(self):
         import struct

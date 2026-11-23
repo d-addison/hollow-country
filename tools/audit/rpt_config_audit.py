@@ -2,6 +2,7 @@
 
 Run with RPT --vanilla-rpt BASELINE and repeatable --ours-pbo, --dependency-pbo,
 --vanilla-pbo inputs (files or directories). Output defaults to compat_audit.json.
+Use --totals-only for the paired R3 category census without retaining individual diagnostics.
 Only fixed vocabulary, numbers and per-run diagnostic IDs leave the process: no
 log excerpts, config symbols, resource paths, filenames or exception text.
 
@@ -84,26 +85,45 @@ def classify(line, rules):
     return 0 if WARNING.search(line) else None
 
 
-def scan_rpt(path, rules):
-    """Bound line length and retained distinct diagnostics; raw text stays in RAM."""
-    counts, skipped = Counter(), 0
+def diagnostic_lines(path, rules):
+    """Yield recognized diagnostics and a marker for each oversized line."""
     with Path(path).open(encoding='utf-8-sig', errors='replace') as stream:
         while True:
             line = stream.readline(MAX_LINE + 1)
             if not line:
                 break
             if len(line) > MAX_LINE:
-                skipped += 1
+                yield None, None
                 while line and not line.endswith('\n'):
                     line = stream.readline(MAX_LINE + 1)
                 continue
             category = classify(line, rules)
-            if category is None:
-                continue
-            key = (category, STAMP.sub('', line).strip().lower())
-            if key not in counts and len(counts) >= MAX_DIAGNOSTICS:
-                raise InputError('diagnostic_budget')
-            counts[key] += 1
+            if category is not None:
+                yield category, line
+
+
+def scan_rpt(path, rules):
+    """Bound line length and retained distinct diagnostics; raw text stays in RAM."""
+    counts, skipped = Counter(), 0
+    for category, line in diagnostic_lines(path, rules):
+        if category is None:
+            skipped += 1
+            continue
+        key = (category, STAMP.sub('', line).strip().lower())
+        if key not in counts and len(counts) >= MAX_DIAGNOSTICS:
+            raise InputError('diagnostic_budget')
+        counts[key] += 1
+    return counts, skipped
+
+
+def scan_rpt_totals(path, rules):
+    """Count every category match in one pass with constant retained diagnostics."""
+    counts, skipped = Counter(), 0
+    for category, _ in diagnostic_lines(path, rules):
+        if category is None:
+            skipped += 1
+        else:
+            counts[category] += 1
     return counts, skipped
 
 
@@ -245,6 +265,17 @@ def audit(rpt, vanilla_rpt, pbo_inputs=None, overrides=()):
                 config_counts={owner: index.configs[owner] for owner in OWNERS})
 
 
+def totals_audit(rpt, vanilla_rpt):
+    rules = category_rules()
+    observed, skipped = scan_rpt_totals(rpt, rules)
+    baseline, baseline_skipped = scan_rpt_totals(vanilla_rpt, rules)
+    return dict(schema_version=1, evidence='offline_only', taxonomy_complete=True,
+                categories=[dict(category=key, label=RULES[key][0], count=observed[key],
+                                 vanilla_count=baseline[key]) for key in RULES],
+                unclassified_count=observed[0], vanilla_unclassified_count=baseline[0],
+                oversized_lines=skipped, vanilla_oversized_lines=baseline_skipped)
+
+
 def main(argv=None):
     parser = PrivateParser(description=__doc__)
     parser.add_argument('rpt', type=Path)
@@ -252,17 +283,23 @@ def main(argv=None):
     for owner in OWNERS:
         parser.add_argument('--' + owner + '-pbo', action='append', default=[], type=Path)
     parser.add_argument('--category-pattern', action='append', default=[])
+    parser.add_argument('--totals-only', action='store_true')
     parser.add_argument('--output', type=Path, default=Path('compat_audit.json'))
     try:
         args = parser.parse_args(argv)
         inputs = {owner: getattr(args, owner + '_pbo') for owner in OWNERS}
+        if args.totals_only and (args.category_pattern or any(inputs.values())):
+            raise InputError('invalid_arguments')
         # Refuse output aliases of inputs, including symlinks, before truncation.
         protected = {args.rpt.resolve(), args.vanilla_rpt.resolve()}
         for values in inputs.values():
             protected.update(pbo_files(values))
         if args.output.resolve() in protected:
             raise InputError('output_is_input')
-        result = audit(args.rpt, args.vanilla_rpt, inputs, args.category_pattern)
+        if args.totals_only:
+            result = totals_audit(args.rpt, args.vanilla_rpt)
+        else:
+            result = audit(args.rpt, args.vanilla_rpt, inputs, args.category_pattern)
         encoded = json.dumps(result, indent=2, sort_keys=True) + '\n'
         temporary = None
         try:
