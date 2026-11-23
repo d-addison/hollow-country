@@ -3818,6 +3818,14 @@
     "owner": "HCInfectedSiegeConfig"
   },
   {
+    "key": "InfectedSiege.NoiseStrengthMultiplier",
+    "type": "float",
+    "default": 17.0,
+    "min": 1.0,
+    "max": 25.0,
+    "owner": "HCInfectedSiegeConfig"
+  },
+  {
     "key": "InfectedSiege.MaxSieges",
     "type": "int",
     "default": 8,
@@ -3828,7 +3836,7 @@
   {
     "key": "InfectedSiege.ReinforcePerPlayerWindow",
     "type": "int",
-    "default": 4,
+    "default": 0,
     "min": 0,
     "max": 8,
     "owner": "HCInfectedSiegeConfig"

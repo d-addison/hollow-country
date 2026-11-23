@@ -10,60 +10,48 @@
 //              waypoint is ever written: no native pack group is steered to the anchor, so infected that
 //              gave up come back only through real perception and noise (no position writes, no group
 //              moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
-//   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAt),
-//              at most one per tick server-wide. The engine propagates it; nothing is pulled.
-//   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate on a
-//              ring around the real siege noise position (the member's own position of step 3), 320 m out
-//              (HCHidden: 300 m from, and out of sight of, every player) and never beyond the noise's
-//              hearing radius: the strength of the noise config entry minus the environment reduction
-//              there (NoiseActionDefault strength, read from config, unobserved as a hearing range). When
-//              the radius is under the 320 m ring the batch is refused (reason=noise_out_of_range) and
-//              counted; the rules are never loosened. Reinforcements
-//              are NEVER steered: no waypoint is written to any group of a body this module created (a
-//              new body may have joined a wild group of agents we did not create). They only come
-//              through real perception, i.e. the noise of step 3. A per-player window
-//              (ReinforcePerPlayerWindow bodies per 10 minutes, keyed by the persistent player id kept
-//              server-side, never logged) caps what one player can draw; when every window slot is in use
-//              the batch is refused (reason=window_full) instead of recycling another player's slot.
+//   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAtScaled),
+//              at most one per tick server-wide. The strength is amplified by InfectedSiege.NoiseStrengthMultiplier
+//              (NoiseSystem.AddNoisePos external_strenght_multiplier, installed 3_Game/Noise.c:7), default 17: the
+//              installed NoiseActionDefault strength is 10, so 10 x 17 = 170 m of assumed hearing radius (strength
+//              read as metres, unobserved; the environment reduction only shortens it), clamped so strength x
+//              multiplier never passes 250 m (HCInfectedSiegePolicy.HCNoiseMultiplier). The engine propagates the
+//              noise and the ambient population that hears it comes through vanilla perception; nothing is pulled.
+//   4. No spawns. A siege never spawns infected (owner 2026-11-23, #354: the old reinforce ring needed a 320 m
+//              spawn inside a hearing radius of about 10 m and was inert). The siege relies on the ambient
+//              population only. The retired key InfectedSiege.ReinforcePerPlayerWindow is ignored (reported once
+//              at start when an operator set it) and the started line says reinforce=off.
 //   5. End.    The player comes down (dy under the reach band), walks 25 m from the spot the siege opened
 //              at, or 180 s pass (a dead or gone target counts as left). A row with no live member left
-//              ends at once with reason no_live_member and its slot and reinforcement lease are released
+//              ends at once with reason no_live_member and its slot is released
 //              in the same evaluation. Ending only withdraws the siege; the live player position is read
 //              for these end tests and the open-time haven gate, never to place, steer or target anything. Nothing
 //              is restored by hand: this module wrote no waypoint to any group, so no group is left on a
 //              last waypoint and there is nothing to park; members stay in their native group.
 // An infected sits in at most one siege row. A siege with no usable anchor (no navmesh point and no ladder)
-// is refused: it is not counted as started and nothing is noised or reinforced.
+// is refused: it is not counted as started and nothing is noised.
 // Knowledge: the infected only know what the give-up event told them (the player and where they stood).
 // Doors, positions and inventories are never touched. Runtime only, never persisted: no stored format.
 // Lines (formats are fixed):
+//   [HC Nav] siege started max= gather= noise= noise_mult=<effective> noise_base=<config strength> reinforce=off
 //   [HC Nav] siege start anchor=<mesh|ladder|none> members=<m> n=<count>
-//   [HC Nav] siege end reason=<down|left|timeout|no_live_member> n=<count of ends for the reason> members= secs= noise= reinforced=
-//   [HC Nav] siege refused reason=<no_anchor|window_full|no_identity|noise_out_of_range> n=<count for the reason>
+//   [HC Nav] siege end reason=<down|left|timeout|no_live_member> n=<count of ends for the reason> members= secs= noise= active=
+//   [HC Nav] siege refused reason=<no_anchor> n=<count for the reason>
 // Start, refused and end lines share one throttle (first 8 per count, then every 16th).
-//   [HC Use] module=InfectedSiege feature=siege_started|siege_noise|ladder_guard|reinforce count=<n>
+//   [HC Use] module=InfectedSiege feature=siege_started|siege_noise|ladder_guard count=<n>
 // siege_started is registered at start and counted only for a usable anchor (mesh or ladder); the other
-// three register on their first real event, so a feature a scenario cannot exercise is not listed as a
+// two register on their first real event, so a feature a scenario cannot exercise is not listed as a
 // registered counter at zero.
 // Bounds: <=8 sieges, <=6 members each, 4 evaluations per tick in a 2 ms HCWorkBudget slice (one navmesh
-// sample, one ray and <=8 ladder reads each), <=1 noise per tick, reinforce under HCHordeReinforce caps
-// (2 creates per tick, 256 leases) and the per-player window.
+// sample, one ray and <=8 ladder reads each), <=1 noise per tick and per siege per NoiseSeconds, and the
+// 180 s siege timeout (NoiseSeconds is at least 10, so at most 18 noises per siege).
 // Native evidence, installed scripts-1.30.164289: 3_Game/Entities/Building.c:23-25 GetLaddersCount,
 // GetLadderPosTop, GetLadderPosBottom (coordinate space unobserved: |bottom - building| > 50 m is read as
 // model-space and converted with Object.c:873 ModelToWorld, still far is ignored); 3_Game/AI/AIAgent.c:7
 // AIWorld.c:122 SampleNavmeshPosition; Global/DayZPhysics.c:199 RaycastRV; constants.c:35 ObjIntersectGeom;
-// Entities/DayZAnimal.c:193 GetAIAgent; Object.c:215 IsPendingDeletion, :287 GetPosition, :467 GetType,
+// Entities/DayZAnimal.c:193 GetAIAgent; 3_Game/Noise.c:7 AddNoisePos; Object.c:215 IsPendingDeletion, :287 GetPosition, :467 GetType,
 // :517 IsAlive; EntityAI.c:879 GetHierarchyRoot; EnMath.c Sin/Cos/RandomFloat/Sqrt;
 // Game.c:914 GetTickTime, :1120 IsServer, :691 ObjectDelete.
-
-// Lease owner for siege reinforcements. HCHordeReinforce deletes a hidden body once its pack is no longer
-// active; this pack stays active exactly while its siege lives. It is never started: no group, no members.
-class HCSiegeReinforcePack : HCNativeInfectedPack
-{
-    protected bool m_SiegeLive;
-    void HCSetLive(bool live) { m_SiegeLive = live; }
-    override bool HCReinforceActive() { return m_SiegeLive; }
-}
 
 class HCInfectedSiegeRow
 {
@@ -77,14 +65,8 @@ class HCInfectedSiegeRow
     float BaseY;
     float Opened;
     float NextNoise;
-    float NextReinforce;
     bool Active;
-    bool ReinforceDone;
-    int ReinforceLeft;
-    int ReinforceTries;
     int Noises;
-    int Reinforced;
-    ref HCSiegeReinforcePack Pack;
 }
 
 class HCInfectedSiegeListener : HCNavGiveUpListener
@@ -104,10 +86,7 @@ class HCInfectedSiegeModule : HCModule
     protected ref array<ref HCInfectedSiegeRow> m_Rows = new array<ref HCInfectedSiegeRow>;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref set<Object> m_Hits = new set<Object>;
-    protected ref array<string> m_WindowPlayer = new array<string>;
     protected ref map<string, int> m_Refused = new map<string, int>;
-    protected ref array<float> m_WindowStart = new array<float>;
-    protected ref array<int> m_WindowUsed = new array<int>;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected bool m_Running;
     protected string m_Refusal;
@@ -118,6 +97,8 @@ class HCInfectedSiegeModule : HCModule
     protected int m_EndedTimeout;
     protected int m_EndedNoMember;
     protected float m_NoiseAt = -1;
+    protected float m_NoiseMult = 1;
+    protected float m_NoiseBase;
 
     override string GetName() { return "InfectedSiege"; }
 
@@ -147,11 +128,10 @@ class HCInfectedSiegeModule : HCModule
         if (!m_Limits.Enabled) { m_Operational.HCPublish("off", "siege_operator_off"); return; }
         m_Refusal = "";
         m_Rows.Clear();
-        m_WindowPlayer.Clear();
-        m_WindowStart.Clear();
-        m_WindowUsed.Clear();
         m_Cursor = 0;
         m_NoiseAt = -1;
+        m_NoiseBase = HCConfigHelper.GetFloat(HCSearchNoise.NOISE_PATH + " strength", 0);
+        m_NoiseMult = HCInfectedSiegePolicy.HCNoiseMultiplier(m_Limits.NoiseStrengthMultiplier, m_NoiseBase);
         m_Listener = new HCInfectedSiegeListener;
         if (!HCNavHavenCensus.HCSubscribe(m_Listener))
         {
@@ -162,7 +142,7 @@ class HCInfectedSiegeModule : HCModule
         }
         m_Running = true;
         s_Instance = this;
-        Print("[HC Nav] siege started max=" + m_Limits.MaxSieges.ToString() + " gather=" + m_Limits.GatherSeconds.ToString() + " noise=" + m_Limits.NoiseSeconds.ToString() + " window=" + m_Limits.ReinforcePerPlayerWindow.ToString() + " runtime=PENDING");
+        Print("[HC Nav] siege started max=" + m_Limits.MaxSieges.ToString() + " gather=" + m_Limits.GatherSeconds.ToString() + " noise=" + m_Limits.NoiseSeconds.ToString() + " noise_mult=" + m_NoiseMult.ToString() + " noise_base=" + m_NoiseBase.ToString() + " reinforce=off runtime=PENDING");
     }
 
     override void OnStop()
@@ -170,10 +150,6 @@ class HCInfectedSiegeModule : HCModule
         if (m_Listener) { HCNavHavenCensus.HCUnsubscribe(m_Listener); }
         m_Listener = null;
         m_Running = false;
-        for (int index = 0; index < m_Rows.Count(); index++)
-        {
-            if (m_Rows[index].Pack) { m_Rows[index].Pack.HCSetLive(false); }
-        }
         m_Rows.Clear();
         if (s_Instance == this) { s_Instance = null; }
     }
@@ -284,7 +260,6 @@ class HCInfectedSiegeModule : HCModule
             return true;
         }
         HCNoise(row, now);
-        HCReinforce(row, now);
         return true;
     }
 
@@ -306,7 +281,6 @@ class HCInfectedSiegeModule : HCModule
         vector feet = row.LastKnown;
         row.Active = true;
         row.NextNoise = now;
-        row.NextReinforce = now;
         vector sampled;
         if (GetGame().GetWorld() && GetGame().GetWorld().GetAIWorld() && GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(feet, HCInfectedSiegePolicy.ANCHOR_SAMPLE_METRES, HCNavFilters.HCFor(HCNavFilters.PROFILE_OUTDOOR), sampled))
         {
@@ -393,139 +367,8 @@ class HCInfectedSiegeModule : HCModule
         row.NextNoise = now + m_Limits.NoiseSeconds;
         row.Noises++;
         row.NoisePos = source.GetPosition();
-        HCSearchNoise.EmitAt(source, row.NoisePos);
+        HCSearchNoise.EmitAtScaled(source, row.NoisePos, m_NoiseMult);
         HCModuleReadiness.HCUseGuarded(GetName(), "siege_noise", source);
-    }
-
-    // ---- Reinforce -----------------------------------------------------------------------------------
-
-    protected void HCReinforce(HCInfectedSiegeRow row, float now)
-    {
-        if (row.ReinforceDone || now < row.NextReinforce) { return; }
-        if (row.Noises == 0) { return; }
-        float radius = HCNoiseRadius(row.NoisePos);
-        if (!HCInfectedSiegePolicy.HCRingFits(radius))
-        {
-            row.ReinforceDone = true;
-            HCRefuse("noise_out_of_range");
-            return;
-        }
-        PlayerBase player = row.Target;
-        string playerId = HCPlayerId(player);
-        if (playerId == "")
-        {
-            row.ReinforceDone = true;
-            HCRefuse("no_identity");
-            return;
-        }
-        int slot = HCWindowSlot(playerId, now);
-        if (slot < 0)
-        {
-            row.ReinforceDone = true;
-            HCRefuse("window_full");
-            return;
-        }
-        if (row.ReinforceLeft == 0 && row.ReinforceTries == 0)
-        {
-            row.ReinforceLeft = HCInfectedSiegePolicy.HCBatch(m_Limits.ReinforcePerPlayerWindow, m_WindowUsed[slot]);
-            if (row.ReinforceLeft == 0) { row.ReinforceDone = true; return; }
-        }
-        if (row.ReinforceTries >= HCInfectedSiegePolicy.REINFORCE_TRIES || row.ReinforceLeft <= 0 || row.AnchorKind == "none")
-        {
-            row.ReinforceDone = true;
-            return;
-        }
-        row.ReinforceTries++;
-        row.NextReinforce = now + HCInfectedSiegePolicy.REINFORCE_GAP_SECONDS;
-        DayZInfected template = row.Members[0];
-        if (!template) { return; }
-        vector entry = HCRingPoint(row.NoisePos, radius);
-        if (!HCNavMesh(entry)) { return; }
-        if (!HCInfectedSiegePolicy.HCHears(HCInfectedSiegePolicy.HCHorizontal(entry, row.NoisePos), radius)) { return; }
-        if (!row.Pack)
-        {
-            row.Pack = new HCSiegeReinforcePack;
-            row.Pack.HCSetLive(true);
-        }
-        ZombieBase body = HCHordeReinforce.HCCreate(template.GetType(), entry, row.Pack);
-        if (!body) { return; }
-        // Unsteered by design: no waypoint is written to the new body's group (it may be a wild group).
-        row.ReinforceLeft--;
-        row.Reinforced++;
-        m_WindowUsed.Set(slot, m_WindowUsed[slot] + 1);
-        HCModuleReadiness.HCUseGuarded(GetName(), "reinforce", body);
-    }
-
-    // The hearing radius of the siege noise at its position: the configured strength of the noise entry minus
-    // the environment reduction there (3_Game/Noise.c GetEnvironmentNoiseReduction). 0 when the entry is absent.
-    protected float HCNoiseRadius(vector at)
-    {
-        float strength = HCConfigHelper.GetFloat(HCSearchNoise.NOISE_PATH + " strength", 0);
-        NoiseSystem noise = GetGame().GetNoiseSystem();
-        if (noise) { strength = strength - noise.GetEnvironmentNoiseReduction(at); }
-        return strength;
-    }
-
-    // A point on the ring around the noise position, inside the hearing radius; the caller still needs a navmesh
-    // point and HCHidden.
-    protected vector HCRingPoint(vector centre, float radius)
-    {
-        float angle = Math.RandomFloat(0, 6.2831853);
-        float metres = Math.RandomFloat(HCInfectedSiegePolicy.RING_MIN_METRES, HCInfectedSiegePolicy.HCRingMax(radius));
-        vector point = centre;
-        point[0] = centre[0] + Math.Sin(angle) * metres;
-        point[2] = centre[2] + Math.Cos(angle) * metres;
-        return point;
-    }
-
-    // Snaps the point onto the outdoor navmesh; false when there is none within the sample radius.
-    protected bool HCNavMesh(out vector point)
-    {
-        if (!GetGame().GetWorld() || !GetGame().GetWorld().GetAIWorld()) { return false; }
-        vector sampled;
-        if (!GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(point, HCInfectedSiegePolicy.RING_SAMPLE_METRES, HCNavFilters.HCFor(HCNavFilters.PROFILE_OUTDOOR), sampled)) { return false; }
-        point = sampled;
-        return true;
-    }
-
-    // The persistent id of the player, used only as a server-side key (never logged). Empty without one.
-    protected string HCPlayerId(PlayerBase player)
-    {
-        if (!player || !player.GetIdentity()) { return ""; }
-        return player.GetIdentity().GetId();
-    }
-
-    // The player's reinforcement window slot, created on demand. A slot whose window has run out is reclaimed;
-    // with every slot in a live window the answer is -1 (refused), never another player's slot.
-    protected int HCWindowSlot(string playerId, float now)
-    {
-        int expired = -1;
-        for (int index = 0; index < m_WindowPlayer.Count(); index++)
-        {
-            bool over = HCInfectedSiegePolicy.HCWindowExpired(now, m_WindowStart[index]);
-            if (m_WindowPlayer[index] == playerId)
-            {
-                if (over)
-                {
-                    m_WindowStart.Set(index, now);
-                    m_WindowUsed.Set(index, 0);
-                }
-                return index;
-            }
-            if (over && expired < 0) { expired = index; }
-        }
-        if (m_WindowPlayer.Count() < HCInfectedSiegePolicy.WINDOW_SLOTS)
-        {
-            m_WindowPlayer.Insert(playerId);
-            m_WindowStart.Insert(now);
-            m_WindowUsed.Insert(0);
-            return m_WindowPlayer.Count() - 1;
-        }
-        if (expired < 0) { return -1; }
-        m_WindowPlayer.Set(expired, playerId);
-        m_WindowStart.Set(expired, now);
-        m_WindowUsed.Set(expired, 0);
-        return expired;
     }
 
     // A refusal with a reason code; one count per reason, the line is bounded like the start line.
@@ -549,14 +392,13 @@ class HCInfectedSiegeModule : HCModule
         else if (reason == HCInfectedSiegePolicy.END_TIMEOUT) { m_EndedTimeout++; count = m_EndedTimeout; }
         else if (reason == HCInfectedSiegePolicy.END_NO_LIVE_MEMBER) { m_EndedNoMember++; count = m_EndedNoMember; }
         else { m_EndedLeft++; count = m_EndedLeft; }
-        if (row.Pack) { row.Pack.HCSetLive(false); }
         // The slot is released first, in this call; the line is throttled like the start line (first 8, then every 16th).
         int index = m_Rows.Find(row);
         if (index >= 0) { m_Rows.Remove(index); }
         if (!HCInfectedSiegePolicy.HCPrintStart(count)) { return; }
         string line = "[HC Nav] siege end reason=" + reason + " n=" + count.ToString() + " members=" + row.Members.Count().ToString();
         int seconds = Math.Round(now - row.Opened);
-        Print(line + " secs=" + seconds.ToString() + " noise=" + row.Noises.ToString() + " reinforced=" + row.Reinforced.ToString() + " active=" + HCV2Admission.OnOff(row.Active) + " runtime=PENDING");
+        Print(line + " secs=" + seconds.ToString() + " noise=" + row.Noises.ToString() + " active=" + HCV2Admission.OnOff(row.Active) + " runtime=PENDING");
     }
 }
 

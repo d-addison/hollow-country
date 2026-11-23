@@ -62,6 +62,22 @@ class HCSearchNoise
         worldNoise.AddNoisePos(actor, position, searchParams);
     }
 
+    // The same one-shot noise as EmitAt with NoiseSystem.AddNoisePos's native
+    // external_strenght_multiplier (installed 3_Game/Noise.c:7; the vanilla horn passes 2.0
+    // to AddNoiseTarget, VehicleHornComponent.c:101-107; DayZGame.c explosion and hit noises
+    // pass a surface multiplier). The caller owns the clamp; this only refuses a value that
+    // is not a positive finite number, which would be a silent no-op or a nonsense noise.
+    static void EmitAtScaled(EntityAI actor, vector position, float multiplier)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !actor) return;
+        if (!(multiplier > 0) || multiplier > 100) return;
+        NoiseSystem worldNoise = GetGame().GetNoiseSystem();
+        if (!worldNoise) return;
+        NoiseParams scaledParams = new NoiseParams();
+        scaledParams.LoadFromPath(NOISE_PATH);
+        worldNoise.AddNoisePos(actor, position, scaledParams, multiplier);
+    }
+
     static void Emit(PlayerBase player)
     {
         if (!GetGame() || !GetGame().IsServer() || !player || !player.IsAlive())

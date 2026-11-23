@@ -12,7 +12,10 @@ modded class HCOperatorSettingsRegistry
         HCAdd("InfectedSiege.Enabled", "bool", 1, 0, 1, "HCInfectedSiegeConfig");
         HCAdd("InfectedSiege.GatherSeconds", "float", 8, 3, 60, "HCInfectedSiegeConfig");
         HCAdd("InfectedSiege.NoiseSeconds", "float", 20, 10, 120, "HCInfectedSiegeConfig");
+        HCAdd("InfectedSiege.NoiseStrengthMultiplier", "float", 17, 1, 25, "HCInfectedSiegeConfig");
         HCAdd("InfectedSiege.MaxSieges", "int", 8, 1, 8, "HCInfectedSiegeConfig");
-        HCAdd("InfectedSiege.ReinforcePerPlayerWindow", "int", 4, 0, 8, "HCInfectedSiegeConfig");
+        // Retired 2026-11-23 (a siege never spawns infected): still registered so an old operator
+        // file loads; the value is ignored and a non-zero one is reported once at start.
+        HCAdd("InfectedSiege.ReinforcePerPlayerWindow", "int", 0, 0, 8, "HCInfectedSiegeConfig");
     }
 }
