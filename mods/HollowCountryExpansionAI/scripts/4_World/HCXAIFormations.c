@@ -769,7 +769,7 @@ class HCXAIFormationController
     protected void ConsiderPause(eAIGroup group, DayZPlayerImplement leader, HCXAIGroupStyle style, vector at, int now)
     {
         if (style.Halted.Count() > 0 || now < style.NextPauseAt) { return; }
-        if (leader.Expansion_GetMovementSpeed() <= 0.0) { return; }
+        if (HCXExpansionBridge.HCDayZPlayerImplementGetMovementSpeed(leader) <= 0.0) { return; }
         if (ThreatFelt(group)) { return; }
         int seconds = 0;
         int junction = JunctionIndex(group, at, style.LastJunction);

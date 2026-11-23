@@ -1323,7 +1323,7 @@ def expansion_calls(project, source, dependencies=False):
             if authored_port(kind, name, source.code[start:dot].strip()):
                 continue
             is_expansion = any(t.startswith(('eAI', 'ExpansionAI')) for t in lineage(kind))
-            player_port = name in _EXPANSION_PLAYER_PORTS and any(
+            player_port = (name in _EXPANSION_PLAYER_PORTS or name.startswith('Expansion_')) and any(
                 t in {'PlayerBase', 'DayZPlayer', 'DayZPlayerImplement'} for t in lineage(kind))
             settings_port = kind == 'ExpansionSettings' and name in {'GetAI', 'GetAIPatrol'}
             guarded = bool(_dependency_bridge(project, kind)) if dependencies else (

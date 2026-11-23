@@ -2,6 +2,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.validate import enforce_lint as lint
 
@@ -258,6 +259,11 @@ class ExpansionBridgeRule(unittest.TestCase):
              ['player.GetGroup', 'player.GetGroup().Count']),
             ('class HCProbe { eAIGroup Party() { return null; } void Run() { Party().Count(); } }',
              ['Party().Count']),
+            # Expansion core adds Expansion_* reads to the player classes; they go through the bridge too.
+            ('class HCProbe { void Run(PlayerBase player) { player.Expansion_GetAimDirection(); } }',
+             ['player.Expansion_GetAimDirection']),
+            ('class HCProbe { void Run(DayZPlayerImplement leader) { leader.Expansion_GetMovementSpeed(); } }',
+             ['leader.Expansion_GetMovementSpeed']),
         ):
             with self.subTest(text=text):
                 result = self.findings(text)
@@ -478,17 +484,20 @@ class EngineReceiverMethodRule(unittest.TestCase):
     def test_provider_method_outside_a_bridge_needs_an_exact_allowlist_entry(self):
         path = W + 'HCXDefence.c'
         text = ('class HCXDefence { void OnShot(PlayerBase shooter) { shooter.%s(); } }')
-        self.assertEqual([], self.findings(text % 'Expansion_GetAimDirection', path=path))
-        # Same method elsewhere, another method in the same file, and another receiver type all fail.
-        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'Expansion_GetAimDirection')])
-        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'Expansion_Other', path=path)])
-        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(
-            text.replace('PlayerBase', 'DayZPlayerImplement') % 'Expansion_GetAimDirection', path=path)])
+        entry = {(path, 'HCXDefence.OnShot', 'PlayerBase', 'ProviderAim')}
+        with mock.patch.object(lint, 'load_provider_methods', return_value=entry):
+            self.assertEqual([], self.findings(text % 'ProviderAim', path=path))
+            # Same method elsewhere, another method in the same file, and another receiver type all fail.
+            self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'ProviderAim')])
+            self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'ProviderOther', path=path)])
+            self.assertEqual(['HC-E012'], [f.rule for f in self.findings(
+                text.replace('PlayerBase', 'DayZPlayerImplement') % 'ProviderAim', path=path)])
 
     def test_allowlist_entries_need_a_reason_and_exact_fields(self):
         entries = lint.load_provider_methods()
-        self.assertTrue(entries)
         self.assertTrue(all(len(entry) == 4 for entry in entries))
+        # Both parked Expansion reads moved behind HCXExpansionBridge; their entries are gone.
+        self.assertFalse({entry[3] for entry in entries} & {'Expansion_GetAimDirection', 'Expansion_GetMovementSpeed'})
         with tempfile.TemporaryDirectory() as folder:
             path = lint.Path(folder) / 'allow.json'
             for entry in ({'path': 'a.c', 'symbol': 'A.B', 'receiver_type': 'PlayerBase', 'method': 'M'},
