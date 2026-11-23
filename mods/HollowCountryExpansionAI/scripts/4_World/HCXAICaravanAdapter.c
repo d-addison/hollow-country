@@ -802,10 +802,10 @@ class HCXAICaravanAdapter : HCCaravanInventory
     void HCReleasePartner()
     {
         if (!m_HCPartnerHold || HCXExpansionBridge.HCHoldIsInCombat(m_HCPartnerHold)) { return; }
-        HCXExpansionBridge.HCHoldClearWaypoints(m_HCPartnerHold);
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCPartnerHold, m_PartnerBehaviour);
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(m_HCPartnerHold);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(m_HCPartnerHold, m_PartnerBehaviour);
         array<vector> waypoints = m_PartnerOriginal;
-        foreach (vector waypoint : waypoints) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCPartnerHold, waypoint); }
+        foreach (vector waypoint : waypoints) { HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCPartnerHold, waypoint); }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (director) { director.HCResetPartyJourney(m_HCPartnerHold); }
         HCXAIGroupHolds.Retire(m_HCPartnerHold);
@@ -819,10 +819,10 @@ class HCXAICaravanAdapter : HCCaravanInventory
         HCReleasePartner();
         if (!m_HCHold) { return true; }
         if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { return false; }
-        HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, m_Behaviour);
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(m_HCHold);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(m_HCHold, m_Behaviour);
         array<vector> original = m_Original;
-        foreach (vector point : original) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, point); }
+        foreach (vector point : original) { HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCHold, point); }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (director) { director.HCResetPartyJourney(m_HCHold); }
         return true;

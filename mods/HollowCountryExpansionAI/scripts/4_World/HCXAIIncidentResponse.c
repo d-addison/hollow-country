@@ -829,14 +829,14 @@ class HCXAIIncidentResponse : HCModule
     // behaviour is the one the lease set. Any other state belongs to another controller and is left alone.
     bool HCMine(HCXAIIncidentLease lease)
     {
-        if (!HCXExpansionBridge.HCHoldAlive(lease.Hold)) { return false; }
-        array<vector> live = HCXExpansionBridge.HCHoldGetWaypoints(lease.Hold);
+        if (!HCXExpansionBridge.HCHoldAliveFinal(lease.Hold)) { return false; }
+        array<vector> live = HCXExpansionBridge.HCHoldGetWaypointsCleanup(lease.Hold);
         if (!live || live.Count() != lease.Route.Count()) { return false; }
         for (int index = 0; index < live.Count(); index++)
         {
             if (vector.DistanceSq(live[index], lease.Route[index]) >= 1.0) { return false; }
         }
-        return HCXExpansionBridge.HCHoldGetWaypointBehaviour(lease.Hold) == lease.Installed;
+        return HCXExpansionBridge.HCHoldGetWaypointBehaviourCleanup(lease.Hold) == lease.Installed;
     }
 
     // Holding windows (of the avoid rule's HoldSeconds) a gas hold may keep its lease slot before letting go.
@@ -872,8 +872,11 @@ class HCXAIIncidentResponse : HCModule
     {
         HCWorldIncidents registry = HCWorldIncidents.HCGet();
         eAIGroup group = null;
-        if (lease.Hold) { group = lease.Hold.HCResolve(); }
-        if (group && HCAlive(group) > 0 && HCMine(lease)) { HCRestore(lease, registry); }
+        // Restore resolves without the READY gate (the shutdown loop in OnStop finishes every lease
+        // outside READY); the hold is retired below only after this restore ran.
+        if (lease.Hold) { group = lease.Hold.HCResolveAny(); }
+        bool live = HCXExpansionBridge.HCLive();
+        if (group && (!live || HCAlive(group) > 0) && HCMine(lease)) { HCRestore(lease, registry); }
         if (lease.Response != "avoid")
         {
             registry.HCRelease(lease.IncidentId);
@@ -892,8 +895,11 @@ class HCXAIIncidentResponse : HCModule
     {
         array<vector> route = new array<vector>();
         HCWorldIncident row = registry.HCById(lease.IncidentId);
-        if (row && lease.Response == "avoid") { HCKeep(row, HCLead(lease.Hold.HCResolve()), lease.Saved, route); }
-        bool zoneLive = row && lease.Response == "avoid";
+        // Outside READY the group's position cannot be read, so the zone filter is skipped and the
+        // saved route is given back whole (only reachable while the server shuts down).
+        bool providerLive = HCXExpansionBridge.HCLive();
+        if (row && lease.Response == "avoid" && providerLive) { HCKeep(row, HCLead(lease.Hold.HCResolve()), lease.Saved, route); }
+        bool zoneLive = row && lease.Response == "avoid" && providerLive;
         if (route.Count() < 1 && !zoneLive)
         {
             for (int copyIndex = 0; copyIndex < lease.Saved.Count(); copyIndex++)
@@ -901,18 +907,18 @@ class HCXAIIncidentResponse : HCModule
                 route.Insert(lease.Saved[copyIndex]);
             }
         }
-        HCXExpansionBridge.HCHoldClearWaypoints(lease.Hold);
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(lease.Hold);
         for (int index = 0; index < route.Count(); index++)
         {
-            HCXExpansionBridge.HCHoldAddWaypoint(lease.Hold, route[index]);
+            HCXExpansionBridge.HCHoldAddWaypointCleanup(lease.Hold, route[index]);
         }
         if (route.Count() < 1 && zoneLive)
         {
             // Nothing safe to give back while the zone is live: leave the group halted, never walking an empty route.
-            HCXExpansionBridge.HCHoldSetWaypointBehaviour(lease.Hold, eAIWaypointBehavior.HALT);
+            HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(lease.Hold, eAIWaypointBehavior.HALT);
             return;
         }
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(lease.Hold, lease.Behavior);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(lease.Hold, lease.Behavior);
     }
 
     // ------------------------------------------------------------------ geometry

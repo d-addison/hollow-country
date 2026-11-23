@@ -452,14 +452,14 @@ class HCXConvoyRun
         mHCReason = reason;
         mHCPhase = "walk";
         if (!m_HCHold) { return; }
-        HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
-        if (mHCDrove) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, HCDestination()); }
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(m_HCHold);
+        if (mHCDrove) { HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCHold, HCDestination()); }
         else
         {
             array<vector> walk = mHCWalk;
-            foreach (vector point : walk) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, point); }
+            foreach (vector point : walk) { HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCHold, point); }
         }
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, mHCBehaviour);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(m_HCHold, mHCBehaviour);
     }
 
     void HCRelease(int now)

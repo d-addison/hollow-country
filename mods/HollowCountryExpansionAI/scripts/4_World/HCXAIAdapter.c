@@ -24,16 +24,16 @@ class HCXAIAdapter extends HCModule
     protected ref HCWorkBudget m_AdjunctWork = new HCWorkBudget;
     protected int m_AdjunctCursor;
     protected ref map<string, int> m_StagePeaks = new map<string, int>;
-    // H8 admission: the adapter admits itself only once the Expansion bridge is READY. Until then
-    // it owns no site director or encounters, so the module reports ready=false
-    // (cached_site_or_encounter_owner_missing). Retried once per second, give up after 120 s.
+    // Admission: the adapter admits itself as soon as the bridge is up (HCServer.Start ran). It never
+    // waits for Expansion READY: every provider call is gated by HCXExpansionBridge.HCGate and refuses
+    // with a counted NOT_READY reason until Expansion AI settings, patrol settings and the HC faction
+    // load. The missing condition is logged once and polled once a second, with no give-up (RC audit rows 3, 4:
+    // an admission wait held the module not-ready 47.6 s after the hive, and gave up at 120 s).
     protected bool m_Admitted;
-    protected bool m_AdmitGaveUp;
     protected float m_AdmitStarted;
     protected float m_AdmitNextAt;
     protected HCSettings m_AdmitSettings;
     static const int HC_ADMIT_RETRY_S = 1;
-    static const int HC_ADMIT_GIVE_UP_S = 120;
 
     // Declared here so the later operational modded link can publish cached
     // adjunct status without an earlier link calling an undeclared method.
@@ -68,36 +68,34 @@ class HCXAIAdapter extends HCModule
         m_ReadinessProbeAfter = 0;
         m_ReadinessDependency = "";
         m_Admitted = false;
-        m_AdmitGaveUp = false;
         m_AdmitStarted = m_ReadinessStarted;
         m_AdmitNextAt = 0;
         m_AdmitSettings = settings;
-        if (!HCXExpansionBridge.HCReady())
+        HCXExpansionBridge.HCNoteMissing();
+        if (!HCXExpansionBridge.HCBridgeUp())
         {
-            Print("[HC XAI Bridge] adapter admission waiting reason=bridge_not_ready retry_s=" + HC_ADMIT_RETRY_S.ToString() + " give_up_s=" + HC_ADMIT_GIVE_UP_S.ToString());
+            Print("[HC XAI Bridge] adapter admission waiting reason=bridge_not_up retry_s=" + HC_ADMIT_RETRY_S.ToString());
             return;
         }
         this.HCAdmit(settings);
     }
-    // Once per second while the bridge is not READY; bounded by HC_ADMIT_GIVE_UP_S.
+    // Once per second: while the bridge is not up, retry admission; once admitted, poll the READY
+    // transition and log the missing condition. Bounded (one compare per tick) and never gives up.
     protected void HCAdmitStep()
     {
-        if (m_AdmitGaveUp) { return; }
         float now = GetGame().GetTickTime();
         if (now < m_AdmitNextAt) { return; }
         m_AdmitNextAt = now + HC_ADMIT_RETRY_S;
-        float waited = now - m_AdmitStarted;
-        if (HCXExpansionBridge.HCReady())
+        if (!m_Admitted)
         {
+            if (!HCXExpansionBridge.HCBridgeUp()) { return; }
+            float waited = now - m_AdmitStarted;
             Print("[HC XAI Bridge] adapter admission proceeding after_s=" + waited.ToString());
             this.HCAdmit(m_AdmitSettings);
             return;
         }
-        if (waited >= HC_ADMIT_GIVE_UP_S)
-        {
-            m_AdmitGaveUp = true;
-            Print("[HC XAI Bridge] adapter admission gave up reason=bridge_not_ready after_s=" + HC_ADMIT_GIVE_UP_S.ToString() + "; module stays ready=false, core mod unaffected");
-        }
+        if (HCXExpansionBridge.HCLive()) { return; }
+        HCXExpansionBridge.HCNoteMissing();
     }
     protected void HCAdmit(HCSettings settings)
     {
@@ -229,7 +227,8 @@ class HCXAIAdapter extends HCModule
     override void OnTick(float deltaTime)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
-        if (!m_Admitted) { this.HCAdmitStep(); return; }
+        this.HCAdmitStep();
+        if (!m_Admitted) { return; }
         // Keep the site's maintenance priority. After a long native call, yield
         // adjunct work rather than adding it to the same module tick. A retained
         // round-robin cursor prevents a costly adjunct starving the next one.

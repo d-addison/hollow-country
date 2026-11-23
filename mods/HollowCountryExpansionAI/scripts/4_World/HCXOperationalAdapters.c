@@ -56,6 +56,12 @@ modded class HCXAIAdapter
             HCOperationalStatus siteStatus = m_Sites.HCGetOperationalStatus();
             status.HCPublish(siteStatus.HCState(), siteStatus.HCReason());
         }
+        else if (phase == "wait" && HCXExpansionBridge.HCBridgeUp())
+        {
+            // Provider calls are gated per call while Expansion settings or the HC faction are missing
+            // (HCXExpansionBridge.HCMissingCondition); the wait no longer holds the module not-ready.
+            status.HCPublish("ready", "cached_sites_wait_provider_gated");
+        }
         else if (m_Encounters.Settled())
         {
             status.HCPublish("degraded", "cached_encounters_" + m_Encounters.State());

@@ -79,6 +79,11 @@ class HCXAISiteBase : Managed
     static const string DIAGNOSTIC = "$profile:HollowCountry/acceptance/xai_diagnostic_spawn.enable";
     static const string OBSERVER = "native-eai";
     static const int WORK_PER_TICK = 1;
+    // Chain-version upgrade (stale "algorithm" rows, e.g. chain-v6 to chain-v7): at most this many rows are
+    // discarded and requalified per boot. The rest keep their stored row and are replaced on later boots, so the
+    // upgrade boot neither spikes the AI_SITES tick cost nor holds the route owner late. Sites with a player
+    // inside their activation radius are exempt, so nobody meets an empty route they are standing next to.
+    static const int HC_UPGRADE_REQUAL_PER_BOOT = 16;
     protected static HCXAISiteDirector s_Active;
     protected ref HCXAISitePolicy m_Policy;
     protected ref HCXAIRouteCache m_Routes;
@@ -96,6 +101,8 @@ class HCXAISiteBase : Managed
     protected int m_CacheSamples;
     protected int m_CacheHits;
     protected int m_Requalified;
+    protected int m_UpgradeRequal;
+    protected ref map<string, bool> m_UpgradeDeferred = new map<string, bool>();
     protected int m_CacheDiscarded;
     protected int m_CacheRetained;
     protected bool m_CacheReviewTurn;
@@ -195,7 +202,15 @@ class HCXAISiteBase : Managed
     protected ref HCOperationalStatus m_OperationalStatus = new HCOperationalStatus;
     HCOperationalStatus HCGetOperationalStatus()
     {
-        if (m_Phase == "wait" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
+        if (m_Phase == "wait" && HCXExpansionBridge.HCBridgeUp())
+        {
+            // Admitted and stepping every tick. The wait is for Expansion's own settings and the HC
+            // faction (HCXExpansionBridge.HCMissingCondition, logged once): every provider call refuses
+            // with a counted NOT_READY reason meanwhile and StepWait retries each tick, so the owner
+            // reports ready now instead of holding AIRoles and the adapter late (R4, soak 175: 47.6 s).
+            m_OperationalStatus.HCPublish("ready", "sites_wait_provider_gated");
+        }
+        else if (m_Phase == "wait" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
         {
             m_OperationalStatus.HCPublish("requested", "sites_" + m_Phase);
         }
@@ -565,6 +580,7 @@ class HCXAISiteBase : Managed
     protected void HCCacheDiscard(HCXAIRouteRow row, string reason, string field = "") {  }
     protected void HCDiscardLegacyRoutes() {  }
     protected void HCReviewCachedRoute() {  }
+    protected bool HCUpgradeRequalAllowed(HCXAISite site, string field) { return true; }
     protected void StepWait()
     {
         ExpansionAISettings aiSettings = HCXExpansionBridge.HCSettings();

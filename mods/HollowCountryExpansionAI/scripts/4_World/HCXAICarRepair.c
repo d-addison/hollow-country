@@ -618,10 +618,10 @@ class HCXAICarRepair
     {
         if (!job.RouteSaved || !job.Hold) { return; }
         job.RouteSaved = false;
-        HCXExpansionBridge.HCHoldClearWaypoints(job.Hold);
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(job.Hold);
         array<vector> route = job.Route;
-        foreach (vector point : route) { HCXExpansionBridge.HCHoldAddWaypoint(job.Hold, point); }
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(job.Hold, job.Behaviour);
+        foreach (vector point : route) { HCXExpansionBridge.HCHoldAddWaypointCleanup(job.Hold, point); }
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(job.Hold, job.Behaviour);
     }
 
     protected static void HCStep(HCXAICarJob job, int now)

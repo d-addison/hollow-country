@@ -38,6 +38,9 @@ class HCXExpansionBridge
     protected static int s_HCState;
     protected static int s_HCEpoch;
     protected static int s_HCReadyCheckMs = -1;
+    // Bumped when HC deletes a group, so every hold re-checks the provider's list at once.
+    protected static int s_HCListStamp;
+    protected static string s_HCMissingLogged;
     protected static int s_HCRefusedNotReady;
     protected static int s_HCRefusedShuttingDown;
     protected static int s_HCRefusedGone;
@@ -47,6 +50,7 @@ class HCXExpansionBridge
 
     static int HCState() { return s_HCState; }
     static int HCEpoch() { return s_HCEpoch; }
+    static int HCListStamp() { return s_HCListStamp; }
 
     static string HCStateName()
     {
@@ -55,18 +59,47 @@ class HCXExpansionBridge
         return "not_ready";
     }
 
-    // Provider facts, quiet (no HCRefuse): settings objects loaded and one HC faction registered.
+    // Provider facts, quiet (no HCRefuse). "" when READY could be reached; otherwise the first
+    // missing condition: expansion_ai_settings, expansion_patrol_settings or hc_faction.
+    static string HCMissingCondition()
+    {
+        if (!GetExpansionSettings()) { return "expansion_ai_settings"; }
+        ExpansionAISettings aiSettings = GetExpansionSettings().GetAI();
+        if (!aiSettings || !aiSettings.IsLoaded()) { return "expansion_ai_settings"; }
+        ExpansionAIPatrolSettings patrolSettings = GetExpansionSettings().GetAIPatrol(false);
+        if (!patrolSettings || !patrolSettings.IsLoaded()) { return "expansion_patrol_settings"; }
+        typename factionKind = eAIFaction.GetType("HCVolunteers");
+        if (!factionKind || !eAIRegisterFaction.s_FactionIDs) { return "hc_faction"; }
+        if (!eAIRegisterFaction.s_FactionIDs.Contains(factionKind)) { return "hc_faction"; }
+        return "";
+    }
+
     protected static bool HCProviderUp()
     {
-        if (!GetExpansionSettings()) { return false; }
-        ExpansionAISettings aiSettings = GetExpansionSettings().GetAI();
-        if (!aiSettings || !aiSettings.IsLoaded()) { return false; }
-        ExpansionAIPatrolSettings patrolSettings = GetExpansionSettings().GetAIPatrol(false);
-        if (!patrolSettings || !patrolSettings.IsLoaded()) { return false; }
-        typename factionKind = eAIFaction.GetType("HCVolunteers");
-        if (!factionKind || !eAIRegisterFaction.s_FactionIDs) { return false; }
-        return eAIRegisterFaction.s_FactionIDs.Contains(factionKind);
+        return HCMissingCondition() == "";
     }
+
+    // The bridge itself is up: HCServer.Start ran (epoch > 0) and the server is not stopping. Modules
+    // may report ready from here; every provider call stays gated by HCGate until READY.
+    static bool HCBridgeUp()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; }
+        return s_HCEpoch > 0 && s_HCState != HC_STATE_SHUTTING_DOWN;
+    }
+
+    // Logs the missing READY condition once per distinct condition and epoch; a bounded poll
+    // (the adapter calls it once a second while not READY) so nothing waits on a first call.
+    static void HCNoteMissing()
+    {
+        if (!GetGame() || !GetGame().IsServer() || s_HCEpoch <= 0 || s_HCState != HC_STATE_NOT_READY) { return; }
+        if (HCReady()) { return; }
+        string missing = HCMissingCondition();
+        if (missing == "" || missing == s_HCMissingLogged) { return; }
+        s_HCMissingLogged = missing;
+        Print("[HC XAI Bridge] READY condition missing=" + missing + " epoch=" + s_HCEpoch.ToString() + "; provider calls refuse with reason=NOT_READY and are retried, no give-up");
+    }
+
+    static string HCMissingLogged() { return s_HCMissingLogged; }
 
     // NOT_READY becomes READY lazily, at most once per millisecond tick (once per frame).
     static bool HCReady()
@@ -139,6 +172,7 @@ class HCXExpansionBridge
         s_HCEpoch++;
         s_HCState = HC_STATE_NOT_READY;
         s_HCReadyCheckMs = -1;
+        s_HCMissingLogged = "";
         s_HCRefusedNotReady = 0;
         s_HCRefusedShuttingDown = 0;
         s_HCRefusedGone = 0;
@@ -160,7 +194,9 @@ class HCXExpansionBridge
 
     static void HCLifecycleSummary()
     {
-        Print("[HC XAI Bridge] state=" + HCStateName() + " epoch=" + s_HCEpoch.ToString() + " refused not_ready=" + s_HCRefusedNotReady.ToString() + " shutting_down=" + s_HCRefusedShuttingDown.ToString() + " group_gone=" + s_HCRefusedGone.ToString() + " handles=" + s_HCHandlesLive.ToString() + "/" + HCXAIGroupHolds.Count().ToString());
+        string missingNote = "";
+        if (s_HCState == HC_STATE_NOT_READY && s_HCEpoch > 0) { missingNote = " missing=" + HCMissingCondition(); }
+        Print("[HC XAI Bridge] state=" + HCStateName() + missingNote + " epoch=" + s_HCEpoch.ToString() + " refused not_ready=" + s_HCRefusedNotReady.ToString() + " shutting_down=" + s_HCRefusedShuttingDown.ToString() + " group_gone=" + s_HCRefusedGone.ToString() + " handles=" + s_HCHandlesLive.ToString() + "/" + HCXAIGroupHolds.Count().ToString());
     }
 
     // Final summary after the module stops, with the per-call breakdown when anything was refused.
@@ -705,6 +741,7 @@ class HCXExpansionBridge
     static void HCGroupDelete(eAIGroup value)
     {
         if (!value) { HCRefuse("HCGroupDelete", "GROUP_NULL"); return; }
+        s_HCListStamp++;
         value.Delete();
     }
 
@@ -1141,6 +1178,24 @@ class HCXExpansionBridge
         group.SetWaypointBehaviour(bhv);
     }
 
+    // Cleanup-class reads for the "is the route still ours" check before a restore: same
+    // resolution as the Cleanup writers, so a restore outside READY can still verify and run.
+    static array<vector> HCHoldGetWaypointsCleanup(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupCleanup(hold, "HoldGetWaypointsCleanup");
+        array<vector> points;
+        if (group) { points = group.GetWaypoints(); }
+        if (!points) { points = new array<vector>; }
+        return points;
+    }
+
+    static eAIWaypointBehavior HCHoldGetWaypointBehaviourCleanup(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupCleanup(hold, "HoldGetWaypointBehaviourCleanup");
+        if (!group) { return 0; }
+        return group.GetWaypointBehaviour();
+    }
+
     static bool HCHoldAliveFinal(HCXAIGroupHold hold)
     {
         return HCHoldGroupFinal(hold) != null;
@@ -1242,6 +1297,10 @@ class HCXAIGroupHold
     int Epoch;
     int Id;
     bool Retired;
+    static const int HC_LISTED_TTL_MS = 100;
+    int ListedAtMs = -1;
+    int ListedStamp;
+    bool ListedGone;
     void HCXAIGroupHold(eAIGroup group)
     {
         Group = group;
@@ -1275,7 +1334,7 @@ class HCXAIGroupHold
     {
         if (Retired || !Group || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
         if (!HCXExpansionBridge.HCLive()) { return null; }
-        if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
+        if (!this.HCListed()) { return null; }
         return Group;
     }
     bool HCEpochStale()
@@ -1287,8 +1346,33 @@ class HCXAIGroupHold
     eAIGroup HCResolveAny()
     {
         if (Retired || !Group || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
-        if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
+        if (!this.HCListed()) { return null; }
         return Group;
+    }
+    // Whether the provider still lists this group. eAIGroup.GetGroupByID is a linear scan of
+    // the provider's group list and every bridge call resolves the hold, so a per-state loop
+    // cost one scan per call (RC audit row 4, R2 20.12 ms). The answer is cached on the hold:
+    // "gone" is final (group ids are never reused), "listed" is trusted for HC_LISTED_TTL_MS and
+    // dropped at once when HC itself deletes a group (HCListStamp). The hold's strong reference
+    // keeps the object valid, so the worst case of a stale "listed" is one command to a group the
+    // provider has just removed, which its own null checks absorb. At most one scan per hold per
+    // 100 ms, not one per call.
+    protected bool HCListed()
+    {
+        if (Id <= 0) { return true; }
+        if (ListedGone) { return false; }
+        int nowMs = 0;
+        if (GetGame()) { nowMs = GetGame().GetTime(); }
+        int age = nowMs - ListedAtMs;
+        if (ListedAtMs >= 0 && age >= 0 && age < HC_LISTED_TTL_MS && ListedStamp == HCXExpansionBridge.HCListStamp()) { return true; }
+        if (HCXExpansionBridge.HCGroupById(Id) != Group)
+        {
+            ListedGone = true;
+            return false;
+        }
+        ListedAtMs = nowMs;
+        ListedStamp = HCXExpansionBridge.HCListStamp();
+        return true;
     }
     void Track(DayZPlayerImplement member)
     {
@@ -1702,7 +1786,13 @@ modded class eAIBase
     override bool eAI_CanFire(Weapon_Base weapon)
     {
         if (!HCXExpansionBridge.HCEntity(this, "eAI_CanFire")) { return false; }
-        if (!HCXExpansionBridge.HCCallbackGate("CanFire")) { return super.eAI_CanFire(weapon); }
+        if (!HCXExpansionBridge.HCCallbackGate("CanFire"))
+        {
+            // Outside READY (boot, shutdown) the warning-shot hold still applies: it reads only
+            // HC state and ungated engine getters, so it needs no provider call.
+            if (HCXWarningBlocked()) { return false; }
+            return super.eAI_CanFire(weapon);
+        }
         if (HCXWarningBlocked()) { HCReached.Mark("ai.warning_fire_hold"); return false; }
         return this.HCBridgeSignalCanFire(weapon);
     }
