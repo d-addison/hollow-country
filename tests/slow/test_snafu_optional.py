@@ -656,8 +656,11 @@ class CommittedAllowlist(unittest.TestCase):
         self.assertTrue((self.CONSERVATIVE_SEVEN | self.WW2_SMGS | self.MODERN_MILITARY) <= set(weapons))
         self.assertGreaterEqual(len(weapons), 170)
         projected = military_loot.apply(self.data['entries'])
-        self.assertLess(sum(e['set']['nominal'] for e in projected
-                            if e['kind'] == 'weapon' and 'Military' in e['usage']), 250)
+        # Owner 2026-11-22: the Military/Police weapon routes are an equal share per family (military_loot.route_shares),
+        # bounded by the pack's own weapon family budget, never by a shared 250 ceiling.
+        self.assertLessEqual(sum(e['set']['nominal'] for e in projected
+                                 if e['kind'] == 'weapon' and 'Military' in e['usage']),
+                             next(b['nominal'] for b in self.data['hc61']['family_budgets'] if b['family'] == 'snafu-weapon'))
         self.assertTrue(all(e['set']['nominal'] >= 1 for e in projected))
 
     def test_modern_rifles_and_police_smgs_use_owner_tiers(self):

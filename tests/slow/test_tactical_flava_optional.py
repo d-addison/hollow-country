@@ -1121,8 +1121,10 @@ class CommittedAllowlist(unittest.TestCase):
         weapons = [e for e in self.rows.values() if e['kind'] == 'weapon']
         self.assertGreaterEqual(len(weapons), 50)
         projected = military_loot.apply(self.data['entries'])
-        self.assertLess(sum(e['set']['nominal'] for e in projected
-                            if e['kind'] == 'weapon' and 'Military' in e['usage']), 150)
+        # Owner 2026-11-22: equal share per family on the Military/Police routes, bounded by the pack's weapon budget.
+        self.assertLessEqual(sum(e['set']['nominal'] for e in projected
+                                 if e['kind'] == 'weapon' and 'Military' in e['usage']),
+                             next(b['nominal'] for b in self.data['hc61']['family_budgets'] if b['family'] == 'tf-weapon'))
 
     def test_snafu_lifetime_and_restock_convention(self):
         for name, e in self.rows.items():

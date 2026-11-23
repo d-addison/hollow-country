@@ -139,6 +139,12 @@ def load_rules():
             or set(receivers['usages']) != {'Military', 'Police', 'Prison'}
             or set(receivers['comparable_categories']) != {'clothes', 'containers'}):
         raise ValueError('invalid military weapon receivers')
+    share = rules.get('route_weapons')
+    if (not isinstance(share, dict) or set(share) != {'per_family', 'floor', 'shared'}
+            or type(share['shared']) is not bool
+            or any(type(share[k]) is not int or share[k] < 1 for k in ('per_family', 'floor'))
+            or share['per_family'] < share['floor']):
+        raise ValueError('invalid route weapon share')
     quantity = rules['magazine_quantity_percent']
     if not 0 <= quantity['min'] < quantity['max'] <= 100:
         raise ValueError('invalid magazine quantity')
@@ -150,6 +156,9 @@ def load_rules():
     return rules
 
 
+ROUTE_USAGES = {'Military', 'Police', 'Prison'}
+
+
 def budgeted(row):
     """CE has one pool per class: keep every non-military route intact.
 
@@ -159,10 +168,56 @@ def budgeted(row):
             item_kind(row) in {'firearm', 'attachment', 'magazine', 'ammo'})
 
 
-def allocation():
-    paths = [RULES, ROOT / 'tools/package/military_loot_allowlist.json']
+def _fingerprint():
+    paths = [RULES, ROOT / 'tools/package/military_loot_allowlist.json', ROOT / 'tools/package/loot_families.json']
     paths.extend(ROOT / 'tools/package' / source for source in SOURCES)
-    return _allocation(tuple(hashlib.sha256(path.read_bytes()).digest() for path in paths))
+    return tuple(hashlib.sha256(path.read_bytes()).digest() for path in paths)
+
+
+def allocation():
+    return _allocation(_fingerprint())
+
+
+def route_shares():
+    """{class: nominal} of every route-only firearm (usage within Military, Police, Prison, with Military or Police):
+    an equal share per gun family. Guns that also spawn in Town or Village keep their authored pools unless
+    route_weapons.shared is true (then they take the share too, which cuts the civilian pools of those pistols).
+
+    No vanilla priority (owner 2026-11-22): every family gets route_weapons.per_family (at least floor, the R2b
+    minimum), whatever its source. A family of several colours spends its share as one base variant plus the
+    others, so that it totals at most ceil(1.5 x its largest variant) (R3) with every variant at least 1; a family
+    with too many variants for that rises to the smallest total that keeps both rules."""
+    return dict(_route_shares(_fingerprint()))
+
+
+@lru_cache(maxsize=4)
+def _route_shares(fingerprint):
+    from tools.package import loot_balance
+    rules_all = load_rules()
+    rules = rules_all['route_weapons']
+    share = max(rules['per_family'], rules['floor'])
+    entries = role_routes(list(catalog().values()))
+    members = {}
+    for entry in entries:
+        usage = set(entry.get('set_usage', entry.get('usage', [])))
+        # A gun that also spawns in Town or Village keeps its authored civilian pool (CE has one pool per class)
+        # unless route_weapons.shared opts those in.
+        if (entry['kind'] == 'weapon' and item_kind(entry) == 'firearm' and usage & {'Military', 'Police'}
+                and (usage <= ROUTE_USAGES or rules_all['route_weapons']['shared'])):
+            members.setdefault(loot_balance.family(entry['class']), []).append(entry['class'])
+    result = {}
+    for names in members.values():
+        names = sorted(names, key=lambda name: (len(name), name))
+        count = len(names)
+        total = share if count == 1 else max(share, 3 * (count - 1))
+        if count == 1:
+            result[names[0]] = total
+            continue
+        largest = int(math.ceil(round(total / 1.5, 6)))
+        result[names[0]] = largest
+        rest = loot_balance.split([(name, 1) for name in names[1:]], total - largest)
+        result.update(rest)
+    return tuple(sorted(result.items()))
 
 
 @lru_cache(maxsize=4)
@@ -313,7 +368,102 @@ def apply(entries):
         entry['set'].update(nominal=nominal, min=min(nominal, math.ceil(nominal * rules['min_fraction'])),
                             lifetime=rules['lifetime_seconds'], restock=rules['restock_seconds'])
     result = role_routes(result)
+    result = _equal_share(result, rules)
+    result = _balance_packs(result, rules)
     check_retained(entries, result)
+    return result
+
+
+def pack_estimates():
+    """{class: scaled entry} of both optional packs as the installer will write them (allowlist test_abundance_multiplier)
+    -- the guns loot_boost cannot see when it balances the support rows they share with the roster."""
+    return dict(_pack_estimates(_fingerprint()))
+
+
+@lru_cache(maxsize=4)
+def _pack_estimates(fingerprint):
+    from tools.package import snafu_optional
+    result = {}
+    for source in SOURCES[1:]:
+        data = json.loads((ROOT / 'tools/package' / source).read_bytes())
+        entries, _, _ = snafu_optional._scaled_entries(data['entries'], data.get('test_abundance_multiplier', 1), None)
+        result.update({entry['class']: entry for entry in entries})
+    return tuple(sorted(result.items()))
+
+
+def _roster_classes():
+    return {entry['class'] for entry in json.loads((ROOT / 'tools/package' / SOURCES[0]).read_bytes())['entries']}
+
+
+def _set_nominal(entry, nominal, rules):
+    old_min, old_nominal = entry['set'].get('min', 0), entry['set'].get('nominal', 0)
+    if old_nominal and old_min:
+        minimum = max(1, min(nominal, math.ceil(old_min * nominal / old_nominal)))
+    else:
+        minimum = old_min and min(nominal, old_min)
+    entry['set'].update(nominal=nominal, min=minimum)
+
+
+def _equal_share(result, rules):
+    """Every firearm on the Military/Police route gets its family's equal share (route_shares)."""
+    shares = route_shares()
+    for entry in result:
+        nominal = shares.get(entry['class'])
+        if nominal is not None and entry['kind'] == 'weapon':
+            entry['set'].update(nominal=nominal, min=min(nominal, math.ceil(nominal * rules['min_fraction'])))
+    return result
+
+
+def _balance_packs(result, rules):
+    """R3/R1/re-investment/R2b among the optional-pack attachments and unrouted guns, then R4 for pack magazines.
+
+    The roster rows are balanced later by loot_boost, which also sees stock rows and every scale; pack rows are
+    installed after it, so they are balanced here against each other (their own category totals, no stock share)."""
+    from tools.package import loot_balance
+    roster = _roster_classes()
+    known = catalog()
+    shares = route_shares()
+    rows = {}
+    for entry in result:
+        name = entry['class']
+        if name in roster or name not in known or entry['set'].get('nominal', 0) <= 0:
+            continue
+        if entry['kind'] == 'attachment':
+            rows[name] = {'category': 'attachments', 'nominal': entry['set']['nominal'], 'stock': 0}
+        elif entry['kind'] == 'weapon':
+            rows[name] = {'category': 'weapons', 'nominal': entry['set']['nominal'], 'stock': 0,
+                          'locked': name in shares}
+    if rows:
+        changed, _ = loot_balance.balance(rows)
+        by_class = {entry['class']: entry for entry in result}
+        for name, nominal in changed.items():
+            _set_nominal(by_class[name], nominal, rules)
+    support = {}
+    for entry in result:
+        name = entry['class']
+        if entry['kind'] in {'magazine', 'ammo'} and name not in roster and entry['set'].get('nominal', 0) > 0:
+            support[name] = {'category': entry['kind'] + 's', 'nominal': entry['set']['nominal'], 'stock': 0}
+    if support:  # R2b only: the shares of a pack-private pool are not capped by a category total
+        changed, _ = loot_balance.balance(support, r3=frozenset(), share=1.0)
+        by_class = {entry['class']: entry for entry in result}
+        for name, nominal in changed.items():
+            _set_nominal(by_class[name], nominal, rules)
+    ammo = {entry['class']: entry['set']['nominal'] for entry in result
+            if entry['kind'] == 'ammo' and entry['class'] not in roster and entry['set'].get('nominal', 0) > 0}
+    mags = {entry['class']: entry['set']['nominal'] for entry in result
+            if entry['kind'] == 'magazine' and entry['class'] not in roster and entry['set'].get('nominal', 0) > 0}
+    guns = {}
+    for entry in result:
+        if entry['kind'] == 'weapon' and entry['class'] not in roster and entry['set'].get('nominal', 0) > 0:
+            source = known[entry['class']]
+            listed = source.get('ammo', []) + source.get('vanilla_ammo', []) + source.get('snafu_ammo', [])
+            guns[entry['class']] = {'nominal': entry['set']['nominal'], 'ammo': [a for a in listed if a in ammo],
+                                    'magazines': [m for m in source.get('magazines', []) if m in mags]}
+    if guns and (ammo or mags):
+        added, _ = loot_balance.support_floors(guns, ammo, mags)
+        by_class = {entry['class']: entry for entry in result}
+        for name, add in added.items():
+            _set_nominal(by_class[name], by_class[name]['set']['nominal'] + add, rules)
     return result
 
 

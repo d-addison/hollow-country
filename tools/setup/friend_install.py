@@ -1837,7 +1837,7 @@ def install_dependencies(ctx, a):
 # back (receipt-verified) and the stack is applied again from stock bytes.
 OVERLAY_INPUT_PREFIXES = ('mission-overlay/', 'mission/hollow-country/loot-points/', 'mission/hollow-country/ce/')
 OVERLAY_INPUT_FILES = ('mission-patches.json', 'mission/hollow-country/infected/variants.json',
-                       'tools/package/firearms_roster.json', 'config/military-loot.json')
+                       'tools/package/firearms_roster.json', 'tools/package/loot_families.json', 'config/military-loot.json')
 
 
 def overlay_fingerprint(ctx):

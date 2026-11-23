@@ -6769,7 +6769,7 @@
     {
       "family": "Aug",
       "kind": "weapon",
-      "nominal": 3,
+      "nominal": 5,
       "min": 3
     },
     {
@@ -6835,7 +6835,7 @@
     {
       "family": "M4A1",
       "kind": "weapon",
-      "nominal": 3,
+      "nominal": 5,
       "min": 3
     },
     {

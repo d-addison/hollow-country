@@ -57,7 +57,7 @@ BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowl
                 'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'variety_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py', 'overlay_stack.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'new_buildings.py', 'loot_floor_policy.py', 'firearms_roster.json',
                 'hc_events.py', 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py',
-                'military_loot.py', 'military_loot_allowlist.json', 'pbo.py', 'ce_coverage.py', 'interior_templates.py',
+                'military_loot.py', 'military_loot_allowlist.json', 'loot_balance.py', 'loot_families.json', 'pbo.py', 'ce_coverage.py', 'interior_templates.py',
                 'interior_catalog.py', 'search_context.py', 'essential_routes.json', 'interior_prop_boxes.json',
                 'loot_reach_audit.py', 'interior_points_gen.py', 'loot_support_audit.py', 'ce_slot_pressure.py')
 # Other repo files the shipped tools import or read at install time (wiring audit W010 bundle closure).

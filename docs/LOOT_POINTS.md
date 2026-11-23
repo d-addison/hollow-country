@@ -1211,7 +1211,7 @@ Owner request (wh-econ, 2026-11-22): every building needs more loot because the 
 physical points but not the limits. Three knobs in `mission/hollow-country/loot-points/settings.json`, all applied
 by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the scoped shelf limit in `plan`):
 
-- `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 4.0, usage must be a vanilla
+- `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 8.0, usage must be a vanilla
   `cfglimitsdefinition.xml` usageflag); the shipped map is in `settings.json` only. A group takes the largest factor among its usages that are in the map. Group `lootmax` becomes
   `min(sum of container limits, max(stock, min(ceil(lootmax x f), cap)))`, where `cap` is the group's
   `GroupLootmaxCap` (80 when the key is absent or lists no usage of the group); a group already above its cap keeps its
@@ -1305,6 +1305,50 @@ the two are not like for like); nominal by category
 demand 30,479 to 36,545, deficit 863 to 823, weapons unassigned 50 to 29 (Town shelves). Farm remains pressured
 after its 1.25 factor, so Farm-only shelf rows stay at 1x. These are offline estimates and prove nothing about
 CE spawning; the evidence after a boot is the census totals and the install line `capacity map {...}`.
+
+## Balance rules R1, R2b, R3, R4 (wh-econ round 5, 2026-11-22)
+
+Owner answers 2026-11-22 apply to every category the boost scales (weapons, clothes, containers, tools,
+attachments) and to ammo and magazines. They live in `tools/package/loot_balance.py` (plain data in, plain data
+out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balance` map in `settings.json` and run in
+`plan()` right after `scale_types` (`_balance_layers`):
+
+- A family is the class name without its colour words (`loot_balance.family`): the colour vocabulary and the
+  explicit override table are in `tools/package/loot_families.json` (`Engraved1911` is the `Colt1911` family;
+  modifier words such as Dark, Light, Sky, Christmas, Plane and Scarred are removed like a colour token but only
+  as a whole token or a camel-case tail, so Flashlight stays a family of its own). The rule is deterministic and
+  keyed on the name stem, never on file order.
+- R3 `FamilyFactor` 1.5: a colour family totals at most `ceil(1.5 x its largest variant)` before the shrink; the
+  variants share it in proportion and each keeps at least 1.
+- R1 `ShareCap` 0.03 and `StockFactor` 2.0: a class or a colour family holds at most `max(3% of its category, 2 x its
+  stock share)`.
+- Nominal that R3 and R1 free is re-invested in the same category, in the families below that category's median,
+  bounded by the median, the R3 limit and the share cap. What no family can take is reported as `unspent`; it is
+  not spread over other rows.
+- R2b `FamilyFloor` 3: every family totals at least 3 (the first unlocked variant is raised).
+- R4 `AmmoPerGun` 1.5 and `MagazinePerGun` 1.0: per ammo pool (guns sharing a cartridge, boxes and tracers folded
+  into the plain cartridge) and per magazine pool, supply is at least the ratio times the pool's gun nominal; deficits
+  go to the least supplied class. R4 may lift a row above its R1 cap; pools with no existing row are listed in the
+  describe line, never invented. The weapon packs (installed later as their own layers) balance their private ammo
+  and magazine rows in `military_loot._balance_packs` with the same function.
+- Route guns (Military or Police usage, `military_loot.route_shares`) are locked: they carry the equal share of
+  `config/military-loot.json` `route_weapons` (`per_family` 5, `floor` 3, `shared` true) and are not moved by R1 or R3.
+  With `shared` false the guns that also spawn in Town/Village keep their authored pools: offline, the weapons-only
+  0.8 headroom deficit is then 5494 (1023 with `shared` true, 2802 before this round), the full-graph deficit 7709
+  (3400 with `shared` true, 6317 before) and the total 77.4k (73.7k). Both are offline bounds, not DayZ behaviour.
+- Capacity: `MAX_CAPACITY` is 8.0 (was 4.0) and `CapacityMultiplier` now reads Hunting 4.0, Medic 5.0, Military 8.0,
+  Police 8.0, Prison 6.0 with the Military group cap 400, so the lootmax of stock containers (mixed ones only;
+  weapons-only and explosives-only containers stay at stock) rises toward their points.
+- `LOOT_BOOST_VERSION` is 2 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
+  overlay from stock bytes.
+- 13 classes that had a positive nominal but no usage never reached a building (BalaclavaMask_Chain, BalaclavaMask_Pig,
+  Shemag_Brown, Shemag_Green, Shemag_Red, Shemag_White, Flashlight, Lockpick, SodaCan_Cola, SodaCan_Fronta,
+  SodaCan_Kvass, SodaCan_Pipsi, SodaCan_Spite): `ce/types.xml` now carries full rows with the usage, tier and tag of
+  their vanilla siblings. `Truck_01_WheelDouble` is dispatch-only (no `lootdispatch` container exists in the group
+  prototypes) and stays as is; GlassBottle and WaterBottle have no category and are carrier items.
+
+Offline numbers only; the describe lines (`balance ...`) and the install receipt are the audit surface, DayZ behaviour
+is unobserved.
 
 ## Round 8 point density and supported floors for the owner's usage targets (wh-points 2026-11-22)
 
