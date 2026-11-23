@@ -12,8 +12,7 @@ from a staged final mission and reads it back:
 The table is a derived, optimistic offline bound that the plan it feeds reads back, so the committed table is correct
 only when it is a fixpoint: staging the stock mission with the travel layer, planning with the committed table and
 the shipped points, adding the optional gun packs (scaled by their allowlists), and rebuilding the table from that
-result must give the same table (byte for byte, or within TOLERANCE units per bucket: the balance truncates integers,
-so a jitter of a few units can make two tables alternate). ``--check`` runs that single pass, so any change to the capacity settings, the points
+result must give the same table byte for byte. ``--check`` runs that single pass, so any change to the capacity settings, the points
 overlays, the types rows or the balance code that moves a bucket fails it. Nothing here establishes DayZ behaviour.
 """
 import argparse
@@ -30,11 +29,6 @@ TABLE = 'tools/package/loot_slack.json'
 PACKS = ('snafu_allowlist.json', 'tactical_flava_allowlist.json')
 PACK_FOLDER = 'hc-packs-scratch'
 MAX_ROUNDS = 6
-# Pass 2 of the balance hands out nominal with integer truncation, so a bucket's slack can jitter by a few units
-# between two staged passes (round 8: slack +-2 and nominal +-2 in a 2-cycle over 261 buckets, 1.8M total slack).
-# A table whose every bucket is within this many units of its own regeneration, with identical bucket structure,
-# routes, class map and deficit, counts as settled; a capacity or types change moves buckets by hundreds.
-TOLERANCE = 8
 
 
 def build(mission):
@@ -100,30 +94,8 @@ def generate(source):
 
 
 def settled(committed, fresh):
-    """True when the fresh table is the committed one up to TOLERANCE units of slack/nominal/unassigned per bucket."""
-    if committed == fresh:
-        return True
-    if committed is None:
-        return False
-    try:
-        a, b = json.loads(committed), json.loads(fresh)
-        # The deficit sums the per-bucket truncation jitter, so it gets the same tolerance instead of an exact match.
-        if {k: v for k, v in a.items() if k not in ('buckets', 'deficit')} != {k: v for k, v in b.items()
-                                                                              if k not in ('buckets', 'deficit')}:
-            return False
-        if abs(a['deficit'] - b['deficit']) > TOLERANCE:
-            return False
-        if a['buckets'].keys() != b['buckets'].keys():
-            return False
-        for key, row in a['buckets'].items():
-            other = b['buckets'][key]
-            if row.keys() != other.keys() or row['route'] != other['route']:
-                return False
-            if any(abs(row[f] - other[f]) > TOLERANCE for f in ('slack', 'nominal', 'unassigned')):
-                return False
-    except (KeyError, TypeError, ValueError, AttributeError):
-        return False
-    return True
+    """True only when one staged pass reproduces the committed bytes exactly."""
+    return committed == fresh
 
 
 def reproduce(source):

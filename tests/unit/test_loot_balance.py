@@ -44,6 +44,12 @@ class Split(unittest.TestCase):
     def test_total_below_member_count_is_raised(self):
         self.assertEqual(sum(bal.split([('a', 1), ('b', 1), ('c', 1)], 1).values()), 3)
 
+    def test_largest_remainder_uses_exact_ties_and_name_order(self):
+        weights = [('z', 1), ('a', 1), ('b', 1)]
+        self.assertEqual({'a': 2, 'b': 2, 'z': 1}, bal.split(weights, 5))
+        self.assertEqual(bal.split(weights, 10**18 + 2), bal.split(list(reversed(weights)), 10**18 + 2))
+        self.assertEqual(10**18 + 2, sum(bal.split(weights, 10**18 + 2).values()))
+
 
 class Balance(unittest.TestCase):
     def test_r3_caps_a_colour_family_at_one_and_a_half_times_its_largest(self):

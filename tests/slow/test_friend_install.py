@@ -617,6 +617,25 @@ class ApplyTests(InstallerCase):
         self.assertEqual(live_snapshot(self.server), before)
         self.assertIn('rolled back: the server is as it was before this run', err)
 
+    def test_infected_season_is_passed_on_install_and_same_bundle_upgrade(self):
+        with mock.patch.object(fi.infected_variety, 'season_from_profile', return_value='winter') as season:
+            code, out, err = self.apply()
+            self.assertEqual(code, 0, out + err)
+            fi.infected_variety.install.assert_called_with(self.mission, off=False, season='winter')
+            season.assert_called_with(self.server / 'profiles')
+        fi.infected_variety.install.reset_mock()
+        fi.infected_variety.check.return_value = {'season': 'winter'}
+        with mock.patch.object(fi.infected_variety, 'season_from_profile', return_value='summer'):
+            code, out, err = self.apply()
+            self.assertEqual(code, 0, out + err)
+            fi.infected_variety.install.assert_called_once_with(self.mission, off=False, season='summer')
+        fi.infected_variety.install.reset_mock()
+        fi.infected_variety.check.return_value = {'season': 'summer'}
+        with mock.patch.object(fi.infected_variety, 'season_from_profile', return_value='summer'):
+            code, out, err = self.apply()
+            self.assertEqual(code, 0, out + err)
+            fi.infected_variety.install.assert_not_called()
+
     def test_a_changed_bundle_rolls_the_old_overlay_back_first_when_confirmed(self):
         self.apply()
         newer = make_bundle(self.tmp / 'v2')

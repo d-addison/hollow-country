@@ -6,8 +6,9 @@ retained, except a missing/nonstandard XML declaration is normalized through
 xml_text to the double-quoted UTF-8 form. No CE extension is registered.
 Seasonal rows (seasonal_rebalance in variants.json) apply only when the install names
 a season (--season, or --season-profile reading the persisted HCVisualSeasons clock);
-the season is restart-bound and recorded in the receipt, so a season change means
-rollback and install again.
+the season is fixed at install/upgrade time and recorded in the receipt. Winter
+medics follow the season of the last upgrade, rather than the live seasonal clock.
+A changed season automatically rolls back the receipted layer and reinstalls it.
 Off and rollback restore the original bytes, including the original declaration.
 Infected kits (#339): an HC child row copies its parent row (cargo and attachments); stock
 Zmb rows gain role cargo presets (hc_kit_*, written to cfgrandompresets.xml) and a little
@@ -602,14 +603,15 @@ def install(mission, stock_events=None, off=False, season=None):
     """Write the optional-overlays style backup receipt before the atomic switch."""
     if off:
         return rollback(mission)
+    if season is not None and season not in SEASONS:
+        raise ValueError('unknown season: ' + str(season))
     mission = mission_target(mission)
     managed = safe(mission / MANAGED)
     if managed.exists():
         receipt = check(mission)
-        if season is not None and receipt.get('season') != season:
-            raise ValueError('infected variety is installed for season ' + str(receipt.get('season'))
-                             + '; rollback first to install for ' + season)
-        return receipt
+        if receipt.get('season') == season:
+            return receipt
+        rollback(mission)
     policy_bytes = read(POLICY)
     policy = json.loads(policy_bytes)
     original = read(mission / TARGET)

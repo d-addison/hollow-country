@@ -13,6 +13,7 @@ Nominal that R1 and R3 free is re-invested in the same category: pass 1 in the f
 pass 2 (a share of what is still unspent, not for PASS2_SKIP categories) in every family, proportionally to its total.
 Offline numbers only: nothing here establishes spawning behaviour in DayZ.
 """
+from fractions import Fraction
 from functools import lru_cache
 import json
 import math
@@ -87,13 +88,14 @@ def split(weights, total):
     Largest remainder, ties by name, so the result is deterministic. total below the member count is raised to it."""
     names = sorted(weights, key=lambda item: item[0])
     total = max(total, len(names))
-    weight_sum = sum(max(w, 0) for _, w in names) or len(names)
+    positive_sum = sum(max(w, 0) for _, w in names)
+    weight_sum = positive_sum or len(names)
     shares, order = {}, []
     spare = total - len(names)
     for name, weight in names:
-        exact = spare * (max(weight, 0) if sum(max(w, 0) for _, w in names) else 1) / weight_sum
-        shares[name] = 1 + int(exact)
-        order.append((-(exact - int(exact)), name))
+        whole, remainder = divmod(spare * (max(weight, 0) if positive_sum else 1), weight_sum)
+        shares[name] = 1 + whole
+        order.append((-remainder, name))
     left = total - sum(shares.values())
     for _, name in sorted(order)[:left]:
         shares[name] += 1
@@ -118,10 +120,13 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
     Locked rows keep their nominal (they count in totals only). Rows with nominal 0 are never touched. Returns
     ({class: new nominal} for every changed class, report {category: {...}}). Only nominal changes; callers rescale
     min. Deterministic: ordering is by name."""
+    # Decimal policy values become exact rationals before any products or rounding.
+    k, share, stock_factor, pass2_share, slack_share = (
+        Fraction(str(v)) for v in (k, share, stock_factor, pass2_share, slack_share))
     current = {n: r['nominal'] for n, r in rows.items()}
     # capacity table: {'bucket': {id: spare nominal}, 'class': {lowercase class: bucket id}}; slack_share of each
     # bucket's spare capacity may be handed out (buckets share containers, so the full figure overstates it)
-    left = None if slack is None else {b: int(v * slack_share) for b, v in slack['bucket'].items()}
+    left = None if slack is None else {b: math.floor(v * slack_share) for b, v in slack['bucket'].items()}
     bucket_of = {} if slack is None else {n: slack['class'].get(n.lower()) for n in rows}
     report = {}
     by_cat = {}
@@ -154,7 +159,7 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
             for key, members in groups.items():
                 if len(members) > 1:
                     largest = max(current[m] for m in members)
-                    freed += shrink(members, int(math.ceil(round(k * largest, 6))), key)
+                    freed += shrink(members, math.ceil(k * largest), key)
             info['r3_freed'] = freed
         for _ in range(4):
             total = sum(current[n] for n in names)
@@ -221,7 +226,7 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                 continue
             limit = median
             if len(members) > 1 and category in r3:
-                limit = min(limit, int(math.ceil(round(k * max(current[m] for m in members), 6))))
+                limit = min(limit, math.ceil(k * max(current[m] for m in members)))
             share_cap = max(share, stock_factor * sum(rows[m].get('stock', 0) for m in members) / stock_total)
             limit = min(limit, int(math.floor(share_cap * total)))
             if left is not None:
@@ -259,7 +264,7 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
         leftover = freed - spend
         if category in pass2_skip:
             leftover = 0
-        leftover = min(leftover, int(math.floor(leftover * pass2_share + 1e-9)))
+        leftover = min(leftover, math.floor(leftover * pass2_share))
         spend2 = 0
         if leftover > 0:
             total = sum(current[n] for n in names) + leftover
@@ -271,7 +276,7 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                 limit = int(math.floor(max(share, stock_factor * sum(rows[m].get('stock', 0) for m in members)
                                            / stock_total) * total))
                 if len(members) > 1 and category in r3:
-                    limit = min(limit, int(math.ceil(round(k * max(current[m] for m in members), 6))))
+                    limit = min(limit, math.ceil(k * max(current[m] for m in members)))
                 have = sum(current[m] for m in members)
                 if limit > have:
                     limits[key] = limit - have
@@ -292,11 +297,14 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                     weight = {key: room_of(key) for key in open_keys}
                     cap = {key: min(limits[key] - gain[key], weight[key]) for key in open_keys}
                 weight_sum = sum(weight.values())
-                grant = {key: min(cap[key], int(pool * weight[key] / weight_sum)) for key in open_keys}
-                if not any(grant.values()):
-                    # fewer units than families: hand them out one at a time, largest weight first
-                    for key in sorted(open_keys, key=lambda x: (-weight[x], x))[:pool]:
-                        grant[key] = 1
+                # Apportion the whole pool with exact remainders; flooring each
+                # product independently loses units and makes feedback alternate.
+                parts = {key: pool * weight[key] // weight_sum for key in open_keys}
+                remainder = pool - sum(parts.values())
+                order = sorted(open_keys, key=lambda key: (-(pool * weight[key] % weight_sum), key))
+                for key in order[:remainder]:
+                    parts[key] += 1
+                grant = {key: min(cap[key], parts[key]) for key in open_keys}
                 moved = 0
                 for key in open_keys:
                     if grant[key]:

@@ -4,10 +4,13 @@ Events are built from the authored rows in variants.json, so the expectations fo
 the data. Nothing here establishes CE or DayZ behaviour.
 """
 import copy
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.package import economy, infected_variety as iv
 
@@ -73,6 +76,27 @@ class SeasonalPlacementTests(unittest.TestCase):
     def test_other_seasons_place_nothing_seasonal(self):
         for season in set(iv.SEASONS) - set(POLICY['seasonal_rebalance']['seasons']):
             self.assertEqual(self.build(season), self.build())
+
+    def test_upgrade_replaces_winter_rows_and_rollback_restores_stock(self):
+        self.policy['mix_policy']['EnableAccessories'] = False
+        self.policy['mix_policy']['EnableKits'] = False
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            mission = Path(tmp) / 'mission'
+            (mission / 'db').mkdir(parents=True)
+            (mission / iv.TARGET).write_bytes(self.stock)
+            policy = Path(tmp) / 'policy.json'
+            policy.write_text(json.dumps(self.policy))
+            with mock.patch.object(iv, 'POLICY', policy):
+                iv.install(mission, season='winter')
+                self.assertEqual(weights((mission / iv.TARGET).read_bytes()), self.build('winter'))
+                receipt = iv.install(mission, season='summer')
+                self.assertEqual(receipt['season'], 'summer')
+                summer = (mission / iv.TARGET).read_bytes()
+                self.assertEqual(weights(summer), self.build('summer'))
+                iv.install(mission, season='summer')
+                self.assertEqual((mission / iv.TARGET).read_bytes(), summer)
+                iv.rollback(mission)
+                self.assertEqual((mission / iv.TARGET).read_bytes(), self.stock)
 
     def test_unknown_season_is_refused(self):
         with self.assertRaises(ValueError):
