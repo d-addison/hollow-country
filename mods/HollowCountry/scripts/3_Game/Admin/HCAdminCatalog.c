@@ -110,6 +110,9 @@ class HCAdminCatalog
         HCAdd("fx_holdout_due", "ai", "Smoke: due funded holdout", "Lead-only R3: select an existing naturally due funded row; no aging or supplies.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_conflict", "ai", "Smoke: distant conflict", "Lead-only R3: prioritize an existing eligible distant opposed cell; normal guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_materialize", "ai", "Smoke: offered proposal", "Lead-only R3: prioritize an existing unclaimed proposal; real provider outcome required.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_car_side", "world", "Test setup: car on its side", "Dev test addon only: roll one parked or new car onto its side 8-15 m away; the real flip code runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_camp_setup", "world", "Test setup: built camp", "Dev test addon only: pitch a tent, crate and lit fire 6-15 m away; the real camp code runs.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_wreck", "world", "Test setup: salvage wreck", "Dev test addon only: place one reviewed car wreck 8-15 m away; the real salvage code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");
         HCAdd("event", "world", "Start reviewed event", "Request the nearest reviewed site through normal event admission.", false, true, false, 0, 0, 0, "");
         HCAdd("scene", "world", "Place due scene", "Request the nearest due reviewed scene; maximum two scene leases.", false, true, false, 0, 0, 0, "");
