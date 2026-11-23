@@ -1458,6 +1458,24 @@
       "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
       "scope": "runtime",
       "note": "A composed site stands after the guard pass (admitted this boot or restored from the profile decisions). Enabled only while a site manifest is installed; refusals (site_refusals) and the orphan sweep (orphan_sweep) depend on the world state and are not default expectations."
+    },
+    {
+      "module": "GunPile",
+      "feature": "piles-placed",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=GunPile feature=piles-placed count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCGunPile.c",
+      "scope": "runtime",
+      "note": "A CE-created gun got its own magazine and/or ammo stack lying beside it (queued from Weapon_Base.EEOnCECreate, placed by a bounded drain). Counts placed piles, never a restored gun."
     }
   ]
 }

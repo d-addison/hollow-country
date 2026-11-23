@@ -352,6 +352,30 @@
     "owner": "HCSettings"
   },
   {
+    "key": "GunPileEnabled",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "GunPileChance",
+    "type": "float",
+    "default": 0.75,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "GunPilePerTick",
+    "type": "int",
+    "default": 4,
+    "min": 1,
+    "max": 16,
+    "owner": "HCSettings"
+  },
+  {
     "key": "AILimits",
     "type": "object",
     "default": {
