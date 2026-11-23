@@ -202,7 +202,7 @@ def check_sites(rows, source, registry):
     if 'HCOperatorSettingsRegistry.HCValid("Sites." + key, candidate)' not in dto:
         errors.append('Sites registry gate helper does not validate against the registry')
     for key, row in rules.items():
-        if row['owner'] != 'HCSiteGuard' or fields.get(key) != (row['type'], row['default']):
+        if row['owner'] != 'HCSiteConfig' or fields.get(key) != (row['type'], row['default']):
             errors.append(f'Sites DTO default/type/owner differs for {key}')
         if f'HCRegistryInt("{key}",' not in dto:
             errors.append(f'Sites apply does not use the registry gate for {key}')
