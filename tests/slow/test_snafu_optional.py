@@ -358,6 +358,7 @@ class FailClosedGeneration(unittest.TestCase):
         self.assertEqual([u.get('name') for u in wood.findall('usage')], ['Town'])
         self.assertEqual(wood.find('category').get('name'), 'weapons')
         self.assertEqual(wood.find('flags').get('count_in_map'), '1')
+        self.assertEqual({t.find('flags').get('count_in_hoarder') for t in types.values()}, {'1'})  # #347: guns, mags, ammo
         self.assertIn(b'folder="hollow-country-snafu/ce"', delta['cfgeconomycore.append.xml'])
         meta = json.loads(delta['economy-report.json'])
         self.assertEqual(meta['kind'], 'snafu-optional')

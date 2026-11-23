@@ -690,6 +690,9 @@ class FailClosedGeneration(unittest.TestCase):
                           mag.findtext('restock')), ('10', '100', '14400', '0'))
         self.assertEqual((rifle.findtext('quantmin'), optic.findtext('quantmax')), ('-1', '-1'))
         self.assertEqual(rifle.find('category').get('name'), 'weapons')
+        self.assertEqual({n: t.find('flags').get('count_in_hoarder') for n, t in by.items()},
+                         {n: '1' if n in ('SynRifle', 'SynDMR', 'SynBolt', 'SynHunter', 'SynMagA', 'SynMagB') else '0'
+                          for n in by})  # #347: guns and magazines; optics and attachments keep the default
         self.assertEqual([u.get('name') for u in by['SynHunter'].findall('usage')], ['Village', 'Hunting'])
         self.assertEqual(by['SynAdapter'].findtext('nominal'), '1')
         self.assertIn(b'hollow-country-tactical-flava/ce', files['cfgeconomycore.append.xml'])

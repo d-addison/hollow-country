@@ -820,7 +820,9 @@ def _new_type(entry):
     ET.SubElement(item, 'quantmin').text = str(low)
     ET.SubElement(item, 'quantmax').text = str(high)
     ET.SubElement(item, 'cost').text = '100'
-    ET.SubElement(item, 'flags', {'count_in_cargo': '0', 'count_in_hoarder': '0', 'count_in_map': '1',
+    # #347: stored guns, magazines and ammo count against the nominal; attachments and gear keep the stock default.
+    hoarder = '1' if entry['kind'] in ('weapon', 'magazine', 'ammo') else '0'
+    ET.SubElement(item, 'flags', {'count_in_cargo': '0', 'count_in_hoarder': hoarder, 'count_in_map': '1',
                                   'count_in_player': '0', 'crafted': '0', 'deloot': '0'})
     ET.SubElement(item, 'category', {'name': 'weapons'})
     for u in entry['usage']:
