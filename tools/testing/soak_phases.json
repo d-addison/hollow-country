@@ -118,6 +118,7 @@
   "OptionalPacks": "idle",
   "FoodCompat": "idle",
   "Pickers": "idle",
+  "GunPile": "join",
   "Notes": "idle",
   "NotesCompat": "idle"
  },
@@ -129,7 +130,7 @@
   "Interiors/nav_pathgraph_refresh": "walk_town",
   "Interiors/house_search_completed": "actions",
   "SearchBinding/house_bound": "actions",
-  "SearchBinding/supply_bound": "actions",
+  "GunPile/piles_placed": "join",
   "Shelters/regional_props_placed": "idle",
   "InfectedDoors/door_pressure": "idle",
   "InfectedDoors/nav_door_action": "actions",

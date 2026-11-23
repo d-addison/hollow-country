@@ -79,5 +79,4 @@ log `fixture=1` and the real feature code then runs.
 
 - `plan` fails until `mods/HollowCountryTest` and `tools.testing.driver_script` (drv and fxsetup briefs) are in the checkout.
 - `SettlementDecay` has a 1440-minute window, so its window rows cannot become active in one soak; they report zero.
-- `SearchBinding/supply-bound` has an expectation row but no source counter yet; it reports zero until one exists.
 - Counters no driver step reaches (for example Fortify, Notes, CookingCompat) report zero rather than pass.

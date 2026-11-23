@@ -76,10 +76,6 @@ class PhaseMapTests(unittest.TestCase):
         for module, feature in camp.expectation_rows():
             self.assertIsNotNone(camp.phase_of(PHASES, module, feature), module + '/' + feature)
 
-    def test_supply_bound_row_exists_and_is_mapped(self):
-        self.assertIn(('SearchBinding', 'supply-bound'), camp.expectation_rows())
-        self.assertEqual(camp.phase_of(PHASES, 'SearchBinding', 'supply-bound'), ('phase', 'actions'))
-
     def test_manual_rows_are_only_the_allowed_two_player_items(self):
         self.assertEqual(camp.manual_problems(PHASES), [])
         self.assertEqual(set(PHASES['manual']), camp.ALLOWED_MANUAL)
