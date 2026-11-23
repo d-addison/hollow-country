@@ -380,6 +380,32 @@ class ReceiptLifecycleTests(unittest.TestCase):
         self.assertEqual(self.current(), self.files)
         self.assertFalse((self.mission / iv.MANAGED).exists())
 
+    def test_changed_season_reinstalls_and_keeps_the_original_backups(self):
+        for season in (None, 'winter', 'summer', None):
+            receipt = iv.install(self.mission, season=season)
+            self.assertEqual(receipt['season'], season)
+            first = self.current()
+            self.assertEqual(iv.install(self.mission, season=season), receipt)
+            self.assertEqual(self.current(), first)
+            for name, row in receipt['files'].items():
+                self.assertEqual(row['before_sha256'], economy.sha(self.files[name]))
+        iv.rollback(self.mission)
+        self.assertEqual(self.current(), self.files)
+
+    def test_changed_season_refuses_drift_and_invalid_season_without_writing(self):
+        iv.install(self.mission, season='winter')
+        first = self.current()
+        with self.assertRaisesRegex(ValueError, 'unknown season'):
+            iv.install(self.mission, season='monsoon')
+        self.assertEqual(self.current(), first)
+        (self.mission / iv.PRESETS).write_bytes(PRESETS + b'\n')
+        drifted = self.current()
+        receipt = self.receipt()
+        with self.assertRaisesRegex(ValueError, 'drift'):
+            iv.install(self.mission, season='summer')
+        self.assertEqual(self.current(), drifted)
+        self.assertEqual(self.receipt(), receipt)
+
     def test_receipt_from_before_kits_is_refused_then_rolled_back_and_reapplied(self):
         legacy = copy.deepcopy(self.policy)
         legacy['mix_policy']['EnableKits'] = False

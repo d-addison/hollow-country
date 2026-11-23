@@ -15,6 +15,9 @@ own when it is already done:
   5 mission overlay                 11 final checklist
   6 map overlays
 
+Infected placement uses the persisted profile season at install/upgrade time. Winter medics
+follow the season of the last upgrade; a changed season repairs the receipted layer automatically.
+
 Safety rules:
 
 * Dry run by default. Nothing changes until --apply (or a typed yes at the end of a terminal dry run).
@@ -2210,7 +2213,10 @@ def plan_overlay_step(ctx, a):
         else:
             if not variety.exists():
                 return 'planned', lines + ['apply infected variety after the existing mission overlay'], lambda: do_variety(ctx, mission)
-            infected_variety.check(mission)
+            receipt = infected_variety.check(mission)
+            season = infected_variety.season_from_profile(ctx.server / 'profiles')
+            if receipt.get('season') != season:
+                return 'planned', lines + ['refresh infected variety for the current season'], lambda: do_variety(ctx, mission)
         if state['state'] == 'missing' or (state['state'] == 'tuned' and state['resets']):
             return 'planned', lines, lambda: do_variety(ctx, mission, variety=False)
         return 'already-done', lines, None
@@ -2244,7 +2250,8 @@ def do_variety(ctx, mission, variety=True):
     with tree_writer(ctx, mission):
         globals_heal(ctx, mission)
         if variety:
-            infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False))
+            infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False),
+                                     season=infected_variety.season_from_profile(ctx.server / 'profiles'))
     return 'done'
 
 
@@ -2300,7 +2307,8 @@ def _do_overlay_with_variety(ctx, a, mission, installed, want):
                                         '--workshop-dir', str(pack_dir)])
     if code != 0:
         raise Refused('overlay', 'bundle-apply refused: %s' % err.strip())
-    infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False))
+    infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False),
+                             season=infected_variety.season_from_profile(ctx.server / 'profiles'))
     if carry:
         fresh = loot_boost.economy.read_plain(mission, GLOBALS_REL)
         merged = globals_with_overrides(fresh, carry)

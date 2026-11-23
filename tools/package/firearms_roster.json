@@ -874,6 +874,38 @@
       ]
     },
     {
+      "class": "Glock_Tan",
+      "kind": "weapon",
+      "role": "modern",
+      "tier": "uncommon",
+      "set": {
+        "nominal": 120,
+        "min": 105,
+        "restock": 300
+      },
+      "ammo": [
+        "Ammo_9x19"
+      ],
+      "magazines": [
+        "Mag_Glock_15Rnd"
+      ],
+      "justification": "Variant shares the base roster allocation, routes and support; runtime pending.",
+      "family": "Glock19",
+      "disposition": "curated-family-split",
+      "set_usage": [
+        "Town",
+        "Village",
+        "Police",
+        "Military"
+      ],
+      "set_value": [
+        "Tier1",
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ]
+    },
+    {
       "class": "FNX45",
       "kind": "weapon",
       "role": "modern",
@@ -2446,6 +2478,36 @@
       "magazines": [],
       "disposition": "keep-native-budget",
       "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
+      "family": "Crossbow",
+      "set_usage": [
+        "Town",
+        "Village",
+        "Police",
+        "Military"
+      ],
+      "set_value": [
+        "Tier1",
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ]
+    },
+    {
+      "class": "Crossbow_Summer",
+      "kind": "weapon",
+      "role": "modern",
+      "tier": "rare",
+      "set": {
+        "nominal": 15,
+        "min": 9,
+        "restock": 300
+      },
+      "ammo": [
+        "Ammo_HuntingBolt"
+      ],
+      "magazines": [],
+      "disposition": "keep-native-budget",
+      "justification": "Variant shares the base roster allocation, routes and support; runtime pending.",
       "family": "Crossbow",
       "set_usage": [
         "Town",
@@ -6523,8 +6585,8 @@
     {
       "family": "Glock19",
       "kind": "weapon",
-      "nominal": 120,
-      "min": 105
+      "nominal": 240,
+      "min": 210
     },
     {
       "family": "FNX45",
@@ -6793,8 +6855,8 @@
     {
       "family": "Crossbow",
       "kind": "weapon",
-      "nominal": 39,
-      "min": 21
+      "nominal": 54,
+      "min": 30
     },
     {
       "family": "Deagle",
@@ -8072,6 +8134,25 @@
         "disposition": "curated-family-split"
       },
       {
+        "class": "Glock_Tan",
+        "kind": "weapon",
+        "role": "modern",
+        "tier": "uncommon",
+        "set": {
+          "nominal": 12,
+          "min": 10
+        },
+        "ammo": [
+          "Ammo_9x19"
+        ],
+        "magazines": [
+          "Mag_Glock_15Rnd"
+        ],
+        "justification": "Variant shares the base roster allocation, routes and support; runtime pending.",
+        "family": "Glock19",
+        "disposition": "curated-family-split"
+      },
+      {
         "class": "FNX45",
         "kind": "weapon",
         "role": "modern",
@@ -9001,6 +9082,23 @@
         "magazines": [],
         "disposition": "keep-native-budget",
         "justification": "Retain native source; explicit family cap.",
+        "family": "Crossbow"
+      },
+      {
+        "class": "Crossbow_Summer",
+        "kind": "weapon",
+        "role": "modern",
+        "tier": "rare",
+        "set": {
+          "nominal": 2,
+          "min": 1
+        },
+        "ammo": [
+          "Ammo_HuntingBolt"
+        ],
+        "magazines": [],
+        "disposition": "keep-native-budget",
+        "justification": "Variant shares the base roster allocation, routes and support; runtime pending.",
         "family": "Crossbow"
       },
       {
@@ -10607,8 +10705,8 @@
       {
         "family": "Crossbow",
         "kind": "weapon",
-        "nominal": 5,
-        "min": 3
+        "nominal": 7,
+        "min": 4
       },
       {
         "family": "Deagle",
@@ -10643,8 +10741,8 @@
       {
         "family": "Glock19",
         "kind": "weapon",
-        "nominal": 12,
-        "min": 10
+        "nominal": 24,
+        "min": 20
       },
       {
         "family": "Izh18",
