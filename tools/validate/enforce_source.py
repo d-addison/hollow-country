@@ -117,6 +117,27 @@ def split_top(text, separator):
     return parts
 
 
+def split_parameters(text):
+    """Split a parameter list on top-level commas, also outside <> generics.
+
+    Only for declarations, where '<' is always a template bracket (defaults are
+    literals). split_top must not do this: expressions compare with '<'.
+    """
+    parts, depth, current = [], 0, []
+    for ch in text:
+        if ch in '([<':
+            depth += 1
+        elif ch in ')]>':
+            depth = max(depth - 1, 0)
+        if ch == ',' and depth == 0:
+            parts.append(''.join(current))
+            current = []
+            continue
+        current.append(ch)
+    parts.append(''.join(current))
+    return parts
+
+
 @dataclass
 class Field:
     name: str
@@ -147,7 +168,7 @@ class Method:
     def parameters(self):
         """[(type, name, is_out)] for a parameter list; defaults are dropped."""
         result = []
-        for part in split_top(self.params, ','):
+        for part in split_parameters(self.params):
             part = part.split('=')[0].strip()
             words = re.findall(r'[A-Za-z_]\w*(?:\s*<[^()]*>)?', part)
             if len(words) < 2:

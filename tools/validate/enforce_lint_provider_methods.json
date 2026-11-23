@@ -1,0 +1,20 @@
+{
+ "schema": 1,
+ "scope": "Exact calls of Workshop-provider methods on engine-typed receivers outside the dependency bridges (HC-E012). Each is a possible dependency-boundary violation parked until a bridge owns the call; entries are never approvals of new direct calls.",
+ "entries": [
+  {
+   "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+   "symbol": "HCXAIFormationController.ConsiderPause",
+   "receiver_type": "DayZPlayerImplement",
+   "method": "Expansion_GetMovementSpeed",
+   "reason": "Expansion adds Expansion_GetMovementSpeed to DayZPlayerImplement through a packed modded class; the call is outside HCXExpansionBridge and should move behind it."
+  },
+  {
+   "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
+   "symbol": "HCXDefence.OnShot",
+   "receiver_type": "PlayerBase",
+   "method": "Expansion_GetAimDirection",
+   "reason": "Expansion adds Expansion_GetAimDirection to PlayerBase through a packed modded class; the call is outside HCXExpansionBridge and should move behind it."
+  }
+ ]
+}
