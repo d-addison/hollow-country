@@ -451,7 +451,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeWall.c#HCMeleeWall.Vetoes",
       "trigger": "A close-combat hit by a player or AI on an infected or AI victim whose head-to-zone line crosses a wall, fence or closed door (doorway tolerances and open doors pass).",
       "exercise": "client_action",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand on one side of a closed door or thin wall from an infected and swing a melee weapon at it through the wall. 2. Require wall_veto and a [HC Melee] wall_veto line; the infected takes no damage. 3. Open the door and swing through the doorway: the hit lands and wall_veto does not rise.",
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand on one side of a closed door or thin wall from an infected and swing a melee weapon at it through the wall. 2. Require wall_veto and a [HC Melee] wall_veto line with mode=log (log-only default this release: the hit still lands; with Melee.WallVeto=true it reads mode=veto and the infected takes no damage). 3. Open the door and swing through the doorway: the hit lands and wall_veto does not rise.",
       "est_minutes": 2,
       "prerequisites": "EnableMelee; Melee.WallVeto=true; an infected standing within native melee reach behind a wall or closed door."
     },

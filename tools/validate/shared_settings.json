@@ -3404,7 +3404,7 @@
   {
     "key": "Melee.WallVeto",
     "type": "bool",
-    "default": true,
+    "default": false,
     "min": 0,
     "max": 1,
     "owner": "HCMeleeConfig"

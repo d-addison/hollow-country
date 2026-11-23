@@ -1,4 +1,6 @@
-// Hard wall veto for melee hits on infected and AI (Neon P2.4, owner decision Q2).
+// Wall veto for melee hits on infected and AI (Neon P2.4, owner decision Q2). Owner 2026-11-22:
+// log-only this release (Melee.WallVeto default false): a blocked hit is counted and logged with
+// mode=log and still lands; WallVeto=true refuses it (mode=veto).
 // Native scripts-1.30.164289 (relative paths):
 // 3_Game/Entities/Object.c:1144 EEOnDamageCalculated (false = damage not applied),
 // :238 GetBonePositionWS, :1159 GetDamageZonePos (world space);
@@ -66,21 +68,23 @@ class HCMeleeWall
         if (!victim || zone == "" || damageType != DT_CLOSE_COMBAT) { return false; }
         if (!GetGame().IsServer() || !HCMeleeModule.Active()) { return false; }
         if (HCMeleeAmmo.IsHC(ammo)) { return false; }
-        if (!HCMeleeConfig.HCGet().WallVeto) { return false; }
         PlayerBase victimPlayer = PlayerBase.Cast(victim);
         if (victimPlayer && HCMeleeWall.RealPlayer(victimPlayer)) { return false; }
         PlayerBase attacker = HCMeleeTarget.Attacker(source);
         if (!attacker || attacker == victim) { return false; }
         if (!HCMeleeWall.Blocked(attacker, victim, zone)) { return false; }
+        bool enforce = HCMeleeConfig.HCGet().WallVeto;
         s_Vetoed = Increment(s_Vetoed);
         HCModuleReadiness.HCUse("Melee", "wall_veto");
         if (s_Vetoed <= HCMeleeConfig.HCGet().LogLimit)
         {
             string who = "ai";
             if (HCMeleeWall.RealPlayer(attacker)) { who = "player"; }
-            Print("[HC Melee] wall_veto count=" + s_Vetoed.ToString() + " zone=" + zone + " attacker=" + who);
+            string mode = "log";
+            if (enforce) { mode = "veto"; }
+            Print("[HC Melee] wall_veto count=" + s_Vetoed.ToString() + " zone=" + zone + " attacker=" + who + " mode=" + mode);
         }
-        return true;
+        return enforce;
     }
 
     // True when the attacker head to the victim's damage-zone line crosses a wall or closed

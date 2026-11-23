@@ -129,7 +129,7 @@ not promises of a usable cellar, cabinet, wreck, road surface or AI spawn.
    approach/noise/hit to produce a real wake: **InfectedVariety/actor_woken**.
    Land an ordinary close melee hit on an infected:
    **Melee/hit_processed, parity_probe**. Swing at an infected through a closed door or
-   thin wall (no damage), then through the open doorway (hit lands): **Melee/wall_veto**. Fire a genuine unsuppressed round into
+   thin wall (log-only default: a `wall_veto ... mode=log` line and the hit still lands), then through the open doorway (no wall_veto line): **Melee/wall_veto**. Fire a genuine unsuppressed round into
    safe ground: **InfectedMemory/heat_recorded**. Let an eligible chasing infected
    open an ordinary shut unlocked door while leaving escape and swing clear:
    **InfectedDoors/door_action**. Leave original infected corpse for client flies:
