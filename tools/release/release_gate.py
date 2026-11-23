@@ -21,10 +21,23 @@ CATEGORIES = ('map', 'inventory', 'groups', 'admin', 'ai', 'event')
 CHECKLIST = ('One tester: join; open the M map with group controls, inventory and admin window; '
              'walk from outside into one reviewed AI site activation radius and one published mission zone. '
              'Keep this client connected through activity validation.')
+SERVER_IMAGE = 'DayZServer_x64.exe'
+STOP_WAIT_SECONDS = 240
+STOP_POLL_SECONDS = 5
 
 
 class Refused(ValueError):
     pass
+
+
+GATE_ERRORS = (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError,
+               winproc.InteropError, KeyboardInterrupt)
+
+
+def failure_reason(error):
+    if isinstance(error, (Refused, LockRefused, TargetsError)):
+        return str(error)
+    return 'required evidence unavailable or failed'
 
 
 def emit(text):
@@ -56,7 +69,7 @@ def capture(function, argv):
         raise Refused('tool failed')
 
 
-def audit(path, *, client=False, targets=None):
+def audit(path, *, client=False, startup_only=False, targets=None):
     """Reuse the common summary and perf parser; add only release-specific rules."""
     targets = load_targets() if targets is None else targets
     summary = rpt_summary.Summary(path)
@@ -87,39 +100,40 @@ def audit(path, *, client=False, targets=None):
             missing_textures += 1
             if missing_textures > targets['client_max_missing_textures']:
                 raise Refused('client texture error limit exceeded')
-    if not client:
-        # Use the audit's exact taxonomy and bounded reader, including lines that
-        # do not contain generic warning/error words. Never serialize raw text.
-        counts, oversized = rpt_config_audit.scan_rpt_totals(path, rpt_config_audit.category_rules())
-        totals = {category: counts[category] for category in rpt_config_audit.RULES}
-        unclassified = counts[0]
-        if oversized or unclassified:
-            raise Refused(f'R3 incomplete RPT census unclassified={unclassified} oversized={oversized}')
-        for category, count in totals.items():
-            ceiling = targets['rpt_category_ceilings'][str(category)]
-            if ceiling is None:
-                raise Refused(f'R3 category={category} ceiling unavailable; measured count required')
-            if count > ceiling:
-                raise Refused(f'R3 category={category} count={count} ceiling={ceiling}')
-        limit = min(targets['readiness_max_after_hive_seconds'],
-                    targets['readiness_ratchet_max_after_hive_seconds'])
-        timing = summary.readiness_timing.result(limit)
-        if timing['status'] != 'passed' or timing['max_after_hive_seconds'] is None:
-            raise Refused('R4 readiness timing unavailable or exceeds ratchet')
-    if not client:
-        for rule in perf_rules(path):
-            if 'perf_rule=R2 ' in rule:
-                value = re.search(r'\bms=([0-9.]+)', rule)
-                if value is None or float(value[1]) > targets['perf_r2_max_ms']:
-                    raise Refused(f"perf R2 over {targets['perf_r2_max_ms']:g} ms")
-        evidence = dict(rpt_categories={str(key): dict(count=value,
-                        ceiling=targets['rpt_category_ceilings'][str(key)])
-                        for key, value in totals.items()}, readiness_timing=dict(
-                            status=timing['status'],
-                            max_after_hive_seconds=timing['max_after_hive_seconds'],
-                            limit_seconds=timing['limit_seconds']))
-        emit('R3/R4 ' + json.dumps(evidence, sort_keys=True))
-        return evidence
+    if client or startup_only:
+        return
+
+    # Use the audit's exact taxonomy and bounded reader, including lines that
+    # do not contain generic warning/error words. Never serialize raw text.
+    counts, oversized = rpt_config_audit.scan_rpt_totals(path, rpt_config_audit.category_rules())
+    totals = {category: counts[category] for category in rpt_config_audit.RULES}
+    unclassified = counts[0]
+    if oversized or unclassified:
+        raise Refused(f'R3 incomplete RPT census unclassified={unclassified} oversized={oversized}')
+    for category, count in totals.items():
+        ceiling = targets['rpt_category_ceilings'][str(category)]
+        if ceiling is None:
+            raise Refused(f'R3 category={category} ceiling unavailable; measured count required')
+        if count > ceiling:
+            raise Refused(f'R3 category={category} count={count} ceiling={ceiling}')
+    limit = min(targets['readiness_max_after_hive_seconds'],
+                targets['readiness_ratchet_max_after_hive_seconds'])
+    timing = summary.readiness_timing.result(limit)
+    if timing['status'] != 'passed' or timing['max_after_hive_seconds'] is None:
+        raise Refused('R4 readiness timing unavailable or exceeds ratchet')
+    for rule in perf_rules(path):
+        if 'perf_rule=R2 ' in rule:
+            value = re.search(r'\bms=([0-9.]+)', rule)
+            if value is None or float(value[1]) > targets['perf_r2_max_ms']:
+                raise Refused(f"perf R2 over {targets['perf_r2_max_ms']:g} ms")
+    evidence = dict(rpt_categories={str(key): dict(count=value,
+                    ceiling=targets['rpt_category_ceilings'][str(key)])
+                    for key, value in totals.items()}, readiness_timing=dict(
+                        status=timing['status'],
+                        max_after_hive_seconds=timing['max_after_hive_seconds'],
+                        limit_seconds=timing['limit_seconds']))
+    emit('R3/R4 ' + json.dumps(evidence, sort_keys=True))
+    return evidence
 
 
 def client_profiles():
@@ -166,7 +180,7 @@ class NativeSteps:
             raise Refused('bundle was not built with strict generated-artefact digests (local test waivers)')
 
     def install(self, bundle):
-        if winproc.process_state('DayZServer_x64.exe') != 'gone':
+        if winproc.process_state(SERVER_IMAGE) != 'gone':
             raise Refused('installation requires stopped server')
         # Same installer flow as friendcycle, through bounded shared interop.
         windows = friendcycle.windows_path(bundle)
@@ -180,9 +194,9 @@ class NativeSteps:
         if result.returncode:
             raise Refused('install failed')
 
-    def boot(self, bundle, minutes):
+    def boot(self, bundle, minutes, *, startup_only=False):
         before = set(self.args.profiles.glob('*.RPT'))
-        if winproc.process_state('DayZServer_x64.exe') != 'gone':
+        if winproc.process_state(SERVER_IMAGE) != 'gone':
             raise Refused('boot requires stopped server')
         # Record ownership before launch: an interop failure may hide a successful start.
         self.started = True
@@ -193,7 +207,7 @@ class NativeSteps:
         if len(fresh) != 1:
             raise Refused('fresh server RPT ambiguous or missing')
         path = fresh.pop()
-        audit(path, targets=self.targets)
+        audit(path, startup_only=startup_only, targets=self.targets)
         return path
 
     def stop(self):
@@ -204,25 +218,38 @@ class NativeSteps:
                   "if ($p.Count -eq 0) { Write-Output 'HC stopped'; exit 0 }; "
                   "if ($p.Count -ne 1) { Write-Output 'HC stop ambiguous'; exit 2 }; "
                   "if (-not $p[0].CloseMainWindow()) { Write-Output 'HC close refused'; exit 2 }; "
-                  "if (-not $p[0].WaitForExit(60000)) { Write-Output 'HC close timeout'; exit 2 }; "
+                  f"if (-not $p[0].WaitForExit({STOP_WAIT_SECONDS * 1000})) {{ Write-Output 'HC close timeout'; exit 2 }}; "
                   "Write-Output 'HC stopped'")
-        result = winproc.run('powershell', [script], attempts=1, timeout=75)
-        if result.returncode or winproc.process_state('DayZServer_x64.exe') != 'gone':
-            raise Refused('graceful server stop failed; operator intervention required')
-        self.started = False
+        deadline = time.monotonic() + STOP_WAIT_SECONDS
+        try:
+            result = winproc.run('powershell', [script], attempts=1, timeout=STOP_WAIT_SECONDS + 60)
+        except winproc.InteropError:
+            # The close request may already be saving the world in Windows.
+            result = None
+        if result is None or result.returncode == 0:
+            while True:
+                if winproc.process_state(SERVER_IMAGE, attempts=3, timeout=5) == 'gone':
+                    self.started = False
+                    return
+                remaining = deadline - time.monotonic()
+                if result is not None or remaining <= 0:
+                    break
+                time.sleep(min(STOP_POLL_SECONDS, remaining))
+        raise Refused('graceful server stop could not be verified; operator intervention required')
 
     def upgrade(self):
         if not self.args.previous_bundle:
             if self.targets['upgrade_from_previous_release_required']:
                 raise Refused('previous release bundle required for the upgrade check (--previous-bundle)')
             return
-        if self.args.previous_bundle:
-            self.install(self.args.previous_bundle)
-            self.boot(self.args.previous_bundle, 1)
-            self.stop()
-            self.install(self.args.bundle)
-            self.boot(self.args.bundle, 1)
-            self.stop()
+        # checkstart still enforces startup readiness for both versions. The
+        # candidate census, ratchet and performance checks use the soak RPT.
+        self.install(self.args.previous_bundle)
+        self.boot(self.args.previous_bundle, 1, startup_only=True)
+        self.stop()
+        self.install(self.args.bundle)
+        self.boot(self.args.bundle, 1, startup_only=True)
+        self.stop()
 
     def soak(self):
         self.client_dir = self.args.client_profiles or client_profiles()
@@ -277,18 +304,25 @@ def run_gate(args, steps=None):
         steps = steps or NativeSteps(args, targets)
         current = 'host_lock'
         with host_lock('release_gate'):
+            completed = False
             try:
                 for current in ('compile', 'manifest', 'upgrade', 'soak', 'activity', 'client'):
                     getattr(steps, current)()
                     verdict['steps'].append(dict(step=current, passed=True))
+                completed = True
             finally:
-                if sys.exc_info()[0] is None:
+                if completed:
                     current = 'cleanup'
-                steps.stop()
+                try:
+                    steps.stop()
+                except GATE_ERRORS as error:
+                    if completed:
+                        raise
+                    verdict['cleanup_reason'] = failure_reason(error)
         verdict['passed'] = True
-    except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError, winproc.InteropError, KeyboardInterrupt) as error:
+    except GATE_ERRORS as error:
         verdict['failed_step'] = current
-        verdict['reason'] = str(error) if isinstance(error, (Refused, LockRefused, TargetsError)) else 'required evidence unavailable or failed'
+        verdict['reason'] = failure_reason(error)
     return verdict
 
 

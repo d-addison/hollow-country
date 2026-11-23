@@ -45,6 +45,18 @@ class ReleaseGateTests(unittest.TestCase):
             self.assertEqual(steps.mock_calls[-1][0], 'stop')
             self.assertEqual(steps.mock_calls[-2][0], failed)
 
+    def test_cleanup_interop_error_keeps_the_original_failure(self):
+        steps = Mock()
+        steps.soak.side_effect = gate.Refused('RPT boot/error/readiness check failed')
+        steps.stop.side_effect = gate.winproc.InteropError('raw interop diagnostic')
+        with patch.object(gate, 'host_lock', return_value=contextlib.nullcontext()):
+            result = gate.run_gate(self.args(), steps)
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['failed_step'], 'soak')
+        self.assertEqual(result['reason'], 'RPT boot/error/readiness check failed')
+        self.assertEqual(result['cleanup_reason'], 'required evidence unavailable or failed')
+        steps.stop.assert_called_once()
+
     def test_lock_refusal_runs_nothing(self):
         steps = Mock()
         with patch.object(gate, 'host_lock', side_effect=LockRefused('native host busy: holder=friendcycle')):
@@ -160,6 +172,30 @@ class ReleaseGateTests(unittest.TestCase):
                 with self.assertRaisesRegex(gate.Refused, 'R3 incomplete RPT census'):
                     gate.audit(rpt)
 
+    def test_upgrade_startup_audit_keeps_boot_checks_without_candidate_census(self):
+        header = ('12:00:00 Player connect enabled\n'
+                  '12:00:00 [CE][Hive] :: Init sequence finished\n'
+                  '12:00:01 [HC Ready] module=Core enabled=true ready=true\n')
+        with tempfile.TemporaryDirectory() as temp:
+            rpt = Path(temp) / 'upgrade.RPT'
+            rpt.write_text(header)
+            gate.audit(rpt, startup_only=True, targets=TARGETS)
+            with self.assertRaisesRegex(gate.Refused, 'ceiling unavailable'):
+                gate.audit(rpt, targets=TARGETS)
+
+            rpt.write_text(header + 'Unknown synthetic diagnostic\n')
+            gate.audit(rpt, startup_only=True, targets=TARGETS)
+            with self.assertRaisesRegex(gate.Refused, 'R3 incomplete RPT census'):
+                gate.audit(rpt, targets=TARGETS)
+
+            for line in ('SCRIPT (E): synthetic', 'VME', 'store quarantined',
+                         '[HC SelfTest] name=x pass=false',
+                         '[HC Ready] module=Core enabled=true ready=false'):
+                with self.subTest(line=line):
+                    rpt.write_text(header + line + '\n')
+                    with self.assertRaises(gate.Refused):
+                        gate.audit(rpt, startup_only=True, targets=TARGETS)
+
     def test_r4_requires_same_boot_timing_and_enforces_ratchet(self):
         limit = self.targets['readiness_ratchet_max_after_hive_seconds']
         def clock(seconds):
@@ -237,7 +273,10 @@ class ReleaseGateTests(unittest.TestCase):
         steps = Mock()
         steps.stop.side_effect = gate.Refused('graceful stop failed')
         with patch.object(gate, 'host_lock', return_value=contextlib.nullcontext()):
-            self.assertFalse(gate.run_gate(self.args(), steps)['passed'])
+            result = gate.run_gate(self.args(), steps)
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['failed_step'], 'cleanup')
+        self.assertEqual(result['reason'], 'graceful stop failed')
 
     def test_upgrade_runs_previous_then_candidate_on_same_install(self):
         args = self.args(previous_bundle=Path('old'), bundle=Path('new'))
@@ -248,9 +287,10 @@ class ReleaseGateTests(unittest.TestCase):
         upgrade_minutes = calls.boot.call_args_list[0].args[1]
         self.assertGreater(upgrade_minutes, 0)
         self.assertEqual(calls.mock_calls, [
-            unittest.mock.call.install(Path('old')), unittest.mock.call.boot(Path('old'), upgrade_minutes),
+            unittest.mock.call.install(Path('old')),
+            unittest.mock.call.boot(Path('old'), upgrade_minutes, startup_only=True),
             unittest.mock.call.stop(), unittest.mock.call.install(Path('new')),
-            unittest.mock.call.boot(Path('new'), upgrade_minutes), unittest.mock.call.stop()])
+            unittest.mock.call.boot(Path('new'), upgrade_minutes, startup_only=True), unittest.mock.call.stop()])
 
     def test_missing_previous_bundle_follows_upgrade_target(self):
         for required in (True, False):
@@ -295,6 +335,31 @@ class ReleaseGateTests(unittest.TestCase):
                 steps.stop()
         self.assertEqual(call.call_count, 1)
         self.assertTrue(steps.started)
+
+    def test_graceful_stop_reconciles_lost_reply_with_verified_exit(self):
+        steps = gate.NativeSteps(self.args())
+        steps.started = True
+        with patch.object(gate.winproc, 'run', side_effect=gate.winproc.InteropError) as close, \
+                patch.object(gate.winproc, 'process_state', side_effect=('running', 'gone')) as query, \
+                patch.object(gate.time, 'monotonic', side_effect=(0, 1)), \
+                patch.object(gate.time, 'sleep') as sleep:
+            steps.stop()
+        self.assertFalse(steps.started)
+        close.assert_called_once()
+        self.assertIn(f'WaitForExit({gate.STOP_WAIT_SECONDS * 1000})', close.call_args.args[1][0])
+        self.assertEqual(query.call_args_list, [call(gate.SERVER_IMAGE, attempts=3, timeout=5)] * 2)
+        sleep.assert_called_once_with(gate.STOP_POLL_SECONDS)
+
+    def test_graceful_stop_refuses_unresolved_process_state(self):
+        steps = gate.NativeSteps(self.args())
+        steps.started = True
+        with patch.object(gate.winproc, 'run', side_effect=gate.winproc.InteropError) as close, \
+                patch.object(gate.winproc, 'process_state', return_value='unknown'), \
+                patch.object(gate.time, 'monotonic', side_effect=(0, gate.STOP_WAIT_SECONDS)):
+            with self.assertRaisesRegex(gate.Refused, 'operator intervention required'):
+                steps.stop()
+        self.assertTrue(steps.started)
+        close.assert_called_once()
 
     def test_unknown_server_refuses_before_install(self):
         steps = gate.NativeSteps(self.args())
