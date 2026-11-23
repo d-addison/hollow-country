@@ -11,22 +11,30 @@
 //   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAt),
 //              at most one per tick server-wide. The engine propagates it; nothing is pulled.
 //   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate at a
-//              ring 320..360 m from the anchor (HCHidden: out of sight of every player). A per-player
-//              window (ReinforcePerPlayerWindow bodies per 10 minutes) caps what one player can draw. A
-//              body is kept only when its own native group can take the anchor waypoint; otherwise it is
-//              deleted at once (refused=no_group), so no unsteered body is left wandering.
+//              ring 320..360 m from the anchor (HCHidden: out of sight of every player). Reinforcements
+//              are NEVER steered: no waypoint is written to any group of a body this module created (a
+//              new body may have joined a wild group of agents we did not create). They only come
+//              through real perception, e.g. the noise of step 3. A per-player window
+//              (ReinforcePerPlayerWindow bodies per 10 minutes, keyed by the persistent player id kept
+//              server-side, never logged) caps what one player can draw; when every window slot is in use
+//              the batch is refused (reason=window_full) instead of recycling another player's slot.
 //   5. End.    The player comes down (dy under the reach band), walks 25 m from the spot the siege opened
-//              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Nothing
-//              is restored by hand: members stay in their native group, and the navigation module's
-//              normal route re-plans on its own.
+//              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Every
+//              group the siege waypointed is parked in place, mirroring HCNativeInfectedPack.Release:
+//              one waypoint at a live member's current position (radius 1), members stay in their native
+//              group, no group move and no DeleteGroup (the 11-21 crash). Native perception then drives.
+// An infected sits in at most one siege row. A siege with no usable anchor (no navmesh point and no ladder)
+// is refused: it is not counted as started and nothing is gathered, noised or reinforced.
 // Knowledge: the infected only know what the give-up event told them (the player and where they stood).
 // Doors, positions and inventories are never touched. Runtime only, never persisted: no stored format.
 // Lines (formats are fixed):
 //   [HC Nav] siege start anchor=<mesh|ladder|none> members=<m> n=<count>
 //   [HC Nav] siege end reason=<down|left|timeout> n=<count of ends for the reason> members= secs= noise= reinforced=
+//   [HC Nav] siege refused reason=<no_anchor|window_full|no_identity> n=<count for the reason>
 //   [HC Use] module=InfectedSiege feature=siege_started|siege_noise|ladder_guard|reinforce count=<n>
-// siege_started is registered at start; the other three register on their first real event, so a feature a
-// scenario cannot exercise is not listed as a registered counter at zero.
+// siege_started is registered at start and counted only for a usable anchor (mesh or ladder); the other
+// three register on their first real event, so a feature a scenario cannot exercise is not listed as a
+// registered counter at zero.
 // Bounds: <=8 sieges, <=6 members each, 4 evaluations per tick in a 2 ms HCWorkBudget slice (one navmesh
 // sample, one ray and <=8 ladder reads each), <=1 noise per tick, reinforce under HCHordeReinforce caps
 // (2 creates per tick, 256 leases) and the per-player window.
@@ -87,7 +95,8 @@ class HCInfectedSiegeModule : HCModule
     protected ref array<ref HCInfectedSiegeRow> m_Rows = new array<ref HCInfectedSiegeRow>;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref set<Object> m_Hits = new set<Object>;
-    protected ref array<PlayerBase> m_WindowPlayer = new array<PlayerBase>;
+    protected ref array<string> m_WindowPlayer = new array<string>;
+    protected ref map<string, int> m_Refused = new map<string, int>;
     protected ref array<float> m_WindowStart = new array<float>;
     protected ref array<int> m_WindowUsed = new array<int>;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -154,6 +163,7 @@ class HCInfectedSiegeModule : HCModule
         for (int index = 0; index < m_Rows.Count(); index++)
         {
             if (m_Rows[index].Pack) { m_Rows[index].Pack.HCSetLive(false); }
+            HCPark(m_Rows[index]);
         }
         m_Rows.Clear();
         if (s_Instance == this) { s_Instance = null; }
@@ -178,6 +188,10 @@ class HCInfectedSiegeModule : HCModule
         float dy = player.GetPosition()[1] - infected.GetPosition()[1];
         if (!HCInfectedSiegePolicy.HCHaven(dy, band)) { return; }
         if (HCInfectedSiegePolicy.HCHorizontal(infected.GetPosition(), player.GetPosition()) > HCInfectedSiegePolicy.LEAVE_METRES) { return; }
+        for (int taken = 0; taken < m_Rows.Count(); taken++)
+        {
+            if (m_Rows[taken].Members.Find(infected) >= 0) { return; }
+        }
         HCInfectedSiegeRow row = HCRowOf(player);
         if (!row)
         {
@@ -190,7 +204,6 @@ class HCInfectedSiegeModule : HCModule
             m_Rows.Insert(row);
         }
         if (row.Members.Count() >= HCInfectedSiegePolicy.MAX_MEMBERS) { return; }
-        if (row.Members.Find(infected) >= 0) { return; }
         row.Members.Insert(infected);
     }
 
@@ -241,7 +254,7 @@ class HCInfectedSiegeModule : HCModule
         }
         if (!row.Active)
         {
-            if (now - row.Opened >= m_Limits.GatherSeconds) { HCActivate(row, now); }
+            if (now - row.Opened >= m_Limits.GatherSeconds) { return HCActivate(row, now); }
             return true;
         }
         HCGather(row);
@@ -261,7 +274,8 @@ class HCInfectedSiegeModule : HCModule
 
     // ---- Activate and gather --------------------------------------------------------------------------
 
-    protected void HCActivate(HCInfectedSiegeRow row, float now)
+    // False when the siege was refused and its row removed (the caller's cursor then points at the next row).
+    protected bool HCActivate(HCInfectedSiegeRow row, float now)
     {
         PlayerBase player = row.Target;
         vector feet = player.GetPosition();
@@ -280,12 +294,20 @@ class HCInfectedSiegeModule : HCModule
             row.Anchor = bottom;
             row.AnchorKind = "ladder";
         }
+        if (row.AnchorKind == "none")
+        {
+            HCRefuse("no_anchor");
+            int refusedAt = m_Rows.Find(row);
+            if (refusedAt >= 0) { m_Rows.Remove(refusedAt); }
+            return false;
+        }
         HCModuleReadiness.HCUseGuarded(GetName(), "siege_started", row);
         m_Started++;
         if (HCInfectedSiegePolicy.HCPrintStart(m_Started))
         {
             Print("[HC Nav] siege start anchor=" + row.AnchorKind + " members=" + row.Members.Count().ToString() + " n=" + m_Started.ToString() + " runtime=PENDING");
         }
+        return true;
     }
 
     // The bottom (world space) of the ladder of the building under the player whose top is nearest to the
@@ -377,7 +399,20 @@ class HCInfectedSiegeModule : HCModule
     {
         if (row.ReinforceDone || now < row.NextReinforce) { return; }
         PlayerBase player = row.Target;
-        int slot = HCWindowSlot(player, now);
+        string playerId = HCPlayerId(player);
+        if (playerId == "")
+        {
+            row.ReinforceDone = true;
+            HCRefuse("no_identity");
+            return;
+        }
+        int slot = HCWindowSlot(playerId, now);
+        if (slot < 0)
+        {
+            row.ReinforceDone = true;
+            HCRefuse("window_full");
+            return;
+        }
         if (row.ReinforceLeft == 0 && row.ReinforceTries == 0)
         {
             row.ReinforceLeft = HCInfectedSiegePolicy.HCBatch(m_Limits.ReinforcePerPlayerWindow, m_WindowUsed[slot]);
@@ -401,11 +436,7 @@ class HCInfectedSiegeModule : HCModule
         }
         ZombieBase body = HCHordeReinforce.HCCreate(template.GetType(), entry, row.Pack);
         if (!body) { return; }
-        if (!HCSteer(body, row.Anchor))
-        {
-            GetGame().ObjectDelete(body);
-            return;
-        }
+        // Unsteered by design: no waypoint is written to the new body's group (it may be a wild group).
         row.ReinforceLeft--;
         row.Reinforced++;
         m_WindowUsed.Set(slot, m_WindowUsed[slot] + 1);
@@ -433,52 +464,83 @@ class HCInfectedSiegeModule : HCModule
         return true;
     }
 
-    // The new body is sent to the anchor only through the waypoint of its own pack-behaviour group.
-    protected bool HCSteer(ZombieBase body, vector anchor)
+    // The persistent id of the player, used only as a server-side key (never logged). Empty without one.
+    protected string HCPlayerId(PlayerBase player)
     {
-        AIAgent agent = body.GetAIAgent();
-        if (!agent) { return false; }
-        AIGroup group = agent.GetGroup();
-        if (!group) { return false; }
-        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
-        if (!behaviour) { return false; }
-        ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(anchor, HCInfectedSiegePolicy.GATHER_RADIUS_METRES));
-        behaviour.SetWaypoints(route, 0, true, false);
-        return true;
+        if (!player || !player.GetIdentity()) { return ""; }
+        return player.GetIdentity().GetId();
     }
 
-    // The player's reinforcement window slot (created on demand; the oldest slot is reused when full).
-    protected int HCWindowSlot(PlayerBase player, float now)
+    // The player's reinforcement window slot, created on demand. A slot whose window has run out is reclaimed;
+    // with every slot in a live window the answer is -1 (refused), never another player's slot.
+    protected int HCWindowSlot(string playerId, float now)
     {
+        int expired = -1;
         for (int index = 0; index < m_WindowPlayer.Count(); index++)
         {
-            if (m_WindowPlayer[index] == player)
+            bool over = HCInfectedSiegePolicy.HCWindowExpired(now, m_WindowStart[index]);
+            if (m_WindowPlayer[index] == playerId)
             {
-                if (HCInfectedSiegePolicy.HCWindowExpired(now, m_WindowStart[index]))
+                if (over)
                 {
                     m_WindowStart.Set(index, now);
                     m_WindowUsed.Set(index, 0);
                 }
                 return index;
             }
+            if (over && expired < 0) { expired = index; }
         }
         if (m_WindowPlayer.Count() < HCInfectedSiegePolicy.WINDOW_SLOTS)
         {
-            m_WindowPlayer.Insert(player);
+            m_WindowPlayer.Insert(playerId);
             m_WindowStart.Insert(now);
             m_WindowUsed.Insert(0);
             return m_WindowPlayer.Count() - 1;
         }
-        int oldest = 0;
-        for (int scan = 1; scan < m_WindowPlayer.Count(); scan++)
+        if (expired < 0) { return -1; }
+        m_WindowPlayer.Set(expired, playerId);
+        m_WindowStart.Set(expired, now);
+        m_WindowUsed.Set(expired, 0);
+        return expired;
+    }
+
+    // A refusal with a reason code; one count per reason, the line is bounded like the start line.
+    protected void HCRefuse(string reason)
+    {
+        int count = 1;
+        if (m_Refused.Contains(reason)) { count = m_Refused.Get(reason) + 1; }
+        m_Refused.Set(reason, count);
+        if (HCInfectedSiegePolicy.HCPrintStart(count))
         {
-            if (m_WindowStart[scan] < m_WindowStart[oldest]) { oldest = scan; }
+            Print("[HC Nav] siege refused reason=" + reason + " n=" + count.ToString() + " runtime=PENDING");
         }
-        m_WindowPlayer.Set(oldest, player);
-        m_WindowStart.Set(oldest, now);
-        m_WindowUsed.Set(oldest, 0);
-        return oldest;
+    }
+
+    // Parks every group the siege waypointed, mirroring HCNativeInfectedPack.Release: one waypoint at a live
+    // member's current position (radius 1), loop off. No group move, no DeleteGroup, members stay native.
+    // At most 6 groups x 6 members, compared directly; a group without a live member of this row cannot be
+    // parked (no position to hold).
+    protected void HCPark(HCInfectedSiegeRow row)
+    {
+        for (int slot = 0; slot < row.Waypointed.Count(); slot++)
+        {
+            AIGroup group = row.Waypointed[slot];
+            if (!group) { continue; }
+            BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
+            if (!behaviour) { continue; }
+            for (int index = 0; index < row.Members.Count(); index++)
+            {
+                DayZInfected member = row.Members[index];
+                if (!member || member.IsPendingDeletion()) { continue; }
+                AIAgent agent = member.GetAIAgent();
+                if (!agent || agent.GetGroup() != group) { continue; }
+                ref array<ref BehaviourGroupInfectedPackWaypointParams> hold = new array<ref BehaviourGroupInfectedPackWaypointParams>;
+                hold.Insert(new BehaviourGroupInfectedPackWaypointParams(member.GetPosition(), 1));
+                behaviour.SetWaypoints(hold, 0, true, false);
+                break;
+            }
+        }
+        row.Waypointed.Clear();
     }
 
     // ---- End -----------------------------------------------------------------------------------------
@@ -490,6 +552,7 @@ class HCInfectedSiegeModule : HCModule
         else if (reason == HCInfectedSiegePolicy.END_TIMEOUT) { m_EndedTimeout++; count = m_EndedTimeout; }
         else { m_EndedLeft++; count = m_EndedLeft; }
         if (row.Pack) { row.Pack.HCSetLive(false); }
+        HCPark(row);
         string line = "[HC Nav] siege end reason=" + reason + " n=" + count.ToString() + " members=" + row.Members.Count().ToString();
         int seconds = Math.Round(now - row.Opened);
         Print(line + " secs=" + seconds.ToString() + " noise=" + row.Noises.ToString() + " reinforced=" + row.Reinforced.ToString() + " active=" + HCV2Admission.OnOff(row.Active) + " runtime=PENDING");

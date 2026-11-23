@@ -414,8 +414,9 @@ retain defaults; explicit `Enabled=false` opts out. Native vault outcomes remain
 Infected cannot climb ladders or roofs, so a player on an elevated spot is sieged instead. When infected
 that were chasing the player give up on the spot, up to six of them hold it: they gather at the foot of the
 spot (the bottom of the nearest ladder when the building has one), make real in-game noise at their own
-position, and a bounded number of out-of-sight reinforcements are sent. The siege ends when the player comes
-down, walks 25 m away, or after 180 s. Doors, positions and inventories are never touched. Optional
+position, and a bounded number of out-of-sight reinforcements spawn far away and are not steered: they only
+come through real noise and perception. The siege ends when the player comes down, walks 25 m away, or
+after 180 s, and the groups it waypointed are parked in place. Doors, positions and inventories are never touched. Optional
 `gc-infected-siege.json` uses the `InfectedSiege.*` registry; missing fields retain defaults and explicit
 `Enabled=false` opts out. In-game results (pack waypoints, ladder coordinates, reinforcement density) are
 unverified.
