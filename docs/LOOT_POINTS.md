@@ -1211,14 +1211,24 @@ Owner request (wh-econ, 2026-11-22): every building needs more loot because the 
 physical points but not the limits. Three knobs in `mission/hollow-country/loot-points/settings.json`, all applied
 by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the scoped shelf limit in `plan`):
 
-- `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 3.0, usage must be a vanilla
+- `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 4.0, usage must be a vanilla
   `cfglimitsdefinition.xml` usageflag); the shipped map is in `settings.json` only. A group takes the largest factor among its usages that are in the map. Group `lootmax` becomes
-  `min(sum of container limits, max(stock, min(ceil(lootmax x f), 80)))`; a group already above 80 keeps its limit.
+  `min(sum of container limits, max(stock, min(ceil(lootmax x f), cap)))`, where `cap` is the group's
+  `GroupLootmaxCap` (80 when the key is absent or lists no usage of the group); a group already above its cap keeps its
+  limit.
   Every container with at least one non-firearm, non-explosive category becomes
   `max(current, min(points, ceil(current x f)))` (mixed containers now scale; weapon-only, explosive-only,
   category-less, zero and self-closing containers keep their limit). Non-firearm types rows whose every usage is
   Military, Police or Prison also get `nominal` and `min` x the Military factor, as before. The older single
   `MilitaryCapacityMultiplier` key still reads as `{Military, Police, Prison}: factor`; both keys together are refused.
+- `GroupLootmaxCap` is `{Default: n, usage: n}` (integers 1 to 400, usage a vanilla usageflag): the most a scaled
+  group limit may grow to. A group takes the largest cap among its usages (a usage without an entry counts as
+  `Default`, 80 when `Default` is absent); the sum of the group's container limits still clamps it, so a cap above
+  that sum changes nothing. Group `lootmax` and container capacity both bind the placeable slots, so Town, Military,
+  Police, Prison, Medic and School carry a higher cap and a factor in `CapacityMultiplier` that lets the group limit
+  reach the container capacity; the shipped values are in `settings.json` only. The receipt records the map in
+  `knobs.group_cap` and the describe line `group lootmax cap` prints it; a receipt without it (an older install) still
+  rolls back, because rollback restores the receipted bytes.
 - `CategoryMultiplier` is `{category: target}` (food, tools, medical, containers, clothes, books; 1.0 to 10.0, so a
   target may exceed `Multiplier`; the shipped targets are in `settings.json` only). A row's `nominal` and `min` become at least `ceil(stock x target)`, so a target lifts only rows
   whose boost is lower than the target. Medical is a name
@@ -1247,7 +1257,9 @@ five more knobs, all read by `loot_boost.default_knobs` and recorded in the rece
   rows already carry. Factor source: the authored `mission/hollow-country/ce/types.xml` (generated from
   `tools/package/firearms_roster.json`, with `config/military-loot.json` behind the Military pools) holds the 3x
   native travel layer; travel installs it before the boost, so `loot_boost` multiplies those bytes and the committed
-  file stays untouched. Weapon-pack rows (optional packs) are not scaled here and stay 2x. The Military tier factor
+  file stays untouched. Weapon-pack rows (optional packs) are not scaled here; their own knob is `test_abundance_multiplier` in
+  `snafu_allowlist.json` and `tactical_flava_allowlist.json`, **3.0** since the owner's 2026-11-22 decision (it was 2.0), the same 3x as the
+  vanilla roster weapons. The Military tier factor
   applies to roster rows too.
 - `LootDamageMax` (0.0 to 1.0) lowers the `LootDamageMax` global to that ceiling and never raises a stock value;
   the receipt records `LootDamageMax=old->new` in `counts.globals`.
@@ -1274,12 +1286,14 @@ effective `capacity_multiplier`, `category_multiplier` and `knobs`, and the over
 (it ships in the bundle's mission overlay), so an edited settings file is detected and reapplied from stock and
 factors never compound. Rollback still reads receipts that carry the older `military_multiplier`.
 
-Projection (offline, stock mission plus the travel layer; optional packs not staged; assumed slots are the wh-points
-counts of the targets file): total nominal about 90,000 (about 96,000 with the packs); food and medical about
+Projection (offline, stock mission plus the travel layer; optional packs not staged; slots are the shipped points
+(wh-points rounds merged) after the capacity map and group caps, `placement_budget` of the plan): total nominal about 89,500 (about 95,000 with the packs); food and medical about
 3,500 each; roster weapons about 5,750 (about 6,250 with the pack weapons). The describe lines print the same
 numbers for any install: `usage targets`, `military tiers`, `firearms`, `refill`, `attachment coverage`, and
-`CE nominal=` for the total. Visible items are `min(nominal, slots)` per usage and tag; it needs the wh-points slots
-to land before it can be measured natively, so it stays an offline estimate.
+`CE nominal=` for the total. Visible items are `min(nominal, slots)` per usage and tag, an offline estimate only.
+Hunting is bounded by its points (about 5,000 in total), not by the capacity map, so its slots stay below the owner
+target until more Hunting points exist; trimming its factor lowers nominal only where a row is not shared with another
+usage (a row's factor is the largest over its usages).
 
 Stock-mission rehearsal (offline, `plan(..., points=shipped_points())`, old single-factor layer against this one):
 groups changed 114 to 165, containers 19 to 237; prototype `lootmax` 1,461 to 1,966 before and 1,880 to 2,742

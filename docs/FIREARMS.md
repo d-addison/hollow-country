@@ -39,7 +39,7 @@ support. Shared ammo pools and integral magazines mean item ratios are not per-g
 loadout guarantees.
 
 Both optional allowlists now store the inspected pack’s **own shipped CE nominal/min**
-where a row exists. `test_abundance_multiplier: 2.0` applies to guns, magazines and
+where a row exists. `test_abundance_multiplier: 3.0` applies (owner 2026-11-22: packs back to 3x, the same as vanilla weapons; 2.0 from #314 before) to guns, magazines and
 ammo by default, including the friend installer’s `apply_weapon_packs` path.
 CLI `--nominal-scale 1` selects the pack baseline; explicit nominal/tier scales remain
 bounded to 0.25–4 effective scale. Existing optics/attachment budgets remain unchanged.
@@ -53,7 +53,7 @@ matching local verification and ordinary Workshop dependencies; nothing is repac
 
 ## #314 role routes and fill burst (2026-11-21)
 
-The pack default is now 2× rather than 3×. `military_loot.apply` allocates the
+The pack default was 2× rather than 3× here; it is 3× again since 2026-11-22. `military_loot.apply` allocates the
 existing military ceilings first, then expands routes. A Military firearm gains
 Police access without escaping its shared scarcity budget or assigned military
 tier. This changes CE rows only; no point geometry or container capacities change.
