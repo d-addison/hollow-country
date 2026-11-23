@@ -14,7 +14,7 @@ from tools.validate import enforce_lint_syntax as syntax
 
 CORPUS = Path(__file__).resolve().parents[1] / 'fixtures' / 'enforce_lint'
 DEFAULT_PATH = 'mods/HollowCountry/scripts/4_World/Fixture/Fixture.c'
-RULE_IDS = ('HC-E026', 'HC-E036', 'HC-E046', 'HC-E048', 'HC-E049', 'HC-E050')
+RULE_IDS = ('HC-E020', 'HC-E026', 'HC-E036', 'HC-E046', 'HC-E048', 'HC-E049', 'HC-E050')
 MIN_BAD, MIN_GOOD = 5, 3
 
 

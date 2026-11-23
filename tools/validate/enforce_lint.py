@@ -67,7 +67,7 @@ RULES = {
     'HC-E017': 'vanilla storage override without an explicit migration-plan allowlist entry',
     'HC-E018': 'variable name shadows a type visible in this script module',
     'HC-E019': 'member declared only by a later file in the same modded-class chain',
-    'HC-E020': 'string assignment with too many + operands (native compile: Formula too complex); build it with +=',
+    'HC-E020': 'string concatenation with too many + operands into a typed string (assignment, string parameter or return; Print is exempt) (native compile: Formula too complex); build it in steps with +=',
     'HC-E022': 'Expansion AI call outside HCXExpansionBridge.c (dependency invariant boundary)',
     'HC-E021': 'line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error)',
     'HC-E023': 'else is not adjacent to an if body; move the intervening statement outside the if/else chain',
@@ -405,19 +405,26 @@ def rule_file_handle_int(project, source):
 
 # Native compile gate, build 132 (#313): an assignment of a string concatenation with 21 '+'
 # operands failed with "Formula too complex" (hcxaifortification.c,90); the longest that compiles
-# on main has 13. The limit sits between the two observations.
+# on main has 13. The limit sits between the two observations. Wave H gate (13ac85b8): the same error
+# on a 20-operand concatenation passed to a method with a typed string parameter (HCRow(string),
+# hcsitesurveyprobe.c,565; a 14-operand HCRow call compiled). Print takes `void var` (native
+# 1_Core/proto/EnDebug.c) and compiles with 48 operands on main, so a statement that is a direct
+# Print( call is exempt; every other statement counts. source.code has literal contents blanked, so
+# a '+', ';' or brace inside a string never counts or splits.
 MAX_STRING_PLUS = 16
-_STRING_ASSIGN = re.compile(r'(?:^|[;{}])\s*((?:string\s+)?[A-Za-z_]\w*(?:\.\w+)*)\s*(?<![=!<>+\-*/%&|^])=(?!=)([^;{}]*);')
+_VOID_PARAMETER_CALL = re.compile(r'Print\s*\(')
+# Lookbehind, not a consumed separator: consuming the ';' skipped every second statement.
+_STRING_STATEMENT = re.compile(r'(?:^|(?<=[;{}]))\s*([^;{}]*);')
 
 
 def rule_string_formula(project, source):
-    for match in _STRING_ASSIGN.finditer(source.code):
-        rhs = match.group(2)
-        if '"' not in rhs:
+    for match in _STRING_STATEMENT.finditer(source.code):
+        statement = match.group(1)
+        if '"' not in statement or _VOID_PARAMETER_CALL.match(statement):
             continue
-        operands = re.sub(r'\+\+|\+=', '', rhs).count('+')
+        operands = re.sub(r'\+\+|\+=', '', statement).count('+')
         if operands > MAX_STRING_PLUS:
-            yield _finding('HC-E020', source, match.start(2), '<file>',
+            yield _finding('HC-E020', source, match.start(1), '<file>',
                            f'{operands} + operands (limit {MAX_STRING_PLUS}): {RULES["HC-E020"]}')
 
 

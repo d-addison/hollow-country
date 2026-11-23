@@ -26,7 +26,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E015 | unsupported map key or set element type (use int/string/typename/class types) |
 | HC-E018 | variable name shadows a type visible in this script module |
 | HC-E019 | member declared only by a later file in the same modded-class chain |
-| HC-E020 | string assignment with too many + operands (native compile: Formula too complex); build it with += |
+| HC-E020 | string concatenation with too many + operands into a typed string (assignment, string parameter or return; Print is exempt) (native compile: Formula too complex); build it in steps with += |
 | HC-E021 | line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error) |
 | HC-E023 | else is not adjacent to an if body; move the intervening statement outside the if/else chain |
 | HC-E024 | typename cannot return null; declare an empty typename and return it |

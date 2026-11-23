@@ -562,7 +562,17 @@ class HCSiteSurveyProbeModule : HCModule
         bool hit = HCBox(centre, Vector(yaw, 0, 0), edges, trees, buildings, others);
         int hitWord = 0;
         if (hit) { hitWord = 1; m_PieceHits++; }
-        HCRow("{\"i\":" + m_Cursor.ToString() + ",\"id\":\"" + m_Input.piece_ids[m_Cursor] + "\",\"y\":[" + heights + "],\"w\":" + wet.ToString() + ",\"spread\":" + (highCm - lowCm).ToString() + ",\"hit\":" + hitWord.ToString() + ",\"n\":[" + trees.ToString() + "," + buildings.ToString() + "," + others.ToString() + "]}");
+        // Built in short steps: one long concatenation is "Formula too complex" for the 1.30 compiler.
+        string pieceId = m_Input.piece_ids[m_Cursor];
+        int spread = highCm - lowCm;
+        string row = "{\"i\":" + m_Cursor.ToString();
+        row = row + ",\"id\":\"" + pieceId + "\"";
+        row = row + ",\"y\":[" + heights + "]";
+        row = row + ",\"w\":" + wet.ToString();
+        row = row + ",\"spread\":" + spread.ToString();
+        row = row + ",\"hit\":" + hitWord.ToString();
+        row = row + ",\"n\":[" + trees.ToString() + "," + buildings.ToString() + "," + others.ToString() + "]}";
+        HCRow(row);
         m_Cursor++;
     }
 
