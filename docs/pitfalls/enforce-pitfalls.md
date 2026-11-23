@@ -44,7 +44,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E037 | UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins |
 | HC-E038 | array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok" |
 | HC-E040 | use counter reached unconditionally from an init path (OnInit, OnStart, constructor, Load/Migrate/Restore, entity init); count from the gameplay path with HCUseGuarded |
-| HC-E041 | Expansion group or agent stored outside the bridge (eAIGroup member/static/container element, or a ref eAIBase member): keep an HCXAIGroupHold handle and resolve it through HCHold* calls |
+| HC-E041 | Expansion group or agent stored outside the bridge (eAIGroup or eAIBase member/static/container element, or a raw provider m_Group read): keep an HCXAIGroupHold / HCXAIAgentHold handle and resolve it through the bridge |
 | HC-E042 | method redefines or overrides a parent declaration with a different signature (missing override, parameter/return/static mismatch, or no parent method) |
 | HC-E043 | method named like an engine name the compiler resolves itself (native compile: statement-form Wait( failed); rename it |
 | HC-E044 | Enforce keyword used as a name (native compile: Expected name, not a keyword); tokenised, includes foreach slots and enum members |
