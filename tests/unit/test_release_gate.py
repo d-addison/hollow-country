@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from tools.release import compile_gate, release_gate as gate
 from tools.release.host_lock import LockRefused
@@ -85,13 +85,16 @@ class ReleaseGateTests(unittest.TestCase):
                         steps.compile()
 
     def test_client_running_and_unknown_refusal(self):
-        for state in ('running', 'unknown'):
+        for state, reads in (('running', 1), ('unknown', compile_gate.CLIENT_STATE_READS)):
             with patch('tools.setup.winproc.process_state', return_value=state) as query:
                 with self.assertRaisesRegex(ValueError, 'client state=' + state):
-                    compile_gate.require_client_idle()
-                query.assert_called_once_with('DayZ_x64.exe')
+                    compile_gate.require_client_idle(sleep=lambda seconds: None)
+                self.assertEqual(query.call_args_list, [call('DayZ_x64.exe')] * reads)
         with patch('tools.setup.winproc.process_state', return_value='gone'):
             compile_gate.require_client_idle()
+        with patch('tools.setup.winproc.process_state', side_effect=('unknown', 'gone')) as query:
+            compile_gate.require_client_idle(sleep=lambda seconds: None)
+            self.assertEqual(query.call_args_list, [call('DayZ_x64.exe')] * 2)
         with patch('tools.setup.winproc.process_state') as query:
             compile_gate.require_client_idle(True)
             query.assert_not_called()
