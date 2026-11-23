@@ -577,6 +577,23 @@
       "note": "The same player House search commit as Interiors house_search_completed; the binding records the hand-over to the House service."
     },
     {
+      "module": "SearchBinding",
+      "feature": "supply-bound",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=SearchBinding feature=supply_bound count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
+      "note": "The same player House search commit as house_bound, for the supply (stock CE loot) hand-over; the binding records the bind to the House service."
+    },
+    {
       "module": "Leads",
       "feature": "active-leads",
       "signal": {

@@ -193,6 +193,8 @@ DRIVERS = {d.id: d for d in (
            ("normal_server",), _checkstart_argv, judge_checkstart, inputs=("bundle", "rpt"), timeout=900),
     Driver("native.diag_session", "native", "DayZDiag session plan only; never launches",
            ("dayzdiag",), _module("tools.setup.diag_session", "--plan"), judge_plan_only, timeout=120),
+    Driver("native.soak_campaign", "native", "soak campaign plan only; the lead runs the campaign",
+           (), _module("tools.testing.soak_campaign", "plan"), judge_plan_only, timeout=120),
 )}
 
 

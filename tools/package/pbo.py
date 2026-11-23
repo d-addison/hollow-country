@@ -4,6 +4,7 @@ This intentionally accepts a small, strict subset of PBO (Vers prefix + method 0
 SHA-1 is the PBO trailer checksum, NOT an addon signature or authenticity proof.
 """
 import argparse
+import contextlib
 import hashlib
 import io
 import json
@@ -24,6 +25,21 @@ COMPAT_SLOTS = ('a', 'b', 'c', 'd', 'e', 'f')
 COMPAT_PBO_NAME = 'hollowcountry_compat.pbo'
 PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', 'HollowCountryAssets', GUARD_PREFIX,
             COMPAT_PREFIX) + tuple(COMPAT_PREFIX + '-' + slot for slot in COMPAT_SLOTS)
+# The dev-only test addon (mods/HollowCountryTest) is never shipped, so its prefix is NOT in PREFIXES: every
+# shipped-bundle parse, pack and sign keeps refusing it. Only tools/testing/test_addon.py opens test_prefix_scope().
+TEST_PREFIX = 'HollowCountryTest'
+
+
+@contextlib.contextmanager
+def test_prefix_scope():
+    """Accept TEST_PREFIX (and only it, in addition) inside the block; PREFIXES is restored on exit."""
+    global PREFIXES
+    saved = PREFIXES
+    PREFIXES = saved + (TEST_PREFIX,)
+    try:
+        yield
+    finally:
+        PREFIXES = saved
 
 
 def compat_slot_pbo(slot):
