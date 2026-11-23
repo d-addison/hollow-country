@@ -1,6 +1,6 @@
 """Soak campaign orchestration with a fake host, fake clock and synthetic trees; DayZ is never started."""
 import base64
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 import copy
 from io import StringIO
 import json
@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tools.release.host_lock import LockRefused
+from tools.setup.winproc import InteropError
 from tools.testing import soak_campaign as camp
 
 BAT = (b'@echo off\r\ncd /d "%~dp0"\r\nstart "DayZ" /min DayZServer_x64.exe -config=serverDZ.cfg -port=2302 '
@@ -353,7 +355,7 @@ class FakeHost:
         # late: client polls that read gone after launch (the BattlEye launcher has not started it yet);
         # unknown_reads: client polls that read unknown (lost interop replies) once the client has read running.
         self.late, self.unknown_reads, self.seen_running = late, unknown_reads, False
-        self.running = {camp.SERVER_IMAGE: False, camp.CLIENT_IMAGE: False}
+        self.running = dict.fromkeys(camp.PROCESS_IMAGES, False)
         self.calls, self.client_args, self.stopped_at = [], None, {}
         self.server_ready, self.stop_ok, self.driver = server_ready, stop_ok, driver
         # server_crash: the server dies (engine crash log written) once the client is up and driving.
@@ -477,6 +479,100 @@ class CampaignTests(Tmp):
         self.assertEqual(self.snapshot(), self.original)
         self.assertTrue((self.state / 'last-run/server/crash_1.log').exists())
 
+    def test_a_lost_close_reply_is_reconciled_after_the_client_exits(self):
+        run, host = self.campaign()
+        request_close, process_state = host.stop, host.state
+        readings = iter(['running', 'unknown', 'gone'])
+
+        def stop(image):
+            request_close(image)
+            if image == camp.CLIENT_IMAGE:
+                raise InteropError('lost reply')
+
+        def state(image):
+            if image == camp.CLIENT_IMAGE and image in host.stopped_at:
+                return next(readings)
+            return process_state(image)
+
+        host.stop, host.state = stop, state
+        log = []
+        run.log = log.append
+        self.assertTrue(run.run())
+        self.assertEqual(host.calls.count('stop ' + camp.CLIENT_IMAGE), 1)
+        self.assertEqual(host.calls.count('stop ' + camp.SERVER_IMAGE), 1)
+        self.assertTrue(any('Independently confirmed gone' in line for line in log))
+        self.assertEqual(self.snapshot(), self.original)
+        self.assertFalse(self.stager.receipt_path.exists())
+
+    def test_unknown_exit_state_leaves_the_stage_and_still_stops_the_server(self):
+        run, host = self.campaign()
+        request_close, process_state = host.stop, host.state
+
+        def stop(image):
+            request_close(image)
+            if image == camp.CLIENT_IMAGE:
+                raise InteropError('lost reply')
+
+        def state(image):
+            if image == camp.CLIENT_IMAGE and image in host.stopped_at:
+                raise InteropError('lost query reply')
+            return process_state(image)
+
+        host.stop, host.state = stop, state
+        with self.assertRaisesRegex(camp.Refused, r'DayZ_x64.exe state=unknown.*run restore'):
+            run.run()
+        self.assertEqual(host.calls.count('stop ' + camp.CLIENT_IMAGE), 1)
+        self.assertIn('stop ' + camp.SERVER_IMAGE, host.calls)
+        self.assertFalse(host.running[camp.SERVER_IMAGE])
+        self.assertTrue(self.stager.receipt_path.exists())
+        self.assertNotEqual(self.snapshot(), self.original)
+
+    def test_a_refused_close_still_fails_the_run_after_a_safe_restore(self):
+        run, host = self.campaign()
+        request_close = host.stop
+
+        def stop(image):
+            request_close(image)
+            if image == camp.CLIENT_IMAGE:
+                raise camp.Refused('graceful close request failed')
+
+        host.stop = stop
+        with self.assertRaisesRegex(camp.Refused, 'graceful close request failed'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
+        self.assertFalse(self.stager.receipt_path.exists())
+
+    def test_server_crash_remains_the_failure_after_a_lost_client_close_reply(self):
+        run, host = self.campaign(driver='running', server_crash=True)
+        request_close = host.stop
+
+        def stop(image):
+            request_close(image)
+            if image == camp.CLIENT_IMAGE:
+                raise InteropError('lost reply')
+
+        host.stop = stop
+        with self.assertRaisesRegex(camp.Refused, 'DayZServer_x64.exe crashed .*hcgunpile.c:177 Function ProcessGun'):
+            run.run()
+        self.assertIn('stop ' + camp.SERVER_IMAGE, host.calls)
+        self.assertEqual(self.snapshot(), self.original)
+        self.assertTrue((self.state / 'last-run/server/crash_1.log').exists())
+
+    def test_a_running_launcher_leaves_the_stage_after_both_game_processes_stop(self):
+        run, host = self.campaign()
+        launch = host.launch_client
+
+        def launch_client(root, arguments):
+            launch(root, arguments)
+            host.running[camp.LAUNCHER_IMAGE] = True
+
+        host.launch_client = launch_client
+        with self.assertRaisesRegex(camp.Refused, r'DayZ_BE.exe state=running.*run restore'):
+            run.run()
+        self.assertTrue(self.stager.receipt_path.exists())
+        self.assertFalse(host.running[camp.CLIENT_IMAGE])
+        self.assertFalse(host.running[camp.SERVER_IMAGE])
+
     def test_crash_summary_without_a_script_frame(self):
         folder = self.root / 'logs'
         folder.mkdir()
@@ -507,7 +603,7 @@ class CampaignTests(Tmp):
         self.assertEqual(self.snapshot(), self.original)
 
     def test_refuses_while_the_server_or_client_runs(self):
-        for image in (camp.SERVER_IMAGE, camp.CLIENT_IMAGE):
+        for image in camp.PROCESS_IMAGES:
             run, host = self.campaign()
             host.running[image] = True
             with self.assertRaisesRegex(camp.Refused, 'refused'):
@@ -621,9 +717,6 @@ class CampaignTests(Tmp):
             def run(self, kind, args, **kw):
                 self.scripts.append(args[0])
                 return mock.Mock(returncode=0)
-
-            def process_state(self, image):
-                return 'gone'
 
         host = camp.WindowsHost.__new__(camp.WindowsHost)
         host.winproc = Win()
@@ -846,7 +939,8 @@ class MainTests(Tmp):
     def run_main(self, argv, **patches):
         out = StringIO()
         with mock.patch.object(camp, 'default_linux', side_effect=lambda text: self.root / 'server'), \
-                mock.patch.object(camp, 'WindowsHost', side_effect=AssertionError('no real host in tests')):
+                mock.patch.object(camp, 'WindowsHost', side_effect=AssertionError('no real host in tests')), \
+                mock.patch('tools.release.host_lock.host_lock', patches.get('lock', lambda holder: nullcontext())):
             code = camp.main(argv + ['--state-dir', str(self.root / 'state')], host=patches.get('host'), out=out)
         return code, out.getvalue()
 
@@ -861,10 +955,34 @@ class MainTests(Tmp):
     def test_restore_refuses_while_dayz_runs(self):
         make_server(self.root)
         host = mock.Mock()
-        host.state.return_value = 'running'
+        host.state.side_effect = lambda image: 'running' if image == camp.CLIENT_IMAGE else 'gone'
         code, text = self.run_main(['restore', '--server-root', 'E:\\x'], host=host)
         self.assertEqual(code, 2)
         self.assertIn('not stopped', text)
+
+    def test_restore_requires_the_launcher_to_be_confirmed_gone(self):
+        server = make_server(self.root)
+        client = make_client(self.root)
+        stager = camp.Stager(server, client, self.root / 'state', win=str)
+        stager.stage(make_addon(self.root), {'steps': []})
+        for state in ('running', 'unknown'):
+            with self.subTest(state=state):
+                host = mock.Mock()
+                host.state.side_effect = lambda image: state if image == camp.LAUNCHER_IMAGE else 'gone'
+                code, text = self.run_main(['restore'], host=host)
+                self.assertEqual(code, 2)
+                self.assertIn('DayZ_BE.exe is not stopped (state=' + state + ')', text)
+                self.assertTrue(stager.receipt_path.exists())
+
+    def test_restore_takes_the_host_lock_before_querying_processes(self):
+        make_server(self.root)
+        host = mock.Mock()
+        lock = mock.Mock(side_effect=LockRefused('native host busy: holder=x'))
+        code, text = self.run_main(['restore'], host=host, lock=lock)
+        self.assertEqual(code, 2)
+        self.assertIn('native host busy', text)
+        lock.assert_called_once_with('soak_campaign')
+        host.state.assert_not_called()
 
     def test_run_needs_the_lead_flag(self):
         make_server(self.root)
@@ -882,11 +1000,10 @@ class MainTests(Tmp):
         make_client(self.root)
         host = mock.Mock()
         host.state.return_value = 'gone'
-        from tools.release.host_lock import LockRefused
-        with mock.patch.object(camp, 'step_script', return_value={'steps': []}), \
-                mock.patch('tools.release.host_lock.host_lock', side_effect=LockRefused('native host busy: holder=x')):
+        lock = mock.Mock(side_effect=LockRefused('native host busy: holder=x'))
+        with mock.patch.object(camp, 'step_script', return_value={'steps': []}):
             code, text = self.run_main(['run', '--yes', '--server-root', 'E:\\x',
-                                        '--client-root', str(self.root / 'client')], host=host)
+                                        '--client-root', str(self.root / 'client')], host=host, lock=lock)
         self.assertEqual(code, 2)
         self.assertIn('native host busy', text)
         host.launch_server.assert_not_called()

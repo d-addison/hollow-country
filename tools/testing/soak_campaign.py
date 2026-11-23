@@ -33,6 +33,9 @@ import shutil
 import sys
 import time
 
+from tools.release.host_lock import LockRefused
+from tools.setup.winproc import InteropError
+
 ROOT = Path(__file__).resolve().parents[2]
 PHASES_FILE = Path(__file__).with_name('soak_phases.json')
 EXPECTATIONS = ROOT / 'config/activity-expectations.json'
@@ -53,6 +56,7 @@ TEST_MOD = '@HollowCountryTest'
 SERVER_IMAGE = 'DayZServer_x64.exe'
 CLIENT_IMAGE = 'DayZ_x64.exe'
 LAUNCHER_IMAGE = 'DayZ_BE.exe'
+PROCESS_IMAGES = (LAUNCHER_IMAGE, CLIENT_IMAGE, SERVER_IMAGE)
 SERVER_ROOT_DEFAULT = 'E:\\HollowCountryLocal\\friend-local-1'
 OWN_MODS = ('@HollowCountry', '@HollowCountryExpansionAI', TEST_MOD)
 INSTANCE_ID = '99'
@@ -76,6 +80,7 @@ CREATED_ALLOWED = {('server', PROFILE_COPY), ('server', TEST_MOD), ('server', CF
 STRAY_STORAGE = 'storage_0'
 # A graceful stop saves the world first: the build 178 test server needed about 80 s after CloseMainWindow.
 STOP_WAIT_SECONDS = 240
+STOP_POLL_SECONDS = 5
 LAUNCH_ATTEMPTS = 3
 LAUNCH_TIMEOUT_SECONDS = 60
 LAUNCH_SETTLE_SECONDS = 30
@@ -663,8 +668,8 @@ class WindowsHost:
                   "if (-not $p[0].WaitForExit(%d)) { Write-Output 'HC close timeout'; exit 2 }; "
                   "Write-Output 'HC stopped'" % (name, STOP_WAIT_SECONDS * 1000))
         result = self.winproc.run('powershell', [ps_encoded(script)], attempts=1, timeout=STOP_WAIT_SECONDS + 60)
-        if result.returncode or self.state(image) != 'gone':
-            raise Refused('graceful stop of %s failed; stop it by hand, then run restore' % image)
+        if result.returncode:
+            raise Refused('graceful close request for %s failed' % image)
 
     def launch_server(self, server_root_win):
         script = ("$ErrorActionPreference='Stop'; Start-Process -FilePath " + ps_quote(server_root_win + '\\' + BAT_COPY)
@@ -1005,7 +1010,7 @@ class Campaign:
         self.sleep, self.now, self.log, self.win = sleep, now, log, win
 
     def preflight(self):
-        for image in (SERVER_IMAGE, CLIENT_IMAGE):
+        for image in PROCESS_IMAGES:
             state = self.host.state(image)
             if state != 'gone':
                 raise Refused('refused: %s state=%s (no server or client may run, so no player is connected)' % (image, state))
@@ -1045,7 +1050,7 @@ class Campaign:
         if state == 'gone':
             crash = crash_summary(Path(self.stager.server) / PROFILE_COPY) if image == SERVER_IMAGE else None
             if crash:
-                raise Refused('%s crashed %s: %s (crash log kept in last-run/server)' % (image, stopped.replace('stopped ', '', 1), crash))
+                raise Refused('%s crashed %s: %s' % (image, stopped.replace('stopped ', '', 1), crash))
             raise Refused('%s %s' % (image, stopped))
         unknown += 1
         if unknown >= UNREADABLE_POLLS:
@@ -1172,6 +1177,22 @@ class Campaign:
             raise failure
         return True
 
+    def shutdown_states(self):
+        """Allow time for a close with a lost reply to finish before checking the staged files."""
+        deadline = self.now() + STOP_WAIT_SECONDS
+        while True:
+            states = {}
+            # Check the launcher first so it cannot start the client after we check for the client.
+            for image in PROCESS_IMAGES:
+                try:
+                    states[image] = self.host.state(image)
+                except (OSError, InteropError):
+                    states[image] = 'unknown'
+            remaining = deadline - self.now()
+            if all(state == 'gone' for state in states.values()) or remaining <= 0:
+                return states
+            self.sleep(min(STOP_POLL_SECONDS, remaining))
+
     def shutdown(self, started, failure):
         """Graceful stops (client first), then restore. Returns the first failure, if any.
 
@@ -1180,18 +1201,32 @@ class Campaign:
         """
         if failure is not None and not isinstance(failure, Refused):
             self.log('run: failed: ' + describe_failure(failure))
-        stopped = True
+        close_errors = {}
         for key, image in (('client', CLIENT_IMAGE), ('server', SERVER_IMAGE)):
             if not started[key]:
                 continue
             try:
                 self.host.stop(image)
-            except (Refused, OSError) as error:
+            except (Refused, OSError, InteropError) as error:
+                close_errors[image] = error
+        stopped = True
+        for image, state in self.shutdown_states().items():
+            error = close_errors.get(image)
+            if error is not None:
+                if state == 'gone' and isinstance(error, (OSError, InteropError)):
+                    self.log('run: stop %s reported %s. Independently confirmed gone' %
+                             (image, describe_failure(error)))
+                else:
+                    self.log('run: stop %s failed: %s' % (image, describe_failure(error)))
+                    if state == 'gone':
+                        failure = failure or error
+            if state != 'gone':
                 stopped = False
-                self.log('run: stop %s failed: %s' % (image, describe_failure(error)))
-                failure = failure or error
+                reason = '%s state=%s after shutdown' % (image, state)
+                self.log('run: ' + reason)
+                failure = failure or Refused(reason + '. Stop DayZ by hand, then run restore')
         if not stopped:
-            self.log('run: left staged; stop the process by hand, then run restore')
+            self.log('run: left staged. Stop DayZ by hand, then run restore')
             return failure
         try:
             self.stager.restore(log=self.log)
@@ -1406,6 +1441,8 @@ def local_roots(args):
 
 
 def main(argv=None, *, host=None, out=None):
+    from tools.release.host_lock import host_lock
+
     out = out or sys.stdout
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('mode', nargs='?', default='plan', choices=('plan', 'stage', 'run', 'restore', 'report'))
@@ -1440,35 +1477,34 @@ def main(argv=None, *, host=None, out=None):
         stager = Stager(server, client, args.state_dir)
         host = host or WindowsHost()
         if args.mode == 'restore':
-            for image in (SERVER_IMAGE, CLIENT_IMAGE):
-                if host.state(image) != 'gone':
-                    raise Refused('restore refused: %s is not stopped' % image)
-            stager.restore(log=lambda text: print(text, file=out))
+            with host_lock('soak_campaign'):
+                for image in PROCESS_IMAGES:
+                    state = host.state(image)
+                    if state != 'gone':
+                        raise Refused('restore refused: %s is not stopped (state=%s)' % (image, state))
+                stager.restore(log=lambda text: print(text, file=out))
             return 0
         if client is None:
             raise Refused('the DayZ client install was not found; pass --client-root')
         from tools.testing import test_addon
         script = step_script(selection['phases'] if selection else PHASE_ORDER)
         if args.mode == 'stage':
-            addon = Path(test_addon.build()['path'])
-            for line in stager.stage(addon, script):
-                print('staged [%s] %s' % line, file=out)
+            with host_lock('soak_campaign'):
+                addon = Path(test_addon.build()['path'])
+                for line in stager.stage(addon, script):
+                    print('staged [%s] %s' % line, file=out)
             return 0
         if not args.yes:
             raise Refused('run is lead-only and idles at least %d minutes; pass --yes' % (
                 selection['idle_minutes'] if selection else phases['min_idle_minutes']))
-        from tools.release.host_lock import host_lock, LockRefused
-        try:
-            with host_lock('soak_campaign'):
-                campaign = Campaign(stager, host, phases, step_script=script, selection=selection,
-                                    addon_build=lambda: Path(test_addon.build()['path']),
-                                    log=lambda text: print(text, file=out, flush=True))
-                campaign.run()
-        except LockRefused as error:
-            raise Refused(str(error)) from None
+        with host_lock('soak_campaign'):
+            campaign = Campaign(stager, host, phases, step_script=script, selection=selection,
+                                addon_build=lambda: Path(test_addon.build()['path']),
+                                log=lambda text: print(text, file=out, flush=True))
+            campaign.run()
         return command_report(phases, args.state_dir, out)
-    except (Refused, OSError, ValueError, KeyError) as error:
-        if not isinstance(error, Refused):
+    except (OSError, ValueError, KeyError, InteropError) as error:
+        if not isinstance(error, (Refused, LockRefused)):
             error = Refused('%s (path withheld)' % describe_failure(error))
         print('soak_campaign: ' + str(error), file=out)
         return 2
