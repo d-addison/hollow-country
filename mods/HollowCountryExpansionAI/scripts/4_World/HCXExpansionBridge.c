@@ -344,6 +344,20 @@ class HCXExpansionBridge
         value.SetGroup(group, autoDeleteFormerGroupIfEmpty, groupMemberIndex);
     }
 
+    // Expansion core adds these reads to the player classes (names in HCXAIFormations.c and HCXDefence.c).
+    // A refusal returns 0 / zero, which the callers treat as "standing" / "use the body direction".
+    static float HCDayZPlayerImplementGetMovementSpeed(DayZPlayerImplement value)
+    {
+        if (!HCEntity(value, "HCDayZPlayerImplementGetMovementSpeed", false)) { return 0.0; }
+        return value.Expansion_GetMovementSpeed();
+    }
+
+    static vector HCPlayerBaseGetAimDirection(PlayerBase value)
+    {
+        if (!HCEntity(value, "HCPlayerBaseGetAimDirection", false)) { return vector.Zero; }
+        return value.Expansion_GetAimDirection();
+    }
+
     // A second Delete would queue a second DeletePatrol, whose Find returns -1.
     static void HCSitePatrolDelete(HCXAISitePatrol value)
     {

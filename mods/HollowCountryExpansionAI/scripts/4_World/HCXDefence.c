@@ -493,7 +493,7 @@ class HCXDefence
         bool loud = !weapon.IsKindOf("Archery_Base");
         ItemBase suppressor = weapon.GetAttachedSuppressor();
         if (suppressor && !suppressor.IsDamageDestroyed()) { loud = false; }
-        vector aim = shooter.Expansion_GetAimDirection();
+        vector aim = HCXExpansionBridge.HCPlayerBaseGetAimDirection(shooter);
         if (aim.Length() < 0.5) { aim = shooter.GetDirection(); }
         aim = aim.Normalized();
         vector shooterPos = shooter.GetPosition();
