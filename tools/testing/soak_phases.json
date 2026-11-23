@@ -1,0 +1,185 @@
+{
+ "schema_version": 1,
+ "min_idle_minutes": 125,
+ "debug_snapshot_seconds": 300,
+ "phases": [
+  {
+   "name": "join",
+   "minutes": 5,
+   "what": "spawn wait, stand, sprint, map/inventory/pause menus and the admin status command"
+  },
+  {
+   "name": "group",
+   "minutes": 2,
+   "what": "create a solo group and send a team ping"
+  },
+  {
+   "name": "walk_ai",
+   "minutes": 30,
+   "what": "walk to the nearest AI site on foot (no teleport)"
+  },
+  {
+   "name": "walk_zone",
+   "minutes": 45,
+   "what": "walk into a zone with guards and an event radius"
+  },
+  {
+   "name": "walk_town",
+   "minutes": 20,
+   "what": "walk through a town for signs of life, interiors and doors"
+  },
+  {
+   "name": "fixtures",
+   "minutes": 10,
+   "what": "setup-only admin fixtures at the spot; the real feature code then runs normally"
+  },
+  {
+   "name": "actions",
+   "minutes": 15,
+   "what": "real vanilla and HC actions through the client action manager"
+  },
+  {
+   "name": "idle",
+   "minutes": 125,
+   "what": "stand still; background and time-window counters; DebugSnapshot fires every 300 s"
+  }
+ ],
+ "modules": {
+  "AdminMap": "join",
+  "ClientUI": "join",
+  "Grade": "join",
+  "Lighting": "join",
+  "Polish": "join",
+  "MapPins": "join",
+  "World": "join",
+  "SurvivalAlignment": "join",
+  "Leads": "join",
+  "WeatherDays": "join",
+  "Infected": "join",
+  "InfectedLOD": "join",
+  "InfectedMemory": "join",
+  "InfectedVariety": "join",
+  "Groups": "group",
+  "TeamPing": "group",
+  "AIIncidents": "walk_ai",
+  "AIRoles": "walk_ai",
+  "AISelfDefence": "walk_ai",
+  "AITactics": "walk_ai",
+  "Materializer": "walk_ai",
+  "MaterializerBridge": "walk_ai",
+  "Holdouts": "walk_ai",
+  "Sites": "walk_ai",
+  "SiteSurveyProbe": "walk_ai",
+  "ObjectSpawner": "walk_ai",
+  "hcxai-live-map": "walk_ai",
+  "optional-expansion-human-ai": "walk_ai",
+  "NavXai": "walk_ai",
+  "v2-expansion-living-world": "walk_ai",
+  "ZoneGuards": "walk_ai",
+  "Events": "walk_zone",
+  "WorldIncidents": "walk_zone",
+  "Escalation": "walk_zone",
+  "HordeMigration": "walk_zone",
+  "InfectedSiege": "walk_zone",
+  "Ecology": "walk_zone",
+  "NavInf": "walk_zone",
+  "SignsOfLife": "walk_town",
+  "Interiors": "walk_town",
+  "Shelters": "walk_town",
+  "Scenes": "walk_town",
+  "DeadDrops": "walk_town",
+  "InfectedDoors": "walk_town",
+  "InfectedReach": "walk_town",
+  "BodyStories": "walk_town",
+  "Camps": "fixtures",
+  "CampRespawn": "fixtures",
+  "FactionConflict": "fixtures",
+  "AITrade": "fixtures",
+  "VehicleFlip": "fixtures",
+  "WreckSalvage": "fixtures",
+  "Fortify": "fixtures",
+  "Crafting": "actions",
+  "SearchBinding": "actions",
+  "TapedHelmetMounts": "actions",
+  "TapedLight": "actions",
+  "TapedPackMounts": "actions",
+  "Melee": "actions",
+  "Radio": "actions",
+  "Morse": "actions",
+  "Forage": "actions",
+  "Progression": "actions",
+  "CookingCompat": "actions",
+  "DebugSnapshot": "idle",
+  "WorldSaves": "idle",
+  "LootRefresh": "idle",
+  "SettlementDecay": "idle",
+  "Cellars": "idle",
+  "CellarSampler": "idle",
+  "OptionalPacks": "idle",
+  "FoodCompat": "idle",
+  "Pickers": "idle",
+  "Notes": "idle",
+  "NotesCompat": "idle"
+ },
+ "features": {
+  "NavInf/pathgraph_refresh": "walk_town",
+  "NavInf/door_action": "walk_town",
+  "NavInf/vault_started": "walk_town",
+  "Interiors/props_placed": "idle",
+  "Interiors/nav_pathgraph_refresh": "walk_town",
+  "Interiors/house_search_completed": "actions",
+  "SearchBinding/house_bound": "actions",
+  "SearchBinding/supply_bound": "actions",
+  "Shelters/regional_props_placed": "idle",
+  "InfectedDoors/door_pressure": "idle",
+  "InfectedDoors/nav_door_action": "actions",
+  "NavXai/stuck_recovery": "fixtures",
+  "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
+  "AITrade/trade_completed": "fixtures",
+  "Materializer/materialized_operations": "fixtures",
+  "Holdouts/occupied_holdouts": "fixtures",
+  "AIIncidents/lease_step": "fixtures",
+  "WorldIncidents/incident_sweep": "fixtures",
+  "AITactics/fire_events": "fixtures",
+  "HordeMigration/nav_route_advance": "walk_zone",
+  "Forage/forage_spawned": "idle",
+  "Polish/sound_played": "idle"
+ },
+ "manual": {
+  "TeamPing/ping_recipients": {
+   "kind": "friend_playtest",
+   "reason": "delivery of a team ping to another player needs a second player; one client has no recipient"
+  },
+  "TeamPing/ping_delivered": {
+   "kind": "friend_playtest",
+   "reason": "delivery of a team ping to another player needs a second player; one client has no recipient"
+  }
+ },
+ "looks": [
+  {
+   "id": "lighting_look",
+   "kind": "owner_check",
+   "reason": "the lighting look is subjective; the counter shows the blend applied, not that it looks right"
+  },
+  {
+   "id": "grade_look",
+   "kind": "owner_check",
+   "reason": "the colour grade look is subjective; the counter shows the grade applied, not that it looks right"
+  },
+  {
+   "id": "audio",
+   "kind": "owner_check",
+   "reason": "audio is heard, not logged; the sound counter shows a sound was started, not that it is audible or right"
+  },
+  {
+   "id": "group_sharing",
+   "kind": "friend_playtest",
+   "reason": "sharing a group and its map pins between players needs a second player"
+  },
+  {
+   "id": "team_ping_delivery",
+   "kind": "friend_playtest",
+   "reason": "a ping appearing for another group member needs a second player"
+  }
+ ]
+}
