@@ -657,7 +657,10 @@ class HCInfectedStore
     {
         string pathA = DIRECTORY + "/hordes-a.json";
         string pathB = DIRECTORY + "/hordes-b.json";
-        if (FileExist(pathA + ".tmp") || FileExist(pathB + ".tmp")) { return false; }
+        // #336: each slot's .tmp is cleared only when byte-identical to its primary (hard stop before
+        // clear_intent). Reached only from the module's OnStart, before any save job exists.
+        if (FileExist(pathA + ".tmp") && !HCStagedSaveImage.HCClearCompletedIntent(pathA, 65536, "infected_a")) { return false; }
+        if (FileExist(pathB + ".tmp") && !HCStagedSaveImage.HCClearCompletedIntent(pathB, 65536, "infected_b")) { return false; }
         bool existsA = FileExist(pathA);
         bool existsB = FileExist(pathB);
         if (!existsA && !existsB)

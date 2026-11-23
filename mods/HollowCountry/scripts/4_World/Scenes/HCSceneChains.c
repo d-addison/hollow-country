@@ -355,7 +355,9 @@ class HCSceneChainStore
     HCSceneChainState Open(int now)
     {
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { Fault("directory"); return null; }
-        if (FileExist(m_Path + ".tmp")) { Fault("tmp"); return null; }
+        // #336: a hard stop after promotion and before clear_intent leaves .tmp equal to the primary.
+        // Only that identical case is cleared, and never while this store has a save in flight.
+        if (FileExist(m_Path + ".tmp") && (m_SaveImage.Active() || !HCStagedSaveImage.HCClearCompletedIntent(m_Path, 65536, "scenes"))) { Fault("tmp"); return null; }
         // Pre-HC-19 has no Stories key. Restore ONLY that absent object after
         // native scalar zero-fill, never a present partial/corrupt history.
         HCSceneChainState state = new HCSceneChainState;
