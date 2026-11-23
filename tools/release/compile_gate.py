@@ -417,6 +417,8 @@ def main():
     parser.add_argument('--addons', type=Path, default=ship_inputs.ADDONS,
                         help='installed DayZ/DayZServer Addons folder (read only; same as release)')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
+    parser.add_argument('--test-addon', action='store_true',
+                        help='also compile the dev-only HollowCountryTest addon in the isolated probe')
     parser.add_argument('--allow-client', action='store_true', help='explicitly permit compilation while the owner client runs')
     args = parser.parse_args()
     if not args.prepare_only:
@@ -457,6 +459,12 @@ def main():
             print('compile_gate: pbo_sha256=' + digest + ' package_cache=' + ('hit' if reused else 'miss'))
             staging = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='ship-inputs-', dir=cache)))
             inputs = stage_release_pbos(tree, package, inputs, args.addons.expanduser().absolute(), staging)
+            if args.test_addon:
+                from tools.testing import test_addon
+                test_blob, test_file_count = test_addon.pack(tree)
+                inputs['test_addon_blob'] = test_blob
+                print('compile_gate: test_addon_files=' + str(test_file_count)
+                      + ' test_addon_sha256=' + hashlib.sha256(test_blob).hexdigest())
             if args.prepare_only:
                 print('compile_gate: PREPARED ONLY; native compile NOT RUN')
                 return 0

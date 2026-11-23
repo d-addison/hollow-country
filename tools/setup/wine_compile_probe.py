@@ -297,7 +297,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=(), base_extra_pbos=()):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=(), base_extra_pbos=(), test_addon_blob=None):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -334,6 +334,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         raise ValueError('Wine PE loading must use the Linux filesystem')
     blob = Path(source_pbo).read_bytes()
     base_prefix, _ = pbo.parse(blob)
+    if test_addon_blob is not None:
+        pbo.parse(test_addon_blob, prefixes=(pbo.TEST_PREFIX,))
     # Release companions (including animations) share @HollowCountry/addons.
     # Snapshot and validate before creating the experiment or launching Wine.
     base_extras = []
@@ -437,6 +439,12 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     loaded_mods = [win(m) for m in extra_mods] + [win(addon.parent)]
     if server_addon is not None:
         loaded_mods.append(win(server_addon.parent))
+    if test_addon_blob is not None:
+        from tools.testing import test_addon
+        test_folder = experiment / test_addon.FOLDER
+        (test_folder / 'addons').mkdir(parents=True)
+        (test_folder / 'addons' / test_addon.PBO_NAME).write_bytes(test_addon_blob)
+        loaded_mods.append(win(test_folder))
     command = ['xvfb-run', '-a', str(wine), str(executable), '-ip=127.0.0.1', '-port=2402',
                '-config=' + win(config), '-profiles=' + win(profiles), '-storage=' + win(storage),
                '-mod=' + ';'.join(loaded_mods),
@@ -506,6 +514,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['base_extra_pbos'] = {name: prefix for name, _, prefix in base_extras}
     report['server_mod_sha256'] = hashlib.sha256(server_blob).hexdigest() if server_blob is not None else None
     report['server_extra_pbos'] = {name: prefix for name, _, prefix in server_extras}
+    if test_addon_blob is not None:
+        report['test_addon_sha256'] = hashlib.sha256(test_addon_blob).hexdigest()
     report['dependency_mission_copy'] = str(mission) if mod_stack_mission else None
     report['expansion_patrol_settings_sha256'] = hashlib.sha256(patrol_blob).hexdigest() if patrol_blob is not None else None
     report['config_sha256'] = hashlib.sha256(config.read_bytes()).hexdigest()

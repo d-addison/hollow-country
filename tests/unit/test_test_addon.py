@@ -122,6 +122,17 @@ class BuildTests(unittest.TestCase):
         self.assertIn('scripts/5_Mission/HCClientDriver.c', files)
         self.assertFalse(list(scratch.glob('work')))
 
+    def test_compile_probe_package_matches_the_signed_input(self):
+        make_source(self.root)
+        probe_blob, count = test_addon.pack(self.root)
+        self.assertFalse(self.scratch.exists())
+        self.assertNotIn(pbo.TEST_PREFIX, pbo.PREFIXES)
+        with self.assertRaises(ValueError):
+            pbo.parse(probe_blob, prefixes=pbo.PREFIXES)
+        result = test_addon.build(self.root, self.scratch, fake_signer)
+        self.assertEqual(count, result['files'])
+        self.assertEqual(hashlib.sha256(probe_blob).hexdigest(), result['sha256'])
+
     def test_build_refuses_a_scratch_folder_inside_the_repo(self):
         make_source(self.root)
         with self.assertRaisesRegex(test_addon.TestAddonError, 'outside the repository'):

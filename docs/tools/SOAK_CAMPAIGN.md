@@ -30,6 +30,14 @@ development key as the local build; this tool never reads, copies, prints or cre
 `~/.cache/hollow-country/test-addon/@HollowCountryTest`, outside the repository. A unit test asserts that
 `ship_inputs.signing_inputs` and the friend bundle file list never name it.
 
+The lead can compile the test addon with the pinned runtime stack before staging a soak. The gate
+loads the addon in its disposable server and checks for the Mission marker. The retail campaign
+supplies the client and fixture evidence.
+
+```sh
+agent-run --memory 12G -- python3 -B -m tools.release.compile_gate --commit "$candidate_sha" --test-addon
+```
+
 ## What `stage` writes (and `restore` removes)
 
 Everything is a copy or a new file, except one in-place edit with a byte backup:

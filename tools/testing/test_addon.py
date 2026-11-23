@@ -1,9 +1,9 @@
 """Pack and sign the dev-only HollowCountryTest addon into a scratch folder OUTSIDE the repository.
 
 The test addon (mods/HollowCountryTest, PBO prefix HollowCountryTest, file hollowcountrytest.pbo) holds the
-scripted client driver and the setup fixtures the local soak campaign uses. It is never shipped: its prefix is
-not in tools.package.pbo.PREFIXES, no release, bundle, friendcycle or Workshop tool lists it, and this module is the
-only code that opens pbo.test_prefix_scope().
+scripted client driver and the setup fixtures the local soak campaign uses. The isolated compile probe can
+load it via an explicit flag. Its prefix is outside tools.package.pbo.PREFIXES, and this module is the only
+code that opens pbo.test_prefix_scope(). Release and Workshop packaging keep the shipping allowlist.
 
 Signing reuses the existing Wine flow (tools.package.sign_wine, the same development key the local build uses).
 This module never reads, copies, prints or creates key material: it only hands the pre-existing key pathnames
@@ -93,19 +93,26 @@ def default_signer(source, output):
     return sign_wine.sign(source, output)
 
 
+def pack(root=ROOT):
+    """Return the verified dev-only PBO bytes and payload count before signing."""
+    files = collect(root)
+    with pbo.test_prefix_scope():
+        if pbo.pbo_file_name(pbo.TEST_PREFIX) != PBO_NAME:
+            raise TestAddonError('unexpected test addon file name')
+        blob = pbo.pack(files, pbo.TEST_PREFIX)
+    prefix, parsed = pbo.parse(blob, prefixes=(pbo.TEST_PREFIX,))
+    if prefix != pbo.TEST_PREFIX or parsed != files:
+        raise TestAddonError('packed test addon does not round-trip')
+    return blob, len(files)
+
+
 def build(root=ROOT, scratch=SCRATCH, signer=default_signer):
     """Pack under TEST_PREFIX, sign with the dev key, and write scratch/@HollowCountryTest; return a report.
 
     Always rebuilt from the repo source at this checkout, into a fresh folder (the old one is replaced)."""
     scratch = scratch_outside_repo(scratch, root)
-    files = collect(root)
+    blob, count = pack(root)
     with pbo.test_prefix_scope():
-        blob = pbo.pack(files, pbo.TEST_PREFIX)
-        prefix, parsed = pbo.parse(blob, prefixes=(pbo.TEST_PREFIX,))
-        if prefix != pbo.TEST_PREFIX or set(parsed) != set(files):
-            raise TestAddonError('packed test addon does not round-trip')
-        if pbo.pbo_file_name(pbo.TEST_PREFIX) != PBO_NAME:
-            raise TestAddonError('unexpected test addon file name')
         scratch.mkdir(parents=True, exist_ok=True)
         work = scratch / 'work'
         if work.exists():
@@ -130,7 +137,7 @@ def build(root=ROOT, scratch=SCRATCH, signer=default_signer):
     sigs = sorted(p.name for p in (out / 'addons').glob(PBO_NAME + '.*.bisign'))
     if not signed.is_file() or len(sigs) != 1:
         raise TestAddonError('test addon is not signed')
-    return dict(folder=FOLDER, pbo=PBO_NAME, prefix=pbo.TEST_PREFIX, files=len(files), signatures=len(sigs),
+    return dict(folder=FOLDER, pbo=PBO_NAME, prefix=pbo.TEST_PREFIX, files=count, signatures=len(sigs),
                 sha256=hashlib.sha256(signed.read_bytes()).hexdigest(), path=str(out))
 
 
