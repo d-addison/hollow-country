@@ -57,7 +57,7 @@ class HCInfectedModule : HCModule
     protected int m_PacingHordeTarget;
     protected float m_PacingHordeDeadline;
     protected ref HCHordeRouteSurvey m_PacingHordePatrol;
-    protected ref HCActivityWindow m_HCHordeActivity = new HCActivityWindow("[HC Hordes]", "offers retries budget_deferred offers_closed no_seed no_route paced_wait started failed reinforcement_retired");
+    protected ref HCActivityCounters m_HCHordeActivity = new HCActivityCounters("offers retries budget_deferred offers_closed no_seed no_route paced_wait started failed reinforcement_retired", "[HC Hordes]");
     protected bool m_PacingHordeWaiting;
     protected bool m_Chains;
     protected bool m_Dirty;

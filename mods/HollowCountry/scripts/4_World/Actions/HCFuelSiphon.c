@@ -56,10 +56,10 @@ class HCFuelSiphonQualification
 
 class HCFuelSiphon
 {
-    protected static ref HCActivityWindow s_Activity;
-    static HCActivityWindow HCActivity()
+    protected static ref HCActivityCounters s_Activity;
+    static HCActivityCounters HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HollowCountry] Fuel siphon", "attempts started completed refused steps");
+        if (!s_Activity) s_Activity = new HCActivityCounters("attempts started completed refused steps", "[HollowCountry] Fuel siphon");
         return s_Activity;
     }
 

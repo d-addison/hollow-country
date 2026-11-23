@@ -106,7 +106,7 @@ modded class HCWorldModule
 
 class HCWorldMaterializer : HCModule
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rings rows proposals claims materialized traces refused prerequisite cap no_players budget cooldown row_unavailable custody ring faction population sequence reserve provider_timeout");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("rings rows proposals claims materialized traces refused prerequisite cap no_players budget cooldown row_unavailable custody ring faction population sequence reserve provider_timeout");
     static const int MAX_PLAYERS = 32;
     static const int ROWS_PER_RING = 32;
     static const int PROVIDER_TIMEOUT = 120;
@@ -1395,7 +1395,7 @@ class HCWorldMaterializer : HCModule
         {
             if (m_CustodyCommitted < candidate.CustodyRevision) { return false; }
             candidate.Claimed = true;
-            m_Activity.HCHit("claims");
+            m_Activity.Add("claims");
             return true;
         }
         if (this.HCCustodyCheckpointPending() || !this.HCCustodyAllows(candidate.Proposal.Identity)) { return false; }
@@ -1506,14 +1506,14 @@ class HCWorldMaterializer : HCModule
         {
             if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { Print("[HC AI] custody fold-back strength failed runtime=PENDING"); return; }
             m_Materialized++;
-            m_Activity.HCHit("materialized");
+            m_Activity.Add("materialized");
             if (lease.Fixture) { HCModuleReadiness.HCUseFixture("Materializer", "actors_materialized"); }
             else { HCModuleReadiness.HCUse("Materializer", "actors_materialized"); }
             string outcome = "[HC AI] materializer outcome=folded-back";
             if (lease.Fixture) { outcome += " fixture=1"; }
             Print("" + outcome);
         }
-        else { m_Traces++; m_Activity.HCHit("traces"); }
+        else { m_Traces++; m_Activity.Add("traces"); }
         if (m_Stopping) { m_StopUnavailable--; m_StopFolded++; }
     }
 
@@ -1700,7 +1700,7 @@ class HCWorldMaterializer : HCModule
 
     protected void InterestRing()
     {
-        m_Activity.HCHit("rings");
+        m_Activity.Add("rings");
         HCWorldModule world = HCWorldModule.Get();
         if (!world || !GetGame() || !m_CustodyReady) { m_Activity.HCRefuse("prerequisite"); return; }
         int unresolvedLeases = this.HCCustodyDebt(false);
@@ -1746,8 +1746,8 @@ class HCWorldMaterializer : HCModule
             if (m_RowCursor >= totalRows) { m_RowCursor = 0; }
             int rowIndex = m_RowCursor;
             m_RowCursor++;
-            m_Activity.HCHit("rows");
-            if (m_Cooldowns[rowIndex] > m_Clock) { m_Activity.HCHit("cooldown"); continue; }
+            m_Activity.Add("rows");
+            if (m_Cooldowns[rowIndex] > m_Clock) { m_Activity.Add("cooldown"); continue; }
             HCWorldProposal row = world.MaterializerRow(rowIndex);
             if (!row) { m_Activity.HCRefuse("row_unavailable"); continue; }
             if (!this.HCCustodyAllows(row.Identity)) { m_Activity.HCRefuse("custody"); continue; }
@@ -1786,7 +1786,7 @@ class HCWorldMaterializer : HCModule
             reservedActors += row.ActorCap;
             m_Cooldowns[rowIndex] = m_Clock + ROW_COOLDOWN;
             m_Proposals++;
-            m_Activity.HCHit("proposals");
+            m_Activity.Add("proposals");
         }
     }
 }

@@ -58,11 +58,11 @@ class HCHordeRoutes
 {
     protected static ref HCHordeRouteDocument s_Document;
     protected static string s_Reason = "ROUTE_SURVEY_NOT_LOADED";
-    protected static ref HCActivityWindow s_Activity;
+    protected static ref HCActivityCounters s_Activity;
 
-    static HCActivityWindow HCActivity()
+    static HCActivityCounters HCActivity()
     {
-        if (!s_Activity) { s_Activity = new HCActivityWindow("[HC HordeRoutes]", "authored_bound local_offer native_admitted native_refused legs_started legs_finished reached expired interrupted stalled invalid"); }
+        if (!s_Activity) { s_Activity = new HCActivityCounters("authored_bound local_offer native_admitted native_refused legs_started legs_finished reached expired interrupted stalled invalid", "[HC HordeRoutes]"); }
         return s_Activity;
     }
 

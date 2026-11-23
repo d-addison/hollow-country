@@ -34,7 +34,7 @@ class HCDebugSceneLeaseRow
 
 class HCScenesModule : HCModule
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("work placed completed notes refused checkpoint budget not_due pacing preflight advertise failed");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("work placed completed notes refused checkpoint budget not_due pacing preflight advertise failed");
     protected static ref HCScenesModule s_CleanupOwner;
     // Weak pointer to the running instance for read-only debug getters; cleared in OnStop.
     protected static HCScenesModule s_DebugOwner;
@@ -415,7 +415,7 @@ class HCScenesModule : HCModule
         vector notePosition = notePositions[0];
         if (SceneNote(notes, lead, chain.Id, placeId, notePosition, HCWorldClock.UTC()))
         {
-            m_Activity.HCHit("notes");
+            m_Activity.Add("notes");
             Print("[HollowCountry] V2 scene note created id=" + chain.Id + " place=" + placeId + " source=" + lead.Source);
         }
     }
@@ -547,7 +547,7 @@ class HCScenesModule : HCModule
 
     void Work(int now)
     {
-        m_Activity.HCHit("work");
+        m_Activity.Add("work");
         foreach (HCSceneLease receiptLease : m_Leases) { HCDrainViewReceipt(receiptLease); }
         int paused = HCSceneChains.ResumeAfterGap(m_State, now);
         if (paused < 0) { Print("[HollowCountry] V2 scenes stopped; downtime exceeds clock bounds"); OnStop(); return; }
@@ -589,7 +589,7 @@ class HCScenesModule : HCModule
             if (!Cleanup(lease)) { return; }
             // Work runs only after the barrier is durable. Count the observed
             // completed stage once, before its identity advances or closes.
-            m_Activity.HCHit("completed");
+            m_Activity.Add("completed");
             Print("[HollowCountry] V2 scene stage complete id=" + chain.Id + " stage=" + chain.Stage.ToString());
             // End this stage's active pacing before the identity moves on.
             HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
@@ -605,7 +605,7 @@ class HCScenesModule : HCModule
             Commit(now);
             return;
         }
-        if (now < chain.DueAt) { m_Activity.HCHit("not_due"); return; }
+        if (now < chain.DueAt) { m_Activity.Add("not_due"); return; }
         if (!lease)
         {
             if (m_Leases.Count() >= 2) { HCEventModule.HCCancelSituation(HCPacingIdentity(chain)); m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
@@ -652,7 +652,7 @@ class HCScenesModule : HCModule
             HCEventModule.HCStartedSituation(HCPacingIdentity(chain));
             lease.StoryPublished = true;
             m_Placed = m_Placed + lease.Objects.Count();
-            m_Activity.HCHit("placed");
+            m_Activity.Add("placed");
             HCModuleReadiness.HCUse("Scenes", "scene_placed");
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
             HCEventSite storySite = HCSceneChains.HCPlanSite(plan);

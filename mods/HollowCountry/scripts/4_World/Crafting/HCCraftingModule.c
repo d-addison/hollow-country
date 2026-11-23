@@ -3,10 +3,10 @@ class HCCraftingGate
     static bool m_Started;
     static bool m_Validated;
     static int m_Crafted;
-    protected static ref HCActivityWindow s_Activity;
-    static HCActivityWindow HCActivity()
+    protected static ref HCActivityCounters s_Activity;
+    static HCActivityCounters HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HollowCountry] Crafting", "attempts completed refused HCSalvageCamoNet HCSalvageCableReel HCRecoverLargeLeather HCRecoverMediumLeather HCRecoverBatWood HCRecoverNailedBat HCRecoverBarbedBat HCRecoverRuinedCrate HCRecoverRuinedLargeLeather HCRecoverRuinedBatWood HCRecoverRuinedNailedBat HCRecoverTeddyRag HCRecoverFabricRag HCAuditLeatherPantsBeige HCAuditLeatherPantsBlack HCAuditLeatherPantsBrown HCAuditLeatherPantsNatural HCAuditLeatherVestBeige HCAuditLeatherVestBlack HCAuditLeatherVestBrown HCAuditLeatherVestNatural");
+        if (!s_Activity) s_Activity = new HCActivityCounters("attempts completed refused HCSalvageCamoNet HCSalvageCableReel HCRecoverLargeLeather HCRecoverMediumLeather HCRecoverBatWood HCRecoverNailedBat HCRecoverBarbedBat HCRecoverRuinedCrate HCRecoverRuinedLargeLeather HCRecoverRuinedBatWood HCRecoverRuinedNailedBat HCRecoverTeddyRag HCRecoverFabricRag HCAuditLeatherPantsBeige HCAuditLeatherPantsBlack HCAuditLeatherPantsBrown HCAuditLeatherPantsNatural HCAuditLeatherVestBeige HCAuditLeatherVestBlack HCAuditLeatherVestBrown HCAuditLeatherVestNatural", "[HollowCountry] Crafting");
         return s_Activity;
     }
 

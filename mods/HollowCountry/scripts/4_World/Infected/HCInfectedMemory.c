@@ -50,7 +50,7 @@ class HCInfectedMemory
     protected int m_SnapshotRevision;
     protected int m_CommittedRevision;
     protected int m_LastUtc;
-    protected ref HCActivityWindow m_Activity = new HCActivityWindow("[HC InfectedMemory]", "reads heat_writes capped saves investigations_started investigations_refused");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("reads heat_writes capped saves investigations_started investigations_refused", "[HC InfectedMemory]");
     protected int m_RecordUtc;
     protected int m_RecordCount;
     static const int MAX_CLOCK_SKEW_SECONDS = 300;
