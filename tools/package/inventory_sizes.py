@@ -12,8 +12,10 @@ import argparse
 import ast
 import hashlib
 from collections import Counter
+from fractions import Fraction
 import json
 import math
+from statistics import median
 from pathlib import Path
 import re
 import sys
@@ -243,9 +245,65 @@ def _weight(value):
     return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
 
 
+MAX_CARGO_WIDTH = 10
+
+
+def clothing_policy(rules):
+    """Validated worn-clothing cargo policy, or None when the rules do not declare one."""
+    if 'clothing_cargo_multiplier' not in rules:
+        return None
+    try:
+        multiplier = Fraction(str(rules['clothing_cargo_multiplier']))
+        cap = Fraction(str(rules['clothing_cargo_cap']))
+        slots = {s.lower() for s in rules['clothing_cargo_slots']}
+    except (KeyError, TypeError, ValueError):
+        raise ValueError('clothing cargo rules need multiplier, cap and slots')
+    if not 1 <= multiplier <= cap <= 3 or not slots or not all(isinstance(s, str) and s for s in slots):
+        raise ValueError('clothing cargo multiplier must satisfy 1 <= multiplier <= cap <= 3 with named slots')
+    return {'multiplier': multiplier, 'cap': cap, 'slots': slots}
+
+
+def clothing_slot_medians(resolved, policy):
+    """Median cargo cells per clothing slot over vanilla classes that have positive cargo."""
+    areas = {}
+    for row in resolved.values():
+        if row.get('root', 'CfgVehicles') != 'CfgVehicles' or row.get('source', 'vanilla') != 'vanilla':
+            continue
+        cargo = _size(row['fields'].get('itemsCargoSize'))
+        if not cargo:
+            continue
+        for slot in {s.lower() for s in strings(row['fields'].get('inventorySlot'))} & policy['slots']:
+            areas.setdefault(slot, []).append(cargo[0] * cargo[1])
+    return {slot: Fraction(median(values)) for slot, values in areas.items()}
+
+
+def clothing_cargo(cargo, policy):
+    """Grow cargo about multiplier-fold, rows first, never above cap-fold of the stock cells.
+
+    The row-rounded grid is taken when it fits the cap. Otherwise the tallest grid at the
+    stock width that fits is used; width grows (up to MAX_CARGO_WIDTH) only when no extra row
+    fits. Returns None when nothing larger fits. A grid never shrinks, so stored contents fit.
+    """
+    width, height = cargo
+    area = width * height
+    ceiling = math.floor(policy['cap'] * area)
+    rows = math.ceil(height * policy['multiplier'])
+    if width * rows <= ceiling:
+        return [width, rows]
+    rows = ceiling // width
+    if rows > height:
+        return [width, rows]
+    columns = min(ceiling // height, MAX_CARGO_WIDTH)
+    if columns > width:
+        return [columns, height]
+    return None
+
+
 def select_changes(definitions, rules, audit=None):
     """Return sorted bounded overrides and exclusion counts from explicit class data."""
     resolved = _resolved(definitions)
+    clothing = clothing_policy(rules)
+    medians = clothing_slot_medians(resolved, clothing) if clothing else {}
     changes, excluded = {}, Counter()
     def skip(reason, row):
         excluded[reason] += 1
@@ -272,6 +330,17 @@ def select_changes(definitions, rules, audit=None):
         if cargo and 'back' in slots:
             prop, category, old = 'itemsCargoSize', 'backpacks', cargo
             new = [cargo[0], math.ceil(cargo[1] * multiplier)]
+        elif cargo and clothing and slots & clothing['slots'] and row.get('source', 'vanilla') == 'vanilla':
+            prop, category, old = 'itemsCargoSize', 'clothing_cargo', cargo
+            # Already roomy for its slot (>= cap-fold the slot median): unchanged.
+            reference = max(medians[s] for s in slots & clothing['slots'])
+            if cargo[0] * cargo[1] >= clothing['cap'] * reference:
+                skip('clothing-cargo-already-roomy', row)
+                continue
+            new = clothing_cargo(cargo, clothing)
+            if new is None:
+                skip('clothing-cargo-no-room', row)
+                continue
         elif cargo:
             skip('cargo-holder', row)
             continue

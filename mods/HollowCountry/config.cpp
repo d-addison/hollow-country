@@ -5,7 +5,7 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Pistols_pb6p9", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics"};
+        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Pistols_pb6p9", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics", "DZ_Characters_Pants", "DZ_Characters_Tops", "DZ_Characters_Vests"};
     };
 };
 class CfgMods
@@ -198,6 +198,8 @@ class CfgVehicles
     class Bark_Birch: Bark_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class Bark_Oak: Bark_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BDUJacket: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class BearSteakMeat: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Optics; gear_optics.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -212,10 +214,14 @@ class CfgVehicles
     class BloodBagIV: Inventory_Base { itemSize[] = {1, 2}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class BloodSyringe: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Blouse_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class BoarSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class BoletusMushroom: MushroomBase { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class Bone: Inventory_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -510,12 +516,16 @@ class CfgVehicles
     class BookWutheringHeights: ItemBook { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Books; gear_books.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class BookYouth: ItemBook { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Crafting; gear_crafting.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class BurlapSack: Inventory_Base { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class BurlapSackCover: Clothing { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class BurlapStrip: Inventory_Base { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BushlatPoliceJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Cooking; gear_cooking.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Candle: Inventory_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -532,6 +542,10 @@ class CfgVehicles
     class Canteen: Bottle_Base { itemSize[] = {1, 2}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x8
     class CanvasBag_ColorBase: Clothing { itemsCargoSize[] = {5, 8}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class CarpFilletMeat: Edible_Base { itemSize[] = {2, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
@@ -542,6 +556,10 @@ class CfgVehicles
     class CatFoodCan: FoodCan_250g_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class CatFoodCan_Opened: FoodCan_250g_Opened_ColorBase { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Chainmail: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Chainmail_Leggings: Clothing { itemsCargoSize[] = {4, 3}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class CharcoalTablets: Edible_Base { itemSize[] = {1, 1}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -558,6 +576,8 @@ class CfgVehicles
     class Chemlight_Yellow: Chemlight_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Navigation; gear_navigation.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class ChernarusMap: ItemMap { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class ChernarusSportShirt: Clothing { itemsCargoSize[] = {3, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class ChickenBreastMeat: Edible_Base { itemSize[] = {1, 1}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
@@ -604,6 +624,8 @@ class CfgVehicles
     class CrudeMachete: Inventory_Base { itemSize[] = {1, 3}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class DeerSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class DenimJacket: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class DirtBikeHelmet_Mouthguard: Clothing { itemSize[] = {2, 1}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
@@ -618,6 +640,8 @@ class CfgVehicles
     class DogFoodCan_Opened: FoodCan_250g_Opened_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class DoorTestCamera: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class DownJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
     class DryBag_ColorBase: Clothing { itemsCargoSize[] = {6, 11}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 4x5 -> 4x8
@@ -640,6 +664,8 @@ class CfgVehicles
     class FeetCover_Improvised: Clothing { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Drinks; gear_drinks.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class FilteringBottle: Bottle_Base { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class FirefighterJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Camping; gear_camping.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class Flag_Altis: Flag_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Camping; gear_camping.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -726,10 +752,14 @@ class CfgVehicles
     class GlassBottle: Bottle_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class GoatSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Navigation; gear_navigation.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class GPSReceiver: ItemGPS { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class GreenBellPepper: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class GulagJacket_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class Handcuffs: Inventory_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
@@ -748,22 +778,40 @@ class CfgVehicles
     class Headtorch_Grey: Headtorch_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Heatpack: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class HighCapacityVest_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HikingJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class HipPack_ColorBase: Clothing { itemsCargoSize[] = {3, 3}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class Honey: Edible_Base { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_ColorBase: Clothing { itemsCargoSize[] = {5, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class HumanSteakMeat: Edible_Base { itemSize[] = {1, 2}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x6 -> 7x9
     class HuntingBag: Clothing { itemsCargoSize[] = {7, 9}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Weapons_Melee_Blade; weapons_melee.pbo:blade\config.bin; vanilla itemSize 1x3 -> 1x2
     class HuntingKnife: Inventory_Base { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class HuntingVest: Clothing { itemsCargoSize[] = {4, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x5 -> 7x8
     class ImprovisedBag: Clothing { itemsCargoSize[] = {7, 8}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class IodineTincture: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class JumpsuitJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class KitchenKnife: Inventory_Base { itemSize[] = {1, 2}; };
     // general; DZ_Weapons_Melee_Blade; weapons_melee.pbo:blade\config.bin; vanilla itemSize 1x4 -> 1x3
     class KukriKnife: Inventory_Base { itemSize[] = {1, 3}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class LabCoat: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class LactariusMushroom: MushroomBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Traps; gear_traps.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -794,22 +842,36 @@ class CfgVehicles
     class LeatherGloves_Brown: LeatherGloves_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class LeatherGloves_Natural: LeatherGloves_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class LeatherJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class LeatherKnifeSheath: Clothing { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LeatherPants_ColorBase: Clothing { itemsCargoSize[] = {3, 3}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
     class LeatherSack_ColorBase: Clothing { itemsCargoSize[] = {6, 11}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class LeatherShirt_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x7
+    class LeatherStorageVest_ColorBase: Clothing { itemsCargoSize[] = {5, 7}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LegsCover_Improvised: Clothing { itemsCargoSize[] = {3, 3}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Lockpick: Inventory_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class Lunchmeat: FoodCan_250g_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class Lunchmeat_Opened: FoodCan_250g_Opened_ColorBase { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class M65Jacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Weapons_Melee_Blade; weapons_melee.pbo:blade\config.bin; vanilla itemSize 1x4 -> 1x3
     class Machete: Inventory_Base { itemSize[] = {1, 3}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class MackerelFilletMeat: Edible_Base { itemSize[] = {2, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class MacrolepiotaMushroom: MushroomBase { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class Marmalade: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
@@ -818,6 +880,10 @@ class CfgVehicles
     class MedicalScrubsHat_Green: MedicalScrubsHat_ColorBase { itemSize[] = {2, 1}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class MedicalScrubsHat_White: MedicalScrubsHat_ColorBase { itemSize[] = {2, 1}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class MedicalScrubsPants_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class MedicalScrubsShirt_ColorBase: Clothing { itemsCargoSize[] = {5, 4}; };
     // general; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class MilitaryBelt: Clothing { itemSize[] = {2, 1}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
@@ -830,6 +896,10 @@ class CfgVehicles
     class MilitaryBeret_Red: MilitaryBeret_ColorBase { itemSize[] = {2, 1}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class MilitaryBeret_UN: MilitaryBeret_ColorBase { itemSize[] = {2, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class MilitarySweater_ColorBase: Clothing { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Morphine: Inventory_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -860,8 +930,14 @@ class CfgVehicles
     class NBCHoodWhite: NBCHoodBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class NBCHoodYellow: NBCHoodBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCJacketBase: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCPantsBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Characters_Masks; characters_masks.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class NioshFaceMask: Clothing { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class NurseDress_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Characters_Glasses; characters_glasses.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class NVGoggles: ItemOptics { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
@@ -886,6 +962,10 @@ class CfgVehicles
     class PaddedGloves_Threat: PaddedGloves_ColorBase { itemSize[] = {1, 2}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class PainkillerTablets: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ParamedicJacket_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class ParamedicPants_ColorBase: Clothing { itemsCargoSize[] = {5, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class PeachesCan: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -902,6 +982,8 @@ class CfgVehicles
     class PetushokHat_Yellow: PetushokHat_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class PigSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PilotJacket_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class PilotkaCap: Clothing { itemSize[] = {2, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -910,6 +992,14 @@ class CfgVehicles
     class Pliers: Inventory_Base { itemSize[] = {1, 2}; };
     // general; DZ_Weapons_Melee_Blunt; weapons_melee.pbo:blunt\config.bin; vanilla itemSize 1x4 -> 1x3
     class PoliceBaton: Inventory_Base { itemSize[] = {1, 3}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PoliceJacket: Clothing { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PoliceJacketOrel: Clothing { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class PolicePants: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class PolicePantsOrel: Clothing { itemsCargoSize[] = {5, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class PorkCan: FoodCan_250g_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
@@ -920,6 +1010,12 @@ class CfgVehicles
     class PotatoSeed: SeedBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class PowderedMilk: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class PressVest_ColorBase: Clothing { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class PrisonUniformJacket: Clothing { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class PrisonUniformPants: Clothing { itemsCargoSize[] = {4, 3}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class Pumpkin: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -928,18 +1024,24 @@ class CfgVehicles
     class PunchedCard: Paper { itemSize[] = {1, 1}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class PurificationTablets: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class RabbitLegMeat: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Traps; gear_traps.pbo:config.bin; vanilla itemSize 1x4 -> 1x3
     class RabbitSnareTrap: Trap_Base { itemSize[] = {1, 3}; };
     // medical; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x3 -> 1x1
     class Rag: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Optics; gear_optics.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class Rangefinder: ItemOptics { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class ReindeerSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class RemoteDetonator: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class RidersJacket_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
     class Roadflare: Inventory_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Crafting; gear_crafting.pbo:config.bin; vanilla itemSize 1x3 -> 1x2
@@ -980,6 +1082,10 @@ class CfgVehicles
     class SherpaHat_Blue: SherpaHat_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class SherpaHat_Red: SherpaHat_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class Shrimp: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -988,6 +1094,10 @@ class CfgVehicles
     class SkiGloves_Blue: SkiGloves_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class SkiGloves_Red: SkiGloves_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Skirt_ColorBase: Clothing { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_ColorBase: Clothing { itemsCargoSize[] = {4, 3}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class SlicedPumpkin: Edible_Base { itemSize[] = {1, 2}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 4x5 -> 4x8
@@ -998,6 +1108,8 @@ class CfgVehicles
     class SmallGuts: Edible_Base { itemSize[] = {1, 1}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
     class SmershBag: Clothing { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class SmershVest: Clothing { itemsCargoSize[] = {4, 6}; };
     // general; DZ_Gear_Drinks; gear_drinks.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class SodaCan_Cola: SodaCan_ColorBase { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Drinks; gear_drinks.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -1032,6 +1144,8 @@ class CfgVehicles
     class StunBaton: Powered_Base { itemSize[] = {1, 3}; };
     // general; DZ_Characters_Masks; characters_masks.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class SurgicalMask: Clothing { itemSize[] = {2, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class TacticalBaconCan: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -1042,24 +1156,44 @@ class CfgVehicles
     class TacticalGloves_Black: TacticalGloves_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class TacticalGloves_Green: TacticalGloves_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TacticalShirt_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x5 -> 6x8
     class TaloonBag_ColorBase: Clothing { itemsCargoSize[] = {6, 8}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TelnyashkaShirt: Clothing { itemsCargoSize[] = {3, 4}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class TetracyclineAntibiotics: Edible_Base { itemSize[] = {1, 1}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Thermometer: Inventory_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TorsoCover_Improvised: Clothing { itemsCargoSize[] = {3, 4}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x8 -> 7x12
     class TortillaBag: Clothing { itemsCargoSize[] = {7, 12}; attachments[] = {"Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag", "helmetFlashlight"}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_ColorBase: Clothing { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_ColorBase: Clothing { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Traps; gear_traps.pbo:config.bin; vanilla itemSize 1x4 -> 1x3
     class TripwireTrap: Trap_Base { itemSize[] = {1, 3}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_ColorBase: Clothing { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TTsKOJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TTSKOPants: Clothing { itemsCargoSize[] = {5, 4}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class TunaCan: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x1 -> 1x1
     class TunaCan_Opened: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class UnknownFoodCan: Edible_Base { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class UnknownFoodCan_Opened: Edible_Base { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class USMCJacket_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class VitaminBottle: Edible_Base { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
@@ -1076,6 +1210,8 @@ class CfgVehicles
     class WinterCoif_Green: WinterCoif_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class WinterCoif_Skull: WinterCoif_ColorBase { itemSize[] = {1, 2}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class WinterMilitaryCoat_ColorBase: Clothing { itemsCargoSize[] = {6, 6}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class WitchHood_Black: WitchHood_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Headgear; characters_headgear.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -1084,6 +1220,10 @@ class CfgVehicles
     class WitchHood_Red: WitchHood_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Gear_Food; gear_food.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class WolfSteakMeat: Edible_Base { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_ColorBase: Clothing { itemsCargoSize[] = {5, 6}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class WoolGloves_Black: WoolGloves_ColorBase { itemSize[] = {1, 2}; };
     // general; DZ_Characters_Gloves; characters_gloves.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
@@ -1158,10 +1298,74 @@ class CfgVehicles
     class Attack2Bag_Ttsko: Attack2Bag_ColorBase { itemsCargoSize[] = {8, 12}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 8x8 -> 8x12
     class Attack2Bag_Yeger: Attack2Bag_ColorBase { itemsCargoSize[] = {8, 12}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Blouse_Blue: Blouse_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Blouse_Green: Blouse_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Blouse_Violet: Blouse_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Blouse_White: Blouse_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Black: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Blue: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Brown: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Grey: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Maroon: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_Olive: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BomberJacket_SkyBlue: BomberJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Beetcheck: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Beige: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Black: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Blackcheck: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Blue: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Browncheck: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Green: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Pink: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_Red: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Breeches_White: Breeches_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class BushlatPoliceJacket_Blue: BushlatPoliceJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x8
     class CanvasBag_Medical: CanvasBag_ColorBase { itemsCargoSize[] = {5, 8}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x8
     class CanvasBag_Olive: CanvasBag_ColorBase { itemsCargoSize[] = {5, 8}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_Beige: CanvasPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_Blue: CanvasPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_Grey: CanvasPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_Red: CanvasPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPants_Violet: CanvasPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_Beige: CanvasPantsMidi_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_Blue: CanvasPantsMidi_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_Grey: CanvasPantsMidi_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_Red: CanvasPantsMidi_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class CanvasPantsMidi_Violet: CanvasPantsMidi_ColorBase { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Chemlight_FarBubble: Chemlight_Yellow { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Consumables; gear_consumables.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
@@ -1182,6 +1386,14 @@ class CfgVehicles
     class CoyoteBag_Green: CoyoteBag_ColorBase { itemsCargoSize[] = {8, 11}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 8x7 -> 8x11
     class CoyoteBag_Winter: CoyoteBag_ColorBase { itemsCargoSize[] = {8, 11}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class DownJacket_Blue: DownJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class DownJacket_Green: DownJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class DownJacket_Orange: DownJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class DownJacket_Red: DownJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
     class DryBag_Black: DryBag_ColorBase { itemsCargoSize[] = {6, 11}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
@@ -1206,10 +1418,106 @@ class CfgVehicles
     class DuffelBagSmall_Green: DuffelBagSmall_ColorBase { itemsCargoSize[] = {5, 8}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x8
     class DuffelBagSmall_Medical: DuffelBagSmall_ColorBase { itemsCargoSize[] = {5, 8}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class FirefighterJacket_Beige: FirefighterJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class FirefighterJacket_Black: FirefighterJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_Autumn: GorkaEJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_Flat: GorkaEJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_PautRev: GorkaEJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_Summer: GorkaEJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class GorkaEJacket_Winter: GorkaEJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class GulagJacket_Grey: GulagJacket_ColorBase { itemsCargoSize[] = {3, 4}; };
     // general; DZ_Gear_Crafting; gear_crafting.pbo:config.bin; vanilla itemSize 1x4 -> 1x3
     class HandDrillKitBirch: HandDrillKit { itemSize[] = {1, 3}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class HighCapacityVest_Black: HighCapacityVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class HighCapacityVest_Olive: HighCapacityVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HikingJacket_Black: HikingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HikingJacket_Blue: HikingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HikingJacket_Green: HikingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HikingJacket_Red: HikingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class HipPack_Black: HipPack_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class HipPack_Green: HipPack_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class HipPack_Medical: HipPack_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Belts; characters_belts.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class HipPack_Party: HipPack_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Black: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Blue: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Brown: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Green: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Grey: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class Hoodie_Red: Hoodie_ColorBase { itemsCargoSize[] = {5, 4}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x6 -> 7x9
     class HuntingBag_Hannah: HuntingBag { itemsCargoSize[] = {7, 9}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_Autumn: HuntingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_Brown: HuntingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_Spring: HuntingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_Summer: HuntingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class HuntingJacket_Winter: HuntingJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class HuntingVest_Winter: HuntingVest { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_Black: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_Blue: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_BlueDark: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_Brown: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_Green: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Jeans_Grey: Jeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class JumpsuitJacket_Blue: JumpsuitJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class JumpsuitJacket_Gray: JumpsuitJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class JumpsuitJacket_Green: JumpsuitJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class JumpsuitJacket_Red: JumpsuitJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class LeatherJacket_Beige: LeatherJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class LeatherJacket_Black: LeatherJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class LeatherJacket_Brown: LeatherJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class LeatherJacket_Natural: LeatherJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LeatherPants_Beige: LeatherPants_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LeatherPants_Black: LeatherPants_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LeatherPants_Brown: LeatherPants_ColorBase { itemsCargoSize[] = {3, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 3x2 -> 3x3
+    class LeatherPants_Natural: LeatherPants_ColorBase { itemsCargoSize[] = {3, 3}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
     class LeatherSack_Beige: LeatherSack_ColorBase { itemsCargoSize[] = {6, 11}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
@@ -1218,6 +1526,74 @@ class CfgVehicles
     class LeatherSack_Brown: LeatherSack_ColorBase { itemsCargoSize[] = {6, 11}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x7 -> 6x11
     class LeatherSack_Natural: LeatherSack_ColorBase { itemsCargoSize[] = {6, 11}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class LeatherShirt_Natural: LeatherShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x7
+    class LeatherStorageVest_Beige: LeatherStorageVest_ColorBase { itemsCargoSize[] = {5, 7}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x7
+    class LeatherStorageVest_Black: LeatherStorageVest_ColorBase { itemsCargoSize[] = {5, 7}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x7
+    class LeatherStorageVest_Brown: LeatherStorageVest_ColorBase { itemsCargoSize[] = {5, 7}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x5 -> 5x7
+    class LeatherStorageVest_Natural: LeatherStorageVest_ColorBase { itemsCargoSize[] = {5, 7}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class M65Jacket_Black: M65Jacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class M65Jacket_Khaki: M65Jacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class M65Jacket_Olive: M65Jacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class M65Jacket_Tan: M65Jacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_Beige: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_Black: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_Blue: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_Brown: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_DarkGrey: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_Khaki: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_LightGrey: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ManSuit_White: ManSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class MedicalScrubsPants_Blue: MedicalScrubsPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class MedicalScrubsPants_Green: MedicalScrubsPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class MedicalScrubsPants_White: MedicalScrubsPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class MedicalScrubsShirt_Blue: MedicalScrubsShirt_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class MedicalScrubsShirt_Green: MedicalScrubsShirt_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class MedicalScrubsShirt_White: MedicalScrubsShirt_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class MilitarySweater_Chernarus: MilitarySweater_ColorBase { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class MilitarySweater_Livonia: MilitarySweater_ColorBase { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class MilitarySweater_NoPatch: MilitarySweater_ColorBase { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_BlueChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_BlueWithDots: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_BrownChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_GreenChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_Pink: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_PinkChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_RedChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class MiniDress_WhiteChecker: MiniDress_ColorBase { itemsCargoSize[] = {3, 4}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x8 -> 7x12
     class MountainBag_Blue: MountainBag_ColorBase { itemsCargoSize[] = {7, 12}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x8 -> 7x12
@@ -1226,20 +1602,160 @@ class CfgVehicles
     class MountainBag_Orange: MountainBag_ColorBase { itemsCargoSize[] = {7, 12}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x8 -> 7x12
     class MountainBag_Red: MountainBag_ColorBase { itemsCargoSize[] = {7, 12}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class NavyUniformJacket: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NavyUniformPants: PolicePants { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCJacketGray: NBCJacketBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCJacketWhite: NBCJacketBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCJacketYellow: NBCJacketBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCPantsGray: NBCPantsBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCPantsWhite: NBCPantsBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class NBCPantsYellow: NBCPantsBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class NurseDress_Blue: NurseDress_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class NurseDress_White: NurseDress_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ParamedicJacket_Blue: ParamedicJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ParamedicJacket_Crimson: ParamedicJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class ParamedicJacket_Green: ParamedicJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class ParamedicPants_Blue: ParamedicPants_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class ParamedicPants_Crimson: ParamedicPants_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class ParamedicPants_Green: ParamedicPants_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PilotJacket_Black: PilotJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PilotJacket_Brown: PilotJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class PilotJacket_Yellow: PilotJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class PressVest_Blue: PressVest_ColorBase { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x6
+    class PressVest_LightBlue: PressVest_ColorBase { itemsCargoSize[] = {4, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Black: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Blue: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Green: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Grey: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Orange: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Red: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Violet: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class QuiltedJacket_Yellow: QuiltedJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Black: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Blue: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Green: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Orange: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Pink: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Red: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Raincoat_Yellow: Raincoat_ColorBase { itemsCargoSize[] = {4, 4}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 3x1 -> 2x1
     class Raycaster: Flashlight { itemSize[] = {2, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class RemoteDetonatorReceiver: RemoteDetonator { itemSize[] = {1, 1}; };
     // general; DZ_Gear_Tools; gear_tools.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class RemoteDetonatorTrigger: RemoteDetonator { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class RidersJacket_Black: RidersJacket_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_BlueCheck: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_BlueCheckBright: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_GreenCheck: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_PlaneBlack: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_RedCheck: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class Shirt_WhiteCheck: Shirt_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Black: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Blue: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Brown: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Darkblue: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Green: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class ShortJeans_Red: ShortJeans_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Skirt_Blue: Skirt_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Skirt_Red: Skirt_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Skirt_White: Skirt_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class Skirt_Yellow: Skirt_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_Beige: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_Black: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_Blue: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_Brown: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_DarkGrey: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_Khaki: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_LightGrey: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x2 -> 4x3
+    class SlacksPants_White: SlacksPants_ColorBase { itemsCargoSize[] = {4, 3}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 4x5 -> 4x8
     class SlingBag_Black: SlingBag_ColorBase { itemsCargoSize[] = {4, 8}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 4x5 -> 4x8
     class SlingBag_Brown: SlingBag_ColorBase { itemsCargoSize[] = {4, 8}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 4x5 -> 4x8
     class SlingBag_Gray: SlingBag_ColorBase { itemsCargoSize[] = {4, 8}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_Blue: Sweater_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_ChristmasColorbase: Sweater_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_Gray: Sweater_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_Green: Sweater_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_Red: Sweater_ColorBase { itemsCargoSize[] = {3, 4}; };
     // medical; DZ_Gear_Medical; gear_medical.pbo:config.bin; vanilla itemSize 1x2 -> 1x1
     class Syringe: Epinephrine { itemSize[] = {1, 1}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TacticalShirt_Black: TacticalShirt_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TacticalShirt_Grey: TacticalShirt_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TacticalShirt_Olive: TacticalShirt_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TacticalShirt_Tan: TacticalShirt_ColorBase { itemsCargoSize[] = {6, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x5 -> 6x8
     class TaloonBag_Blue: TaloonBag_ColorBase { itemsCargoSize[] = {6, 8}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 6x5 -> 6x8
@@ -1252,10 +1768,116 @@ class CfgVehicles
     class TortillaBag_Desert: TortillaBag { itemsCargoSize[] = {7, 12}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 7x8 -> 7x12
     class TortillaBag_Winter: TortillaBag { itemsCargoSize[] = {7, 12}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_Black: TrackSuitJacket_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_Blue: TrackSuitJacket_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_Green: TrackSuitJacket_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_LightBlue: TrackSuitJacket_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x3 -> 5x4
+    class TrackSuitJacket_Red: TrackSuitJacket_ColorBase { itemsCargoSize[] = {5, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_Black: TrackSuitPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_Blue: TrackSuitPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_Green: TrackSuitPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_LightBlue: TrackSuitPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Pants; characters_pants.pbo:config.bin; vanilla itemsCargoSize 4x3 -> 4x4
+    class TrackSuitPants_Red: TrackSuitPants_ColorBase { itemsCargoSize[] = {4, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_10thAnniversary: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Beige: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Black: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Blue: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Dyed: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Green: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Grey: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_OrangeWhiteStripes: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_Red: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_RedBlackStripes: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class TShirt_White: TShirt_ColorBase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class TTsKOJacket_Camo: TTsKOJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_Black: UKAssVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_Camo: UKAssVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_Khaki: UKAssVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_Olive: UKAssVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Vests; characters_vests.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class UKAssVest_Winter: UKAssVest_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class USMCJacket_Desert: USMCJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class USMCJacket_Woodland: USMCJacket_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class WinterMilitaryCoat_Brown: WinterMilitaryCoat_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class WinterMilitaryCoat_DarkGrey: WinterMilitaryCoat_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 6x4 -> 6x6
+    class WinterMilitaryCoat_Grey: WinterMilitaryCoat_ColorBase { itemsCargoSize[] = {6, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_Beige: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_Black: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_Blue: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_Brown: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_DarkGrey: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_Khaki: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_LightGrey: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WomanSuit_White: WomanSuit_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_Beige: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_Black: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_BlackCheck: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_Blue: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_BlueCheck: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_BrownCheck: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_Green: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_GreyCheck: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_Red: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 5x4 -> 5x6
+    class WoolCoat_RedCheck: WoolCoat_ColorBase { itemsCargoSize[] = {5, 6}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 8x8 -> 8x12
     class AliceBag_FarBubble: AliceBag_Camo { itemsCargoSize[] = {8, 12}; };
     // backpacks; DZ_Characters_Backpacks; characters_backpacks.pbo:config.bin; vanilla itemsCargoSize 8x8 -> 8x12
     class AliceBag_NearBubble: AliceBag_Green { itemsCargoSize[] = {8, 12}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_ChristmasBlue: Sweater_ChristmasColorbase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_ChristmasGreen: Sweater_ChristmasColorbase { itemsCargoSize[] = {3, 4}; };
+    // clothing_cargo; DZ_Characters_Tops; characters_tops.pbo:config.bin; vanilla itemsCargoSize 3x3 -> 3x4
+    class Sweater_ChristmasRed: Sweater_ChristmasColorbase { itemsCargoSize[] = {3, 4}; };
     // END HC inventory sizes
 };
 

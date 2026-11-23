@@ -471,7 +471,9 @@ JSON rules/inheritance → merged config → check/package/regressions. Source t
 are implemented; runtime acceptance and the existing-test scope decision remain open.
 
 Final counts: **76 backpacks, 20 one-slot medical, 474 general** (570 overrides,
-24 verified defining addons). `config/inventory-sizes.json` records each actual
+24 verified defining addons) at the 2026-11-18 baseline; the 2026-11-23 clothing
+cargo rule (below) adds **311 worn-clothing cargo overrides** (881 vanilla overrides,
+52 stack rows: 51 plus one pin). `config/inventory-sizes.json` records each actual
 parent, defining CfgPatches addon/member and vanilla/new dimensions. The unchanged
 `tools/audit/pbo_config.py` reads installed vanilla addons only. The cached workbook
 has no sizes; all 570 parents match it. All requiredAddons names were verified in
@@ -484,8 +486,28 @@ width. Area-two tools must weigh strictly below 500g; categories/includes are
 explicit in JSON. Excluded: 413 cargo holders, 113 firearms/weapon attachments,
 751 definitions outside area rules, 72 area-two category/weight exclusions and
 868 hidden/non-inventory definitions. Already-one-slot items need no override.
-Only backpacks change itemsCargoSize; an excluded descendant cannot inherit a
-changed shell/cargo. Public diagnostic variants follow their family.
+Only backpacks and (since 2026-11-23) vanilla worn clothing change itemsCargoSize; an
+excluded descendant cannot inherit a changed shell/cargo. Public diagnostic variants
+follow their family.
+
+Worn clothing cargo (owner, 2026-11-23: worn clothing should hold about 30-50% more).
+`clothing_cargo_multiplier` 1.4, `clothing_cargo_cap` 1.5, `clothing_cargo_slots`
+Body, Legs, Vest, Hips in `config/inventory-sizes.json`. Vanilla classes with positive
+cargo in those slots (jackets, pants, vests, belts; hidden bases and inherited variants
+get their own row so scaling never compounds) get rows = ceil(rows x 1.4) at the stock
+width. When that would pass 1.5x the stock cells, the tallest grid that fits 1.5x is used;
+width grows (never past 10) only when no extra row fits. Zero-cargo items stay zero;
+classes already at or above 1.5x their slot median (Body 6x5, Legs 5x4) stay unchanged.
+Hats, masks, gloves, boots, itemSize (shell), weight and insulation are untouched.
+Tactical Flava is not a declared source and stays as shipped. Stack classes that inherit a
+changed vanilla grid are pinned to their stock cargo (one row: Expansion_PressVest_Blue_Yeet).
+The clothing variety packs (Uncuepas, Windstride) are not inventory sources and stay
+unchanged: raising them needs those packs declared as sources, outside this change.
+No grid ever shrinks, so a stored item always keeps its contents on the friend server:
+the stored cargo of a worn item only gains free cells. It rides the mod PBO; no installer
+step. Cells per slot (min/median/max), before -> after, for vanilla classes with cargo:
+Body 9/20/30 -> 12/30/36, Legs 6/12/20 -> 9/16/20, Vest 16/20/25 -> 24/30/35,
+Hips 6/6/6 -> 9/9/9. Runtime acceptance: in-game check pending.
 
 One-slot medical changes: AntiChemInjector, BandageDressing, BloodBagEmpty,
 BloodSyringe, CharcoalTablets, ChelatingTablets, ClearSyringe, DisinfectantAlcohol,

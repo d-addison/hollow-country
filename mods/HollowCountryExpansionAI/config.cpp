@@ -5,7 +5,7 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"HollowCountry", "DayZExpansion_AI_Scripts", "DayZExpansion_Navigation_Scripts", "DayZExpansion_Vehicles_Scripts", "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI", "DayZExpansion_Core_Scripts", "DayZExpansion_ModStorage_Scripts", "JM_CF_Scripts", "JM_COT_Scripts", "DF_Scripts", "DF_GUI", /* BEGIN HC inventory dependencies */ "DayZ_Otter", "DayZ_Rat", "DayZ_Raven", "DayZ_Squirrel", "DayZExpansion_Core_Objects_CircuitBoard", "RaG_Core_Scripts", "rag_immersive_vehicles" /* END HC inventory dependencies */};
+        requiredAddons[] = {"HollowCountry", "DayZExpansion_AI_Scripts", "DayZExpansion_Navigation_Scripts", "DayZExpansion_Vehicles_Scripts", "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI", "DayZExpansion_Core_Scripts", "DayZExpansion_ModStorage_Scripts", "JM_CF_Scripts", "JM_COT_Scripts", "DF_Scripts", "DF_GUI", /* BEGIN HC inventory dependencies */ "DayZ_Otter", "DayZ_Rat", "DayZ_Raven", "DayZ_Squirrel", "DayZExpansion_AI_Gear", "DayZExpansion_Core_Objects_CircuitBoard", "RaG_Core_Scripts", "rag_immersive_vehicles" /* END HC inventory dependencies */};
     };
 };
 class CfgMods
@@ -44,6 +44,7 @@ class CfgVehicles
     class Edible_Base;
     class ExpansionCircuitBoardBase;
     class Inventory_Base;
+    class PressVest_ColorBase;
     // medical; RaG_Core_Scripts; RaG_Core.pbo:scripts\config.bin; vanilla itemSize 1x2 -> 1x1
     class AntiChemInjector: Inventory_Base { itemSize[] = {1, 1}; };
     // general; RaG_Core_Scripts; RaG_Core.pbo:scripts\config.bin; vanilla itemSize 1x3 -> 1x2
@@ -78,6 +79,8 @@ class CfgVehicles
     class DisinfectantAlcohol: Edible_Base { itemSize[] = {1, 1}; };
     // medical; RaG_Core_Scripts; RaG_Core.pbo:scripts\config.bin; vanilla itemSize 1x2 -> 1x1
     class Epinephrine: Inventory_Base { itemSize[] = {1, 1}; };
+    // preserve-original; DayZExpansion_AI_Gear; ai_gear.pbo:config.bin; vanilla itemsCargoSize 4x4 -> 4x4
+    class Expansion_PressVest_Blue_Yeet: PressVest_ColorBase { itemsCargoSize[] = {4, 4}; };
     // general; DayZExpansion_Core_Objects_CircuitBoard; core_objects_circuitboard.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
     class ExpansionCircuitBoard_MK1: ExpansionCircuitBoardBase { itemSize[] = {1, 2}; };
     // general; DayZExpansion_Core_Objects_CircuitBoard; core_objects_circuitboard.pbo:config.bin; vanilla itemSize 2x2 -> 1x2
