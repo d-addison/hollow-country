@@ -40,14 +40,15 @@ GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
-    # Measured 2026-11-22 on this WSL host (118 vanilla PBOs on /mnt/d, 13 Workshop dirs on /mnt/g):
-    # the --check child takes 6-7 s; the digest compare child takes 17-22 s because
-    # generated_digests.py still indexes every PBO with the byte-at-a-time audit reader, and its
-    # --write grandchild adds 6-7 s. Worst 22 s x 3 = 66 s, so 70 s per child.
+    # Measured 2026-11-22 on this WSL host with other workers loading /mnt/d and /mnt/g (118 vanilla
+    # PBOs, 13 Workshop dirs; every PBO open costs about 12 ms there). Direct --check child: 6-7 s.
+    # Digest compare child (regenerate + installed snapshot, both reading the PBOs once now): quiet
+    # host 14-22 s, loaded host up to 45.5 s (inventory_sizes) and 25.7 s (variety_packs).
+    # Timeout = 3 x the loaded worst case, rounded: 150 s and 80 s.
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
-              ('addons', 'inventory_stack'), timeout=70),
+              ('addons', 'inventory_stack'), timeout=150),
     Generator('variety_packs', ('--check', '--addons', '{addons}', '--workshop', '{workshop}', '--source', '{source}'),
-              ('addons', 'source', 'variety_packs')),
+              ('addons', 'source', 'variety_packs'), timeout=80),
     Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
               'committed bytes match fresh generation'),
     Generator('loot_point_preserve', ('--check', '--prior', '{prior}', '--candidate', '{candidate}',
