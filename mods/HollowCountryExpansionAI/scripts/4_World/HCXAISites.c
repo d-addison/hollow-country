@@ -320,12 +320,14 @@ class HCXAISiteBase : Managed
             if (transientState.Materialized)
             {
                 if (!transientState.Patrol) { this.FinishTransient(transientState, true, 0); continue; }
-                if (!HCXExpansionBridge.HCHoldAlive(transientState.Patrol.HCGroupHold()))
+                // Provider slot empty: despawn. Slot set and the (ungated Final) count zero: the
+                // party was destroyed. A not-READY bridge never turns a live party into a despawn.
+                if (!transientState.Patrol.HCHasGroup())
                 {
                     HCXExpansionBridge.HCSitePatrolDespawn(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
                 }
-                else if (HCXExpansionBridge.HCHoldCount(transientState.Patrol.HCGroupHold()) == 0)
+                else if (HCXExpansionBridge.HCHoldCountFinal(transientState.Patrol.HCGroupHold()) == 0)
                 {
                     HCXExpansionBridge.HCSitePatrolWasGroupDestroyed(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);

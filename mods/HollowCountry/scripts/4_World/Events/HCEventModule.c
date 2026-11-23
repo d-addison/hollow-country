@@ -542,7 +542,7 @@ class HCEventModule : HCModule
         m_RosterWindow = 0;
         m_RosterSummarySeq = m_RosterSummarySeq + 1;
         Print("[HC Events] roster summary window=" + m_RosterSummarySeq.ToString() + " window_s=60 blocked_publish_pending=" + m_RosterBlockedPublish.ToString() + " blocked_announce=" + m_RosterBlockedAnnounce.ToString() + " refreshes=" + m_RosterRefreshes.ToString() + " admitted=" + m_RosterAdmitted.ToString() + " runtime=PENDING");
-        if (m_Runtime) { Print("[HC Events] journal_coalesced=" + m_Runtime.HCJournalCoalesced().ToString() + " written=" + m_Runtime.HCJournalWritten().ToString() + " interval_s=" + m_Runtime.HCJournalIntervalSeconds().ToString()); }
+        if (m_Runtime) { Print("[HC Events] journal_coalesced=" + m_Runtime.HCJournalCoalesced().ToString() + " written=" + m_Runtime.HCJournalWritten().ToString() + " interval_s=" + m_Runtime.HCJournalIntervalSeconds().ToString() + " startup_cleanup_expired=" + m_Runtime.HCStartupCleanupExpired().ToString()); }
         m_RosterBlockedPublish = 0;
         m_RosterBlockedAnnounce = 0;
         m_RosterRefreshes = 0;
