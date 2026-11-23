@@ -95,6 +95,9 @@ class HCXAISiteBase : Managed
     protected ref PGFilter m_OutdoorFilter;
     protected string m_Build;
     protected string m_RouteValidity;
+    protected string m_RouteLegacyTerm;
+    protected int m_LegacyAccepted;
+    protected int m_LegacyRefusedRequal;
     protected int m_AiWorldPostponed;
     protected ref map<string, bool> m_CacheReasons = new map<string, bool>();
     protected int m_CacheSampleTick = -1;
@@ -614,8 +617,12 @@ class HCXAISiteBase : Managed
             return;
         }
         m_Filter = new PGFilter();
-        int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
-        int exclude = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
+        // Qualify on the navmesh the patrols walk: Expansion's patrol filter includes UNREACHABLE and
+        // DISABLED polygons, so excluding them here refused routes the AI can walk (#355, road patrols
+        // "leg 0: path chain stalled"). The outdoor-retry filter below still excludes both.
+        int legacyBits = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED;
+        int include = legacyBits | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
+        int exclude = PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
         if (aiSettings.Vaulting) { include = include | PGPolyFlags.SPECIAL; }
         else { exclude = exclude | PGPolyFlags.SPECIAL; }
         m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
@@ -624,6 +631,11 @@ class HCXAISiteBase : Managed
         m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, outdoorExclude, PGPolyFlags.NONE);
         string navContent = HCXAISiteRules.HCNavContent();
         m_RouteValidity = HCXAISiteRules.HCRouteValidity(m_Build, GetGame().GetWorldName(), m_Policy.MaxLegLength, include, exclude, PGPolyFlags.WALK, outdoorExclude, navContent);
+        // Pre-#355 primary filter term (UNREACHABLE|DISABLED excluded), derived from the live flags: a
+        // route that qualified on that smaller navmesh stays valid on this one, so the cache keeps it.
+        int legacyInclude = include - legacyBits;
+        int legacyExclude = exclude | legacyBits;
+        m_RouteLegacyTerm = legacyInclude.ToString() + ":" + legacyExclude.ToString() + ":0";
         if (m_RouteValidity == "")
         {
             string validityReason = "validity_scalars";

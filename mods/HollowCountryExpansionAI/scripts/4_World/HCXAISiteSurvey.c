@@ -162,6 +162,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         int elapsed;
         if (m_SurveyStartedMs >= 0) { elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000; }
         Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString() + " upgrade_requalified=" + m_UpgradeRequal.ToString() + " upgrade_deferred=" + m_UpgradeDeferred.Count().ToString());
+        if (m_LegacyAccepted > 0 || m_LegacyRefusedRequal > 0) { Print("[HC Expansion AI] route cache filter migration accepted=" + m_LegacyAccepted.ToString() + " requalify_refused=" + m_LegacyRefusedRequal.ToString()); }
     }
     // Stale "algorithm" rows (the chain version changed) are requalified HC_UPGRADE_REQUAL_PER_BOOT per boot;
     // every other mismatch and any site a player stands near is always allowed.
@@ -203,6 +204,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
             if (reason == "validity_mismatch" && (field == "algorithm" || field == "manifest")) { detail = " detail=manifest_term"; }
             Print("[HC Expansion AI] route cache discarded reason=" + diagnostic + detail);
         }
+        if (reason == "validity_mismatch" && !row.Qualified && HCXAISiteRules.HCLegacyRoute(row, m_RouteValidity, m_RouteLegacyTerm)) { m_LegacyRefusedRequal++; }
         this.HCCacheVerdict(row.SiteId, false);
         this.HCRemoveRoute(row);
         this.SaveRoutes();
@@ -255,7 +257,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         if (!row) { this.HCCacheVerdict(siteId, false); return; }
         if (!state) { this.HCCacheDiscard(row, "site_absent"); return; }
         if (state.Failed) { this.HCCacheDiscard(row, "site_failed"); return; }
-        string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity);
+        string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity, m_RouteLegacyTerm);
         if (scalarField != "" && !this.HCUpgradeRequalAllowed(state.Site, scalarField))
         {
             // Over this boot's upgrade cap: keep the stored row untouched, a later boot replaces it.
@@ -420,7 +422,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         if (cached)
         {
             string cacheProblem;
-            string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity);
+            string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity, m_RouteLegacyTerm);
             if (cacheField != "" && !this.HCUpgradeRequalAllowed(state.Site, cacheField))
             {
                 // Chain-version upgrade spread over boots: no discard, no FindPath chain, no save this boot.
@@ -463,6 +465,13 @@ class HCXAISiteSurvey : HCXAISiteStorage
                     state.PatrolPoints.Copy(cached.Waypoints);
                     state.OpenRoute = cached.OpenRoute;
                     state.Qualified = true;
+                    if (cached.ValidityKey != m_RouteValidity)
+                    {
+                        // Accepted legacy row (#355): re-stamp it with the current key so the next boot matches exactly.
+                        m_LegacyAccepted++;
+                        cached.ValidityKey = m_RouteValidity;
+                        this.SaveRoutes();
+                    }
                     this.HCReusedRoute(state);
                     return;
                 }
