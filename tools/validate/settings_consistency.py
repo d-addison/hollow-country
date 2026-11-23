@@ -271,6 +271,7 @@ def check_local_policy(rows):
         'HCAuditLeatherConfig': ('Crafting/auditleather_recipes.c', 'LeatherTailoring.'),
         'HCSignalConfig': ('Actions/HCActionAskForNews.c', 'Signals.'),
         'HCMissionBeaconConfig': ('Events/HCMissionBeacon.c', 'Events.'),
+        'HCEventJournalConfig': ('Events/HCEventConfiguration.c', 'Events.'),
     }
     for owner, (relative, prefix) in owners.items():
         source = (ROOT / 'mods/HollowCountry/scripts/4_World' / relative).read_text()
