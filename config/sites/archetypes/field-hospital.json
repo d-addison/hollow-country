@@ -1,0 +1,24 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "field-hospital",
+  "version": 1,
+  "title": "Field hospital",
+  "story": "A medical team set up two tents with their doors toward the road so ambulances could reach them: a casualty line of beds and a treatment table in front, a shower tent at the side. A medevac variant marks a landing square on the flat side.",
+  "frame": {"kind": "approach", "forward": "toward_road_access"},
+  "location": {"settlement_edge_m": [60, 300], "base_m": [100, 400], "near_any": true, "road_access_m_max": 80, "prefer_water_m": 400, "slope_pct_max": 4, "not_in": ["town_core"]},
+  "lane": "none",
+  "allowed_roles": ["medical", "scene dressing"],
+  "loot_theme": "medical",
+  "variants": ["medevac"],
+  "zones": [{"id": "ward", "of": "table", "shape": "disc", "r_m": 9}],
+  "story_items": {"note": {"key": "triage-roster", "on": "table"}, "ai": {"role": "volunteer", "guard_posts": ["table"]}},
+  "density": {"max_per_map": 4, "min_same_m": 2000, "min_any_m": 300},
+  "parts": [
+    {"id": "tents", "class": "Land_Medical_Tent_Big", "op": "row", "anchor": true, "loot": "proto", "side": "center", "s": 8, "offset_m": 0, "count": 2, "spacing_m": 17, "run": "lateral", "faces": "forward"},
+    {"id": "shower", "class": "Land_Medical_Tent_Shower", "op": "beside", "loot": "proto", "of": "tents", "dist_m": 17, "side": "right", "instance": "last", "align": "anchor"},
+    {"id": "beds", "class": "StaticObj_Furniture_hospital_transport_bed", "op": "row", "of": "tents", "dist_m": 14, "from": "front", "count": 4, "spacing_m": 2.2, "faces": "of"},
+    {"id": "table", "class": "StaticObj_Furniture_medical_table", "op": "facing", "of": "tents", "dist_m": 11, "guard_post": true, "from": "front"},
+    {"id": "litter", "class": ["StaticObj_Furniture_MedicalGarbage_Bandage", "StaticObj_Decon_HazmatBag_01_F"], "op": "scatter", "zone": "ward", "count": [2, 4], "min_gap_m": 2},
+    {"id": "pad", "class": "StaticObj_Airfield_Light_Edge", "op": "ring", "variant": "medevac", "of": "origin", "centre": {"s": -4, "side": "right", "offset_m": 30}, "r_m": 14, "count": 4, "arc_deg": 360, "centre_on": "forward", "faces": "outward"}
+  ]
+}

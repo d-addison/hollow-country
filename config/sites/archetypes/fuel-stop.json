@@ -1,0 +1,23 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "fuel-stop",
+  "version": 1,
+  "title": "Roadside fuel stop",
+  "story": "Where the road forks, travellers once refuelled from a cistern trailer: two small tanks stand behind it, canisters wait on pallets, a Lada is parked nose to the tanks and a container holds the spares.",
+  "frame": {"kind": "road", "forward": "toward_larger_road"},
+  "location": {"road": {"surface": ["asphalt", "gravel"], "max_grade_pct": 6}, "at_junction": true, "no_vanilla_within_m": {"fuel_station": 1500}, "slope_pct_max": 4, "not_in": ["military", "town_core"]},
+  "lane": "passable",
+  "allowed_roles": ["container", "fuel", "furnishing", "scene dressing"],
+  "loot_theme": "civilian",
+  "zones": [{"id": "pump_yard", "of": "tanks", "shape": "disc", "r_m": 8}],
+  "density": {"max_per_map": 4, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "tanker", "class": "StaticObj_Wreck_Trailer_Cistern", "op": "shoulder", "anchor": true, "side": "right", "s": 0, "offset_m": 4, "align": "road"},
+    {"id": "tanks", "class": "StaticObj_Tank_Small_Rusty", "op": "row", "of": "tanker", "dist_m": 9, "from": "back", "count": 2, "spacing_m": 4, "align": "anchor"},
+    {"id": "store", "class": "Land_Container_1Mo", "op": "behind", "loot": "proto", "of": "tanks", "dist_m": 9, "align": "anchor"},
+    {"id": "pallets", "class": "StaticObj_Misc_Pallets1", "op": "beside", "of": "tanks", "dist_m": 4, "side": "right", "align": "anchor"},
+    {"id": "cans", "class": "StaticObj_Furniture_canister_DZ", "op": "beside", "of": "pallets", "dist_m": 0, "side": "forward", "stack_on": "pallets"},
+    {"id": "car", "class": "Land_Wreck_Lada_Green", "op": "shoulder", "loot": "proto", "side": "right", "s": -12, "offset_m": 3, "faces": "tanks"},
+    {"id": "litter", "class": ["StaticObj_Garbage_GroundSq_3m", "StaticObj_Garbage_Pile1"], "op": "scatter", "zone": "pump_yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

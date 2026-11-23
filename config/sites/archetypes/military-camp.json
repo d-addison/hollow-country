@@ -1,0 +1,29 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "military-camp",
+  "version": 1,
+  "title": "Military forward camp",
+  "story": "A forward outpost on the highest flat ground above the base approach: tent rows facing a central lane that opens to the access road, camo nets over each tent, a nest at the mouth and barriers on the open sides.",
+  "frame": {"kind": "approach", "forward": "toward_road_access"},
+  "location": {"base_m": [300, 900], "highest_flat_within_m": 500, "road_access_m_max": 150, "slope_pct_max": 4, "not_in": ["town_core"]},
+  "lane": "none",
+  "allowed_roles": ["tent", "nest", "barrier", "net", "mast", "furnishing", "scene dressing"],
+  "loot_theme": "military",
+  "zone_role": "outpost",
+  "zones": [{"id": "lane", "of": "table", "shape": "strip", "r_m": 16, "width_m": 5, "dir": "-forward"}],
+  "story_items": {"note": {"key": "outpost-roster", "on": "table"}, "ai": {"role": "military", "guard_posts": ["nest", "hbar"]}},
+  "density": {"max_per_map": 8, "min_same_m": 1500, "min_any_m": 300},
+  "parts": [
+    {"id": "tentl", "class": ["Land_Mil_Tent_Big1_1", "Land_Mil_Tent_Big2_1", "Land_Mil_Tent_Big1_2"], "op": "row", "anchor": true, "loot": "proto", "side": "left", "s": -10, "offset_m": 9, "count": 2, "spacing_m": 18, "run": "forward", "faces": "axis"},
+    {"id": "tentr", "class": ["Land_Mil_Tent_Big2_2", "Land_Mil_Tent_Big1_3"], "op": "row", "side": "right", "s": -10, "offset_m": 9, "count": 2, "spacing_m": 18, "run": "forward", "faces": "axis"},
+    {"id": "netl", "class": "StaticObj_Mil_CamoNet_Side_nato", "op": "beside", "of": "tentl", "dist_m": 12, "side": "left", "align": "anchor"},
+    {"id": "netr", "class": "StaticObj_Mil_CamoNet_Side_nato", "op": "beside", "of": "tentr", "dist_m": 12, "side": "right", "align": "anchor"},
+    {"id": "radio", "class": "Land_Mil_Tent_Big3", "op": "offroad", "loot": "proto", "side": "center", "s": -26, "offset_m": 0, "faces": "forward"},
+    {"id": "mast", "class": "StaticObj_Misc_Antenna", "op": "behind", "of": "radio", "dist_m": 8},
+    {"id": "nest", "class": "Land_Mil_Fortified_Nest_Small", "op": "offroad", "side": "left", "s": 26, "offset_m": 7, "faces": "forward", "guard_post": true},
+    {"id": "hbar", "class": "StaticObj_Mil_HBarrier_6m", "op": "ring", "of": "origin", "r_m": 22, "count": 6, "arc_deg": 230, "centre_on": "back", "faces": "outward", "guard_post": true},
+    {"id": "table", "class": "StaticObj_Misc_Table_Camp_Small", "op": "offroad", "side": "center", "s": 2, "offset_m": 0, "align": "anchor"},
+    {"id": "seats", "class": "StaticObj_Misc_Chair_Camp2", "op": "ring", "of": "table", "r_m": 1.8, "count": 3, "arc_deg": 180, "centre_on": "forward", "faces": "of"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c", "StaticObj_Misc_Pallets2"], "op": "scatter", "zone": "lane", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

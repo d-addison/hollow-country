@@ -1,0 +1,24 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "hunter-camp",
+  "version": 1,
+  "title": "Hunter woodland camp",
+  "story": "A hunter parked a caravan at the forest edge with its back to the trees and its door to the open ground: a fire in front, seats and a folding bed round it, a wood pile behind, a camp table beside. Nothing military.",
+  "frame": {"kind": "view", "forward": "toward_open_side"},
+  "location": {"road_distance_m": [800, 6000], "forest_edge": {"trees_within_m": 15, "open_opposite": true}, "prefer_water_m": 300, "slope_pct_max": 6, "not_in": ["military", "town_core"]},
+  "lane": "none",
+  "allowed_roles": ["furnishing", "scene dressing"],
+  "loot_theme": "civilian",
+  "zones": [{"id": "camp", "of": "fire", "shape": "disc", "r_m": 8}],
+  "story_items": {"note": {"key": "hunter-journal", "on": "table"}},
+  "density": {"max_per_map": 6, "min_same_m": 1500, "min_any_m": 300},
+  "parts": [
+    {"id": "van", "class": "Land_Wreck_Caravan_MGreen", "op": "offroad", "anchor": true, "loot": "proto", "side": "center", "s": 0, "offset_m": 0, "faces": "forward"},
+    {"id": "fire", "class": "StaticObj_Furniture_fireplace_grill", "op": "facing", "of": "van", "dist_m": 10, "from": "front"},
+    {"id": "seats", "class": "StaticObj_Misc_Chair_Camp1", "op": "ring", "of": "fire", "r_m": 2.2, "count": 3, "arc_deg": 200, "centre_on": "forward", "faces": "of"},
+    {"id": "bed", "class": "StaticObj_Furniture_foldingbed_open", "op": "ring", "of": "fire", "r_m": 3.4, "count": 2, "arc_deg": 90, "centre_on": "left", "faces": "of"},
+    {"id": "wood", "class": "StaticObj_Misc_WoodPile1", "op": "behind", "of": "van", "dist_m": 6},
+    {"id": "table", "class": "StaticObj_Misc_Table_Camp_Small", "op": "beside", "of": "van", "dist_m": 7, "side": "right", "align": "anchor"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c"], "op": "scatter", "zone": "camp", "count": [2, 3], "min_gap_m": 2}
+  ]
+}
