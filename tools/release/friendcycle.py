@@ -8,6 +8,7 @@ import csv
 import importlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -74,17 +75,53 @@ def install(bundle, server_root, workshop):
     print('Friend install and --check succeeded')
 
 
+OVERLAY_CHECK = 'check-overlays'
+OVERLAY_ERRORS_SHOWN = 40
+
+
+def overlay_vanilla_check(sha, mission, number):
+    """Refuse the build unless the commit's own map overlay validation passes against the mission's vanilla rows.
+
+    This is the call the friend installer's step 6 makes (map_overlay.validate on read_vanilla rows), run by the
+    pinned commit's friend_bundle on a scratch copy of --mission. Without a mission it did not run, and that is a
+    failure, never a pass."""
+    if mission is None:
+        raise ValueError('overlay vanilla check not run: no --mission was given; the build is refused')
+    with worktree(sha, number + '-overlaycheck') as tree:
+        command = [sys.executable, '-B', '-m', 'tools.setup.friend_bundle']
+        help_text = run([*command, '--help'], tree)
+        if OVERLAY_CHECK not in help_text:
+            raise ValueError('overlay vanilla check not run: the pinned friend_bundle has no %s command; the build '
+                             'is refused' % OVERLAY_CHECK)
+        result = subprocess.run([*command, OVERLAY_CHECK, '--mission', str(Path(mission).absolute())], cwd=tree,
+                                capture_output=True, text=True, timeout=1800,
+                                env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'))
+    if result.returncode == 0:
+        return
+    errors = [line[len('refused: '):] for line in result.stderr.splitlines() if line.startswith('refused: ')]
+    if not errors:
+        raise ValueError('overlay vanilla check not run: it stopped without a result (exit %d); the build is refused'
+                         % result.returncode)
+    shown = errors[:OVERLAY_ERRORS_SHOWN]
+    if len(errors) > len(shown):
+        shown.append('(+%d more)' % (len(errors) - len(shown)))
+    raise ValueError('overlay layers refused against the vanilla rows of --mission; the build is refused:\n  '
+                     + '\n  '.join(shown))
+
+
 def cycle(args):
     signed = (args.out or Path('/mnt/d/HollowCountryLocal/signed-v1-' + args.build)).absolute()
     bundle = (args.bundle_out or Path('/mnt/d/HollowCountryLocal/friend-bundle-' + args.build)).absolute()
     if bundle.exists() or bundle.is_symlink():
         raise ValueError('Bundle output already exists')
     built = not signed.exists()
+    sha = resolve_commit(args.commit, args.allow_unpushed)
+    # Before anything is built or signed: v1-test-15 shipped a layer set its own installer refused.
+    overlay_vanilla_check(sha, getattr(args, 'mission', None), args.build)
     if built:
         build(args)
     manifest_path = signed / 'BUILD_MANIFEST.json'
     manifest = json.loads(manifest_path.read_text())
-    sha = resolve_commit(args.commit, args.allow_unpushed)
     if (manifest.get('schema') != 1 or manifest.get('build_number') != args.build
             or manifest.get('commit') != sha or manifest.get('dirty') is not False
             or manifest.get('signatures_verified') is not True or not manifest.get('files')):

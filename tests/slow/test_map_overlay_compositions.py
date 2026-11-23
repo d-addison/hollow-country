@@ -173,6 +173,17 @@ class SiteValidation(unittest.TestCase):
         errors = self.errors([layer([site(y=58.0)])], rows=flat_rows(2000.0, 3000.0))
         self.assertTrue(any('flat' in e and 'height' in e for e in errors), errors)
 
+    def test_pivot_dy_does_not_move_the_flat_basis(self):
+        # #336: a piece's pivot compensation (dy) raises its spawn height, not the ground it stands on
+        comps = copy.deepcopy(COMPOSITIONS)
+        comps['compositions']['mini-post']['pieces'][2]['dy'] = 1.1
+        self.assertEqual(mo.validate(source(comps=comps), vanilla=flat_rows(2000.0, 3000.0)), [])
+        self.assertIsNotNone(mo.place_site(source(comps=comps), 'mini-post', 2000.0, 3000.0, 0.0,
+                                           flat_rows(2000.0, 3000.0)))
+        # the site height itself is still checked against the support
+        errors = mo.validate(source([layer([site(y=58.0)])], comps=comps), vanilla=flat_rows(2000.0, 3000.0))
+        self.assertTrue(any('flat' in e and 'height' in e for e in errors), errors)
+
     def test_clear_lane_is_enforced_inside_a_composition(self):
         comps = copy.deepcopy(COMPOSITIONS)
         comps['compositions']['mini-post']['pieces'][0].update(dx=0.5)

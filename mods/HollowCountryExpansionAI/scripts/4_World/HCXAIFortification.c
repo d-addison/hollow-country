@@ -193,7 +193,8 @@ class HCXAIFortification
         float radians = bearing * Math.DEG2RAD;
         vector at = site.Anchor + Vector(Math.Sin(radians) * 18, 0, Math.Cos(radians) * 18);
         at[1] = GetGame().SurfaceY(at[0], at[2]);
-        foreach (Man observer : HCPerfPlayers.HCGet())
+        array<Man> stepObservers = HCPerfPlayers.HCGet();
+        foreach (Man observer : stepObservers)
         {
             if (observer && vector.DistanceSq(observer.GetPosition(), at) < 40000)
             {
@@ -244,7 +245,8 @@ class HCXAIFortification
         bool clear = HCBuildingClaim.HCAIFortificationAllowed(m_PendingAt);
         HCXZoneGuards guards = HCXZoneGuards.Active();
         if (guards && guards.BySite(site.Id) && !guards.Held(site.Id)) { clear = false; }
-        foreach (Man observer : HCPerfPlayers.HCGet())
+        array<Man> finishObservers = HCPerfPlayers.HCGet();
+        foreach (Man observer : finishObservers)
         {
             if (observer && vector.DistanceSq(observer.GetPosition(), m_PendingAt) < 40000) { clear = false; }
         }

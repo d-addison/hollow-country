@@ -916,7 +916,8 @@ class HCInfectedLODModule : HCModule
         if (m_Herds && m_Store.State())
         {
             herds = m_Store.State().Herds.Count();
-            foreach (HCInfectedLODHerd herd : m_Store.State().Herds) { herdAlive += herd.Alive; }
+            array<ref HCInfectedLODHerd> statsHerds = m_Store.State().Herds;
+            foreach (HCInfectedLODHerd herd : statsHerds) { herdAlive += herd.Alive; }
         }
         int playerCount = 0;
         if (players) { playerCount = players.Count(); }
@@ -954,7 +955,8 @@ class HCInfectedLODModule : HCModule
         HCInfectedModule infected = HCInfectedModule.Instance;
         if (infected) { infected.HCLODDescribe(snapshot); }
         if (!m_Herds || !m_Store.State()) { return; }
-        foreach (HCInfectedLODHerd herd : m_Store.State().Herds)
+        array<ref HCInfectedLODHerd> describeHerds = m_Store.State().Herds;
+        foreach (HCInfectedLODHerd herd : describeHerds)
         {
             vector centre = Vector(herd.X, 0, herd.Z);
             snapshot.AddPoint("infected-lod", "herd-" + herd.Id, centre, "Herd " + herd.Id, "alive=" + herd.Alive.ToString() + "/" + herd.HeadCount.ToString() + " leased=" + LeasedFor(herd.Id).ToString() + " runtime=PENDING");

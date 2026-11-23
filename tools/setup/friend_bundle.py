@@ -535,6 +535,32 @@ def readme(items, template, addon):
     return '\r\n'.join(lines)
 
 
+def roll_back_hc_stack(scratch):
+    """Reverse the local CE stack on a scratch copy of a mission, newest layer first. Each installer validates
+    its own receipts and backups; missing or drifted evidence refuses."""
+    for writer in (hc_events, map_overlay, loot_boost, overlays, ce_coverage, travel,
+                   tactical_flava_optional, snafu_optional, economy, gameplay):
+        if (scratch / writer.MANAGED).exists():
+            writer.rollback(scratch)
+
+
+def overlay_vanilla_errors(mission, source=None):
+    """Every error of this checkout's map overlay layer set against the vanilla rows of a mission, as a list of
+    strings (empty = valid). The same call the friend installer's step 6 makes: map_overlay.validate(source,
+    read_vanilla(mission), proto names). A mission with the HC stack installed is rolled back on a scratch copy
+    first; the mission itself is never written."""
+    with tempfile.TemporaryDirectory(prefix='hc-overlay-vanilla-') as directory:
+        scratch = Path(directory) / 'mission'
+        shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+        try:
+            roll_back_hc_stack(scratch)
+            layers = map_overlay.load_source(source or lts.ROOT / MAP_OVERLAY_CONFIG)
+            return map_overlay.validate(layers, map_overlay.read_vanilla(scratch), map_overlay.read_proto_names(scratch))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, ET.ParseError, ws.SyncError,
+                lts.Refused) as error:
+            return ['the vanilla rows could not be read or the layers could not be loaded: %s' % lts.redact_home(error)]
+
+
 def fresh_economy(mission, scratch_root=None):
     """Regenerate the release delta on a rolled-back scratch mission, never the source."""
     try:
@@ -545,10 +571,7 @@ def fresh_economy(mission, scratch_root=None):
             shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
             # Reverse the local CE stack. Each existing installer validates its
             # receipts/backups; missing or drifted evidence refuses the export.
-            for writer in (hc_events, map_overlay, loot_boost, overlays, ce_coverage, travel,
-                           tactical_flava_optional, snafu_optional, economy, gameplay):
-                if (scratch / writer.MANAGED).exists():
-                    writer.rollback(scratch)
+            roll_back_hc_stack(scratch)
             baseline = overlays.read(scratch / 'cfgeconomycore.xml')
             if any(node.get('folder', '').lower().startswith('hollow-country')
                    for node in overlays.xml(baseline, 'economycore').findall('ce')):
@@ -887,7 +910,20 @@ def main(argv=None):
     b.add_argument('--build-manifest', type=Path, help='release BUILD_MANIFEST.json; verify commit and every selected PBO hash')
     b.add_argument('--server-cfg', required=True)
     b.add_argument('--out', required=True)
+    c = sub.add_parser('check-overlays', help='validate this checkout\'s map overlay layers against a mission\'s vanilla rows')
+    c.add_argument('--mission', required=True)
     args = parser.parse_args(argv)
+    if args.cmd == 'check-overlays':
+        try:
+            errors = overlay_vanilla_errors(Path(args.mission))
+        except (OSError, ValueError, ws.SyncError) as exc:
+            errors = ['the mission could not be copied: %s' % lts.redact_home(exc)]
+        for line in errors:
+            print('refused: ' + line, file=sys.stderr)
+        if errors:
+            return 1
+        print('Overlay layers valid against the vanilla rows of the mission')
+        return 0
     try:
         count, m_drop, p_drop = build(args)
     except (Refused, ws.SyncError, lts.Refused, ValueError, OSError, KeyError, TypeError) as exc:

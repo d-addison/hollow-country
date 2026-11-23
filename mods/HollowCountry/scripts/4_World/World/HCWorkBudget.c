@@ -860,6 +860,74 @@ class HCStagedSaveImage
         return HCStepImage();
     }
 
+    // Crash recovery for the primary-wins stores (#336): a hard stop after the primary was
+    // promoted and before clear_intent leaves path.tmp byte-identical to path. Returns true only
+    // after deleting such a .tmp; every other case returns false and touches nothing, so the
+    // caller keeps its existing refusal. Callers run it at open, never while this session has a
+    // staged save in flight for the path (copy_primary_delete_target would lose both files).
+    // The .bak is never read or touched. Pass the cap as a literal.
+    static bool HCClearCompletedIntent(string path, int limit, string store)
+    {
+        if (limit < 1 || path.Length() < 1 || path.Length() > 200) { return false; }
+        string intentPath = path + ".tmp";
+        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
+        if (!FileExist(intentPath) || !FileExist(path)) { return false; }
+        if (!HCSameImage(intentPath, path, limit)) { return false; }
+        if (!DeleteFile(intentPath) || FileExist(intentPath)) { return false; }
+        int start = 0;
+        int cut = path.IndexOf("/");
+        while (cut >= 0)
+        {
+            start = cut + 1;
+            cut = path.IndexOfFrom(start, "/");
+        }
+        cut = path.IndexOfFrom(start, ":");
+        if (cut >= 0) { start = cut + 1; }
+        string fileName = path.Substring(start, path.Length() - start);
+        Print("[HC Store] crash_recovery file=" + fileName + " store=" + store + " action=cleared_completed_intent reason=tmp_matches_primary");
+        return true;
+    }
+
+    // Two read-only handles walked in lockstep, 4096 bytes per read (the staged writer's chunk,
+    // kept a literal inside this static method). Each read must return count == string length (a
+    // NUL-truncated tail fails), the files must have equal chunks and reach EOF (count 0) on the
+    // same read, within the cap and non-empty. The guard bounds the loop. Handles close on every path.
+    protected static bool HCSameImage(string first, string second, int limit)
+    {
+        FileHandle left = OpenFile(first, FileMode.READ);
+        if (!left) { return false; }
+        FileHandle right = OpenFile(second, FileMode.READ);
+        if (!right) { CloseFile(left); return false; }
+        bool same = true;
+        bool ended = false;
+        int total = 0;
+        int guard = limit / 4096 + 2;
+        while (same && !ended && guard > 0)
+        {
+            guard--;
+            string leftPiece;
+            string rightPiece;
+            int leftCount = ReadFile(left, leftPiece, 4096);
+            int rightCount = ReadFile(right, rightPiece, 4096);
+            if (leftCount < 0 || rightCount < 0 || leftCount != leftPiece.Length() || rightCount != rightPiece.Length() || leftCount != rightCount)
+            {
+                same = false;
+            }
+            else if (leftCount == 0)
+            {
+                ended = true;
+            }
+            else
+            {
+                total += leftCount;
+                if (total > limit || leftPiece != rightPiece) { same = false; }
+            }
+        }
+        CloseFile(left);
+        CloseFile(right);
+        return same && ended && total > 0;
+    }
+
     bool Active() { return m_Phase >= 0; }
     bool Begin(string path, string text, int limit, bool backup = true, bool checkPrior = true, string expectedPrior = "", int mode = 0, string temporaryPath = "")
     {

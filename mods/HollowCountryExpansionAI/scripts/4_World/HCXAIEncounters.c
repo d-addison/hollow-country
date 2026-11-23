@@ -102,7 +102,8 @@ class HCXAIEncounters : Managed
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return 0; }
         int count = 0;
-        foreach (HCXAISiteState state : director.States())
+        array<ref HCXAISiteState> qualifiedStates = director.States();
+        foreach (HCXAISiteState state : qualifiedStates)
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
             if (state.Site.Checkpoint) { continue; }
@@ -140,7 +141,8 @@ class HCXAIEncounters : Managed
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run") { return false; }
         if (this.OpenCount() >= HCAILimits.Get().MaxEncounters) { return false; }
-        foreach (HCXAISiteState state : director.States())
+        array<ref HCXAISiteState> readyStates = director.States();
+        foreach (HCXAISiteState state : readyStates)
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
             if (state.Site.Checkpoint) { continue; }
@@ -191,7 +193,8 @@ class HCXAIEncounters : Managed
         string nearestId = "none";
         float nearestGap = 0;
         string nearestProblem = "no site states";
-        foreach (HCXAISiteState state : director.States())
+        array<ref HCXAISiteState> startStates = director.States();
+        foreach (HCXAISiteState state : startStates)
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
             if (state.Site.Checkpoint) { continue; }
@@ -243,7 +246,8 @@ class HCXAIEncounters : Managed
         foreach (HCXAIEncounter binding : m_Bindings)
         {
             if (binding.Released) { continue; }
-            foreach (HCXAISiteState state : director.States())
+            array<ref HCXAISiteState> killStates = director.States();
+            foreach (HCXAISiteState state : killStates)
             {
                 if (state.Site.Id != binding.SiteId || !state.Patrol || state.Patrol.m_Group != group) { continue; }
                 int killCount = binding.Kills.Count();

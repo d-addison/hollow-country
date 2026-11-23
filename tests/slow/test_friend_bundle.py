@@ -889,3 +889,155 @@ class HomePathRedactionTests(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn('~/private/mission.xml', err.getvalue())
         self.assertNotIn(str(Path.home()) + os.sep, err.getvalue())
+
+
+MAP_CLASSES = {'kind': 'hollow-country-overlay-classes',
+               'provenance': {'source': 'synthetic test allowlist', 'method': 'invented', 'verified': 'none'},
+               'classes': {'Land_Mil_Tent_Big1_1': {'pbo': 'structures_military.pbo'}}}
+MAP_PROFILE = {'kind': 'hollow-country-overlay-profile', 'enabled': ['alpha-v1'],
+               'limits': {'map_size': 15360, 'max_objects_total': 20, 'max_objects_per_layer': 10,
+                          'min_spacing_m': 6.0, 'vanilla_clearance_m': 8.0}}
+MAP_LAYER = {'kind': 'hollow-country-map-overlay', 'id': 'alpha-v1', 'version': 1,
+             'purpose': 'synthetic test layer', 'status': 'runtime-unverified',
+             'objects': [{'id': 't01', 'class': 'Land_Mil_Tent_Big1_1', 'pos': [2000.0, 100.0, 3000.0],
+                          'yaw': 0.0, 'loot': 'proto', 'area': 'synthetic'}]}
+
+
+def synthetic_mission(root, rows):
+    groups = ''.join('<group name="%s" pos="%s %s %s" rpy="0 0 0" a="80" />\n' % row for row in rows)
+    put(root, 'mapgrouppos.xml', '<map>\n' + groups + '</map>\n')
+    put(root, 'mapgroupproto.xml', '<prototype><group name="Land_Mil_Tent_Big1_1" lootmax="11">'
+                                   '<usage name="Military" /></group></prototype>\n')
+    return Path(root)
+
+
+def synthetic_layers(root):
+    put(root, 'profile.json', json.dumps(MAP_PROFILE))
+    put(root, 'classes.json', json.dumps(MAP_CLASSES))
+    put(root, 'layers/alpha-v1.json', json.dumps(MAP_LAYER))
+    return Path(root)
+
+
+class OverlayVanillaCheckTests(unittest.TestCase):
+    """#336: the bundle's own layer validation against a mission's vanilla rows, with a synthetic mission."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.layers = synthetic_layers(self.root / 'layers-src')
+
+    def mission(self, rows):
+        return synthetic_mission(self.root / 'mission', rows)
+
+    def test_layers_clear_of_every_vanilla_row_are_valid(self):
+        mission = self.mission([('Land_House_1W12_Brown', '2500', '101', '3500')])
+        self.assertEqual(fb.overlay_vanilla_errors(mission, self.layers), [])
+
+    def test_a_vanilla_row_on_a_layer_object_refuses_and_is_listed(self):
+        mission = self.mission([('Land_Mil_Barracks2', '2000', '100', '3000')])
+        errors = fb.overlay_vanilla_errors(mission, self.layers)
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn('vanilla group Land_Mil_Barracks2', errors[0])
+        self.assertIn('alpha-v1/t01', errors[0])
+
+    def test_the_mission_is_only_read(self):
+        mission = self.mission([('Land_Mil_Barracks2', '2000', '100', '3000')])
+        before = {p.name: p.read_bytes() for p in mission.iterdir()}
+        fb.overlay_vanilla_errors(mission, self.layers)
+        self.assertEqual({p.name: p.read_bytes() for p in mission.iterdir()}, before)
+
+    def test_unreadable_vanilla_rows_are_an_error_not_a_pass(self):
+        mission = self.mission([])
+        (mission / 'mapgrouppos.xml').unlink()
+        errors = fb.overlay_vanilla_errors(mission, self.layers)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('could not be read', errors[0])
+
+    def test_the_command_lists_every_error_and_fails(self):
+        mission = self.mission([('Land_Mil_Barracks2', '2000', '100', '3000')])
+        err, out = io.StringIO(), io.StringIO()
+        with unittest.mock.patch.object(fb, 'MAP_OVERLAY_CONFIG', str(self.layers)), \
+                contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            code = fb.main(['check-overlays', '--mission', str(mission)])
+        self.assertEqual(code, 1)
+        self.assertIn('refused: vanilla group Land_Mil_Barracks2', err.getvalue())
+
+    def test_the_command_passes_a_clean_mission(self):
+        mission = self.mission([('Land_House_1W12_Brown', '2500', '101', '3500')])
+        err, out = io.StringIO(), io.StringIO()
+        with unittest.mock.patch.object(fb, 'MAP_OVERLAY_CONFIG', str(self.layers)), \
+                contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            code = fb.main(['check-overlays', '--mission', str(mission)])
+        self.assertEqual(code, 0, err.getvalue())
+        self.assertIn('valid', out.getvalue())
+
+
+class FriendcycleOverlayGateTests(unittest.TestCase):
+    """#336: friendcycle refuses before building when the overlay layers fail against the mission's vanilla rows."""
+
+    def setUp(self):
+        from tools.release import friendcycle
+        self.fc = friendcycle
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.args = unittest.mock.Mock(out=self.root / 'signed', bundle_out=self.root / 'bundle', build='999',
+                                       commit='HEAD', allow_unpushed=True, mission=self.root / 'mission')
+        for name, value in (('resolve_commit', 'a' * 40), ('build', None)):
+            patch = unittest.mock.patch.object(self.fc, name, return_value=value)
+            setattr(self, name, patch.start())
+            self.addCleanup(patch.stop)
+
+    def test_no_mission_is_a_hard_failure_never_a_pass(self):
+        self.args.mission = None
+        with self.assertRaises(ValueError) as caught:
+            self.fc.cycle(self.args)
+        self.assertIn('overlay vanilla check not run', str(caught.exception))
+        self.build.assert_not_called()
+
+    def test_a_refused_check_stops_the_cycle_before_anything_is_built(self):
+        with unittest.mock.patch.object(self.fc, 'overlay_vanilla_check',
+                                        side_effect=ValueError('overlay layers refused')) as check:
+            with self.assertRaises(ValueError):
+                self.fc.cycle(self.args)
+        check.assert_called_once_with('a' * 40, self.args.mission, '999')
+        self.build.assert_not_called()
+
+    def run_check(self, help_text, completed):
+        import contextlib as ctx
+
+        @ctx.contextmanager
+        def tree(_sha, _number):
+            yield self.root
+        with unittest.mock.patch.object(self.fc, 'worktree', tree), \
+                unittest.mock.patch.object(self.fc, 'run', return_value=help_text), \
+                unittest.mock.patch.object(self.fc.subprocess, 'run', return_value=completed):
+            return self.fc.overlay_vanilla_check('a' * 40, self.root / 'mission', '999')
+
+    def completed(self, code, err=''):
+        return subprocess.CompletedProcess([], code, stdout='', stderr=err)
+
+    def test_a_pass_returns(self):
+        self.assertIsNone(self.run_check('{build,check-overlays}', self.completed(0)))
+
+    def test_every_error_is_listed_in_the_refusal(self):
+        err = ''.join('refused: flat: military-zones-v2/s0%02d: height 257.0 differs from the median 255.9\n' % n
+                      for n in range(60))
+        with self.assertRaises(ValueError) as caught:
+            self.run_check('{build,check-overlays}', self.completed(1, err))
+        text = str(caught.exception)
+        self.assertIn('the build is refused', text)
+        self.assertIn('flat: military-zones-v2/s000', text)
+        self.assertIn('flat: military-zones-v2/s039', text)
+        self.assertIn('(+20 more)', text)
+
+    def test_a_pinned_commit_without_the_command_did_not_run_the_check_and_fails(self):
+        with self.assertRaises(ValueError) as caught:
+            self.run_check('{build}', self.completed(0))
+        self.assertIn('overlay vanilla check not run', str(caught.exception))
+
+    def test_a_check_that_died_without_a_result_is_not_a_pass(self):
+        with self.assertRaises(ValueError) as caught:
+            self.run_check('{build,check-overlays}', self.completed(3, 'Traceback...'))
+        self.assertIn('overlay vanilla check not run', str(caught.exception))

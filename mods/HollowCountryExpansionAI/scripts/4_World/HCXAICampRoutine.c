@@ -177,7 +177,8 @@ class HCXAICampRoutine
         if (!director || !camps) { return; }
         eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(body);
         if (!group) { return; }
-        foreach (HCXAISiteState state : director.States())
+        array<ref HCXAISiteState> killedStates = director.States();
+        foreach (HCXAISiteState state : killedStates)
         {
             if (!state.Transient || state.Completed || !state.Patrol || state.Patrol.m_Group != group) { continue; }
             HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);

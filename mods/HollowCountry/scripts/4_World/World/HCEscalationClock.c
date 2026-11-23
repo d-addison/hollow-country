@@ -500,7 +500,10 @@ class HCEscalationClock : HCModule
         Print(HCV2Admission.Line("Escalation", true, "none", true));
         m_NowUtc = HCGroupClock.Utc();
         if (m_NowUtc < 1) { Fail(); return; }
-        if (FileExist(PATH + ".tmp") || (!FileExist(PATH) && FileExist(PATH + ".bak"))) { Fail(true); return; }
+        // HC-28 durable store: a surviving .tmp quarantines (Fail(true)) except in the one byte-identical
+        // case (hard stop before clear_intent), where the cleared completed intent replaces that quarantine.
+        // OnStart only, guarded by s_Instance above, so no save of this session is in flight.
+        if ((FileExist(PATH + ".tmp") && !HCStagedSaveImage.HCClearCompletedIntent(PATH, 2048, "escalation")) || (!FileExist(PATH) && FileExist(PATH + ".bak"))) { Fail(true); return; }
         if (!HCV2ThreatStore<HCEscalationState>.CanOpen(PATH)) { Fail(); return; }
         if (FileExist(PATH))
         {
