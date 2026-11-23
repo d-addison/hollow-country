@@ -438,7 +438,25 @@ class HCXAISiteRules
     }
     // Keep schema-1 text intact. Diagnose scalar identity separately from the
     // route digest; geometry failure must not masquerade as changed validity.
-    static string HCRouteMismatch(HCXAIRouteRow row, string key, string validity)
+    // True when the stored key is the same seven-field generation as the current one except for the
+    // primary filter term, which is the legacy (pre-#355) term. Fields 0-2 are checked by the caller.
+    static bool HCLegacyRoute(HCXAIRouteRow row, string validity, string legacyTerm)
+    {
+        if (!row || legacyTerm == "" || validity == "" || row.ValidityKey == "") { return false; }
+        array<string> saved = new array<string>();
+        array<string> current = new array<string>();
+        row.ValidityKey.Split("|", saved);
+        validity.Split("|", current);
+        if (saved.Count() != 7 || current.Count() != 7) { return false; }
+        if (saved[0] != current[0] || saved[1] != current[1] || saved[2] != current[2] || saved[3] != current[3]) { return false; }
+        if (saved[5] != current[5] || saved[6] != current[6]) { return false; }
+        return saved[4] == legacyTerm && current[4] != legacyTerm;
+    }
+    // Keep schema-1 text intact. Diagnose scalar identity separately from the
+    // route digest; geometry failure must not masquerade as changed validity.
+    // A row that qualified under the legacy primary filter term still matches:
+    // the current filter only adds polygons. Refused legacy rows requalify.
+    static string HCRouteMismatch(HCXAIRouteRow row, string key, string validity, string legacyTerm = "")
     {
         if (!row || validity == "") { return "policy"; }
         if (row.ValidityKey != validity)
@@ -455,14 +473,14 @@ class HCXAISiteRules
             if (saved[1] != current[1]) { return "build"; }
             if (saved[2] != current[2]) { return "world"; }
             if (saved[6] != current[6]) { return "manifest"; }
-            return "policy";
+            if (!row.Qualified || !HCXAISiteRules.HCLegacyRoute(row, validity, legacyTerm)) { return "policy"; }
         }
         if (row.Key != key) { return "key"; }
         return "";
     }
-    static bool ReuseRoute(HCXAIRouteRow row, string key, string validity)
+    static bool ReuseRoute(HCXAIRouteRow row, string key, string validity, string legacyTerm = "")
     {
-        if (HCRouteMismatch(row, key, validity) != "") { return false; }
+        if (HCRouteMismatch(row, key, validity, legacyTerm) != "") { return false; }
         if (!row.Qualified) { return true; }
         return row.Waypoints && row.Waypoints.Count() >= 2 && row.Waypoints.Count() <= HCMaxRouteWaypoints();
     }
