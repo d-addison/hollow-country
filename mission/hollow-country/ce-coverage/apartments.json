@@ -186,10 +186,10 @@
   "new_distances": [],
   "offline_receipts": {
     "green_actual": "Ran 1 test; OK. Synthetic source/class/pin/category/duplicate refusal, existing install/rollback and census port selection checked.",
-    "green_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_ce_inputs -v",
+    "green_command": "python3 -B -m unittest tests.slow.test_hc_ce_inputs",
     "limits": "Offline checks establish tooling and content consistency only; no DayZ process, client, PBO boot or production enablement.",
     "red_actual": "TypeError: generate() got an unexpected keyword argument 'input_bytes'; Ran 1 test; FAILED (errors=1).",
-    "red_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_ce_inputs -v"
+    "red_command": "python3 -B -m unittest tests.slow.test_hc_ce_inputs"
   },
   "production_enabled": false,
   "proposed_diagnostic": "[HC Plan] HC-57 apartments=8 office=pending_survey effective_pin=<final-composed-mapgroupproto-sha256> state=<off|refused|ready> admitted=<observed> observed=<observed> runtime=PENDING",

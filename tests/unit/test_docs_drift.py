@@ -138,6 +138,18 @@ class DocsDriftTests(unittest.TestCase):
     def test_fixture_documents_are_not_checked_for_test_references(self):
         self.assertEqual([], docs_drift.tests_drift(self.root, {"tests/fixtures/briefs/good.md": "`tests/unit/test_gone.py`\n"}))
 
+    def test_json_string_values_under_mission_and_the_test_catalog_are_scanned(self):
+        self.put("tests/slow/test_beta.py", "x = 1\n")
+        self.put("mission/pack/ok.json", '{"cmd": "python3 -B -m unittest tests.slow.test_beta"}\n')
+        self.assertEqual([], docs_drift.json_tests_drift(self.root))
+        self.put("mission/pack/bad.json", '{\n  "a": 1,\n  "task": "see tests/unit/test_gone.py for it"\n}\n')
+        self.put("tests/catalog.json", '{"note": "tests.slow.test_missing"}\n')
+        self.assertEqual([("doc_test_reference", "mission/pack/bad.json", 3),
+                          ("doc_test_reference", "tests/catalog.json", 1)],
+                         docs_drift.json_tests_drift(self.root))
+        self.assertEqual(docs_drift.json_tests_drift(self.root),
+                         [f for f in docs_drift.check(self.root, {}) if f[0] == "doc_test_reference"])
+
     def test_the_checked_in_documents_have_no_drift(self):
         import subprocess
         names = subprocess.run(["git", "-C", str(docs_drift.ROOT), "ls-files", "*.md"], check=True,
