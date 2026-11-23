@@ -101,7 +101,7 @@ modded class ZombieBase
 
     // Once per second while unslotted: CHASE/FIGHT infected whose own native
     // target is a player standing above it (reach band, or the lower climb band),
-    // or seated in a vehicle, within 4 m horizontal. Never chooses or changes the
+    // or seated in a vehicle, within AdmitHorizontal (ActorReach.AdmitHorizontalMetres, 6 m) horizontal. Never chooses or changes the
     // native target.
     protected void HCReachProbe(HCInfectedReachModule reach)
     {
@@ -117,7 +117,16 @@ modded class ZombieBase
         if (!target || !target.IsAlive()) { return; }
         vector delta = target.GetPosition() - GetPosition();
         float horizontal = Math.Sqrt(delta[0] * delta[0] + delta[2] * delta[2]);
-        if (horizontal > 4) { return; }
+        float window = reach.AdmitHorizontal();
+        if (horizontal > window)
+        {
+            // Haven census: an engaged infected that stops short of an elevated target just outside the window.
+            if (horizontal <= window + 4 && delta[1] >= HCInfectedTuning.Get().Reach.ElevatedMin)
+            {
+                HCNavHavenCensus.OnGiveUp(this, target, target.GetPosition(), "admit_far");
+            }
+            return;
+        }
         if (delta[1] < reach.ProbeMinHeight() && !target.GetCommand_Vehicle()) { return; }
         m_HCReachSlot = reach.Admit(this, target, now);
     }
