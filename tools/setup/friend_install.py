@@ -1838,7 +1838,15 @@ def install_dependencies(ctx, a):
 OVERLAY_INPUT_PREFIXES = ('mission-overlay/', 'mission/hollow-country/loot-points/', 'mission/hollow-country/ce/',
                           'mission/hollow-country/optional/')
 OVERLAY_INPUT_FILES = ('mission-patches.json', 'mission/hollow-country/infected/variants.json',
-                       'tools/package/firearms_roster.json', 'tools/package/loot_families.json', 'config/military-loot.json')
+                       'tools/package/firearms_roster.json', 'tools/package/loot_families.json', 'config/military-loot.json',
+                       # read by the loot boost balance: the slack table, the military route rules and the pack
+                       # estimates (R4 counts the pack guns)
+                       'tools/package/loot_slack.json', 'tools/package/military_loot_allowlist.json',
+                       'tools/package/snafu_allowlist.json', 'tools/package/tactical_flava_allowlist.json',
+                       # the code that computes the boosted bytes: a logic change reapplies even when nobody bumps
+                       # LOOT_BOOST_VERSION
+                       'tools/package/loot_boost.py', 'tools/package/loot_balance.py', 'tools/package/military_loot.py',
+                       'tools/package/loot_slack.py', 'tools/package/ce_slot_pressure.py', 'tools/package/infected_variety.py')
 
 
 def overlay_fingerprint(ctx):

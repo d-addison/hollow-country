@@ -1599,7 +1599,7 @@ def _balance_rows(layers, roster, locked):
     return rows
 
 
-def _balance_layers(layers, roster, balance, locked):
+def _balance_layers(layers, roster, balance, locked, root=None):
     """Loot balance (owner 2026-11-22) over the scaled layers: R3/R1/re-investment/R2b by family and category, then
     R4 (ammo and magazines per gun). Returns (layers, report); see loot_balance for the rules.
 
@@ -1610,7 +1610,7 @@ def _balance_layers(layers, roster, balance, locked):
     rows = _balance_rows(layers, roster, locked)
     changed, report = loot_balance.balance(
         {low: row for low, row in rows.items()}, k=balance['FamilyFactor'], floor=balance['FamilyFloor'],
-        share=balance['ShareCap'], stock_factor=balance['StockFactor'], slack=loot_slack.load(), slack_share=balance['SlackShare'],
+        share=balance['ShareCap'], stock_factor=balance['StockFactor'], slack=loot_slack.load(root), slack_share=balance['SlackShare'],
         pass2_share=balance['Pass2Share'])
     nominal = {low: changed.get(low, row['nominal']) for low, row in rows.items()}
     catalog = military_loot.catalog()
@@ -1726,7 +1726,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     counts['hoarder_flag_rows'] = sum(hoarder.values())
     counts['hoarder_flags'] = hoarder
     if knobs['balance']:
-        scaled_layers, counts['balance'] = _balance_layers(scaled_layers, roster, knobs['balance'], route_locked)
+        scaled_layers, counts['balance'] = _balance_layers(scaled_layers, roster, knobs['balance'], route_locked, root)
     counts['attachments'], gaps = _attachment_report(mission, scaled_layers, fits)
     for name, before, after in scaled_layers:
         if gaps and not name.startswith(OPTIONAL_FOLDER + '/'):

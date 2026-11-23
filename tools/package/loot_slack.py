@@ -107,7 +107,11 @@ def settled(committed, fresh):
         return False
     try:
         a, b = json.loads(committed), json.loads(fresh)
-        if {k: v for k, v in a.items() if k != 'buckets'} != {k: v for k, v in b.items() if k != 'buckets'}:
+        # The deficit sums the per-bucket truncation jitter, so it gets the same tolerance instead of an exact match.
+        if {k: v for k, v in a.items() if k not in ('buckets', 'deficit')} != {k: v for k, v in b.items()
+                                                                              if k not in ('buckets', 'deficit')}:
+            return False
+        if abs(a['deficit'] - b['deficit']) > TOLERANCE:
             return False
         if a['buckets'].keys() != b['buckets'].keys():
             return False
