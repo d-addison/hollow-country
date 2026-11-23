@@ -60,6 +60,79 @@ class HCEventRuntime
     // Staged publishes refused because the store is not the staged journal. Counted,
     // logged once; the runtime faults exactly as a failed save does.
     protected int m_UnstagedStoreRefusals;
+    // Journal write coalescing. Routine membership publishes (join/leave) that arrive inside
+    // m_JournalIntervalSeconds of the last completed journal write are applied to the in-memory
+    // state only and counted; the next write (any publish, the dirty flush or the shutdown flush)
+    // carries them, so the last state is never lost. Every other publish (announce, complete,
+    // cancel, expiry, cleanup, restart) is a durability barrier and writes at once.
+    protected int m_JournalIntervalSeconds = 5;
+    protected bool m_JournalDirty;
+    protected bool m_JournalFlushNow;
+    protected float m_JournalWrittenAt = -1;
+    protected int m_JournalCoalesced;
+    protected int m_JournalWritten;
+    // True from Start until every run restored in CLEANUP is closed; announcements wait for it.
+    protected bool m_StartupCleanup;
+
+    void HCSetJournalIntervalSeconds(int seconds)
+    {
+        if (seconds < 0) { seconds = 0; }
+        if (seconds > 60) { seconds = 60; }
+        m_JournalIntervalSeconds = seconds;
+    }
+    int HCJournalIntervalSeconds() { return m_JournalIntervalSeconds; }
+    int HCJournalCoalesced() { return m_JournalCoalesced; }
+    int HCJournalWritten() { return m_JournalWritten; }
+    bool HCJournalDirty() { return m_JournalDirty; }
+    protected void HCJournalWriteDone()
+    {
+        m_JournalDirty = false;
+        m_JournalFlushNow = false;
+        if (m_JournalWritten < 1000000000) { m_JournalWritten++; }
+        m_JournalWrittenAt = GetGame().GetTickTime();
+    }
+    // True when a routine publish may write now: coalescing off, nothing written yet, or the
+    // interval since the last completed write has elapsed.
+    protected bool HCJournalDue()
+    {
+        if (m_JournalIntervalSeconds < 1 || m_JournalWrittenAt < 0) { return true; }
+        return GetGame().GetTickTime() - m_JournalWrittenAt >= m_JournalIntervalSeconds;
+    }
+    // Apply a validated candidate to the in-memory state without a journal write.
+    protected bool HCHoldRoutine(HCEventRuntimeState candidate)
+    {
+        if (!candidate || !HCEventRuntimePolicy.StateValid(candidate))
+        {
+            m_Ready = false;
+            FaultCleanup();
+            HCPublishRefused();
+            return false;
+        }
+        m_State = candidate;
+        m_JournalDirty = true;
+        if (m_JournalCoalesced < 1000000000) { m_JournalCoalesced++; }
+        return true;
+    }
+    protected bool HCPublishRoutine(HCEventRuntimeState candidate)
+    {
+        if (HCJournalDue()) { return Publish(candidate); }
+        return HCHoldRoutine(candidate);
+    }
+    // Run-restored CLEANUP rows keep announcements blocked until the tick has closed them.
+    bool HCStartupCleanupPending()
+    {
+        if (!m_StartupCleanup) { return false; }
+        if (m_State && m_State.Runs)
+        {
+            array<ref HCEventRun> rows = m_State.Runs;
+            foreach (HCEventRun row : rows)
+            {
+                if (row && row.Phase == HCEventRunPhase.CLEANUP) { return true; }
+            }
+        }
+        m_StartupCleanup = false;
+        return false;
+    }
 
     protected HCEventRun HCRunAt(HCEventRuntimeState state, int eventId)
     {
@@ -230,6 +303,9 @@ class HCEventRuntime
         // job ahead of a retained routine save and drives it per frame.
         m_JournalJob.HCPreempt = true;
         m_JournalJob.HCDue = 0;
+        // The candidate was cloned from the current state, so it carries any held routine change.
+        m_JournalDirty = false;
+        m_JournalFlushNow = false;
         return true;
     }
 
@@ -252,6 +328,7 @@ class HCEventRuntime
         if (result == HCSaveJob.STEP_DONE)
         {
             m_State = m_PendingPublish;
+            HCJournalWriteDone();
             if (m_PendingLeave) { HCFinishLeave(m_PendingLeave); }
             if (m_PendingExpiryId > 0)
             {
@@ -308,6 +385,10 @@ class HCEventRuntime
         m_PendingPublish = null;
         m_PendingJournal = null;
         m_PendingExpiryId = 0;
+        m_JournalDirty = false;
+        m_JournalFlushNow = false;
+        m_JournalWrittenAt = -1;
+        m_StartupCleanup = false;
         m_PendingLeaves.Clear();
         m_PendingLeave = null;
         m_SceneRetirements.Clear();
@@ -368,10 +449,17 @@ class HCEventRuntime
                     run.Phase = HCEventRunPhase.CLEANUP;
                 }
             }
-            if (!Publish(state))
+            // The restarted image is staged, not written here: the first Tick flushes it through
+            // HCSaveScheduler before any other mutation, and every publish before then clones
+            // this state, so it is never lost. A crash first leaves the old session on disk and
+            // the next start repeats this restart.
+            if (!HCEventRuntimePolicy.StateValid(state))
             {
-                return HCRefuse("restart_state_not_persisted");
+                return HCRefuse("restart_state_invalid");
             }
+            m_State = state;
+            m_JournalDirty = true;
+            m_JournalFlushNow = true;
             context.Session = m_State.Director.Session;
         }
         if (!HCEventDirector.ContextValid(m_State.Director, context))
@@ -387,28 +475,20 @@ class HCEventRuntime
                 return HCRefuse("restored_live_session");
             }
         }
-        // Complete durable restart cleanup before the caller's first roster pass.
-        // Unconfirmed provider cleanup stays pending and cannot be pruned.
-        HCEventRuntimeState restored = m_State;
-        int closed = 0;
-        foreach (HCEventRun restoredRun : restored.Runs)
+        // Restart cleanup is tick-driven: the run loop releases each restored CLEANUP run through
+        // one staged journal write per tick. Announcements wait for it (HCStartupCleanupPending),
+        // and an unconfirmed provider release stays CLEANUP and is retried, never pruned.
+        int restoredCleanup = 0;
+        array<ref HCEventRun> restoredRuns = m_State.Runs;
+        foreach (HCEventRun restoredRun : restoredRuns)
         {
-            if (restoredRun.Phase == HCEventRunPhase.CLEANUP)
-            {
-                if (!Cleanup(restoredRun.EventId)) { return HCRefuse("startup_cleanup_unconfirmed"); }
-                HCEventRun closedRun = HCRunAt(m_State, restoredRun.EventId);
-                if (!closedRun) { return HCRefuse("startup_cleanup_run_unavailable"); }
-                if (closedRun.Phase == HCEventRunPhase.CLOSED)
-                {
-                    closed = closed + 1;
-                }
-                else
-                {
-                    Print("[HC Events] startup cleanup pending; " + restoredRun.Lease);
-                }
-            }
+            if (restoredRun.Phase == HCEventRunPhase.CLEANUP) { restoredCleanup = restoredCleanup + 1; }
         }
-        if (closed > 0) { Print("[HC Events] startup cleanup closed " + closed.ToString() + " retained runs before roster; observation_clone_refusals=" + m_ObservationCloneRefusals.ToString() + " observation_run_refusals=" + m_ObservationRunRefusals.ToString()); }
+        if (restoredCleanup > 0)
+        {
+            m_StartupCleanup = true;
+            Print("[HC Events] startup cleanup queued " + restoredCleanup.ToString() + " retained runs before roster; observation_clone_refusals=" + m_ObservationCloneRefusals.ToString() + " observation_run_refusals=" + m_ObservationRunRefusals.ToString());
+        }
         m_LastNow = context.Now;
         m_Ready = true;
         return true;
@@ -446,6 +526,7 @@ class HCEventRuntime
             return false;
         }
         m_State = candidate;
+        HCJournalWriteDone();
         return true;
     }
     void FaultCleanup()
@@ -563,6 +644,7 @@ class HCEventRuntime
             return m_AnnounceResult;
         }
         if (HCAnnounceOwned()) { return HCEventCode.BLOCKED; }
+        if (HCStartupCleanupPending()) { return HCEventCode.BLOCKED; }
         if (!Allowed(context))
         {
             if (m_PendingPublish) { return HCEventCode.BLOCKED; }
@@ -1031,7 +1113,7 @@ class HCEventRuntime
                 return HCEventCode.BLOCKED;
             }
         }
-        if (!Publish(candidate))
+        if (!HCPublishRoutine(candidate))
         {
             return HCEventCode.BLOCKED;
         }
@@ -1068,7 +1150,7 @@ class HCEventRuntime
         {
             return result;
         }
-        if (!Publish(candidate))
+        if (!HCPublishRoutine(candidate))
         {
             return HCEventCode.BLOCKED;
         }
@@ -1267,6 +1349,15 @@ class HCEventRuntime
         {
             return;
         }
+        if (m_JournalDirty && (m_JournalFlushNow || HCJournalDue()))
+        {
+            // Held routine changes and the restarted session image are written as one staged
+            // journal write through HCSaveScheduler.
+            HCEventRuntimeState flushed = m_Store.Clone(m_State);
+            if (!flushed) { return; }
+            HCBeginPublish(flushed);
+            return;
+        }
         if (m_SceneRetirements.Count() > 0)
         {
             int retiring = m_SceneRetirements[0];
@@ -1296,6 +1387,16 @@ class HCEventRuntime
             if (!departure) { return; }
             int leaveResult = Operation(departure, leaving.EventId, HCEventOp.LEAVE, leaving.ParticipantId, context);
             if (leaveResult != HCEventCode.OK) { m_PendingLeaves.Remove(leaving); return; }
+            if (!HCJournalDue())
+            {
+                // Inside the interval: apply in memory, the next journal write carries it.
+                if (HCHoldRoutine(departure))
+                {
+                    HCFinishLeave(leaving);
+                    m_LastNow = context.Now;
+                }
+                return;
+            }
             if (HCBeginPublish(departure))
             {
                 if (m_PendingPublish) { m_PendingLeave = leaving; }
@@ -1408,6 +1509,12 @@ class HCEventRuntime
         {
             while (HCAnnouncePending()) { HCAdvanceAnnounce(true); }
             if (m_PendingPublish) { HCAdvancePublish(true); }
+            // Shutdown barrier: a held routine change or the restart image is written now.
+            if (m_JournalDirty && !m_PendingPublish && m_State && m_Store)
+            {
+                HCEventRuntimeState finalState = m_Store.Clone(m_State);
+                if (finalState && Publish(finalState)) { Print("[HC Events] journal flushed at stop coalesced=" + m_JournalCoalesced.ToString() + " written=" + m_JournalWritten.ToString()); }
+            }
         }
         // Drain may create a receipt; stopped/quarantined owners must not retain it.
         m_AnnounceReceipt = "";

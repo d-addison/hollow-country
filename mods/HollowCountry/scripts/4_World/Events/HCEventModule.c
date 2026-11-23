@@ -13,6 +13,8 @@ class HCEventModule : HCModule
     // unresolved owner alive across registry replacement; never replace its AI.
     protected static ref HCEventModule s_CleanupOwner;
     protected ref HCEventSettings m_Config;
+    // Journal write coalescing policy (optional Events/journal.json, registry bounded).
+    protected ref HCEventJournalConfig m_JournalPolicy;
     protected ref HCStepTimer m_TickSteps;
     protected int m_SituationStep;
     protected int m_RuntimeStep;
@@ -102,6 +104,7 @@ class HCEventModule : HCModule
     {
         HCEventConfiguration loader = new HCEventConfiguration;
         m_Config = loader.Load();
+        m_JournalPolicy = loader.LoadJournalPolicy();
         // Lifecycle stays registered so even shipping/off profiles get exactly
         // one boot receipt. Preference-off ticks are a cheap no-op, with no IO.
         return true;
@@ -392,6 +395,7 @@ class HCEventModule : HCModule
         m_AIProvider = ai;
         m_Runtime = new HCEventRuntime;
         m_Runtime.HCSetStepTimer(m_TickSteps);
+        if (m_JournalPolicy) { m_Runtime.HCSetJournalIntervalSeconds(m_JournalPolicy.MinJournalIntervalSeconds); }
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
         {
             Print("[HC Events] inactive: context/configuration/journal admission failed reason=" + m_Runtime.Refusal());
@@ -538,6 +542,7 @@ class HCEventModule : HCModule
         m_RosterWindow = 0;
         m_RosterSummarySeq = m_RosterSummarySeq + 1;
         Print("[HC Events] roster summary window=" + m_RosterSummarySeq.ToString() + " window_s=60 blocked_publish_pending=" + m_RosterBlockedPublish.ToString() + " blocked_announce=" + m_RosterBlockedAnnounce.ToString() + " refreshes=" + m_RosterRefreshes.ToString() + " admitted=" + m_RosterAdmitted.ToString() + " runtime=PENDING");
+        if (m_Runtime) { Print("[HC Events] journal_coalesced=" + m_Runtime.HCJournalCoalesced().ToString() + " written=" + m_Runtime.HCJournalWritten().ToString() + " interval_s=" + m_Runtime.HCJournalIntervalSeconds().ToString()); }
         m_RosterBlockedPublish = 0;
         m_RosterBlockedAnnounce = 0;
         m_RosterRefreshes = 0;
@@ -629,6 +634,8 @@ class HCEventModule : HCModule
             return;
         }
         if (!m_Runtime || !m_NativeObserver || m_Announcing || m_Runtime.HCPublishPending() || m_Runtime.HCAnnounceOwned()) { return; }
+        // Restart cleanup of the previous session closes first (tick-driven, staged journal writes).
+        if (m_Runtime.HCStartupCleanupPending()) { return; }
         // One slot per tick during startup, then per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.

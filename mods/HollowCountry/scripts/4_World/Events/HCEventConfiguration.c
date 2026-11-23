@@ -23,6 +23,23 @@ class HCEventSettingsCodec
         return settings;
     }
 }
+// Operator policy for journal write coalescing. Optional private file
+// HollowCountry/Events/journal.json; absent or invalid fields keep these defaults.
+// MinJournalIntervalSeconds is the shortest gap between two routine (membership) journal
+// writes; 0 writes every change immediately. Registry key Events.MinJournalIntervalSeconds.
+class HCEventJournalConfig
+{
+    int MinJournalIntervalSeconds = 5;
+
+    // True when a present value was out of range and was reset to the default.
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "MinJournalIntervalSeconds")) { this.MinJournalIntervalSeconds = 5; }
+        if (!HCOperatorSettingsRegistry.HCValid("Events.MinJournalIntervalSeconds", this.MinJournalIntervalSeconds)) { this.MinJournalIntervalSeconds = 5; invalid = true; }
+        return invalid;
+    }
+}
 class HCEventConfiguration
 {
     protected ref HCEventConfigurationIO m_IO = new HCEventConfigurationIO;
@@ -63,5 +80,28 @@ class HCEventConfiguration
             return null;
         }
         return settings;
+    }
+
+    HCEventJournalConfig LoadJournalPolicy()
+    {
+        HCOperatorSettingsRegistry.HCLocalPolicyInit();
+        HCEventJournalConfig policy = new HCEventJournalConfig;
+        if (m_IO.Exists("journal.json"))
+        {
+            string text = m_IO.Read("journal.json", 1024);
+            string error;
+            HCEventJournalConfig loaded;
+            if (text == "" || !JsonFileLoader<HCEventJournalConfig>.LoadData(text, loaded, error) || !loaded)
+            {
+                Print("[HC Config] HCEventJournalConfig invalid_json defaults_restored runtime=PENDING");
+            }
+            else
+            {
+                if (loaded.HCNormalize(text)) { Print("[HC Config] HCEventJournalConfig invalid_range defaults_restored runtime=PENDING"); }
+                policy = loaded;
+            }
+        }
+        Print("[HC Config] HCEventJournalConfig min_journal_interval_s=" + policy.MinJournalIntervalSeconds.ToString() + " runtime=PENDING");
+        return policy;
     }
 }

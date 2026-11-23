@@ -45,6 +45,7 @@ class HCEcologyCycle
     protected int m_PathTick = -1;
     protected string m_Names;
     protected bool m_Fault;
+    protected bool m_SaveFailureReported;
     // One retained animal request; each admitted tick performs one native query.
     protected AnimalBase m_PathAnimal;
     protected vector m_PathGoal;
@@ -66,9 +67,10 @@ class HCEcologyCycle
         m_State = HCEcologyCycleStore.Open(m_Save, world, utc);
         if (!m_State) { return false; }
         HCSaveScheduler.HCRegister(m_Save);
-        // Startup barrier: readiness must follow verified cadence promotion.
-        HCSaveScheduler.HCFlush(m_Save);
-        if (!m_Save.Committed || m_Save.Failed) { m_Fault = true; return false; }
+        // Readiness follows verified cadence promotion: a first-ever save is staged (urgent job, driven
+        // by the scheduler and Tick) and Ready() stays false until it commits; a recovered primary is
+        // already committed. A failed staged save turns Healthy() false and is reported once in Tick.
+        if (m_Save.Failed) { m_Fault = true; return false; }
         m_LastUtc = utc;
         m_Names = "CfgWorlds " + GetGame().GetWorldName() + " Names";
         m_NameCount = Math.Min(GetGame().ConfigGetChildrenCount(m_Names), 512);
@@ -116,6 +118,11 @@ class HCEcologyCycle
 
     void Tick()
     {
+        if (m_Save && m_Save.Failed && !m_SaveFailureReported)
+        {
+            m_SaveFailureReported = true;
+            Print("[HC Ecology] cycle=refused reason=startup_save_failed runtime=PENDING");
+        }
         if (!m_Settings || !m_Settings.Enabled || !Healthy()) { return; }
         HCSaveScheduler.HCPumpFallback(m_Save);
         if (!Ready()) { return; }

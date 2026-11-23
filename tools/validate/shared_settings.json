@@ -3282,6 +3282,14 @@
     "owner": "HCMissionBeaconConfig"
   },
   {
+    "key": "Events.MinJournalIntervalSeconds",
+    "type": "int",
+    "default": 5,
+    "min": 0,
+    "max": 60,
+    "owner": "HCEventJournalConfig"
+  },
+  {
     "key": "StoryIndex.ReadLinesPerTick",
     "type": "int",
     "default": 16,
