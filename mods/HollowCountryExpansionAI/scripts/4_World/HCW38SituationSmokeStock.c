@@ -10,8 +10,9 @@ class HCW38SituationSmokeStock : HCXTradeInventoryScan
 {
     override ItemBase HCStep(int limit)
     {
-        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
-        if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
+        eAIBase actor = this.HCActor();
+        if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor)) { HCRetire(); return null; }
+        if (Found && Found.GetHierarchyRootPlayer() == actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
         while (Frames.Count() > 0 && Visited < limit)
@@ -25,7 +26,7 @@ class HCW38SituationSmokeStock : HCXTradeInventoryScan
                 frame.Checked = true;
                 Visited++;
                 SmokeGrenadeBase candidate = SmokeGrenadeBase.Cast(entity);
-                if (candidate && !candidate.IsRuined() && candidate.GetHierarchyRootPlayer() == Actor) { Found = candidate; return Found; }
+                if (candidate && !candidate.IsRuined() && candidate.GetHierarchyRootPlayer() == actor) { Found = candidate; return Found; }
                 continue;
             }
             EntityAI child;

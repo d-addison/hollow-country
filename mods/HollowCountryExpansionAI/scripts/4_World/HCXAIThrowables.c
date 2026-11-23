@@ -61,7 +61,8 @@ class HCXTacticsScan : HCXTradeInventoryScan
     protected bool HCMatches(EntityAI entity)
     {
         ItemBase candidate = ItemBase.Cast(entity);
-        if (!candidate || candidate.IsRuined() || candidate.GetHierarchyRootPlayer() != Actor) { return false; }
+        eAIBase actor = this.HCActor();
+        if (!actor || !candidate || candidate.IsRuined() || candidate.GetHierarchyRootPlayer() != actor) { return false; }
         if (Mode == 1)
         {
             SmokeGrenadeBase smoke = SmokeGrenadeBase.Cast(entity);
@@ -73,8 +74,9 @@ class HCXTacticsScan : HCXTradeInventoryScan
 
     override ItemBase HCStep(int limit)
     {
-        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
-        if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
+        eAIBase actor = this.HCActor();
+        if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor)) { HCRetire(); return null; }
+        if (Found && Found.GetHierarchyRootPlayer() == actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
         while (Frames.Count() > 0 && Visited < limit)
