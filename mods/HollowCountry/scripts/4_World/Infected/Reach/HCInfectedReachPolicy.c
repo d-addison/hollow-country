@@ -160,9 +160,12 @@ class HCInfectedReachPolicy
         return attempts >= retireAttempts && onTop == 0;
     }
 
-    static bool Unreachable(float vertical, float horizontal, bool offNavmesh, float sinceHit, float sinceAdmit)
+    // O4 (2026-11-22): the horizontal admission window is the ActorReach.AdmitHorizontalMetres
+    // setting (default 6 m, was 4). It widens back-off and the give-up hand-off only: the strike
+    // reach (1.7 m) and the vault band (InfectedClimb.MaxHorizontalMetres) are unchanged.
+    static bool Unreachable(float vertical, float horizontal, float maxHorizontal, bool offNavmesh, float sinceHit, float sinceAdmit)
     {
-        if (!offNavmesh || horizontal > 4)
+        if (!offNavmesh || horizontal > maxHorizontal)
         {
             return false;
         }

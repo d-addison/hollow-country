@@ -2602,6 +2602,14 @@
     "owner": "GCActorsReachConfig"
   },
   {
+    "key": "ActorReach.AdmitHorizontalMetres",
+    "type": "float",
+    "default": 6,
+    "min": 2,
+    "max": 6,
+    "owner": "GCActorsReachConfig"
+  },
+  {
     "key": "BodyStories.MaxBodies",
     "type": "int",
     "default": 3,

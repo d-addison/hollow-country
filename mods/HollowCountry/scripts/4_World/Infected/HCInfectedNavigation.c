@@ -706,6 +706,7 @@ class HCNativeInfectedPack
         {
             HCNavSpots.HCNote(position, now);
             HCModuleReadiness.HCUse("Infected", "stuck_strike");
+            HCNavHavenCensus.OnGiveUp(member, HCNavHavenCensus.HCNativeTarget(member), RouteEnd, "stuck_strike");
             if (HCNavSpots.HCIsTrap(position, now) && track.Strikes < 3)
             {
                 // A known trap: the ladder already failed here, so the member is dropped at once.

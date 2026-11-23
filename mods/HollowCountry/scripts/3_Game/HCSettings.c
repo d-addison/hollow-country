@@ -412,6 +412,7 @@ class HCOperatorSettingsRegistry
         HCAdd("ActorDefence.MissHoldMs", "int", 90000, 1, 90000, "GCActorsDefenceConfig");
         HCAdd("ActorReach.WorkSliceMilliseconds", "float", 4, 0.1, 4, "GCActorsReachConfig");
         HCAdd("ActorReach.DoorNavmeshCost", "float", 1000, 1, 1000, "GCActorsReachConfig");
+        HCAdd("ActorReach.AdmitHorizontalMetres", "float", 6, 2, 6, "GCActorsReachConfig");
         HCAdd("BodyStories.MaxBodies", "int", 3, 1, 3, "HCBodyStoryConfig");
         HCAdd("BodyStories.MaxActiveTraces", "int", 10, 1, 10, "HCBodyStoryConfig");
         HCAdd("BodyStories.MaxSceneTraces", "int", 3, 1, 3, "HCBodyStoryConfig");

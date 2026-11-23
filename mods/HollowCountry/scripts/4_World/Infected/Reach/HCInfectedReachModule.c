@@ -22,6 +22,7 @@ class GCActorsReachConfig
     float SummarySeconds = 60;
     float WorkSliceMilliseconds = 4;
     float DoorNavmeshCost = 1000;
+    float AdmitHorizontalMetres = 6;
 
     protected string m_LastRefusal;
     void HCRefuse(string reason)
@@ -66,6 +67,7 @@ class GCActorsReachConfig
         if (HCJsonFields.Has(text, "SummarySeconds") && HCValid("SummarySeconds", decoded.SummarySeconds, 1, 600)) { SummarySeconds = decoded.SummarySeconds; }
         if (HCJsonFields.Has(text, "WorkSliceMilliseconds") && HCValid("WorkSliceMilliseconds", decoded.WorkSliceMilliseconds, 0.1, 4)) { WorkSliceMilliseconds = decoded.WorkSliceMilliseconds; }
         if (HCJsonFields.Has(text, "DoorNavmeshCost") && HCValid("DoorNavmeshCost", decoded.DoorNavmeshCost, 1, 1000)) { DoorNavmeshCost = decoded.DoorNavmeshCost; }
+        if (HCJsonFields.Has(text, "AdmitHorizontalMetres") && HCValid("AdmitHorizontalMetres", decoded.AdmitHorizontalMetres, 2, 6)) { AdmitHorizontalMetres = decoded.AdmitHorizontalMetres; }
         if (ContextSeconds > MaxLifetimeSeconds) { ContextSeconds = MaxLifetimeSeconds; }
         if (EvaluationsPerTick > Slots) { EvaluationsPerTick = Slots; }
         if (VehicleMemorySeconds < VehicleHitSeconds) { VehicleMemorySeconds = VehicleHitSeconds; }
@@ -73,7 +75,7 @@ class GCActorsReachConfig
 
     void HCLog()
     {
-        Print("[HC Reach] effective WorkSliceMilliseconds=" + WorkSliceMilliseconds.ToString() + " DoorNavmeshCost=" + DoorNavmeshCost.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective WorkSliceMilliseconds=" + WorkSliceMilliseconds.ToString() + " DoorNavmeshCost=" + DoorNavmeshCost.ToString() + " AdmitHorizontalMetres=" + AdmitHorizontalMetres.ToString() + " runtime=PENDING");
         Print("[HC Reach] effective Enabled=" + HCV2Admission.OnOff(Enabled) + " runtime=PENDING");
         Print("[HC Reach] effective" + " Slots=" + Slots.ToString() + " EvaluationsPerTick=" + EvaluationsPerTick.ToString() + " Vehicles=" + Vehicles.ToString() + " runtime=PENDING");
         Print("[HC Reach] effective" + " ContextSeconds=" + ContextSeconds.ToString() + " MaxLifetimeSeconds=" + MaxLifetimeSeconds.ToString() + " InitialVaultDelaySeconds=" + InitialVaultDelaySeconds.ToString() + " runtime=PENDING");
@@ -282,6 +284,13 @@ class HCInfectedReachModule : HCModule
 
     bool ClimbActive() { return m_Running && m_Climb && m_Climb.Enabled && !m_ClimbRetired; }
 
+    // Horizontal admission window (O4, default 6 m); 4 m until the module has loaded its limits.
+    float AdmitHorizontal()
+    {
+        if (!m_Limits) { return 4; }
+        return m_Limits.AdmitHorizontalMetres;
+    }
+
     // Lowest target elevation worth a slot: reach band or climb band.
     float ProbeMinHeight()
     {
@@ -442,7 +451,7 @@ class HCInfectedReachModule : HCModule
 
         if (state.Phase == HCInfectedReachPolicy.PhaseNone() && now >= state.BackoffAfter)
         {
-            if (HCInfectedReachPolicy.Unreachable(vertical, horizontal, state.OffNavmesh, now - state.LastReachHit, now - state.Admitted))
+            if (HCInfectedReachPolicy.Unreachable(vertical, horizontal, m_Limits.AdmitHorizontalMetres, state.OffNavmesh, now - state.LastReachHit, now - state.Admitted))
             {
                 state.Phase = HCInfectedReachPolicy.PhaseRetreat();
                 state.PhaseSince = now;
@@ -450,6 +459,7 @@ class HCInfectedReachModule : HCModule
                 if (Math.RandomInt(0, 2) == 0) { state.Side = -1; }
                 m_Backoffs++;
                 HCModuleReadiness.HCUse("InfectedReach", "backoff_started");
+                HCNavHavenCensus.OnGiveUp(infected, target, aim, "backoff");
                 if (!m_FirstBackoff)
                 {
                     m_FirstBackoff = true;
