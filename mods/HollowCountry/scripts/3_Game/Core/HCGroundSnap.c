@@ -64,13 +64,25 @@ class HCGroundPlaceStats
     int Resnapped;
     int Refused;
     int RefusedKept;
+    int RefusedSlope;
+    int RefusedHeight;
     int Legacy;
     float MaxCorrection;
     float MaxSpread;
+    protected int m_RemovalSamples;
+
+    void ReportRemoval(string typeName, int layerRow, string reason)
+    {
+        if (m_RemovalSamples >= 8) { return; }
+        m_RemovalSamples++;
+        string line = "[HC Ground] refused_sample type=" + typeName;
+        line += " layer_row=" + layerRow.ToString() + " removed=1 reason=" + reason;
+        Print("" + line);
+    }
 
     // ok + resnapped + refused = placed. refused_kept is the part of refused that carries CE loot and
     // stays (a missing building would leave its loot in the air); legacy counts props placed by the
-    // plain snap because their layer has no ground sidecar.
+    // plain snap because their layer has no ground sidecar. Slope and height counts may overlap.
     void Summary(string source)
     {
         string line = "[HC Ground] placement source=" + source + " layers=" + Layers.ToString();
@@ -78,6 +90,8 @@ class HCGroundPlaceStats
         line += " refused=" + Refused.ToString() + " refused_kept=" + RefusedKept.ToString();
         line += " legacy=" + Legacy.ToString() + " max_correction_m=" + MaxCorrection.ToString();
         line += " max_spread_m=" + MaxSpread.ToString();
+        line += " refused_slope=" + RefusedSlope.ToString() + " refused_height=" + RefusedHeight.ToString();
+        line += " removal_samples=" + m_RemovalSamples.ToString();
         Print("" + line);
     }
 }
@@ -243,8 +257,9 @@ class HCGroundSnap
     // hovers and the uphill side sinks by at most the slope (never beyond SlopeAllowance + embed).
     // Beyond that, or when the correction is out of range, a prop without CE loot is refused (deleted);
     // one with loot stays (PLACE_KEPT) at the lowest contact, because its loot is created at the authored group.
-    static int Place(Object placedObject, float pivotRel, float embed, bool carriesLoot, HCGroundPlaceStats stats)
+    static int Place(Object placedObject, float pivotRel, float embed, bool carriesLoot, HCGroundPlaceStats stats, out string refusalReason)
     {
+        refusalReason = "";
         float lowGround;
         float highGround;
         float extent;
@@ -257,12 +272,18 @@ class HCGroundSnap
         float correction = targetY - origin[1];
         stats.Placed++;
         bool inRange = Math.AbsFloat(correction) <= PLACE_MAX_CORRECTION;
+        bool slopeExceeded = spread > SlopeAllowance(extent) + embed;
         bool kept = false;
-        if (spread > SlopeAllowance(extent) + embed || !inRange)
+        if (slopeExceeded || !inRange)
         {
             stats.Refused++;
+            if (slopeExceeded) { stats.RefusedSlope++; }
+            if (!inRange) { stats.RefusedHeight++; }
             if (!carriesLoot)
             {
+                if (!slopeExceeded) { refusalReason = "height"; }
+                else if (inRange) { refusalReason = "slope"; }
+                else { refusalReason = "slope_and_height"; }
                 GetGame().ObjectDelete(placedObject);
                 return PLACE_REFUSED;
             }
