@@ -62,7 +62,8 @@
     "Police": 400,
     "Prison": 400,
     "School": 160,
-    "Town": 160
+    "Town": 160,
+    "Village": 4
   },
   "CategoryMultiplier": {
     "containers": 2.0,

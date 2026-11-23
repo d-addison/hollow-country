@@ -146,3 +146,26 @@ class SlotPressure(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class VillageItems(unittest.TestCase):
+    def test_a_house_holds_its_slots_times_the_village_fill(self):
+        """SYNTHETIC mission: 2 houses of 10 slots plus one 4-slot wreck shared with Industrial; fill = nominal / slots."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'db').mkdir()
+            (root / 'cfgeconomycore.xml').write_text('<economycore/>')
+            (root / 'db/types.xml').write_text('<types><type name="A"><nominal>11</nominal><usage name="Village"/></type></types>')
+            points = ''.join('<point pos="0 0 0"/>' for _ in range(10))
+            (root / 'mapgroupproto.xml').write_text(
+                '<prototype><defaults><default name="container" lootmax="10"/></defaults>'
+                f'<group name="Land_House_X" lootmax="10"><usage name="Village"/><container name="c">{points}</container></group>'
+                '<group name="Land_Wreck_Y" lootmax="4"><usage name="Village"/><usage name="Industrial"/>'
+                f'<container name="w">{points[:4 * 20]}</container></group></prototype>')
+            (root / 'mapgrouppos.xml').write_text('<map><group name="Land_House_X" pos="0 0 0"/><group name="Land_House_X" pos="1 0 0"/>'
+                                                  '<group name="Land_Wreck_Y" pos="2 0 0"/></map>')
+            result = pressure.village_items(root)
+        self.assertEqual((result['nominal'], result['slots']), (11, 22))
+        self.assertEqual(result['fill'], 0.5)
+        self.assertEqual(result['kinds']['house'], {'groups': 1, 'buildings': 2, 'median': 5.0, 'p90': 5.0})
+        self.assertEqual(result['kinds']['wreck']['median'], 1.0)

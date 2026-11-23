@@ -288,8 +288,9 @@ def regenerate(contract, values, scratch):
         return {contract.outputs[0]: out.read_bytes()}
     if name == 'loot_slack':
         # The table is read back by the plan that rebuilds it: one staged pass from the committed table must
-        # reproduce it (a fixpoint), else the capacity or the types moved and the table is stale.
-        return {contract.outputs[0]: module.generate(require_dir(source, 'stock mission'))}
+        # settle on it (a fixpoint up to the balance's rounding jitter), else the capacity or the types moved and the
+        # table is stale.
+        return {contract.outputs[0]: module.reproduce(require_dir(source, 'stock mission'))}
     if name == 'variety_packs':
         return module.generate(values['addons'], values['workshop'], source)
     if name == 'inventory_sizes':

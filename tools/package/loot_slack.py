@@ -12,7 +12,8 @@ from a staged final mission and reads it back:
 The table is a derived, optimistic offline bound that the plan it feeds reads back, so the committed table is correct
 only when it is a fixpoint: staging the stock mission with the travel layer, planning with the committed table and
 the shipped points, adding the optional gun packs (scaled by their allowlists), and rebuilding the table from that
-result must give the same bytes. ``--check`` runs that single pass, so any change to the capacity settings, the points
+result must give the same table (byte for byte, or within TOLERANCE units per bucket: the balance truncates integers,
+so a jitter of a few units can make two tables alternate). ``--check`` runs that single pass, so any change to the capacity settings, the points
 overlays, the types rows or the balance code that moves a bucket fails it. Nothing here establishes DayZ behaviour.
 """
 import argparse
@@ -29,6 +30,11 @@ TABLE = 'tools/package/loot_slack.json'
 PACKS = ('snafu_allowlist.json', 'tactical_flava_allowlist.json')
 PACK_FOLDER = 'hc-packs-scratch'
 MAX_ROUNDS = 6
+# Pass 2 of the balance hands out nominal with integer truncation, so a bucket's slack can jitter by a few units
+# between two staged passes (round 8: slack +-2 and nominal +-2 in a 2-cycle over 261 buckets, 1.8M total slack).
+# A table whose every bucket is within this many units of its own regeneration, with identical bucket structure,
+# routes, class map and deficit, counts as settled; a capacity or types change moves buckets by hundreds.
+TOLERANCE = 8
 
 
 def build(mission):
@@ -93,6 +99,37 @@ def generate(source):
         return encode(build(stage(Path(source), scratch)))
 
 
+def settled(committed, fresh):
+    """True when the fresh table is the committed one up to TOLERANCE units of slack/nominal/unassigned per bucket."""
+    if committed == fresh:
+        return True
+    if committed is None:
+        return False
+    try:
+        a, b = json.loads(committed), json.loads(fresh)
+        if {k: v for k, v in a.items() if k != 'buckets'} != {k: v for k, v in b.items() if k != 'buckets'}:
+            return False
+        if a['buckets'].keys() != b['buckets'].keys():
+            return False
+        for key, row in a['buckets'].items():
+            other = b['buckets'][key]
+            if row.keys() != other.keys() or row['route'] != other['route']:
+                return False
+            if any(abs(row[f] - other[f]) > TOLERANCE for f in ('slack', 'nominal', 'unassigned')):
+                return False
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+    return True
+
+
+def reproduce(source):
+    """The committed table's bytes when one staged pass settles on it, else the fresh bytes (the byte-verified output)."""
+    fresh = generate(source)
+    table = ROOT / TABLE
+    current = table.read_bytes() if table.is_file() else None
+    return current if settled(current, fresh) else fresh
+
+
 def load(root=None):
     """The committed table as {'bucket': {id: slack}, 'class': {lowercase class: id}}, or None when it is absent."""
     path = Path(root or ROOT) / TABLE
@@ -124,13 +161,13 @@ def main(argv=None):
         text = generate(args.source)
         current = table.read_bytes() if table.is_file() else None
         if args.check:
-            if current != text:
+            if not settled(current, text):
                 print('FAIL %s is not a fixpoint of the staged plan; run --source STOCK --write' % TABLE)
                 return 1
             print('PASS %s matches the staged plan' % TABLE)
         elif args.write:
             for _ in range(MAX_ROUNDS):
-                if table.is_file() and table.read_bytes() == text:
+                if settled(table.read_bytes() if table.is_file() else None, text):
                     break
                 table.write_bytes(text)
                 text = generate(args.source)

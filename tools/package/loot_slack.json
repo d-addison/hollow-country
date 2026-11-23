@@ -10,7 +10,7 @@
    "route": "Coast,Hunting,Military / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "1": {
-   "slack": 4718,
+   "slack": 4698,
    "nominal": 52,
    "unassigned": 0,
    "route": "Coast,Industrial / Tier1,Tier2 / clothes / "
@@ -22,7 +22,7 @@
    "route": "Coast,Industrial / Tier2,Tier3 / clothes / "
   },
   "3": {
-   "slack": 48283,
+   "slack": 35716,
    "nominal": 180,
    "unassigned": 0,
    "route": "Coast,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
@@ -46,31 +46,31 @@
    "route": "Farm / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "7": {
-   "slack": 932,
+   "slack": 922,
    "nominal": 5,
    "unassigned": 0,
    "route": "Farm,Hunting,Military / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "8": {
-   "slack": 32768,
+   "slack": 24578,
    "nominal": 111,
    "unassigned": 0,
    "route": "Farm,Hunting,Village / Tier2,Tier3,Tier4 / clothes / "
   },
   "9": {
-   "slack": 4613,
+   "slack": 4593,
    "nominal": 70,
    "unassigned": 0,
    "route": "Farm,Industrial / Tier1,Tier2 / clothes / "
   },
   "10": {
-   "slack": 6680,
+   "slack": 6660,
    "nominal": 84,
    "unassigned": 0,
    "route": "Farm,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "11": {
-   "slack": 1751,
+   "slack": 1758,
    "nominal": 21,
    "unassigned": 0,
    "route": "Farm,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
@@ -94,13 +94,13 @@
    "route": "Farm,Industrial / Tier3,Tier4 / clothes / "
   },
   "15": {
-   "slack": 25920,
+   "slack": 24699,
    "nominal": 33,
    "unassigned": 0,
    "route": "Farm,Industrial,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "16": {
-   "slack": 22013,
+   "slack": 20938,
    "nominal": 140,
    "unassigned": 0,
    "route": "Farm,Industrial,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / floor"
@@ -112,14 +112,14 @@
    "route": "Firefighter / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "18": {
-   "slack": 155,
+   "slack": 154,
    "nominal": 71,
    "unassigned": 0,
    "route": "Firefighter,Medic / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "19": {
-   "slack": 155,
-   "nominal": 105,
+   "slack": 154,
+   "nominal": 106,
    "unassigned": 0,
    "route": "Firefighter,Medic / Tier1,Tier2,Tier3,Tier4,Unique / clothes / floor"
   },
@@ -130,8 +130,8 @@
    "route": "Firefighter,Medic / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "21": {
-   "slack": 932,
-   "nominal": 129,
+   "slack": 922,
+   "nominal": 133,
    "unassigned": 0,
    "route": "Hunting / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
@@ -142,8 +142,8 @@
    "route": "Hunting / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "23": {
-   "slack": 844,
-   "nominal": 106,
+   "slack": 834,
+   "nominal": 110,
    "unassigned": 0,
    "route": "Hunting / Tier2,Tier3,Tier4 / clothes / "
   },
@@ -154,14 +154,14 @@
    "route": "Hunting / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "25": {
-   "slack": 466,
+   "slack": 456,
    "nominal": 129,
    "unassigned": 0,
    "route": "Hunting / Tier3,Tier4 / clothes / "
   },
   "26": {
-   "slack": 932,
-   "nominal": 64,
+   "slack": 922,
+   "nominal": 66,
    "unassigned": 0,
    "route": "Hunting,Military / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
@@ -172,25 +172,25 @@
    "route": "Hunting,Military / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "28": {
-   "slack": 844,
+   "slack": 834,
    "nominal": 44,
    "unassigned": 0,
    "route": "Hunting,Military / Tier2,Tier3,Tier4 / clothes / "
   },
   "29": {
-   "slack": 28999,
+   "slack": 21738,
    "nominal": 6,
    "unassigned": 0,
    "route": "Hunting,Town,Village / Tier2,Tier3 / clothes / "
   },
   "30": {
-   "slack": 6394,
-   "nominal": 113,
+   "slack": 6374,
+   "nominal": 127,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "31": {
-   "slack": 1751,
+   "slack": 1758,
    "nominal": 132,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
@@ -202,79 +202,79 @@
    "route": "Industrial / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "33": {
-   "slack": 6549,
-   "nominal": 114,
+   "slack": 6528,
+   "nominal": 129,
    "unassigned": 0,
    "route": "Industrial,Medic / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "34": {
-   "slack": 17825,
+   "slack": 17046,
    "nominal": 15,
    "unassigned": 0,
    "route": "Industrial,Military,Town,Village / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "35": {
-   "slack": 25920,
+   "slack": 24699,
    "nominal": 96,
    "unassigned": 0,
    "route": "Industrial,Office,School,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "36": {
-   "slack": 9315,
-   "nominal": 118,
+   "slack": 8910,
+   "nominal": 136,
    "unassigned": 0,
    "route": "Industrial,Police,Town,Village / Tier3,Tier4 / clothes / shelves"
   },
   "37": {
    "slack": 3400,
-   "nominal": 109,
+   "nominal": 116,
    "unassigned": 0,
    "route": "Industrial,Prison / Tier2,Tier3 / clothes / "
   },
   "38": {
-   "slack": 15667,
+   "slack": 11277,
    "nominal": 24,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1 / clothes / "
   },
   "39": {
-   "slack": 8095,
+   "slack": 7653,
    "nominal": 55,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1 / clothes / shelves"
   },
   "40": {
-   "slack": 31107,
+   "slack": 22712,
    "nominal": 12,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1,Tier2 / clothes / "
   },
   "41": {
-   "slack": 16605,
-   "nominal": 202,
+   "slack": 15789,
+   "nominal": 232,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1,Tier2 / clothes / shelves"
   },
   "42": {
-   "slack": 15772,
+   "slack": 15078,
    "nominal": 19,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier2,Tier3 / clothes / shelves"
   },
   "43": {
-   "slack": 32338,
+   "slack": 24161,
    "nominal": 12,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier2,Tier3,Tier4 / clothes / "
   },
   "44": {
-   "slack": 17825,
+   "slack": 17046,
    "nominal": 23,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "45": {
-   "slack": 155,
+   "slack": 154,
    "nominal": 431,
    "unassigned": 0,
    "route": "Medic / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
@@ -353,12 +353,12 @@
   },
   "58": {
    "slack": 1025,
-   "nominal": 54,
+   "nominal": 56,
    "unassigned": 0,
    "route": "Military,Police,Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "59": {
-   "slack": 32328,
+   "slack": 24151,
    "nominal": 7,
    "unassigned": 0,
    "route": "Military,Police,Town,Village / Tier2,Tier3,Tier4 / clothes / "
@@ -382,7 +382,7 @@
    "route": "Police / Tier2,Tier3,Tier4 / clothes / "
   },
   "63": {
-   "slack": 1650,
+   "slack": 1653,
    "nominal": 24,
    "unassigned": 0,
    "route": "Police,Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
@@ -394,20 +394,20 @@
    "route": "Prison / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "65": {
-   "slack": 1889,
-   "nominal": 152,
+   "slack": 1892,
+   "nominal": 157,
    "unassigned": 0,
    "route": "School,Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "66": {
-   "slack": 864,
+   "slack": 867,
    "nominal": 258,
    "unassigned": 0,
    "route": "School,Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / floor"
   },
   "67": {
-   "slack": 47911,
-   "nominal": 3576,
+   "slack": 35344,
+   "nominal": 3536,
    "unassigned": 0,
    "route": "School,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
@@ -418,8 +418,8 @@
    "route": "Town / Tier1 / clothes / "
   },
   "69": {
-   "slack": 767,
-   "nominal": 479,
+   "slack": 770,
+   "nominal": 480,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2 / clothes / "
   },
@@ -430,25 +430,25 @@
    "route": "Town / Tier1,Tier2 / clothes / shelves"
   },
   "71": {
-   "slack": 1603,
-   "nominal": 336,
+   "slack": 1606,
+   "nominal": 340,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "72": {
-   "slack": 578,
-   "nominal": 305,
+   "slack": 581,
+   "nominal": 308,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / floor"
   },
   "73": {
    "slack": 1025,
-   "nominal": 815,
+   "nominal": 824,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / clothes / shelves"
   },
   "74": {
-   "slack": 1303,
+   "slack": 1306,
    "nominal": 42,
    "unassigned": 0,
    "route": "Town / Tier2,Tier3 / clothes / "
@@ -460,73 +460,73 @@
    "route": "Town / Tier2,Tier3,Tier4 / clothes / shelves"
   },
   "76": {
-   "slack": 15631,
+   "slack": 11241,
    "nominal": 207,
    "unassigned": 0,
    "route": "Town,Village / Tier1 / clothes / "
   },
   "77": {
-   "slack": 31059,
-   "nominal": 3033,
+   "slack": 22664,
+   "nominal": 2998,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2 / clothes / "
   },
   "78": {
-   "slack": 47911,
-   "nominal": 4676,
+   "slack": 35344,
+   "nominal": 4639,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "79": {
-   "slack": 21991,
+   "slack": 20919,
    "nominal": 540,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / floor"
   },
   "80": {
-   "slack": 15429,
+   "slack": 11424,
    "nominal": 18,
    "unassigned": 0,
    "route": "Town,Village / Tier2 / clothes / "
   },
   "81": {
-   "slack": 28481,
-   "nominal": 881,
+   "slack": 21230,
+   "nominal": 879,
    "unassigned": 0,
    "route": "Town,Village / Tier2,Tier3 / clothes / "
   },
   "82": {
-   "slack": 32281,
-   "nominal": 842,
+   "slack": 24104,
+   "nominal": 841,
    "unassigned": 0,
    "route": "Town,Village / Tier2,Tier3,Tier4 / clothes / "
   },
   "83": {
-   "slack": 16852,
+   "slack": 12680,
    "nominal": 391,
    "unassigned": 0,
    "route": "Town,Village / Tier3,Tier4 / clothes / "
   },
   "84": {
-   "slack": 15595,
+   "slack": 11205,
    "nominal": 66,
    "unassigned": 0,
    "route": "Village / Tier1 / clothes / "
   },
   "85": {
-   "slack": 47840,
-   "nominal": 687,
+   "slack": 35270,
+   "nominal": 683,
    "unassigned": 0,
    "route": "Village / Tier1,Tier2,Tier3,Tier4,Unique / clothes / "
   },
   "86": {
-   "slack": 32246,
+   "slack": 24066,
    "nominal": 112,
    "unassigned": 0,
    "route": "Village / Tier2,Tier3,Tier4 / clothes / "
   },
   "87": {
-   "slack": 17825,
+   "slack": 17046,
    "nominal": 24,
    "unassigned": 0,
    "route": "Village / Tier2,Tier3,Tier4 / clothes / shelves"
@@ -544,7 +544,7 @@
    "route": "Coast / Tier2,Tier3,Tier4 / containers / "
   },
   "90": {
-   "slack": 25436,
+   "slack": 24281,
    "nominal": 179,
    "unassigned": 0,
    "route": "Farm,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
@@ -556,25 +556,25 @@
    "route": "Hunting / Tier1,Tier2,Tier3 / containers / shelves"
   },
   "92": {
-   "slack": 844,
+   "slack": 834,
    "nominal": 71,
    "unassigned": 0,
    "route": "Hunting / Tier2,Tier3,Tier4 / containers / "
   },
   "93": {
-   "slack": 47272,
+   "slack": 35250,
    "nominal": 14,
    "unassigned": 0,
    "route": "Hunting,Village / Tier1,Tier2,Tier3,Tier4,Unique / containers / "
   },
   "94": {
-   "slack": 15546,
+   "slack": 15526,
    "nominal": 68,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / containers / "
   },
   "95": {
-   "slack": 3560,
+   "slack": 3576,
    "nominal": 417,
    "unassigned": 0,
    "route": "Industrial,Town / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
@@ -586,7 +586,7 @@
    "route": "Medic / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
   },
   "97": {
-   "slack": 127,
+   "slack": 126,
    "nominal": 68,
    "unassigned": 0,
    "route": "Medic / Tier2,Tier3 / containers / "
@@ -646,67 +646,67 @@
    "route": "Military / Tier4 / containers / "
   },
   "107": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 144,
    "unassigned": 0,
    "route": "School,Town / Tier1,Tier2 / containers / shelves"
   },
   "108": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 42,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2 / containers / shelves"
   },
   "109": {
-   "slack": 1882,
+   "slack": 1894,
    "nominal": 60,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / containers / "
   },
   "110": {
-   "slack": 1454,
+   "slack": 1463,
    "nominal": 49,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
   },
   "111": {
-   "slack": 47162,
+   "slack": 35162,
    "nominal": 34,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / containers / "
   },
   "112": {
-   "slack": 25436,
+   "slack": 24281,
    "nominal": 150,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
   },
   "113": {
-   "slack": 25007,
+   "slack": 23843,
    "nominal": 41,
    "unassigned": 0,
    "route": "Village / Tier1,Tier2,Tier3,Tier4,Unique / containers / shelves"
   },
   "114": {
-   "slack": 14914,
+   "slack": 11075,
    "nominal": 21,
    "unassigned": 0,
    "route": "Village / Tier2 / containers / "
   },
   "115": {
-   "slack": 27589,
+   "slack": 20622,
    "nominal": 110,
    "unassigned": 0,
    "route": "Village / Tier2,Tier3 / containers / "
   },
   "116": {
-   "slack": 31266,
+   "slack": 23415,
    "nominal": 51,
    "unassigned": 0,
    "route": "Village / Tier2,Tier3,Tier4 / containers / "
   },
   "117": {
-   "slack": 16352,
+   "slack": 12340,
    "nominal": 60,
    "unassigned": 0,
    "route": "Village / Tier3,Tier4 / containers / "
@@ -754,25 +754,25 @@
    "route": "Farm / Tier1,Tier2,Tier3,Tier4,Unique / food / shelves"
   },
   "125": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "Farm,Lunapark,School,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "126": {
-   "slack": 6522,
+   "slack": 6227,
    "nominal": 84,
    "unassigned": 0,
    "route": "Farm,Town,Village / Tier1 / food / shelves"
   },
   "127": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 84,
    "unassigned": 0,
    "route": "Farm,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "128": {
-   "slack": 18741,
+   "slack": 17975,
    "nominal": 303,
    "unassigned": 0,
    "route": "Farm,Village / Tier1,Tier2,Tier3 / food / shelves"
@@ -790,7 +790,7 @@
    "route": "Hunting,Lunapark,Office,School / Tier1,Tier2,Tier3,Tier4,Unique / food / shelves"
   },
   "131": {
-   "slack": 18741,
+   "slack": 17975,
    "nominal": 63,
    "unassigned": 0,
    "route": "Hunting,Lunapark,Office,School,Village / Tier1,Tier2,Tier3 / food / shelves"
@@ -802,25 +802,25 @@
    "route": "Hunting,Military / Tier1,Tier2,Tier3,Tier4,Unique / food / shelves"
   },
   "133": {
-   "slack": 342,
+   "slack": 351,
    "nominal": 97,
    "unassigned": 0,
    "route": "Lunapark,School,Town / Tier1 / food / shelves"
   },
   "134": {
-   "slack": 6522,
+   "slack": 6227,
    "nominal": 194,
    "unassigned": 0,
    "route": "Lunapark,School,Town,Village / Tier1 / food / shelves"
   },
   "135": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "Lunapark,School,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "136": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "Lunapark,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
@@ -832,85 +832,85 @@
    "route": "Military / Tier1,Tier2,Tier3,Tier4,Unique / food / shelves"
   },
   "138": {
-   "slack": 20804,
+   "slack": 19983,
    "nominal": 185,
    "unassigned": 0,
    "route": "Office,Prison,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / food / shelves"
   },
   "139": {
-   "slack": 342,
+   "slack": 351,
    "nominal": 97,
    "unassigned": 0,
    "route": "Office,School,Town / Tier1 / food / shelves"
   },
   "140": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 84,
    "unassigned": 0,
    "route": "Office,School,Town / Tier1,Tier2 / food / shelves"
   },
   "141": {
-   "slack": 6522,
+   "slack": 6227,
    "nominal": 194,
    "unassigned": 0,
    "route": "Office,School,Town,Village / Tier1 / food / shelves"
   },
   "142": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "Office,School,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "143": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 84,
    "unassigned": 0,
    "route": "Office,Town / Tier1,Tier2 / food / shelves"
   },
   "144": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "Office,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "145": {
-   "slack": 342,
+   "slack": 351,
    "nominal": 97,
    "unassigned": 0,
    "route": "School,Town / Tier1 / food / shelves"
   },
   "146": {
-   "slack": 1398,
+   "slack": 1407,
    "nominal": 63,
    "unassigned": 0,
    "route": "School,Town / Tier1,Tier2,Tier3 / food / shelves"
   },
   "147": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 63,
    "unassigned": 0,
    "route": "School,Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "148": {
-   "slack": 12929,
+   "slack": 12382,
    "nominal": 84,
    "unassigned": 0,
    "route": "School,Village / Tier1,Tier2 / food / shelves"
   },
   "149": {
-   "slack": 13323,
+   "slack": 12785,
    "nominal": 84,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2 / food / shelves"
   },
   "150": {
-   "slack": 19145,
+   "slack": 18388,
    "nominal": 483,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3 / food / shelves"
   },
   "151": {
-   "slack": 12929,
+   "slack": 12382,
    "nominal": 84,
    "unassigned": 0,
    "route": "Village / Tier1,Tier2 / food / shelves"
@@ -952,19 +952,19 @@
    "route": "Coast / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "158": {
-   "slack": 16894,
+   "slack": 16864,
    "nominal": 78,
    "unassigned": 0,
    "route": "Coast,Farm,Hunting,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
   },
   "159": {
-   "slack": 2106,
+   "slack": 2113,
    "nominal": 175,
    "unassigned": 0,
    "route": "Coast,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "160": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 146,
    "unassigned": 0,
    "route": "Coast,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1000,25 +1000,25 @@
    "route": "Farm,Hunting / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "166": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 366,
    "unassigned": 0,
    "route": "Farm,Hunting,Industrial,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "167": {
-   "slack": 15620,
+   "slack": 14841,
    "nominal": 720,
    "unassigned": 0,
    "route": "Farm,Hunting,Industrial,Town,Village / Tier2,Tier3,Tier4 / tools / shelves"
   },
   "168": {
-   "slack": 13770,
+   "slack": 13743,
    "nominal": 222,
    "unassigned": 0,
    "route": "Farm,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / floor"
   },
   "169": {
-   "slack": 2106,
+   "slack": 2113,
    "nominal": 3238,
    "unassigned": 0,
    "route": "Farm,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1036,49 +1036,49 @@
    "route": "Farm,Industrial / Tier2,Tier3,Tier4 / tools / shelves"
   },
   "172": {
-   "slack": 13770,
+   "slack": 13743,
    "nominal": 262,
    "unassigned": 0,
    "route": "Farm,Industrial,Lunapark / Tier1,Tier2,Tier3,Tier4,Unique / tools / floor"
   },
   "173": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 366,
    "unassigned": 0,
    "route": "Farm,Industrial,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "174": {
-   "slack": 22748,
+   "slack": 21584,
    "nominal": 5252,
    "unassigned": 0,
    "route": "Farm,Industrial,Village / Tier1,Tier2,Tier3,Tier4 / tools / shelves"
   },
   "175": {
-   "slack": 22748,
+   "slack": 21584,
    "nominal": 265,
    "unassigned": 0,
    "route": "Farm,Industrial,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "176": {
-   "slack": 15440,
+   "slack": 14661,
    "nominal": 77,
    "unassigned": 0,
    "route": "Farm,Industrial,Village / Tier2,Tier3,Tier4 / tools / shelves"
   },
   "177": {
-   "slack": 53879,
-   "nominal": 428,
+   "slack": 43383,
+   "nominal": 423,
    "unassigned": 0,
    "route": "Farm,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
   },
   "178": {
-   "slack": 53379,
-   "nominal": 360,
+   "slack": 42871,
+   "nominal": 356,
    "unassigned": 0,
    "route": "Farm,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
   },
   "179": {
-   "slack": 22748,
+   "slack": 21584,
    "nominal": 450,
    "unassigned": 0,
    "route": "Farm,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1096,7 +1096,7 @@
    "route": "Firefighter,Medic,Military,Police / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "182": {
-   "slack": 932,
+   "slack": 922,
    "nominal": 22,
    "unassigned": 0,
    "route": "Hunting / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
@@ -1108,13 +1108,13 @@
    "route": "Hunting / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "184": {
-   "slack": 2106,
+   "slack": 2113,
    "nominal": 140,
    "unassigned": 0,
    "route": "Hunting,Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "185": {
-   "slack": 2106,
+   "slack": 2113,
    "nominal": 210,
    "unassigned": 0,
    "route": "Hunting,Industrial,Military,Police / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1144,25 +1144,25 @@
    "route": "Hunting,Office / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "190": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 452,
    "unassigned": 0,
    "route": "Hunting,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "191": {
-   "slack": 15590,
-   "nominal": 1109,
+   "slack": 15570,
+   "nominal": 1131,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
   },
   "192": {
-   "slack": 13484,
+   "slack": 13457,
    "nominal": 356,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / floor"
   },
   "193": {
-   "slack": 2106,
+   "slack": 2113,
    "nominal": 1946,
    "unassigned": 0,
    "route": "Industrial / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1186,25 +1186,25 @@
    "route": "Industrial / Unique / tools / shelves"
   },
   "197": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 100,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1,Tier2,Tier3,Tier4 / tools / shelves"
   },
   "198": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 210,
    "unassigned": 0,
    "route": "Industrial,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "199": {
-   "slack": 22748,
+   "slack": 21584,
    "nominal": 642,
    "unassigned": 0,
    "route": "Industrial,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "200": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 18,
    "unassigned": 0,
    "route": "Lunapark,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1216,7 +1216,7 @@
    "route": "Medic / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "202": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 627,
    "unassigned": 0,
    "route": "Medic,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
@@ -1252,7 +1252,7 @@
    "route": "Military,Police / Tier2,Tier3,Tier4 / tools / shelves"
   },
   "208": {
-   "slack": 8099,
+   "slack": 7694,
    "nominal": 122,
    "unassigned": 0,
    "route": "Military,Police,Town,Village / Tier3,Tier4 / tools / shelves"
@@ -1264,25 +1264,25 @@
    "route": "Office,School / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "210": {
-   "slack": 1454,
+   "slack": 1463,
    "nominal": 120,
    "unassigned": 0,
    "route": "Office,School,Town / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "211": {
-   "slack": 15078,
+   "slack": 14328,
    "nominal": 6,
    "unassigned": 0,
    "route": "Office,School,Town,Village / Tier1,Tier2 / tools / shelves"
   },
   "212": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 140,
    "unassigned": 0,
    "route": "Office,Town / Tier1,Tier2 / tools / shelves"
   },
   "213": {
-   "slack": 14684,
+   "slack": 13925,
    "nominal": 245,
    "unassigned": 0,
    "route": "Office,Village / Tier1,Tier2 / tools / shelves"
@@ -1294,43 +1294,43 @@
    "route": "Police,Prison / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "215": {
-   "slack": 861,
+   "slack": 870,
    "nominal": 144,
    "unassigned": 0,
    "route": "School,Town / Tier1,Tier2 / tools / shelves"
   },
   "216": {
-   "slack": 45408,
-   "nominal": 343,
+   "slack": 34912,
+   "nominal": 337,
    "unassigned": 0,
    "route": "School,Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / "
   },
   "217": {
-   "slack": 14684,
+   "slack": 13925,
    "nominal": 245,
    "unassigned": 0,
    "route": "School,Village / Tier1,Tier2 / tools / shelves"
   },
   "218": {
-   "slack": 1454,
+   "slack": 1463,
    "nominal": 520,
    "unassigned": 0,
    "route": "Town / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "219": {
-   "slack": 23177,
+   "slack": 22022,
    "nominal": 2822,
    "unassigned": 0,
    "route": "Town,Village / Tier1,Tier2,Tier3,Tier4,Unique / tools / shelves"
   },
   "220": {
-   "slack": 8099,
+   "slack": 7694,
    "nominal": 122,
    "unassigned": 0,
    "route": "Town,Village / Tier3,Tier4 / tools / shelves"
   },
   "221": {
-   "slack": 7308,
+   "slack": 6923,
    "nominal": 239,
    "unassigned": 0,
    "route": "Village / Tier1 / tools / shelves"
@@ -1348,7 +1348,7 @@
    "route": "ContaminatedArea,Military,Police / Tier3,Tier4 / weapons / floor,shelves"
   },
   "224": {
-   "slack": 5457,
+   "slack": 4925,
    "nominal": 1363,
    "unassigned": 0,
    "route": "Farm,Hunting,Military,Police,Prison,Town,Village / Tier1,Tier2,Tier3,Tier4 / weapons / "
@@ -1360,7 +1360,7 @@
    "route": "Farm,Hunting,Military,Police,Prison,Town,Village / Tier1,Tier2,Tier3,Tier4 / weapons / floor,shelves"
   },
   "226": {
-   "slack": 5457,
+   "slack": 4925,
    "nominal": 413,
    "unassigned": 0,
    "route": "Farm,Hunting,Military,Police,Town,Village / Tier1,Tier2,Tier3,Tier4 / weapons / "
@@ -1378,7 +1378,7 @@
    "route": "Farm,Hunting,Military,Police,Village / Tier1,Tier2,Tier3,Tier4 / weapons / floor,shelves"
   },
   "229": {
-   "slack": 5436,
+   "slack": 4904,
    "nominal": 144,
    "unassigned": 0,
    "route": "Farm,Hunting,Town,Village / Tier1,Tier2,Tier3,Tier4 / weapons / "

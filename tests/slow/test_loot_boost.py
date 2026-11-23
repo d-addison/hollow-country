@@ -541,3 +541,21 @@ class FloorBound(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class VillageHouseTarget(unittest.TestCase):
+    """The owner's 5-6 items per Village house (economy interview 2026-11-22), as the offline fill model sees it."""
+    STOCK = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus')
+
+    def test_staged_pipeline_keeps_the_median_village_house_at_5_to_6_items_and_its_tail_bounded(self):
+        if not self.STOCK.is_dir():
+            self.skipTest('stock mission not on this machine')
+        from tools.package import ce_slot_pressure, loot_slack
+        with tempfile.TemporaryDirectory() as tmp:
+            result = ce_slot_pressure.village_items(loot_slack.stage(self.STOCK, tmp))
+        house = result['kinds']['house']
+        # Offline fill model, never DayZ: the capacity layer must not push a house past 6 or stretch its tail.
+        self.assertGreaterEqual(house['median'], 5.0, result)
+        self.assertLessEqual(house['median'], 6.0, result)
+        self.assertLessEqual(house['p90'], 10.5, result)
+        self.assertGreater(result['nominal'], 15000, result)

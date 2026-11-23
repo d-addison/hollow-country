@@ -164,6 +164,54 @@ def modded_coverage(mission):
             'uncovered_containers': uncovered}
 
 
+def village_items(mission):
+    """Offline items per Village-usage building, the model of the owner's "5-6 per house" target.
+
+    Fill model of economy.placement_budget: a row's nominal splits evenly over its usages, a group's slots
+    (min(group lootmax, sum(min(container lootmax, points)))) split evenly over its usages, a usage fills
+    min(1, nominal / slots), and a group holds slots x fill per usage. Weighted by placed buildings. Returns
+    {'fill', 'nominal', 'slots', 'kinds': {kind: {'groups', 'buildings', 'median', 'p90'}}} for the kinds house
+    (Land_House_*), wreck, outhouse (Toilet), shed (Shed/Garage) and other; offline, never DayZ behaviour.
+    """
+    mission = Path(mission)
+    nominal, slots = Counter(), Counter()
+    for _, row in _types(mission).values():
+        usages = [u.get('name') for u in row.findall('usage')] or ['*']
+        for usage in usages:
+            nominal[usage] += int(row.findtext('nominal', '0')) / len(usages)
+    placed = Counter(g.get('name') for g in ET.parse(mission / 'mapgrouppos.xml').getroot().findall('group'))
+    proto = ET.parse(mission / 'mapgroupproto.xml').getroot()
+    defaults = {d.get('name'): int(d.get('lootmax')) for d in proto.iter('default') if d.get('lootmax')}
+    groups = {}
+    for group in proto.findall('group'):
+        usages = [u.get('name') for u in group.findall('usage')]
+        capacity = sum(min(int(c.get('lootmax', str(defaults.get('container', 8)))), len(c.findall('point')))
+                       for c in group.findall('container'))
+        size = min(int(group.get('lootmax', str(defaults.get('group', 12)))), capacity)
+        groups[group.get('name')] = (usages, size)
+        for usage in usages:
+            slots[usage] += size * placed[group.get('name')] / len(usages)
+    fill = {usage: min(1.0, nominal[usage] / slots[usage]) for usage in slots if slots[usage]}
+    kinds = {}
+    for name, (usages, size) in groups.items():
+        if 'Village' not in usages or not placed[name]:
+            continue
+        lower = name.lower()
+        kind = ('wreck' if 'wreck' in lower else 'outhouse' if 'toilet' in lower else 'house' if lower.startswith('land_house_')
+                else 'shed' if 'shed' in lower or 'garage' in lower else 'other')
+        kinds.setdefault(kind, []).append((sum(size / len(usages) * fill[u] for u in usages), placed[name]))
+
+    def weighted(values, share):
+        total, running = sum(w for _, w in values), 0
+        for value, weight in sorted(values):
+            running += weight
+            if running >= share * total:
+                return round(value, 2)
+    return {'fill': round(fill.get('Village', 0.0), 3), 'nominal': round(nominal['Village']), 'slots': round(slots['Village']),
+            'kinds': {k: {'groups': len(v), 'buildings': sum(w for _, w in v), 'median': weighted(v, 0.5), 'p90': weighted(v, 0.9)}
+                      for k, v in sorted(kinds.items())}}
+
+
 def feasibility(mission, military_weapons=False, limit=LIMIT, slack=False):
     """Optimistic joint capacity bound, with integral max flow over shared caps.
 

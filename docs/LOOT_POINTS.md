@@ -1374,6 +1374,18 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
   shared demand out of the Military/Police containers: weapons-only 0.8 headroom deficit 4,445 -> 2,260, full-graph
   deficit 5,433 -> 3,248, total nominal unchanged at 84.9k (factors 2.0 and 3.0 give 3,336 and 2,260). Offline bounds
   only; whether CE fills wreck and outhouse slots is unobserved.
+  Village 3.0 alone also raised the Village-only houses' slots (44.5k -> 66k Village slots), which spreads the same
+  Village nominal over more room: house p90 10.4 -> 12.3 items. Houses carry none of the weapon gain (reverting every
+  Village-only group leaves 2,260), so `GroupLootmaxCap` has `Village` 4: a group takes the largest cap over its usages
+  and an unlisted usage counts as `Default` 80, so the row binds only Village-only groups (houses, wells, bus stops),
+  which keep their stock group limit (slots 49k), while mixed-usage Village groups (wrecks, workshops, garages) grow.
+  Offline fill model of `ce_slot_pressure.village_items` (nominal split over usages, slots split over usages, fill =
+  min(1, nominal / slots), buildings weighted), merged base / Village 3.0 only / with the cap: Land_House_* groups
+  median 6.5 / 6.43 / 5.86, p90 10.4 / 12.28 / 9.38; wrecks median 0.54 / 1.25 / 1.40; outhouses 1.84 / 1.63 / 1.77;
+  weapons 0.8 deficit 2,260 in both Village rows. `tests/slow/test_loot_boost.VillageHouseTarget` holds the house
+  median in 5 to 6 and its p90 at or under 10.5 on the staged stock pipeline (offline only, never DayZ behaviour).
+  `loot_slack` treats a table as settled when every bucket is within `TOLERANCE` (8) units of its regeneration: the
+  balance's integer truncation made the Village-capped plan alternate between two tables that differ by 1 to 2 units.
 - `LOOT_BOOST_VERSION` is 4 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
   overlay from stock bytes.
 - 13 classes that had a positive nominal but no usage never reached a building (BalaclavaMask_Chain, BalaclavaMask_Pig,
