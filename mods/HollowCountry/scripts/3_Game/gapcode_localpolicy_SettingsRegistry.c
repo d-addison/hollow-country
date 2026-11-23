@@ -39,5 +39,6 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Events.MissionRadiusEncounter", "int", 250, 50, 1500, "HCMissionBeaconConfig");
         HCAdd("Events.MissionRadiusPresence", "int", 250, 50, 1500, "HCMissionBeaconConfig");
         HCAdd("Events.MissionRadiusInfectedClear", "int", 250, 50, 1500, "HCMissionBeaconConfig");
+        HCAdd("Events.MinJournalIntervalSeconds", "int", 5, 0, 60, "HCEventJournalConfig");
     }
 }

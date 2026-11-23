@@ -383,7 +383,11 @@ class HCSceneChainStore
         HCSceneCatalog catalog = HCSceneChains.LoadCatalog();
         state = HCSceneChains.Fresh(catalog, now);
         if (!state) { Fault("fresh"); return null; }
-        if (!Save(state)) { return null; }
+        // First boot: the fresh image is staged through HCSaveScheduler (urgent barrier checkpoint),
+        // not written here. The Scenes tick holds native work while the barrier is pending, and a
+        // crash before it lands leaves no primary, so the next boot is fresh again.
+        HCCheckpointJob(state);
+        if (HCRequestCheckpoint(state) < 0) { Fault("fresh_save"); return null; }
         return state;
     }
 

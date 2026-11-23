@@ -13,16 +13,6 @@
       "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
     },
     {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 446,
-      "symbol": "HCEventJournal.HCCheckPrior",
-      "key": "OpenFile#1",
-      "message": "OpenFile in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckPrior; enqueue bounded startup work",
-      "native": false,
-      "reason": "events-io: prior revision verification opens, reads each <=4096-byte chunk/EOF, and closes in separate journal steps. Routine HCAdvancePublish batches under its shared 4 ms deadline and yields after native-work steps costing >=1 ms; synchronous shutdown drains intentionally retain their durability barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
       "line": 464,
@@ -39,16 +29,6 @@
       "symbol": "HCEventJournal.HCCheckDirectory",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory",
-      "native": false,
-      "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
-    },
-    {
-      "rule": "HC-P009",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
-      "line": 405,
-      "symbol": "HCEventJournal.HCCheckDirectory",
-      "key": "FileExist#1",
-      "message": "FileExist in a synchronous startup loop via HCEventModule.OnStart -> HCEventModule.OnStop -> HCEventRuntime.Stop -> HCEventRuntime.HCAdvancePublish -> HCEventJournal.HCStepSave -> HCEventJournal.HCCheckInventory -> HCEventJournal.HCCheckDirectory; enqueue bounded startup work",
       "native": false,
       "reason": "events-io round 2: restore Ensure directory recreation before inventory using separate existence-probe and mkdir steps, at most one call per step over three owned directories. Routine steps batch under the shared 4 ms deadline and yield after native-work steps costing >=1 ms; shutdown drains retain their synchronous barrier. Offline candidate only; native latency and crash recovery validation remain pending."
     },
