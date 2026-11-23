@@ -3640,5 +3640,141 @@
     "min": 3,
     "max": 6,
     "owner": "HCXZoneGuardsConfig"
+  },
+  {
+    "key": "InfectedClimb.Enabled",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.MinHeightMetres",
+    "type": "float",
+    "default": 0.5,
+    "min": 0.3,
+    "max": 1.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.MaxHeightMetres",
+    "type": "float",
+    "default": 2.2,
+    "min": 1.2,
+    "max": 2.5,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.MaxHorizontalMetres",
+    "type": "float",
+    "default": 2.5,
+    "min": 0.5,
+    "max": 3.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.FacingDegrees",
+    "type": "float",
+    "default": 35.0,
+    "min": 5.0,
+    "max": 60.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.CooldownSeconds",
+    "type": "float",
+    "default": 6.0,
+    "min": 2.0,
+    "max": 60.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.Concurrent",
+    "type": "int",
+    "default": 4,
+    "min": 1,
+    "max": 8,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.RouteCacheSeconds",
+    "type": "float",
+    "default": 3.0,
+    "min": 1.0,
+    "max": 15.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.OutcomeCapSeconds",
+    "type": "float",
+    "default": 8.0,
+    "min": 3.0,
+    "max": 15.0,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.RetireAttempts",
+    "type": "int",
+    "default": 12,
+    "min": 3,
+    "max": 50,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.LegStrikes",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedClimb.BackOff",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCInfectedClimbConfig"
+  },
+  {
+    "key": "InfectedSiege.Enabled",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCInfectedSiegeConfig"
+  },
+  {
+    "key": "InfectedSiege.GatherSeconds",
+    "type": "float",
+    "default": 8.0,
+    "min": 3.0,
+    "max": 60.0,
+    "owner": "HCInfectedSiegeConfig"
+  },
+  {
+    "key": "InfectedSiege.NoiseSeconds",
+    "type": "float",
+    "default": 20.0,
+    "min": 10.0,
+    "max": 120.0,
+    "owner": "HCInfectedSiegeConfig"
+  },
+  {
+    "key": "InfectedSiege.MaxSieges",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 8,
+    "owner": "HCInfectedSiegeConfig"
+  },
+  {
+    "key": "InfectedSiege.ReinforcePerPlayerWindow",
+    "type": "int",
+    "default": 4,
+    "min": 0,
+    "max": 8,
+    "owner": "HCInfectedSiegeConfig"
   }
 ]
