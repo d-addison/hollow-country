@@ -1226,6 +1226,42 @@
       "note": "Aggregate nav_inf row: infected vault climbs started."
     },
     {
+      "module": "InfectedSiege",
+      "feature": "siege-started",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=InfectedSiege feature=siege_started count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Siege/HCInfectedSiege.c",
+      "scope": "runtime",
+      "note": "Infected siege of an elevated player started (needs an elevated player that infected gave up on)."
+    },
+    {
+      "module": "InfectedSiege",
+      "feature": "siege-noise",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=InfectedSiege feature=siege_noise count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Siege/HCInfectedSiege.c",
+      "scope": "runtime",
+      "note": "Siege noise emitted at a sieging infected position."
+    },
+    {
       "module": "optional-expansion-human-ai",
       "feature": "nav-routes",
       "signal": {
