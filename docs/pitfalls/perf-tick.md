@@ -16,6 +16,7 @@ Skill: `hc-perf-tick`. Rule ids come from `tools/validate/enforce_lint.py` and `
 | HC-P006 | work slot shared by different owner classes |
 | HC-P007 | incomplete work slot registration |
 | HC-P010 | raw HCTake bypasses consumer fairness and attribution |
+| HC-P011 | unbudgeted loop over a module-owned collection on a tick path, not run through HCBoundedJob |
 
 ## Native failures cited in the code
 

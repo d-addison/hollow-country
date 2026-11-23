@@ -38,6 +38,7 @@ import threading
 from urllib.parse import unquote, urlsplit
 
 from tools.package.inventory_sources import safe_text
+from tools.validate import docs_drift
 
 ROOT = Path(__file__).resolve().parents[2]
 _SPEC_ALIAS = "docs/specs/001-survival-overhaul/spec.md"
@@ -477,6 +478,11 @@ def check_repository(root=ROOT):
             error("stale_mod_line", relative, line)
     except Exception:  # an unreadable manifest is its own failure, never a silent pass
         error("mod_manifest", "tools/setup/workshop_mods.json")
+    try:
+        for code, relative, line in docs_drift.check(root, documents):
+            error(code, relative, line)
+    except Exception:  # the drift check itself broken is a failure, never a silent pass
+        error("docs_drift_check", "tools/validate/docs_drift.py")
     return report()
 
 

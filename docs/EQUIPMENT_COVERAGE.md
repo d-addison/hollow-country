@@ -390,7 +390,7 @@ Result: **53 tests, OK**. These checks do not establish DayZ behavior.
 Review trace: HC-22 / P2-1, P3-1, P3-2 and P3-4.
 
 - [x] P2-1: persistent stdlib behavioral coverage in
-  `tests/unit/test_datamined_items.py::UsefulSupply`, using the explicitly
+  `tests/slow/test_datamined_items.py::UsefulSupply`, using the explicitly
   synthetic `stock_mission` fixture. Covers all three bandanas, all 17 admitted
   floor overrides, rehashed nominal drift, stock spelling/case collisions,
   unreviewed permissions, missing decisions, crafted/deloot flags and legacy
@@ -411,7 +411,7 @@ Review trace: HC-22 / P2-1, P3-1, P3-2 and P3-4.
 RED was recorded before production edits with:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_datamined_items.UsefulSupply tests.unit.test_friend_bundle.FriendBundleTests.test_exported_economy_install_refuses_missing_repo_only_supply_ledger -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_datamined_items.UsefulSupply tests.slow.test_friend_bundle.FriendBundleTests.test_exported_economy_install_refuses_missing_repo_only_supply_ledger -v
 ```
 
 The corrected-fixture RED run executed 13 tests and ended
@@ -453,7 +453,7 @@ Windows PowerShell smoke-helper check, which belongs to Windows CI.
 Required source/hygiene regression command:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
 PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.hygiene
 ```
 
@@ -465,7 +465,7 @@ rollback. No runtime framework or engine API was added; no new distances.
 Additional dependent-reader checks (required by the shared worker brief):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_firearm_families tests.unit.test_friend_install tests.unit.test_gameplay_delta tests.unit.test_local_test_session tests.unit.test_optional_ce_composition tests.unit.test_optional_gun_scale tests.unit.test_snafu_optional tests.unit.test_tactical_flava_optional tests.unit.test_v2_optional_overlays tests.unit.test_ce_coverage tests.unit.test_enforce_formula_complexity -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_hc_firearm_families tests.slow.test_friend_install tests.unit.test_gameplay_delta tests.unit.test_local_test_session tests.slow.test_optional_ce_composition tests.slow.test_optional_gun_scale tests.slow.test_snafu_optional tests.slow.test_tactical_flava_optional tests.slow.test_v2_optional_overlays tests.slow.test_ce_coverage tests.slow.test_enforce_formula_complexity -v
 ```
 
 This invocation ran 544 entries: 543 tests passed and one module-loader entry
@@ -503,7 +503,7 @@ skips, print-once behavior and pack-revision reset.
 GREEN final focused source/readers/common-brief command:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_search_economy_houses tests.unit.test_v1_combined_rpc tests.unit.test_enforce_lint tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_search_economy_houses tests.unit.test_v1_combined_rpc tests.unit.test_enforce_lint tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
 python3 -B -m tools.validate.enforce_lint --no-native
 ```
 
@@ -550,7 +550,7 @@ The additional throttled-unsent behavioral test also failed before its fix:
 GREEN cache/source/common-brief command:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_v1_combined_rpc tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_v1_combined_rpc tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
 ```
 
 Result: `Ran 91 tests`, `OK`. The integrated floor test additionally passes
@@ -573,7 +573,7 @@ error was the firearm-family suite's sibling import (`test_firearms_roster`).
 The required path fixes the invocation without source changes:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest tests.unit.test_hc_firearm_families -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest tests.slow.test_hc_firearm_families -v
 ```
 
 Result: `Ran 1 test`, `OK`. Across that broad run and the corrected module rerun,

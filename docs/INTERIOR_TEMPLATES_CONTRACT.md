@@ -239,10 +239,10 @@ Enforce paths are under `mods/HollowCountry/`.
 | Task | Writes only | Notes |
 | --- | --- | --- |
 | T1 | `tools/setup/interior_sampler.py`, `tests/unit/test_interior_sampler.py` | All-class batch plans (≤64 targets per run), `native_run_id`, House config census, door rows |
-| T2 | new `tools/package/interior_templates.py`, new `tests/unit/test_interior_templates.py` | Census plus stock XML to `classes-*`, `t-*`, `furnish-*`; imports `tools/audit/interior_points.py`, never copies it |
+| T2 | new `tools/package/interior_templates.py`, new `tests/slow/test_interior_templates.py` | Census plus stock XML to `classes-*`, `t-*`, `furnish-*`; imports `tools/audit/interior_points.py`, never copies it |
 | T3 | `scripts/4_World/Interiors/*` except `HCInteriorAction.c`; `tests/unit/test_interiors_contract.py`, `test_interior_measured_catalog.py`, new `test_interior_templates_runtime.py` | Loader, placement, shared reader API |
 | T4 | `scripts/4_World/Infected/HCInfectedRooms.c`; `tests/unit/test_infected_production_rooms.py`, `test_room_catalog_completion.py` | Class anchors, lazy bind |
-| T5 | `scripts/4_World/Loot/*`, `scripts/4_World/Interiors/HCInteriorAction.c`; new `tools/package/search_context.py`, new `tests/unit/test_search_context.py`, `test_search_binding.py`, `test_search_supply_provider.py`, `test_search_economy*.py` | Groups, lazy site bind, House targeting |
+| T5 | `scripts/4_World/Loot/*`, `scripts/4_World/Interiors/HCInteriorAction.c`; new `tools/package/search_context.py`, new `tests/slow/test_search_context.py`, `test_search_binding.py`, `test_search_supply_provider.py`, `test_search_economy*.py` | Groups, lazy site bind, House targeting |
 | T6 | `tools/package/interiors_profile.py`, `tests/unit/test_interiors_profile.py` | Assembles, pins, validates, installs and rolls back `templates/`; starts after the T2 and T5 tools land |
 | Lead | `scripts/3_Game/HCSettings.c`, this contract | Native runs, Wine compile, perf capture, install |
 
@@ -263,10 +263,10 @@ and T5 code against these exact signatures, using a test-only stub in their own 
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_interior_sampler -v                                    # T1
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_interior_templates tests.unit.test_interior_points -v   # T2
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_interior_templates tests.slow.test_interior_points -v   # T2
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_interiors_contract tests.unit.test_interior_measured_catalog tests.unit.test_interior_templates_runtime -v  # T3
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_production_rooms tests.unit.test_room_catalog_completion -v  # T4
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_search_context tests.unit.test_search_binding tests.unit.test_search_supply_provider tests.unit.test_search_economy -v  # T5
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_search_context tests.unit.test_search_binding tests.unit.test_search_supply_provider tests.unit.test_search_economy -v  # T5
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_interiors_profile -v                                   # T6
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v                                              # all, before review
 ```

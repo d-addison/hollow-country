@@ -126,8 +126,8 @@ outside the repo (use a Windows-visible scratch location and `--root` pointing t
 fixture and a syntax error must produce 0 and 1 respectively. Standalone valid input and all shipped config conversions were observed locally.
 Additional include resolution and diagnostic variants remain pending; a RAP file
 alone never authorizes a pass without the process receipt and Windows-local input. Use the compile
-gate's documented options for the lead's isolated server; `compile_gate.sh` was
-absent during this worker's inspection. Record compile and boot/readiness evidence
+gate's documented options for the lead's isolated server (the gate is the Python module
+`tools.release.compile_gate`; there is no `compile_gate.sh`). Record compile and boot/readiness evidence
 separately; a green preland does not accept missing engine experiments.
 
 ## CeEditor: inspect the staged mission

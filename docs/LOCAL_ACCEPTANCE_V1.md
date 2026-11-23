@@ -654,11 +654,11 @@ budgets remain provisional until measured with 3–6 players.
 Affected-reader verification (focused modules only, no full discovery):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
 # Ran 85 tests / OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
 # Ran 285 tests / OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_v1_native_noise_vision tests.unit.test_build_identity tests.unit.test_v1_combined_rpc tests.unit.test_enforce_source_parity tests.unit.test_gameplay_delta tests.unit.test_native_wiring_batch_a tests.unit.test_acceptance_optins tests.unit.test_hc_operational_status -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_v1_native_noise_vision tests.unit.test_build_identity tests.unit.test_v1_combined_rpc tests.slow.test_enforce_source_parity tests.unit.test_gameplay_delta tests.unit.test_native_wiring_batch_a tests.unit.test_acceptance_optins tests.unit.test_hc_operational_status -v
 # Ran 218 tests / OK
 ```
 
@@ -756,7 +756,7 @@ source/PBO/config hashes and receipts; no log line alone accepts runtime behavio
 Focused affected-reader validation:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
 # Ran 90 tests / OK
 python3 -B -m tools.validate.enforce_lint --no-native
 # enforce_lint: pass findings=126 new=0 stale=0 native=no
@@ -769,7 +769,7 @@ findings without changing the baseline.
 Acceptance-document reader checks (all focused; no full discovery):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
 # Ran 285 tests / OK
 ```
 

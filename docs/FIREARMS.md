@@ -1083,7 +1083,7 @@ managed `hollow-country/ce/types.xml`, beside any profile `add_usage` rows.
 Item: Tactical Flava (TF), Steam Workshop 2646817942, installed read-only on the operator machine and read
 from there. We never repack, copy, bundle or re-host any TF file; the repository holds only TF class names and
 our own economy numbers. Code: `tools/package/tactical_flava_optional.py`; data:
-`tools/package/tactical_flava_allowlist.json`; tests: `tests/unit/test_tactical_flava_optional.py`. Config is
+`tools/package/tactical_flava_allowlist.json`; tests: `tests/slow/test_tactical_flava_optional.py`. Config is
 read with the extended `tools/audit/pbo_config.py` (rapified `config.bin` plus the plain-text `config.cpp` that
 the `weapon_a` addon ships).
 

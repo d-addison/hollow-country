@@ -36,6 +36,22 @@ ticks-per-millisecond conversion; GetTickTime is fixed within an engine tick and
 cannot measure an atomic parse. These receipts include reads and validation, not
 only deserialization.
 
+The same receipt also splits the peak `page_ms_max` visit into its four catalog-page
+sub-steps. One catalog page is admitted over several visits, one sub-step per visit,
+and each field is the peak of that sub-step over all pages:
+
+| Field | Sub-step measured |
+| --- | --- |
+| `page_read_ms_max` | The bounded read of the page file (one native read call per visit). |
+| `page_parse_ms_max` | The JSON parse plus the schema, kind, identity and row-count checks. |
+| `page_fields_ms_max` | The two required-field scans of the page text (`island`, then `connected_both_directions`, via `HCJsonFields.Every`); the larger of the two is kept. |
+| `page_insert_ms_max` | The final step that inserts the page rows into the catalog (at most the page size). |
+
+A page that fails any sub-step is refused with its `ROUTE_*` reason and its stage state
+is reset. Rows become visible only in the insert step, after every earlier check passed,
+and the stage survives interleaved work, so a page is never read twice. Compare these
+four against the 4 ms slice target the same way as `page_ms_max`.
+
 Upgrade replaces this mission-data set together; partial sets refuse admission.
 The route catalog keeps no profile copy or manifest-hash cache, and revalidates
 mission data at every start. The profile route-geometry cache uses its existing

@@ -135,19 +135,19 @@ service was written, and no native/Expansion/COT source was copied.
 
 Offline TDD (explicit synthetic fixtures only):
 
-- RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove -v`
+- RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove -v`
   -> `AssertionError: Missing authored method HCCampModule.HCAdminTier in HCAdminDirectors.c`;
   `ModuleNotFoundError: No module named 'tools.package.overlay_remove'`;
   `Ran 12 tests`, `FAILED (failures=5, errors=7)`.
 - Shared-budget RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls.CampSelection -v`
   -> `AssertionError: namespace(Position=2) is not None`; `Ran 1 test`, `FAILED (failures=1)`.
-- GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove -v`
+- GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove -v`
   -> `Ran 14 tests`, `OK`.
 - Required/referencing suite result: `Ran 187 tests in 332.064s`, `OK`.
   Exact command (no full discovery):
 
   ```sh
-  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_admin_test_kit tests.unit.test_admin_ui tests.unit.test_hc_operational_snapshot tests.unit.test_hc_threat_posture_wiring tests.unit.test_infected_memory_clock tests.unit.test_map_layers tests.unit.test_menu_input tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_admin_test_kit tests.unit.test_admin_ui tests.unit.test_hc_operational_snapshot tests.unit.test_hc_threat_posture_wiring tests.unit.test_infected_memory_clock tests.unit.test_map_layers tests.unit.test_menu_input tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene -v
   ```
 
 - `python3 -B -m tools.validate.enforce_lint --no-native`
@@ -171,7 +171,7 @@ stopped-server/backup instructions and the source-rebuild inventory limitation.
 Actual RED commands/results before the corresponding implementations:
 
 ```sh
-python3 -B -m unittest tests.unit.test_ops_admin_controls.CatalogRPCIngress tests.unit.test_admin_ui.CatalogContracts tests.unit.test_admin_test_kit.KnownCommands tests.unit.test_admin_test_kit.KitListing tests.unit.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
+python3 -B -m unittest tests.unit.test_ops_admin_controls.CatalogRPCIngress tests.unit.test_admin_ui.CatalogContracts tests.unit.test_admin_test_kit.KnownCommands tests.unit.test_admin_test_kit.KitListing tests.slow.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
 ```
 
 `Ran 15 tests`, `FAILED (failures=8)`, including
@@ -181,7 +181,7 @@ presence also failed. Existing set tests were expanded to include the actual
 operator handler and three newly exposed IDs; old refusal behavior was retained.
 
 ```sh
-python3 -B -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
+python3 -B -m unittest tests.slow.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
 ```
 
 After shipping the file but before removing the eager import: `Ran 1 test`,
@@ -191,7 +191,7 @@ The subprocess runs with `-I`, outside the checkout, using only bundle modules;
 it also verifies the exact inventory refusal without importing that generator.
 
 ```sh
-python3 -B -m unittest tests.unit.test_ops_overlay_remove.PortableHandoff -v
+python3 -B -m unittest tests.slow.test_ops_overlay_remove.PortableHandoff -v
 ```
 
 Before the PBO helper allowlist updates: `Ran 1 test`, `FAILED (failures=1)`,
@@ -201,7 +201,7 @@ The test now checks both the exporter and `verify_handoff` allowlist.
 GREEN:
 
 ```sh
-python3 -B -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove tests.unit.test_admin_ui tests.unit.test_admin_test_kit tests.unit.test_friend_bundle -v
+python3 -B -m unittest tests.unit.test_ops_admin_controls tests.slow.test_ops_overlay_remove tests.unit.test_admin_ui tests.unit.test_admin_test_kit tests.slow.test_friend_bundle -v
 ```
 
 `Ran 123 tests in 41.629s`, `OK`.
@@ -212,7 +212,7 @@ python3 -B -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_ov
 Additional GREEN (package/deploy, installer, required static and referencing suites):
 
 ```sh
-python3 -B -m unittest tests.unit.test_package tests.unit.test_deploy tests.unit.test_package_manifest tests.unit.test_friend_install tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_fuel_probe_runner tests.unit.test_hc_furnishing tests.unit.test_hc_horde_routes tests.unit.test_hc_locality_rotation tests.unit.test_hc_operational_snapshot tests.unit.test_hc_recovery_integrity tests.unit.test_hc_threat_posture_wiring tests.unit.test_hc_wildlife_wiring tests.unit.test_infected_memory_clock tests.unit.test_local_test_session tests.unit.test_loot_boost tests.unit.test_map_layers tests.unit.test_menu_input tests.unit.test_native_startup_runner tests.unit.test_v2_optional_overlays tests.unit.test_workshop_meta -v
+python3 -B -m unittest tests.unit.test_package tests.slow.test_deploy tests.unit.test_package_manifest tests.slow.test_friend_install tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.unit.test_hygiene tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.slow.test_fuel_probe_runner tests.unit.test_hc_furnishing tests.unit.test_hc_horde_routes tests.unit.test_hc_locality_rotation tests.unit.test_hc_operational_snapshot tests.unit.test_hc_recovery_integrity tests.unit.test_hc_threat_posture_wiring tests.slow.test_hc_wildlife_wiring tests.unit.test_infected_memory_clock tests.unit.test_local_test_session tests.unit.test_loot_boost tests.unit.test_map_layers tests.unit.test_menu_input tests.slow.test_native_startup_runner tests.slow.test_v2_optional_overlays tests.unit.test_workshop_meta -v
 ```
 
 `Ran 655 tests in 711.072s`, `OK (skipped=1)`. The existing skip remains pending;
@@ -581,7 +581,7 @@ Offline TDD evidence (synthetic collaborators and source checks only):
 - Native-identifier RED from full discovery: `Ran 5884 tests`,
   `FAILED (failures=1, skipped=1, expected failures=3)`; the local name `map`
   collided with the installed Enforce `map` type. Renamed to `showMap`.
-  GREEN including `tests.unit.test_script_identifiers`: `Ran 82 tests`, `OK`.
+  GREEN including `tests.slow.test_script_identifiers`: `Ran 82 tests`, `OK`.
 - Final full GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
   → `Ran 5884 tests in 271.781s`, `OK (skipped=1, expected failures=3)`.
   The skip/expected failures remain existing pending work, not runtime acceptance.

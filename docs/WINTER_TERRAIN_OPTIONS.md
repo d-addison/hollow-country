@@ -200,7 +200,7 @@ Enforce implementation: `Ran 1 test`, `OK`.
 Required focused regression command, actually run:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_winter_terrain tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_enforce_formula_complexity tests.unit.test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_winter_terrain tests.slow.test_script_syntax tests.unit.test_enforce_locals tests.slow.test_script_identifiers tests.slow.test_enforce_formula_complexity tests.unit.test_hygiene -v
 ```
 
 GREEN: `Ran 57 tests in 14.320s`, `OK`. Standard-library JSON validation also

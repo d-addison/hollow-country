@@ -251,6 +251,12 @@ Calibration review notes (each checked against the code and its test):
 The table below is filled only from lead runs of the full corpus with `--gate`;
 a row without a native result stays blank rather than being inferred.
 
+Calibration status: 0/13
+
+The line above is read by `tools/release/test_queue.py` (agreed rows / corpus rows). Update it
+only from a lead run; the second number must equal the number of rows in the `CORPUS` of
+`tools/release/wb_calibrate.py` (the docs check fails otherwise).
+
 Exit 0 means all selected expectations matched (`expected_only` without
 `--gate`, `agree` with it); 1 means disagreement; 2 means refusal or incomplete
 evidence. A subset or `expected_only` result does not qualify replacement of the

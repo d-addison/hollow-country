@@ -30,6 +30,7 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 ### `mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c`
 
 - 8 * (HCGroupIO.HC_RAW_READ_CAP 8388608 / HC_CHUNK_BYTES 4096) + 128. Keep a literal: a cross-class static const expression read as 0 natively (build 169 boot: Leads Save exhausted a 6-step guard, lead_store_unavailable).
+- Crash recovery for the primary-wins stores (#336): a hard stop after the primary was promoted and before clear_intent leaves path.tmp byte-identical to path. Returns true only after deleting such a .tmp; every other case returns false and touches nothing, so the
 - Crash-safe publish chain whose caller waits on it (event journal). Dispatched before every other job, including other urgent ones, at stage boundaries (issue #333).
 
 ### `mods/HollowCountry/scripts/4_World/World/HCWorldStore.c`
