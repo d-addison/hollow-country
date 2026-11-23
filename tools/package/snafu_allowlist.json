@@ -22335,8 +22335,8 @@
    {
     "family": "snafu-ammo",
     "kind": "ammo",
-    "nominal": 1840,
-    "min": 1840
+    "nominal": 7500,
+    "min": 7500
    },
    {
     "family": "snafu-weapon",

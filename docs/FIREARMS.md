@@ -279,7 +279,9 @@ holds the share; a multi-variant family holds `max(share, 3 x (variants - 1))` w
 `ceil(total / 1.5)`. The two vanilla roster families Aug and M4A1 keep their nominal cap of 5 in `family_budgets` (min
 3). The pack weapons use the same function and stay inside the pack family budgets (snafu-weapon 788, tf-weapon 1252,
 aggregate 2040 / min 1416). R4 then sets the ammo (1.5 per gun) and magazine (1.0 per gun) supply per calibre and
-magazine pool; see docs/LOOT_POINTS.md "Balance rules". Ammo and magazine rows carry the usages of the guns that use
+magazine pool; see docs/LOOT_POINTS.md "Balance rules". The HC-61 pack caps were 4x the authored budget (the largest
+allowed scale); the R4 ammo floor lifts SNAFU ammo above that, so the snafu-ammo cap is 7500 / 7500 cartridges
+(R4 gives 7330 at the shipped scale). The pack installer refuses a layer over its family caps. Ammo and magazine rows carry the usages of the guns that use
 them (`military_loot.regenerate`, round 7; event-only usages excluded), so a pistol magazine spawns in Town where the
 pistol does.
 
