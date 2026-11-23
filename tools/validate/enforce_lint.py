@@ -30,6 +30,7 @@ from tools.validate import enforce_lint_handles as _handles
 from tools.validate import enforce_rules_readiness as _readiness
 from tools.validate import enforce_lint_use as _use
 from tools.validate import enforce_lint_syntax as _syntax
+from tools.validate import enforce_lint_names as _names
 from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -99,6 +100,7 @@ RULES = {
 RULES.update(_readiness.RULES)  # HC-S006 module names, HC-E009 engine-type variable names
 RULES.update(_use.RULES)  # HC-E040 use counter reached from an init path
 RULES.update(_syntax.RULES)  # HC-E042..HC-E047, bound in ALL_RULES below
+RULES.update(_names.RULES)  # HC-E050 bare name resolves to nothing, bound in ALL_RULES below
 
 _KEYWORDS = frozenset({'if', 'while', 'for', 'foreach', 'switch', 'return', 'new', 'delete', 'case',
                        'else', 'sizeof', 'typename', 'super', 'this', 'thread', 'string', 'int', 'float',
@@ -2697,7 +2699,8 @@ ALL_RULES = (rule_engine_class_modded, rule_duplicate_locals, rule_static_const_
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
              rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, rule_foreach_call_iterable, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names, _use.rule_use_init_path,
-             rule_stored_handles, *_syntax.rules_for(sys.modules[__name__]))
+             rule_stored_handles, *_syntax.rules_for(sys.modules[__name__]),
+             _names.make_rule(sys.modules[__name__], _syntax))
 
 
 def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None):
