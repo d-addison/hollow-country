@@ -1545,8 +1545,11 @@ Owner (2026-11-23): guns stored in tents, barrels and stashes now count against 
 `count_in_hoarder="1"` (and nothing else) on every row of the stock and registered types files that is a gun, magazine
 or ammunition: a firearms-roster weapon, magazine or ammo class, an `Ammo_`, `AmmoBox_` or `Mag_` name, or one of the
 `FIREARM_VARIANTS` colour and sawn-off classes (vanilla CfgWeapons ancestry reaching `Rifle_Base` or `Pistol_Base`, embedded
-as a constant). The class decides, not the category: melee, night vision, optics, compensators, other attachments, gun
-cases and the crossbow keep the stock 0. On the cached stock file that is 106 guns, 53 magazines and 54 ammo rows. The
+as a constant; the crossbows count as guns like their roster colours). The class decides, not the category: melee,
+night vision, optics, compensators, other attachments and gun cases keep the stock 0 (`NOT_HOARDED`).
+`loot_boost check --source <stock mission>` (regenerate_all) fails when a stock weapons-category row is in neither
+list, so a new vanilla variant cannot silently miss the flag. On the cached stock file that is 108 guns, 53 magazines
+and 54 ammo rows. The
 SNAFU and Tactical Flava generators
 emit the same flag on their gun, magazine and ammo rows. For players: while a base holds many of a class, fewer
 new copies respawn on the map, so a stocked base thins the world supply instead of adding to it; nothing already stored

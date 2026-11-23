@@ -40,6 +40,8 @@ GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
+    Generator('loot_boost', ('check', '--source', '{source}'), ('source',),
+              'every stock weapons-category row is hoarder-flagged or listed as not a firearm', digest=False),
     # One staged plan (stock mission copy, travel layer, loot boost, pack rows, feasibility graph). Measured cost is
     # set after the first host run; until then the global timeout applies.
     Generator('loot_slack', ('--check', '--source', '{source}'), ('source',),

@@ -694,16 +694,53 @@ _HOARDER_ROSTER = {'weapon': 'guns', 'magazine': 'mags', 'ammo': 'ammo'}
 # Firearm rows outside the firearms roster: colour or skin variants and sawn-off versions of roster guns, listed by class.
 # Source: the installed vanilla 1.30 CfgWeapons ancestry of every weapons-category stock types row that is not a roster
 # class (tools/setup class index): a class belongs here only when its ancestry reaches Rifle_Base or Pistol_Base.
-# Melee (PoliceBaton, Iceaxe, Jambiya), the crossbow (Archery_Base), optics, suppressors, compensators, stock and
-# handguard variants, hats and gun cases do not, so they are never listed.
+# Melee (PoliceBaton, Iceaxe, Jambiya), optics, suppressors, compensators, stock and handguard variants, hats and gun
+# cases do not, so they are never listed. The crossbows are roster weapons (Archery_Base) and take the flag; the one
+# colour the roster does not list (Crossbow_Summer) is listed here so all four behave the same.
+# Every stock weapons-category row must be selected by hoarder_kind or listed in NOT_HOARDED: `loot_boost
+# check --source <stock mission>` (regenerate_all) fails on a row in neither, so a new vanilla variant cannot
+# silently miss the flag.
 FIREARM_VARIANTS = frozenset((
     'ak101_black', 'ak101_green', 'ak74_black', 'ak74_green', 'akm_gold', 'aks74u_black', 'aks74u_green',
-    'cz527_black', 'derringer_black', 'derringer_pink', 'flaregun', 'm4a1_black', 'm4a1_green', 'mosin9130_desert',
+    'crossbow_summer', 'cz527_black', 'glock_tan', 'derringer_black', 'derringer_pink', 'flaregun', 'm4a1_black', 'm4a1_green', 'mosin9130_desert',
     'mosin9130_camo', 'mosin9130_green', 'scarh', 'scarh_black', 'scarl', 'scarl_black', 'sawedoffb95',
     'sawedofffamas', 'sawedoffizh18', 'sawedoffizh18shotgun', 'sawedoffizh43shotgun', 'sawedoffmagnum',
     'sawedoffmagnum_gold', 'sawedoffmosin9130', 'sawedoffmosin9130_black', 'sawedoffmosin9130_camo',
     'sawedoffmosin9130_green', 'sawedoffmosin9130_woodland', 'sawedoffmosin9130_winter', 'sawedoffmosin9130_desert',
     'scout_livonia'))
+
+# Stock weapons-category rows that are not firearms, magazines or ammo (attachments, bayonets, melee, NVG, lights,
+# hats, gun cases): they keep the stock flag.
+NOT_HOARDED = frozenset((
+    'acogoptic', 'acogoptic_6x', 'ak74_hndgrd', 'ak74_woodbttstck', 'aks74u_bttstck', 'ak_bayonet', 'ak_foldingbttstck',
+    'ak_foldingbttstck_black', 'ak_foldingbttstck_green', 'ak_plasticbttstck', 'ak_plasticbttstck_black',
+    'ak_plasticbttstck_green', 'ak_plastichndgrd', 'ak_railhndgrd', 'ak_railhndgrd_black', 'ak_railhndgrd_green',
+    'ak_suppressor', 'ak_woodbttstck', 'ak_woodbttstck_black', 'ak_woodbttstck_camo', 'ak_woodbttstck_gold',
+    'ak_woodhndgrd', 'ak_woodhndgrd_black', 'ak_woodhndgrd_camo', 'ak_woodhndgrd_gold', 'akinaka', 'buisoptic',
+    'booniehat_desert', 'fnp45_mrdsoptic', 'fal_foldingbttstck', 'fal_oebttstck', 'guncasekeys_blue',
+    'guncasekeys_orange', 'guncasekeys_red', 'guncase_black', 'guncase_orange', 'guncase_white', 'holooptic',
+    'huntingoptic', 'iceaxe', 'improvisedsuppressor', 'jambiya', 'kashtanoptic', 'kazuaroptic', 'kobraoptic',
+    'm4_cqbbttstck', 'm4_carryhandleoptic', 'm4_mpbttstck', 'm4_mphndgrd', 'm4_oebttstck', 'm4_plastichndgrd',
+    'm4_rishndgrd', 'm4_rishndgrd_black', 'm4_rishndgrd_green', 'm4_suppressor', 'm4_t3nrdsoptic', 'm68optic',
+    'm9a1_bayonet', 'mk4optic_black', 'mk4optic_green', 'mk4optic_tan', 'mp5_compensator', 'mp5_plastichndgrd',
+    'mp5_railhndgrd', 'mp5k_stockbttstck', 'mosin_bayonet', 'mosin_compensator', 'nvgoggles', 'p1907_bayonet',
+    'pp19_bttstck', 'pso11optic', 'pso1optic', 'pso6optic', 'puscopeoptic', 'pistoloptic', 'pistolsuppressor',
+    'policebaton', 'reflexoptic', 'scar_precisionbttstck', 'scar_precisionbttstck_black', 'scar_stockbttstck',
+    'scar_stockbttstck_black', 'saiga_bttstck', 'sks_bayonet', 'sportingoptic', 'starlightoptic', 'tlrlight',
+    'tortillabag_desert', 'universallight'))
+
+
+def hoarder_uncovered(types_data, roster):
+    """Stock weapons-category rows that hoarder_kind does not select and NOT_HOARDED does not list (sorted names)."""
+    out = []
+    for row in economy.xml(types_data, 'types').findall('type'):
+        category = row.find('category')
+        name = row.get('name') or ''
+        if category is None or category.get('name') != 'weapons':
+            continue
+        if hoarder_kind(name, roster.get(name.lower())) is None and name.lower() not in NOT_HOARDED:
+            out.append(name)
+    return sorted(out)
 
 
 def hoarder_kind(name, roster_kind=None):
@@ -2303,6 +2340,8 @@ def main(argv=None):
     r = sub.add_parser('rollback')
     r.add_argument('--mission', required=True)
     sub.add_parser('validate')
+    h = sub.add_parser('check', help='hoarder coverage: every stock weapons-category row is flagged or listed in NOT_HOARDED')
+    h.add_argument('--source', required=True, type=Path, help='stock mission directory (read only)')
     args = parser.parse_args(argv)
     try:
         if args.command == 'points':
@@ -2337,6 +2376,13 @@ def main(argv=None):
             print('loot boost multiplier=%s capacity=%s categories=%s overlay_groups=%s runtime_acceptance=pending'
                   % (multiplier, _show_map(default_capacity_map()), _show_map(default_category_map()),
                      len(overlay['groups']) if overlay else 'absent'))
+            return 0
+        if args.command == 'check':
+            missing = hoarder_uncovered((args.source / 'db/types.xml').read_bytes(), _roster_names(None))
+            if missing:
+                print('hoarder-check: weapons rows neither flagged nor in NOT_HOARDED: ' + ' '.join(missing))
+                return 1
+            print('hoarder-check: every stock weapons-category row is decided pass')
             return 0
         if args.command == 'rollback':
             print('loot boost rolled back restored=%d' % rollback(args.mission)['restored'])
