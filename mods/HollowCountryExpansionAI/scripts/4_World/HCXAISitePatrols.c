@@ -165,7 +165,6 @@ class HCXAISitePatrol : HCXExpansionPatrol
         if (!group) { return; }
         if (m_HCHold && !HCXExpansionBridge.HCHoldSame(m_HCHold, group))
         {
-            if (this.HCHasGroup() && HCXExpansionBridge.HCHoldSame(m_HCHold, this.HCBridgeGroupSlot())) { return; }
             this.HCReleaseHold();
         }
         if (!m_HCHold) { m_HCHold = new HCXAIGroupHold(group); }
@@ -174,7 +173,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected void HCHoldMembers()
     {
         if (!this.HCHasGroup()) { return; }
-        m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, this.HCBridgeGroupSlot());
+        m_HCHold = this.HCBridgeFollowHold(m_HCHold);
     }
     void HCReleaseHold()
     {
@@ -208,7 +207,10 @@ class HCXAISitePatrol : HCXExpansionPatrol
         m_HCSurvivors = HCXExpansionBridge.HCHoldCountFinal(m_HCHold);
         bool wasLive = m_HCLive;
         bool raided = wasLive && !intact;
-        if (raided && director) { director.RecordCleared(this); }
+        // A set provider slot with no hold means the real group was never read: do not persist
+        // a "cleared" site from a defaulted count.
+        bool holdLost = this.HCHasGroup() && !m_HCHold;
+        if (raided && director && !holdLost) { director.RecordCleared(this); }
         this.HCPreserveBodies();
         this.HCBridgeDespawn(false);
         if (!this.HCHasGroup()) { this.HCReleaseHold(); }
@@ -229,9 +231,12 @@ class HCXAISitePatrol : HCXExpansionPatrol
     {
         if (!this.HCBridgeSetupAI(ai)) { return; }
         // Deferred members still carry their temporary provider group here; hold m_Group instead.
-        eAIGroup heldGroup = this.HCBridgeGroupSlot();
-        if (!heldGroup) { heldGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai); }
-        this.HCHoldGroup(heldGroup, ai);
+        if (this.HCHasGroup())
+        {
+            this.HCHoldMembers();
+            if (m_HCHold) { m_HCHold.Track(ai); }
+        }
+        else { this.HCHoldGroup(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(ai), ai); }
         HCXAffiliationCues.Actor(ai, m_Faction);
         HCXExpansionBridge.HCBaseSetUnlimitedReload(ai, 0);
         HCXExpansionBridge.HCBaseSetLootingBehavior(ai, 0);

@@ -145,7 +145,10 @@ class HCW38SituationRuntime
 
     static bool HCProfileFits(HCXAISiteState candidate, string profile)
     {
+        if (!candidate || !candidate.Patrol) { return false; }
         eAIGroup group = HCXExpansionBridge.HCHoldResolve(candidate.Patrol.HCGroupHold());
+        // A dead handle or a bridge that is not READY resolves to null: the profile does not fit.
+        if (!group) { return false; }
         if (HCXExpansionBridge.HCGroupCount(group) > s_Policy.MaxMembers || HCXExpansionBridge.HCGroupIsInCombat(group)) { return false; }
         if (candidate.PatrolPoints.Count() < 2 || candidate.PatrolPoints.Count() > s_Policy.MaxRouteNodes) { return false; }
         if (profile == "raid" || profile == "column") { return candidate.ProviderFaction == "HCRaiders"; }

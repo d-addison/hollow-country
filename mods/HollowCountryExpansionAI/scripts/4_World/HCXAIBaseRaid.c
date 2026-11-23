@@ -105,6 +105,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     override bool HCCustodyAllowed(PlayerBase actor, EntityAI source)
     {
+        // A null actor never matches a gone raid actor (both null would compare equal).
+        if (!actor) { return false; }
         if (!m_Reserved || actor != this.HCActor() || source != m_Source || !m_Camp || !HCLiveParty()) { return false; }
         if (vector.DistanceSq(source.GetPosition(), m_Camp.Position) > m_Config.SourceRangeMeters * m_Config.SourceRangeMeters) { return false; }
         return HCPerceive(source, source.GetPosition());
@@ -358,6 +360,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
     // completion directly. Otherwise native path-driven forced entry remains.
     bool HCUnlockAllowed(eAIBase actor)
     {
+        if (!actor) { return false; }
         if (!m_Reserved || actor != this.HCActor() || !m_Camp || !m_Building) { return false; }
         int now = HCWorldClock.UTC();
         if (now < m_Due || now >= m_Ends || !HCLiveParty()) { return false; }
@@ -495,15 +498,15 @@ class HCXAIBaseRaid : HCBaseRaidPort
     {
         if (m_HCHold)
         {
-            HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
+            HCXExpansionBridge.HCHoldClearWaypointsCleanup(m_HCHold);
             array<vector> restore = m_Original;
             // [HC TickCost] window 12 of 096: restoration is a separate, bounded route pass.
             foreach (vector point : restore)
             {
-                HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, point);
+                HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCHold, point);
                 HCServer.HCTickWork().HCCharge(1);
             }
-            HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, m_Behaviour);
+            HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(m_HCHold, m_Behaviour);
         }
         HCXAIGroupHolds.Retire(m_HCHold);
         m_HCHold = null;

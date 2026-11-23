@@ -73,6 +73,14 @@ class HCEventRuntime
     protected int m_JournalWritten;
     // True from Start until every run restored in CLEANUP is closed; announcements wait for it.
     protected bool m_StartupCleanup;
+    // The startup-cleanup gate never holds announcements past this many seconds: a provider
+    // Release or Gone that never confirms is logged once and the gate opens while the CLEANUP
+    // retry continues.
+    protected static const float STARTUP_CLEANUP_WAIT_SECONDS = 120;
+    protected float m_StartupCleanupSince;
+    protected int m_StartupCleanupExpired;
+    // True when the in-flight staged publish carried a held routine change (restored if it fails).
+    protected bool m_PendingWasDirty;
 
     void HCSetJournalIntervalSeconds(int seconds)
     {
@@ -122,17 +130,31 @@ class HCEventRuntime
     bool HCStartupCleanupPending()
     {
         if (!m_StartupCleanup) { return false; }
+        int pendingRows = 0;
         if (m_State && m_State.Runs)
         {
             array<ref HCEventRun> rows = m_State.Runs;
             foreach (HCEventRun row : rows)
             {
-                if (row && row.Phase == HCEventRunPhase.CLEANUP) { return true; }
+                if (row && row.Phase == HCEventRunPhase.CLEANUP) { pendingRows = pendingRows + 1; }
             }
         }
-        m_StartupCleanup = false;
-        return false;
+        if (pendingRows == 0)
+        {
+            m_StartupCleanup = false;
+            return false;
+        }
+        if (GetGame().GetTickTime() - m_StartupCleanupSince >= STARTUP_CLEANUP_WAIT_SECONDS)
+        {
+            // Bounded wait: open the gate; the run loop keeps retrying the unconfirmed release.
+            m_StartupCleanup = false;
+            if (m_StartupCleanupExpired < 1000000000) { m_StartupCleanupExpired++; }
+            Print("[HC Events] startup cleanup wait expired pending=" + pendingRows.ToString());
+            return false;
+        }
+        return true;
     }
+    int HCStartupCleanupExpired() { return m_StartupCleanupExpired; }
 
     protected HCEventRun HCRunAt(HCEventRuntimeState state, int eventId)
     {
@@ -304,6 +326,7 @@ class HCEventRuntime
         m_JournalJob.HCPreempt = true;
         m_JournalJob.HCDue = 0;
         // The candidate was cloned from the current state, so it carries any held routine change.
+        m_PendingWasDirty = m_JournalDirty;
         m_JournalDirty = false;
         m_JournalFlushNow = false;
         return true;
@@ -340,8 +363,12 @@ class HCEventRuntime
         m_PendingJournal = null;
         m_PendingExpiryId = 0;
         m_PendingLeave = null;
+        bool wasDirty = m_PendingWasDirty;
+        m_PendingWasDirty = false;
         if (result == HCSaveJob.STEP_FAILED)
         {
+            // The held routine change never reached disk: keep it dirty so Stop still flushes it.
+            if (wasDirty) { m_JournalDirty = true; }
             m_Ready = false;
             FaultCleanup();
             HCPublishRefused();
@@ -389,6 +416,8 @@ class HCEventRuntime
         m_JournalFlushNow = false;
         m_JournalWrittenAt = -1;
         m_StartupCleanup = false;
+        m_StartupCleanupSince = 0;
+        m_PendingWasDirty = false;
         m_PendingLeaves.Clear();
         m_PendingLeave = null;
         m_SceneRetirements.Clear();
@@ -487,6 +516,7 @@ class HCEventRuntime
         if (restoredCleanup > 0)
         {
             m_StartupCleanup = true;
+            m_StartupCleanupSince = GetGame().GetTickTime();
             Print("[HC Events] startup cleanup queued " + restoredCleanup.ToString() + " retained runs before roster; observation_clone_refusals=" + m_ObservationCloneRefusals.ToString() + " observation_run_refusals=" + m_ObservationRunRefusals.ToString());
         }
         m_LastNow = context.Now;

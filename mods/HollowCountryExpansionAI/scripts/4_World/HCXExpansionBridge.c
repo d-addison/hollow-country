@@ -25,9 +25,10 @@ class HCXExpansionBridge
     // H8 lifecycle. HCServer.Start (modded below) enters NOT_READY and bumps the epoch;
     // the first call after the provider answers moves to READY; HCServer.Stop flips to
     // SHUTTING_DOWN before any module OnStop. Mutating calls and handle reads need READY.
-    // Cleanup (group delete, patrol stop/despawn, hold retire/prune) is never gated, and
-    // the raw HCGroup* read layer stays live at shutdown so a stopping patrol still reads
-    // its real group (a defaulted count would persist a false "cleared" site).
+    // Cleanup (group delete, patrol stop/despawn, hold retire/prune) is never gated. Only the
+    // HCHold*Final persistence reads are ungated, so a stopping patrol still reads its real
+    // group (a defaulted count would persist a false "cleared" site); every other read needs READY.
+    // The HCHold*Cleanup route undo resolves the same way, so a cancelled raid always restores.
     // Refusals are counted here, not printed through HCRefuse (one line per minute for all).
     static const int HC_STATE_NOT_READY = 0;
     static const int HC_STATE_READY = 1;
@@ -1094,6 +1095,29 @@ class HCXExpansionBridge
         return hold.HCResolveAny();
     }
 
+    // Cleanup-class route undo (raid cancel): resolves like a Final read, so restoring the
+    // original route is never skipped by the lifecycle gate. Not for new work.
+    static void HCHoldClearWaypointsCleanup(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return; }
+        group.ClearWaypoints();
+    }
+
+    static void HCHoldAddWaypointCleanup(HCXAIGroupHold hold, vector pos)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return; }
+        group.AddWaypoint(pos);
+    }
+
+    static void HCHoldSetWaypointBehaviourCleanup(HCXAIGroupHold hold, eAIWaypointBehavior bhv)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return; }
+        group.SetWaypointBehaviour(bhv);
+    }
+
     static bool HCHoldAliveFinal(HCXAIGroupHold hold)
     {
         return HCHoldGroupFinal(hold) != null;
@@ -1333,7 +1357,27 @@ class HCXAIGroupHolds
             s_Retired.Remove(s_Cursor);
         }
     }
+    // Removes the oldest retired hold that has met the PruneStep release rule (settled for
+    // HC_SETTLE_MS and three distinct frames) or that is already null; false when none is ready.
+    protected static bool EvictOldestReleasable()
+    {
+        if (!s_Retired) { return false; }
+        for (int at = 0; at < s_Retired.Count(); at++)
+        {
+            HCXAIGroupHold held = s_Retired[at];
+            if (held)
+            {
+                if (!held.Settled() || held.SettledAtMs < 0 || held.SettledSeen < 3) { continue; }
+                if (GetGame() && GetGame().GetTime() - held.SettledAtMs < HC_SETTLE_MS) { continue; }
+            }
+            s_Retired.Remove(at);
+            if (s_Cursor > at) { s_Cursor--; }
+            return true;
+        }
+        return false;
+    }
     // Returns the hold for group and tracks its members; a hold on another group is retired.
+    // Never null while group is non-null.
     static HCXAIGroupHold Follow(HCXAIGroupHold hold, eAIGroup group)
     {
         if (hold && hold.HCIsGroup(group))
@@ -1343,11 +1387,14 @@ class HCXAIGroupHolds
         }
         Retire(hold);
         if (!group) { return null; }
-        // Retired holds at the high-water mark: refuse a new handle rather than track it blind.
+        // Retired holds at the high-water mark: a live slot group always gets its hold (a null
+        // here would skip the combat-despawn veto and persist a false "cleared" site). Make room
+        // by evicting the oldest hold that PruneStep would already release; if none is ready the
+        // list overshoots until one settles.
         if (Count() >= HC_HIGH_COUNT)
         {
             HCXExpansionBridge.HCCountHoldCap();
-            return null;
+            EvictOldestReleasable();
         }
         HCXAIGroupHold next = new HCXAIGroupHold(group);
         next.TrackGroup();
@@ -1384,14 +1431,15 @@ class HCXExpansionPatrol : eAIDynamicPatrol
     }
     // The provider's m_Group is raw (eAIGroup is not Managed). These two are the only reads of it
     // outside the provider: the null compare never dereferences, and the pointer goes straight
-    // into an HCXAIGroupHold (HCXAIGroupHolds.Follow); every other reader uses the hold.
+    // into an HCXAIGroupHold (HCXAIGroupHolds.Follow) without leaving this class; every other
+    // reader uses the hold.
     bool HCBridgeHasGroupSlot()
     {
         return m_Group != null;
     }
-    eAIGroup HCBridgeGroupSlot()
+    HCXAIGroupHold HCBridgeFollowHold(HCXAIGroupHold hold)
     {
-        return m_Group;
+        return HCXAIGroupHolds.Follow(hold, m_Group);
     }
     protected void HCBridgeDespawn(bool deferDespawnUntilLoosingAggro = false) { super.Despawn(deferDespawnUntilLoosingAggro); }
     protected void HCBridgeOnUpdate()

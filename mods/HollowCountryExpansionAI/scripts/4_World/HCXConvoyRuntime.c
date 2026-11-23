@@ -134,7 +134,9 @@ class HCXConvoyRun
     {
         Human driver = mHCCar.CrewMember(0);
         if (!driver) { return false; }
-        return driver != this.HCLeader();
+        // Identity through the hold: HCLeader() is null while the bridge is not READY, which
+        // would report our own driver as foreign.
+        return !HCXExpansionBridge.HCAgentSame(m_HCLeaderHold, eAIBase.Cast(driver));
     }
 
     // Release the car without a brake, handbrake or engine write; only our own
@@ -315,7 +317,7 @@ class HCXConvoyRun
         if (!HCAlive() || !mHCCar) { HCStop("CONVOY_BOARD_LOST", now); return; }
         if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { HCStop("CONVOY_CONTACT", now); return; }
         if (now - mHCPhaseAt > mHCPolicy.BoardSeconds * 1000) { HCStop("CONVOY_BOARD_TIMEOUT", now); return; }
-        if (mHCCar.CrewMember(0) != this.HCLeader()) { return; }
+        if (!HCXExpansionBridge.HCAgentSame(m_HCLeaderHold, eAIBase.Cast(mHCCar.CrewMember(0)))) { return; }
         if (HCAboard() < HCMembers()) { return; }
         mHCIndex = 0;
         mHCProgressAt = now;
@@ -344,7 +346,7 @@ class HCXConvoyRun
         if (!mHCCar) { return "CONVOY_VEHICLE_LOST"; }
         if (mHCCar.IsDamageDestroyed()) { return "CONVOY_VEHICLE_DESTROYED"; }
         if (!HCAlive()) { return "CONVOY_DRIVER_LOST"; }
-        if (mHCCar.CrewMember(0) != this.HCLeader()) { return "CONVOY_DRIVER_LOST"; }
+        if (!HCXExpansionBridge.HCAgentSame(m_HCLeaderHold, eAIBase.Cast(mHCCar.CrewMember(0)))) { return "CONVOY_DRIVER_LOST"; }
         if (mHCCar.IsFlipped()) { return "CONVOY_VEHICLE_FLIPPED"; }
         if (!mHCCar.EngineIsOn() && !mHCCar.CheckOperationalState()) { return "CONVOY_VEHICLE_NOT_OPERATIONAL"; }
         if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { return "CONVOY_CONTACT"; }
