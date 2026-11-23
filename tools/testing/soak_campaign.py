@@ -76,6 +76,9 @@ LAUNCH_SETTLE_SECONDS = 30
 LAUNCH_POLL_SECONDS = 5
 # Consecutive unreadable polls of a live log (Windows may hold it briefly) before the run gives up.
 UNREADABLE_POLLS = 20
+# The BattlEye launcher starts DayZ_x64 seconds after Start-Process returns (soak 178 attempt 5).
+PROCESS_APPEAR_SECONDS = 180
+APPEAR_POLL_SECONDS = 5
 EDITED_ALLOWED = {('mission', GAMEPLAY)}
 CONNECT_ENABLED = 'Player connect enabled'
 # A script error before connect enabled means the soak can only fail; the shipped gate never compiles the test
@@ -827,7 +830,7 @@ class Campaign:
 
     def wait_for(self, what, minutes, check, image):
         end = self.now() + minutes * 60
-        unreadable = 0
+        unreadable = unknown = 0
         while True:
             try:
                 result = check()
@@ -839,11 +842,30 @@ class Campaign:
                 result = None
             if result:
                 return result
-            if self.host.state(image) != 'running':
-                raise Refused('%s stopped while waiting for %s' % (image, what))
+            unknown = self.still_running(image, unknown, 'stopped while waiting for ' + what)
             if self.now() >= end:
                 raise Refused('timed out waiting for ' + what)
             self.sleep(POLL_SECONDS)
+
+    def still_running(self, image, unknown, stopped):
+        """Only 'gone' is a stop. 'unknown' is a lost interop reply, refused once it repeats UNREADABLE_POLLS times."""
+        state = self.host.state(image)
+        if state == 'running':
+            return 0
+        if state == 'gone':
+            raise Refused('%s %s' % (image, stopped))
+        unknown += 1
+        if unknown >= UNREADABLE_POLLS:
+            raise Refused('%s: process state unknown %d polls in a row' % (image, unknown))
+        return unknown
+
+    def appear(self, image, what):
+        """Wait for a launched image to run before any liveness check reads its absence as a stop."""
+        end = self.now() + PROCESS_APPEAR_SECONDS
+        while self.host.state(image) != 'running':
+            if self.now() >= end:
+                raise Refused('%s did not start within %d s of the %s launch' % (image, PROCESS_APPEAR_SECONDS, what))
+            self.sleep(APPEAR_POLL_SECONDS)
 
     def newest(self, folder, pattern):
         found = sorted(Path(folder).glob(pattern), key=lambda p: p.stat().st_mtime)
@@ -864,6 +886,7 @@ class Campaign:
             server_win = self.win(stager.server)
             started['server'] = True
             self.host.launch_server(server_win)
+            self.appear(SERVER_IMAGE, 'server')
             server_profile = stager.server / PROFILE_COPY
             server_follow = {'path': None, 'offset': 0}
 
@@ -894,6 +917,7 @@ class Campaign:
             args = client_arguments(mods, self.win(stager.client_parent / CLIENT_PROFILE))
             started['client'] = True
             self.host.launch_client(self.win(stager.client_root), args)
+            self.appear(CLIENT_IMAGE, 'client')
             self.log('run: client launched through the BattlEye launcher')
             client_dir = stager.client_parent / CLIENT_PROFILE
             follow = {'path': None, 'offset': 0, 'done': False, 'inert': False, 'steps': 0}
@@ -926,10 +950,10 @@ class Campaign:
                 raise Refused('the client driver found no step file (inert); nothing was driven')
             self.log('run: driver steps seen=%d done=%s' % (follow['steps'], follow['done']))
             end = self.now() + idle_minutes * 60
+            unknown = {SERVER_IMAGE: 0, CLIENT_IMAGE: 0}
             while self.now() < end:
                 for image in (SERVER_IMAGE, CLIENT_IMAGE):
-                    if self.host.state(image) != 'running':
-                        raise Refused('%s stopped during the idle phase' % image)
+                    unknown[image] = self.still_running(image, unknown[image], 'stopped during the idle phase')
                 self.sleep(min(POLL_SECONDS * 4, max(1, end - self.now())))
             self.log('run: idle window of %d minutes complete' % idle_minutes)
         except BaseException as error:  # restore must always run; the error is re-raised below

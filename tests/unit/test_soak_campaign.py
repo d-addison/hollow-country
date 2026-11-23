@@ -347,13 +347,25 @@ class StagerTests(Tmp):
 class FakeHost:
     """Simulates the two processes; the fake clock is advanced by the campaign's own sleeps."""
 
-    def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done', script_error=None):
+    def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done', script_error=None,
+                 late=0, unknown_reads=0):
         self.stager, self.clock, self.script_error = stager, clock, script_error
+        # late: client polls that read gone after launch (the BattlEye launcher has not started it yet);
+        # unknown_reads: client polls that read unknown (lost interop replies) once the client has read running.
+        self.late, self.unknown_reads, self.seen_running = late, unknown_reads, False
         self.running = {camp.SERVER_IMAGE: False, camp.CLIENT_IMAGE: False}
         self.calls, self.client_args, self.stopped_at = [], None, {}
         self.server_ready, self.stop_ok, self.driver = server_ready, stop_ok, driver
 
     def state(self, image):
+        if image == camp.CLIENT_IMAGE and self.running[image]:
+            if self.late:
+                self.late -= 1
+                return 'gone'
+            if self.unknown_reads and self.seen_running:
+                self.unknown_reads -= 1
+                return 'unknown'
+            self.seen_running = True
         return 'running' if self.running[image] else 'gone'
 
     def launch_server(self, server_root_win):
@@ -432,6 +444,28 @@ class CampaignTests(Tmp):
         server, client = camp.last_run_logs(self.state)
         self.assertIsNotNone(server)
         self.assertIn('[HC Driver] done', client.read_text())
+
+    def test_a_client_the_launcher_starts_late_is_waited_for(self):
+        run, host = self.campaign(late=3)
+        self.assertTrue(run.run())
+        self.assertEqual(0, host.late)
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_a_client_that_never_appears_refuses_and_restores(self):
+        run, host = self.campaign(late=10 ** 6)
+        with self.assertRaisesRegex(camp.Refused, 'did not start within'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_a_few_unknown_process_reads_do_not_end_the_run(self):
+        run, host = self.campaign(unknown_reads=camp.UNREADABLE_POLLS - 1)
+        self.assertTrue(run.run())
+
+    def test_unknown_process_reads_that_repeat_refuse(self):
+        run, host = self.campaign(unknown_reads=camp.UNREADABLE_POLLS)
+        with self.assertRaisesRegex(camp.Refused, 'process state unknown'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
 
     def test_refuses_while_the_server_or_client_runs(self):
         for image in (camp.SERVER_IMAGE, camp.CLIENT_IMAGE):
