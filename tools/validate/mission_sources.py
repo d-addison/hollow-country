@@ -12,12 +12,12 @@ summary line each (the producers emit a 10-20 KB JSON line):
                     anchor invariants (finite y on every anchor, no zero CE zone).
 ``--ce-slots MISSION``
                     CE slot pressure on a staged mission (stock files plus the
-                    installed overlays). Gate: the joint Military/Police/Prison weapon
-                    reservation (LIMIT headroom), the bound friend_install already
-                    enforces. The all-categories static bound is printed as info only:
-                    unmodified vanilla fails it too (docs/tools/CE_FILL_PROBE.md), so
-                    gating on it would be a known false positive. Exit 0 pass, 1 fail,
-                    2 unreadable inputs. Neither is native placement acceptance.
+                    installed overlays). Preland gates on the joint Military/Police/Prison
+                    weapon reservation with LIMIT headroom. ``friend_install --check``
+                    uses the separate legacy route pressure estimate from ``problems()``.
+                    The all-categories static bound is informational because unmodified
+                    vanilla also fails it (docs/tools/CE_FILL_PROBE.md). Exit 0 pass,
+                    1 fail, 2 unreadable inputs. Native placement requires a live check.
 """
 import argparse
 from pathlib import Path

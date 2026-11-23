@@ -316,3 +316,9 @@ upgrade without a storage wipe. This is a frozen-input policy comparison;
 other categories share capacity, and dimensions/collisions/native selection
 remain unobserved. Lead t3/t4 retry and kit-placement reruns plus an observed
 existing-server upgrade remain pending. Implemented-unverified.
+
+Local preland's `--ce-mission` takes a staged mission with the candidate's overlays applied.
+Check its build manifest and install receipt before attributing the result to a build, especially
+when more than one `friend-local-1` installation exists. Preland uses the joint Military/Police/Prison
+weapon reservation described above. `friend_install --check` uses the legacy route pressure estimate
+from `ce_slot_pressure.problems()`. Each result applies to its own inputs and algorithm.
