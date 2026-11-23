@@ -403,6 +403,24 @@ def bounds_update(result, catalog):
             'note': 'Geometry LOD vertex bounds in the model frame; review before copying into the catalogue.'}
 
 
+def contact_report(result):
+    """Per-class ground reference for the overlay validator and the runtime placer.
+
+    contact_low_m is the lowest visible vertex relative to the model origin, geometry_low_m the lowest Geometry LOD
+    vertex. Classes without a visible mesh are listed, never guessed."""
+    classes, unmeasured = {}, []
+    for metric in sorted(result['classes'], key=lambda m: m['classname']):
+        if 'contact_lowest_y_m' in metric:
+            classes[metric['classname']] = {'contact_low_m': round(metric['contact_lowest_y_m'], 3) + 0.0,
+                                            'geometry_low_m': round(metric.get('lowest_y_m', metric['contact_lowest_y_m']), 3) + 0.0}
+        else:
+            unmeasured.append(metric['classname'])
+    return {'schema': 1, 'kind': 'hollow-country-overlay-ground-contact', 'reader_revision': gen.READER_REVISION,
+            'classes': classes, 'unmeasured': unmeasured,
+            'note': 'Lowest visible vertex and lowest Geometry LOD vertex relative to the model origin; '
+                    'regenerate with tools.audit.world_mesh_audit --contact-out.'}
+
+
 class Installed:
     """All installed PBOs, indexed and read in place; no extracted assets."""
     def __init__(self, addons):
@@ -703,6 +721,8 @@ def main(argv=None):
     parser.add_argument('--report', type=Path, help='JSON destination; defaults to stdout')
     parser.add_argument('--bounds-out', type=Path,
                         help='write the proposed measured-bounds update for the class catalogue')
+    parser.add_argument('--contact-out', type=Path,
+                        help='write the per-class ground-contact reference used by map_overlay validate')
     parser.add_argument('--require-installed', action='store_true')
     args = parser.parse_args(argv)
     try:
@@ -712,6 +732,7 @@ def main(argv=None):
         if catalog_path.is_file():
             catalog = read_json(catalog_path)['classes']
         proposal = None
+        contact = None
         missing = []
         if not args.addons.is_dir() or not any(args.addons.glob('*.pbo')):
             missing.append('INSTALLED_ADDONS_UNAVAILABLE')
@@ -720,6 +741,7 @@ def main(argv=None):
         else:
             result = audit(rows, Installed(args.addons), catalog)
             proposal = bounds_update(result, catalog)
+            contact = contact_report(result)
     except Exception:
         # External reader/PBO diagnostics can contain private filesystem paths.
         # Keep errors machine-readable without echoing paths or raw exceptions.
@@ -728,6 +750,9 @@ def main(argv=None):
     if args.bounds_out and proposal is not None:
         args.bounds_out.write_text(json.dumps(proposal, sort_keys=True, indent=2, allow_nan=False) + '\n',
                                    encoding='utf-8')
+    if args.contact_out and contact is not None:
+        args.contact_out.write_text(json.dumps(contact, sort_keys=True, indent=2, allow_nan=False) + '\n',
+                                    encoding='utf-8')
     if args.report:
         args.report.write_text(rendered, encoding='utf-8')
     else:

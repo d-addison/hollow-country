@@ -43,6 +43,9 @@ POS = 'mapgrouppos.xml'
 PROFILE_KIND = 'hollow-country-overlay-profile'
 CLASSES_KIND = 'hollow-country-overlay-classes'
 COMPOSITIONS_KIND = 'hollow-country-overlay-compositions'
+GROUND_KIND = 'hollow-country-overlay-ground-contact'
+GROUND_FILE = 'ground-contact.json'
+GROUND_TOL_M = 0.15
 LAYER_KIND = 'hollow-country-map-overlay'
 MANIFEST_KIND = 'hollow-country-overlay-manifest'
 STATUSES = ('runtime-unverified', 'runtime-verified')
@@ -81,8 +84,9 @@ MILITARY_PREFIXES = ('Land_Mil_', 'Land_Tisy_', 'Land_Medical_Tent')
 class Source:
     """The authored inputs: profile (enabled layers and limits), class allowlist, layers, compositions."""
 
-    def __init__(self, profile, classes, layers, compositions=None):
+    def __init__(self, profile, classes, layers, compositions=None, ground=None):
         self.profile, self.classes, self.layers = profile, classes, list(layers)
+        self.ground = ground  # per-class visible/geometry bottoms (tools.audit.world_mesh_audit --contact-out)
         self.compositions = compositions if compositions is not None else {
             'kind': COMPOSITIONS_KIND, 'compositions': {}}
 
@@ -130,7 +134,113 @@ def load_source(directory=SOURCE):
         return json.loads(path.read_bytes())
     layers = [read(path) for path in sorted((directory / 'layers').glob('*.json'))]
     compositions = read(directory / 'compositions.json') if (directory / 'compositions.json').is_file() else None
-    return Source(read(directory / 'profile.json'), read(directory / 'classes.json'), layers, compositions)
+    ground = read(directory / GROUND_FILE) if (directory / GROUND_FILE).is_file() else None
+    return Source(read(directory / 'profile.json'), read(directory / 'classes.json'), layers, compositions, ground)
+
+
+# ---- ground contact ------------------------------------------------------------------------------------------
+
+def ground_class(contact_low, pivot_rel):
+    """OK / floating / sunk for a visible bottom at pivot_rel + contact_low above the lowest ground under the footprint.
+
+    A model whose visible mesh reaches below its pivot (contact_low < 0) carries that embed by design, so only
+    the part beyond it counts as sunk; more than GROUND_TOL_M above the ground is floating."""
+    bottom = pivot_rel + contact_low
+    if bottom > GROUND_TOL_M:
+        return 'floating'
+    if bottom < min(contact_low, 0.0) - GROUND_TOL_M:
+        return 'sunk'
+    return 'OK'
+
+
+def ground_entry(source, name):
+    """(contact_low_m, geometry_low_m) for a class, or None when the class has no measured visible mesh."""
+    classes = (source.ground or {}).get('classes') or {}
+    row = classes.get(name)
+    if not isinstance(row, dict) or not finite(row.get('contact_low_m')) or not finite(row.get('geometry_low_m')):
+        return None
+    return float(row['contact_low_m']), float(row['geometry_low_m'])
+
+
+def pivot_rel(item):
+    """Authored pivot height above the ground the runtime finds; explicit objects sit on it (0)."""
+    value = item.get('dy', 0.0) if isinstance(item, dict) else 0.0
+    return float(value) if finite(value) else 0.0
+
+
+def ground_rows(source, layer):
+    """[(object, (contact_low_m, geometry_low_m) or None)] for every expanded object of a layer."""
+    rows = []
+    for item in expand_layer(source, layer):
+        entry = ground_entry(source, item['class']) if isinstance(item, dict) else None
+        rows.append((item, entry))
+    return rows
+
+
+def ground_table(source, reference='pivot'):
+    """({layer: {OK/floating/sunk/unmeasured: n}}, {class: same}, [(layer, id, class, bottom_m, result)])."""
+    per_layer, per_class, bad = {}, {}, []
+    for layer in source.layers:
+        for item, entry in ground_rows(source, layer):
+            if entry is None:
+                result, bottom = 'unmeasured', 0.0
+            else:
+                contact, geometry = entry
+                rel = pivot_rel(item) if reference == 'pivot' else -geometry
+                bottom = rel + contact
+                result = ground_class(contact, rel)
+            for table, key in ((per_layer, layer['id']), (per_class, item['class'])):
+                row = table.setdefault(key, {})
+                row[result] = row.get(result, 0) + 1
+            if result in ('floating', 'sunk'):
+                bad.append((layer['id'], item['id'], item['class'], round(bottom, 3), result))
+    return per_layer, per_class, bad
+
+
+def ground_report(source, reference='pivot'):
+    """Per-layer and per-class OK / floating / sunk table (floating or sunk = visible bottom beyond 0.15 m)."""
+    per_layer, per_class, bad = ground_table(source, reference)
+    columns = ('OK', 'floating', 'sunk', 'unmeasured')
+    lines = ['ground reference=%s tolerance_m=%.2f' % (reference, GROUND_TOL_M),
+             '%-28s %6s %9s %6s %10s' % (('layer',) + columns)]
+    for key in sorted(per_layer):
+        lines.append('%-28s %6d %9d %6d %10d' % ((key,) + tuple(per_layer[key].get(c, 0) for c in columns)))
+    lines.append('%-28s %6d %9d %6d %10d' % (('total',) + tuple(
+        sum(row.get(c, 0) for row in per_layer.values()) for c in columns)))
+    for key in sorted(per_class):
+        row = per_class[key]
+        if row.get('floating') or row.get('sunk'):
+            lines.append('  class %-40s floating=%d sunk=%d ok=%d' % (
+                key, row.get('floating', 0), row.get('sunk', 0), row.get('OK', 0)))
+    lines.append('outside tolerance: %d' % len(bad))
+    return '\n'.join(lines) + '\n'
+
+
+def ground_errors(source, layer, objects):
+    """Validation errors for one layer: every placement's visible bottom within tolerance of the ground.
+
+    The runtime rests the footprint's lowest ground point at pivot_rel below the pivot (HCGroundSnap.Place),
+    so the offline check is exact for the data it cannot see (terrain): class contact plus authored dy."""
+    if source.ground is None:
+        return []
+    errors, missing = [], set()
+    unmeasured = set((source.ground.get('unmeasured') or []))
+    for item in objects:
+        if not isinstance(item, dict) or not isinstance(item.get('class'), str):
+            continue
+        entry = ground_entry(source, item['class'])
+        if entry is None:
+            if item['class'] not in unmeasured and item['class'] not in missing:
+                missing.add(item['class'])
+                errors.append('%s: class %s has no ground-contact data (run tools.audit.world_mesh_audit '
+                              '--contact-out)' % (layer.get('id', '?'), item['class']))
+            continue
+        result = ground_class(entry[0], pivot_rel(item))
+        if result != 'OK':
+            errors.append('%s/%s: %s %s by %.3f m (class contact %.3f m, dy %.3f m; tolerance %.2f m)' % (
+                layer.get('id', '?'), item.get('id'), item['class'], result,
+                abs(pivot_rel(item) + entry[0]), entry[0], pivot_rel(item), GROUND_TOL_M))
+    return errors
 
 
 # ---- validation ---------------------------------------------------------------------------------------------
@@ -224,6 +334,7 @@ def expand_layer(source, layer):
                             'pos': [x, round(float(pos[1]) + float(piece.get('dy', 0.0)), 6), z],
                             'yaw': wrap(float(piece['yaw']) + float(heading)), 'loot': piece['loot'],
                             'area': site.get('area', ''), 'site': site['id'],
+                            **({'dy': float(piece['dy'])} if 'dy' in piece else {}),
                             **({'support_radius_m': site['support_radius_m']} if 'support_radius_m' in site else {})})
     return objects
 
@@ -348,6 +459,7 @@ def validate(source, vanilla=None, proto_names=None):
                 if slope is None or slope > slope_cap:
                     errors.append('%s/%s: unsupported or excessive vanilla-row support slope' % (name, site.get('id')))
         objects = expand_layer(source, layer)
+        errors.extend(ground_errors(source, layer, objects))
         site_heights = {site['id']: float(site['pos'][1]) for site in sites
                         if isinstance(site, dict) and isinstance(site.get('id'), str) and _finite_list(site.get('pos'), 3)}
         cap = limits['max_objects_per_layer']
@@ -545,6 +657,20 @@ def _spawner(objects):
     return json.dumps({'Objects': rows}, indent=2).encode() + b'\n'
 
 
+def _ground_sidecar(source, layer, objects):
+    """objects/<id>.ground.json, index-aligned with the spawner rows: pivot = pivot height above the lowest footprint
+    ground, embed = depth the model carries below its pivot, loot = 1 when the piece carries CE loot. The runtime
+    (HCGroundObjectSpawner) places each prop from it and falls back to the plain snap without the file."""
+    rows = []
+    for item in sorted(objects, key=lambda o: o['id']):
+        entry = ground_entry(source, item['class'])
+        contact = entry[0] if entry is not None else 0.0
+        rows.append({'pivot': round(pivot_rel(item), 3), 'embed': round(max(0.0, -contact), 3),
+                     'loot': 1 if item.get('loot') == 'proto' else 0})
+    return json.dumps({'layer': layer['id'], 'version': layer['version'], 'Ground': rows},
+                      indent=1).encode() + b'\n'
+
+
 def _group_rows(layer, objects):
     # Vanilla rows satisfy a = wrap(90 - rpy_z) (observed on the installed 1.30 mapgrouppos.xml). That `a`
     # equals the spawner yaw is an assumption: verify in game, or cross-check with the engine's own export
@@ -569,6 +695,7 @@ def compose(source):
     for layer in layers:
         objects = expand_layer(source, layer)
         files['objects/%s.json' % layer['id']] = _spawner(objects)
+        files['objects/%s.ground.json' % layer['id']] = _ground_sidecar(source, layer, objects)
         rows.extend(_group_rows(layer, objects))
     files['mapgrouppos.additions.xml'] = ('\n'.join(rows) + '\n').encode()
     verified = all(layer['status'] == 'runtime-verified' for layer in layers) and bool(layers)
@@ -1840,7 +1967,7 @@ def _layer_from_sites(sites, rule_text, inventory_sha, count):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('validate', 'compose', 'install', 'rollback', 'suggest', 'plan', 'report',
-                                            'map', 'expand-plan', 'refresh-plan', 'zones'))
+                                            'map', 'expand-plan', 'refresh-plan', 'zones', 'ground'))
     parser.add_argument('--source', type=Path, default=SOURCE)
     parser.add_argument('--mission', type=Path, help='mission copy to read mapgrouppos.xml / mapgroupproto.xml from')
     parser.add_argument('--target', type=Path)
@@ -1856,6 +1983,9 @@ def main(argv=None):
     parser.add_argument('--max-dumps', type=int, default=12)
     parser.add_argument('--max-roadside', type=int, default=14)
     parser.add_argument('--size', type=int, default=1024, help='map: image size in pixels')
+    parser.add_argument('--reference', choices=('pivot', 'geometry'), default='pivot',
+                        help='ground: pivot = authored dy (the runtime now); geometry = geometry bottom on the ground '
+                             '(the pre-wh-ground runtime)')
     parser.add_argument('--window', help='map: x,z,half-size in metres to zoom (default the whole map)')
     args = parser.parse_args(argv)
     if args.zones_out is not None and args.command not in ('expand-plan', 'refresh-plan'):
@@ -1887,6 +2017,9 @@ def main(argv=None):
         if args.command == 'report':
             sys.stdout.write(report(source, as_text=True))
             return 0
+        if args.command == 'ground':
+            sys.stdout.write(ground_report(source, args.reference))
+            return int(bool(ground_table(source, args.reference)[2]))
         if args.command in ('plan', 'map', 'expand-plan', 'refresh-plan'):
             if args.mission is None or args.out is None:
                 parser.error('--mission and --out are required')

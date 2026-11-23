@@ -224,13 +224,90 @@ class Compose(unittest.TestCase):
         layers = [layer('alpha-v1'), layer('beta-v1', [obj('b01', x=3000.0)]), layer('gamma-v1', [obj('g', x=4000.0)])]
         files = mo.compose(source(layers, profile))
         self.assertEqual(sorted(n for n in files if n.startswith('objects/')),
-                         ['objects/alpha-v1.json', 'objects/beta-v1.json'])
+                         ['objects/alpha-v1.ground.json', 'objects/alpha-v1.json',
+                          'objects/beta-v1.ground.json', 'objects/beta-v1.json'])
         manifest = json.loads(files['manifest.json'])
         self.assertEqual([l['id'] for l in manifest['layers']], ['beta-v1', 'alpha-v1'])
 
     def test_compose_refuses_an_invalid_source(self):
         with self.assertRaises(ValueError):
             mo.compose(source([layer(objects=[obj('t01', cls='Nope')])]))
+
+
+GROUND = {
+    'kind': 'hollow-country-overlay-ground-contact',
+    'classes': {
+        'Land_Mil_Tent_Big1_1': {'contact_low_m': 0.0, 'geometry_low_m': -0.8},
+        'Land_Mil_Tent_Big1_2': {'contact_low_m': -0.4, 'geometry_low_m': -0.4},
+        'Land_Medical_Tent_Big': {'contact_low_m': 0.3, 'geometry_low_m': 0.3},
+    },
+    'unmeasured': [],
+}
+
+
+def grounded(objects, ground=GROUND):
+    src = source([layer(objects=objects)])
+    src.ground = copy.deepcopy(ground)
+    return src
+
+
+class GroundContact(unittest.TestCase):
+    """wh-ground: the visible bottom must sit within 0.15 m of the ground (offline half of HCGroundSnap.Place)."""
+
+    def test_classification_uses_the_authored_embed_as_allowance(self):
+        self.assertEqual(mo.ground_class(0.0, 0.0), 'OK')
+        self.assertEqual(mo.ground_class(-0.4, 0.0), 'OK')        # the model embeds itself 0.4 m by design
+        self.assertEqual(mo.ground_class(-0.4, -0.1), 'OK')       # the pivot may sink 0.15 m below the ground
+        self.assertEqual(mo.ground_class(-0.4, -0.2), 'sunk')
+        self.assertEqual(mo.ground_class(0.3, 0.0), 'floating')   # visible bottom 0.3 m above the pivot
+        self.assertEqual(mo.ground_class(0.3, -0.3), 'OK')
+        self.assertEqual(mo.ground_class(0.0, 0.2), 'floating')
+
+    def test_validate_reports_floating_sunk_and_unknown_classes(self):
+        objects = [obj('t01', cls='Land_Medical_Tent_Big'), obj('t02', x=2030.0, cls='Land_Mil_Tent_Big1_1'),
+                   obj('t03', x=2060.0, cls='Land_Mil_Tent_Big1_2')]
+        errors = mo.validate(grounded(objects))
+        self.assertTrue(any('t01' in e and 'floating' in e for e in errors), errors)
+        self.assertFalse(any('t02' in e or 't03' in e for e in errors), errors)
+        unknown = mo.validate(grounded([obj('t01', cls='Land_Mil_Tent_Big1_1')], {'classes': {}, 'unmeasured': []}))
+        self.assertTrue(any('no ground-contact data' in e for e in unknown), unknown)
+        listed = mo.validate(grounded([obj('t01', cls='Land_Mil_Tent_Big1_1')],
+                                      {'classes': {}, 'unmeasured': ['Land_Mil_Tent_Big1_1']}))
+        self.assertFalse(any('ground' in e for e in listed), listed)
+
+    def test_composition_dy_is_judged_against_the_class_contact(self):
+        src = grounded([])
+        src.compositions = {'kind': mo.COMPOSITIONS_KIND, 'compositions': {'c': {'pieces': [
+            {'class': 'Land_Medical_Tent_Big', 'loot': 'none', 'dx': 0, 'dz': 0, 'yaw': 0, 'dy': -0.3}]}}}
+        src.layers[0]['sites'] = [{'id': 's1', 'composition': 'c', 'pos': [2000.0, 100.0, 3000.0], 'heading': 0.0,
+                                   'area': 'synthetic'}]
+        self.assertFalse([e for e in mo.validate(src) if 'floating' in e or 'sunk' in e])
+        src.compositions['compositions']['c']['pieces'][0]['dy'] = 0.0
+        self.assertTrue([e for e in mo.validate(src) if 'floating' in e])
+
+    def test_compose_writes_an_index_aligned_ground_sidecar(self):
+        files = mo.compose(grounded([obj('t02', x=2030.0, cls='Land_Mil_Tent_Big1_2', loot='none'),
+                                     obj('t01', cls='Land_Mil_Tent_Big1_1')]))
+        side = json.loads(files['objects/alpha-v1.ground.json'])
+        spawner = json.loads(files['objects/alpha-v1.json'])
+        self.assertEqual(len(side['Ground']), len(spawner['Objects']))
+        self.assertEqual(side['Ground'][0], {'pivot': 0.0, 'embed': 0.0, 'loot': 1})
+        self.assertEqual(side['Ground'][1], {'pivot': 0.0, 'embed': 0.4, 'loot': 0})
+        self.assertEqual(files['objects/alpha-v1.ground.json'], mo.compose(grounded([
+            obj('t02', x=2030.0, cls='Land_Mil_Tent_Big1_2', loot='none'),
+            obj('t01', cls='Land_Mil_Tent_Big1_1')]))['objects/alpha-v1.ground.json'])
+        self.assertIn('objects/alpha-v1.ground.json', json.loads(files['manifest.json'])['outputs'])
+
+    def test_repository_layers_are_all_within_tolerance(self):
+        real = mo.load_source(SOURCE)
+        self.assertIsNotNone(real.ground)
+        self.assertEqual(mo.ground_table(real)[2], [])
+        # The pre-wh-ground runtime put the geometry bottom on the ground; the tents, camo nets and the BMP
+        # wreck then floated. That reference must keep being reported so the data cannot regress unnoticed.
+        floating = mo.ground_table(real, 'geometry')[2]
+        self.assertTrue(any(row[2] == 'StaticObj_Mil_CamoNet_Side_east' for row in floating))
+        report = mo.ground_report(real)
+        self.assertIn('outside tolerance: 0', report)
 
 
 class InstallRollback(unittest.TestCase):
