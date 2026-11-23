@@ -9,6 +9,10 @@ a season (--season, or --season-profile reading the persisted HCVisualSeasons cl
 the season is restart-bound and recorded in the receipt, so a season change means
 rollback and install again.
 Off and rollback restore the original bytes, including the original declaration.
+Infected kits (#339): an HC child row copies its parent row (cargo and attachments); stock
+Zmb rows gain role cargo presets (hc_kit_*, written to cfgrandompresets.xml) and a little
+worn-gear variety inside slots the row already has. Spawnable and preset files join the
+receipt, so rollback restores stock bytes and a changed policy or generator reapplies.
 """
 import argparse
 import base64
@@ -34,6 +38,12 @@ SEASON_STATE = 'HollowCountry/visual-seasons.json'
 SEASON_CONFIG = 'HollowCountry/seasons.json'
 DEFAULT_PHASE_SECONDS = 604800
 ACCESSORY_MARKER = b'<!-- HC #316 accessories; receipt rollback required -->'
+KIT_MARKER = b'<!-- HC #339 infected kits; receipt rollback required -->'
+KIT_PREFIX = 'hc_kit_'
+# Bump with any change to how spawnable or preset bytes are produced: the receipt records it,
+# and friend_install folds the policy file (and so a bump in the same commit) into overlay_fingerprint.
+GENERATOR_VERSION = 'HC-339-kits-1'
+MAX_KIT_PRESETS = 2
 
 
 def _signature(node):
@@ -309,8 +319,109 @@ def _type_spans(data):
     return spans
 
 
-def accessories(original, presets_data, overlay):
-    """Expand only chosen native presets inline; preserve cargo and every item choice."""
+def kits_enabled(policy):
+    """Kits ride on the accessories files, so they need that lever too."""
+    return enabled(policy, 'EnableAccessories') and enabled(policy, 'EnableKits')
+
+
+def _kits(policy):
+    """Validated #339 kit policy: roles, hc_kit_* cargo presets, worn-gear variety."""
+    kits = policy.get('infected_kits')
+    if not isinstance(kits, dict) or kits.get('schema_version') != 1:
+        raise ValueError('missing or invalid authored infected kit policy')
+    presets = kits.get('presets')
+    roles = kits.get('roles')
+    worn = kits.get('worn_gear')
+    if not isinstance(presets, dict) or not isinstance(roles, dict) or not isinstance(worn, dict) or not presets or not roles:
+        raise ValueError('invalid infected kit policy shape')
+    for name, row in presets.items():
+        if not re.fullmatch(KIT_PREFIX + r'[a-z0-9_]+', name) or not isinstance(row, dict):
+            raise ValueError('invalid kit preset name: ' + str(name))
+        if not Decimal('0.10') <= _chance(row.get('chance')) <= Decimal('0.25'):
+            raise ValueError('kit preset chance outside 0.10-0.25: ' + name)
+        items = row.get('items')
+        if not isinstance(items, list) or not items:
+            raise ValueError('kit preset has no items: ' + name)
+        seen = set()
+        for item in items:
+            if (not isinstance(item, dict) or set(item) != {'name', 'chance'}
+                    or not isinstance(item['name'], str) or not re.fullmatch(r'[A-Za-z0-9_]+', item['name'])
+                    or item['name'] in seen or not 0 < _chance(item['chance']) <= 1):
+                raise ValueError('invalid kit preset item: ' + name)
+            seen.add(item['name'])
+    for role, row in roles.items():
+        prefixes = row.get('segment_prefixes') if isinstance(row, dict) else None
+        used = row.get('presets') if isinstance(row, dict) else None
+        if (not isinstance(prefixes, list) or not prefixes or any(not isinstance(x, str) or not x for x in prefixes)
+                or not isinstance(used, list) or not 0 < len(used) <= MAX_KIT_PRESETS
+                or len(set(used)) != len(used) or any(x not in presets for x in used)):
+            raise ValueError('invalid kit role: ' + str(role))
+    if not isinstance(worn.get('slot_transfers'), list) or not isinstance(worn.get('item_transfers'), dict):
+        raise ValueError('invalid worn gear policy')
+    return kits
+
+
+def _role(name, kits):
+    """Role of a stock Zmb class from its name segments (ZmbM_<family>_<colour>); None for civilians."""
+    segments = name.split('_')[1:]
+    for role, row in kits['roles'].items():
+        if any(segment.startswith(prefix) for segment in segments for prefix in row['segment_prefixes']):
+            return role
+    return None
+
+
+def _add_kits(node, name, kits):
+    """Append the role's cargo presets after the row's cargo; returns the preset names added."""
+    role = _role(name, kits)
+    if role is None or any((c.get('preset') or '').startswith(KIT_PREFIX) for c in node.findall('cargo')):
+        return []
+    added = kits['roles'][role]['presets']
+    at = max([i + 1 for i, child in enumerate(node) if child.tag == 'cargo'], default=0)
+    # Keep the row's own line layout: new elements take the whitespace that followed their neighbour.
+    space = node[at - 1].tail if at else node.text
+    for offset, preset in enumerate(added):
+        row = ET.Element('cargo', {'preset': preset})
+        row.tail = space
+        node.insert(at + offset, row)
+    if sum(1 for c in node.findall('cargo') if (c.get('preset') or '').startswith(KIT_PREFIX)) > MAX_KIT_PRESETS:
+        raise ValueError('more than two kit presets on one row: ' + name)
+    return list(added)
+
+
+def _kit_preset_bytes(presets_data, kits, used):
+    """Stock presets plus the hc_kit_* cargo presets some row names; stock bytes before them are untouched."""
+    names = {n.get('name') for n in economy.xml(presets_data, 'randompresets')}
+    emitted = [n for n in kits['presets'] if n in used]
+    if any(n in names for n in emitted):
+        raise ValueError('kit preset already present in cfgrandompresets.xml')
+    newline = b'\r\n' if b'\r\n' in presets_data else b'\n'
+    lines = ['\t\t' + KIT_MARKER.decode()]
+    for name in emitted:
+        row = kits['presets'][name]
+        lines.append('\t\t<cargo chance="%s" name="%s">' % (row['chance'], name))
+        lines.extend('\t\t\t\t<item name="%s" chance="%s" />' % (i['name'], i['chance']) for i in row['items'])
+        lines.append('\t\t</cargo>')
+    end = presets_data.rfind(b'</randompresets>')
+    if end < 0:
+        raise ValueError('randompresets closing tag missing')
+    block = (newline.join(l.encode() for l in lines) + newline)
+    result = presets_data[:end] + block + presets_data[end:]
+    economy._unique(economy.xml(result, 'randompresets').findall('cargo'))
+    return result, emitted
+
+
+def accessories(original, presets_data, overlay, kits=None):
+    """Spawnabletypes bytes only (see build); kept for callers that need nothing else."""
+    return build(original, presets_data, overlay, kits)['spawn']
+
+
+def build(original, presets_data, overlay, kits=None):
+    """Spawn rows for stock and HC infected: accessories, worn-gear variety, role kits, HC parity.
+
+    Returns {'spawn': bytes, 'presets': bytes or None, 'report': dict}. Presets change only when
+    kits are given. An HC child copies its final parent row (cargo and attachments); a parent
+    without a stock row uses the authored family sibling; no child is ever left without a row.
+    """
     if economy.sha(presets_data) != overlay['stock_presets_sha256']:
         raise ValueError('accessory random presets differ from pinned stock')
     root = economy.xml(original, 'spawnabletypes')
@@ -319,8 +430,13 @@ def accessories(original, presets_data, overlay):
                              if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))])
     presets = economy._unique(economy.xml(presets_data, 'randompresets').findall('attachments'))
     spans, changed = _type_spans(original), {}
-    transfers = overlay['probability_transfers']
-    item_transfers = overlay['item_transfers']
+    transfers = list(overlay['probability_transfers'])
+    item_transfers = {k: list(v) for k, v in overlay['item_transfers'].items()}
+    if kits is not None:
+        # Worn gear moves probability only between slots a row already has (existing_slot_only).
+        transfers += [dict(r, existing_slot_only=True) for r in kits['worn_gear']['slot_transfers']]
+        for preset, rows in kits['worn_gear']['item_transfers'].items():
+            item_transfers.setdefault(preset, []).extend(rows)
     chosen = set(item_transfers) | {r[k] for r in transfers for k in ('from', 'to')}
     def expand(node):
         node = copy.deepcopy(node)
@@ -342,6 +458,8 @@ def accessories(original, presets_data, overlay):
             source = refs[row['from']]
             dest = refs.get(row['to'])
             if dest is None:
+                if row.get('existing_slot_only'):
+                    continue
                 dest = copy.deepcopy(presets[row['to']])
                 # A new slot is funded solely by the source probability.
                 dest.attrib.pop('name')
@@ -360,6 +478,8 @@ def accessories(original, presets_data, overlay):
             items = economy._unique(refs[preset].findall('item'))
             before = sum(_chance(i.get('chance')) for i in items.values())
             for row in rows:
+                if row['from'] not in items or row['to'] not in items:
+                    raise ValueError('accessory item missing from preset: ' + preset)
                 source, dest = items[row['from']], items[row['to']]
                 delta = _chance(row['chance'])
                 old = _chance(source.get('chance'))
@@ -375,26 +495,33 @@ def accessories(original, presets_data, overlay):
             for item in a.findall('item'):
                 _chance(item.get('chance'))
         return node, bool(refs)
+    final, kit_names = {}, {}
     for name, node in types.items():
         if not name.startswith(('ZmbM_', 'ZmbF_')):
             continue
         updated, touched = expand(node)
-        if touched:
+        given = _add_kits(updated, name, kits) if kits is not None else []
+        if touched or given:
             changed[name] = updated
-    additions = []
+        final[name] = updated
+        if given:
+            kit_names[name] = given
+    fallbacks = overlay.get('parent_fallbacks', {})
+    sources, additions = {}, []
     for name, parent in overlay['explicit_classes'].items():
         if name in types:
             raise ValueError('explicit accessory class already present: ' + name)
-        # Explicit HC child gets parent attachments only; never extra cargo.
-        # A stock parent without a spawnabletypes row (e.g. some soldier
-        # families) spawns bare, so its outfit-preserving child gets no row
-        # either: the child then matches the parent exactly.
-        if parent not in types:
-            continue
-        node = ET.Element('type', {'name': name})
-        for a in types[parent].findall('attachments'):
-            node.append(copy.deepcopy(a))
-        additions.append(expand(node)[0])
+        # An HC child is its parent for loot: same cargo and attachments. A stock parent without a
+        # spawnabletypes row borrows the authored family sibling's row; none is left without one.
+        source = parent if parent in final else fallbacks.get(parent)
+        if source not in final:
+            raise ValueError('HC child has no parent row and no family fallback: ' + name)
+        node = copy.deepcopy(final[source])
+        node.set('name', name)
+        additions.append(node)
+        sources[name] = source
+        if source in kit_names:
+            kit_names[name] = kit_names[source]
     patches = []
     for name, node in changed.items():
         node.tail = None
@@ -405,11 +532,62 @@ def accessories(original, presets_data, overlay):
     end = result.rfind(b'</spawnabletypes>')
     if end < 0:
         raise ValueError('spawnabletypes closing tag missing')
-    data = ACCESSORY_MARKER + b'\n' + b'\n'.join(ET.tostring(n, encoding='utf-8') for n in additions) + b'\n'
+    newline = b'\r\n' if b'\r\n' in original else b'\n'
+    data = ACCESSORY_MARKER + newline + newline.join(ET.tostring(n, encoding='utf-8') for n in additions) + newline
     result = result[:end] + data + result[end:]
     economy._unique([n for n in economy.xml(result, 'spawnabletypes').findall('type')
                      if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))])
-    return result
+    presets_out, emitted = None, []
+    if kits is not None:
+        presets_out, emitted = _kit_preset_bytes(presets_data, kits, {p for given in kit_names.values() for p in given})
+    return {'spawn': result, 'presets': presets_out,
+            'report': _report(result, overlay, sources, kit_names, emitted, kits)}
+
+
+def _report(spawn, overlay, sources, kit_names, emitted, kits):
+    """Postcondition over the emitted bytes: HC rows equal their source row; kit limits hold."""
+    rows = {n.get('name'): n for n in economy.xml(spawn, 'spawnabletypes').findall('type')
+            if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))}
+    def body(node):
+        return tuple(_signature(c) for c in node)
+    parity = missing = 0
+    for name in overlay['explicit_classes']:
+        row = rows.get(name)
+        if row is None:
+            missing += 1
+        elif body(row) == body(rows[sources[name]]) and (len(row) or not len(rows[sources[name]])):
+            parity += 1
+    if missing or parity != len(overlay['explicit_classes']):
+        raise ValueError('HC child rows are not equal to their parent rows')
+    chance = {}
+    for name, given in kit_names.items():
+        if len(given) > MAX_KIT_PRESETS:
+            raise ValueError('more than two kit presets on one row: ' + name)
+        chance[name] = sum(_chance(kits['presets'][p]['chance']) for p in given)
+    return {'hc_total': len(overlay['explicit_classes']), 'hc_parity': parity, 'hc_missing': missing,
+            'kit_rows': len(chance), 'kit_presets': len(emitted), 'kit_chance': chance}
+
+
+def plan_lines(report, events, kits=None):
+    """The two describe/plan lines. expected_extra_items assumes each active infected event holds its
+    nominal count of infected spread by child weight (the stock budget); it is an expectation, not a cap."""
+    lines = []
+    if kits is not None:
+        expected = Decimal(0)
+        for event in events.values():
+            if not event.get('name', '').startswith('Infected') or (event.findtext('active') or '').strip() != '1':
+                continue
+            children = event.findall('./children/child')
+            total = sum(int(c.get('min')) for c in children)
+            if total <= 0:
+                continue
+            nominal = int(event.findtext('nominal') or 0)
+            expected += sum(Decimal(nominal * int(c.get('min'))) * report['kit_chance'].get(c.get('type'), 0)
+                            for c in children) / total
+        lines.append('infected kits rows=%d presets=%d expected_extra_items~%d'
+                     % (report['kit_rows'], report['kit_presets'], int(expected.to_integral_value())))
+    lines.append('hc_children parity=%d/%d missing=%d' % (report['hc_parity'], report['hc_total'], report['hc_missing']))
+    return lines
 
 
 def _overlay(policy):
@@ -457,15 +635,23 @@ def install(mission, stock_events=None, off=False, season=None):
         stock = read(Path(stock_events))
     result = substitute(original, stock, policy, season)
     originals, results = {TARGET: original}, {TARGET: result}
-    overlay_bytes, presets_bytes = None, None
+    overlay_bytes, kits_bytes, presets_bytes, lines = None, None, None, []
     if enabled(policy, 'EnableAccessories'):
         overlay_bytes = _overlay(policy)
         originals[SPAWNABLE] = read(mission / SPAWNABLE)
         presets_bytes = read(mission / PRESETS)
-        results[SPAWNABLE] = accessories(originals[SPAWNABLE], presets_bytes, json.loads(overlay_bytes))
+        kits = _kits(policy) if kits_enabled(policy) else None
+        built = build(originals[SPAWNABLE], presets_bytes, json.loads(overlay_bytes), kits)
+        results[SPAWNABLE] = built['spawn']
+        if kits is not None:
+            kits_bytes = economy.encode(kits)
+            originals[PRESETS], results[PRESETS] = presets_bytes, built['presets']
+        lines = plan_lines(built['report'], _events(result), kits)
     receipt = {'schema': 1, 'kind': 'HC-14-infected-variety', 'runtime_acceptance': 'PENDING',
                'season': season, 'stock_events_sha256': economy.sha(stock), 'policy_sha256': economy.sha(policy_bytes),
                'accessory_policy_sha256': economy.sha(overlay_bytes) if overlay_bytes is not None else None,
+               'kits_policy_sha256': economy.sha(kits_bytes) if kits_bytes is not None else None,
+               'generator': GENERATOR_VERSION,
                'files': {name: {'before': base64.b64encode(data).decode('ascii'),
                                  'before_sha256': economy.sha(data), 'after': economy.sha(results[name])}
                          for name, data in originals.items()}}
@@ -479,7 +665,7 @@ def install(mission, stock_events=None, off=False, season=None):
     atomic(managed / 'receipt.json', economy.encode(receipt), managed)
     for name, data in results.items():
         atomic(mission / name, data, managed)
-    _summary(policy)
+    _summary(policy, lines)
     return receipt
 
 
@@ -487,7 +673,7 @@ def _backups(receipt):
     if (not isinstance(receipt, dict) or type(receipt.get('schema')) is not int
             or receipt['schema'] != 1 or receipt.get('kind') != 'HC-14-infected-variety'
             or not isinstance(receipt.get('files'), dict)
-            or set(receipt['files']) not in ({TARGET}, {TARGET, SPAWNABLE})):
+            or set(receipt['files']) not in ({TARGET}, {TARGET, SPAWNABLE}, {TARGET, SPAWNABLE, PRESETS})):
         raise ValueError('invalid infected variety receipt')
     backups = {}
     for name, row in receipt['files'].items():
@@ -503,13 +689,15 @@ def _backups(receipt):
     return backups
 
 
-def _summary(policy):
+def _summary(policy, lines=()):
     # Install-time levers have no runtime script hook; retain these lines in install logs.
+    for line in lines:
+        print(line)
     for event, coverage in sorted(policy.get('ce_pose_coverage', {}).items()):
         print('[HC Variety] ce_variants phase=install event=' + event
               + ' rows=' + str(coverage['rows']) + ' weight=' + str(coverage['weight'])
               + '/' + str(coverage['stock_weight']) + ' population_delta=0 runtime=PENDING')
-    for lever, switch in (('composition_ce', 'EnableComposition'), ('accessories', 'EnableAccessories')):
+    for lever, switch in (('composition_ce', 'EnableComposition'), ('accessories', 'EnableAccessories'), ('kits', 'EnableKits')):
         print('[HC Variety] ' + lever + ' enabled=' + str(int(enabled(policy, switch)))
               + ' phase=install restart_required=1 runtime=PENDING')
 
@@ -523,11 +711,16 @@ def check(mission):
     _backups(receipt)
     policy = json.loads(read(POLICY))
     expected = {TARGET, SPAWNABLE} if enabled(policy, 'EnableAccessories') else {TARGET}
+    if kits_enabled(policy):
+        expected.add(PRESETS)
+    kits_sha = economy.sha(economy.encode(_kits(policy))) if PRESETS in expected else None
     if (receipt.get('policy_sha256') != economy.sha(read(POLICY))
             or set(receipt['files']) != expected
-            or (SPAWNABLE in expected and receipt.get('accessory_policy_sha256') != economy.sha(_overlay(policy)))):
+            or (SPAWNABLE in expected and receipt.get('accessory_policy_sha256') != economy.sha(_overlay(policy)))
+            or receipt.get('kits_policy_sha256') != kits_sha
+            or receipt.get('generator') != GENERATOR_VERSION):
         raise ValueError('infected variety receipt/policy mismatch; rollback first')
-    if SPAWNABLE in expected and economy.sha(read(mission / PRESETS)) != json.loads(_overlay(policy))['stock_presets_sha256']:
+    if SPAWNABLE in expected and PRESETS not in expected and economy.sha(read(mission / PRESETS)) != json.loads(_overlay(policy))['stock_presets_sha256']:
         raise ValueError('infected variety random presets drift; rollback first')
     for name, row in receipt['files'].items():
         if economy.sha(read(mission / name)) != row['after']:
@@ -551,6 +744,8 @@ def rollback(mission):
         current = _events(read(mission / TARGET))
         if (mission / SPAWNABLE).exists() and ACCESSORY_MARKER in read(mission / SPAWNABLE):
             raise ValueError('infected variety receipt missing; accessories modified; reconcile before rollback')
+        if (mission / PRESETS).exists() and KIT_MARKER in read(mission / PRESETS):
+            raise ValueError('infected variety receipt missing; kit presets modified; reconcile before rollback')
         for row in policy['substitutions']:
             if row.get('existing_destination', False):
                 continue
@@ -613,9 +808,12 @@ def main():
                 print(name + ': children=' + str(len(old)) + '->' + str(len(new))
                       + ' shares=' + str(sum(int(c.get('min')) for c in old)) + '->'
                       + str(sum(int(c.get('min')) for c in new)))
+            lines = []
             if enabled(policy, 'EnableAccessories'):
-                accessories(read(args.mission / SPAWNABLE), read(args.mission / PRESETS), json.loads(_overlay(policy)))
-            _summary(policy)
+                kits = _kits(policy) if kits_enabled(policy) else None
+                built = build(read(args.mission / SPAWNABLE), read(args.mission / PRESETS), json.loads(_overlay(policy)), kits)
+                lines = plan_lines(built['report'], after, kits)
+            _summary(policy, lines)
             print('HC-14 dry-run; population_delta=0; runtime=PENDING')
             return
         if args.command == 'install':
