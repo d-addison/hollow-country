@@ -3,9 +3,9 @@
 Authored templates for composed map locations (roadblocks, camps, crashes, depots). They answer the
 owner's 11-22 complaint that generated locations were a random scatter of props: every site is now one
 story with a reason to be at its spot, a frame taken from the world (road tangent, approach, view or fall
-line) and parts placed relative to a named part. Status: templates and schema only. The composer
-(planned, wave W4) will consume them; nothing here places an object yet, and no
-template establishes in-game behaviour. Layers, `classes.json` and the map overlay are unchanged.
+line) and parts placed relative to a named part. Status: templates, schema and the offline composer
+(`tools/package/site_composer.py`, section Composer). No template establishes in-game behaviour; the
+composer output is checked offline by `tools.validate.site_rules` and proven only by a boot and a client check.
 
 Files: `config/sites/archetypes/<id>.json` (15 templates) and `config/sites/archetypes/schema.json`.
 Check: `python3 -B -m unittest tests.unit.test_site_archetypes` validates every template against the schema
@@ -268,3 +268,48 @@ Survivors fortified a farm: sandbags and barriers in arcs facing the yard approa
 - The farm holdout is dressing only: it adds no composed site, counts apart from the 75-site budget and
   leaves the holdout feature in charge of which farms are used.
 
+## Composer
+
+`tools/package/site_composer.py` turns `config/sites/survey/candidates.json`, the survey (`config/sites/survey/`,
+imported by `tools.package.site_survey`), the archetypes and the class geometry (`config/sites/class-geometry.json`)
+into map-overlay layers `composed-<archetype>`. Rows carry `customString = hcsite:<site>:<part>` and `ypr`
+(yaw only; pitch and roll stay 0). The output is deterministic: candidates are taken in sha order, positions
+are rounded to 0.1 m and layers are written sorted, so a rebuild is byte-identical (rule R8; `site_rules` calls
+`site_composer.rebuild_bytes`).
+
+CLI (all commands take `--repo`, default the working tree):
+
+    python3 -B -m tools.package.site_composer plan [--accept-unmeasured KEY,KEY] [--report FILE]
+    python3 -B -m tools.package.site_composer pieces --out FILE   # survey boxes still missing
+    python3 -B -m tools.package.site_composer write               # layers and profile; refuses while pieces are pending
+    python3 -B -m tools.package.site_composer check               # rebuild and compare with the committed layers
+
+Exit code 2 is a refusal (reason on stderr), 1 is a `check` difference.
+
+Two passes over the survey. The first `plan` places every candidate it can and marks a site `pending` when a
+hard object has no entry in `pieces.json` (rule R5 needs 4 `corners_y`, slope and water per hard object). `pieces`
+writes the request for exactly those boxes; after the native probe and `site_survey import` the next `plan` resolves
+them. `write` is allowed only at pending = 0.
+
+Refusals (never a silent skip): missing `roads.json`, `cells.json` or `candidates.json`; a candidate without road,
+cell or origin data; no archetype files; pending pieces at `write`.
+
+Placement. Each candidate tries its eligible archetypes ordered by fill ratio; the first archetype and variant
+that passes R1-R8 (through the real `site_rules` checker) and the density rule R6 wins. Frames are road
+or approach frames only. `beside` and `behind` place `count` objects relative to the first `of` object (the last
+for `instance: last`). `shoulder` places one object. Zone retention for military sites: a composed site within
+400 m of an old zone keeps the zone id, provided it has at least 2 guard slots; zones that disappear are only
+reported (the retired list itself lives in `config/sites/retired-zones.json`, outside the composer).
+
+Count report. `plan --report` lists candidates, placed, rejected and pending, and for every rejected candidate the
+binding rule of its deepest attempt (stage order: static, R1, R6, R2, R3, R4, R5, R7, R8, MO). Rejections by the
+caps in `site_rules` (MAX_SITES, MAX_OBJECTS, MAX_ROWS) and by the density block of an archetype
+(`max_per_map`, `min_same_m`) are counted as `cap_blocked`; no rule is relaxed to reach a count.
+
+Blocked or unmeasured inputs. Archetypes whose classes are `calibration_pending` or lack a front get the static
+block `calibration_pending:<classes>`. Location keys the survey cannot measure (the list in `site_rules`,
+for example `cover_within_m`, `forest_edge`, `crest`) exclude the archetype unless `--accept-unmeasured KEY,...`
+names them; accepted keys are recorded in the layer `composer` metadata. View, fall-line and building frames are
+unmeasured and cannot be accepted. `faces: axis`, `faces: tanks` and ring/outward with `of: origin` are not yet
+resolved by `site_rules`; the composer evaluates them itself and counts them (`faces:axis=N`), so the R3 finding
+`faces 'X' but no object of part 'Y' exists` still appears on the committed layers until the validator learns them.

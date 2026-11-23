@@ -52,6 +52,8 @@ STATUSES = ('runtime-unverified', 'runtime-verified')
 LOOT = ('proto', 'none')
 LAYER_ID = re.compile(r'[a-z][a-z0-9-]{0,47}')
 OBJECT_ID = re.compile(r'[a-z0-9][a-z0-9_-]{0,31}')
+SITE_TAG = re.compile(r'hcsite:[a-z0-9][a-z0-9_]{0,23}:[a-z][a-z0-9_]{0,31}')
+FRAME_KINDS = ('road', 'approach', 'view', 'fall_line', 'building')
 SITE_ID = re.compile(r'[a-z0-9][a-z0-9_]{0,23}')
 COMPOSITION_ID = re.compile(r'[a-z][a-z0-9-]{0,47}')
 CLASS_NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
@@ -287,6 +289,11 @@ def _validate_object(layer_id, item, source, limits, errors):
         errors.append('%s: yaw must be a finite number of degrees' % where)
     if item.get('loot') not in LOOT:
         errors.append('%s: loot must be one of %s' % (where, ', '.join(LOOT)))
+    tag = item.get('customString', '')
+    if not isinstance(tag, str) or (tag and not SITE_TAG.fullmatch(tag)):
+        errors.append('%s: customString must be empty or hcsite:<site>:<part>' % where)
+    if 'ypr' in item and not _finite_list(item['ypr'], 3):
+        errors.append('%s: ypr must be [yaw, pitch, roll] of finite degrees' % where)
     return pos if good else None
 
 
@@ -394,6 +401,42 @@ def _validate_compositions(source, limits, errors):
                         where, na, nb, gap, limits['piece_spacing_m']))
 
 
+def is_composed(site):
+    """A composed site (tools/package/site_composer.py) names an archetype and carries a frame, not a composition."""
+    return isinstance(site, dict) and isinstance(site.get('archetype'), str) and isinstance(site.get('frame'), dict)
+
+
+def site_pos(site):
+    """[x, y, z] of a site: the legacy `pos`, or the frame origin of a composed site."""
+    if is_composed(site):
+        return site['frame'].get('origin')
+    return site.get('pos')
+
+
+def site_slots(site):
+    """Guard-slot positions [x, y, z] of a site. Legacy slots are positions; a composed slot is
+    {part, pos, facing_deg} and contributes its pos (the facing stays with the site rules)."""
+    slots = site.get('guard_slots')
+    if not isinstance(slots, list):
+        return slots
+    return [s.get('pos') if isinstance(s, dict) else s for s in slots]
+
+
+def _validate_composed_site(where, site, errors):
+    frame = site['frame']
+    if frame.get('kind') not in FRAME_KINDS:
+        errors.append('%s: frame kind must be one of %s' % (where, ', '.join(FRAME_KINDS)))
+    if not _finite_list(frame.get('origin'), 3):
+        errors.append('%s: frame origin must be [x, y, z] of finite numbers' % where)
+    if not finite(frame.get('forward_yaw_deg')):
+        errors.append('%s: frame forward_yaw_deg must be a finite compass angle in degrees' % where)
+    slots = site.get('guard_slots')
+    if slots is not None and (not isinstance(slots, list) or not all(
+            isinstance(s, dict) and _finite_list(s.get('pos'), 3) and finite(s.get('facing_deg')) and
+            isinstance(s.get('part'), str) for s in slots)):
+        errors.append('%s: guard_slots must be {part, pos, facing_deg} entries' % where)
+
+
 def _validate_site(layer_id, site, source, limits, seen, errors):
     where = '%s/%s' % (layer_id, site.get('id') if isinstance(site, dict) else '?')
     if not isinstance(site, dict):
@@ -405,6 +448,9 @@ def _validate_site(layer_id, site, source, limits, seen, errors):
         errors.append('%s: site id %s is used twice' % (layer_id, site['id']))
     else:
         seen.add(site['id'])
+    if is_composed(site):
+        _validate_composed_site(where, site, errors)
+        return
     comps = (source.compositions or {}).get('compositions')
     if not isinstance(comps, dict) or site.get('composition') not in comps:
         errors.append('%s: composition %r is not defined' % (where, site.get('composition')))
@@ -490,7 +536,9 @@ def validate(source, vanilla=None, proto_names=None):
                 placed.append((name, item['id'] if isinstance(item.get('id'), str) else '?', pos,
                                dict(layer.get('limits') or {},
                                     flat_radius_m=item.get('support_radius_m', limits['flat_radius_m']),
-                                    **({'ground_y': ground_y} if ground_y is not None else {})), site_key))
+                                    **({'ground_y': ground_y} if ground_y is not None else {}),
+                                    **({'composed': True} if str(item.get('customString', '')).startswith(
+                                        'hcsite:') else {})), site_key))
             info = source.classes['classes'].get(item.get('class')) if isinstance(item, dict) else None
             if isinstance(item, dict) and item.get('loot') == 'proto' and 'site' not in item \
                     and isinstance(info, dict) and info.get('loot_group') is False:
@@ -579,7 +627,7 @@ def _vanilla_errors(placed, vanilla, limits):
             row = hits[0]
             errors.append('vanilla group %s is %.1f m from %s/%s (clearance %.1f m)' % (
                 row[0], math.hypot(row[1] - pos[0], row[3] - pos[2]), layer_id, object_id, need))
-        if site is not None:
+        if site is not None and not own.get('composed'):  # composed rows stand on surveyed ground (rule R5)
             ground = [pos[0], own['ground_y'], pos[2]] if 'ground_y' in own else pos
             errors.extend(_flat_errors('%s/%s' % (layer_id, object_id), ground, grid,
                                             dict(limits, flat_radius_m=own.get('flat_radius_m', limits['flat_radius_m']))))
@@ -652,8 +700,11 @@ def _spawner(objects):
     rows = []
     for item in sorted(objects, key=lambda o: o['id']):
         x, y, z = (round(float(v), 6) for v in item['pos'])
-        rows.append({'name': item['class'], 'pos': [x, y, z], 'ypr': [wrap(float(item['yaw'])), 0.0, 0.0],
-                     'scale': 1.0, 'enableCEPersistency': False, 'customString': ''})
+        ypr = item.get('ypr')
+        ypr = [wrap(float(ypr[0])), float(ypr[1]), float(ypr[2])] if _finite_list(ypr, 3) \
+            else [wrap(float(item['yaw'])), 0.0, 0.0]
+        rows.append({'name': item['class'], 'pos': [x, y, z], 'ypr': ypr,
+                     'scale': 1.0, 'enableCEPersistency': False, 'customString': item.get('customString', '')})
     return json.dumps({'Objects': rows}, indent=2).encode() + b'\n'
 
 
@@ -1258,15 +1309,19 @@ def _zone_site_errors(source, grid):
                 errors.append(label+': invalid zone_id')
             if site.get('zone_role') not in ('hq', 'perimeter', 'outpost', 'depot'):
                 errors.append(label+': invalid zone_role')
-            slots = site.get('guard_slots')
-            if not isinstance(slots, list) or not 2 <= len(slots) <= 6:
-                errors.append(label+': guard_slots needs 2..6 positions')
+            slots = site_slots(site)
+            composed = is_composed(site)
+            # A composed site may carry a guard slot per post (up to 12); military_zones takes the first six.
+            if not isinstance(slots, list) or not 2 <= len(slots) <= (12 if composed else 6):
+                errors.append(label+': guard_slots needs 2..%d positions' % (12 if composed else 6))
                 continue
             for pos in slots:
                 if not _finite_list(pos, 3):
                     errors.append(label+': invalid guard position')
                     continue
-                if not guard_clear(source, pos, objects):
+                # A composed slot sits behind its post's front face by design (rule R7 judges it), inside the
+                # prop reserve that legacy slots must keep clear.
+                if not composed and not guard_clear(source, pos, objects):
                     errors.append(label+': guard position overlaps prop reserve')
                 if grid is not None:
                     if any(True for _ in grid.near(pos[0], pos[2], 16)):
@@ -1662,34 +1717,36 @@ def military_zones(source):
         remaining = sorted(sites)
         first = True
         while remaining:
-            positions = [s['pos'] for _, s in remaining]
+            positions = [site_pos(s) for _, s in remaining]
             centroid = [sum(p[i] for p in positions)/len(positions) for i in range(3)]
             # Keep the original primary anchor/ID. Peripheral clusters receive stable
             # anchor-derived IDs without changing authored layer zone_id metadata.
             anchor_key, anchor = min(remaining, key=lambda item: (
                 {'hq': 0, 'outpost': 1, 'depot': 2, 'perimeter': 3}[item[1]['zone_role']],
-                math.hypot(item[1]['pos'][0]-centroid[0], item[1]['pos'][2]-centroid[2]), item[0]))
-            center = [round(v, 1) for v in anchor['pos']]
+                math.hypot(site_pos(item[1])[0]-centroid[0], site_pos(item[1])[2]-centroid[2]), item[0]))
+            center = [round(v, 1) for v in site_pos(anchor)]
             # Leave 60 m around every member inside the runtime's 2 km cap.
-            members = [(key, site) for key, site in remaining if math.dist(site['pos'], center) <= 1940]
+            members = [(key, site) for key, site in remaining if math.dist(site_pos(site), center) <= 1940]
             member_keys = {key for key, _ in members}
             remaining = [(key, site) for key, site in remaining if key not in member_keys]
             zone_id = ident if first else ident+'-'+sha(anchor_key.encode())[:8]
             first = False
             # A runtime patrol owns at most six members; keep its spawn positions together.
-            slots = [[round(v, 1) for v in p] for p in anchor['guard_slots']]
-            # Rounding can move an edge candidate into an authored prop reserve.
-            slots = [p for p in slots if math.dist(p, center) <= 1940 and guard_clear(source, p, objects)][:6]
+            slots = [[round(v, 1) for v in p] for p in site_slots(anchor)]
+            # Rounding can move an edge candidate into an authored prop reserve (composed slots sit inside their
+            # post's reserve by design and are checked by rule R7 instead).
+            slots = [p for p in slots if math.dist(p, center) <= 1940
+                     and (is_composed(anchor) or guard_clear(source, p, objects))][:6]
             if len(slots) < 3:
                 slots.extend([round(v, 1) for v in p] for _, site in members
-                             if site is not anchor for p in site['guard_slots']
+                             if site is not anchor for p in site_slots(site)
                              if math.dist([round(v, 1) for v in p], center) <= 1940
-                             and guard_clear(source, [round(v, 1) for v in p], objects))
+                             and (is_composed(site) or guard_clear(source, [round(v, 1) for v in p], objects)))
                 slots = slots[:6]
             if len(slots) < 3:
                 raise ValueError('zone needs at least three nearby guard slots: '+zone_id)
             radius = round(max(math.dist(p, center) for p in
-                               [site['pos'] for _, site in members]+slots)+60, 1)
+                               [site_pos(site) for _, site in members]+slots)+60, 1)
             if not 20 <= radius <= 2000 or len(members) > 256 or len(zone_id) > 44:
                 raise ValueError('zone exceeds runtime bounds: '+zone_id)
             zones.append({'id': zone_id, 'area': next(a[0] for a in EXPANSION_AREAS
@@ -1722,11 +1779,21 @@ def report(source, as_text=False):
         entry = {'id': layer['id'], 'theme': layer.get('theme', ''), 'status': layer.get('status'),
                  'enabled': layer['id'] in source.profile.get('enabled', []), 'sites': [], 'objects': 0, 'loot': 0}
         for item in layer.get('objects') or []:
+            if str(item.get('customString', '')).startswith('hcsite:'):
+                continue  # a composed object is counted with its site below
             loot = 1 if item.get('loot') == 'proto' else 0
             entry['sites'].append({'id': item['id'], 'composition': item['class'], 'theme': layer.get('theme', ''),
                                    'centre': [round(v, 1) for v in item['pos']], 'heading': item.get('yaw'),
                                    'pieces': 1, 'loot': loot})
         for site in layer.get('sites') or []:
+            if is_composed(site):  # its objects are in the layer's object list, tagged with the site id
+                own = [o for o in layer.get('objects') or [] if o.get('site') == site['id']]
+                entry['sites'].append({'id': site['id'], 'composition': site['archetype'],
+                                       'theme': layer.get('theme', ''),
+                                       'centre': [round(v, 1) for v in site_pos(site)],
+                                       'heading': site['frame']['forward_yaw_deg'], 'pieces': len(own),
+                                       'loot': sum(1 for o in own if o.get('loot') == 'proto')})
+                continue
             comp = comps.get(site['composition'], {})
             pieces, loot = piece_stats(comp) if comp.get('pieces') else (0, 0)
             entry['sites'].append({'id': site['id'], 'composition': site['composition'],
@@ -1799,7 +1866,7 @@ def render_png(source, rows, size=1024, window=None):
         for item in expand_layer(source, layer):
             plot(item['pos'][0], item['pos'][2], 0 if window is None else 1, colour)
         for site in layer.get('sites') or []:
-            plot(site['pos'][0], site['pos'][2], 3 if window is None else 4, colour)
+            plot(site_pos(site)[0], site_pos(site)[2], 3 if window is None else 4, colour)
         for item in layer.get('objects') or []:
             plot(item['pos'][0], item['pos'][2], 3 if window is None else 2, colour)
         for j in range(2, 8):
