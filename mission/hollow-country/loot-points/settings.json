@@ -1,5 +1,6 @@
 {
   "Multiplier": 2.0,
+  "MilitaryCapacityMultiplier": 1.5,
   "kind": "hollow-country-loot-boost-settings",
   "schema": 1
 }

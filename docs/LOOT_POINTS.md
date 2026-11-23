@@ -1195,3 +1195,40 @@ Fresh full-client reach audit: 1,301 surface points, zero refusals. Fresh floor 
 Pristine-mission `loot_boost.plan(..., points=loot_boost.shipped_points())` ran provision, rebalance and finish_receivers. Receivers report 265 introduced receiver/floor containers / 2,194 points, zero containers and zero points without capacity. A separate check also finds positive capacity on every HC-added surface/floor container. Reported unplaced demand is 477 (fa0c2ac8 reported 499); this is an offline estimate, not observed CE spawning. The floor-policy note again includes the owner's full-coverage provenance.
 
 No server/client or native compile gate was run. Lead acceptance still requires one server and at most one client: no `Can't compile`, crash/stall or enabled `[HC Ready]` line with `ready=false`; expected interiors readiness shape is `[HC Ready] module=Interiors enabled=true ready=true reason=<actual reason> runtime=PENDING`. This Python/data change adds no new RPT line and readiness alone cannot prove CE behavior. Inspect actual CE spawning, item support, vicinity pickup/search access and restart retention at Chapel, Fortified Nest Big, Slum House6, Office1, 2W04 Yellow, Pub, police stations, Barracks1, Garage Office and HouseBlock 2F6. Native item fit, doorway/stair access, CE capacity/tag matching, persistence and target-load budgets remain unverified. Never claim multiplayer proven.
+
+## Military capacity layer (wh-loot, 2026-11-22)
+
+Owner report from the live server: military buildings have many empty spots. Diagnosis (offline, from the stock
+and generated missions used by the CE fill probe, `docs/tools/CE_FILL_PROBE.md`): the limiter is the per-group
+and per-container `lootmax` of the Military, Police and Prison groups in `mapgroupproto.xml`, not `globals.xml`,
+the CE item cap or the types totals. A Barracks6 group with 290 points allows 25 items and a Barracks3 group with
+82 points allows 10, so most points can never be used. In the stock mission the effective Military slots are
+about 21% of the physical points (1,869 of 9,065); after the 2x boost and the HC point additions about 43%
+(7,195 of 16,899). Military weapon demand already exceeds its slots ("hard to place" lines), so more
+capacity mostly helps the non-weapon Military rows and the shared Military weapon pools.
+
+`MilitaryCapacityMultiplier` (default 1.5, range 1.0 to 3.0, 1.0 turns it off) lives in
+`mission/hollow-country/loot-points/settings.json` next to `Multiplier`; an older settings file without the key
+means 1.0. The generator is `tools/package/loot_boost.py` (`scale_military_proto`, and `scale_types` with its
+`military` argument); it runs after the receiver and `military_loot.spread_proto` steps:
+
+- groups whose usages include Military, Police or Prison (the usages `config/military-loot.json` already treats
+  as the military weapon receivers) get group and container `lootmax` raised by the factor. Hunting groups are
+  not changed: they are not in that usage set and their sparsity was not reported.
+- any container that lists a firearm or explosive category (mixed ones too, as in the base boost) keeps its limit
+  (weapon packs stay at 2x), containers the floor policy
+  zeroed stay zero, a container never exceeds its points and a group never exceeds the sum of its containers, so
+  the existing capacity checks still hold.
+- non-firearm types rows whose every usage is Military, Police or Prison get `nominal` and `min` multiplied by
+  the factor on top of `Multiplier`, with `min <= nominal` kept. Rows shared with civilian usages are untouched.
+
+Stock-mission rehearsal, factor 1.0 against 1.5: 114 groups and 19 containers change; prototype `lootmax`
+1,461 to 1,966; weighted by placed buildings (727) 5,054 to 7,230; 173 rows get scaled nominal/min; effective
+Military slots by tier (clothes) Tier1 657 to 945, Tier2 1,167 to 1,547, Tier3 1,495 to 1,923, Tier4 574 to
+723; Military-only non-firearm nominal Tier1 55 to 71, Tier2 383 to 543, Tier3 545 to 786, Tier4 506 to 734.
+These are offline estimates and prove nothing about CE spawning; the evidence to check after a boot is the
+census t0/t3 totals and the install line `military capacity x1.5`.
+
+Upgrades: the overlay fingerprint covers the generated files, so a re-install rolls back the old loot-boost
+receipt and applies the new one from the friend's own mission bytes; the factor is never stacked. The receipt
+records `military_multiplier`. No installer change is needed.
