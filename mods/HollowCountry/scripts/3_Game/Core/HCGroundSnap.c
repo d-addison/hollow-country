@@ -101,9 +101,37 @@ class HCGroundPlaced
         return cellX * 4096 + cellZ;
     }
 
+    protected static int s_Dead;
+
+    // Live footprints (entries forgotten for deleted pieces are not counted).
     static int Count()
     {
-        return s_X.Count();
+        return s_X.Count() - s_Dead;
+    }
+
+    // A piece that was deleted (a refused site's rollback) leaves no footprint: its index leaves the 64 m cell
+    // list (bounded by that list) and its slot is neutralised, so CE loot is never shifted for a building that is
+    // gone. Placement positions are exact floats, so the match tolerance is tight. Returns the entries forgotten.
+    static int HCForget(vector pos)
+    {
+        array<int> cell = s_Cells.Get(CellKey(pos[0], pos[2]));
+        if (!cell) { return 0; }
+        int forgotten = 0;
+        int slot = cell.Count() - 1;
+        while (slot >= 0)
+        {
+            int index = cell[slot];
+            if (Math.AbsFloat(s_X[index] - pos[0]) <= 0.02 && Math.AbsFloat(s_Z[index] - pos[2]) <= 0.02)
+            {
+                s_Radius.Set(index, 0.0001);
+                s_Shift.Set(index, 0);
+                cell.RemoveOrdered(slot);
+                s_Dead++;
+                forgotten++;
+            }
+            slot--;
+        }
+        return forgotten;
     }
 
     static void Add(vector pos, float radius, float shift)

@@ -59,6 +59,15 @@ class HCSiteConfig
 // by yawDeg about its centre, and a point maps to box space as lx = dx*cos - dz*sin, lz = dx*sin + dz*cos.
 class HCSiteGeo
 {
+    // Span of one sweep cell along a half extent split into the given number of cells.
+    static float CellSpan(float half, int cells)
+    {
+        if (cells < 1) { return 1; }
+        float span = half * 2 / cells;
+        if (span < 0.5) { return 0.5; }
+        return span;
+    }
+
     static bool InBox(float px, float pz, float cx, float cz, float hx, float hz, float yawDeg, float margin)
     {
         float rad = yawDeg * Math.DEG2RAD;
@@ -237,6 +246,8 @@ class HCSiteSaveJob : HCSaveJob
 
 class HCSiteGuard : HCModule
 {
+    static const float SWEEP_CELL = 22;
+    static const float SWEEP_QUERY = 20;
     static const int PH_WAIT = 0;
     static const int PH_DECIDE = 1;
     static const int PH_GROUND = 2;
@@ -290,6 +301,12 @@ class HCSiteGuard : HCModule
     protected bool m_CurPostponedLogged;
     protected ref array<Object> m_CurSpawned = new array<Object>;
     protected bool m_PassDone;
+    // A site whose spawn was interrupted by a player standing at a row: its row cursor and the pieces already
+    // placed, resumed when the site is next decided (nothing is rolled back, so no row is spawned twice).
+    protected ref map<string, int> m_ResumeRow = new map<string, int>;
+    protected ref map<string, ref array<Object>> m_ResumePieces = new map<string, ref array<Object>>;
+    protected int m_CurGroundRefused;
+    protected int m_GroundRefusedTotal;
     // Registry evidence of the site being evaluated.
     protected ref array<vector> m_EvPos = new array<vector>;
     protected ref array<vector> m_WeakPos = new array<vector>;
@@ -308,11 +325,15 @@ class HCSiteGuard : HCModule
     protected string m_GFail;
     protected int m_OSite;
     protected int m_Overlaps;
+    protected int m_PSite;
+    protected int m_PersistedOverlaps;
     protected bool m_GroundDone;
     // Sweep.
     protected int m_SkipTry;
     protected float m_SweepRetryAt;
     protected int m_SweepTruncated;
+    protected int m_SweepTile;
+    protected int m_TileTruncated;
     protected bool m_SweepStarted;
     protected ref array<Object> m_ObjA = new array<Object>;
     protected ref array<CargoBase> m_CargoA = new array<CargoBase>;
@@ -351,6 +372,7 @@ class HCSiteGuard : HCModule
         HCModuleReadiness.HCRegisterUse("Sites", "composed_sites");
         HCModuleReadiness.HCRegisterUse("Sites", "site_refusals");
         HCModuleReadiness.HCRegisterUse("Sites", "orphan_sweep");
+        HCModuleReadiness.HCRegisterUse("Sites", "ground_refused_rows");
     }
 
     static bool HCIsRefused(string siteId)
@@ -500,40 +522,99 @@ class HCSiteGuard : HCModule
         HCStagedSaveImage.HCForget(path);
     }
 
-    protected void CopyBoxes(array<ref array<float>> source, array<ref array<float>> into, int cap)
+    // Copies the rows that fit under the cap and skips exact duplicates. Returns how many rows the cap refused
+    // (duplicates are not refusals: the same area is already queued).
+    protected int CopyBoxes(array<ref array<float>> source, array<ref array<float>> into, int cap)
     {
+        int refused = 0;
         foreach (array<float> row : source)
         {
-            if (into.Count() >= cap) { break; }
             array<float> copy = new array<float>;
             for (int index = 0; index < row.Count(); index++) { copy.Insert(row[index]); }
-            into.Insert(copy);
+            if (!AddBox(copy, into, cap)) { refused++; }
         }
+        return refused;
+    }
+
+    // False only when the cap refused the row; an exact duplicate counts as added (already queued).
+    protected bool AddBox(array<float> row, array<ref array<float>> into, int cap)
+    {
+        if (HasBox(into, row)) { return true; }
+        if (into.Count() >= cap) { return false; }
+        into.Insert(row);
+        return true;
+    }
+
+    protected bool HasBox(array<ref array<float>> list, array<float> row)
+    {
+        int limit = Math.Min(list.Count(), HCSiteFormat.MAX_STATE_BOXES);
+        for (int index = 0; index < limit; index++)
+        {
+            array<float> other = list[index];
+            if (other.Count() != row.Count()) { continue; }
+            bool same = true;
+            for (int part = 0; part < row.Count(); part++)
+            {
+                if (other[part] != row[part])
+                {
+                    same = false;
+                    break;
+                }
+            }
+            if (same) { return true; }
+        }
+        return false;
     }
 
     // Starts a sweep of the boxes of a layer set that is no longer installed. An unfinished earlier sweep keeps
-    // its remaining boxes (state cap 400 boxes).
+    // its remaining boxes (state cap 400 boxes); an unfinished legacy sweep (its boxes live in the manifest's
+    // retired list) is re-derived from the installed manifest. Every box the cap still refuses is logged.
     protected void StartSweepFrom(string from, array<ref array<float>> oldBoxes)
     {
         HCSiteSweep previous = m_State.Sweep;
         ref array<ref array<float>> merged = new array<ref array<float>>;
+        int refused = 0;
+        int carriedCount = 0;
+        bool legacyOpen = false;
         if (previous && !previous.Done && previous.From != "legacy")
         {
             array<ref array<float>> carried = previous.Boxes;
-            for (int index = previous.Cursor; index < carried.Count(); index++) { merged.Insert(carried[index]); }
+            for (int index = previous.Cursor; index < carried.Count(); index++)
+            {
+                if (!AddBox(carried[index], merged, HCSiteFormat.MAX_STATE_BOXES)) { refused++; }
+                carriedCount++;
+            }
             array<int> missed = previous.Skipped;
             foreach (int skipped : missed)
             {
-                if (skipped < previous.Cursor && skipped < carried.Count()) { merged.Insert(carried[skipped]); }
+                if (skipped < previous.Cursor && skipped < carried.Count())
+                {
+                    if (!AddBox(carried[skipped], merged, HCSiteFormat.MAX_STATE_BOXES)) { refused++; }
+                    carriedCount++;
+                }
             }
         }
-        CopyBoxes(oldBoxes, merged, HCSiteFormat.MAX_STATE_BOXES);
+        else if (previous && !previous.Done) { legacyOpen = true; }
+        refused += CopyBoxes(oldBoxes, merged, HCSiteFormat.MAX_STATE_BOXES);
+        int legacyRows = 0;
+        if (legacyOpen && m_Manifest)
+        {
+            array<ref array<float>> retired = m_Manifest.Retired;
+            legacyRows = retired.Count();
+            refused += CopyBoxes(retired, merged, HCSiteFormat.MAX_STATE_BOXES);
+        }
+        else if (legacyOpen)
+        {
+            // No manifest any more: the legacy boxes cannot be re-derived. Count them so the loss is visible.
+            refused += Math.Max(previous.Total - previous.Cursor, 0);
+        }
         HCSiteSweep sweep = new HCSiteSweep;
         sweep.From = from;
         sweep.Boxes = merged;
         sweep.Total = merged.Count();
         sweep.Done = sweep.Total == 0;
         m_State.Sweep = sweep;
+        Log("sweep_start from=" + HCSiteGeo.Short(from) + " boxes=" + sweep.Total.ToString() + " carried=" + carriedCount.ToString() + " legacy_rows=" + legacyRows.ToString() + " refused=" + refused.ToString());
     }
 
     protected void PrepareComposed()
@@ -585,7 +666,9 @@ class HCSiteGuard : HCModule
         }
         m_State.Decisions = ordered;
         m_State.LootBoxes.Clear();
-        foreach (HCSiteManifestSite lootSite : sites) { CopyBoxes(lootSite.Loot, m_State.LootBoxes, HCSiteFormat.MAX_STATE_BOXES); }
+        int lootRefused = 0;
+        foreach (HCSiteManifestSite lootSite : sites) { lootRefused += CopyBoxes(lootSite.Loot, m_State.LootBoxes, HCSiteFormat.MAX_STATE_BOXES); }
+        if (lootRefused > 0) { Log("loot_boxes refused=" + lootRefused.ToString() + " cap=" + HCSiteFormat.MAX_STATE_BOXES.ToString()); }
     }
 
     protected void PrepareSweepOnly()
@@ -734,7 +817,12 @@ class HCSiteGuard : HCModule
     {
         if (!m_State || m_PersistOff) { return HCSaveJob.STEP_DONE; }
         int result = m_Writer.SaveStep(HCSiteFormat.STATE_PATH, m_State, HCSiteFormat.STATE_BYTES, m_Revision);
-        if (result == HCSaveJob.STEP_DONE) { m_Durable = m_Writer.HCSnapshotRevision(); }
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_Durable = m_Writer.HCSnapshotRevision();
+            // A completed write ends a failure streak: three isolated failures over a long session do not degrade.
+            m_SaveFailures = 0;
+        }
         return result;
     }
 
@@ -960,7 +1048,7 @@ class HCSiteGuard : HCModule
         if (m_CurStep == HCSiteGuard.ST_EVAL) { return StepEval(now, site, decision); }
         if (m_CurStep == HCSiteGuard.ST_HARD) { return StepHard(now, site, decision); }
         if (m_CurStep == HCSiteGuard.ST_CLASS) { return StepClass(site, decision); }
-        return StepSpawn(site, decision);
+        return StepSpawn(now, site, decision);
     }
 
     protected void BeginSite()
@@ -969,10 +1057,25 @@ class HCSiteGuard : HCModule
         m_CurPiece = 0;
         m_CurRow = 0;
         m_CurSpawned.Clear();
+        m_CurGroundRefused = 0;
         HCSiteDecision decision = FindDecision(m_CurSite);
         if (!decision)
         {
             Log("decide site=" + m_CurSite + " decision_missing");
+            return;
+        }
+        int resumeRow;
+        if (m_ResumeRow.Find(m_CurSite, resumeRow))
+        {
+            // The checks passed earlier in this boot; only the interrupted spawn continues.
+            ref array<Object> resumed;
+            m_ResumePieces.Find(m_CurSite, resumed);
+            if (resumed) { m_CurSpawned = resumed; }
+            m_ResumeRow.Remove(m_CurSite);
+            m_ResumePieces.Remove(m_CurSite);
+            m_CurRow = resumeRow;
+            m_CurStep = HCSiteGuard.ST_SPAWN;
+            Log("resume site=" + m_CurSite + " row=" + resumeRow.ToString());
             return;
         }
         bool invalid = ObjectSpawnerHandler.HCSiteInvalid.Contains(m_CurSite);
@@ -989,7 +1092,10 @@ class HCSiteGuard : HCModule
     {
         foreach (Object piece : m_CurSpawned)
         {
-            if (piece) { GetGame().ObjectDelete(piece); }
+            if (!piece) { continue; }
+            // The deleted building leaves no footprint behind for CE loot (HCGroundPlaced).
+            HCGroundPlaced.HCForget(piece.GetPosition());
+            GetGame().ObjectDelete(piece);
         }
         m_CurSpawned.Clear();
         decision.State = 2;
@@ -1269,7 +1375,7 @@ class HCSiteGuard : HCModule
         return 0;
     }
 
-    protected int StepSpawn(HCSiteManifestSite site, HCSiteDecision decision)
+    protected int StepSpawn(float now, HCSiteManifestSite site, HCSiteDecision decision)
     {
         array<ref ITEM_SpawnerObject> rows;
         array<ref HCGroundRowJson> grounds;
@@ -1277,7 +1383,14 @@ class HCSiteGuard : HCModule
         if (m_CurRow < rows.Count())
         {
             ITEM_SpawnerObject row = rows[m_CurRow];
-            if (PlayerWithin(row.pos[0], row.pos[2], 6)) { return 1; }
+            if (PlayerWithin(row.pos[0], row.pos[2], 6))
+            {
+                // Skip this site for now and go on with the next one; the spawn resumes at this row.
+                m_ResumeRow.Set(site.Id, m_CurRow);
+                m_ResumePieces.Set(site.Id, m_CurSpawned);
+                m_CurSpawned = new array<Object>;
+                return Postpone(site, "player_near_row", 30, now);
+            }
             HCGroundRowJson ground = null;
             if (m_CurRow < grounds.Count()) { ground = grounds[m_CurRow]; }
             Object placed = ObjectSpawnerHandler.HCSpawnDeferred(row, ground);
@@ -1285,6 +1398,15 @@ class HCSiteGuard : HCModule
             {
                 Log("class_refused site=" + site.Id + " class=" + row.name);
                 return Refuse(site, decision, "class_refused");
+            }
+            if (ObjectSpawnerHandler.HCLastResult == 2)
+            {
+                // The ground placement removed this row (slope or height rule). The site still stands without it;
+                // the loss is counted and logged, never hidden.
+                m_CurGroundRefused++;
+                m_GroundRefusedTotal++;
+                HCModuleReadiness.HCUse("Sites", "ground_refused_rows");
+                if (m_CurGroundRefused <= 4) { Log("refused site=" + site.Id + " reason=ground row=" + m_CurRow.ToString() + " class=" + row.name); }
             }
             if (placed && m_CurSpawned.Count() < HCSiteFormat.MAX_PARTS) { m_CurSpawned.Insert(placed); }
             m_CurRow++;
@@ -1298,7 +1420,7 @@ class HCSiteGuard : HCModule
         m_SiteStatus.Set(site.Id, 1);
         m_PassAdmitted++;
         m_AdmittedNow.Insert(site.Id);
-        Log("spawned site=" + site.Id + " parts=" + site.Parts.ToString());
+        Log("spawned site=" + site.Id + " parts=" + site.Parts.ToString() + " ground_refused=" + m_CurGroundRefused.ToString());
         HCModuleReadiness.HCUse("Sites", "composed_sites");
         FreeRows(site.Id);
         m_CurSpawned.Clear();
@@ -1378,6 +1500,26 @@ class HCSiteGuard : HCModule
             }
             return false;
         }
+        // Sites admitted by an earlier boot were spawned by the spawner before any check ran (a rollback to a
+        // build without the guard and a re-upgrade lands here with the same layer set). They are re-checked for
+        // evidence only: a base built next to a standing site is logged and counted, never removed.
+        array<ref HCSiteManifestSite> manifestSites = m_Manifest.Sites;
+        if (m_PSite < manifestSites.Count())
+        {
+            HCSiteManifestSite standing = manifestSites[m_PSite];
+            m_PSite++;
+            HCSiteDecision standingDecision = FindDecision(standing.Id);
+            if (standingDecision && standingDecision.State == 1 && m_AdmittedNow.Find(standing.Id) < 0)
+            {
+                string standingOverlap = RegistryReason(standing, GetGame().GetTickTime());
+                if (standingOverlap != "")
+                {
+                    m_PersistedOverlaps++;
+                    Log("overlap site=" + standing.Id + " reason=" + standingOverlap + " persisted=1");
+                }
+            }
+            return false;
+        }
         int refused = 0;
         array<ref HCSiteDecision> decisions = m_State.Decisions;
         foreach (HCSiteDecision decision : decisions)
@@ -1387,7 +1529,7 @@ class HCSiteGuard : HCModule
         string stateName = "ok";
         if (m_StateRecovered) { stateName = "recovered"; }
         if (m_Quarantined) { stateName = "quarantined"; }
-        string detail = "refused=" + refused.ToString() + " overlaps=" + m_Overlaps.ToString() + " state=" + stateName;
+        string detail = "refused=" + refused.ToString() + " overlaps=" + m_Overlaps.ToString() + " standing_overlaps=" + m_PersistedOverlaps.ToString() + " state=" + stateName;
         HCCoreSelfTest.Receipt("sites_clear", m_Overlaps == 0 && !m_Quarantined, detail);
         return true;
     }
@@ -1422,7 +1564,7 @@ class HCSiteGuard : HCModule
     protected int FinishSweep(HCSiteSweep sweep)
     {
         sweep.Done = true;
-        Log("sweep from=" + HCSiteGeo.Short(sweep.From) + " boxes=" + sweep.Total.ToString() + " snapped=" + sweep.Snapped.ToString() + " kept=" + sweep.Kept.ToString() + " skipped=0");
+        Log("sweep from=" + HCSiteGeo.Short(sweep.From) + " boxes=" + sweep.Total.ToString() + " snapped=" + sweep.Snapped.ToString() + " kept=" + sweep.Kept.ToString() + " skipped=0 tile_truncated=" + m_TileTruncated.ToString());
         Touch(true);
         return 2;
     }
@@ -1472,7 +1614,7 @@ class HCSiteGuard : HCModule
             return 0;
         }
         array<float> row = source[index];
-        if (PlayerWithin(row[0], row[1], m_Config.PlayerClearM))
+        if (m_SweepTile == 0 && PlayerWithin(row[0], row[1], m_Config.PlayerClearM))
         {
             m_SweepRetryAt = now + 120;
             if (revisit)
@@ -1486,7 +1628,13 @@ class HCSiteGuard : HCModule
             Touch(false);
             return 0;
         }
-        SweepBox(row, sweep);
+        // One bounded tile query per call; the box is done after its last tile.
+        if (!SweepTile(row, sweep, m_SweepTile))
+        {
+            m_SweepTile++;
+            return 0;
+        }
+        m_SweepTile = 0;
         if (revisit)
         {
             sweep.Skipped.RemoveOrdered(0);
@@ -1501,20 +1649,54 @@ class HCSiteGuard : HCModule
         return 0;
     }
 
-    protected void SweepBox(array<float> row, HCSiteSweep sweep)
+    // The box is covered by square cells of SWEEP_CELL metres in its own frame; each cell is one query of
+    // radius SWEEP_QUERY (its half diagonal plus slack), never the whole box at once. An item is settled by
+    // the cell that contains it, so overlapping query circles never handle one item twice. Returns true when
+    // the cell was the last of the box.
+    protected bool SweepTile(array<float> row, HCSiteSweep sweep, int tile)
     {
-        float halfDiag = Math.Sqrt(row[2] * row[2] + row[3] * row[3]);
-        vector centre = Vector(row[0], GetGame().SurfaceY(row[0], row[1]) + 4, row[1]);
+        int cellsU = Math.Ceil(row[2] * 2 / HCSiteGuard.SWEEP_CELL);
+        int cellsV = Math.Ceil(row[3] * 2 / HCSiteGuard.SWEEP_CELL);
+        if (cellsU < 1) { cellsU = 1; }
+        if (cellsV < 1) { cellsV = 1; }
+        int total = cellsU * cellsV;
+        if (tile >= total) { return true; }
+        int cellU = tile % cellsU;
+        int cellV = tile / cellsU;
+        float localU = -row[2] + (cellU + 0.5) * HCSiteGeo.CellSpan(row[2], cellsU);
+        float localV = -row[3] + (cellV + 0.5) * HCSiteGeo.CellSpan(row[3], cellsV);
+        float rad = row[4] * Math.DEG2RAD;
+        float cosine = Math.Cos(rad);
+        float sine = Math.Sin(rad);
+        float worldX = row[0] + localU * cosine + localV * sine;
+        float worldZ = row[1] - localU * sine + localV * cosine;
+        vector centre = Vector(worldX, GetGame().SurfaceY(worldX, worldZ) + 4, worldZ);
         m_ObjA.Clear();
         m_CargoA.Clear();
-        GetGame().GetObjectsAtPosition3D(centre, halfDiag + 4, m_ObjA, m_CargoA);
-        int count = Math.Min(m_ObjA.Count(), 256);
+        GetGame().GetObjectsAtPosition3D(centre, HCSiteGuard.SWEEP_QUERY, m_ObjA, m_CargoA);
+        int found = m_ObjA.Count();
+        int count = Math.Min(found, 256);
+        if (found > count)
+        {
+            m_TileTruncated++;
+            if (m_TileTruncated <= 4) { Log("sweep tile_truncated cell=" + tile.ToString() + " found=" + found.ToString()); }
+        }
         for (int objIndex = 0; objIndex < count; objIndex++)
         {
             ItemBase item = ItemBase.Cast(m_ObjA[objIndex]);
             if (!item) { continue; }
             vector at = item.GetPosition();
             if (!HCSiteGeo.InBox(at[0], at[2], row[0], row[1], row[2], row[3], row[4], 0)) { continue; }
+            // Own cell only (cell index from the item's local coordinates).
+            float dx = at[0] - row[0];
+            float dz = at[2] - row[1];
+            float itemU = dx * cosine - dz * sine;
+            float itemV = dx * sine + dz * cosine;
+            int itemCellU = Math.Floor((itemU + row[2]) / HCSiteGeo.CellSpan(row[2], cellsU));
+            int itemCellV = Math.Floor((itemV + row[3]) / HCSiteGeo.CellSpan(row[3], cellsV));
+            itemCellU = Math.Clamp(itemCellU, 0, cellsU - 1);
+            itemCellV = Math.Clamp(itemCellV, 0, cellsV - 1);
+            if (itemCellU != cellU || itemCellV != cellV) { continue; }
             if (item.GetHierarchyParent() || item.IsPendingDeletion() || !item.IsEmpty() || BaseBuildingBase.Cast(item) || TentBase.Cast(item) || UndergroundStash.Cast(item))
             {
                 sweep.Kept++;
@@ -1524,6 +1706,7 @@ class HCSiteGuard : HCModule
             else { sweep.Kept++; }
         }
         m_ObjA.Clear();
+        return tile + 1 >= total;
     }
 
     // ---- stop -------------------------------------------------------------------------------------------
@@ -1541,6 +1724,8 @@ class HCSiteGuard : HCModule
             flushed = HCSaveScheduler.HCFlush(m_Job);
             HCSaveScheduler.HCUnregister(m_Job);
         }
+        // Truthful: only the durable revision counts (a faulted or dropped job, or persistence off, loses the tail).
+        if (m_Revision > m_Durable) { flushed = false; }
         Log("stop pending=" + pending.ToString() + " flushed=" + flushed.ToString());
         m_Operational.HCPublish("off", "stopped");
         if (s_Instance == this) { s_Instance = null; }

@@ -1930,7 +1930,7 @@
     "default": 60,
     "min": 30,
     "max": 600,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "Sites.QuietWindowSeconds",
@@ -1938,7 +1938,7 @@
     "default": 10,
     "min": 5,
     "max": 120,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "Sites.BaseMarginM",
@@ -1946,7 +1946,7 @@
     "default": 15,
     "min": 5,
     "max": 60,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "Sites.UnitsPerGrant",
@@ -1954,7 +1954,7 @@
     "default": 8,
     "min": 1,
     "max": 16,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "Sites.PlayerClearM",
@@ -1962,7 +1962,7 @@
     "default": 30,
     "min": 10,
     "max": 100,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "Sites.OccupiedRetryBoots",
@@ -1970,7 +1970,7 @@
     "default": 3,
     "min": 1,
     "max": 10,
-    "owner": "HCSiteGuard"
+    "owner": "HCSiteConfig"
   },
   {
     "key": "PerceptionRing",
