@@ -35,10 +35,19 @@ class TargetsError(ValueError):
 
 
 def load_targets(path=None):
+    """Read and validate a local policy file."""
+    try:
+        text = Path(DEFAULT_TARGETS if path is None else path).read_text(encoding='utf-8')
+    except (OSError, ValueError):
+        raise TargetsError('acceptance targets file missing, unreadable or invalid JSON') from None
+    return parse_targets(text)
+
+
+def parse_targets(text):
     """Load strict keys, exact types (bool is not int), and sane ranges."""
     try:
-        data = json.loads(Path(DEFAULT_TARGETS if path is None else path).read_text(encoding='utf-8'))
-    except (OSError, ValueError):
+        data = json.loads(text)
+    except (ValueError, RecursionError):
         raise TargetsError('acceptance targets file missing, unreadable or invalid JSON') from None
     if type(data) is not dict:
         raise TargetsError('acceptance targets must be an object')

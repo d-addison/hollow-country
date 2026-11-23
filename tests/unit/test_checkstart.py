@@ -317,3 +317,17 @@ class CheckstartTests(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()):
             code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)])
         self.assertEqual(code, boot.CODES['not_ready'])
+
+    def test_main_uses_supplied_targets_for_readiness_and_report(self):
+        args = self.setup_watch(MISSION + CONNECT +
+            '12:00:02 [HC Ready] module=Events enabled=true ready=true\n')
+        targets = dict(boot.load_targets(), readiness_max_after_hive_seconds=2)
+        result = SimpleNamespace(returncode=0, attempts=1, stdout='', stderr='')
+        with patch.object(boot.winproc, 'run', return_value=result), \
+                patch.object(boot, 'load_targets', side_effect=AssertionError('caller policy loaded')), \
+                patch.object(boot.winproc, 'process_state', return_value='running'), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            code = boot.main(['--bundle', 'fake', '--profiles', str(args.profiles), '--rpt', str(args.rpt)],
+                             targets=targets, entries=[])
+        self.assertEqual(code, boot.CODES['connect_enabled'])
+        self.assertIn('"limit_seconds": 2', output.getvalue())
