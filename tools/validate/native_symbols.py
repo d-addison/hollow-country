@@ -128,7 +128,7 @@ def _script_files(scripts):
 def _parameter_types(params):
     """Parameter types only (an ``out ``/``inout `` prefix kept); names and defaults are dropped."""
     result = []
-    for part in es.split_top(params, ','):
+    for part in es.split_parameters(params):
         part = part.split('=')[0].strip()
         words = re.findall(r'[A-Za-z_]\w*(?:\s*<[^()]*>)?', part)
         flags = []

@@ -99,6 +99,22 @@ class BuildTests(unittest.TestCase):
         self.assertTrue(first.endswith('\n'))
         self.assertEqual(first, json.dumps(json.loads(first), sort_keys=True, separators=(',', ':')) + '\n')
 
+    def test_parameter_types_keep_generic_commas_and_drop_defaults(self):
+        self.assertEqual(
+            ['map<string,int>', 'out map<string,array<ref Base>>', 'int', 'string'],
+            ns._parameter_types('map<string, int> values, '
+                                'out map<string, array<ref Base>> nested, '
+                                'int count = 2, string sep = ","'))
+
+    def test_index_keeps_nested_generic_parameter_types(self):
+        (self.root / '3_Game/sample.c').write_text(
+            'class Probe { void Run(map<string, int> values, '
+            'inout map<string, array<ref Base>> nested, string sep = ",") {} }')
+        doc = ns.build_names_index(self.root)
+        self.assertEqual(
+            [['Run', '', ['map<string,int>', 'inout map<string,array<ref Base>>', 'string']]],
+            doc['classes']['Probe'][0]['methods'])
+
     def test_missing_scripts_are_refused(self):
         with self.assertRaises(ValueError):
             ns.build_names_index(Path(self.temp.name) / 'absent')

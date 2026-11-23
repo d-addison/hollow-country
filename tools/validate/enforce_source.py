@@ -118,13 +118,27 @@ def split_top(text, separator):
 
 
 def split_parameters(text):
-    """Split a parameter list on top-level commas, also outside <> generics.
+    """Split on commas outside nested brackets, <> generics and quoted defaults.
 
     Only for declarations, where '<' is always a template bracket (defaults are
     literals). split_top must not do this: expressions compare with '<'.
     """
     parts, depth, current = [], 0, []
+    quoted, escaped = False, False
     for ch in text:
+        if quoted:
+            current.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == '\\':
+                escaped = True
+            elif ch == '"':
+                quoted = False
+            continue
+        if ch == '"':
+            quoted = True
+            current.append(ch)
+            continue
         if ch in '([<':
             depth += 1
         elif ch in ')]>':

@@ -468,6 +468,16 @@ class EngineReceiverMethodRule(unittest.TestCase):
         self.assertEqual(['a', 'b', 'c'], [name for _, name, _ in parameters])
         self.assertEqual(['map<string, bool>', 'int'], [kind for kind, _, _ in parameters[:2]])
 
+    def test_parameter_split_ignores_quoted_commas_and_brackets(self):
+        for literal in ('","', '"<"', '">"', '"([<,>])"',
+                        r'"escaped \",<"', r'"backslash \\"'):
+            with self.subTest(literal=literal):
+                parts = ['string text = ' + literal, ' map<string, array<int>> values', ' int count = 1']
+                self.assertEqual(parts, lint.es.split_parameters(','.join(parts)))
+
+    def test_expression_split_keeps_less_than_comparisons(self):
+        self.assertEqual(['left < right', ' next'], lint.es.split_top('left < right, next', ','))
+
     def test_provider_bridge_files_do_not_judge_engine_receivers(self):
         text = 'class HCProbe { void Run(DayZPlayerImplement value) { value.GetGroup(); } }'
         for bridge in lint._PROVIDER_BRIDGES:
