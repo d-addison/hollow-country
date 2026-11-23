@@ -164,7 +164,7 @@ def preserve(prior_path, candidate_path, addons, stock, partition,
             continue
         container = spec['containers']['lootHCSurface']
         container['points'] = selected
-        container['lootmax'] = loot.added_lootmax(len(selected), spec.get('interior_area_m2'))
+        container['lootmax'] = gen.density_lootmax(len(selected), spec.get('interior_area_m2'))
         container['categories'] = gen.story_categories(name, reach.stock[name], spec['family'],
                                                       [e['surface'] for e in evidence])
         spec['surface_sources'] = evidence
