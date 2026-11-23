@@ -1219,8 +1219,8 @@ by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the sco
   category-less, zero and self-closing containers keep their limit). Non-firearm types rows whose every usage is
   Military, Police or Prison also get `nominal` and `min` x the Military factor, as before. The older single
   `MilitaryCapacityMultiplier` key still reads as `{Military, Police, Prison}: factor`; both keys together are refused.
-- `CategoryMultiplier` is `{category: target}` (food, tools, medical, containers, clothes, books; 1.0 up to 1.5 x
-  `Multiplier`; the shipped targets are in `settings.json` only). A row's `nominal` and `min` become at least `ceil(stock x target)`, so a target lifts only rows
+- `CategoryMultiplier` is `{category: target}` (food, tools, medical, containers, clothes, books; 1.0 to 10.0, so a
+  target may exceed `Multiplier`; the shipped targets are in `settings.json` only). A row's `nominal` and `min` become at least `ceil(stock x target)`, so a target lifts only rows
   whose boost is lower than the target. Medical is a name
   class of tools rows (bandages, saline, injectors and so on); without a `medical` key it falls back to `tools`.
   Weapons, ammo, explosives and the firearms roster are never targeted.
@@ -1229,16 +1229,57 @@ by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the sco
   with a usage that has slack keeps the boost), instead of holding every shelf row on the map. The describe line
   reports `shelf_boost_limited=[...]`.
 
-At the shipped values the category targets equal `Multiplier` (2.0), so for rows that are not held they are a
-no-op (`rows=0` in the describe line); the nominal gain comes from the scoped limit releasing rows the old global
-hold kept at 1x. A target above `Multiplier` (up to 1.5 x) is where the knob bites.
+A target at or below the factor a row already gets is a no-op for that row (`rows=` in the describe line counts the
+rows it lifted). Held shelf rows are never raised by a target.
+
+Supply side (owner interview 2026-11-22, targets in `economy-targets` of the wave brief): the same file carries
+five more knobs, all read by `loot_boost.default_knobs` and recorded in the receipt as `knobs`.
+
+- `UsageMultiplier` is `{usage: factor}` (1.0 to 8.0). A building-loot row's nominal and min factor is the largest
+  entry over its usages; a usage without an entry counts as `Multiplier`, a row without usages keeps `Multiplier`.
+  A usage with an entry replaces the legacy Military-adjacent step for rows that use it, and is sized to its owner
+  target rather than to today's slots: it is never shelf-held (its remaining pressure stays in the budget report).
+- `MilitaryTierMultiplier` is `{TierN: factor}` (0.5 to 4.0). A row with the Military usage gets an extra factor
+  equal to the mean over its tier values (a row without tier values counts as 1.0), so Tier3/Tier4 rows outweigh
+  Tier1/Tier2 rows. Groups carry no tier in `mapgroupproto.xml`, so this widens what a Tier3/Tier4 zone can draw,
+  not the lootmax of a given building; per-building richness there comes from the point and capacity layers.
+- `FirearmsMultiplier` is `{weapon, magazine, ammo, attachment: factor}` (1.0 to 4.0) over the quantity the roster
+  rows already carry. Factor source: the authored `mission/hollow-country/ce/types.xml` (generated from
+  `tools/package/firearms_roster.json`, with `config/military-loot.json` behind the Military pools) holds the 3x
+  native travel layer; travel installs it before the boost, so `loot_boost` multiplies those bytes and the committed
+  file stays untouched. Weapon-pack rows (optional packs) are not scaled here and stay 2x. The Military tier factor
+  applies to roster rows too.
+- `LootDamageMax` (0.0 to 1.0) lowers the `LootDamageMax` global to that ceiling and never raises a stock value;
+  the receipt records `LootDamageMax=old->new` in `counts.globals`.
+- `Refill` is `{RestockMin, RespawnTypesFactor}`. `RestockMin` (seconds, 0 = off) raises the `restock` of every row
+  the boost touches that is below it; `RespawnTypesFactor` (0.25 to 4.0, 1.0 = off) multiplies the boosted
+  `RespawnTypes` global. Both default to today's behaviour and the describe line `refill:` shows them; the lead tunes
+  them after measuring.
+
+The receipt records every changed globals variable as `old->new`; `loot_boost.globals_from_report` rebuilds the
+installed bytes from it, which `friend_install.globals_installed_bytes` uses so upgrades recognise them.
+
+Attachment coverage: every attachment the CE puts on a spawnable firearm (the `<attachments>` items and presets of
+the loaded spawnabletypes files, or an injected `fits` table such as one read from the addon configs on a host)
+must have a types row with nominal of at least 1 and a usage shared with a gun it fits. `plan` reports
+`counts.attachments` (guns, attachments, ok, gaps by kind, repaired, rows still needed) and repairs `nominal` and
+`usage` gaps in place; a gap with no row at all is listed as needing an authored row and never invented. Attachments
+that fit a gun by inventory slot but are not on the CE spawn list need a host-side fit table, which cannot be
+committed (game configs), so that wider check is `attachment_coverage(rows, fits)` with a measured table.
 
 Rule (owner, 2026-11-22): `settings.json` is the single source of these numbers. `loot_boost` applies every knob
 from the mission's own stock bytes on each install, after rolling back the previous receipt; no install-time
 default and no second copy of the numbers exist in the installer, packer or docs. The receipt records the
-effective `capacity_multiplier` and `category_multiplier`, and the overlay fingerprint covers `settings.json`
+effective `capacity_multiplier`, `category_multiplier` and `knobs`, and the overlay fingerprint covers `settings.json`
 (it ships in the bundle's mission overlay), so an edited settings file is detected and reapplied from stock and
 factors never compound. Rollback still reads receipts that carry the older `military_multiplier`.
+
+Projection (offline, stock mission plus the travel layer; optional packs not staged; assumed slots are the wh-points
+counts of the targets file): total nominal about 90,000 (about 96,000 with the packs); food and medical about
+3,500 each; roster weapons about 5,750 (about 6,250 with the pack weapons). The describe lines print the same
+numbers for any install: `usage targets`, `military tiers`, `firearms`, `refill`, `attachment coverage`, and
+`CE nominal=` for the total. Visible items are `min(nominal, slots)` per usage and tag; it needs the wh-points slots
+to land before it can be measured natively, so it stays an offline estimate.
 
 Stock-mission rehearsal (offline, `plan(..., points=shipped_points())`, old single-factor layer against this one):
 groups changed 114 to 165, containers 19 to 237; prototype `lootmax` 1,461 to 1,966 before and 1,880 to 2,742

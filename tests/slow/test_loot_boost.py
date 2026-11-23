@@ -137,11 +137,28 @@ def types_of(path):
             for t in ET.parse(path).getroot().findall('type')}
 
 
+PLAIN_SETTINGS = {'schema': 1, 'kind': 'hollow-country-loot-boost-settings', 'Multiplier': 2.0,
+                  'CapacityMultiplier': {'Farm': 1.25, 'Hunting': 1.5, 'Military': 1.5, 'Police': 2.0, 'Prison': 3.0,
+                                         'School': 2.0},
+                  'CategoryMultiplier': {'containers': 2.0, 'food': 2.0, 'medical': 2.0, 'tools': 2.0}}
+
+
+def plain_settings(case):
+    """These tests check the boost mechanism at 2x; the shipped supply targets (usage, tier, firearms, damage,
+    refill) are unit-tested in tests/unit/test_loot_boost.py, so pin the settings file to the plain 2x layer."""
+    target = Path(case.temp.name) / 'plain-settings.json'
+    target.write_text(json.dumps(PLAIN_SETTINGS))
+    patch = mock.patch.object(case.lb, 'SETTINGS', target)
+    patch.start()
+    case.addCleanup(patch.stop)
+
+
 class LootBoostSmoke(unittest.TestCase):
     def setUp(self):
         from tools.package import loot_boost
         self.lb = loot_boost
         self.temp = tempfile.TemporaryDirectory()
+        plain_settings(self)
         self.mission = Path(self.temp.name) / 'mission'
         self.before = mission(self.mission)
         # SYNTHETIC selection in the stock prototype frame: two floor points and one raised surface point.
@@ -255,6 +272,7 @@ class FirearmScarcityStrict(unittest.TestCase):
         from tools.package import loot_boost
         self.lb = loot_boost
         self.temp = tempfile.TemporaryDirectory()
+        plain_settings(self)
         self.mission = Path(self.temp.name) / 'mission'
 
     def tearDown(self):
@@ -300,7 +318,10 @@ class FirearmScarcityStrict(unittest.TestCase):
         root = ET.parse(self.mission / 'mapgroupproto.xml').getroot()
         police = next(g for g in root.iter('group') if g.get('name') == 'Land_City_PoliceStation_Synthetic')
         pcont = {c.get('name'): c for c in police.findall('container')}
-        self.assertEqual(pcont['lootweapons'].get('lootmax'), '2', 'a mixed container that lists weapons is not doubled')
+        # Owner 2026-11-22 (per-usage capacity): the plain settings give Police 2.0, so a mixed container that
+        # also lists tools grows with it (4 = the physical capacity of its four points); Multiplier alone never
+        # does, and weapons-only containers stay at their stock limit (unit tests: CapacityMap).
+        self.assertEqual(pcont['lootweapons'].get('lootmax'), '4', 'a mixed container follows the Police capacity')
         values = {v.get('name'): v.get('value') for v in ET.parse(self.mission / 'db/globals.xml').getroot().findall('var')}
         self.assertEqual(values['RespawnTypes'], '80', 'a stock value above the cap is never lowered')
         self.assertTrue(files)

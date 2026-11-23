@@ -84,6 +84,30 @@ MIN_MULTIPLIER, MAX_MULTIPLIER = 1.0, 4.0
 MILITARY_KEY = 'MilitaryCapacityMultiplier'
 CAPACITY_KEY = 'CapacityMultiplier'
 CATEGORY_KEY = 'CategoryMultiplier'
+# Supply side (owner interview 2026-11-22: economy-targets). Every number lives in settings.json and is applied from
+# the mission's bytes at each install:
+#   UsageMultiplier {usage: f}     nominal factor of a row = the largest f over its usages (a usage without an entry
+#                                  counts as Multiplier); rows without a usage keep Multiplier
+#   MilitaryTierMultiplier {TierN: f}  extra factor on rows with the Military usage = mean of f over the row's tiers
+#                                  (a row without a tier value, or a tier without an entry, counts as 1.0)
+#   FirearmsMultiplier {kind: f}   factor on the roster rows (weapon, magazine, ammo, attachment) over the quantity
+#                                  the travel layer authored (mission/hollow-country/ce/types.xml)
+#   LootDamageMax f                globals ceiling for the damage a spawned item may have (never raised above stock)
+#   Refill {RestockMin, RespawnTypesFactor}  restock floor in seconds for the rows loot_boost touches (0 = off) and a
+#                                  factor on the RespawnTypes global (1.0 = off); both default to today's behaviour
+USAGE_KEY = 'UsageMultiplier'
+TIER_KEY = 'MilitaryTierMultiplier'
+FIREARMS_KEY = 'FirearmsMultiplier'
+DAMAGE_KEY = 'LootDamageMax'
+REFILL_KEY = 'Refill'
+MIN_USAGE, MAX_USAGE = 1.0, 8.0
+MIN_TIER, MAX_TIER = 0.5, 4.0
+MIN_FIREARMS, MAX_FIREARMS = 1.0, 4.0
+MAX_CATEGORY = 10.0
+MAX_RESTOCK_MIN = 7 * 86400
+MIN_RESPAWN_FACTOR, MAX_RESPAWN_FACTOR = 0.25, 4.0
+TIERS = ('Tier1', 'Tier2', 'Tier3', 'Tier4')
+ROSTER_KINDS = ('weapon', 'magazine', 'ammo', 'attachment')
 MIN_MILITARY, MAX_MILITARY = 1.0, 3.0
 MIN_CAPACITY, MAX_CAPACITY = 1.0, 3.0
 LEGACY_MILITARY_USAGES = ('Military', 'Police', 'Prison')
@@ -93,7 +117,6 @@ CE_USAGES = frozenset({'Military', 'Police', 'Medic', 'Firefighter', 'Industrial
                        'Hunting', 'Office', 'School', 'Prison', 'Lunapark', 'SeasonalEvent', 'ContaminatedArea',
                        'Historical'})
 TARGET_CATEGORIES = frozenset({'food', 'tools', 'medical', 'containers', 'clothes', 'books'})
-CATEGORY_TARGET_HEADROOM = 1.5  # a category target may reach Multiplier x this
 # medical is a name classifier over the tools rows (the CE has no medical category).
 MEDICAL_CLASSES = frozenset(n.casefold() for n in (
     'BandageDressing', 'Rag', 'SewingKit', 'TetracyclineAntibiotics', 'PainkillerTablets', 'CharcoalTablets',
@@ -155,7 +178,7 @@ def _multiplier(value):
 
 def _settings(repo):
     doc = json.loads((Path(repo) / SETTINGS).read_bytes())
-    optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY}
+    optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY, USAGE_KEY, TIER_KEY, FIREARMS_KEY, DAMAGE_KEY, REFILL_KEY}
     if (not isinstance(doc, dict) or not {'schema', 'kind', 'Multiplier'} <= set(doc)
             or set(doc) - {'schema', 'kind', 'Multiplier'} - optional or doc['schema'] != 1
             or doc['kind'] != SETTINGS_KIND):
@@ -206,9 +229,60 @@ def _capacity_map(value):
     return _factor_map(value, CAPACITY_KEY, CE_USAGES, MIN_CAPACITY, MAX_CAPACITY)
 
 
-def _category_map(value, multiplier):
-    """Validated {category: target multiple of the stock nominal}: 1.0 up to Multiplier x 1.5."""
-    return _factor_map(value, CATEGORY_KEY, TARGET_CATEGORIES, 1.0, float(multiplier) * CATEGORY_TARGET_HEADROOM)
+def _category_map(value, multiplier=None):
+    """Validated {category: target multiple of the stock nominal}: 1.0..MAX_CATEGORY. A target may exceed Multiplier
+    (the owner's food and medical totals need ~4-6x stock); the plan takes the larger of the two per row."""
+    return _factor_map(value, CATEGORY_KEY, TARGET_CATEGORIES, 1.0, MAX_CATEGORY)
+
+
+def _number(value, what, low, high):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f'{what} must be a number')
+    value = float(value)
+    if not low <= value <= high:
+        raise ValueError(f'{what} must be within {low}..{high}')
+    return value
+
+
+def _usage_map(value):
+    return _factor_map(value, USAGE_KEY, CE_USAGES, MIN_USAGE, MAX_USAGE)
+
+
+def _tier_map(value):
+    return _factor_map(value, TIER_KEY, frozenset(TIERS), MIN_TIER, MAX_TIER)
+
+
+def _firearms_map(value):
+    return _factor_map(value, FIREARMS_KEY, frozenset(ROSTER_KINDS), MIN_FIREARMS, MAX_FIREARMS)
+
+
+def _refill(value):
+    """Validated Refill: {RestockMin: seconds (int, 0 = off), RespawnTypesFactor: 1.0 = off}."""
+    if not isinstance(value, dict) or set(value) - {'RestockMin', 'RespawnTypesFactor'}:
+        raise ValueError('%s must be a map of RestockMin and RespawnTypesFactor' % REFILL_KEY)
+    out = {'RestockMin': 0, 'RespawnTypesFactor': 1.0}
+    if 'RestockMin' in value:
+        seconds = value['RestockMin']
+        if isinstance(seconds, bool) or not isinstance(seconds, int) or not 0 <= seconds <= MAX_RESTOCK_MIN:
+            raise ValueError('%s: RestockMin must be an integer within 0..%d' % (REFILL_KEY, MAX_RESTOCK_MIN))
+        out['RestockMin'] = seconds
+    if 'RespawnTypesFactor' in value:
+        out['RespawnTypesFactor'] = _number(value['RespawnTypesFactor'], REFILL_KEY + ': RespawnTypesFactor',
+                                            MIN_RESPAWN_FACTOR, MAX_RESPAWN_FACTOR)
+    return out
+
+
+def knobs_of(doc):
+    """The supply-side knobs of a settings document (validated; an absent key means off)."""
+    return {'usage': _usage_map(doc.get(USAGE_KEY, {})), 'tier': _tier_map(doc.get(TIER_KEY, {})),
+            'firearms': _firearms_map(doc.get(FIREARMS_KEY, {})),
+            'loot_damage_max': (None if DAMAGE_KEY not in doc else _number(doc[DAMAGE_KEY], DAMAGE_KEY, 0.0, 1.0)),
+            'refill': _refill(doc.get(REFILL_KEY, {}))}
+
+
+def default_knobs(repo=REPO_ROOT):
+    """The supply-side knobs of the settings file."""
+    return knobs_of(_settings(repo))
 
 
 def default_capacity_map(repo=REPO_ROOT):
@@ -335,9 +409,11 @@ def _encode(text, original):
 
 
 def _roster_names():
+    """{lowercase class: kind} of the firearms roster (kind: weapon, magazine, ammo, attachment); a dict, so `in`
+    still reads it as the set of roster classes."""
     try:
         roster = json.loads((REPO_ROOT / 'tools/package/firearms_roster.json').read_bytes())
-        return {e['class'].lower() for e in roster['entries']}
+        return {e['class'].lower(): e['kind'] for e in roster['entries']}
     except (OSError, ValueError, KeyError, TypeError):
         raise ValueError('firearms roster unreadable; refusing to guess which classes are firearms')
 
@@ -380,16 +456,43 @@ def shelf_held(usages, held):
     return set(usages) <= set(held)
 
 
+def usage_factor(row_usages, multiplier, usage_map):
+    """Nominal factor of a row: the largest UsageMultiplier over its usages (an unlisted usage counts as
+    multiplier); a row without a usage, or a map without an entry for any of its usages, keeps multiplier."""
+    if not usage_map or not row_usages or not row_usages & set(usage_map):
+        return multiplier
+    return max(usage_map.get(u, multiplier) for u in row_usages)
+
+
+def tier_factor(row_usages, row_tiers, tier_map):
+    """Extra factor of a Military row: the mean of MilitaryTierMultiplier over its tiers (1.0 without tiers)."""
+    tiers = [t for t in row_tiers if t in TIERS]
+    if not tier_map or 'Military' not in row_usages or not tiers:
+        return 1.0
+    return sum(tier_map.get(t, 1.0) for t in tiers) / len(tiers)
+
+
 def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=None, stats=None, held=None,
-                targets=None):
+                targets=None, knobs=None):
     """Scale eligible building loot; floor_only preserves shelf quantities under pressure.
 
     military=(usages, factor) multiplies the scale again for rows whose every usage is in usages (so shared civilian
     rows are untouched); stats['military_rows'] counts them. With floor_only set, a shelf-routed row is held at its
     native quantity when held is None or all its usages are in held (see shelf_held). targets={category: T} raises a
     boosted row to at least ceil(stock x T) (stats['target_rows'], stats['target_nominal'] count rows and added
-    nominal); held rows are never raised."""
+    nominal); held rows are never raised.
+
+    knobs (see default_knobs) adds the supply side: a row's factor is its usage factor (largest UsageMultiplier over
+    its usages) times the Military tier factor; with a roster dict ({class: kind}) the roster rows are scaled by
+    FirearmsMultiplier[kind] over the quantity they carry (and a plain roster set keeps them untouched); Refill
+    RestockMin raises the restock of every row touched. stats counts usage_rows, tier_rows, restock_rows and
+    roster {kind: [nominal before, after]}."""
     economy.xml(data, 'types')
+    knobs = knobs or {}
+    usage_map, tier_map = knobs.get('usage') or {}, knobs.get('tier') or {}
+    firearms = knobs.get('firearms') or {}
+    restock_min = (knobs.get('refill') or {}).get('RestockMin', 0)
+    kinds = roster if isinstance(roster, dict) else {}
     text = data.decode('utf-8-sig')
     masked = _mask(text)
     edits, expected = [], {}
@@ -402,10 +505,16 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
         name = _attr(opening.group(0), 'name') or ''
         body = masked[opening.end():close]
         categories = re.findall(r'<category\s+name="([^"]*)"', body)
-        if not _scales(categories, name, roster):
+        kind = kinds.get(name.lower())
+        if kind is not None and (firearms.get(kind, 1.0) > 1.0 or restock_min):
+            pass  # a roster row: scaled by its kind's FirearmsMultiplier below, never by the building-loot factor
+        elif not _scales(categories, name, roster):
             continue
+        else:
+            kind = None
         row_usages = set(re.findall(r'<usage\s+name="([^"]*)"', body))
-        if floor_only is not None:
+        row_tiers = re.findall(r'<value\s+name="([^"]*)"', body)
+        if floor_only is not None and kind is None:
             from tools.package import loot_floor_policy
             if (not all(loot_floor_policy.floor_eligible(name, c, floor_only) for c in categories)
                     and shelf_held(row_usages, held)):
@@ -419,14 +528,23 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
         if len(values) != 2:
             continue
         nominal, minimum = values['nominal'][1], values['min'][1]
-        factor = multiplier
-        if military is not None and military[1] > 1.0:
-            if row_usages and row_usages <= military[0]:
-                factor = multiplier * military[1]
-                if stats is not None:
-                    stats['military_rows'] = stats.get('military_rows', 0) + 1
+        tier = tier_factor(row_usages, row_tiers, tier_map)
+        if kind is not None:
+            factor = firearms.get(kind, 1.0) * tier
+        else:
+            factor = usage_factor(row_usages, multiplier, usage_map)
+            if military is not None and military[1] > 1.0 and not row_usages & set(usage_map):
+                if row_usages and row_usages <= military[0]:
+                    factor = factor * military[1]
+                    if stats is not None:
+                        stats['military_rows'] = stats.get('military_rows', 0) + 1
+            factor *= tier
+            if stats is not None and factor > multiplier and usage_map and row_usages & set(usage_map):
+                stats['usage_rows'] = stats.get('usage_rows', 0) + 1
+        if stats is not None and tier != 1.0:
+            stats['tier_rows'] = stats.get('tier_rows', 0) + 1
         new_nominal, new_min = scaled(nominal, factor), scaled(minimum, factor)
-        target = row_target(name, categories, targets) if targets else 1.0
+        target = row_target(name, categories, targets) if targets and kind is None else 1.0
         if target > 1.0:
             raised = max(new_nominal, ceil_scaled(nominal, target))
             new_min = max(new_min, ceil_scaled(minimum, target))
@@ -440,7 +558,20 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
             match = values[field][0]
             start = opening.end() + match.start(2)
             edits.append((start, start + len(match.group(2)), str(value)))
-        expected[name] = (new_nominal, new_min)
+        new_restock = None
+        if restock_min:
+            found = list(re.finditer(r'(<restock>\s*)(\d+)(\s*</restock>)', body))
+            if len(found) == 1 and int(found[0].group(2)) < restock_min:
+                start = opening.end() + found[0].start(2)
+                edits.append((start, start + len(found[0].group(2)), str(restock_min)))
+                new_restock = restock_min
+                if stats is not None:
+                    stats['restock_rows'] = stats.get('restock_rows', 0) + 1
+        if stats is not None and kind is not None:
+            row = stats.setdefault('roster', {}).setdefault(kind, [0, 0])
+            row[0] += nominal
+            row[1] += new_nominal
+        expected[name] = (new_nominal, new_min, new_restock)
     output = _encode(_apply(text, edits), data)
     _verify_types(data, output, expected)
     return output, len(expected)
@@ -454,9 +585,14 @@ def _verify_types(before, after, expected):
     for a, b in zip(rows_old, rows_new):
         name = a.get('name')
         if name in expected:
-            if (int(b.findtext('nominal')), int(b.findtext('min'))) != expected[name]:
+            nominal, minimum, restock = expected[name]
+            if (int(b.findtext('nominal')), int(b.findtext('min'))) != (nominal, minimum):
                 raise ValueError(f'types verification failed: {name}')
             strip = ('nominal', 'min')
+            if restock is not None:
+                if int(b.findtext('restock')) != restock:
+                    raise ValueError(f'types verification failed: {name}')
+                strip += ('restock',)
         else:
             strip = ()
         shape = lambda t: [(c.tag, sorted(c.attrib.items()), None if c.tag in strip else (c.text or '').strip())
@@ -482,10 +618,165 @@ def types_files(mission, include_optional=False):
     return names
 
 
+# ------------------------------------------------------------------------------------------------ attachments
+# Owner (2026-11-22): every attachment type that fits a spawnable gun must be findable. The committed fit source is the
+# CE's own spawnabletypes (the attachments, and the presets they name, that the CE puts on each gun); a host-measured
+# table {gun: [attachment]} (for example read from the game's addon configs, which cannot be committed) may be passed
+# as fits. A gap is an attachment without a types row (needs an authored row; reported, never invented), with
+# nominal 0, or without any usage shared with the spawnable guns it fits (repaired: nominal >= 1 and the usages of
+# those guns added).
+
+
+def spawnable_files(mission):
+    """Registered spawnabletypes files in load order, with the stock cfgspawnabletypes.xml first."""
+    root = economy.xml(economy.read_plain(mission, CORE), 'economycore')
+    names = []
+    if economy.child(mission, 'cfgspawnabletypes.xml').is_file():
+        names.append('cfgspawnabletypes.xml')
+    for ce in root.findall('ce'):
+        folder = (ce.get('folder') or '').strip('/')
+        for row in ce.findall('file'):
+            if row.get('type') == 'spawnabletypes':
+                name = folder + '/' + (row.get('name') or '') if folder else (row.get('name') or '')
+                economy.child(mission, name)
+                if name not in names:
+                    names.append(name)
+    return names
+
+
+def spawnable_fits(mission):
+    """{lowercase holder: {lowercase attachment}} from the loaded spawnabletypes (a later file replaces a holder)."""
+    presets = {}
+    path = economy.child(mission, 'cfgrandompresets.xml')
+    if path.is_file():
+        for preset in economy.xml(path.read_bytes(), 'randompresets'):
+            presets[preset.get('name')] = [i.get('name') for i in preset.iter('item')]
+    fits = {}
+    for name in spawnable_files(mission):
+        held = {}
+        for holder in economy.xml(economy.read_plain(mission, name), 'spawnabletypes').findall('type'):
+            items = set()
+            for part in holder.findall('attachments'):
+                ref = part.get('preset')
+                items.update(presets.get(ref, []) if ref else [i.get('name') for i in part.iter('item')])
+            held[(holder.get('name') or '').lower()] = {i.lower() for i in items if i}
+        fits.update(held)
+    return fits
+
+
+def type_rows(layers):
+    """{lowercase name: {'nominal', 'usages', 'weapon'}} over types layers in load order (a later layer replaces a row)."""
+    rows = {}
+    for data in layers:
+        for row in economy.xml(data, 'types').findall('type'):
+            try:
+                nominal = int(row.findtext('nominal') or 0)
+            except ValueError:
+                nominal = 0
+            rows[(row.get('name') or '').lower()] = {
+                'nominal': nominal, 'usages': {u.get('name') for u in row.findall('usage')},
+                'weapon': any((c.get('name') or '').lower() == 'weapons' for c in row.findall('category'))}
+    return rows
+
+
+def attachment_coverage(rows, fits):
+    """Attachment coverage of the spawnable guns: {'guns': n, 'attachments': n, 'ok': n, 'gaps': {name: gap}} where gap
+    is {'kind': norow|nominal|usage, 'guns': n, 'usages': sorted usages of the guns it fits}. A spawnable gun is a
+    fits holder whose row is a weapons row with nominal >= 1 and a usage; its attachments are the fits entries."""
+    guns = {g: held for g, held in fits.items()
+            if g in rows and rows[g]['weapon'] and rows[g]['nominal'] >= 1 and rows[g]['usages']}
+    fitted = {}
+    for gun, held in guns.items():
+        for item in held:
+            fitted.setdefault(item, []).append(gun)
+    gaps, ok = {}, 0
+    for item, holders in sorted(fitted.items()):
+        usages = set().union(*(rows[g]['usages'] for g in holders))
+        row = rows.get(item)
+        if row is None:
+            kind = 'norow'
+        elif row['nominal'] < 1:
+            kind = 'nominal'
+        elif not row['usages'] & usages:
+            kind = 'usage'
+        else:
+            ok += 1
+            continue
+        gaps[item] = {'kind': kind, 'guns': len(holders), 'usages': sorted(usages)}
+    return {'guns': len(guns), 'attachments': len(fitted), 'ok': ok, 'gaps': gaps}
+
+
+def repair_attachments(data, gaps):
+    """data with nominal >= 1 and the gun usages applied to the 'nominal' and 'usage' gaps of attachment_coverage
+    (rows only; a 'norow' gap needs an authored row). Returns (bytes, [repaired lowercase names])."""
+    economy.xml(data, 'types')
+    text = data.decode('utf-8-sig')
+    masked = _mask(text)
+    edits, fixed, expected = [], [], {}
+    for opening in re.finditer(r'<type\b[^>]*>', masked):
+        if opening.group(0).endswith('/>'):
+            continue
+        name = (_attr(opening.group(0), 'name') or '')
+        gap = gaps.get(name.lower())
+        if gap is None or gap['kind'] == 'norow':
+            continue
+        close = masked.find('</type>', opening.end())
+        if close < 0:
+            raise ValueError('unclosed type row')
+        body = masked[opening.end():close]
+        nominal = list(re.finditer(r'(<nominal>\s*)(\d+)(\s*</nominal>)', body))
+        if len(nominal) != 1:
+            continue
+        have = re.findall(r'<usage\s+name="([^"]*)"', body)
+        missing = [u for u in gap['usages'] if u not in have]
+        new_nominal = max(1, int(nominal[0].group(2)))
+        if new_nominal != int(nominal[0].group(2)):
+            start = opening.end() + nominal[0].start(2)
+            edits.append((start, start + len(nominal[0].group(2)), str(new_nominal)))
+        if missing:
+            tags = list(re.finditer(r'<usage\s+name="[^"]*"\s*/>', body))
+            newline = '\r\n' if '\r\n' in text else '\n'
+            if tags:
+                at = opening.end() + tags[-1].end()
+                line_start = body.rfind('\n', 0, tags[-1].start()) + 1
+                indent = re.match(r'[ \t]*', body[line_start:]).group(0)
+            else:
+                at = opening.end() + len(body.rstrip())
+                indent = re.match(r'\s*', body).group(0).lstrip('\r\n')
+            edits.append((at, at, ''.join('%s%s<usage name="%s" />' % (newline, indent, u) for u in missing)))
+        if new_nominal != int(nominal[0].group(2)) or missing:
+            fixed.append(name.lower())
+            expected[name] = (new_nominal, set(have) | set(missing))
+    output = _encode(_apply(text, edits), data)
+    old, new = economy.xml(data, 'types'), economy.xml(output, 'types')
+    rows_old, rows_new = old.findall('type'), new.findall('type')
+    if [t.get('name') for t in rows_old] != [t.get('name') for t in rows_new]:
+        raise ValueError('attachment repair verification failed: row order changed')
+    for a, b in zip(rows_old, rows_new):
+        name = a.get('name')
+        shape = lambda t, skip: [(c.tag, sorted(c.attrib.items()), (c.text or '').strip()) for c in t
+                                 if c.tag not in skip]
+        if name in expected:
+            want_nominal, want_usages = expected[name]
+            if (int(b.findtext('nominal')) != want_nominal
+                    or {u.get('name') for u in b.findall('usage')} != want_usages
+                    or shape(a, ('nominal', 'usage')) != shape(b, ('nominal', 'usage'))):
+                raise ValueError(f'attachment repair verification failed: {name}')
+        elif shape(a, ()) != shape(b, ()):
+            raise ValueError(f'attachment repair verification failed: {name} changed')
+    return output, sorted(set(fixed))
+
+
 # ------------------------------------------------------------------------------------------------ globals
 
 
-def scale_globals(data, multiplier):
+def _damage_text(value):
+    return ('%.2f' % value).rstrip('0').rstrip('.') if value not in (0.0, 1.0) else '%d' % value
+
+
+def scale_globals(data, multiplier, loot_damage_max=None, respawn_factor=1.0):
+    """RespawnTypes x multiplier (then x respawn_factor, within 1..RESPAWN_TYPES_CAP unless stock is above the cap) and
+    LootDamageMax lowered to loot_damage_max (never raised above the stock value). report holds 'old->new' strings."""
     economy.xml(data, 'variables')
     text = data.decode('utf-8-sig')
     masked = _mask(text)
@@ -498,10 +789,40 @@ def scale_globals(data, multiplier):
         report[name] = value
         if name == 'RespawnTypes' and re.fullmatch(r'\d+', value):
             new = int(value) if int(value) >= RESPAWN_TYPES_CAP else min(RESPAWN_TYPES_CAP, math.ceil(int(value) * multiplier))
+            if respawn_factor != 1.0 and int(value) < RESPAWN_TYPES_CAP:
+                new = max(1, min(RESPAWN_TYPES_CAP, ceil_scaled(new, respawn_factor)))
             found = re.search(r'\bvalue="\d+"', var.group(0))
             edits.append((var.start() + found.start(), var.start() + found.end(), 'value="%d"' % new))
             report['RespawnTypes'] = '%s->%d' % (value, new)
+        if name == 'LootDamageMax' and loot_damage_max is not None and re.fullmatch(r'\d+(\.\d+)?', value):
+            if float(value) > loot_damage_max:
+                found = re.search(r'\bvalue="[^"]*"', var.group(0))
+                new = _damage_text(loot_damage_max)
+                edits.append((var.start() + found.start(), var.start() + found.end(), 'value="%s"' % new))
+                report['LootDamageMax'] = '%s->%s' % (value, new)
     return _encode(_apply(text, edits), data), report
+
+
+def globals_from_report(data, report):
+    """data with every 'old->new' entry of a recorded globals report applied (the receipt's counts['globals']): the
+    exact bytes scale_globals wrote, rebuilt without the knobs that produced them."""
+    economy.xml(data, 'variables')
+    text = data.decode('utf-8-sig')
+    masked = _mask(text)
+    edits = []
+    for var in re.finditer(r'<var\b[^>]*>', masked):
+        name = _attr(var.group(0), 'name')
+        change = report.get(name) if name else None
+        if not isinstance(change, str) or '->' not in change:
+            continue
+        found = re.search(r'\bvalue="[^"]*"', var.group(0))
+        if found is None:
+            raise ValueError('globals variable %s has no value' % name)
+        new = change.split('->', 1)[1]
+        if not re.fullmatch(r'\d+(\.\d+)?', new):
+            raise ValueError('globals report for %s is not a number' % name)
+        edits.append((var.start() + found.start(), var.start() + found.end(), 'value="%s"' % new))
+    return _encode(_apply(text, edits), data)
 
 
 # ------------------------------------------------------------------------------------------------ overlay
@@ -1022,11 +1343,40 @@ def _effective_capacity(capacity, military_multiplier):
     return default_capacity_map()
 
 
+def _effective_knobs(knobs):
+    """The knobs a plan uses: a dict like default_knobs (validated; a missing key is off) or the settings file's."""
+    if knobs is None:
+        return default_knobs()
+    unknown = set(knobs) - {'usage', 'tier', 'firearms', 'loot_damage_max', 'refill'}
+    if unknown:
+        raise ValueError('unknown loot boost knobs: %s' % ', '.join(sorted(unknown)))
+    doc = {USAGE_KEY: knobs.get('usage', {}), TIER_KEY: knobs.get('tier', {}), FIREARMS_KEY: knobs.get('firearms', {}),
+           REFILL_KEY: knobs.get('refill', {})}
+    if knobs.get('loot_damage_max') is not None:
+        doc[DAMAGE_KEY] = knobs['loot_damage_max']
+    return knobs_of(doc)
+
+
+def _attachment_report(mission, layers, fits):
+    """(counts, repairable gaps) of the attachment coverage over the scaled layers (name, before, after)."""
+    table = spawnable_fits(mission) if fits is None else {g.lower(): {a.lower() for a in v} for g, v in fits.items()}
+    coverage = attachment_coverage(type_rows([after for _, _, after in layers]), table)
+    kinds = {}
+    for gap in coverage['gaps'].values():
+        kinds[gap['kind']] = kinds.get(gap['kind'], 0) + 1
+    counts = {'guns': coverage['guns'], 'attachments': coverage['attachments'], 'ok': coverage['ok'],
+              'gaps': kinds, 'repaired': 0,
+              'unrepairable': sorted(n for n, g in coverage['gaps'].items() if g['kind'] == 'norow')}
+    return counts, {n: g for n, g in coverage['gaps'].items() if g['kind'] != 'norow'}
+
+
 def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False, buildings=SHIPPED,
-         military_multiplier=None, capacity=None, categories=None):
+         military_multiplier=None, capacity=None, categories=None, knobs=None, fits=None):
     """All edits computed in memory from the mission's current bytes; nothing written.
 
     capacity ({usage: factor}) and categories ({category: target multiple of stock}) default to the settings file;
+    knobs is the supply side of default_knobs (usage, tier, firearms, loot_damage_max, refill) and fits the optional
+    {gun: [attachment]} table for the attachment coverage (default: the mission's spawnabletypes);
     military_multiplier is the legacy single factor for Military, Police and Prison. _limit_shelves is internal: the
     frozenset of usages whose shelf slots were over-subscribed in the first pass."""
     from tools.package import loot_floor_policy
@@ -1034,19 +1384,27 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     multiplier = default_multiplier() if multiplier is None else _multiplier(multiplier)
     capacity = _effective_capacity(capacity, military_multiplier)
     categories = default_category_map() if categories is None else _category_map(categories, multiplier)
+    knobs = _effective_knobs(knobs)
     military = (military_usages(), capacity.get('Military', 1.0))
     held = frozenset(_limit_shelves) if _limit_shelves else None
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names()
     policy, policy_sha = _floor_policy(floor_policy)
     outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
+    scaled_layers = []
     for name in types_files(mission, include_optional=policy is not None):
         before = economy.read_plain(mission, name)
         after, count = before, 0
         if not name.startswith(OPTIONAL_FOLDER + '/'):
             after, count = scale_types(before, multiplier, roster, policy if _limit_shelves else None, military,
-                                       counts.setdefault('type_stats', {}), held, categories)
+                                       counts.setdefault('type_stats', {}), held, categories, knobs)
         counts['types'][name] = count
+        scaled_layers.append((name, before, after))
+    counts['attachments'], gaps = _attachment_report(mission, scaled_layers, fits)
+    for name, before, after in scaled_layers:
+        if gaps and not name.startswith(OPTIONAL_FOLDER + '/'):
+            after, fixed = repair_attachments(after, gaps)
+            counts['attachments']['repaired'] += len(fixed)
         if policy is not None:
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
             tag_rows.append(rows)
@@ -1054,8 +1412,8 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         # Keep every registered type layer in CE load order, irrespective of filename.
         type_layers.append(after)
     before = economy.read_plain(mission, GLOBALS)
-    after, knobs = scale_globals(before, multiplier)
-    counts['globals'] = knobs
+    after, report = scale_globals(before, multiplier, knobs['loot_damage_max'], knobs['refill']['RespawnTypesFactor'])
+    counts['globals'] = report
     outputs.append((GLOBALS, before, after))
     proto_before = economy.read_plain(mission, PROTO)
     positions = economy.child(mission, 'mapgrouppos.xml')
@@ -1114,10 +1472,13 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
                                          'remaining_point_slots': round(available, 3)}
         if shared['nominal'] > available:
             pressure.append(shared_key)
-        if pressure and not _limit_shelves and multiplier > 1:
-            pressured = frozenset(k.split('/')[0] for k in pressure)
+        if (pressure and not _limit_shelves and multiplier > 1
+                and frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])):
+            # A usage with a UsageMultiplier is sized to the owner's target, not to today's slots (wh-points adds
+            # the slots); its shelf pressure stays in the report (remaining_pressure) and is never held back.
+            pressured = frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])
             limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=pressured, buildings=buildings,
-                           capacity=capacity, categories=categories)
+                           capacity=capacity, categories=categories, knobs=knobs, fits=fits)
             limited['counts']['placement_budget']['before_shelf_limit'] = budget
             limited['counts']['placement_budget']['trigger_usages'] = pressure
             return limited
@@ -1129,6 +1490,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
                                     'unavailable': 'usage/tag budgeting needs mapgrouppos and floor policy'}
     files = [(n, b, a) for n, b, a in outputs if a != b]
     return {'multiplier': multiplier, 'capacity_multiplier': capacity, 'category_multiplier': categories,
+            'knobs': knobs,
             'points_sha256': _sha(points) if points is not None else None,
             'floor_policy_sha256': policy_sha, 'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
 
@@ -1157,7 +1519,7 @@ def install(mission, multiplier=None, points=None, floor_policy=SHIPPED):
         rows.append({'name': name, 'before': _sha(before), 'after': _sha(after), 'backup': '%02d.backup' % index})
     receipt = {'schema': 1, 'kind': 'hollow-country-loot-boost', 'multiplier': result['multiplier'],
                'capacity_multiplier': result['capacity_multiplier'],
-               'category_multiplier': result['category_multiplier'],
+               'category_multiplier': result['category_multiplier'], 'knobs': result['knobs'],
                'points_sha256': result['points_sha256'],
                'floor_policy_sha256': result['floor_policy_sha256'], 'files': rows, 'counts': result['counts'],
                'sources': {PROTO: result['proto_before']}, 'runtime_acceptance': PENDING}
@@ -1271,7 +1633,8 @@ def _receipt(managed):
         return None
     # Older receipts record military_multiplier instead of the capacity map and category targets; rollback needs
     # only the file rows, so both shapes are read and the newer keys are checked only when present.
-    if any(k in receipt and not isinstance(receipt[k], dict) for k in ('capacity_multiplier', 'category_multiplier')):
+    if any(k in receipt and not isinstance(receipt[k], dict)
+           for k in ('capacity_multiplier', 'category_multiplier', 'knobs')):
         return None
     for row in receipt['files']:
         if (not isinstance(row, dict) or set(row) != {'name', 'before', 'after', 'backup'}
@@ -1363,12 +1726,14 @@ def _show_map(values):
 
 def describe(result):
     counts = result['counts']
-    lines = ['loot boost multiplier=%s (firearms/ammo/explosives/vehicle-part supply quantities unchanged)' % result['multiplier']]
+    lines = ['loot boost multiplier=%s (explosives/vehicle-part supply quantities unchanged; roster rows by FirearmsMultiplier)'
+             % result['multiplier']]
     for name, count in counts['types'].items():
         lines.append('  types %s scaled_rows=%d' % (name, count))
     knobs = counts['globals']
-    lines.append('  globals RespawnTypes=%s InitialSpawn=%s RespawnLimit=%s RespawnAttempt=%s'
-                 % tuple(knobs.get(k, '?') for k in ('RespawnTypes', 'InitialSpawn', 'RespawnLimit', 'RespawnAttempt')))
+    lines.append('  globals RespawnTypes=%s InitialSpawn=%s RespawnLimit=%s RespawnAttempt=%s LootDamageMax=%s'
+                 % tuple(knobs.get(k, '?') for k in ('RespawnTypes', 'InitialSpawn', 'RespawnLimit', 'RespawnAttempt',
+                                                      'LootDamageMax')))
     proto = counts['mapgroupproto']
     lines.append('  mapgroupproto groups_scaled=%d weapons_containers_kept=%d contextual_groups=%d points=%d stale=%d'
                  % (proto['groups_scaled'], proto['containers_kept'], proto['groups_added'], proto['points_added'],
@@ -1388,6 +1753,27 @@ def describe(result):
         stats = counts.get('type_stats', {})
         lines.append('  category targets %s: rows=%d nominal +%d'
                      % (_show_map(targets), stats.get('target_rows', 0), stats.get('target_nominal', 0)))
+    supply = result.get('knobs')
+    if supply:
+        stats = counts.get('type_stats', {})
+        lines.append('  usage targets %s: rows=%d (nominal factor = largest over a row\'s usages)'
+                     % (_show_map(supply['usage']), stats.get('usage_rows', 0)))
+        lines.append('  military tiers %s: rows=%d (factor on Military rows = mean over their tiers)'
+                     % (_show_map(supply['tier']), stats.get('tier_rows', 0)))
+        roster = stats.get('roster', {})
+        lines.append('  firearms %s: %s' % (_show_map(supply['firearms']), ', '.join(
+            '%s %d->%d' % (k, roster[k][0], roster[k][1]) for k in ROSTER_KINDS if k in roster) or 'no roster rows'))
+        refill = supply['refill']
+        lines.append('  refill: restock >= %ds (rows raised %d; 0 = today), RespawnTypes x%s (1.0 = today); '
+                     'LootDamageMax ceiling %s (none = stock)'
+                     % (refill['RestockMin'], stats.get('restock_rows', 0), refill['RespawnTypesFactor'],
+                        supply['loot_damage_max']))
+    cover = counts.get('attachments')
+    if cover:
+        lines.append('  attachment coverage: %d spawnable guns, %d attachments, %d ok, gaps %s, repaired %d, '
+                     'needs an authored row %d'
+                     % (cover['guns'], cover['attachments'], cover['ok'], _show_map(cover['gaps']), cover['repaired'],
+                        len(cover['unrepairable'])))
     from tools.package import loot_floor_policy
     lines.append('  ' + loot_floor_policy.describe(counts.get('floor_policy', {'enabled': False})))
     budget = counts.get('placement_budget', {})
