@@ -3,11 +3,12 @@
 // elevated spot (HCNavHavenCensus.OnGiveUp, subscribed here; no Reach or Navigation file changes), the
 // spot is sieged instead:
 //   1. Open.   One row per target player (at most MaxSieges), holding up to 6 infected that gave up.
-//   2. Gather. After GatherSeconds, with the player still up and within 25 m, the siege starts. The anchor
+//   2. Settle. After GatherSeconds, with the player still up and within 25 m, the siege starts. The anchor
 //              is the navmesh point under the player's feet, or the bottom of the nearest ladder of the
-//              building under the player (ladder_guard). Members whose native group has a pack behaviour
-//              get one SetWaypoints([anchor]); a lone infected is never steered (no position writes, no
-//              group moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
+//              building under the player (ladder_guard); it only centres the reinforcement ring. No
+//              waypoint is ever written: no native pack group is steered to the anchor, so infected that
+//              gave up come back only through real perception and noise (no position writes, no group
+//              moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
 //   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAt),
 //              at most one per tick server-wide. The engine propagates it; nothing is pulled.
 //   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate at a
@@ -19,12 +20,11 @@
 //              server-side, never logged) caps what one player can draw; when every window slot is in use
 //              the batch is refused (reason=window_full) instead of recycling another player's slot.
 //   5. End.    The player comes down (dy under the reach band), walks 25 m from the spot the siege opened
-//              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Every
-//              group the siege waypointed is parked in place, mirroring HCNativeInfectedPack.Release:
-//              one waypoint at a live member's current position (radius 1), members stay in their native
-//              group, no group move and no DeleteGroup (the 11-21 crash). Native perception then drives.
+//              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Nothing
+//              is restored by hand: this module wrote no waypoint to any group, so no group is left on a
+//              last waypoint and there is nothing to park; members stay in their native group.
 // An infected sits in at most one siege row. A siege with no usable anchor (no navmesh point and no ladder)
-// is refused: it is not counted as started and nothing is gathered, noised or reinforced.
+// is refused: it is not counted as started and nothing is noised or reinforced.
 // Knowledge: the infected only know what the give-up event told them (the player and where they stood).
 // Doors, positions and inventories are never touched. Runtime only, never persisted: no stored format.
 // Lines (formats are fixed):
@@ -41,7 +41,6 @@
 // Native evidence, installed scripts-1.30.164289: 3_Game/Entities/Building.c:23-25 GetLaddersCount,
 // GetLadderPosTop, GetLadderPosBottom (coordinate space unobserved: |bottom - building| > 50 m is read as
 // model-space and converted with Object.c:873 ModelToWorld, still far is ignored); 3_Game/AI/AIAgent.c:7
-// GetGroup; AIGroup.c:14 GetBehaviour; AIGroupBehaviour.c:7 WaypointParams, :27 SetWaypoints;
 // AIWorld.c:122 SampleNavmeshPosition; Global/DayZPhysics.c:199 RaycastRV; constants.c:35 ObjIntersectGeom;
 // Entities/DayZAnimal.c:193 GetAIAgent; Object.c:215 IsPendingDeletion, :287 GetPosition, :467 GetType,
 // :517 IsAlive; EntityAI.c:879 GetHierarchyRoot; EnMath.c Sin/Cos/RandomFloat/Sqrt;
@@ -60,7 +59,6 @@ class HCInfectedSiegeRow
 {
     PlayerBase Target;
     ref array<DayZInfected> Members = new array<DayZInfected>;
-    ref array<AIGroup> Waypointed = new array<AIGroup>;
     vector Origin;
     vector Anchor;
     string AnchorKind = "none";
@@ -72,7 +70,6 @@ class HCInfectedSiegeRow
     bool ReinforceDone;
     int ReinforceLeft;
     int ReinforceTries;
-    int GatherCursor;
     int Noises;
     int Reinforced;
     ref HCSiegeReinforcePack Pack;
@@ -163,7 +160,6 @@ class HCInfectedSiegeModule : HCModule
         for (int index = 0; index < m_Rows.Count(); index++)
         {
             if (m_Rows[index].Pack) { m_Rows[index].Pack.HCSetLive(false); }
-            HCPark(m_Rows[index]);
         }
         m_Rows.Clear();
         if (s_Instance == this) { s_Instance = null; }
@@ -257,7 +253,6 @@ class HCInfectedSiegeModule : HCModule
             if (now - row.Opened >= m_Limits.GatherSeconds) { return HCActivate(row, now); }
             return true;
         }
-        HCGather(row);
         HCNoise(row, now);
         HCReinforce(row, now);
         return true;
@@ -272,7 +267,7 @@ class HCInfectedSiegeModule : HCModule
         }
     }
 
-    // ---- Activate and gather --------------------------------------------------------------------------
+    // ---- Activate --------------------------------------------------------------------------
 
     // False when the siege was refused and its row removed (the caller's cursor then points at the next row).
     protected bool HCActivate(HCInfectedSiegeRow row, float now)
@@ -302,6 +297,7 @@ class HCInfectedSiegeModule : HCModule
             return false;
         }
         HCModuleReadiness.HCUseGuarded(GetName(), "siege_started", row);
+        if (row.AnchorKind == "ladder") { HCModuleReadiness.HCUseGuarded(GetName(), "ladder_guard", row); }
         m_Started++;
         if (HCInfectedSiegePolicy.HCPrintStart(m_Started))
         {
@@ -355,28 +351,6 @@ class HCInfectedSiegeModule : HCModule
             }
         }
         return found;
-    }
-
-    // One member per call (round-robin): a member whose native group has a pack behaviour is sent to the
-    // anchor once per group. A lone infected has no such group and is left to its native chase (no
-    // steering, no group moves).
-    protected void HCGather(HCInfectedSiegeRow row)
-    {
-        if (row.AnchorKind == "none") { return; }
-        if (row.GatherCursor >= row.Members.Count()) { row.GatherCursor = 0; }
-        DayZInfected member = row.Members[row.GatherCursor];
-        row.GatherCursor++;
-        AIAgent agent = member.GetAIAgent();
-        if (!agent) { return; }
-        AIGroup group = agent.GetGroup();
-        if (!group || row.Waypointed.Find(group) >= 0) { return; }
-        row.Waypointed.Insert(group);
-        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
-        if (!behaviour) { return; }
-        ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(row.Anchor, HCInfectedSiegePolicy.GATHER_RADIUS_METRES));
-        behaviour.SetWaypoints(route, 0, true, false);
-        if (row.AnchorKind == "ladder") { HCModuleReadiness.HCUseGuarded(GetName(), "ladder_guard", member); }
     }
 
     // ---- Noise ---------------------------------------------------------------------------------------
@@ -516,33 +490,6 @@ class HCInfectedSiegeModule : HCModule
         }
     }
 
-    // Parks every group the siege waypointed, mirroring HCNativeInfectedPack.Release: one waypoint at a live
-    // member's current position (radius 1), loop off. No group move, no DeleteGroup, members stay native.
-    // At most 6 groups x 6 members, compared directly; a group without a live member of this row cannot be
-    // parked (no position to hold).
-    protected void HCPark(HCInfectedSiegeRow row)
-    {
-        for (int slot = 0; slot < row.Waypointed.Count(); slot++)
-        {
-            AIGroup group = row.Waypointed[slot];
-            if (!group) { continue; }
-            BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
-            if (!behaviour) { continue; }
-            for (int index = 0; index < row.Members.Count(); index++)
-            {
-                DayZInfected member = row.Members[index];
-                if (!member || member.IsPendingDeletion()) { continue; }
-                AIAgent agent = member.GetAIAgent();
-                if (!agent || agent.GetGroup() != group) { continue; }
-                ref array<ref BehaviourGroupInfectedPackWaypointParams> hold = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-                hold.Insert(new BehaviourGroupInfectedPackWaypointParams(member.GetPosition(), 1));
-                behaviour.SetWaypoints(hold, 0, true, false);
-                break;
-            }
-        }
-        row.Waypointed.Clear();
-    }
-
     // ---- End -----------------------------------------------------------------------------------------
 
     protected void HCEnd(HCInfectedSiegeRow row, string reason, float now)
@@ -552,7 +499,6 @@ class HCInfectedSiegeModule : HCModule
         else if (reason == HCInfectedSiegePolicy.END_TIMEOUT) { m_EndedTimeout++; count = m_EndedTimeout; }
         else { m_EndedLeft++; count = m_EndedLeft; }
         if (row.Pack) { row.Pack.HCSetLive(false); }
-        HCPark(row);
         string line = "[HC Nav] siege end reason=" + reason + " n=" + count.ToString() + " members=" + row.Members.Count().ToString();
         int seconds = Math.Round(now - row.Opened);
         Print(line + " secs=" + seconds.ToString() + " noise=" + row.Noises.ToString() + " reinforced=" + row.Reinforced.ToString() + " active=" + HCV2Admission.OnOff(row.Active) + " runtime=PENDING");
