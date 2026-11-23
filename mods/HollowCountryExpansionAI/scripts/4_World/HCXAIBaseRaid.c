@@ -207,7 +207,6 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     void HCSense()
     {
-        eAIBase raidActor = this.HCActor();
         m_Seen = null;
         m_Source = null;
         m_Building = null;
@@ -226,9 +225,12 @@ class HCXAIBaseRaid : HCBaseRaidPort
         if (HCXExpansionBridge.HCGroupIsInCombat(party) || HCXExpansionBridge.HCGroupCount(party) > HCWorldMaterializer.MAX_PLAYERS) { return; }
         m_ActorHold = HCXExpansionBridge.HCAgentHold(eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(party, 0)));
         if (!HCLiveParty()) { return; }
+        // Read the actor only after the hold was reassigned above (a read before it queried the previous party, or the map origin).
+        eAIBase senseActor = this.HCActor();
+        if (!senseActor) { return; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> cargos = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(raidActor), m_Config.NoticeRangeMeters, nearby, cargos);
+        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(senseActor), m_Config.NoticeRangeMeters, nearby, cargos);
         // [HC TickCost] window 12 of 096: charge returned objects only when the bounded query ran.
         HCServer.HCTickWork().HCCharge(Math.Min(nearby.Count(), m_Config.MaxObjects));
         if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || cargos.Count() > m_Config.MaxObjects) { return; }

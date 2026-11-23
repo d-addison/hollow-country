@@ -152,24 +152,27 @@ class HCGapcodeRouteHash : ExpansionSHA256
     }
 }
 
-// Staged bounded file read: ONE native call (open, read or close) per visit, so a
-// slice never stacks the three calls. The read length is a fixed constant above
-// the largest admitted file (6144 bytes); the per-file cap is checked on the
-// bytes returned, so an oversized file is refused exactly as before (cap + 1 rule).
-// A visit that fails or finishes always leaves no handle open; a handle retained
-// by an abandoned read is closed by the destructor.
+// Staged bounded file read: ONE native call (open, read chunk or close) per visit,
+// so a slice never stacks native calls. The whole file is read, one fixed chunk per
+// visit, up to the per-file cap; the total is checked as it grows, so a file over
+// the cap is refused with Fault=size and never a partial parse. A read that cannot be
+// whole (negative count, NUL-shortened chunk) ends with Fault=truncated; a file that
+// cannot be opened or is empty ends with Fault=missing. A visit that fails or finishes
+// always leaves no handle open; a handle retained by an abandoned read is closed by
+// the destructor.
 class HCGapcodeRouteRead
 {
-    static const int READ_BYTES = 6145;
+    static const int READ_BYTES = 4096;
     protected FileHandle m_File;
     protected bool m_Open;
     protected string m_Path;
     protected int m_Cap;
     protected int m_Stage;
-    protected int m_Count;
+    protected int m_Total;
     protected string m_Data;
     bool Ok;
     string Content;
+    string Fault;
 
     void ~HCGapcodeRouteRead() { this.HCCloseNow(); }
 
@@ -182,12 +185,13 @@ class HCGapcodeRouteRead
         this.HCCloseNow();
         m_Path = "";
         m_Stage = 0;
-        m_Count = 0;
+        m_Total = 0;
         m_Data = "";
         Ok = false;
         Content = "";
+        Fault = "";
     }
-    // True once the read has ended (Ok and Content are then final); the caller
+    // True once the read has ended (Ok, Content and Fault are then final); the caller
     // consumes them and calls HCRelease. One native file call per visit.
     bool HCStepRead(string path, int cap)
     {
@@ -201,23 +205,47 @@ class HCGapcodeRouteRead
         if (m_Stage == 0)
         {
             m_File = OpenFile(m_Path, FileMode.READ);
-            if (!m_File) { m_Stage = 3; return true; }
+            if (!m_File)
+            {
+                Fault = "missing";
+                m_Stage = 3;
+                return true;
+            }
             m_Open = true;
             m_Stage = 1;
             return false;
         }
         if (m_Stage == 1)
         {
-            string data;
-            m_Count = ReadFile(m_File, data, READ_BYTES);
-            m_Data = data;
-            m_Stage = 2;
+            string piece;
+            int count = ReadFile(m_File, piece, READ_BYTES);
+            if (count < 0 || count != piece.Length())
+            {
+                // A failed read or a NUL byte shortening the chunk: the file is not whole.
+                Fault = "truncated";
+                m_Stage = 2;
+                return false;
+            }
+            if (count == 0)
+            {
+                m_Stage = 2;
+                return false;
+            }
+            m_Total = m_Total + count;
+            if (m_Total > m_Cap)
+            {
+                Fault = "size";
+                m_Stage = 2;
+                return false;
+            }
+            m_Data = m_Data + piece;
             return false;
         }
         CloseFile(m_File);
         m_Open = false;
         m_Stage = 3;
-        Ok = m_Count > 0 && m_Count <= m_Cap && m_Data.Length() == m_Count;
+        if (Fault == "" && m_Total < 1) { Fault = "missing"; }
+        Ok = Fault == "" && m_Data.Length() == m_Total;
         if (Ok) { Content = m_Data; }
         m_Data = "";
         return true;
@@ -230,6 +258,7 @@ class HCGapcodeRoutesCatalog
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCGapcodeRouteRead m_Reader = new HCGapcodeRouteRead;
+    protected string m_ReadError;
     protected ref array<string> m_Ids = new array<string>;
     protected bool m_Enabled;
     protected int m_Cursor;
@@ -352,10 +381,13 @@ class HCGapcodeRoutesCatalog
         if (!m_Reader.HCStepRead(path, cap)) { return 0; }
         bool readOk = m_Reader.Ok;
         content = m_Reader.Content;
+        m_ReadError = m_Reader.Fault;
         m_Reader.HCRelease();
         if (!readOk) { return -1; }
         return 1;
     }
+    // Why the last failed HCReadVisit failed: "missing", "size" or "truncated".
+    string HCReadError() { return m_ReadError; }
     bool HCIndexRefuse(string reason)
     {
         m_ValidityMismatch++;
@@ -763,7 +795,13 @@ class HCGapcodeRoutesCatalog
             string corridorText;
             int corridorRead = this.HCReadVisit(CORRIDOR_PATH, 65536, corridorText);
             if (corridorRead == 0) { return null; }
-            if (corridorRead < 0) { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return null; }
+            if (corridorRead < 0)
+            {
+                // A file over the cap or cut short is not a missing file: say which.
+                if (this.HCReadError() == "size" || this.HCReadError() == "truncated") { this.HCRefuse("ROUTE_GRAPH_CONFIG_TRUNCATED"); }
+                else { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); }
+                return null;
+            }
             m_GraphText = corridorText;
             m_GraphStage = 1;
             return null;

@@ -235,10 +235,10 @@ class HCW38SituationRuntime
     static void HCRestore(HCW38SituationBinding binding)
     {
         if (!binding || !binding.Hold) { return; }
-        HCXExpansionBridge.HCHoldClearWaypoints(binding.Hold);
+        HCXExpansionBridge.HCHoldClearWaypointsCleanup(binding.Hold);
         array<vector> original = binding.Original;
-        foreach (vector point : original) { HCXExpansionBridge.HCHoldAddWaypoint(binding.Hold, point); }
-        HCXExpansionBridge.HCHoldSetWaypointBehaviour(binding.Hold, binding.Behaviour);
+        foreach (vector point : original) { HCXExpansionBridge.HCHoldAddWaypointCleanup(binding.Hold, point); }
+        HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(binding.Hold, binding.Behaviour);
     }
 
     static HCXAISiteState HCTarget(HCXAISiteState party)

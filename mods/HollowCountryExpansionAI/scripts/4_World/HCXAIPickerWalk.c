@@ -143,10 +143,10 @@ class HCXAIPickerWalk : HCScavengeInventory
     {
         if (m_HCHold)
         {
-            HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
+            HCXExpansionBridge.HCHoldClearWaypointsCleanup(m_HCHold);
             array<vector> restorePoints = m_PreviousPoints;
-            for (int restoreIndex = 0; restoreIndex < restorePoints.Count(); restoreIndex++) { HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, restorePoints[restoreIndex]); }
-            HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, m_PreviousBehavior);
+            for (int restoreIndex = 0; restoreIndex < restorePoints.Count(); restoreIndex++) { HCXExpansionBridge.HCHoldAddWaypointCleanup(m_HCHold, restorePoints[restoreIndex]); }
+            HCXExpansionBridge.HCHoldSetWaypointBehaviourCleanup(m_HCHold, m_PreviousBehavior);
         }
         HCXAIGroupHolds.Retire(m_HCHold);
         m_HCHold = null;

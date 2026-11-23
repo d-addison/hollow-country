@@ -161,7 +161,27 @@ class HCXAISiteSurvey : HCXAISiteStorage
         m_CacheReviewIds.Clear();
         int elapsed;
         if (m_SurveyStartedMs >= 0) { elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000; }
-        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString());
+        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString() + " upgrade_requalified=" + m_UpgradeRequal.ToString() + " upgrade_deferred=" + m_UpgradeDeferred.Count().ToString());
+    }
+    // Stale "algorithm" rows (the chain version changed) are requalified HC_UPGRADE_REQUAL_PER_BOOT per boot;
+    // every other mismatch and any site a player stands near is always allowed.
+    override protected bool HCUpgradeRequalAllowed(HCXAISite site, string field)
+    {
+        if (field != "algorithm") { return true; }
+        if (m_UpgradeRequal < HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT || this.HCWithinActivation(site))
+        {
+            m_UpgradeRequal++;
+            return true;
+        }
+        if (!m_UpgradeDeferred.Contains(site.Id))
+        {
+            if (m_UpgradeDeferred.Count() == 0)
+            {
+                Print("[HC Expansion AI] route chain upgrade: requalifying " + HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT.ToString() + " stale routes this boot, the rest keep their stored row and follow on later boots");
+            }
+            m_UpgradeDeferred.Set(site.Id, true);
+        }
+        return false;
     }
     override protected void HCCacheVerdict(string siteId, bool reused)
     {
@@ -236,6 +256,13 @@ class HCXAISiteSurvey : HCXAISiteStorage
         if (!state) { this.HCCacheDiscard(row, "site_absent"); return; }
         if (state.Failed) { this.HCCacheDiscard(row, "site_failed"); return; }
         string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity);
+        if (scalarField != "" && !this.HCUpgradeRequalAllowed(state.Site, scalarField))
+        {
+            // Over this boot's upgrade cap: keep the stored row untouched, a later boot replaces it.
+            m_CachePending.Remove(siteId);
+            m_CacheRetained++;
+            return;
+        }
         if (scalarField != "")
         {
             this.HCCacheDiscard(row, "validity_mismatch", scalarField);
@@ -394,6 +421,14 @@ class HCXAISiteSurvey : HCXAISiteStorage
         {
             string cacheProblem;
             string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity);
+            if (cacheField != "" && !this.HCUpgradeRequalAllowed(state.Site, cacheField))
+            {
+                // Chain-version upgrade spread over boots: no discard, no FindPath chain, no save this boot.
+                if (m_CachePending.Contains(state.Site.Id)) { m_CachePending.Remove(state.Site.Id); m_CacheRetained++; }
+                state.Failed = true;
+                state.Reason = "route requalification spread over later boots (chain upgrade)";
+                return;
+            }
             if (cacheField != "") { cacheProblem = "validity_mismatch"; }
             else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2 || cached.Waypoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())) { cacheProblem = "no_geometry"; }
             if (cacheProblem == "")

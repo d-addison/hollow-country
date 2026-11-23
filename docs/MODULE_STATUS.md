@@ -178,6 +178,16 @@ Source only, **implemented-unverified**; native compile, boot and soak evidence 
 - `SaveCaches` barrier failure (intent delete or save) requeues the staged cache save (dirty flag restored) so the retry is not lost; barrier semantics are otherwise unchanged.
 - Measurement notes (no code): (P3-d) the synchronous `SaveCaches` barrier cost per picker seed is to be measured against R2 in a soak; (P3-f) the ownership-fault writer is rebuilt every 30 s while faulted, a cost to confirm in the same soak. Neither is measured.
 
+## Expansion AI release-candidate audit fixes (rc-xai, 2026-11-22)
+
+Source, lint and perf only, **implemented-unverified**; native compile and a soak on the exact commit are pending (lead). No acceptance claim or release waiver added.
+
+- Bridge admission and readiness (rows 3, 4): the adapter admits as soon as the bridge is up (no give-up timer); a missing Expansion settings, patrol settings or HC faction condition is logged once per epoch (`[HC XAI Bridge] READY condition missing=<cond>`) and retried once a second with no permanent give-up, while every provider call refuses with a counted `NOT_READY` reason. The site director and the cached adapter report `ready` (`sites_wait_provider_gated`, `cached_sites_wait_provider_gated`) once the bridge is up, so AIRoles and `optional-expansion-human-ai` no longer wait on `sites_wait` / `cached_sites_wait`.
+- R2 (row 4): `HCXAIGroupHold` caches the `eAIGroup.GetGroupByID` result for 100 ms and invalidates it on any group delete; a group found gone stays cached. The linear-scan premise is unverified (Expansion source is not in the cache): the expected cost is at most one lookup per held group per 100 ms instead of one per bridge call.
+- Chain upgrade (row 7): stale `algorithm` route rows are discarded and requalified at most `HC_UPGRADE_REQUAL_PER_BOOT` (16) per boot; the rest keep their stored row and follow on later boots (warm line `upgrade_requalified`, `upgrade_deferred`). A site with a player inside its activation radius is exempt.
+- Route restore outside READY (row 23): restores use never-gated `*Cleanup` writers (clear, add, set behaviour) so a hold is never retired without its restore; no deferral queue exists to loop at shutdown.
+- `eAI_CanFire` outside READY keeps the warning-shot hold (row 24); the corridor read reads the whole file up to its cap in 4096-byte chunks with `ROUTE_GRAPH_CONFIG_TRUNCATED` for a short or oversize read (row 25); BaseRaid `HCSense` re-reads the actor after the hold reassignment (row 2).
+
 ## Compat config addon review fixes (wc-compat-r2, 2026-11-22)
 
 Source and offline tests only, **implemented-unverified**; the native compile gate with the compat PBO(s) staged and a one-server boot are pending (lead). Rules are still empty, so the base PBO bytes are unchanged. No acceptance claim or release waiver added. Details: `docs/tools/COMPAT_ADDON.md`.
