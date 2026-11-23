@@ -120,6 +120,39 @@ class PhaseMapTests(unittest.TestCase):
             self.assertIn(name, text)
         self.assertNotIn('/home', text)
 
+    def test_shipped_reach_map_leaves_no_counter_unreached(self):
+        rows = camp.reach_rows(PHASES)
+        self.assertTrue(rows)
+        self.assertEqual([(key, problems) for key, _, _, problems in rows if problems], [])
+        lines, unreached = camp.reach_lines(rows)
+        self.assertEqual(unreached, 0)
+        self.assertIn('unreached=0', '\n'.join(camp.plan_text(PHASES)[0]))
+
+    def test_every_how_token_names_a_real_step_fixture_or_setting(self):
+        context = camp.reach_context()
+        kinds = set()
+        for key, row in PHASES['reach'].items():
+            for token in row['how']:
+                kinds.add(token.split(':', 1)[0])
+                self.assertIsNone(camp.reach_token_problem(token, row['phase'], PHASES, context), (key, token))
+        self.assertTrue({'step', 'fixture', 'setting', 'code'} <= kinds)
+
+    def test_reach_map_refuses_a_missing_wrong_or_invented_row(self):
+        key = sorted(PHASES['reach'])[0]
+        for edit in (lambda d: d['reach'].pop(key),
+                     lambda d: d['reach'][key].update(how=['code:HCNoSuchFile.c', 'boot']),
+                     lambda d: d['reach'][key].update(how=['fixture:fx_no_such', 'code:HCWorkBudget.c']),
+                     lambda d: d['reach'][key].update(how=['setting:NoSuchSetting', 'code:HCWorkBudget.c']),
+                     lambda d: d['reach'][key].update(how=['code:HCWorkBudget.c']),
+                     lambda d: d['reach'].update({'Nope/never': {'phase': 'idle', 'how': ['boot']}})):
+            broken = copy.deepcopy(PHASES)
+            edit(broken)
+            lines, unreached = camp.reach_lines(camp.reach_rows(broken))
+            self.assertGreater(unreached, 0)
+        broken = copy.deepcopy(PHASES)
+        lines, problems = camp.plan_text(broken)
+        self.assertEqual(problems, [])
+
     def test_plan_cli_is_read_only_and_names_a_missing_step_file(self):
         buffer = StringIO()
         with mock.patch.object(camp, 'step_script', side_effect=camp.Refused('driver_script is not in this checkout')), \
@@ -162,12 +195,12 @@ class BuilderTests(Tmp):
     def test_gear_preset_holds_every_item_the_actions_need(self):
         text = json.dumps(camp.gear_preset())
         for item in ('KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'UniversalLight',
-                     'DuctTape', 'Crowbar', 'Wrench', 'AKM', 'Mag_AKM_30Rnd', 'Ammo_762x39'):
+                     'DuctTape', 'Crowbar', 'Wrench', 'TortillaBag', 'Paper', 'Pen_Black', 'AKM', 'Mag_AKM_30Rnd', 'Ammo_762x39'):
             self.assertIn(item, text)
 
     def test_settings_and_gameplay_edits(self):
         settings = json.loads(camp.settings_with_fixtures(json.dumps({'Keep': 7}).encode()))
-        self.assertEqual(settings, {'Keep': 7, 'EnableSmokeFixtures': True})
+        self.assertEqual(settings, {'Keep': 7, 'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20})
         gameplay = json.loads(camp.gameplay_with_preset(json.dumps(GAMEPLAY).encode()))
         self.assertEqual(gameplay['PlayerData']['spawnGearPresetFiles'], [camp.GEAR_REL])
         self.assertEqual(gameplay['other'], 1)

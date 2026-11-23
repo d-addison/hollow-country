@@ -25,7 +25,7 @@ class DriverScriptTests(unittest.TestCase):
         for fixture in ds.FIXTURES:
             self.assertIn(fixture, commands)
         names = {step["name"] for step in script["steps"] if step["kind"] == "action"}
-        self.assertEqual(names, set(ds.ACTION_ARGS))
+        self.assertEqual(names, set(ds.ACTION_ARGS) - set(ds.UNSUPPORTED_ACTIONS))
 
     def test_every_phase_builds_alone(self):
         for phase in ds.PHASES:
@@ -37,7 +37,8 @@ class DriverScriptTests(unittest.TestCase):
         forward = ds.build_route(["join", "idle"])
         backward = ds.build_route(["idle", "join"])
         self.assertEqual(forward["steps"][0]["kind"], "wait")
-        self.assertEqual(backward["steps"][-1]["kind"], "admin")
+        self.assertEqual(backward["steps"][-1]["kind"], "action")
+        self.assertEqual(backward["steps"][-1]["name"], "earplugs")
 
     def test_unknown_phase_and_empty_request_refused(self):
         with self.assertRaises(ds.ScriptError):
@@ -116,6 +117,26 @@ class DriverScriptTests(unittest.TestCase):
         ident = shelter.get("id") or shelter.get("name")
         self.assertEqual(len(ds.resolve_waypoint("shelter:" + str(ident))), 2)
 
+    def test_scene_waypoint_resolves_to_scene_chain_data(self):
+        x, z = ds.resolve_waypoint(ds.SCENE)
+        self.assertTrue(0 < x < ds.WORLD_SIZE and 0 < z < ds.WORLD_SIZE)
+        with self.assertRaises(ds.ScriptError):
+            ds.resolve_waypoint("scene:no-such-chain")
+
+    def test_phase_index_names_the_steps_that_reach_each_counter(self):
+        index = ds.phase_index()
+        self.assertEqual(tuple(index), ds.PHASES)
+        script = ds.build_route(list(ds.PHASES))
+        ids = {step["id"] for step in script["steps"]}
+        for tokens in index.values():
+            for found in tokens.values():
+                self.assertTrue(set(found) <= ids)
+        for fixture in ds.FIXTURES:
+            self.assertTrue(any("fixture:" + fixture in tokens for tokens in index.values()), fixture)
+        for token in ("menu:admin", "action:craft", "action:mount", "action:salvage", "action:flip", "action:write",
+                      "admin:forage", "admin:snapshot"):
+            self.assertTrue(any(token in tokens for tokens in index.values()), token)
+
     def test_bad_waypoint_sources_refused(self):
         for source in ("site:no-such-site", "zone:no-such-zone", "shelter:no-such", "cell:1", "nocolon", 7):
             with self.assertRaises(ds.ScriptError):
@@ -124,7 +145,8 @@ class DriverScriptTests(unittest.TestCase):
     def test_default_route_walks_only_to_resolved_waypoints(self):
         script, notes = ds.build_plan(list(ds.PHASES))
         walks = [step for step in script["steps"] if step["kind"] == "walk"]
-        self.assertEqual(len(walks), 3)
+        self.assertEqual(len(walks), 5)
+        self.assertTrue(any(notes[step["id"]].startswith("scene:") for step in walks))
         for step in walks:
             self.assertIn(step["id"], notes)
             self.assertEqual(tuple(step["to"]), ds.resolve_waypoint(notes[step["id"]]))

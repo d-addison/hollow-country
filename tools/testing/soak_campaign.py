@@ -29,11 +29,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PHASES_FILE = Path(__file__).with_name('soak_phases.json')
 EXPECTATIONS = ROOT / 'config/activity-expectations.json'
 STATE = Path.home() / '.cache/hollow-country/soak-campaign'
-PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'fixtures', 'actions', 'idle')
+PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'fixtures', 'actions', 'scene', 'forest', 'idle')
+# Test-profile settings the staging writes (the shipped defaults stay untouched): the smoke fixtures, and a
+# short Fortify breach window so one scripted barricade can be breached inside the run.
+SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
 RESULTS = ('active', 'zero', 'owner check', 'friend playtest')
 MANUAL_KINDS = {'owner_check': 'owner check', 'friend_playtest': 'friend playtest'}
 # Only the two-player and subjective items of the shared contract may be a manual row.
-ALLOWED_MANUAL = frozenset({'TeamPing/ping_recipients', 'TeamPing/ping_delivered'})
+ALLOWED_MANUAL = frozenset({'TeamPing/ping_recipients', 'TeamPing/ping_delivered', 'Cellars/visual_applied'})
 ALLOWED_LOOKS = {'lighting_look': 'owner_check', 'grade_look': 'owner_check', 'audio': 'owner_check',
                  'group_sharing': 'friend_playtest', 'team_ping_delivery': 'friend_playtest'}
 # GetName() of a base class that no feature reports under.
@@ -156,7 +159,137 @@ def manual_problems(phases):
     return problems
 
 
+# ------------------------------------------------------------------ reach map
+
+REACH_CLASSES = ('required', 'diagnostic')
+_TOKEN_NAME = re.compile(r'[A-Za-z0-9_.\-]+\Z')
+
+
+def counter_keys(root=ROOT):
+    """Every counter key (module/normalised feature) the campaign maps, kind-free."""
+    universe, _ = counter_universe(root)
+    return sorted({m + '/' + norm(f) for _, m, f in universe})
+
+
+def _source_names(root):
+    names = set()
+    for path in (Path(root) / 'mods').rglob('*.c'):
+        if 'HollowCountryTest' not in path.parts:
+            names.add(path.name)
+    return names
+
+
+def _quoted_commands(root):
+    """Quoted fx_ command words found in any Enforce source (shipped catalog rows and the test addon)."""
+    found = set()
+    word = re.compile(r'"(fx_[a-z0-9_]+)"')
+    for path in (Path(root) / 'mods').rglob('*.c'):
+        found.update(word.findall(path.read_text(encoding='utf-8', errors='replace')))
+    return found
+
+
+def reach_context(root=ROOT):
+    from tools.testing import driver_script
+    return {'index': driver_script.phase_index(), 'sources': _source_names(root),
+            'commands': _quoted_commands(root)}
+
+
+def reach_token_problem(token, phase, phases, context):
+    """None when the token names something real that exists by `phase`, else the reason."""
+    kind, _, value = token.partition(':')
+    if not value and kind != 'boot':
+        return 'token %r has no value' % token
+    if kind == 'boot':
+        return None if not value else 'boot takes no value'
+    if kind == 'timer':
+        match = re.fullmatch(r'(\d{1,3})m', value)
+        if not match or not 1 <= int(match.group(1)) <= phases['min_idle_minutes']:
+            return 'timer %r must be 1..%dm' % (value, phases['min_idle_minutes'])
+        return None
+    if kind in ('step', 'fixture'):
+        wanted = value if kind == 'step' else 'fixture:' + value
+        if kind == 'fixture' and value not in context['commands']:
+            return 'fixture %s has no command in any source' % value
+        limit = PHASE_ORDER.index(phase)
+        for name in PHASE_ORDER[:limit + 1]:
+            if wanted in context['index'].get(name, {}):
+                return None
+        return 'no %s step in phases up to %s' % (wanted, phase)
+    if kind == 'setting':
+        return None if value in SOAK_SETTINGS else 'setting %s is not staged by SOAK_SETTINGS' % value
+    if kind == 'gear':
+        return None if value in GEAR_CARRIED else 'gear %s is not in the soak gear preset' % value
+    if kind == 'marker':
+        return None if value == CELLAR_MARKER_REL.rsplit('/', 1)[-1] else 'unknown marker %s' % value
+    if kind == 'pack':
+        return None if _TOKEN_NAME.match(value) else 'bad pack name %r' % value
+    if kind == 'code':
+        return None if value in context['sources'] else 'no source file %s under mods' % value
+    return 'unknown token kind %r' % kind
+
+
+def reach_rows(phases, root=ROOT, context=None):
+    """[(key, phase, how, problems)] for every counter key that needs a reach row (manual rows excluded)."""
+    context = context or reach_context(root)
+    reach = phases.get('reach', {})
+    rows = []
+    for key in counter_keys(root):
+        module, _, feature = key.partition('/')
+        target = phase_of(phases, module, feature)
+        if target is None or target[0] != 'phase':
+            continue
+        row = reach.get(key)
+        problems = []
+        how = []
+        phase = target[1]
+        if not isinstance(row, dict):
+            problems.append('no reach row')
+        else:
+            how = row.get('how')
+            if row.get('phase') != phase:
+                problems.append('reach phase %r differs from the counter phase %s' % (row.get('phase'), phase))
+            if row.get('class', 'required') not in REACH_CLASSES:
+                problems.append('class must be one of %s' % (REACH_CLASSES,))
+            if not isinstance(how, list) or not how or not all(isinstance(t, str) for t in how):
+                problems.append('how must be a non-empty list of tokens')
+                how = []
+            for token in how:
+                reason = reach_token_problem(token, phase, phases, context)
+                if reason:
+                    problems.append(reason)
+            if how and not any(t.startswith('code:') for t in how):
+                problems.append('how needs a code: token naming the counter call site')
+            if how and not any(t.split(':', 1)[0] in ('boot', 'timer', 'step', 'fixture', 'setting', 'marker')
+                               for t in how):
+                problems.append('how needs a trigger token (boot, timer, step, fixture, setting or marker)')
+        rows.append((key, phase, how, problems))
+    known = {key for key, _, _, _ in rows}
+    for key in sorted(set(reach) - known):
+        rows.append((key, str(reach[key].get('phase')), [], ['reach row for a counter that needs none']))
+    return rows
+
+
+def reach_lines(rows):
+    """(lines, unreached) for the plan output; unreached counts rows with at least one problem."""
+    bad = [r for r in rows if r[3]]
+    lines = ['', 'reach map (counter -> phase and the traced mechanism):']
+    for key, phase, how, problems in rows:
+        lines.append('  %-9s %-62s %s' % (phase, key, ' '.join(how)))
+        lines += ['            unreached: ' + problem for problem in problems]
+    lines.append('rows=%d reached=%d' % (len(rows), len(rows) - len(bad)))
+    return lines, len(bad)
+
+
 # ------------------------------------------------------------------ staged content (pure)
+
+# What the actions need, one entry per item: craft (CamoNet + KitchenKnife), the radio (PersonalRadio and a
+# battery), two light mounts (a UniversalLight and DuctTape each, onto Mich2001Helmet and TortillaBag), salvage
+# (Pliers), flip (Crowbar), the note actions (Paper, Pen_Black), a spare Rag and clothing.
+GEAR_CARRIED = ('KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'TortillaBag',
+                'UniversalLight', 'UniversalLight', 'Battery9V', 'Flashlight', 'Battery9V', 'DuctTape', 'DuctTape',
+                'Crowbar', 'Wrench', 'Pliers', 'Rag', 'Paper', 'Pen_Black', 'LeatherJacket_Beige',
+                'Mag_AKM_30Rnd', 'Ammo_762x39')
+
 
 def gear_preset():
     """One native spawn-gear preset: worn clothes, a bag, a rifle with a magazine, and the items the actions need."""
@@ -172,9 +305,7 @@ def gear_preset():
     rifle['discreteItemSets'][0]['complexChildrenTypes'] = [{
         'itemType': 'Mag_AKM_30Rnd', 'quickBarSlot': -1, 'attributes': attributes((1.0, 1.0), (1.0, 1.0)),
         'complexChildrenTypes': [], 'simpleChildrenTypes': [], 'simpleChildrenUseDefaultAttributes': True}]
-    carried = ['KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'UniversalLight',
-               'Battery9V', 'Flashlight', 'Battery9V', 'DuctTape', 'Crowbar', 'Wrench', 'Pliers', 'Rag',
-               'LeatherJacket_Beige', 'Mag_AKM_30Rnd', 'Ammo_762x39']
+    carried = list(GEAR_CARRIED)
     return {'name': 'SoakTest', 'spawnWeight': 1,
             'characterTypes': ['SurvivorM_Mirek', 'SurvivorF_Eva'],
             'attachmentSlotItemSets': [slot('Body', 'TShirt_Black'), slot('Legs', 'Jeans_Black'),
@@ -196,7 +327,7 @@ def settings_with_fixtures(raw):
     data = json.loads(raw.decode('utf-8'))
     if not isinstance(data, dict):
         raise Refused('profile settings.json is not an object')
-    data['EnableSmokeFixtures'] = True
+    data.update(SOAK_SETTINGS)
     return (json.dumps(data, indent=2) + '\n').encode('utf-8')
 
 
@@ -469,7 +600,7 @@ class Stager:
         return self.summary()
 
     def summary(self):
-        rows = [('server', 'profile folders copied to ' + PROFILE_COPY + ' (EnableSmokeFixtures=true, cellar marker)'),
+        rows = [('server', 'profile folders copied to ' + PROFILE_COPY + ' (EnableSmokeFixtures=true, FortifyBreachSeconds=20, cellar marker)'),
                 ('server', 'test config ' + CFG_COPY + ' (forage-season date, daytime, own storage instance)'),
                 ('server', 'start file ' + BAT_COPY + ' (test config, profile copy, ' + TEST_MOD + ')'),
                 ('server', TEST_MOD + ' (built and signed test addon)'),
@@ -831,6 +962,13 @@ def plan_text(phases, root=ROOT):
     out += ['', 'counters=%d unmapped counters: %d' % (len(universe), len(missing))]
     out += ['  unmapped: ' + item for item in missing] + ['  problem: ' + item for item in bad]
     problems += missing + bad
+    try:
+        lines, unreached = reach_lines(reach_rows(phases, root))
+    except ImportError:
+        lines, unreached = ['', 'reach map unavailable: tools.testing.driver_script is missing', 'unreached=1'], 1
+    out += lines
+    out.append('unreached=%d' % unreached)
+    problems += ['unreached counters: %d' % unreached] if unreached else []
     out += ['', 'would stage (copies and new files; the real profile folders are never edited):']
     out += ['  [%s] %s' % row for row in Stager('x', None).summary()]
     out.append('  receipt with byte backups; restore puts every byte back and is a no-op when nothing is staged')

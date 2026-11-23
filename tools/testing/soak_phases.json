@@ -6,7 +6,7 @@
   {
    "name": "join",
    "minutes": 5,
-   "what": "spawn wait, stand, sprint, map/inventory/pause menus and the admin status command"
+   "what": "spawn wait, stand, sprint, map/inventory/pause/admin menus, admin status and snapshot, earplug key"
   },
   {
    "name": "group",
@@ -31,17 +31,27 @@
   {
    "name": "fixtures",
    "minutes": 10,
-   "what": "setup-only admin fixtures at the spot; the real feature code then runs normally"
+   "what": "setup-only admin fixtures at the spot (fixture=1); the real feature code then runs normally"
   },
   {
    "name": "actions",
    "minutes": 15,
-   "what": "real vanilla and HC actions through the client action manager"
+   "what": "real vanilla and HC actions through the client action manager, plus the radio, loot, decay and dead-drop admin commands"
+  },
+  {
+   "name": "scene",
+   "minutes": 12,
+   "what": "walk to a scene chain site, place its scene and read, take and write the notes it leaves"
+  },
+  {
+   "name": "forest",
+   "minutes": 8,
+   "what": "walk to a woodland barn, run the forage tick, pick forage and stand under the trees for the wind loop"
   },
   {
    "name": "idle",
    "minutes": 125,
-   "what": "stand still; background and time-window counters; DebugSnapshot fires every 300 s"
+   "what": "stand still; background and time-window counters (125 minutes); DebugSnapshot fires every 300 s"
   }
  ],
  "modules": {
@@ -50,24 +60,24 @@
   "Grade": "join",
   "Lighting": "join",
   "Polish": "join",
-  "MapPins": "join",
+  "MapPins": "group",
   "World": "join",
   "SurvivalAlignment": "join",
-  "Leads": "join",
+  "Leads": "scene",
   "WeatherDays": "join",
-  "Infected": "join",
+  "Infected": "walk_town",
   "InfectedLOD": "join",
-  "InfectedMemory": "join",
+  "InfectedMemory": "fixtures",
   "InfectedVariety": "join",
   "Groups": "group",
   "TeamPing": "group",
-  "AIIncidents": "walk_ai",
+  "AIIncidents": "fixtures",
   "AIRoles": "walk_ai",
-  "AISelfDefence": "walk_ai",
-  "AITactics": "walk_ai",
+  "AISelfDefence": "fixtures",
+  "AITactics": "fixtures",
   "Materializer": "walk_ai",
   "MaterializerBridge": "walk_ai",
-  "Holdouts": "walk_ai",
+  "Holdouts": "fixtures",
   "Sites": "walk_ai",
   "SiteSurveyProbe": "walk_ai",
   "ObjectSpawner": "walk_ai",
@@ -77,7 +87,7 @@
   "v2-expansion-living-world": "walk_ai",
   "ZoneGuards": "walk_ai",
   "Events": "walk_zone",
-  "WorldIncidents": "walk_zone",
+  "WorldIncidents": "fixtures",
   "Escalation": "walk_zone",
   "HordeMigration": "walk_zone",
   "InfectedSiege": "walk_zone",
@@ -86,65 +96,56 @@
   "SignsOfLife": "walk_town",
   "Interiors": "walk_town",
   "Shelters": "walk_town",
-  "Scenes": "walk_town",
-  "DeadDrops": "walk_town",
-  "InfectedDoors": "walk_town",
+  "Scenes": "scene",
+  "DeadDrops": "actions",
+  "InfectedDoors": "actions",
   "InfectedReach": "walk_town",
   "BodyStories": "walk_town",
   "Camps": "fixtures",
   "CampRespawn": "fixtures",
   "FactionConflict": "fixtures",
   "AITrade": "fixtures",
-  "VehicleFlip": "fixtures",
-  "WreckSalvage": "fixtures",
+  "VehicleFlip": "actions",
+  "WreckSalvage": "actions",
   "Fortify": "fixtures",
   "Crafting": "actions",
   "SearchBinding": "actions",
   "TapedHelmetMounts": "actions",
   "TapedLight": "actions",
   "TapedPackMounts": "actions",
-  "Melee": "actions",
+  "Melee": "fixtures",
   "Radio": "actions",
   "Morse": "actions",
-  "Forage": "actions",
-  "Progression": "actions",
-  "CookingCompat": "actions",
+  "Forage": "forest",
+  "Progression": "forest",
+  "CookingCompat": "fixtures",
   "DebugSnapshot": "idle",
   "WorldSaves": "idle",
-  "LootRefresh": "idle",
-  "SettlementDecay": "idle",
+  "LootRefresh": "actions",
+  "SettlementDecay": "actions",
   "Cellars": "idle",
   "CellarSampler": "idle",
-  "OptionalPacks": "idle",
-  "FoodCompat": "idle",
+  "OptionalPacks": "fixtures",
+  "FoodCompat": "fixtures",
   "Pickers": "idle",
   "GunPile": "join",
-  "Notes": "idle",
-  "NotesCompat": "idle"
+  "Notes": "scene",
+  "NotesCompat": "scene"
  },
  "features": {
-  "NavInf/pathgraph_refresh": "walk_town",
-  "NavInf/door_action": "walk_town",
-  "NavInf/vault_started": "walk_town",
-  "Interiors/props_placed": "idle",
-  "Interiors/nav_pathgraph_refresh": "walk_town",
+  "AISelfDefence/threats_applied": "walk_ai",
+  "Infected/actor_bound": "join",
+  "Infected/actor_sampled": "join",
+  "InfectedDoors/door_action": "walk_town",
   "Interiors/house_search_completed": "actions",
-  "SearchBinding/house_bound": "actions",
-  "GunPile/piles_placed": "join",
-  "Shelters/regional_props_placed": "idle",
-  "InfectedDoors/door_pressure": "idle",
-  "InfectedDoors/nav_door_action": "actions",
-  "NavXai/stuck_recovery": "fixtures",
-  "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
-  "AITrade/trade_completed": "fixtures",
+  "Interiors/props_placed": "idle",
   "Materializer/materialized_operations": "fixtures",
-  "Holdouts/occupied_holdouts": "fixtures",
-  "AIIncidents/lease_step": "fixtures",
-  "WorldIncidents/incident_sweep": "fixtures",
-  "AITactics/fire_events": "fixtures",
-  "HordeMigration/nav_route_advance": "walk_zone",
-  "Forage/forage_spawned": "idle",
-  "Polish/sound_played": "idle"
+  "Polish/sound_played": "forest",
+  "Scenes/retire_retry_cap": "walk_town",
+  "Shelters/regional_props_placed": "idle",
+  "optional-expansion-human-ai/convoy_astar": "fixtures",
+  "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
+  "optional-expansion-human-ai/stuck_recovery": "fixtures"
  },
  "manual": {
   "TeamPing/ping_recipients": {
@@ -154,6 +155,10 @@
   "TeamPing/ping_delivered": {
    "kind": "friend_playtest",
    "reason": "delivery of a team ping to another player needs a second player; one client has no recipient"
+  },
+  "Cellars/visual_applied": {
+   "kind": "owner_check",
+   "reason": "needs the client more than 2 m below terrain inside a building (HCCellarsClient); no repo data names a cellar and a player may not be teleported, so the owner walks into one cellar the sampler measured"
   }
  },
  "looks": [
@@ -182,5 +187,1687 @@
    "kind": "friend_playtest",
    "reason": "a ping appearing for another group member needs a second player"
   }
- ]
+ ],
+ "reach": {
+  "AIIncidents/lease_step": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_incident",
+    "code:HCXAIIncidentResponse.c"
+   ]
+  },
+  "AIIncidents/response_started": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_incident",
+    "code:HCXAIIncidentResponse.c"
+   ]
+  },
+  "AIRoles/activity_started": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAIRoleActivities.c"
+   ]
+  },
+  "AIRoles/lease_started": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAIRoleActivities.c"
+   ]
+  },
+  "AIRoles/routes_pending": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAIRoleActivities.c"
+   ]
+  },
+  "AISelfDefence/hit_reaction": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_shoot",
+    "code:HCXDefence.c"
+   ]
+  },
+  "AISelfDefence/threats_applied": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXDefence.c"
+   ]
+  },
+  "AITactics/fire_events": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_shoot",
+    "code:HCXAITactics.c"
+   ]
+  },
+  "AITactics/tactic_chosen": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_tactic",
+    "code:HCXAITactics.c"
+   ]
+  },
+  "AITrade/trade_completed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_trade",
+    "code:HCAITrade.c"
+   ]
+  },
+  "AdminMap/catalog_auto_refresh": {
+   "phase": "join",
+   "how": [
+    "timer:3m",
+    "step:menu:admin",
+    "code:HCAdminTeleport.c"
+   ]
+  },
+  "AdminMap/request": {
+   "phase": "join",
+   "how": [
+    "step:admin:snapshot",
+    "step:admin:status",
+    "code:HCAdminModule.c"
+   ]
+  },
+  "AdminMap/request_dispatched": {
+   "phase": "join",
+   "how": [
+    "step:admin:snapshot",
+    "step:admin:status",
+    "code:HCAdminModule.c"
+   ]
+  },
+  "AdminMap/window_open": {
+   "phase": "join",
+   "how": [
+    "step:menu:admin",
+    "code:HCAdminMenu.c"
+   ]
+  },
+  "BodyStories/body_observed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCBodyStories.c"
+   ]
+  },
+  "BodyStories/death_checked": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCBodyStories.c"
+   ]
+  },
+  "CampRespawn/respawn_reserved": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_camp_setup",
+    "timer:10m",
+    "code:HCCampRespawn.c"
+   ]
+  },
+  "Camps/camp_recognised": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_camp_setup",
+    "code:HCCampModule.c"
+   ]
+  },
+  "Camps/maintenance_step": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_camp_setup",
+    "code:HCCampModule.c"
+   ]
+  },
+  "Camps/pathgraph_refresh": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_camp_setup",
+    "code:HCCampFortification.c"
+   ],
+   "class": "diagnostic"
+  },
+  "CellarSampler/cellars_measured": {
+   "phase": "idle",
+   "how": [
+    "marker:measure-cellars",
+    "timer:60m",
+    "code:HCCellarSampler.c"
+   ]
+  },
+  "CellarSampler/class_measured": {
+   "phase": "idle",
+   "how": [
+    "marker:measure-cellars",
+    "timer:60m",
+    "code:HCCellarSampler.c"
+   ]
+  },
+  "Cellars/cellars_measured": {
+   "phase": "idle",
+   "how": [
+    "marker:measure-cellars",
+    "timer:60m",
+    "code:HCCellarsModule.c"
+   ]
+  },
+  "ClientUI/earplugs_applied": {
+   "phase": "join",
+   "how": [
+    "step:action:earplugs",
+    "code:HCEarplugs.c"
+   ]
+  },
+  "ClientUI/inventory_open": {
+   "phase": "join",
+   "how": [
+    "step:menu:inventory",
+    "code:HCUseLifecycle.c"
+   ]
+  },
+  "ClientUI/map_open": {
+   "phase": "join",
+   "how": [
+    "step:menu:map",
+    "code:HCGroupMapMenu.c",
+    "code:HCUseLifecycle.c"
+   ]
+  },
+  "CookingCompat/cooking_config_rpc_refused": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_cooking",
+    "code:HCFoodCompat.c"
+   ],
+   "class": "diagnostic"
+  },
+  "CookingCompat/cooking_dish_cooked": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_cooking",
+    "code:HCFoodCompat.c"
+   ]
+  },
+  "Crafting/completed_operations": {
+   "phase": "actions",
+   "how": [
+    "step:action:craft",
+    "gear:CamoNet",
+    "gear:KitchenKnife",
+    "code:HCCraftingModule.c"
+   ]
+  },
+  "Crafting/recipe_completed": {
+   "phase": "actions",
+   "how": [
+    "step:action:craft",
+    "gear:CamoNet",
+    "gear:KitchenKnife",
+    "code:HCCraftingModule.c"
+   ]
+  },
+  "DeadDrops/cache_bound": {
+   "phase": "actions",
+   "how": [
+    "step:admin:deaddrop",
+    "code:HCDeadDrops.c"
+   ]
+  },
+  "DeadDrops/cache_row_checked": {
+   "phase": "actions",
+   "how": [
+    "step:admin:deaddrop",
+    "code:HCDeadDrops.c"
+   ]
+  },
+  "DebugSnapshot/snapshot_points": {
+   "phase": "idle",
+   "how": [
+    "timer:5m",
+    "code:HCDebugSnapshotModule.c"
+   ]
+  },
+  "DebugSnapshot/snapshot_saved": {
+   "phase": "idle",
+   "how": [
+    "timer:5m",
+    "code:HCDebugSnapshotModule.c"
+   ]
+  },
+  "Ecology/animal_observed": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEcologyRuntime.c"
+   ]
+  },
+  "Ecology/cohort_visited": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEcologyRuntimeModule.c"
+   ]
+  },
+  "Escalation/clock_step": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEscalationClock.c"
+   ]
+  },
+  "Escalation/state_advanced": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEscalationClock.c"
+   ]
+  },
+  "Events/cache_filled": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEventRewardCache.c"
+   ]
+  },
+  "Events/container_refilled": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEventRewardCache.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Events/container_replaced": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEventRewardCache.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Events/mission_marker": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCMissionBeacon.c"
+   ]
+  },
+  "Events/mission_notice": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCMissionBeacon.c"
+   ]
+  },
+  "Events/police_barrel_recreated": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEventRewardCache.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Events/police_supply_bound": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCEventWorldBinding.c"
+   ]
+  },
+  "Events/situation_started": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCSituationDirector.c"
+   ]
+  },
+  "Events/situations_started": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCSituationDirector.c"
+   ]
+  },
+  "FactionConflict/encounters_observed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_conflict",
+    "code:HCFactionConflict.c"
+   ]
+  },
+  "FactionConflict/outcome_recorded": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_conflict",
+    "code:HCFactionConflict.c"
+   ]
+  },
+  "FoodCompat/food_compat_guard": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_food",
+    "code:HCFoodCompat.c"
+   ]
+  },
+  "FoodCompat/food_compat_refused": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_food",
+    "code:HCFoodCompat.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Forage/forage_spawned": {
+   "phase": "forest",
+   "how": [
+    "step:admin:forage",
+    "step:action:pickup_forage",
+    "step:walk:shelter:Bor South Rest",
+    "code:HCForage.c"
+   ]
+  },
+  "Forage/item_picked": {
+   "phase": "forest",
+   "how": [
+    "step:admin:forage",
+    "step:action:pickup_forage",
+    "step:walk:shelter:Bor South Rest",
+    "code:HCForage.c"
+   ]
+  },
+  "Forage/item_spawned": {
+   "phase": "forest",
+   "how": [
+    "step:admin:forage",
+    "step:action:pickup_forage",
+    "step:walk:shelter:Bor South Rest",
+    "code:HCForage.c"
+   ]
+  },
+  "Fortify/barricade_breached": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_barricade",
+    "setting:FortifyBreachSeconds",
+    "code:HCFortifyBridge.c"
+   ]
+  },
+  "Fortify/fortify_placed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_kit_place",
+    "code:HCFortifyBridge.c"
+   ]
+  },
+  "Fortify/fortify_refused": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_kit_refuse",
+    "code:HCFortifyBridge.c"
+   ]
+  },
+  "Grade/grade_applied": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCGradeSettingsClient.c"
+   ]
+  },
+  "Grade/presentation_sent": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCPresentationTuningMission.c"
+   ]
+  },
+  "Groups/group_mutated": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCGroupService.c"
+   ]
+  },
+  "Groups/members_sampled": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCGroupPins.c"
+   ]
+  },
+  "Groups/menu_open": {
+   "phase": "group",
+   "how": [
+    "step:menu:map",
+    "code:HCGroupMapMenu.c"
+   ]
+  },
+  "GunPile/piles_placed": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "code:HCGunPile.c"
+   ]
+  },
+  "Holdouts/camp_committed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_holdout_due",
+    "code:HCHoldouts.c"
+   ]
+  },
+  "Holdouts/occupied_holdouts": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_holdout_due",
+    "code:HCHoldouts.c"
+   ]
+  },
+  "HordeMigration/drifting_cohorts": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCHordeMigration.c"
+   ]
+  },
+  "HordeMigration/nav_route_advance": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "HordeMigration/route_advanced": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCHordeMigration.c"
+   ]
+  },
+  "Infected/actor_bound": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedModule.c"
+   ]
+  },
+  "Infected/actor_sampled": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedModule.c"
+   ]
+  },
+  "Infected/door_locked_skip": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/flow_reuse": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCHordeFlowCache.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/group_quarantine": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/nav_deferred": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCNavScheduler.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/nav_find_path": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCNavScheduler.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/nav_forced": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCNavScheduler.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/pack_door_open": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/repath_ok": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/route_cache_hit": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCNavRouteCache.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/straggler_drop": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Infected/stuck_strike": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedNavigation.c"
+   ],
+   "class": "diagnostic"
+  },
+  "InfectedDoors/door_action": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedDoors.c"
+   ]
+  },
+  "InfectedDoors/door_pressure": {
+   "phase": "actions",
+   "how": [
+    "step:action:close_door",
+    "fixture:fx_barricade",
+    "code:HCInfectedDoors.c"
+   ]
+  },
+  "InfectedDoors/nav_door_action": {
+   "phase": "actions",
+   "how": [
+    "step:action:close_door",
+    "step:action:search",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "InfectedLOD/herd_materialized": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedLOD.c"
+   ]
+  },
+  "InfectedLOD/tier_changed": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedLOD.c"
+   ]
+  },
+  "InfectedLOD/tracked_infected": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedLOD.c"
+   ]
+  },
+  "InfectedMemory/heat_recorded": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_shoot",
+    "code:HCInfectedMemory.c"
+   ]
+  },
+  "InfectedMemory/memory_cells": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_shoot",
+    "code:HCInfectedMemory.c"
+   ]
+  },
+  "InfectedReach/backoff_started": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedReachModule.c"
+   ],
+   "class": "diagnostic"
+  },
+  "InfectedReach/nav_vault_started": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "InfectedReach/reach_actions": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedReachModule.c"
+   ]
+  },
+  "InfectedReach/strike_landed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedReachModule.c"
+   ]
+  },
+  "InfectedReach/vault_started": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedReachModule.c"
+   ]
+  },
+  "InfectedReach/vehicle_battered": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInfectedReachModule.c"
+   ]
+  },
+  "InfectedSiege/siege_noise": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCInfectedSiege.c"
+   ]
+  },
+  "InfectedSiege/siege_started": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCInfectedSiege.c"
+   ]
+  },
+  "InfectedVariety/actor_woken": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedVarietyModule.c"
+   ]
+  },
+  "InfectedVariety/variety_activity": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCInfectedVarietyModule.c"
+   ]
+  },
+  "Interiors/house_search_completed": {
+   "phase": "actions",
+   "how": [
+    "step:action:search",
+    "code:HCSearchHouses.c"
+   ]
+  },
+  "Interiors/inspect_native_skipped": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorTemplatePlacement.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/inspect_query_heavy": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/nav_pathgraph_refresh": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "Interiors/pathgraph_refresh": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPathgraph.c"
+   ]
+  },
+  "Interiors/prop_placed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorTemplatePlacement.c"
+   ]
+  },
+  "Interiors/props_placed": {
+   "phase": "idle",
+   "how": [
+    "timer:60m",
+    "code:HCInteriorTemplatePlacement.c"
+   ]
+  },
+  "Interiors/resolve_binding_mismatch": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorTemplatePlacement.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_deleted_retry": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_heavy_ray_miss": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_query_fallback": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_query_heavy": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_ray_fallback": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_ray_hit": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_ray_hit_alt": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_startup_deferred": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_tile_slow": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Interiors/resolve_tiled_routed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCInteriorPlacementCursor.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Leads/active_leads": {
+   "phase": "scene",
+   "how": [
+    "step:admin:scene",
+    "step:admin:radio",
+    "step:action:read",
+    "code:HCLeadModule.c"
+   ]
+  },
+  "Leads/lead_received": {
+   "phase": "scene",
+   "how": [
+    "step:admin:scene",
+    "step:admin:radio",
+    "step:action:read",
+    "code:HCLeadModule.c"
+   ]
+  },
+  "Lighting/blend_applied": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCLightingClient.c"
+   ]
+  },
+  "Lighting/presentation_sent": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCPresentationTuningMission.c"
+   ]
+  },
+  "LootRefresh/refreshed_operations": {
+   "phase": "actions",
+   "how": [
+    "step:admin:loot",
+    "code:HCSearchRefresh.c"
+   ]
+  },
+  "LootRefresh/timer_rearmed": {
+   "phase": "actions",
+   "how": [
+    "step:admin:loot",
+    "code:HCSearchRefresh.c"
+   ]
+  },
+  "MapPins/pins_published": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCGroupPins.c"
+   ]
+  },
+  "MapPins/pins_sampled": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCGroupPins.c"
+   ]
+  },
+  "Materializer/actors_materialized": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCWorldMaterializer.c"
+   ]
+  },
+  "Materializer/custody_lease_ceiling_backup_retire_failed": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCWorldStore.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Materializer/custody_lease_ceiling_torn": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCWorldStore.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Materializer/materialized_operations": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_materialize",
+    "code:HCWorldMaterializer.c"
+   ]
+  },
+  "MaterializerBridge/actors_spawned": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXMaterializerBridge.c"
+   ]
+  },
+  "MaterializerBridge/party_materialized": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXMaterializerBridge.c"
+   ]
+  },
+  "Melee/hit_processed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_melee",
+    "gear:KitchenKnife",
+    "code:HCMeleeModule.c"
+   ]
+  },
+  "Melee/parity_probe": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_melee",
+    "gear:KitchenKnife",
+    "code:HCMeleeTargetingParity.c"
+   ]
+  },
+  "Melee/wall_veto": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_melee",
+    "gear:KitchenKnife",
+    "code:HCMeleeWall.c"
+   ]
+  },
+  "Melee/zombie_hit_bonuses": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_melee",
+    "gear:KitchenKnife",
+    "code:HCMeleeModule.c"
+   ]
+  },
+  "Morse/reports_delivered": {
+   "phase": "actions",
+   "how": [
+    "step:action:radio",
+    "step:admin:radio",
+    "gear:PersonalRadio",
+    "gear:Battery9V",
+    "code:HCRadioChatter.c"
+   ]
+  },
+  "NavInf/haven_seen": {
+   "phase": "walk_zone",
+   "how": [
+    "step:walk:zone:balota-cf3bbed7",
+    "timer:60m",
+    "code:HCNavHavenCensus.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Notes/note_read": {
+   "phase": "scene",
+   "how": [
+    "step:action:read",
+    "step:action:take",
+    "code:HCNoteLedger.c"
+   ]
+  },
+  "Notes/world_notes": {
+   "phase": "scene",
+   "how": [
+    "step:walk:scene:scene-kamenka",
+    "step:admin:scene",
+    "step:action:take",
+    "step:action:read",
+    "code:HCNoteLedger.c"
+   ]
+  },
+  "NotesCompat/notes_lead_protected": {
+   "phase": "scene",
+   "how": [
+    "step:action:write",
+    "step:action:take",
+    "step:admin:scene",
+    "code:HCNotesCompat.c"
+   ]
+  },
+  "NotesCompat/notes_lead_tracked": {
+   "phase": "scene",
+   "how": [
+    "step:admin:scene",
+    "step:action:take",
+    "step:action:read",
+    "code:HCNotesCompat.c"
+   ]
+  },
+  "NotesCompat/write_rpc_passed": {
+   "phase": "scene",
+   "how": [
+    "step:action:write",
+    "gear:Paper",
+    "gear:Pen_Black",
+    "code:HCNotesCompat.c"
+   ]
+  },
+  "ObjectSpawner/pathgraph_refresh": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCInteriorPathgraph.c"
+   ]
+  },
+  "OptionalPacks/animal_seen": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_animal",
+    "code:HCOptionalPackUse.c"
+   ]
+  },
+  "OptionalPacks/config_probed": {
+   "phase": "fixtures",
+   "how": [
+    "boot",
+    "fixture:fx_animal",
+    "code:HCOptionalPacksModule.c"
+   ]
+  },
+  "Pickers/trip_started": {
+   "phase": "idle",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:90m",
+    "code:HCPickers.c"
+   ]
+  },
+  "Pickers/trip_step": {
+   "phase": "idle",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:90m",
+    "code:HCPickers.c"
+   ]
+  },
+  "Polish/hint_shown": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCHints.c"
+   ]
+  },
+  "Polish/presentation_sent": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "step:stand",
+    "code:HCPresentationTuningMission.c"
+   ]
+  },
+  "Polish/sound_played": {
+   "phase": "forest",
+   "how": [
+    "step:walk:shelter:Bor South Rest",
+    "step:stand",
+    "code:HCEnvSound.c"
+   ]
+  },
+  "Progression/familiarity_gained": {
+   "phase": "forest",
+   "how": [
+    "step:action:pickup_forage",
+    "step:walk:shelter:Bor South Rest",
+    "code:HCProgression.c"
+   ]
+  },
+  "Progression/forage_gains": {
+   "phase": "forest",
+   "how": [
+    "step:action:pickup_forage",
+    "step:walk:shelter:Bor South Rest",
+    "code:HCProgression.c"
+   ]
+  },
+  "Radio/delivered_operations": {
+   "phase": "actions",
+   "how": [
+    "step:action:radio",
+    "step:admin:radio",
+    "gear:PersonalRadio",
+    "gear:Battery9V",
+    "code:HCRadioChatter.c"
+   ]
+  },
+  "Radio/report_delivered": {
+   "phase": "actions",
+   "how": [
+    "step:action:radio",
+    "step:admin:radio",
+    "gear:PersonalRadio",
+    "gear:Battery9V",
+    "code:HCRadioChatter.c"
+   ]
+  },
+  "Scenes/retire_retry_cap": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCScenesModule.c"
+   ],
+   "class": "diagnostic"
+  },
+  "Scenes/scene_placed": {
+   "phase": "scene",
+   "how": [
+    "step:admin:scene",
+    "step:walk:scene:scene-kamenka",
+    "code:HCScenesModule.c"
+   ]
+  },
+  "Scenes/scenes_placed": {
+   "phase": "scene",
+   "how": [
+    "step:admin:scene",
+    "step:walk:scene:scene-kamenka",
+    "code:HCScenesModule.c"
+   ]
+  },
+  "SearchBinding/house_bound": {
+   "phase": "actions",
+   "how": [
+    "step:action:search",
+    "code:HCSearchBinding.c"
+   ]
+  },
+  "SettlementDecay/changed_operations": {
+   "phase": "actions",
+   "how": [
+    "step:admin:decay",
+    "code:HCSettlementDecay.c"
+   ]
+  },
+  "SettlementDecay/prop_placed": {
+   "phase": "actions",
+   "how": [
+    "step:admin:decay",
+    "code:HCSettlementDecay.c"
+   ]
+  },
+  "Shelters/pathgraph_refresh": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCShelterModule.c"
+   ]
+  },
+  "Shelters/regional_props_placed": {
+   "phase": "idle",
+   "how": [
+    "timer:60m",
+    "code:HCShelterModule.c"
+   ]
+  },
+  "Shelters/shelter_placed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCShelterModule.c"
+   ]
+  },
+  "SignsOfLife/area_sampled": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCSignsOfLife.c"
+   ]
+  },
+  "SignsOfLife/flies_created": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCSignsOfLifeClient.c"
+   ]
+  },
+  "SignsOfLife/light_observed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCSignsOfLifeClient.c"
+   ]
+  },
+  "SignsOfLife/smoke_observed": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCSignsOfLifeClient.c"
+   ]
+  },
+  "Sites/composed_sites": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCSiteGuard.c"
+   ]
+  },
+  "Sites/ground_refused_rows": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCSiteGuard.c"
+   ]
+  },
+  "Sites/orphan_sweep": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCSiteGuard.c"
+   ]
+  },
+  "Sites/site_refusals": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCSiteGuard.c"
+   ]
+  },
+  "SurvivalAlignment/stamina_applied": {
+   "phase": "join",
+   "how": [
+    "step:sprint",
+    "code:HCStaminaIntegration.c"
+   ]
+  },
+  "SurvivalAlignment/stamina_hud_shown": {
+   "phase": "join",
+   "how": [
+    "step:sprint",
+    "code:HCStaminaHUD.c"
+   ]
+  },
+  "TapedHelmetMounts/light_mounted": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:Mich2001Helmet",
+    "code:HCTapedLightService.c"
+   ]
+  },
+  "TapedHelmetMounts/native_wearable_operations": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:Mich2001Helmet",
+    "code:HCTapedLightNative.c"
+   ]
+  },
+  "TapedLight/light_mounted": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:Mich2001Helmet",
+    "code:HCTapedLightService.c"
+   ]
+  },
+  "TapedLight/native_light_operations": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:Mich2001Helmet",
+    "code:HCTapedLightNative.c"
+   ]
+  },
+  "TapedPackMounts/light_mounted": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:TortillaBag",
+    "code:HCTapedLightService.c"
+   ]
+  },
+  "TapedPackMounts/native_wearable_operations": {
+   "phase": "actions",
+   "how": [
+    "step:action:mount",
+    "gear:UniversalLight",
+    "gear:DuctTape",
+    "gear:TortillaBag",
+    "code:HCTapedLightNative.c"
+   ]
+  },
+  "VehicleFlip/impulse_applied": {
+   "phase": "actions",
+   "how": [
+    "fixture:fx_car_side",
+    "step:action:flip",
+    "gear:Crowbar",
+    "code:HCVehicleFlip.c"
+   ]
+  },
+  "VehicleFlip/pulses_operations": {
+   "phase": "actions",
+   "how": [
+    "fixture:fx_car_side",
+    "step:action:flip",
+    "gear:Crowbar",
+    "code:HCVehicleFlip.c"
+   ]
+  },
+  "WeatherDays/profile_applied": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCWeatherDaysModule.c"
+   ]
+  },
+  "WeatherDays/weather_tick": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCWeatherDaysModule.c"
+   ]
+  },
+  "World/row_simulated": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCWorldModule.c"
+   ]
+  },
+  "World/world_row": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "timer:5m",
+    "code:HCWorldModule.c"
+   ]
+  },
+  "WorldIncidents/incident_recorded": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_conflict",
+    "fixture:fx_incident",
+    "code:HCWorldIncidents.c"
+   ]
+  },
+  "WorldIncidents/incident_sweep": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_conflict",
+    "fixture:fx_incident",
+    "code:HCWorldIncidents.c"
+   ]
+  },
+  "WorldSaves/save_stages": {
+   "phase": "idle",
+   "how": [
+    "timer:5m",
+    "code:HCWorkBudget.c"
+   ]
+  },
+  "WorldSaves/stage_written": {
+   "phase": "idle",
+   "how": [
+    "timer:5m",
+    "code:HCWorkBudget.c"
+   ]
+  },
+  "WreckSalvage/part_created": {
+   "phase": "actions",
+   "how": [
+    "fixture:fx_wreck",
+    "step:action:salvage",
+    "gear:Pliers",
+    "code:HCWreckSalvage.c"
+   ]
+  },
+  "WreckSalvage/parts_created": {
+   "phase": "actions",
+   "how": [
+    "fixture:fx_wreck",
+    "step:action:salvage",
+    "gear:Pliers",
+    "code:HCWreckSalvage.c"
+   ]
+  },
+  "ZoneGuards/guard_actors_spawned": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXZoneGuards.c"
+   ]
+  },
+  "ZoneGuards/guards_posted": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXZoneGuards.c"
+   ]
+  },
+  "hcxai-live-map/live_ai_units": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAILiveMap.c"
+   ]
+  },
+  "hcxai-live-map/report_published": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAILiveMap.c"
+   ]
+  },
+  "optional-expansion-human-ai/actor_spawned": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAISitePatrols.c"
+   ]
+  },
+  "optional-expansion-human-ai/cache_save_busy": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAISiteStore.c"
+   ],
+   "class": "diagnostic"
+  },
+  "optional-expansion-human-ai/convoy_astar": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_convoy_stuck",
+    "code:HCXUseRegistry.c"
+   ]
+  },
+  "optional-expansion-human-ai/nav_routes": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "optional-expansion-human-ai/nav_stuck_recovery": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_convoy_stuck",
+    "code:HCModuleReadiness.c"
+   ]
+  },
+  "optional-expansion-human-ai/regional_road_site_binding": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:gapcode_routes_sites.c"
+   ]
+  },
+  "optional-expansion-human-ai/route_cache": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAISiteStore.c",
+    "code:HCXAISiteSurvey.c"
+   ]
+  },
+  "optional-expansion-human-ai/site_actors": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXAIAdapter.c"
+   ]
+  },
+  "optional-expansion-human-ai/stuck_recovery": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_convoy_stuck",
+    "code:HCXUseRegistry.c"
+   ]
+  },
+  "v2-expansion-living-world/actor_admitted": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXStance.c"
+   ]
+  },
+  "v2-expansion-living-world/caution_warn": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXCautionObservation.c"
+   ]
+  },
+  "v2-expansion-living-world/owned_actor_checked": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "timer:30m",
+    "code:HCXStance.c"
+   ]
+  }
+ }
 }

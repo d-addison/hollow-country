@@ -215,6 +215,10 @@ class HCDriverActions
     protected ref array<EntityAI> m_Inventory = new array<EntityAI>;
     protected ref ActionTarget m_Target;
     protected ActionBase m_Action;
+    // Survives Begin: the last Paper a take step picked up (the read and write steps use it).
+    protected ItemBase m_LastTaken;
+    protected bool m_Crouched;
+    protected bool m_Sent;
 
     string Detail()
     {
@@ -240,6 +244,7 @@ class HCDriverActions
         m_Stage = 0;
         m_Target = null;
         m_Action = null;
+        m_Sent = false;
     }
 
     protected ActionManagerClient Manager(PlayerBase player)
@@ -252,12 +257,22 @@ class HCDriverActions
     {
         walker.Release(player);
         if (!player) { return; }
+        StandUp(player);
         ActionManagerClient manager = Manager(player);
         if (manager)
         {
             manager.SetIgnoreAutomaticInputEnd(false);
             if (manager.GetRunningAction()) { manager.EndActionInput(); }
         }
+    }
+
+    // ActionWorldCraft needs STANCEMASK_CROUCH (ActionWorldCraft.c:43); put the player back afterwards.
+    protected void StandUp(PlayerBase player)
+    {
+        if (!m_Crouched) { return; }
+        m_Crouched = false;
+        HumanCommandMove move = player.GetCommand_Move();
+        if (move) { move.ForceStance(DayZPlayerConstants.STANCEIDX_ERECT); }
     }
 
     protected int Finish(int code, string detail)
@@ -277,6 +292,22 @@ class HCDriverActions
         {
             ItemBase found = ItemBase.Cast(m_Inventory[index]);
             if (found && found != except && !found.IsPendingDeletion() && found.IsKindOf(type)) { return found; }
+        }
+        return null;
+    }
+
+    // Same as FindHeldOrInventory but never an attachment: a light already mounted on a host is not loose.
+    protected ItemBase FindLoose(PlayerBase player, string type, ItemBase except)
+    {
+        if (type == "") { return null; }
+        m_Inventory.Clear();
+        player.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, m_Inventory);
+        for (int index = 0; index < m_Inventory.Count(); index++)
+        {
+            ItemBase found = ItemBase.Cast(m_Inventory[index]);
+            if (!found || found == except || found.IsPendingDeletion() || !found.IsKindOf(type)) { continue; }
+            if (found.GetInventory() && found.GetInventory().IsAttachment()) { continue; }
+            return found;
         }
         return null;
     }
@@ -411,7 +442,15 @@ class HCDriverActions
         }
         if (m_Name == "melee") { return Finish(HCDriverResult.UNSUPPORTED, "no-native-client-entry-for-melee-input"); }
         if (m_Name == "fire") { return Finish(HCDriverResult.UNSUPPORTED, "no-native-client-entry-for-fire-input"); }
-        if (m_Name == "craft") { return TickCraft(player, manager); }
+        if (m_Name == "craft")
+        {
+            int crafted = TickCraft(player, manager);
+            if (crafted != HCDriverResult.RUNNING) { StandUp(player); }
+            return crafted;
+        }
+        if (m_Name == "earplugs") { return TickEarplugs(); }
+        if (m_Name == "read") { return TickRead(player, manager); }
+        if (m_Name == "write") { return TickWrite(player, manager); }
         if (m_Name == "take") { return TickTake(player, manager, walker, "take"); }
         if (m_Name == "pickup_forage") { return TickTake(player, manager, walker, "forage"); }
         if (m_Name == "mount") { return TickMount(player, manager); }
@@ -465,6 +504,16 @@ class HCDriverActions
         if (m_Phase == HCDriverActions.P_FIND)
         {
             if (player.GetItemInHands() != m_Main) { return HCDriverResult.RUNNING; }
+            if (!player.IsPlayerInStance(DayZPlayerConstants.STANCEMASK_CROUCH))
+            {
+                HumanCommandMove move = player.GetCommand_Move();
+                if (move)
+                {
+                    move.ForceStance(DayZPlayerConstants.STANCEIDX_CROUCH);
+                    m_Crouched = true;
+                }
+                return HCDriverResult.RUNNING;
+            }
             if (!player.GetCraftingManager().SetInventoryCraft(-1, m_Main, m_Second)) { return Finish(HCDriverResult.REFUSED, "no-valid-recipe"); }
             m_Action = ActionManagerBase.GetAction(ActionWorldCraft);
             m_Target = new ActionTarget(m_Second, null, -1, vector.Zero, -1.0);
@@ -491,7 +540,7 @@ class HCDriverActions
     {
         if (m_Phase == HCDriverActions.P_PREP)
         {
-            float radius = HCDriverActions.REACH;
+            float radius = HCDriverActions.FIND_RADIUS;
             string type = m_Args.type;
             if (flavor == "forage")
             {
@@ -523,6 +572,7 @@ class HCDriverActions
         }
         int settled = Settle(player, manager, m_Dt);
         if (settled == HCDriverResult.OK && m_Main && !m_Main.GetHierarchyParent()) { return Finish(HCDriverResult.REFUSED, "item-still-on-ground"); }
+        if (settled == HCDriverResult.OK && flavor == "take" && m_Main && m_Main.IsKindOf("Paper")) { m_LastTaken = m_Main; }
         return settled;
     }
 
@@ -532,7 +582,7 @@ class HCDriverActions
         {
             m_Main = FindHeldOrInventory(player, m_Args.target, null);
             if (!m_Main) { return Finish(HCDriverResult.REFUSED, "host-missing:" + m_Args.target); }
-            m_Second = FindHeldOrInventory(player, m_Args.item, m_Main);
+            m_Second = FindLoose(player, m_Args.item, m_Main);
             if (!m_Second) { return Finish(HCDriverResult.REFUSED, "item-missing:" + m_Args.item); }
             if (!Hold(player, m_Main)) { return HCDriverResult.RUNNING; }
             m_Phase = HCDriverActions.P_FIND;
@@ -547,6 +597,103 @@ class HCDriverActions
             return HCDriverResult.RUNNING;
         }
         return Settle(player, manager, m_Dt);
+    }
+
+    protected void CloseNoteMenu()
+    {
+        UIManager ui = GetGame().GetUIManager();
+        if (!ui || !ui.IsMenuOpen(MENU_NOTE)) { return; }
+        UIScriptedMenu noteMenu = ui.FindMenu(MENU_NOTE);
+        if (noteMenu) { noteMenu.Close(); }
+    }
+
+    // The earplugs key handler (HCEarplugs.Press, through the test addon's HCTestPress). Four presses
+    // cycle the level 1, 2, 3 and back to out, so the client profile preference ends unchanged.
+    protected int TickEarplugs()
+    {
+        for (int press = 0; press < 4; press++)
+        {
+            if (!HCEarplugs.HCTestPress()) { return Finish(HCDriverResult.REFUSED, "earplugs-client-not-started"); }
+        }
+        return Finish(HCDriverResult.OK, "pressed-4x-level-back-to-out");
+    }
+
+    // ActionReadPaper from the hands (the Paper the last take step picked up, else any Paper).
+    protected int TickRead(PlayerBase player, ActionManagerClient manager)
+    {
+        if (m_Phase == HCDriverActions.P_PREP)
+        {
+            m_Main = m_LastTaken;
+            if (!m_Main || m_Main.IsPendingDeletion()) { m_Main = FindHeldOrInventory(player, "Paper", null); }
+            if (!m_Main) { return Finish(HCDriverResult.REFUSED, "paper-missing"); }
+            if (!Hold(player, m_Main)) { return HCDriverResult.RUNNING; }
+            m_Phase = HCDriverActions.P_FIND;
+        }
+        if (m_Phase == HCDriverActions.P_FIND)
+        {
+            if (player.GetItemInHands() != m_Main) { return HCDriverResult.RUNNING; }
+            m_Action = ActionManagerBase.GetAction(ActionReadPaper);
+            m_Target = new ActionTarget(null, null, -1, vector.Zero, -1.0);
+            if (!m_Action || !m_Action.Can(player, m_Target, m_Main)) { return Finish(HCDriverResult.REFUSED, "read-not-allowed"); }
+            StartAction(player, m_Action, m_Target, m_Main);
+            return HCDriverResult.RUNNING;
+        }
+        if (m_Phase == HCDriverActions.P_RUN)
+        {
+            int settled = Settle(player, manager, m_Dt);
+            if (settled == HCDriverResult.RUNNING) { return settled; }
+            if (settled != HCDriverResult.OK) { return settled; }
+            m_Phase = HCDriverActions.P_SETTLE;
+            m_PhaseAge = 0;
+            return HCDriverResult.RUNNING;
+        }
+        // The server's reply opens the vanilla note menu; give it a moment, then close it.
+        if (m_PhaseAge < 2.5) { return HCDriverResult.RUNNING; }
+        CloseNoteMenu();
+        return Finish(HCDriverResult.OK, "read-started-note-menu-closed");
+    }
+
+    // The writable-notes pack's write action (ActionWritePaper: pen in hands, Paper as target), then the
+    // very RPC the vanilla note menu sends on OK (NoteMenu.c:121). args.use = taken (the Paper the last
+    // take step picked up) or gear (another Paper from the inventory). A lead note is refused by HC on
+    // the server (HCNotesCompat); a plain Paper passes through (write_rpc_passed).
+    protected int TickWrite(PlayerBase player, ActionManagerClient manager)
+    {
+        if (m_Phase == HCDriverActions.P_PREP)
+        {
+            m_Second = FindHeldOrInventory(player, "Paper", m_LastTaken);
+            if (m_Args.use == "taken") { m_Second = m_LastTaken; }
+            if (!m_Second || m_Second.IsPendingDeletion()) { return Finish(HCDriverResult.REFUSED, "paper-missing:" + m_Args.use); }
+            m_Main = FindHeldOrInventory(player, "Pen_Black", null);
+            if (!m_Main) { return Finish(HCDriverResult.REFUSED, "item-missing:Pen_Black"); }
+            if (!Hold(player, m_Main)) { return HCDriverResult.RUNNING; }
+            m_Phase = HCDriverActions.P_FIND;
+        }
+        if (m_Phase == HCDriverActions.P_FIND)
+        {
+            if (player.GetItemInHands() != m_Main) { return HCDriverResult.RUNNING; }
+            m_Action = ActionManagerBase.GetAction(ActionWritePaper);
+            m_Target = new ActionTarget(m_Second, null, -1, vector.Zero, -1.0);
+            if (!m_Action || !m_Action.Can(player, m_Target, m_Main)) { return Finish(HCDriverResult.REFUSED, "write-not-allowed:needs-pen-and-paper"); }
+            StartAction(player, m_Action, m_Target, m_Main);
+            return HCDriverResult.RUNNING;
+        }
+        // The action loops until ended; the server has initialised the note data by the time it runs.
+        m_RunAge = m_RunAge + m_Dt;
+        if (m_RunAge < 1.5) { return HCDriverResult.RUNNING; }
+        if (!m_Sent)
+        {
+            m_Sent = true;
+            Param1<string> text = new Param1<string>("soak note");
+            m_Second.RPCSingleParam(ERPCs.RPC_WRITE_NOTE_CLIENT, text, true);
+            m_RunAge = 0;
+            return HCDriverResult.RUNNING;
+        }
+        if (m_RunAge < 2.0) { return HCDriverResult.RUNNING; }
+        CloseNoteMenu();
+        manager.SetIgnoreAutomaticInputEnd(false);
+        if (manager.GetRunningAction()) { manager.EndActionInput(); }
+        return Finish(HCDriverResult.OK, "write-action-started-rpc-sent");
     }
 
     protected int TickRadio(PlayerBase player, ActionManagerClient manager)

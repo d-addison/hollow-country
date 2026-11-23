@@ -22,7 +22,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 MISSION = ROOT / "mission" / "hollow-country"
 VERSION = 1
-PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "fixtures", "actions", "idle")
+PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "fixtures", "actions", "scene", "forest", "idle")
 DEFAULT_PHASES = list(PHASES)
 MAX_STEPS = 400
 WORLD_SIZE = 15360.0
@@ -32,13 +32,25 @@ AI_SITE = "site:police-chernogorsk"
 ZONE = "zone:balota-cf3bbed7"
 ZONE_CENTER = (3900.0, 2330.0)
 TOWN = "site:scav-chernogorsk"
+# Scene phase: the first stage source of one scene chain in events/scene-chains.json, reached on
+# foot like every other waypoint. This `scene:` source is the one addition to the site/zone/shelter
+# sources; it reads repo data only.
+SCENE = "scene:scene-kamenka"
+# Forest phase: an existing authored barn of travel/route-surveys.json set in woodland (forage
+# habitats and the forest wind loop need a wooded surface under the player).
+FOREST = "shelter:Bor South Rest"
 
 # Setup fixtures in the order the fixture block calls them (fxsetup brief plus the existing ones).
 FIXTURES = ("fx_car_side", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict",
-            "fx_materialize", "fx_incident", "fx_tactic", "fx_trade", "fx_convoy_stuck")
+            "fx_materialize", "fx_incident", "fx_tactic", "fx_trade", "fx_convoy_stuck",
+            "fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade",
+            "fx_melee", "fx_shoot")
+# Server commands the player's own admin RPC runs on the real module path (HCAdminModule.HCExtra and
+# the command list): they ask a module to do its normal bounded work now, they never spawn a counter.
+ADMIN_STEPS = ("status", "snapshot", "scene", "radio", "deaddrop", "loot", "forage", "decay")
 
 GAITS = ("walk", "jog", "sprint")
-MENUS = ("map", "inventory", "pause")
+MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action")
 
@@ -55,6 +67,9 @@ ACTION_ARGS = {
     "flip": ((), ("item",)),
     "radio": (("freq",), ()),
     "pickup_forage": ((), ()),
+    "earplugs": ((), ()),
+    "read": ((), ()),
+    "write": ((), ("use",)),
 }
 # Kinds the retail client cannot start through a native entry point; the driver logs
 # result=unsupported for them (UAInput.SyncedOverride is only compiled under INPUT_OVERRIDE).
@@ -64,8 +79,9 @@ UNSUPPORTED_ACTIONS = ("melee", "fire")
 # a missing item makes the step log result=refused detail=item-missing, never a fake pass.
 DEFAULT_ACTION_ARGS = {
     "craft": {"item1": "CamoNet", "item2": "KitchenKnife"},
-    "take": {"type": "Rag"},
-    "mount": {"item": "Flashlight", "target": "Mich2001Helmet"},
+    "take": {"type": "Paper"},
+    "mount": {"item": "UniversalLight", "target": "Mich2001Helmet"},
+    "write": {"use": "gear"},
     "salvage": {"item": "Pliers"},
     "flip": {"item": "Crowbar"},
     "radio": {"freq": "87.8"},
@@ -118,7 +134,8 @@ def _xz(point, label):
 
 def resolve_waypoint(source):
     """`site:<id>` first waypoint of an ai/sites.json site, `zone:<id>` centre of an ai/zones.json
-    zone, `shelter:<id>` position of a travel/route-surveys.json shelter. Returns (x, z)."""
+    zone, `shelter:<id or name>` position of a travel/route-surveys.json shelter, `scene:<chain id>`
+    first-stage source of an events/scene-chains.json chain. Returns (x, z)."""
     if not isinstance(source, str) or ":" not in source:
         raise ScriptError("waypoint source must be kind:id, got %r" % (source,))
     kind, _, ident = source.partition(":")
@@ -142,6 +159,14 @@ def resolve_waypoint(source):
             if ident in (row.get("id"), row.get("name")):
                 return _xz(row.get("position"), source)
         raise ScriptError("no shelter %s" % ident)
+    if kind == "scene":
+        for chain in _load("events/scene-chains.json").get("Chains", []):
+            if chain.get("Id") == ident:
+                stages = chain.get("Stages") or []
+                if not stages:
+                    raise ScriptError("scene chain %s has no stages" % ident)
+                return _xz((stages[0].get("Objective") or {}).get("Source"), source)
+        raise ScriptError("no scene chain %s" % ident)
     raise ScriptError("unknown waypoint source kind %r" % kind)
 
 
@@ -174,9 +199,14 @@ class _Builder:
         self.add("walk", note=source, to=[x, z], gait=gait, arrive_m=arrive,
                  timeout_s=_timeout_for(distance, gait))
 
-    def action(self, name):
+    def action(self, name, **overrides):
         args = dict(DEFAULT_ACTION_ARGS.get(name, {}))
+        args.update(overrides)
         self.add("action", name=name, args=args, timeout_s=120)
+
+    def admin(self, cmd, pause=3):
+        self.add("admin", cmd=cmd, value="")
+        self.add("stand", seconds=pause)
 
 
 def _phase_join(b):
@@ -186,6 +216,8 @@ def _phase_join(b):
     for name in MENUS:
         b.add("menu", name=name, seconds=4)
     b.add("admin", cmd="status", value="")
+    b.admin("snapshot")
+    b.action("earplugs")
 
 
 def _phase_group(b):
@@ -208,15 +240,41 @@ def _phase_walk_town(b):
     b.add("stand", seconds=60)
 
 
+# Seconds the player keeps standing after a fixture, so the real code it starts can run.
+FIXTURE_STAND = {"fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
+
+
 def _phase_fixtures(b):
     for cmd in FIXTURES:
-        b.add("admin", cmd=cmd, value="")
-        b.add("stand", seconds=3)
+        b.admin(cmd, FIXTURE_STAND.get(cmd, 3))
 
 
 def _phase_actions(b):
-    for name in ACTION_ARGS:
+    for name in ("craft", "search", "close_door"):
         b.action(name)
+    b.action("mount")
+    b.action("mount", target="TortillaBag")
+    for name in ("salvage", "flip", "radio"):
+        b.action(name)
+    for cmd in ("radio", "loot", "decay", "deaddrop"):
+        b.admin(cmd)
+
+
+def _phase_scene(b):
+    b.walk(SCENE)
+    b.add("stand", seconds=20)
+    b.admin("scene", 20)
+    b.action("take")
+    b.action("read")
+    b.action("write", use="taken")
+    b.action("write", use="gear")
+
+
+def _phase_forest(b):
+    b.walk(FOREST)
+    b.admin("forage", 20)
+    b.action("pickup_forage")
+    b.add("stand", seconds=60)
 
 
 def _phase_idle(b):
@@ -226,7 +284,7 @@ def _phase_idle(b):
 _PHASE_BUILDERS = {
     "join": _phase_join, "group": _phase_group, "walk_ai": _phase_walk_ai,
     "walk_zone": _phase_walk_zone, "walk_town": _phase_walk_town, "fixtures": _phase_fixtures,
-    "actions": _phase_actions, "idle": _phase_idle,
+    "actions": _phase_actions, "scene": _phase_scene, "forest": _phase_forest, "idle": _phase_idle,
 }
 
 
@@ -243,6 +301,38 @@ def build_plan(phases):
     script = {"version": VERSION, "run_id": "r" + digest[:10], "steps": builder.steps}
     validate_script(script)
     return script, builder.notes
+
+
+def step_token(step, notes):
+    """The reach-map token of a step: wait|stand|sprint|ping, menu:<name>, admin:<cmd>, group:<op>,
+    action:<name> or walk:<waypoint source>. A fixture is also reachable as fixture:<cmd>."""
+    kind = step["kind"]
+    if kind == "menu":
+        return "menu:" + step["name"]
+    if kind == "admin":
+        return "admin:" + step["cmd"]
+    if kind == "group":
+        return "group:" + step["op"]
+    if kind == "action":
+        return "action:" + step["name"]
+    if kind == "walk":
+        return "walk:" + notes.get(step["id"], "")
+    return kind
+
+
+def phase_index():
+    """{phase: {token: [step ids]}} of the default route, the ids the written step file will carry."""
+    builder = _Builder()
+    index = {}
+    for phase in PHASES:
+        start = len(builder.steps)
+        _PHASE_BUILDERS[phase](builder)
+        tokens = index.setdefault(phase, {})
+        for step in builder.steps[start:]:
+            tokens.setdefault(step_token(step, builder.notes), []).append(step["id"])
+            if step["kind"] == "admin" and step["cmd"] in FIXTURES:
+                tokens.setdefault("fixture:" + step["cmd"], []).append(step["id"])
+    return index
 
 
 def build_route(phases):
