@@ -168,8 +168,12 @@ def render(frame, segments, cam, background):
         c.capsule(pa, pb, cam.k * r / pa[2], cam.k * r / pb[2], _color(a, b))
     head = cam.project(frame['Head'])
     neck = frame['Head']
-    top = cam.project((neck[0], neck[1] + 0.09, neck[2] + 0.02))
+    # Skull and Face follow the head's rotation when the builder wrote them (older JSON: upright skull).
+    top = cam.project(frame['Skull'] if 'Skull' in frame else (neck[0], neck[1] + 0.09, neck[2] + 0.02))
     c.capsule(head, top, cam.k * 0.075 / head[2], cam.k * 0.095 / top[2], SKIN)
+    if 'Face' in frame:
+        face = cam.project(frame['Face'])
+        c.capsule(face, face, cam.k * 0.03 / face[2], cam.k * 0.03 / face[2], (150, 60, 50))  # nose: facing
     for foot in ('LeftFoot', 'RightFoot'):
         p = frame[foot]
         q = cam.project((p[0], 0.0, p[2]))

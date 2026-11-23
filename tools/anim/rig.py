@@ -138,9 +138,12 @@ class Pose:
         for n in self.local:
             add(n)
         self._world = None
+        self.hinges = {}                  # upper limb bone -> mesh hinge axis in its frame (two-bone IK)
 
     def copy(self):
-        return Pose(self.parents, self.local)
+        p = Pose(self.parents, self.local)
+        p.hinges = self.hinges
+        return p
 
     def world(self):
         if self._world is None:
