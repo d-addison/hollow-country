@@ -2,26 +2,26 @@
 // and later inside the same radius; spawning inside supplies no observation.
 class HCReleaseRadius
 {
-    protected ref array<Man> m_Outside = new array<Man>;
-    protected ref array<Man> m_NextOutside = new array<Man>;
+    protected ref map<PlayerBase, bool> m_Outside = new map<PlayerBase, bool>;
+    protected ref map<PlayerBase, bool> m_NextOutside = new map<PlayerBase, bool>;
 
     void HCSample(vector centre, float radius, int observation)
     {
         if (!GetGame() || !GetGame().IsServer() || radius <= 0) { return; }
         array<Man> players = HCPerfPlayers.HCGet();
         float radiusSq = radius * radius;
-        m_NextOutside.Clear();
         for (int index = 0; index < players.Count() && index < 64; index++)
         {
-            Man man = players[index];
-            PlayerBase player = PlayerBase.Cast(man);
+            PlayerBase player = PlayerBase.Cast(players[index]);
             if (!player || !player.IsAlive() || !player.GetIdentity() || player.HCHasReleaseRadius(observation)) { continue; }
             vector position = player.GetPosition();
             position[1] = centre[1];
-            if (vector.DistanceSq(position, centre) > radiusSq) { m_NextOutside.Insert(man); }
-            else if (m_Outside.Find(man) >= 0) { player.HCSendReleaseRadius(observation); }
+            if (vector.DistanceSq(position, centre) > radiusSq) { m_NextOutside.Set(player, true); }
+            else if (m_Outside.Contains(player)) { player.HCSendReleaseRadius(observation); }
         }
-        m_Outside.Copy(m_NextOutside);
+        map<PlayerBase, bool> previous = m_Outside;
+        m_Outside = m_NextOutside;
+        m_NextOutside = previous;
         m_NextOutside.Clear();
     }
 }
