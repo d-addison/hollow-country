@@ -100,6 +100,11 @@ TIER_KEY = 'MilitaryTierMultiplier'
 FIREARMS_KEY = 'FirearmsMultiplier'
 DAMAGE_KEY = 'LootDamageMax'
 REFILL_KEY = 'Refill'
+# GroupLootmaxCap {Default: n, usage: n}: the most a scaled group limit may grow to (GROUP_CAPACITY_CAP when absent).
+# A group takes the largest cap over its usages (a usage without an entry counts as Default); the group limit is
+# still clamped to the sum of its containers' capacity, so a cap above that sum changes nothing.
+GROUP_CAP_KEY = 'GroupLootmaxCap'
+MIN_GROUP_CAP, MAX_GROUP_CAP = 1, 400
 MIN_USAGE, MAX_USAGE = 1.0, 8.0
 MIN_TIER, MAX_TIER = 0.5, 4.0
 MIN_FIREARMS, MAX_FIREARMS = 1.0, 4.0
@@ -109,7 +114,7 @@ MIN_RESPAWN_FACTOR, MAX_RESPAWN_FACTOR = 0.25, 4.0
 TIERS = ('Tier1', 'Tier2', 'Tier3', 'Tier4')
 ROSTER_KINDS = ('weapon', 'magazine', 'ammo', 'attachment')
 MIN_MILITARY, MAX_MILITARY = 1.0, 3.0
-MIN_CAPACITY, MAX_CAPACITY = 1.0, 3.0
+MIN_CAPACITY, MAX_CAPACITY = 1.0, 4.0
 LEGACY_MILITARY_USAGES = ('Military', 'Police', 'Prison')
 GROUP_CAPACITY_CAP = 80  # a scaled group limit never grows past this (a larger stock limit is kept)
 # usageflags of the vanilla cfglimitsdefinition.xml
@@ -178,7 +183,8 @@ def _multiplier(value):
 
 def _settings(repo):
     doc = json.loads((Path(repo) / SETTINGS).read_bytes())
-    optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY, USAGE_KEY, TIER_KEY, FIREARMS_KEY, DAMAGE_KEY, REFILL_KEY}
+    optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY, USAGE_KEY, TIER_KEY, FIREARMS_KEY, DAMAGE_KEY, REFILL_KEY,
+                GROUP_CAP_KEY}
     if (not isinstance(doc, dict) or not {'schema', 'kind', 'Multiplier'} <= set(doc)
             or set(doc) - {'schema', 'kind', 'Multiplier'} - optional or doc['schema'] != 1
             or doc['kind'] != SETTINGS_KIND):
@@ -225,7 +231,7 @@ def _factor_map(value, what, usages, low, high):
 
 
 def _capacity_map(value):
-    """Validated {usage: factor}: usages from the vanilla CE list, factors within 1.0..3.0."""
+    """Validated {usage: factor}: usages from the vanilla CE list, factors within MIN_CAPACITY..MAX_CAPACITY (1.0..4.0)."""
     return _factor_map(value, CAPACITY_KEY, CE_USAGES, MIN_CAPACITY, MAX_CAPACITY)
 
 
@@ -272,12 +278,35 @@ def _refill(value):
     return out
 
 
+def _group_cap(value):
+    """Validated GroupLootmaxCap: {Default and/or CE usages: integer MIN_GROUP_CAP..MAX_GROUP_CAP}."""
+    if not isinstance(value, dict):
+        raise ValueError('%s must be a map' % GROUP_CAP_KEY)
+    out = {}
+    for key, cap in value.items():
+        if not isinstance(key, str) or (key != 'Default' and key not in CE_USAGES):
+            raise ValueError('%s: unknown name %r' % (GROUP_CAP_KEY, key))
+        if isinstance(cap, bool) or not isinstance(cap, int) or not MIN_GROUP_CAP <= cap <= MAX_GROUP_CAP:
+            raise ValueError('%s: %s must be an integer within %d..%d'
+                             % (GROUP_CAP_KEY, key, MIN_GROUP_CAP, MAX_GROUP_CAP))
+        out[key] = cap
+    return {key: out[key] for key in sorted(out)}
+
+
+def group_cap_of(group_cap, usages):
+    """The cap of a group over its usages: the largest entry (an unlisted usage counts as Default, which is
+    GROUP_CAPACITY_CAP when the map has none)."""
+    group_cap = group_cap or {}
+    default = group_cap.get('Default', GROUP_CAPACITY_CAP)
+    return max([group_cap.get(u, default) for u in usages] or [default])
+
+
 def knobs_of(doc):
     """The supply-side knobs of a settings document (validated; an absent key means off)."""
     return {'usage': _usage_map(doc.get(USAGE_KEY, {})), 'tier': _tier_map(doc.get(TIER_KEY, {})),
             'firearms': _firearms_map(doc.get(FIREARMS_KEY, {})),
             'loot_damage_max': (None if DAMAGE_KEY not in doc else _number(doc[DAMAGE_KEY], DAMAGE_KEY, 0.0, 1.0)),
-            'refill': _refill(doc.get(REFILL_KEY, {}))}
+            'refill': _refill(doc.get(REFILL_KEY, {})), 'group_cap': _group_cap(doc.get(GROUP_CAP_KEY, {}))}
 
 
 def default_knobs(repo=REPO_ROOT):
@@ -1195,15 +1224,16 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
     return output, report
 
 
-def scale_capacity_proto(data, capacity, placed=None):
+def scale_capacity_proto(data, capacity, placed=None, group_cap=None):
     """Raise group and container lootmax by a per-usage factor map (returns (bytes, report)).
 
     A group takes the largest factor of capacity over its usages (usages outside the map count 1.0; a map entry of
     1.0 or less changes nothing). In such a group every container that lists any category other than firearms and
     explosives gets min(points, ceil(lootmax x factor)): mixed containers scale, weapons-only/explosives-only
     containers, category-less containers and containers the floor policy zeroed keep their limit. The group limit
-    becomes min(container capacity, max(old, min(ceil(old x factor), GROUP_CAPACITY_CAP))), so a group already above
-    the cap keeps its value, a container never exceeds its points and a group never exceeds the sum of its
+    becomes min(container capacity, max(old, min(ceil(old x factor), cap))), where cap is the GroupLootmaxCap of the
+    group's usages (group_cap_of; GROUP_CAPACITY_CAP when the map has none), so a group already above the cap keeps
+    its value, a container never exceeds its points and a group never exceeds the sum of its
     containers: the checks of _verify_proto_caps still hold. Only CE-owned limits move; points, tags, categories and
     every other byte stay. Re-applying to its own output is not meant to be idempotent: the install runs it once per
     receipted install, from the mission's own stock bytes. placed maps group name -> placed buildings for the
@@ -1246,7 +1276,8 @@ def scale_capacity_proto(data, capacity, placed=None):
                 edits.append((start, start + len(cm.group(0)), _with_lootmax(cm.group(0), new)))
                 report['containers'] += 1
             total += min(new, points)
-        new_limit = min(total, max(limit, min(ceil_scaled(limit, factor), GROUP_CAPACITY_CAP)))
+        cap = group_cap_of(group_cap, [u.get('name') for u in group.findall('usage')])
+        new_limit = min(total, max(limit, min(ceil_scaled(limit, factor), cap)))
         if new_limit != limit or group.get('lootmax') is None:
             edits.append((opening.start(), opening.end(), _with_lootmax(opening.group(0), new_limit)))
         count = (placed or {}).get(group.get('name'), 0)
@@ -1347,11 +1378,11 @@ def _effective_knobs(knobs):
     """The knobs a plan uses: a dict like default_knobs (validated; a missing key is off) or the settings file's."""
     if knobs is None:
         return default_knobs()
-    unknown = set(knobs) - {'usage', 'tier', 'firearms', 'loot_damage_max', 'refill'}
+    unknown = set(knobs) - {'usage', 'tier', 'firearms', 'loot_damage_max', 'refill', 'group_cap'}
     if unknown:
         raise ValueError('unknown loot boost knobs: %s' % ', '.join(sorted(unknown)))
     doc = {USAGE_KEY: knobs.get('usage', {}), TIER_KEY: knobs.get('tier', {}), FIREARMS_KEY: knobs.get('firearms', {}),
-           REFILL_KEY: knobs.get('refill', {})}
+           REFILL_KEY: knobs.get('refill', {}), GROUP_CAP_KEY: knobs.get('group_cap', {})}
     if knobs.get('loot_damage_max') is not None:
         doc[DAMAGE_KEY] = knobs['loot_damage_max']
     return knobs_of(doc)
@@ -1442,7 +1473,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         placed = {}
         for group in economy.xml(pos_after, 'map').findall('group'):
             placed[group.get('name')] = placed.get(group.get('name'), 0) + 1
-    proto_after, counts['capacity'] = scale_capacity_proto(proto_after, capacity, placed)
+    proto_after, counts['capacity'] = scale_capacity_proto(proto_after, capacity, placed, knobs['group_cap'])
     spread_outputs = []
     counts['spread_types'] = {}
     for name, before, after in outputs:
@@ -1764,6 +1795,8 @@ def describe(result):
         lines.append('  firearms %s: %s' % (_show_map(supply['firearms']), ', '.join(
             '%s %d->%d' % (k, roster[k][0], roster[k][1]) for k in ROSTER_KINDS if k in roster) or 'no roster rows'))
         refill = supply['refill']
+        lines.append('  group lootmax cap %s (default %d when unlisted; clamped to container capacity)'
+                     % (_show_map(supply.get('group_cap', {})) or '{}', GROUP_CAPACITY_CAP))
         lines.append('  refill: restock >= %ds (rows raised %d; 0 = today), RespawnTypes x%s (1.0 = today); '
                      'LootDamageMax ceiling %s (none = stock)'
                      % (refill['RestockMin'], stats.get('restock_rows', 0), refill['RespawnTypesFactor'],

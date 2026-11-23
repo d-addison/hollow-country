@@ -5,14 +5,14 @@
   "UsageMultiplier": {
     "Farm": 3.7,
     "Firefighter": 7.0,
-    "Hunting": 3.5,
+    "Hunting": 2.2,
     "Industrial": 3.5,
-    "Medic": 3.8,
+    "Medic": 3.5,
     "Military": 3.5,
     "Office": 2.0,
-    "Police": 3.5,
-    "Prison": 5.0,
-    "School": 2.5,
+    "Police": 2.8,
+    "Prison": 4.3,
+    "School": 1.6,
     "Town": 4.0,
     "Village": 3.4
   },
@@ -34,12 +34,24 @@
     "RespawnTypesFactor": 1.0
   },
   "CapacityMultiplier": {
-    "Farm": 1.25,
-    "Hunting": 1.5,
-    "Military": 1.5,
-    "Police": 2.0,
-    "Prison": 3.0,
-    "School": 2.0
+    "Farm": 3.0,
+    "Firefighter": 1.6,
+    "Hunting": 3.0,
+    "Medic": 4.0,
+    "Military": 4.0,
+    "Police": 4.0,
+    "Prison": 4.0,
+    "School": 2.5,
+    "Town": 1.2
+  },
+  "GroupLootmaxCap": {
+    "Default": 80,
+    "Medic": 200,
+    "Military": 200,
+    "Police": 400,
+    "Prison": 400,
+    "School": 160,
+    "Town": 160
   },
   "CategoryMultiplier": {
     "containers": 2.0,

@@ -153,6 +153,28 @@ class CapacityMap(unittest.TestCase):
         output, _ = boost.scale_capacity_proto(data, {'Military': 2.0})
         self.assertEqual(int(ET.fromstring(output).find('group').get('lootmax')), 90)
 
+    def test_group_cap_knob_raises_the_ceiling_per_usage_and_is_clamped_to_container_capacity(self):
+        data = military_proto(group_limit=60, containers=[('Shelf', 'tools', 100, 200)])
+        for cap, want in ((None, 80), ({}, 80), ({'Default': 70}, 70), ({'Military': 150}, 120),
+                          ({'Military': 400}, 120), ({'Police': 150}, 80), ({'Default': 1}, 60)):
+            with self.subTest(cap=cap):
+                output, _ = boost.scale_capacity_proto(data, {'Military': 2.0}, None, cap)
+                self.assertEqual(int(ET.fromstring(output).find('group').get('lootmax')), want)  # ceil(60 x 2) = 120
+        data = military_proto(group_usage='Farm,Military', group_limit=60, containers=[('Shelf', 'tools', 100, 200)])
+        output, _ = boost.scale_capacity_proto(data, {'Military': 2.0}, None, {'Default': 70, 'Farm': 100})
+        self.assertEqual(int(ET.fromstring(output).find('group').get('lootmax')), 100)  # largest cap over the usages
+        data = military_proto(group_limit=6, containers=[('Shelf', 'tools', 4, 4), ('Gun', 'weapons', 2, 2)])
+        output, _ = boost.scale_capacity_proto(data, {'Military': 3.0}, None, {'Military': 400})
+        self.assertEqual(int(ET.fromstring(output).find('group').get('lootmax')), 6)  # container capacity wins
+
+    def test_group_cap_validation(self):
+        self.assertEqual(boost.knobs_of({})['group_cap'], {})
+        self.assertEqual(boost.knobs_of({'GroupLootmaxCap': {'Town': 160, 'Default': 90}})['group_cap'],
+                         {'Default': 90, 'Town': 160})
+        for bad in ({'Nowhere': 90}, {'Town': 0}, {'Town': 401}, {'Town': 90.5}, {'Town': True}, {'Default': 'x'}, []):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                boost.knobs_of({'GroupLootmaxCap': bad})
+
     def test_group_cannot_exceed_container_capacity(self):
         data = military_proto(group_limit=6, containers=[('Shelf', 'tools', 4, 4), ('Gun', 'weapons', 2, 2)])
         output, _ = boost.scale_capacity_proto(data, {'Military': 3.0})
@@ -297,7 +319,7 @@ class Settings(unittest.TestCase):
                 boost.default_capacity_map(tmp)
 
     def test_bad_values_are_refused(self):
-        for bad in ({'Nowhere': 1.5}, {'Town': 0.9}, {'Town': 3.1}, {'Town': True}, {'Town': 'x'},
+        for bad in ({'Nowhere': 1.5}, {'Town': 0.9}, {'Town': 4.1}, {'Town': True}, {'Town': 'x'},
                     {'Town': float('nan')}, [], {1: 2}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost._capacity_map(bad)
@@ -454,6 +476,7 @@ class PlanFromStock(unittest.TestCase):
 SUPPLY_A = (', "UsageMultiplier": {"Town": 3.0}, "MilitaryTierMultiplier": {"Tier4": 2.0},'
             ' "FirearmsMultiplier": {"weapon": 2.0}, "LootDamageMax": 0.6, "Refill": {"RestockMin": 5000}')
 SUPPLY_B = ', "UsageMultiplier": {"Police": 2.5}'
+SUPPLY_A = SUPPLY_A + ', "GroupLootmaxCap": {"Default": 90, "Town": 160}'
 
 
 def supply_row(name, usages, nominal=10, minimum=6, category='tools', tiers=(), restock=300):
@@ -539,6 +562,8 @@ class SupplyKnobs(unittest.TestCase):
                       'Industrial', 'School'):
             self.assertIn(usage, knobs['usage'])
         self.assertEqual(knobs['refill'], {'RestockMin': 0, 'RespawnTypesFactor': 1.0})  # today's behaviour
+        for usage in ('Town', 'Military', 'Police', 'Prison', 'Medic', 'School'):
+            self.assertGreater(knobs['group_cap'][usage], boost.GROUP_CAPACITY_CAP)
 
 
 class GlobalsKnobs(unittest.TestCase):
@@ -633,6 +658,7 @@ class PlanSupply(unittest.TestCase):
             self.assertEqual(receipt['knobs']['usage'], {'Town': 3.0})
             self.assertEqual(receipt['knobs']['loot_damage_max'], 0.6)
             self.assertEqual(receipt['knobs']['refill']['RestockMin'], 5000)
+            self.assertEqual(receipt['knobs']['group_cap'], {'Default': 90, 'Town': 160})
             self.assertEqual(receipt['counts']['globals']['LootDamageMax'], '0.82->0.6')
             installed = (mission / 'db/globals.xml').read_bytes()
             self.assertEqual(boost.globals_from_report(GlobalsKnobs.STOCK, receipt['counts']['globals']), installed)
@@ -677,7 +703,7 @@ class PlanSupply(unittest.TestCase):
             (mission / 'db/globals.xml').write_text(GlobalsKnobs.STOCK.decode())
             text = '\n'.join(boost.describe(boost.plan(mission, **PLAN)))
             for needle in ('usage targets {Town: 3.0}', 'military tiers {Tier4: 2.0}', 'firearms {weapon: 2.0}',
-                           'refill: restock >= 5000s', 'LootDamageMax=0.82->0.6', 'attachment coverage'):
+                           'refill: restock >= 5000s', 'group lootmax cap {Default: 90, Town: 160}', 'LootDamageMax=0.82->0.6', 'attachment coverage'):
                 self.assertIn(needle, text)
 
 
