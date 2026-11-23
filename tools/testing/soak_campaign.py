@@ -1000,6 +1000,13 @@ def tail_lines(path, offset):
     return data[:end].decode('utf-8', errors='replace').replace('\r', '').split('\n'), offset + end + 1
 
 
+def require_processes_stopped(host, action):
+    for image in PROCESS_IMAGES:
+        state = host.state(image)
+        if state != 'gone':
+            raise Refused('%s refused: %s is not stopped (state=%s)' % (action, image, state))
+
+
 class Campaign:
     """The lead's run. Every process and clock interaction goes through host/clock so tests never start DayZ."""
 
@@ -1010,10 +1017,7 @@ class Campaign:
         self.sleep, self.now, self.log, self.win = sleep, now, log, win
 
     def preflight(self):
-        for image in PROCESS_IMAGES:
-            state = self.host.state(image)
-            if state != 'gone':
-                raise Refused('refused: %s state=%s (no server or client may run, so no player is connected)' % (image, state))
+        require_processes_stopped(self.host, 'run')
         if self.stager.load() is not None:
             raise Refused('a staged test profile exists; run restore first')
         if manual_problems(self.phases) or unmapped(self.phases):
@@ -1478,10 +1482,7 @@ def main(argv=None, *, host=None, out=None):
         host = host or WindowsHost()
         if args.mode == 'restore':
             with host_lock('soak_campaign'):
-                for image in PROCESS_IMAGES:
-                    state = host.state(image)
-                    if state != 'gone':
-                        raise Refused('restore refused: %s is not stopped (state=%s)' % (image, state))
+                require_processes_stopped(host, 'restore')
                 stager.restore(log=lambda text: print(text, file=out))
             return 0
         if client is None:
@@ -1490,6 +1491,7 @@ def main(argv=None, *, host=None, out=None):
         script = step_script(selection['phases'] if selection else PHASE_ORDER)
         if args.mode == 'stage':
             with host_lock('soak_campaign'):
+                require_processes_stopped(host, 'stage')
                 addon = Path(test_addon.build()['path'])
                 for line in stager.stage(addon, script):
                     print('staged [%s] %s' % line, file=out)
@@ -1502,7 +1504,7 @@ def main(argv=None, *, host=None, out=None):
                                 addon_build=lambda: Path(test_addon.build()['path']),
                                 log=lambda text: print(text, file=out, flush=True))
             campaign.run()
-        return command_report(phases, args.state_dir, out)
+            return command_report(phases, args.state_dir, out)
     except (OSError, ValueError, KeyError, InteropError) as error:
         if not isinstance(error, (Refused, LockRefused)):
             error = Refused('%s (path withheld)' % describe_failure(error))
