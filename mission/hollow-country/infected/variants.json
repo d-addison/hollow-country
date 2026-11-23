@@ -5688,7 +5688,9 @@
     "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once",
     "hc_variants": "All 19 stock infected event families receive outfit-preserving male/female Sitter/Sleeper/Riser/Feeder/Crawler children, data-derived by tools.anim.ce_variants. Weight share floor(total/10), minimum five integer units to expose all modes: 9.4-10% normally, NBCYellow 5/10 (50%). Positive donors, unchanged event min/max sums and population_delta=0; MaxPosed and admission retained. Both sexes inherit identical ZombieBase.enfanimsys in the hash-pinned addon; generated stock bases validated at build. #315 constructor fix landed; native playback/skin/wake pending.",
     "EnableComposition": true,
-    "EnableAccessories": true
+    "EnableAccessories": true,
+    "EnableKits": true,
+    "kits": "cargo role kits and visible worn-gear variety on stock Zmb rows (#339); needs EnableAccessories; the receipt records files, policy and generator version"
   },
   "palette_rebalance": {
     "issue": 316,
@@ -6458,6 +6460,7 @@
       ]
     },
     "explicit_classes": {
+      "HC_ZmbM_Sitter": "ZmbM_HermitSkinny_Beige",
       "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn": "ZmbM_PatrolNormal_Autumn",
       "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat": "ZmbM_PatrolNormal_Flat",
       "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev": "ZmbM_PatrolNormal_PautRev",
@@ -6604,7 +6607,218 @@
       "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red": "ZmbM_JoggerSkinny_Red",
       "HC_ZmbM_Riser_ZmbM_VillagerOld_Green": "ZmbM_VillagerOld_Green"
     },
-    "constraints": "Only stock preset items; no new armour or occurrence increase; cargo untouched; crawler copies parent attachments only (no cargo); all original positive item choices remain positive."
+    "constraints": "Only stock preset items; no new armour or occurrence increase; an HC child row copies its parent row (cargo and attachments); a parent without a stock row uses the listed family sibling; all original positive item choices remain positive.",
+    "parent_fallbacks": {
+      "ZmbM_usSoldier_normal_Woodland": "ZmbM_usSoldier_normal_Desert"
+    }
+  },
+  "infected_kits": {
+    "schema_version": 1,
+    "issue": 339,
+    "runtime_acceptance": "PENDING",
+    "roles": {
+      "soldier": {
+        "segment_prefixes": [
+          "PatrolNormal",
+          "SoldierNormal",
+          "usSoldier",
+          "takiSoldier",
+          "IonSoldier"
+        ],
+        "presets": [
+          "hc_kit_soldier_ammo",
+          "hc_kit_soldier_aid"
+        ]
+      },
+      "police": {
+        "segment_prefixes": [
+          "Police",
+          "takiPolice"
+        ],
+        "presets": [
+          "hc_kit_police_mag",
+          "hc_kit_police_cuffs"
+        ]
+      },
+      "hunter": {
+        "segment_prefixes": [
+          "HunterOld"
+        ],
+        "presets": [
+          "hc_kit_hunter_ammo",
+          "hc_kit_hunter_knife"
+        ]
+      },
+      "medic": {
+        "segment_prefixes": [
+          "Doctor",
+          "Nurse",
+          "Paramedic"
+        ],
+        "presets": [
+          "hc_kit_medic_dress",
+          "hc_kit_medic_drugs"
+        ]
+      }
+    },
+    "presets": {
+      "hc_kit_soldier_ammo": {
+        "chance": "0.15",
+        "items": [
+          {
+            "name": "Mag_STANAG_30Rnd",
+            "chance": "0.20"
+          },
+          {
+            "name": "Mag_AKM_30Rnd",
+            "chance": "0.20"
+          },
+          {
+            "name": "Mag_CMAG_30Rnd",
+            "chance": "0.15"
+          },
+          {
+            "name": "Mag_AK101_30Rnd",
+            "chance": "0.15"
+          },
+          {
+            "name": "AmmoBox_556x45_20Rnd",
+            "chance": "0.15"
+          },
+          {
+            "name": "AmmoBox_762x39_20Rnd",
+            "chance": "0.15"
+          }
+        ]
+      },
+      "hc_kit_soldier_aid": {
+        "chance": "0.12",
+        "items": [
+          {
+            "name": "BandageDressing",
+            "chance": "1.00"
+          }
+        ]
+      },
+      "hc_kit_police_mag": {
+        "chance": "0.20",
+        "items": [
+          {
+            "name": "Mag_CZ75_15Rnd",
+            "chance": "0.35"
+          },
+          {
+            "name": "Mag_Glock_15Rnd",
+            "chance": "0.35"
+          },
+          {
+            "name": "Mag_FNX45_15Rnd",
+            "chance": "0.30"
+          }
+        ]
+      },
+      "hc_kit_police_cuffs": {
+        "chance": "0.12",
+        "items": [
+          {
+            "name": "Handcuffs",
+            "chance": "1.00"
+          }
+        ]
+      },
+      "hc_kit_hunter_ammo": {
+        "chance": "0.20",
+        "items": [
+          {
+            "name": "Ammo_308Win",
+            "chance": "0.30"
+          },
+          {
+            "name": "Ammo_762x54",
+            "chance": "0.25"
+          },
+          {
+            "name": "Ammo_762x39",
+            "chance": "0.20"
+          },
+          {
+            "name": "Ammo_22",
+            "chance": "0.25"
+          }
+        ]
+      },
+      "hc_kit_hunter_knife": {
+        "chance": "0.12",
+        "items": [
+          {
+            "name": "HuntingKnife",
+            "chance": "1.00"
+          }
+        ]
+      },
+      "hc_kit_medic_dress": {
+        "chance": "0.25",
+        "items": [
+          {
+            "name": "BandageDressing",
+            "chance": "1.00"
+          }
+        ]
+      },
+      "hc_kit_medic_drugs": {
+        "chance": "0.15",
+        "items": [
+          {
+            "name": "DisinfectantSpray",
+            "chance": "0.35"
+          },
+          {
+            "name": "TetracyclineAntibiotics",
+            "chance": "0.35"
+          },
+          {
+            "name": "CharcoalTablets",
+            "chance": "0.30"
+          }
+        ]
+      }
+    },
+    "worn_gear": {
+      "slot_transfers": [
+        {
+          "from": "hatsArmy",
+          "to": "bagsArmy",
+          "chance": "0.06"
+        },
+        {
+          "from": "hatsArmy",
+          "to": "vestsArmy",
+          "chance": "0.06"
+        }
+      ],
+      "item_transfers": {
+        "vestsArmy": [
+          {
+            "from": "UKAssVest_Olive",
+            "to": "SmershVest",
+            "chance": "0.05"
+          }
+        ],
+        "bagsHunter": [
+          {
+            "from": "ArmyPouch_Beige",
+            "to": "HuntingBag",
+            "chance": "0.10"
+          },
+          {
+            "from": "ArmyPouch_Green",
+            "to": "CourierBag",
+            "chance": "0.05"
+          }
+        ]
+      }
+    },
+    "constraints": "Cargo presets named hc_kit_*, attached by role (class-name segment) to stock Zmb rows; an HC child copies its parent row, so it carries the same kit. Vanilla items only, preset chance 0.10-0.25, at most two kit presets per row, civilians unchanged. Worn gear only moves probability between attachment slots a row already has and between items of a preset the row already names; no new slot, no new item, no weapon slot."
   },
   "ce_pose_coverage": {
     "InfectedArmy": {

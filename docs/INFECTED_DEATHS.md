@@ -218,3 +218,80 @@ The override adds one config integer lookup, one pure policy call and at most 16
 log lines per process, on the server only, once per kill. There are no loops,
 timers, RPCs, entities or persisted state, so cost does not grow with horde
 size. This bound is by construction and has not been measured on target load.
+
+---
+
+## Role kits and visible gear on infected (#339)
+
+Offline generator work in `tools/package/infected_variety.py`; policy in
+`mission/hollow-country/infected/variants.json` (`infected_kits`, `accessories.parent_fallbacks`).
+Runtime acceptance is PENDING: install summaries are offline evidence only.
+
+### HC child parity
+
+Every `HC_Zmb*` child (146 classes) gets a `cfgspawnabletypes.xml` row that is a renamed copy of its
+parent row: same cargo and attachments. `HC_ZmbM_Sitter` has an explicit parent
+(`ZmbM_HermitSkinny_Beige`). The vanilla parent `ZmbM_usSoldier_normal_Woodland` has no stock row, so its
+children copy the Desert soldier row (`accessories.parent_fallbacks`). The generator refuses to build if a
+child has no source row. A child is empty only when its parent row is empty (`ZmbF_PatientOld`).
+The vanilla Woodland parent itself stays bare; only its HC children carry gear.
+Plan line: `hc_children parity=146/146 missing=0`.
+
+### Role kits
+
+Cargo presets `hc_kit_*` are appended to `cfgrandompresets.xml` (after a marker comment) and referenced
+from vanilla and HC rows by the role in the class name family. Vanilla items only, no pack classes.
+Preset chance is 0.10 to 0.25, at most 2 kit presets per row, civilian rows are unchanged.
+
+| Role (name segments) | Preset | Chance | Items |
+| --- | --- | --- | --- |
+| soldier (PatrolNormal, SoldierNormal, usSoldier, takiSoldier, IonSoldier) | hc_kit_soldier_ammo | 0.15 | STANAG, AKM, CMAG, AK101 magazines, 5.56 and 7.62x39 ammo boxes |
+| | hc_kit_soldier_aid | 0.12 | BandageDressing |
+| police (Police, takiPolice) | hc_kit_police_mag | 0.20 | CZ75, Glock, FNX45 magazines |
+| | hc_kit_police_cuffs | 0.12 | Handcuffs |
+| hunter (HunterOld) | hc_kit_hunter_ammo | 0.20 | .308, 7.62x54, 7.62x39, .22 ammo |
+| | hc_kit_hunter_knife | 0.12 | HuntingKnife |
+| medic (Doctor, Nurse, Paramedic) | hc_kit_medic_dress | 0.25 | BandageDressing |
+| | hc_kit_medic_drugs | 0.15 | DisinfectantSpray, TetracyclineAntibiotics, CharcoalTablets |
+
+Item weights inside a preset are relative. Preset and item weight semantics are taken from the stock
+presets file and are unobserved in game.
+
+### Expected extra supply
+
+Kit items are extra loot, not drawn from `types.xml` counts (the preset items are mostly
+`count_in_cargo=0`); `types.xml` flags are not changed (#347). Estimate per row: infected events
+active x nominal x child weight share x sum of the row's kit preset chances. With the stock events
+(16 active infected events, nominal 50 each, about 800 infected, matching ZombieMaxCount) the generator
+estimates about 74 extra items across the whole population when all infected are alive, from 88 kit
+rows. Plan line from the stock mission files: `infected kits rows=88 presets=8 expected_extra_items~74`.
+The nominal is an assumption; the live count depends on how many infected CE actually spawns.
+
+### Visible worn gear
+
+Only vanilla attachment presets on slots a row already has; no new slots, no weapon on back.
+`worn_gear.slot_transfers` move 0.06 each from hatsArmy to bagsArmy and vestsArmy (skipped when the row
+lacks that slot; each row's total slot probability is unchanged). `worn_gear.item_transfers` shift weight
+inside presets: UKAssVest_Olive to SmershVest (0.05), ArmyPouch_Beige to HuntingBag (0.10), ArmyPouch_Green
+to CourierBag (0.05). All transfers are net zero.
+
+### Upgrade path
+
+The infected receipt (`hollow-country-infected/receipt.json` in the mission folder) now covers three files
+(events, spawnable types, random presets) and records `kits_policy_sha256` and `generator`
+(`GENERATOR_VERSION`). Installing over a receipt from before kits, or one with a different policy or
+generator, is refused with "rollback first"; rollback restores the stock bytes and the next install
+reapplies. A receipt without a presets entry still rolls back. A second install is a no-op. Rollback also
+refuses when the kit marker is in `cfgrandompresets.xml` but the receipt is gone.
+`friend_install.overlay_fingerprint` folds the sha of `variants.json`, so the policy change is seen.
+`EnableKits` in `mix_policy` turns the kits off; parity stays on with `EnableAccessories`.
+
+### DayZDiag experiment plan: weapon on an infected back (lead-only, not built)
+
+Question: does an infected model show a weapon in a back or shoulder slot? `ZombieBase.CanReceiveAttachment`
+(native scripts cache) is the only confirmed gate and no weapon or back slot is confirmed on the models.
+Plan for the lead, in DayZDiag only (never retail): spawn one `ZmbM_PatrolNormal_Autumn`, list its
+`GetInventory().GetAttachmentSlotsCount()` and slot names; attempt `CreateAttachment` of a vanilla
+rifle in each slot that accepts it and record the result; if one attaches, check client visibility and
+that the weapon drops on death. Evidence is "diag evidence" and closes nothing alone. Until that result
+exists, no back weapon is shipped.
