@@ -30,6 +30,9 @@ class Generator:
     # Generators whose outputs are bound in config/generated-digests.json; a repo-local derived
     # document set (the pitfall cards) is compared by its own --check and has no digest contract.
     digest: bool = True
+    # Seconds per child when the global --timeout is lower (0 = use the global value). Set only from a
+    # measured worst case with 3x headroom, never as a blanket raise.
+    timeout: int = 0
 
 
 # All check-capable generators live here, including positional check subcommands.
@@ -37,8 +40,12 @@ GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
+    # Measured 2026-11-22 on this WSL host (118 vanilla PBOs on /mnt/d, 13 Workshop dirs on /mnt/g):
+    # the --check child takes 6-7 s; the digest compare child takes 17-22 s because
+    # generated_digests.py still indexes every PBO with the byte-at-a-time audit reader, and its
+    # --write grandchild adds 6-7 s. Worst 22 s x 3 = 66 s, so 70 s per child.
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
-              ('addons', 'inventory_stack')),
+              ('addons', 'inventory_stack'), timeout=70),
     Generator('variety_packs', ('--check', '--addons', '{addons}', '--workshop', '{workshop}', '--source', '{source}'),
               ('addons', 'source', 'variety_packs')),
     Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
@@ -113,6 +120,7 @@ def missing_inputs(generator, values):
 
 
 def check_generator(generator, values, timeout):
+    timeout = max(timeout, generator.timeout)
     missing = missing_inputs(generator, values)
     if missing:
         return 'SKIP', missing

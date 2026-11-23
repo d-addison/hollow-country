@@ -142,6 +142,7 @@ def load_vanilla(addons):
 def merge_documents(documents):
     """Dependency order first, declared source/PBO/member order for independent ties."""
     all_patches = {p for doc in documents for p in doc['patches']}
+    known = {p.lower() for p in all_patches}
     definitions, loaded, pending = {}, set(), documents[:]
     while pending:
         progressed = False
@@ -149,7 +150,6 @@ def merge_documents(documents):
             dependencies = {dep.lower() for p in doc['patches'].values()
                             for dep in p.get('requiredAddons', [])}
             local = {p.lower() for p in doc['patches']}
-            known = {p.lower() for p in all_patches}
             if not ((dependencies & known) - local) <= loaded:
                 continue
             for identity, row in doc['rows'].items():
@@ -324,13 +324,19 @@ def select_changes(definitions, rules, audit=None):
         changes[key].update(property=prop, vanilla=old, new=new, category=category)
     # Do not let excluded descendants inherit a reduced shell or non-backpacks
     # inherit enlarged cargo. Removing a proposal may protect another ancestor.
+    # One pass indexes every class under each ancestor; the removal rounds then visit only the
+    # descendants of a proposed key instead of re-lowering every class's ancestry per proposal.
+    descendants = {}
+    for child_key, child in resolved.items():
+        for ancestor in {a.lower() for a in child['ancestors']}:
+            if ancestor != child_key:
+                descendants.setdefault(ancestor, []).append(child_key)
     while True:
         remove = set()
         for key, change in changes.items():
             prop = change['property']
-            for child_key, child in resolved.items():
-                if child_key == key or key not in {a.lower() for a in child['ancestors']}:
-                    continue
+            for child_key in descendants.get(key, ()):
+                child = resolved[child_key]
                 intervening = []
                 for ancestor in [child['name'], *child['ancestors']]:
                     if ancestor.lower() == key:

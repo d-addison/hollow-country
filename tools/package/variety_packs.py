@@ -104,10 +104,9 @@ def read_configs(directory):
     """(rows, digests): {(root, name): row} merged field-wise in sorted PBO order; digests pin the config bytes."""
     rows, digests = {}, {}
     for path in sorted(Path(directory).glob('*.pbo'), key=lambda p: p.name.lower()):
-        index = reader.read_pbo_index(path)
+        index = inventory_sources.read_index(path)
         members = {}
-        for member in _members(path, index):
-            data = reader.read_member(path, index, member)
+        for member, data in inventory_sources.iter_members(path, index, list(_members(path, index))):
             members[member] = hashlib.sha256(data).hexdigest()
             if data[:4] == b'\0raP':
                 found = _rap_rows(data)
@@ -130,11 +129,10 @@ def script_tokens(directory):
     """Identifiers that appear in a pack's script members (read only, used to prove a crafted class is producible)."""
     tokens = set()
     for path in sorted(Path(directory).glob('*.pbo'), key=lambda p: p.name.lower()):
-        index = reader.read_pbo_index(path)
-        for entry in index['entries']:
-            if entry['name'].lower().endswith('.c'):
-                data = reader.read_member(path, index, entry['name'])
-                tokens.update(re.findall(rb'[A-Za-z_][A-Za-z0-9_]*', data))
+        index = inventory_sources.read_index(path)
+        scripts = [e['name'] for e in index['entries'] if e['name'].lower().endswith('.c')]
+        for _, data in inventory_sources.iter_members(path, index, scripts):
+            tokens.update(re.findall(rb'[A-Za-z_][A-Za-z0-9_]*', data))
     return {t.decode('ascii') for t in tokens}
 
 
