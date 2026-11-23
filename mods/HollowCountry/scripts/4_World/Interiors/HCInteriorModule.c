@@ -182,6 +182,8 @@ class HCInteriorsModule : HCModule
         }
         HCInteriorMeasuredCatalog.MeasuredClear();
         // Owned nonpersistent decorations only. Never remove generated/player items.
+        // Deleted furniture leaves its navmesh cut behind: capture the boxes first, refresh after.
+        HCInteriorPathgraph.QueueRemoval(m_Objects);
         foreach (Object object : m_Objects)
         {
             if (object) GetGame().ObjectDelete(object);

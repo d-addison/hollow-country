@@ -36,6 +36,15 @@ class HCPathgraphRefresh
         return object.CanAffectPathgraph();
     }
 
+    // Honours the object's own config (SetAffectPathgraph fromConfig=true, Object.c:344): furniture
+    // whose model says it must not cut the navmesh stays out of it. Prepare stays the forcing variant.
+    static bool PrepareRespectConfig(Object object)
+    {
+        if (!object) { return false; }
+        object.SetAffectPathgraph(true, false);
+        return object.CanAffectPathgraph();
+    }
+
     static bool Mark(Object object)
     {
         if (!Prepare(object)) { return false; }
@@ -46,6 +55,26 @@ class HCPathgraphRefresh
     bool Include(Object object)
     {
         if (!Prepare(object)) { SkippedNoGeom++; return false; }
+        return IncludeBounds(object);
+    }
+
+    // Same bounds as Include, with the object's own config deciding whether it cuts the navmesh.
+    bool IncludeRespectConfig(Object object)
+    {
+        if (!PrepareRespectConfig(object)) { SkippedNoGeom++; return false; }
+        return IncludeBounds(object);
+    }
+
+    // Removal capture: the prop is about to be deleted, so only a prop that currently cuts the
+    // navmesh leaves a stale hole. No influence flag is changed.
+    bool IncludeRemoved(Object object)
+    {
+        if (!object || !object.CanAffectPathgraph()) { return false; }
+        return IncludeBounds(object);
+    }
+
+    protected bool IncludeBounds(Object object)
+    {
         vector clip[2];
         float radius = object.ClippingInfo(clip);
         if (radius <= 0) { SkippedNoGeom++; return false; }

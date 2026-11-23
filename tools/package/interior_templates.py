@@ -55,6 +55,9 @@ MIN_ROOM_CELLS = 4
 ANCHOR_SPACING = 1.0
 DOOR_SWING = 1.2
 DOOR_FLOOR_MARGIN = 0.6
+# Runtime HCInteriorTemplatePlacement.STAIR_LANDING_MARGIN: floor clearance around the rising cells,
+# so a prop never sits on the landing at either end of a stair.
+STAIR_LANDING_MARGIN = 0.3
 STAIR_MIN_RISE, STAIR_MAX_RISE = 0.35, 1.0
 INSTANCE_RADIUS = 0.75
 SLOT_GAP = 0.3
@@ -645,6 +648,13 @@ def _place(kind, room, lattice, step, keepouts, taken, specs=None, check=None):
         for keep in keepouts:
             if keep["Kind"] == "door":
                 if _overlap(bounds, keep, DOOR_FLOOR_MARGIN + EPS, (0, 2)):
+                    return None
+            elif keep["Kind"] == "stair":
+                # Same rule as the runtime and the pack validator: vertical overlap plus Euclidean floor gap.
+                gap_x = max(0.0, keep["Min"][0] - bounds["Max"][0], bounds["Min"][0] - keep["Max"][0])
+                gap_z = max(0.0, keep["Min"][2] - bounds["Max"][2], bounds["Min"][2] - keep["Max"][2])
+                if (bounds["Max"][1] >= keep["Min"][1] and bounds["Min"][1] <= keep["Max"][1]
+                        and math.hypot(gap_x, gap_z) < STAIR_LANDING_MARGIN + EPS):
                     return None
             # The reader rejects touching faces as well as positive-volume intersections.
             elif all(bounds["Max"][i] >= keep["Min"][i] and bounds["Min"][i] <= keep["Max"][i] for i in range(3)):

@@ -336,6 +336,8 @@ class FrameAndShapeTests(unittest.TestCase):
             for keep in t["KeepOuts"]:
                 if keep["Kind"] == "door":
                     self.assertFalse(overlap(slot["Bounds"], keep, 0.6, (0, 2)), "door floor margin below 0.6 m")
+                elif keep["Kind"] == "stair":
+                    self.assertFalse(overlap(slot["Bounds"], keep, 0.3, (0, 2)), "stair landing margin below 0.3 m")
                 else:
                     self.assertFalse(overlap(slot["Bounds"], keep), keep["Kind"])
             self.assertEqual(slot["Orientation"][1:], [0, 0])
@@ -406,6 +408,24 @@ class CatalogGrowthTests(unittest.TestCase):
                             corner=[slot['Position'][0]+rx,slot['Position'][1]+y,slot['Position'][2]+rz]
                             self.assertTrue(tpl._point_inside(slot['Bounds'],corner), (slot,corner))
                 self.assertTrue(tpl._point_inside(slot['Bounds'],slot['Position']))
+
+    def test_a_prop_is_never_placed_on_a_stair_landing(self):
+        raw = b'SYNTHETIC\n[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<-0.3 0.0 -0.3> max=<0.3 1.8 0.3>\n'
+        specs = tpl.prop_specs(tpl._dump(tpl.ingest_boxes(raw)))
+        cells = [dict(x=x, z=z, y=0, clearance=3) for x in (-2.5,-1.5,-.5,.5,1.5,2.5)
+                 for z in (-2.5,-1.5,-.5,.5,1.5,2.5)]
+        members = [(round(c['x']+2.5),round(c['z']+2.5),0) for c in cells]
+        room = dict(id=1,members=members,cells=dict(zip(members,cells)),
+                    box=dict(Min=[-3,0,-3],Max=[3,3,3]))
+        stair = dict(Kind="stair", Min=[-2.9, 0.0, -2.9], Max=[1.0, 2.0, -2.0])
+        free = tpl._place('StaticObj_Furniture_case_a', room, (-2.5,-2.5), 1, [], {'slots':[],'cells':{}}, specs)
+        slot = tpl._place('StaticObj_Furniture_case_a', room, (-2.5,-2.5), 1, [stair], {'slots':[],'cells':{}}, specs)
+        self.assertNotEqual(free['Bounds'], slot['Bounds'])
+        self.assertIsNotNone(slot)
+        low, high = slot['Bounds']['Min'], slot['Bounds']['Max']
+        gap_x = max(0.0, stair['Min'][0] - high[0], low[0] - stair['Max'][0])
+        gap_z = max(0.0, stair['Min'][2] - high[2], low[2] - stair['Max'][2])
+        self.assertGreaterEqual((gap_x ** 2 + gap_z ** 2) ** 0.5, tpl.STAIR_LANDING_MARGIN)
 
     def test_ingestion_refuses_malformed_unknown_conflicting_or_empty_measurements(self):
         good = '[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<-0.5 0 -0.3> max=<0.5 2 0.3>'

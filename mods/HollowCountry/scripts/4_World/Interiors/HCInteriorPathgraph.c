@@ -5,6 +5,13 @@ class HCInteriorPathgraph
     protected static int s_Marked;
     protected static int s_Regions;
     protected static int s_Skipped;
+    protected static int s_RemovedRegions;
+    // Removal regions wait here (bounded by prop count) and drain one per CallLater under HCWorkBudget.
+    static const int REMOVAL_CELL_METRES = 32;
+    static const int REMOVAL_DRAIN_MS = 100;
+    protected static ref array<ref HCPathgraphRefresh> s_RemovedPending = new array<ref HCPathgraphRefresh>;
+    protected static ref HCWorkBudget s_RemovalBudget;
+    protected static bool s_RemovalDrainQueued;
 
     static HCPathgraphRefresh Bounds(array<Object> placed)
     {
@@ -13,11 +20,81 @@ class HCInteriorPathgraph
         return region;
     }
 
+    // Interiors furniture: the prop's own config decides whether it cuts the navmesh.
+    static HCPathgraphRefresh BoundsRespectConfig(array<Object> placed)
+    {
+        HCPathgraphRefresh region = new HCPathgraphRefresh;
+        foreach (Object object : placed) { region.IncludeRespectConfig(object); }
+        return region;
+    }
+
     static int Schedule(array<Object> placed)
     {
         if (!placed) { return 0; }
-        HCPathgraphRefresh region = Bounds(placed);
+        HCPathgraphRefresh region = BoundsRespectConfig(placed);
         return HCQueueRegion(region);
+    }
+
+    // Call before the props are deleted: the boxes are captured now and no object is held. Props are
+    // grouped by 32 m cell so one far-apart set never becomes one map-sized rebuild region.
+    // Returns the number of regions queued.
+    static int QueueRemoval(array<Object> removed)
+    {
+        if (!removed || !GetGame()) { return 0; }
+        if (!GetGame().IsServer()) { return 0; }
+        map<int, ref HCPathgraphRefresh> cells = new map<int, ref HCPathgraphRefresh>;
+        int queued = 0;
+        foreach (Object prop : removed)
+        {
+            if (!prop) { continue; }
+            vector position = prop.GetPosition();
+            int cellX = Math.Floor(position[0] / REMOVAL_CELL_METRES);
+            int cellZ = Math.Floor(position[2] / REMOVAL_CELL_METRES);
+            int key = (cellX + 4096) * 100000 + (cellZ + 4096);
+            HCPathgraphRefresh cell = cells.Get(key);
+            if (!cell)
+            {
+                cell = new HCPathgraphRefresh;
+                cells.Insert(key, cell);
+            }
+            cell.IncludeRemoved(prop);
+        }
+        for (int index = 0; index < cells.Count(); index++)
+        {
+            HCPathgraphRefresh pending = cells.GetElement(index);
+            if (!pending || !pending.HasBounds) { continue; }
+            s_RemovedPending.Insert(pending);
+            queued++;
+        }
+        if (queued > 0 && !s_RemovalDrainQueued)
+        {
+            s_RemovalDrainQueued = true;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCDrainRemoval, REMOVAL_DRAIN_MS, false);
+        }
+        return queued;
+    }
+
+    // One region per call, gated by HCWorkBudget; re-arms itself until the queue is empty.
+    static void HCDrainRemoval()
+    {
+        s_RemovalDrainQueued = false;
+        if (!GetGame()) { return; }
+        if (!s_RemovalBudget) { s_RemovalBudget = new HCWorkBudget; }
+        s_RemovalBudget.HCReset(1);
+        while (s_RemovedPending.Count() > 0 && s_RemovalBudget.HCContinue())
+        {
+            HCPathgraphRefresh region = s_RemovedPending.Get(0);
+            s_RemovedPending.RemoveOrdered(0);
+            if (!region) { continue; }
+            region.Update();
+            s_RemovedRegions++;
+            Applied();
+        }
+        if (s_RemovedPending.Count() > 0)
+        {
+            s_RemovalDrainQueued = true;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCDrainRemoval, REMOVAL_DRAIN_MS, false);
+        }
     }
 
     static int HCQueueRegion(HCPathgraphRefresh region)
@@ -44,7 +121,7 @@ class HCInteriorPathgraph
 
     static void Summary()
     {
-        Print("" + "[HC Pathgraph] domain=interiors marked=" + s_Marked.ToString() + " affected=" + s_Regions.ToString() + " skipped_no_geom=" + s_Skipped.ToString());
+        Print("" + "[HC Pathgraph] domain=interiors marked=" + s_Marked.ToString() + " affected=" + s_Regions.ToString() + " skipped_no_geom=" + s_Skipped.ToString() + " removed_regions=" + s_RemovedRegions.ToString());
     }
 }
 

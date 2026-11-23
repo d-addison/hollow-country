@@ -155,6 +155,21 @@ class HCInteriorTemplatePlacement
         Print("[HC Interiors] prop box type=" + propType + " min=<" + propMin.ToString(false) + "> max=<" + propMax.ToString(false) + ">");
     }
 
+    // Stairs shipped as keep-out boxes cover only the rising cells. The landing at either end is where
+    // a prop would cut the only route upstairs, so it keeps a 0.3 m floor margin (doors get 0.6 m).
+    static const float STAIR_LANDING_MARGIN = 0.3;
+
+    static bool StairLandingClear(HCInteriorTemplate templateRow, HCInteriorTemplatePropSlot propRow)
+    {
+        if (!templateRow || !propRow || !propRow.Bounds) { return true; }
+        foreach (HCInteriorTemplateKeepOut keepOut : templateRow.KeepOuts)
+        {
+            if (keepOut.Kind != "stair") { continue; }
+            if (HCInteriorTemplates.Intersects(propRow.Bounds.Min, propRow.Bounds.Max, keepOut.Min, keepOut.Max, STAIR_LANDING_MARGIN)) { return false; }
+        }
+        return true;
+    }
+
     static void CountRefusal(string reason, int count)
 
     {
@@ -422,6 +437,12 @@ class HCInteriorTemplatePlacement
                 CountRefusal("clearance", 1);
                 continue;
             }
+            if (!StairLandingClear(templateRow, slot))
+            {
+                steps.HCAdd(STEP_LOOKUP, TickCount(mark));
+                CountRefusal("stair_landing", 1);
+                continue;
+            }
             vector position = house.ModelToWorld(HCInteriorTemplates.AsVector(slot.Position));
             vector orientation = HCInteriorTemplates.AsVector(slot.Orientation);
             orientation[0] = orientation[0] + house.GetOrientation()[0];
@@ -448,7 +469,7 @@ class HCInteriorTemplatePlacement
             steps.HCAdd(STEP_LOG, TickCount(mark));
             placed.Insert(object);
             mark = TickCount(0);
-            s_TemplateRegion.Include(object);
+            s_TemplateRegion.IncludeRespectConfig(object);
             steps.HCAdd(STEP_SCHEDULE, TickCount(mark));
             houseCount = houseCount + 1;
             s_Placed = s_Placed + 1;
@@ -550,7 +571,7 @@ class HCInteriorTemplatePlacement
         s_Started = true;
         string summary = "[HC Interiors] templates placement placed=" + s_Placed.ToString() + " capped=" + s_Capped.ToString();
         int reasonIndex = 0;
-        // Only fixed refusal reasons enter this map (<=10).
+        // Only fixed refusal reasons enter this map (<=11).
         while (reasonIndex < s_Refused.Count() && reasonIndex < 16)
         {
             summary = summary + " refused_" + s_Refused.GetKey(reasonIndex) + "=" + s_Refused.GetElement(reasonIndex).ToString();
