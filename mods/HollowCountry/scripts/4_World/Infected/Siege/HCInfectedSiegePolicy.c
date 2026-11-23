@@ -61,6 +61,7 @@ class HCInfectedSiegePolicy
     static const string END_DOWN = "down";
     static const string END_LEFT = "left";
     static const string END_TIMEOUT = "timeout";
+    static const string END_NO_LIVE_MEMBER = "no_live_member";
     // Siege evaluations per tick (one navmesh sample and at most one ladder query each) and their slice.
     static const int EVALUATIONS_PER_TICK = 4;
     static const float SLICE_MILLISECONDS = 2;
@@ -81,7 +82,9 @@ class HCInfectedSiegePolicy
     static const float REINFORCE_GAP_SECONDS = 3;
     static const float REINFORCE_WINDOW_SECONDS = 600;
     static const int WINDOW_SLOTS = 8;
-    // Hidden spawn ring (HCHordeReinforce.HCHidden needs 300 m from every player).
+    // Hidden spawn ring (HCHordeReinforce.HCHidden needs 300 m from every player), centred on the real
+    // siege noise. The ring never lies beyond the noise's hearing radius, so a spawn is refused (never
+    // moved closer or steered) when the radius is shorter than the ring.
     static const float RING_MIN_METRES = 320;
     static const float RING_MAX_METRES = 360;
     static const float RING_SAMPLE_METRES = 20;
@@ -117,6 +120,25 @@ class HCInfectedSiegePolicy
     static bool HCLadderSpaceOk(vector bottom, vector host)
     {
         return vector.Distance(bottom, host) <= LADDER_SPACE_METRES;
+    }
+
+    // The outer ring distance for a hearing radius: the ring maximum, cut to the radius.
+    static float HCRingMax(float radius)
+    {
+        if (radius < RING_MAX_METRES) { return radius; }
+        return RING_MAX_METRES;
+    }
+
+    // A ring exists only when the hearing radius reaches the inner ring distance.
+    static bool HCRingFits(float radius)
+    {
+        return radius >= RING_MIN_METRES;
+    }
+
+    // A spawn point hears the noise only when it lies within the radius.
+    static bool HCHears(float distance, float radius)
+    {
+        return distance <= radius;
     }
 
     static int HCBatch(int cap, int used)

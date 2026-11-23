@@ -13,6 +13,9 @@ class HCInfectedReachPolicy
     // Q3: the two fixes are settings (InfectedClimb.LegStrikes / InfectedClimb.BackOff, default on),
     // read once by HCInfectedClimbConfig.HCLoad. Leg strikes keep the ray-line guard in MayStrike;
     // the back-off steers only through the native controller overrides and releases on its own.
+    // Waiver (docs/MODULE_STATUS.md, InfectedReach leg strikes and back-off): both ship default-on, admitted
+    // unverified until one client shows [HC Use] module=InfectedReach feature=strike_landed and
+    // feature=backoff_started with no stuck infected; setting either to false is the kill switch.
     static const string HC_LEG_STRIKES_REFUSAL = "disabled_by_setting";
     protected static bool s_HCLegStrikes = true;
     protected static bool s_HCBackOff = true;

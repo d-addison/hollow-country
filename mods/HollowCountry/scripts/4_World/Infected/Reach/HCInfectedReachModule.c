@@ -207,6 +207,17 @@ class HCInfectedReachModule : HCModule
 
     override string GetName() { return "InfectedReach"; }
 
+    // Leg strikes and the back-off ship default-on without one-client evidence (MODULE_STATUS waiver). Their
+    // counters are registered at start so the first [HC Use] summary lists them at count=0 until they fire:
+    // strike_landed (a leg strike landed) and backoff_started (a back-off began); the other legacy
+    // counters come from the shared registration.
+    override void RegisterUses()
+    {
+        super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse(GetName(), "strike_landed");
+        HCModuleReadiness.HCRegisterUse(GetName(), "backoff_started");
+    }
+
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     // Wave 16: cached readiness from the live started flag (never hard-coded).
