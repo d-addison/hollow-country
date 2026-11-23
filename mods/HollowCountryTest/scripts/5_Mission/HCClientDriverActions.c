@@ -696,6 +696,14 @@ class HCDriverActions
         return Finish(HCDriverResult.OK, "write-action-started-rpc-sent");
     }
 
+    // GetTunedFrequency is declared on ItemTransmitter, not ItemBase (native compile, soak 178 boot 3).
+    protected float TunedFrequency(ItemBase item)
+    {
+        TransmitterBase radio;
+        if (!Class.CastTo(radio, item)) { return -1.0; }
+        return radio.GetTunedFrequency();
+    }
+
     protected int TickRadio(PlayerBase player, ActionManagerClient manager)
     {
         float wanted = m_Args.freq.ToFloat();
@@ -711,7 +719,7 @@ class HCDriverActions
         if (m_Phase == HCDriverActions.P_FIND)
         {
             if (player.GetItemInHands() != m_Main) { return HCDriverResult.RUNNING; }
-            if (Math.AbsFloat(m_Main.GetTunedFrequency() - wanted) < 0.05) { return Finish(HCDriverResult.OK, "tuned-freq=" + m_Args.freq); }
+            if (Math.AbsFloat(TunedFrequency(m_Main) - wanted) < 0.05) { return Finish(HCDriverResult.OK, "tuned-freq=" + m_Args.freq); }
             if (!m_Main.GetCompEM() || !m_Main.GetCompEM().IsWorking())
             {
                 if (m_Stage == 0)
@@ -733,7 +741,7 @@ class HCDriverActions
             return HCDriverResult.RUNNING;
         }
         // Tuning repeats once a second until the wanted frequency is reached, then the input ends.
-        if (Math.AbsFloat(m_Main.GetTunedFrequency() - wanted) < 0.05)
+        if (Math.AbsFloat(TunedFrequency(m_Main) - wanted) < 0.05)
         {
             manager.SetIgnoreAutomaticInputEnd(false);
             manager.EndActionInput();

@@ -15,6 +15,7 @@ Only the graceful CloseMainWindow path stops the server and the client. Nothing 
 Windows user folder, an id, a name or a config value.
 """
 import argparse
+import base64
 import contextlib
 import errno
 import hashlib
@@ -431,6 +432,45 @@ def client_arguments(mod_paths, profile_win, game_port=2302, query_port=27016):
 
 # ------------------------------------------------------------------ host (Windows) boundary
 
+# A failed script compile leaves the engine's modal "Compile error" box (Abort/Retry/Ignore), which ignores
+# CloseMainWindow (2026-11-23 soak 178 boot 3). Ignore (IDIGNORE=5) is posted to that one dialog of that one
+# process, as tools/release/wb_compile.py does for assertion boxes; Abort would end the process abruptly.
+# The console window then takes the ordinary graceful close.
+DIALOG_TYPE = r"""Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; using System.Text;
+public static class HcSoakDialog {
+    public delegate bool EnumProc(IntPtr hwnd, IntPtr data);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc proc, IntPtr data);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int size);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder text, int size);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr w, IntPtr l);
+    public static bool IgnoreCompileError(uint owner) {
+        bool answered = false;
+        EnumWindows((hwnd, data) => {
+            uint pid;
+            GetWindowThreadProcessId(hwnd, out pid);
+            if (pid != owner || !IsWindowVisible(hwnd)) return true;
+            var title = new StringBuilder(256); GetWindowText(hwnd, title, title.Capacity);
+            var kind = new StringBuilder(256); GetClassName(hwnd, kind, kind.Capacity);
+            if (title.ToString() == "Compile error" && kind.ToString() == "#32770")
+                answered |= PostMessage(hwnd, 0x0111, (IntPtr)5, IntPtr.Zero);
+            return true;
+        }, IntPtr.Zero);
+        return answered;
+    }
+}
+'@
+"""
+
+
+def ps_encoded(script):
+    """One -Command argument with no quotes for the Windows command line to mangle."""
+    encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
+    return "iex ([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('%s')))" % encoded
+
+
 class WindowsHost:
     """Process and path access; tests replace it. Stops are the graceful CloseMainWindow path only."""
 
@@ -443,13 +483,15 @@ class WindowsHost:
 
     def stop(self, image):
         name = image[:-4]
-        script = ("$p=@(Get-Process -Name %s -ErrorAction SilentlyContinue); "
+        script = (DIALOG_TYPE + "$p=@(Get-Process -Name %s -ErrorAction SilentlyContinue); "
                   "if ($p.Count -eq 0) { Write-Output 'HC stopped'; exit 0 }; "
                   "if ($p.Count -ne 1) { Write-Output 'HC stop ambiguous'; exit 2 }; "
+                  "if ([HcSoakDialog]::IgnoreCompileError([uint32]$p[0].Id)) { "
+                  "Write-Output 'HC compile error dialog answered Ignore'; Start-Sleep -Seconds 5; $p[0].Refresh() }; "
                   "if (-not $p[0].CloseMainWindow()) { Write-Output 'HC close refused'; exit 2 }; "
                   "if (-not $p[0].WaitForExit(%d)) { Write-Output 'HC close timeout'; exit 2 }; "
                   "Write-Output 'HC stopped'" % (name, STOP_WAIT_SECONDS * 1000))
-        result = self.winproc.run('powershell', [script], attempts=1, timeout=STOP_WAIT_SECONDS + 30)
+        result = self.winproc.run('powershell', [ps_encoded(script)], attempts=1, timeout=STOP_WAIT_SECONDS + 60)
         if result.returncode or self.state(image) != 'gone':
             raise Refused('graceful stop of %s failed; stop it by hand, then run restore' % image)
 

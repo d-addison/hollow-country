@@ -1,9 +1,11 @@
 """Soak campaign orchestration with a fake host, fake clock and synthetic trees; DayZ is never started."""
+import base64
 from contextlib import redirect_stdout
 import copy
 from io import StringIO
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -553,8 +555,14 @@ class CampaignTests(Tmp):
         host = camp.WindowsHost.__new__(camp.WindowsHost)
         host.winproc = Win()
         host.stop(camp.SERVER_IMAGE)
-        script = Win.scripts[0]
+        wrapped = Win.scripts[0]
+        self.assertNotIn('"', wrapped)  # nothing for the Windows command line to re-quote
+        script = base64.b64decode(re.search(r"FromBase64String\('([^']+)'", wrapped)[1]).decode('utf-16-le')
         self.assertIn('CloseMainWindow', script)
+        # The compile error box gets Ignore (5) only; Abort (3) would end the process abruptly.
+        self.assertIn('"Compile error"', script)
+        self.assertIn('(IntPtr)5', script)
+        self.assertNotIn('(IntPtr)3', script)
         for banned in ('Stop-Process', 'taskkill', 'Kill(', '.Kill'):
             self.assertNotIn(banned, script)
 
