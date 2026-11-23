@@ -27,8 +27,7 @@ class HCW38SituationBinding
     string Id;
     string Lease;
     string Profile;
-    // Raw handle (eAIGroup is not Managed): valid while Hold exists, from HCBegin until HCEnd.
-    eAIGroup Group;
+    // eAIGroup is not Managed: the group is reached only through Hold, from HCBegin until HCEnd.
     ref HCXAIGroupHold Hold;
     eAIWaypointBehavior Behaviour;
     ItemBase SmokeStock;
@@ -232,11 +231,11 @@ class HCW38SituationRuntime
 
     static void HCRestore(HCW38SituationBinding binding)
     {
-        if (!binding || !binding.Group) { return; }
-        HCXExpansionBridge.HCGroupClearWaypoints(binding.Group);
+        if (!binding || !binding.Hold) { return; }
+        HCXExpansionBridge.HCHoldClearWaypoints(binding.Hold);
         array<vector> original = binding.Original;
-        foreach (vector point : original) { HCXExpansionBridge.HCGroupAddWaypoint(binding.Group, point); }
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(binding.Group, binding.Behaviour);
+        foreach (vector point : original) { HCXExpansionBridge.HCHoldAddWaypoint(binding.Hold, point); }
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(binding.Hold, binding.Behaviour);
     }
 
     static HCXAISiteState HCTarget(HCXAISiteState party)
@@ -271,10 +270,10 @@ class HCW38SituationRuntime
         if (!target) { return HCRefuse("SITUATION_HOSTILE_CAMP_PENDING"); }
         // The camp ledger remembers this home. No enemy entity/target is fed
         // to the AI; native perception discovers opponents while walking.
-        HCXExpansionBridge.HCGroupClearWaypoints(binding.Group);
-        HCXExpansionBridge.HCGroupAddWaypoint(binding.Group, party.PatrolPoints[0]);
-        HCXExpansionBridge.HCGroupAddWaypoint(binding.Group, target.PatrolPoints[0]);
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(binding.Group, eAIWaypointBehavior.HALT);
+        HCXExpansionBridge.HCHoldClearWaypoints(binding.Hold);
+        HCXExpansionBridge.HCHoldAddWaypoint(binding.Hold, party.PatrolPoints[0]);
+        HCXExpansionBridge.HCHoldAddWaypoint(binding.Hold, target.PatrolPoints[0]);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(binding.Hold, eAIWaypointBehavior.HALT);
         return true;
     }
 
@@ -283,11 +282,11 @@ class HCW38SituationRuntime
     static void HCHold(HCW38SituationBinding binding)
     {
         if (binding.Profile != "survivor") { return; }
-        eAIBase sheltered = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(binding.Group, 0));
+        eAIBase sheltered = eAIBase.Cast(HCXExpansionBridge.HCHoldGetMember(binding.Hold, 0));
         if (!sheltered) { return; }
-        HCXExpansionBridge.HCGroupClearWaypoints(binding.Group);
-        HCXExpansionBridge.HCGroupAddWaypoint(binding.Group, HCXExpansionBridge.HCBaseGetPosition(sheltered));
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(binding.Group, eAIWaypointBehavior.HALT);
+        HCXExpansionBridge.HCHoldClearWaypoints(binding.Hold);
+        HCXExpansionBridge.HCHoldAddWaypoint(binding.Hold, HCXExpansionBridge.HCBaseGetPosition(sheltered));
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(binding.Hold, eAIWaypointBehavior.HALT);
     }
 
     // Existing ShelterMeters is validated against the shared registry BEFORE
@@ -320,7 +319,7 @@ class HCW38SituationRuntime
         // the entire inventory traversal, and the shared budget bounds each tick.
         if (binding.SmokeMember >= binding.Members.Count()) { return null; }
         eAIBase holder = binding.Members[binding.SmokeMember];
-        if (!holder || !HCXExpansionBridge.HCBaseIsAlive(holder) || HCXExpansionBridge.HCBaseGetIdentity(holder) || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(holder) != binding.Group)
+        if (!holder || !HCXExpansionBridge.HCBaseIsAlive(holder) || HCXExpansionBridge.HCBaseGetIdentity(holder) || !HCXExpansionBridge.HCHoldSame(binding.Hold, HCXExpansionBridge.HCDayZPlayerImplementGetGroup(holder)))
         {
             binding.SmokeMember++;
             binding.SmokeScan = null;
@@ -364,10 +363,10 @@ class HCW38SituationRuntime
         if (!HCWorldMaterializer.HCIdentity(binding.Lease)) { return; }
         // Expansion removes killed members and GetMember indexes directly
         // (eAIGroup.c:1139): a wiped or destroyed group leaves smoke to body observation.
-        if (!binding.Group || HCXExpansionBridge.HCGroupCount(binding.Group) == 0) { return; }
+        if (!binding.Hold || HCXExpansionBridge.HCHoldCount(binding.Hold) == 0) { return; }
         binding.SmokeAttempts++;
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { HCSmokeFailed(binding, "BUDGET"); return; }
-        eAIBase witness = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(binding.Group, 0));
+        eAIBase witness = eAIBase.Cast(HCXExpansionBridge.HCHoldGetMember(binding.Hold, 0));
         if (!witness || !HCXExpansionBridge.HCBaseIsAlive(witness)) { HCSmokeFailed(binding, "WITNESS"); return; }
         if (!binding.FactPublished)
         {
@@ -421,7 +420,7 @@ class HCW38SituationRuntime
         }
         if (s_Threats.Count() >= s_Policy.MaxThreats) { return HCRefuse("SITUATION_THREAT_CAP"); }
         array<vector> points = party.PatrolPoints;
-        eAIBase leader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(binding.Group, 0));
+        eAIBase leader = eAIBase.Cast(HCXExpansionBridge.HCHoldGetMember(binding.Hold, 0));
         if (!leader) { return false; }
         int inspected = 0;
         string threatSurface;
@@ -455,16 +454,17 @@ class HCW38SituationRuntime
         binding.Id = opportunity.Id;
         binding.Lease = opportunity.Lease;
         binding.Profile = opportunity.Profile;
-        binding.Group = party.Patrol.m_Group;
-        int memberCount = HCXExpansionBridge.HCGroupCount(binding.Group);
+        binding.Hold = HCXAIGroupHolds.Follow(null, party.Patrol.m_Group);
+        if (!binding.Hold) { return false; }
+        int memberCount = HCXExpansionBridge.HCHoldCount(binding.Hold);
         for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
         {
-            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(binding.Group, memberIndex));
+            eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCHoldGetMember(binding.Hold, memberIndex));
             if (!member || !HCXExpansionBridge.HCBaseIsAlive(member)) { return false; }
             binding.Members.Insert(member);
         }
-        binding.Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(binding.Group);
-        array<vector> route = HCXExpansionBridge.HCGroupGetWaypoints(binding.Group);
+        binding.Behaviour = HCXExpansionBridge.HCHoldGetWaypointBehaviour(binding.Hold);
+        array<vector> route = HCXExpansionBridge.HCHoldGetWaypoints(binding.Hold);
         if (!route || route.Count() < 1 || route.Count() > s_Policy.MaxRouteNodes) { return false; }
         foreach (vector point : route) { binding.Original.Insert(point); }
         bool started;
@@ -472,7 +472,6 @@ class HCW38SituationRuntime
         else { started = HCThreaten(party, binding); }
         if (!started) { return false; }
         HCHold(binding);
-        binding.Hold = HCXAIGroupHolds.Follow(null, binding.Group);
         s_Active = binding;
         HCXConvoyRuntime.HCOffer(binding);
         HCSignals(binding);

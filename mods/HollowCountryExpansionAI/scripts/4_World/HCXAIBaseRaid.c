@@ -63,8 +63,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected bool m_Busy;
     protected bool m_Healthy;
     protected string m_Reason;
-    protected eAIGroup m_Group;
-    // #334: m_Group is a raw handle; the hold keeps it valid until its members are deleted.
+    // #334: the raid reaches the claimed group only through this bridge handle.
     protected ref HCXAIGroupHold m_HCHold;
     protected eAIWaypointBehavior m_Behaviour;
     void ~HCXAIBaseRaid() { HCXAIGroupHolds.Retire(m_HCHold); }
@@ -321,9 +320,11 @@ class HCXAIBaseRaid : HCBaseRaidPort
         if (!HCLiveParty()) { return false; }
         eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor);
         array<vector> previous = HCXExpansionBridge.HCGroupGetWaypoints(group);
-        if (!m_Group)
+        if (!m_HCHold)
         {
             if (!previous || previous.Count() == 0 || previous.Count() > m_Config.MaxRouteNodes) { return false; }
+            m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, group);
+            if (!m_HCHold) { return false; }
             array<vector> saved = previous;
             // [HC TickCost] window 12 of 096: only copied route nodes consume route work.
             foreach (vector node : saved)
@@ -332,13 +333,11 @@ class HCXAIBaseRaid : HCBaseRaidPort
                 HCServer.HCTickWork().HCCharge(1);
             }
             m_Behaviour = HCXExpansionBridge.HCGroupGetWaypointBehaviour(group);
-            m_Group = group;
-            m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
         }
-        if (m_Group != group) { return false; }
-        HCXExpansionBridge.HCGroupClearWaypoints(group);
-        HCXExpansionBridge.HCGroupAddWaypoint(group, goal);
-        HCXExpansionBridge.HCGroupSetWaypointBehaviour(group, eAIWaypointBehavior.ONCE);
+        if (!HCXExpansionBridge.HCHoldSame(m_HCHold, group)) { return false; }
+        HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
+        HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, goal);
+        HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, eAIWaypointBehavior.ONCE);
         m_Walking = true;
         return true;
     }
@@ -477,19 +476,18 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     override void HCCancel()
     {
-        if (m_Group)
+        if (m_HCHold)
         {
-            HCXExpansionBridge.HCGroupClearWaypoints(m_Group);
+            HCXExpansionBridge.HCHoldClearWaypoints(m_HCHold);
             array<vector> restore = m_Original;
             // [HC TickCost] window 12 of 096: restoration is a separate, bounded route pass.
             foreach (vector point : restore)
             {
-                HCXExpansionBridge.HCGroupAddWaypoint(m_Group, point);
+                HCXExpansionBridge.HCHoldAddWaypoint(m_HCHold, point);
                 HCServer.HCTickWork().HCCharge(1);
             }
-            HCXExpansionBridge.HCGroupSetWaypointBehaviour(m_Group, m_Behaviour);
+            HCXExpansionBridge.HCHoldSetWaypointBehaviour(m_HCHold, m_Behaviour);
         }
-        m_Group = null;
         HCXAIGroupHolds.Retire(m_HCHold);
         m_HCHold = null;
         m_Original.Clear();

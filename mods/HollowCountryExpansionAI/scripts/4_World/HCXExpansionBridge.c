@@ -22,6 +22,170 @@ class HCXExpansionBridge
         Print("[HCX Bridge] refused " + call + " reason=" + reason);
     }
 
+    // H8 lifecycle. HCServer.Start (modded below) enters NOT_READY and bumps the epoch;
+    // the first call after the provider answers moves to READY; HCServer.Stop flips to
+    // SHUTTING_DOWN before any module OnStop. Mutating calls and handle reads need READY.
+    // Cleanup (group delete, patrol stop/despawn, hold retire/prune) is never gated, and
+    // the raw HCGroup* read layer stays live at shutdown so a stopping patrol still reads
+    // its real group (a defaulted count would persist a false "cleared" site).
+    // Refusals are counted here, not printed through HCRefuse (one line per minute for all).
+    static const int HC_STATE_NOT_READY = 0;
+    static const int HC_STATE_READY = 1;
+    static const int HC_STATE_SHUTTING_DOWN = 2;
+    static const int HC_REASON_CAP = 16;
+    static const int HC_SUMMARY_MS = 300000;
+    protected static int s_HCState;
+    protected static int s_HCEpoch;
+    protected static int s_HCReadyCheckMs = -1;
+    protected static int s_HCRefusedNotReady;
+    protected static int s_HCRefusedShuttingDown;
+    protected static int s_HCRefusedGone;
+    protected static int s_HCHandlesLive;
+    protected static int s_HCNextSummaryMs;
+    protected static ref map<string, int> s_HCByCall;
+
+    static int HCState() { return s_HCState; }
+    static int HCEpoch() { return s_HCEpoch; }
+
+    static string HCStateName()
+    {
+        if (s_HCState == HC_STATE_READY) { return "ready"; }
+        if (s_HCState == HC_STATE_SHUTTING_DOWN) { return "shutting_down"; }
+        return "not_ready";
+    }
+
+    // Provider facts, quiet (no HCRefuse): settings objects loaded and one HC faction registered.
+    protected static bool HCProviderUp()
+    {
+        if (!GetExpansionSettings()) { return false; }
+        ExpansionAISettings aiSettings = GetExpansionSettings().GetAI();
+        if (!aiSettings || !aiSettings.IsLoaded()) { return false; }
+        ExpansionAIPatrolSettings patrolSettings = GetExpansionSettings().GetAIPatrol(false);
+        if (!patrolSettings || !patrolSettings.IsLoaded()) { return false; }
+        typename factionKind = eAIFaction.GetType("HCVolunteers");
+        if (!factionKind || !eAIRegisterFaction.s_FactionIDs) { return false; }
+        return eAIRegisterFaction.s_FactionIDs.Contains(factionKind);
+    }
+
+    // NOT_READY becomes READY lazily, at most once per millisecond tick (once per frame).
+    static bool HCReady()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; }
+        if (s_HCState == HC_STATE_READY) { return true; }
+        if (s_HCState != HC_STATE_NOT_READY || s_HCEpoch <= 0) { return false; }
+        int nowMs = GetGame().GetTime();
+        if (nowMs == s_HCReadyCheckMs) { return false; }
+        s_HCReadyCheckMs = nowMs;
+        if (!HCProviderUp()) { return false; }
+        s_HCState = HC_STATE_READY;
+        Print("[HC XAI Bridge] lifecycle state=ready epoch=" + s_HCEpoch.ToString());
+        return true;
+    }
+
+    // True while handles may resolve. No lazy transition, no counting.
+    static bool HCLive()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; }
+        return s_HCState == HC_STATE_READY;
+    }
+
+    protected static void HCCountCall(string call)
+    {
+        if (!s_HCByCall) { s_HCByCall = new map<string, int>; }
+        string key = call;
+        int seen;
+        if (!s_HCByCall.Find(key, seen) && s_HCByCall.Count() >= HC_REASON_CAP) { key = "OTHER"; }
+        seen = 0;
+        s_HCByCall.Find(key, seen);
+        s_HCByCall.Set(key, seen + 1);
+    }
+
+    // READY, or a counted refusal. The caller returns its documented default.
+    static bool HCGate(string call)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; }
+        if (s_HCState == HC_STATE_READY) { return true; }
+        if (s_HCState == HC_STATE_NOT_READY && HCReady()) { return true; }
+        if (s_HCState == HC_STATE_SHUTTING_DOWN) { s_HCRefusedShuttingDown++; }
+        else { s_HCRefusedNotReady++; }
+        HCCountCall(call);
+        return false;
+    }
+
+    static void HCCountGone(string call)
+    {
+        s_HCRefusedGone++;
+        HCCountCall(call + ":GROUP_GONE");
+    }
+
+    static void HCCountHoldCap()
+    {
+        HCCountCall("HOLD_CAP");
+    }
+
+    static void HCHandleMade() { s_HCHandlesLive++; }
+    static void HCHandleDropped() { if (s_HCHandlesLive > 0) { s_HCHandlesLive--; } }
+
+    // Called first in HCServer.Start. Retired holds are NOT cleared: their release timing is
+    // the one #334 proved; the epoch alone makes every earlier handle unresolvable.
+    static void HCLifecycleStart()
+    {
+        s_HCEpoch++;
+        s_HCState = HC_STATE_NOT_READY;
+        s_HCReadyCheckMs = -1;
+        s_HCRefusedNotReady = 0;
+        s_HCRefusedShuttingDown = 0;
+        s_HCRefusedGone = 0;
+        if (s_HCByCall) { s_HCByCall.Clear(); }
+        HCXAITactics.HCBridgeReset();
+        s_HCNextSummaryMs = 0;
+        if (GetGame()) { s_HCNextSummaryMs = GetGame().GetTime() + HC_SUMMARY_MS; }
+    }
+
+    // Called first in HCServer.Stop, before the first module OnStop. Terminal until the next Start.
+    static bool HCLifecycleStop()
+    {
+        if (s_HCState == HC_STATE_SHUTTING_DOWN) { return false; }
+        s_HCState = HC_STATE_SHUTTING_DOWN;
+        HCXAITactics.HCBridgeReset();
+        Print("[HC XAI Bridge] lifecycle state=shutting_down epoch=" + s_HCEpoch.ToString() + " holds=" + HCXAIGroupHolds.Count().ToString() + " handles=" + s_HCHandlesLive.ToString());
+        return true;
+    }
+
+    static void HCLifecycleSummary()
+    {
+        Print("[HC XAI Bridge] state=" + HCStateName() + " epoch=" + s_HCEpoch.ToString() + " refused not_ready=" + s_HCRefusedNotReady.ToString() + " shutting_down=" + s_HCRefusedShuttingDown.ToString() + " group_gone=" + s_HCRefusedGone.ToString() + " handles=" + s_HCHandlesLive.ToString() + "/" + HCXAIGroupHolds.Count().ToString());
+    }
+
+    // Final summary after the module stops, with the per-call breakdown when anything was refused.
+    static void HCLifecycleFinal()
+    {
+        HCLifecycleSummary();
+        if (!s_HCByCall || s_HCByCall.Count() == 0) { return; }
+        string line = "[HC XAI Bridge] refused_by_call";
+        for (int at = 0; at < s_HCByCall.Count(); at++)
+        {
+            line += " " + s_HCByCall.GetKey(at) + "=" + s_HCByCall.GetElement(at).ToString();
+        }
+        Print("" + line);
+    }
+
+    // Every five minutes, from HCServer.Tick (bounded: one compare per tick).
+    static void HCLifecycleTick()
+    {
+        if (!GetGame() || s_HCEpoch <= 0 || s_HCState == HC_STATE_SHUTTING_DOWN) { return; }
+        int nowMs = GetGame().GetTime();
+        if (nowMs < s_HCNextSummaryMs) { return; }
+        s_HCNextSummaryMs = nowMs + HC_SUMMARY_MS;
+        HCLifecycleSummary();
+    }
+
+    // Engine-callback gate: READY runs the HC part, anything else is super-only (counted).
+    static bool HCCallbackGate(string call)
+    {
+        return HCGate(call);
+    }
+
     // Native EnSystem UTC out-parameter APIs; sample date again across midnight.
     // CF owns epoch conversion; its bridge validates ranges before provider calls.
     // Returns -1 on refusal, including dates outside 1970-2037. Callers must
@@ -112,6 +276,7 @@ class HCXExpansionBridge
 
     static HCXAISitePatrol HCCreatePatrol(ExpansionAIDynamicSpawnBase config, vector position)
     {
+        if (!HCGate("CreatePatrol")) { return null; }
         if (!HCConfig(config, "CreatePatrol")) { return null; }
         return eAIDynamicPatrolT<HCXAISitePatrol>.CreateEx(config, position);
     }
@@ -131,6 +296,7 @@ class HCXExpansionBridge
 
     static void HCDayZPlayerImplementSetGroup(DayZPlayerImplement value, eAIGroup group, bool autoDeleteFormerGroupIfEmpty = true, int groupMemberIndex = -1)
     {
+        if (!HCGate("SetGroup")) { return; }
         if (!HCEntity(value, "HCDayZPlayerImplementSetGroup", true)) { return; }
         if (!group) { HCRefuse("HCDayZPlayerImplementSetGroup", "GROUP_NULL"); return; }
         value.SetGroup(group, autoDeleteFormerGroupIfEmpty, groupMemberIndex);
@@ -160,6 +326,7 @@ class HCXExpansionBridge
     static void HCSitePatrolSpawn(HCXAISitePatrol value)
     {
         if (!value) { HCRefuse("HCSitePatrolSpawn", "RECEIVER_NULL"); return; }
+        if (!HCGate("PatrolSpawn")) { return; }
         if (!HCConfig(value.m_Config, "HCSitePatrolSpawn")) { return; }
         value.Spawn();
     }
@@ -491,12 +658,14 @@ class HCXExpansionBridge
 
     static void HCGroupAddWaypoint(eAIGroup value, vector pos)
     {
+        if (!HCGate("GroupAddWaypoint")) { return; }
         if (!value) { HCRefuse("HCGroupAddWaypoint", "GROUP_NULL"); return; }
         value.AddWaypoint(pos);
     }
 
     static void HCGroupClearWaypoints(eAIGroup value)
     {
+        if (!HCGate("GroupClearWaypoints")) { return; }
         if (!value) { HCRefuse("HCGroupClearWaypoints", "GROUP_NULL"); return; }
         value.ClearWaypoints();
     }
@@ -509,6 +678,7 @@ class HCXExpansionBridge
 
     static eAIGroup HCGroupCreateGroup(eAIFaction faction)
     {
+        if (!HCGate("GroupCreate")) { return null; }
         if (!HCFactionValid(faction, "HCGroupCreateGroup")) { return null; }
         return eAIGroup.CreateGroup(faction);
     }
@@ -602,6 +772,7 @@ class HCXExpansionBridge
 
     static void HCGroupSetFormation(eAIGroup value, eAIFormation f)
     {
+        if (!HCGate("GroupSetFormation")) { return; }
         if (!value) { HCRefuse("HCGroupSetFormation", "GROUP_NULL"); return; }
         if (!f) { HCRefuse("HCGroupSetFormation", "FORMATION_NULL"); return; }
         value.SetFormation(f);
@@ -609,6 +780,7 @@ class HCXExpansionBridge
 
     static void HCGroupSetWaypointBehaviour(eAIGroup value, eAIWaypointBehavior bhv)
     {
+        if (!HCGate("GroupSetWaypointBehaviour")) { return; }
         if (!value) { HCRefuse("HCGroupSetWaypointBehaviour", "GROUP_NULL"); return; }
         value.SetWaypointBehaviour(bhv);
     }
@@ -686,6 +858,138 @@ class HCXExpansionBridge
         if (id <= 0) { return null; }
         return eAIGroup.GetGroupByID(id, false);
     }
+
+    // H8 handle layer. Every call resolves the hold once, counts group_gone on null and
+    // returns its documented default: 0, null, false or a fresh empty array (never a shared
+    // static one). HCHoldId and HCHoldSame never touch the provider and work in any state.
+    protected static eAIGroup HCHoldGroup(HCXAIGroupHold hold, string call)
+    {
+        if (!HCGate(call)) { return null; }
+        if (!hold) { return null; }
+        eAIGroup resolved = hold.HCResolve();
+        if (!resolved) { HCCountGone(call); }
+        return resolved;
+    }
+
+    static int HCHoldId(HCXAIGroupHold hold)
+    {
+        if (!hold) { return 0; }
+        return hold.Id;
+    }
+
+    // Pointer identity against a group the caller holds as a local; never dereferences.
+    static bool HCHoldSame(HCXAIGroupHold hold, eAIGroup group)
+    {
+        if (!hold || !group) { return false; }
+        return hold.HCIsGroup(group);
+    }
+
+    static bool HCHoldAlive(HCXAIGroupHold hold)
+    {
+        return HCHoldGroup(hold, "HoldAlive") != null;
+    }
+
+    static int HCHoldCount(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldCount");
+        if (!group) { return 0; }
+        return group.Count();
+    }
+
+    static DayZPlayerImplement HCHoldGetMember(HCXAIGroupHold hold, int i)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetMember");
+        if (!group) { return null; }
+        if (i < 0 || i >= group.Count()) { HCRefuse("HCHoldGetMember", "MEMBER_INDEX"); return null; }
+        return group.GetMember(i);
+    }
+
+    static bool HCHoldHasMember(HCXAIGroupHold hold, DayZPlayerImplement player)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldHasMember");
+        if (!group || !player) { return false; }
+        return HCDayZPlayerImplementGetGroup(player) == group;
+    }
+
+    static bool HCHoldIsInCombat(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldIsInCombat");
+        if (!group) { return false; }
+        return group.IsInCombat();
+    }
+
+    static DayZPlayerImplement HCHoldGetFormationLeader(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetFormationLeader");
+        if (!group) { return null; }
+        return group.GetFormationLeader();
+    }
+
+    static eAIGroupFormationState HCHoldGetFormationState(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetFormationState");
+        if (!group) { return 0; }
+        return group.GetFormationState();
+    }
+
+    static eAIFaction HCHoldGetFaction(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetFaction");
+        if (!group) { return null; }
+        return group.GetFaction();
+    }
+
+    static string HCHoldGetName(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetName");
+        if (!group) { return ""; }
+        return group.GetName();
+    }
+
+    static eAIWaypointBehavior HCHoldGetWaypointBehaviour(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetWaypointBehaviour");
+        if (!group) { return 0; }
+        return group.GetWaypointBehaviour();
+    }
+
+    static array<vector> HCHoldGetWaypoints(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetWaypoints");
+        array<vector> points;
+        if (group) { points = group.GetWaypoints(); }
+        if (!points) { points = new array<vector>; }
+        return points;
+    }
+
+    static void HCHoldAddWaypoint(HCXAIGroupHold hold, vector pos)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldAddWaypoint");
+        if (!group) { return; }
+        group.AddWaypoint(pos);
+    }
+
+    static void HCHoldClearWaypoints(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldClearWaypoints");
+        if (!group) { return; }
+        group.ClearWaypoints();
+    }
+
+    static void HCHoldSetWaypointBehaviour(HCXAIGroupHold hold, eAIWaypointBehavior bhv)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldSetWaypointBehaviour");
+        if (!group) { return; }
+        group.SetWaypointBehaviour(bhv);
+    }
+
+    static void HCHoldSetFormation(HCXAIGroupHold hold, eAIFormation f)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldSetFormation");
+        if (!group) { return; }
+        if (!f) { HCRefuse("HCHoldSetFormation", "FORMATION_NULL"); return; }
+        group.SetFormation(f);
+    }
 }
 
 // #334: eAIGroup is not Managed, so eAIDynamicPatrol.m_Group and each member's
@@ -696,17 +1000,53 @@ class HCXExpansionBridge
 // up is deleted, plus a settle window for the provider's queued DeleteGroup call.
 class HCXAIGroupHold
 {
-    ref eAIGroup Group;
+    // Never read outside this file: HCResolve and the HCHold* bridge calls are the only way in.
+    protected ref eAIGroup Group;
     ref array<DayZPlayerImplement> Members;
     int SettledAtMs;
     int SettledSeenMs;
     int SettledSeen;
+    // H8 handle: the bridge epoch the hold was made in, the provider group id (ids are never
+    // reused) and whether the owner retired it. Outside the bridge only HCResolve and the
+    // HCHold* bridge calls read the group.
+    int Epoch;
+    int Id;
+    bool Retired;
     void HCXAIGroupHold(eAIGroup group)
     {
         Group = group;
         Members = new array<DayZPlayerImplement>;
         SettledAtMs = -1;
         SettledSeenMs = -1;
+        Epoch = HCXExpansionBridge.HCEpoch();
+        if (group) { Id = group.GetID(); }
+        HCXExpansionBridge.HCHandleMade();
+    }
+    void ~HCXAIGroupHold()
+    {
+        HCXExpansionBridge.HCHandleDropped();
+    }
+    // Pointer identity only; never dereferences the group, works in any bridge state.
+    bool HCIsGroup(eAIGroup group)
+    {
+        return Group != null && Group == group;
+    }
+    bool HCSameGroup(HCXAIGroupHold other)
+    {
+        return other != null && Group != null && Group == other.Group;
+    }
+    bool HCHasGroup()
+    {
+        return Group != null;
+    }
+    // Null when the bridge is not READY, the hold is from an older epoch or retired, or the
+    // provider no longer knows the group. A null result is a normal outcome.
+    eAIGroup HCResolve()
+    {
+        if (Retired || !Group || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
+        if (!HCXExpansionBridge.HCLive()) { return null; }
+        if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
+        return Group;
     }
     void Track(DayZPlayerImplement member)
     {
@@ -760,13 +1100,14 @@ class HCXAIGroupHolds
     static void Retire(HCXAIGroupHold hold)
     {
         // At shutdown (destructors) there is no game: never re-create the static list then.
-        if (!hold || !hold.Group || !GetGame()) { return; }
+        if (!hold || !hold.HCHasGroup() || !GetGame()) { return; }
+        hold.Retired = true;
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
         // One retired hold per group: a group retired again (leases, jobs, replans) merges its
         // members into the existing hold, so the list is bounded by groups, not by events.
         foreach (HCXAIGroupHold retired : s_Retired)
         {
-            if (retired && retired.Group == hold.Group)
+            if (retired && retired.HCSameGroup(hold))
             {
                 retired.Absorb(hold);
                 if (!retired.Settled())
@@ -802,13 +1143,19 @@ class HCXAIGroupHolds
     // Returns the hold for group and tracks its members; a hold on another group is retired.
     static HCXAIGroupHold Follow(HCXAIGroupHold hold, eAIGroup group)
     {
-        if (hold && hold.Group == group)
+        if (hold && hold.HCIsGroup(group))
         {
             hold.TrackGroup();
             return hold;
         }
         Retire(hold);
         if (!group) { return null; }
+        // Retired holds at the high-water mark: refuse a new handle rather than track it blind.
+        if (Count() >= HC_HIGH_COUNT)
+        {
+            HCXExpansionBridge.HCCountHoldCap();
+            return null;
+        }
         HCXAIGroupHold next = new HCXAIGroupHold(group);
         next.TrackGroup();
         return next;
@@ -825,16 +1172,19 @@ class HCXExpansionPatrol : eAIDynamicPatrol
 {
     protected bool HCBridgeCanSpawn()
     {
+        if (!HCXExpansionBridge.HCGate("PatrolCanSpawn")) { return false; }
         if (!HCXExpansionBridge.HCConfig(m_Config, "CanSpawn")) { return false; }
         return super.CanSpawn();
     }
     protected void HCBridgeSpawn()
     {
+        if (!HCXExpansionBridge.HCGate("PatrolSpawn")) { return; }
         if (!HCXExpansionBridge.HCConfig(m_Config, "Spawn")) { return; }
         super.Spawn();
     }
     protected void HCBridgeSpawnAI_Deferred(int i)
     {
+        if (!HCXExpansionBridge.HCGate("PatrolSpawnAI")) { return; }
         if (!HCXExpansionBridge.HCConfig(m_Config, "SpawnAI_Deferred")) { return; }
         if (!m_Group || !m_Formation) { HCXExpansionBridge.HCRefuse("SpawnAI_Deferred", "GROUP_OR_FORMATION_NULL"); return; }
         super.SpawnAI_Deferred(i);
@@ -842,6 +1192,7 @@ class HCXExpansionPatrol : eAIDynamicPatrol
     protected void HCBridgeDespawn(bool deferDespawnUntilLoosingAggro = false) { super.Despawn(deferDespawnUntilLoosingAggro); }
     protected void HCBridgeOnUpdate()
     {
+        if (!HCXExpansionBridge.HCGate("PatrolOnUpdate")) { return; }
         if (!HCXExpansionBridge.HCConfig(m_Config, "OnUpdate")) { return; }
         super.OnUpdate();
     }
@@ -976,6 +1327,12 @@ modded class eAIBase
     bool HCXLivingRefused;
     override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
     {
+        // Lifecycle: outside READY only the provider's own handling runs.
+        if (!HCXExpansionBridge.HCCallbackGate("EEHitBy"))
+        {
+            super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+            return;
+        }
         this.HCBridgeDefenceHit(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
         if (!GetGame() || !GetGame().IsServer() || !HCXStance.Owns(this)) { return; }
         PlayerBase attacker = HCXDefence.AttackerOf(source);
@@ -997,6 +1354,11 @@ modded class eAIBase
     override void eAI_OnNoiseEvent(EntityAI source, vector position, float lifetime, eAINoiseParams params, float strengthMultiplier)
     {
         if (!HCXExpansionBridge.HCEntity(this, "eAI_OnNoiseEvent")) { return; }
+        if (!HCXExpansionBridge.HCCallbackGate("NoiseEvent"))
+        {
+            super.eAI_OnNoiseEvent(source, position, lifetime, params, strengthMultiplier);
+            return;
+        }
         this.HCBridgeDefenceNoise(source, position, lifetime, params, strengthMultiplier);
         if (!HCXStance.Owns(this) || !params || params.m_Type != eAINoiseType.SHOT || !source) { return; }
         // Observe only the delivered physical noise, bounded by its audible range
@@ -1051,6 +1413,7 @@ modded class eAIBase
     override bool eAI_CanFire(Weapon_Base weapon)
     {
         if (!HCXExpansionBridge.HCEntity(this, "eAI_CanFire")) { return false; }
+        if (!HCXExpansionBridge.HCCallbackGate("CanFire")) { return super.eAI_CanFire(weapon); }
         if (HCXWarningBlocked()) { HCReached.Mark("ai.warning_fire_hold"); return false; }
         return this.HCBridgeSignalCanFire(weapon);
     }
@@ -1060,6 +1423,7 @@ modded class eAIBase
         if (!HCXExpansionBridge.HCEntity(this, "eAI_UpdateFSM")) { return; }
         // Perception/navigation/FSM continue; only normal fire at this contact is held.
         super.eAI_UpdateFSM(pDt, simulationPrecision);
+        if (!HCXExpansionBridge.HCCallbackGate("UpdateFSM")) { return; }
         if (!HCXWarningBlocked()) { HCXWarningPending = false; return; }
         vector aim = HCXWarningPlayer.GetPosition() + Vector(0, 1.2, 0);
         LookAtPosition(aim);
@@ -1083,6 +1447,11 @@ modded class eAIBase
     protected bool m_HCGapBodyDeathSent;
     override void EEKilled(Object killer)
     {
+        if (!HCXExpansionBridge.HCCallbackGate("EEKilled"))
+        {
+            super.EEKilled(killer);
+            return;
+        }
         this.HCBridgeStanceKilled(killer);
         if (m_HCGapBodyDeathSent || !GetGame() || !GetGame().IsServer()) { return; }
         m_HCGapBodyDeathSent = true;
@@ -1099,6 +1468,7 @@ modded class eAIPlayerTargetInformation
     override float CalculateThreat(eAIBase ai = null, eAITargetInformationState state = null)
     {
         if (ai && !HCXExpansionBridge.HCEntity(ai, "CalculateThreat")) { return 0; }
+        if (!HCXExpansionBridge.HCCallbackGate("CalculateThreat")) { return super.CalculateThreat(ai, state); }
         PlayerBase player = PlayerBase.Cast(GetEntity());
         if (!HCXStance.Owns(ai) || !player || !player.GetIdentity()) { return super.CalculateThreat(ai, state); }
         if (!GetGame() || !GetGame().IsServer()) { return super.CalculateThreat(ai, state); }
@@ -1249,5 +1619,31 @@ modded class eAIPlayerTargetInformation
         state.m_ThreatLevelActive = 0.2;
         state.m_AggressionTimeout = 0;
         return 0.2;
+    }
+}
+
+// H8: the bridge's lifecycle follows HCServer. SHUTTING_DOWN is set before super.Stop() runs the
+// first module OnStop; NOT_READY (and a new epoch) is set before super.Start() starts modules.
+// HollowCountryExpansionAI requires CfgPatches HollowCountry, and both use worldScriptModule
+// (4_World), so this modded class is applied after the core ones.
+modded class HCServer
+{
+    override void Start()
+    {
+        HCXExpansionBridge.HCLifecycleStart();
+        super.Start();
+    }
+
+    override void Tick()
+    {
+        super.Tick();
+        HCXExpansionBridge.HCLifecycleTick();
+    }
+
+    override void Stop()
+    {
+        bool firstStop = HCXExpansionBridge.HCLifecycleStop();
+        super.Stop();
+        if (firstStop) { HCXExpansionBridge.HCLifecycleFinal(); }
     }
 }

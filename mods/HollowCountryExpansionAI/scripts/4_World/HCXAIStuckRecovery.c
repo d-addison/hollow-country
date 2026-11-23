@@ -8,9 +8,8 @@ class HCXJourneyReplanTurn
 {
     ref HCXAISiteState State;
     ref HCXAIStuckRecovery Recovery;
-    // Raw handle (eAIGroup is not Managed): valid only while Hold exists. The hold is
+    // The group is reached only through this handle (eAIGroup is not Managed). The hold is
     // retired when the turn is released from the queue (the turn is destroyed).
-    eAIGroup Group;
     ref HCXAIGroupHold Hold;
     vector Destination;
     int Started;
