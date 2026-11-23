@@ -1,0 +1,22 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "DebugSnapshot",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCDebugSnapshotModule",
+  "source": "mods/HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c",
+  "default_on": true,
+  "settings": [
+    "EnableDebugSnapshot"
+  ],
+  "uses": [
+    "snapshot_saved"
+  ],
+  "uses_source": "legacy_uses",
+  "requires_shared_saves": false,
+  "dependencies": [],
+  "readiness_reasons": [
+    "snapshot_contributors_registered"
+  ]
+}

@@ -50,6 +50,7 @@ GENERATORS = (
     Generator('tactical_flava_optional', ('generate', '--check', '--source', '{source}', '--report', '{tactical_flava_report}'),
               ('source', 'tactical_flava_report'), 'committed bytes match fresh generation'),
     Generator('gui_icons', ('check',)),
+    Generator('gen_modules', ('--check',), (), 'module manifests match the code and the MODULE_STATUS rows'),
     Generator('economy', (), ('source',)),
     Generator('ai_patrols', (), ('source',)),
     Generator('anims_config', (), ('addons',)),

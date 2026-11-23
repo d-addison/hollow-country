@@ -1,0 +1,24 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "DeadDrops",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCDeadDrops",
+  "source": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c",
+  "default_on": true,
+  "settings": [
+    "EnableEncounters"
+  ],
+  "uses": [
+    "cache_bound"
+  ],
+  "uses_source": "legacy_uses",
+  "requires_shared_saves": false,
+  "dependencies": [],
+  "readiness_reasons": [
+    "dead_drop_state_loaded",
+    "dead_drop_save_failed",
+    "dead_drop_state_invalid_or_save_failed"
+  ]
+}

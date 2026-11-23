@@ -1,0 +1,33 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "BodyStories",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCBodyStories",
+  "source": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
+  "default_on": true,
+  "settings": [
+    "EnableLeads",
+    "BodyStories.MaxBodies",
+    "BodyStories.MaxActiveTraces",
+    "BodyStories.MaxSceneTraces",
+    "BodyStories.MaintenanceSeconds"
+  ],
+  "uses": [
+    "body_observed"
+  ],
+  "uses_source": "register_uses",
+  "requires_shared_saves": false,
+  "dependencies": [],
+  "readiness_reasons": [
+    "operator_preference",
+    "SERVER_AUTHORITY_REQUIRED",
+    "LEAD_STORE_UNCERTAIN",
+    "LEAD_STORE_UNAVAILABLE",
+    "BODY_SCENE_PRODUCER_UNAVAILABLE",
+    "WORLD_FACT_PROVIDER_UNAVAILABLE",
+    "owned_scene_death_producer_bound_runtime_pending",
+    "stopped"
+  ]
+}

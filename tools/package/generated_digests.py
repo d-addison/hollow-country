@@ -75,6 +75,9 @@ def contracts():
                  ('config/map-overlays/**/*.json', 'mission/hollow-country/ce/hc-event-sites.json',
                   'config/loot-*.json', 'tools/package/*.json', 'tools/package/interior_themes/*.json')),
         Contract('economy', 'tools.package.economy', (), common, delta),
+        # Repo-local: manifests are the inputs; code and docs drift is gen_modules --check (run by regenerate_all).
+        Contract('gen_modules', 'tools.package.gen_modules', (),
+                 ('modules/*.module.json', 'modules/module.schema.json')),
         Contract('ai_patrols', 'tools.audit.gapcov_regions',
                  ('mission/hollow-country/ai/sites.json', gapcov_regions.DERIVED_SIDECAR)),
         Contract('anims_config', 'tools.anim.ce_variants',
@@ -303,6 +306,9 @@ def regenerate(contract, values, scratch):
             raise ValueError('declared install-time output inventory differs')
         # These deltas are not committed or included in the release PBOs.
         return {'external/' + p: data for p, data in files.items()}
+    if name == 'gen_modules':
+        module.check()  # no committed outputs: the manifests, scripts and MODULE_STATUS rows must agree
+        return {}
     if name == 'ai_patrols':
         # The legacy ai_patrols seed is now authored (routes/tuning/HC43). The
         # final producer preserves it and rebuilds only gapcov regional rows.
@@ -543,6 +549,8 @@ def main(argv=None):
             else:
                 verify_record(contract, manifest['artefacts'].get(contract.name), values)
             detail = 'byte-verified digest contract' if contract.outputs else 'install-time delta generation validated'
+            if contract.name == 'gen_modules':
+                detail = 'manifest digest contract; scripts and MODULE_STATUS rows agree'
             print('PASS ' + contract.name + ' ' + detail)
         except MissingInput as exc:
             skips += 1

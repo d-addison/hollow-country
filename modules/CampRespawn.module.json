@@ -1,0 +1,29 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "CampRespawn",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCCampRespawnModule",
+  "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
+  "default_on": true,
+  "settings": [
+    "EnableCampRespawn",
+    "EnableCamps",
+    "EnableGroups"
+  ],
+  "uses": [
+    "respawn_reserved"
+  ],
+  "uses_source": "legacy_uses",
+  "requires_shared_saves": false,
+  "dependencies": [],
+  "readiness_reasons": [
+    "clock_unavailable",
+    "store_unavailable",
+    "state_unreadable",
+    "state_invalid",
+    "storage_fault",
+    "cooldown_store_loaded_native_acceptance_pending"
+  ]
+}
