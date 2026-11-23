@@ -85,6 +85,7 @@ RULES = {
     'HC-E035': 'StartCommand_ScriptInst on a DayZInfected (engine builds the command with null constructor arguments); use StartCommand_Script(new Command(this))',
     'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
+    'HC-E049': 'modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead',
     'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
@@ -2670,7 +2671,25 @@ def rule_config_get(project, source):
 
 
 
-ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+# HC-E049: engine classes the compiler refuses to mod. The native scripts cache gives no reliable signal:
+# Building (3_Game/Entities/Building.c) is declared like EntityAI, a plain `class X : Y` with `proto native`
+# members, and EntityAI/Man/ItemBase mod fine, so the list is cited evidence only. Add a class here only with the
+# compile-gate line that refused it.
+ENGINE_UNMODDABLE = {
+    'Building': ('BuildingBase', 'compile gate 2026-11-22: Engine class \'Building\' cannot be modded; '
+                                 'HCNavEpochDoors.c hooks the scripted base BuildingBase (4_World/Entities/Game/Super/Building.c)'),
+}
+
+
+def rule_engine_class_modded(project, source):
+    for definition in source.classes:
+        refused = ENGINE_UNMODDABLE.get(definition.name) if definition.modded else None
+        if refused:
+            yield _finding('HC-E049', source, definition.offset, definition.name,
+                           f'modded class {definition.name}: {RULES["HC-E049"]}; use {refused[0]} ({refused[1]})')
+
+
+ALL_RULES = (rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,

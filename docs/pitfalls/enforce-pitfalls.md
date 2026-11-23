@@ -43,6 +43,16 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E036 | new X passed directly as an argument to a call that does not store it (the temporary has no owner) |
 | HC-E037 | UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins |
 | HC-E038 | array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok" |
+| HC-E040 | use counter reached unconditionally from an init path (OnInit, OnStart, constructor, Load/Migrate/Restore, entity init); count from the gameplay path with HCUseGuarded |
+| HC-E041 | Expansion group or agent stored outside the bridge (eAIGroup member/static/container element, or a ref eAIBase member): keep an HCXAIGroupHold handle and resolve it through HCHold* calls |
+| HC-E042 | method redefines or overrides a parent declaration with a different signature (missing override, parameter/return/static mismatch, or no parent method) |
+| HC-E043 | method named like an engine name the compiler resolves itself (native compile: statement-form Wait( failed); rename it |
+| HC-E044 | Enforce keyword used as a name (native compile: Expected name, not a keyword); tokenised, includes foreach slots and enum members |
+| HC-E045 | bitwise operator inside a float expression (native compile: Unknown operator); compute the bits in int-only statements first |
+| HC-E046 | field read on a typed receiver that has no such field (including parents and modded bodies) |
+| HC-E047 | initializer must be a literal: non-static const, vector const or a static primitive that reads another class or constant (read as 0 natively, build 169) |
+| HC-E048 | foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first |
+| HC-E049 | modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |
@@ -67,6 +77,10 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 ### `mods/HollowCountry/scripts/4_World/Core/HCMigrationRunner.c`
 
 - exactly the on-disk states the recovery cases of HCMigrationRunner already classify. Transfers use 4 KiB chunks over one retained handle: native string/FPrint transfer is capped below 8 KiB per call (HCStagedSaveImage, build 113), which also bounds one op to 4 KiB. A handle is only ever open between a successful open stage and its close stage; a failing ...
+
+### `mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c`
+
+- Literal on purpose: a cross-file const initializer reads 0 natively (build 169). Equals HC_MAX_MODULES.
 
 ### `mods/HollowCountry/scripts/4_World/Core/HCServer.c`
 
