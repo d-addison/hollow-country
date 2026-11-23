@@ -267,6 +267,20 @@ def story_categories(name, group, family_name, roles):
     return armed + [c for c in categories if c not in armed] or ['tools']
 
 
+# Round 8 (owner targets, 2026-11-22): the per-container simultaneous-item cap follows
+# the number of audited points, not the interior area. Surface shelves hold one item per
+# SURFACE_DENSITY of a point, floor spots one per FLOOR_DENSITY; the value never falls
+# below the older size-realistic number and never passes MAX_ADDED_LOOTMAX or the point
+# count, so no point is ever asked to hold more than one item.
+SURFACE_DENSITY = .75
+FLOOR_DENSITY = .5
+
+
+def density_lootmax(count, area_m2=None, density=SURFACE_DENSITY):
+    by_density = min(loot.MAX_ADDED_LOOTMAX, count, math.ceil(count * density))
+    return max(1, loot.added_lootmax(count, area_m2), by_density)
+
+
 def surface_cap(area_m2):
     """Surface spawn spots by reached interior floor: one per 3 m2, 4..32."""
     if area_m2 is None:
@@ -688,7 +702,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
         categories = story_categories(name, group, family_name, [e['surface'] for e in evidence])
         groups[name] = {'family': family_name, 'stock_sha256': loot.group_pin(group),
             'building_model': model, 'building_model_sha256': sha(data),
-            'containers': {'lootHCSurface': {'lootmax': loot.added_lootmax(len(chosen), area),
+            'containers': {'lootHCSurface': {'lootmax': density_lootmax(len(chosen), area),
                 'categories': categories, 'tags': ['shelves'], 'points': chosen}},
             'surface_sources': evidence}
         if area is not None:
@@ -840,7 +854,7 @@ def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=No
             added += len(chosen) - (len(current['surface_sources']) if current else 0)
             spec = copy.deepcopy(current or old)
             spec['containers']['lootHCSurface']['points'] = [p for p, _ in chosen]
-            spec['containers']['lootHCSurface']['lootmax'] = loot.added_lootmax(len(chosen), area)
+            spec['containers']['lootHCSurface']['lootmax'] = density_lootmax(len(chosen), area)
             spec['containers']['lootHCSurface']['categories'] = story_categories(
                 name, auditor.stock.get(name), spec['family'], [e['surface'] for _, e in chosen])
             spec['surface_sources'] = [e for _, e in chosen]
@@ -1028,7 +1042,7 @@ def floor_candidate(position, support_context):
 
 
 def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
-                    surfaces=None, partition=None):
+                    surfaces=None, partition=None, only=None):
     """Floor points for lootable stock groups with no HC floor or surface points yet.
 
     Existing floor groups in ``base`` are kept as they are and re-audited by the
@@ -1050,9 +1064,22 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         'runtime_acceptance': loot.PENDING, 'sources': {}, 'groups': {}}
     covered = set(loot.parse_overlay(Path(surfaces).read_bytes())['groups']) if surfaces else set()
     existing = set(doc['groups'])
+    surface_family = {}
+    if only is not None:
+        # Additive mode (Round 8): floor containers for the named groups, which may already
+        # carry surface points. The surface overlay's family label is reused so both files
+        # agree; groups that already have a floor container are left alone, not re-audited.
+        if surfaces:
+            surface_family = {n: g['family'] for n, g in loot.parse_overlay(Path(surfaces).read_bytes())['groups'].items()}
+        covered = set()
+        doc = {'schema': 1, 'kind': loot.OVERLAY_KIND, 'frame': 'stock-mapgroupproto',
+               'runtime_acceptance': loot.PENDING, 'sources': {}, 'groups': {}}
+        wanted = set(only) - existing
     added, refused, refusals, refreshed = {}, {}, Counter(), []
     group_diagnostics = {}
     ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
+    if only is not None:
+        ordered = [g for g in ordered if g.get('name', '') in wanted]
     if partition is not None:
         index, count = partition
         if not 0 <= index < count <= 32:
@@ -1075,6 +1102,8 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         # the families policy takes its floor story from its own stock containers.
         family = loot.family_of(name, policy) or {
             'family': 'stock_story', 'floor': {'categories': ['clothes', 'tools'], 'tags': ['floor']}}
+        if name in surface_family:
+            family = dict(family, family=surface_family[name])
         model = pbo.normalize_path(pbo.resolve_field(assets.classes, name, 'model') or '')
         if model not in assets.members:
             refused[name] = 'missing-model'
@@ -1148,7 +1177,7 @@ def generate_floors(addons, stock_proto, reader_folder, map_pos=None, base=None,
         floor = family['floor']
         added[name] = {'family': family['family'], 'stock_sha256': spec['stock_sha256'],
                        'building_model': model, 'building_model_sha256': spec['building_model_sha256'],
-                       'containers': {'lootHCFloor': {'lootmax': loot.added_lootmax(len(points), area),
+                       'containers': {'lootHCFloor': {'lootmax': density_lootmax(len(points), area, FLOOR_DENSITY),
                            'categories': floor_story(group, floor['categories']), 'tags': list(floor['tags']),
                            'points': points}},
                        'floor_sources': witnesses, 'interior_area_m2': area}
@@ -1221,6 +1250,41 @@ def merge_floor_partitions(paths, base):
     return doc
 
 
+def resize_lootmax(raw):
+    """Overlay bytes with every container lootmax recomputed by density_lootmax.
+
+    Pure and deterministic: points, evidence and categories stay untouched, so the
+    reach and support audits see the same coordinates. Idempotent.
+    """
+    doc = loot.parse_overlay(raw)
+    for group in doc['groups'].values():
+        for name, container in group['containers'].items():
+            density = FLOOR_DENSITY if name == 'lootHCFloor' else SURFACE_DENSITY
+            container['lootmax'] = density_lootmax(len(container['points']), group.get('interior_area_m2'), density)
+    out = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
+    loot.parse_overlay(out)
+    return out
+
+
+def add_floor_groups(base, additions):
+    """Base floor overlay plus new floor groups (Round 8): additive, never replacing a group."""
+    doc = loot.parse_overlay(Path(base).read_bytes())
+    for name, spec in additions['groups'].items():
+        if name in doc['groups']:
+            raise ValueError('floor group already present: ' + name)
+        doc['groups'][name] = spec
+    info = additions['sources']['hc_floor_generation']
+    doc['sources']['hc_floor_round8'] = {
+        'method': info['method'], 'stock_proto_sha256': info['stock_proto_sha256'],
+        'added_groups': sorted(additions['groups']),
+        'added_points': sum(len(g['containers']['lootHCFloor']['points']) for g in additions['groups'].values()),
+        'refusal_counts': info['refusal_counts'], 'rejected_groups': info['rejected_groups'],
+        'native_acceptance': 'pending'}
+    raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
+    loot.parse_overlay(raw)
+    return raw
+
+
 def report(raw):
     doc = loot.parse_overlay(raw)
     counts = {}
@@ -1249,14 +1313,33 @@ def main():
                         help='floor pass: supported floor points for stock groups without HC points (writes additions.json)')
     parser.add_argument('--base', type=Path, help='floor pass: existing floor overlay to keep and re-audit')
     parser.add_argument('--surface-overlay', type=Path, help='floor pass: surface overlay whose groups are skipped')
+    parser.add_argument('--only', type=Path,
+                        help='floor pass: file of group names (one per line). Adds floor containers to exactly these groups, '
+                             'even ones that already have surface points; writes only the new groups unless --merge-partitions with --base')
+    parser.add_argument('--resize', nargs='+', type=Path, metavar='OVERLAY',
+                        help='rewrite every container lootmax of the given overlay files with the point-density rule and exit')
     args = parser.parse_args()
+    if args.resize:
+        for path in args.resize:
+            raw = resize_lootmax(path.read_bytes())
+            path.write_bytes(raw)
+            report(raw)
+        return
     if args.floors:
         out = args.out if args.out != OUTPUT else FLOOR_OUTPUT
         if args.prior_overlay:
             parser.error('--prior-overlay is a surface-pass option')
         if args.partition is not None and out.resolve() == FLOOR_OUTPUT.resolve():
             parser.error('--partition requires a separate --out; never replace the shipped overlay with one partition')
-        if args.merge_partitions:
+        only = None
+        if args.only:
+            only = [line.strip() for line in args.only.read_text().splitlines() if line.strip()]
+        if args.merge_partitions and only is not None:
+            # every group was audited inside its partition; join them and add to the base
+            additions = merge_floor_partitions(args.merge_partitions, None)
+            raw = add_floor_groups(args.base, additions) if args.base else (
+                json.dumps(additions, sort_keys=True, indent=2) + '\n').encode()
+        elif args.merge_partitions:
             doc = merge_floor_partitions(args.merge_partitions, args.base)
             from tools.package.loot_support_audit import Audit as SupportAudit
             doc, _ = SupportAudit(args.addons, args.reader, args.stock_proto).filter(doc)
@@ -1264,7 +1347,7 @@ def main():
             loot.parse_overlay(raw)
         else:
             raw = generate_floors(args.addons, args.stock_proto, args.reader, args.map_pos, args.base,
-                                  args.surface_overlay, args.partition)
+                                  args.surface_overlay, args.partition, only)
         out.write_bytes(raw)
         report(raw)
         return

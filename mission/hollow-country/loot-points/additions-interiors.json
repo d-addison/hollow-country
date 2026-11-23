@@ -823,7 +823,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               6.516934,
@@ -2653,7 +2653,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               13.304641,
@@ -3081,7 +3081,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 7,
           "points": [
             [
               8.361954,
@@ -3811,7 +3811,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               4.246775,
@@ -4066,7 +4066,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               3.911141,
@@ -4360,7 +4360,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -18.668101,
@@ -4756,7 +4756,7 @@
             "containers",
             "food"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               3.2,
@@ -5113,7 +5113,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -1.7,
@@ -5333,7 +5333,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.4,
@@ -5698,7 +5698,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.4,
@@ -6063,7 +6063,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.4,
@@ -6428,7 +6428,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.4,
@@ -6793,7 +6793,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.4,
@@ -7118,7 +7118,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               6.6,
@@ -7451,7 +7451,7 @@
             "containers",
             "food"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               7.86024,
@@ -8262,7 +8262,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 7,
+          "lootmax": 12,
           "points": [
             [
               -3.054218,
@@ -10117,7 +10117,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -1.195533,
@@ -12537,7 +12537,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -1.195533,
@@ -15009,7 +15009,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -15.019347,
@@ -16793,7 +16793,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -3.4,
@@ -16946,7 +16946,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -3.3,
@@ -17126,7 +17126,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -3.3,
@@ -17946,7 +17946,7 @@
             "food",
             "tools"
           ],
-          "lootmax": 10,
+          "lootmax": 12,
           "points": [
             [
               0.619327,
@@ -19679,7 +19679,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               16.962038,
@@ -20126,7 +20126,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 6,
+          "lootmax": 12,
           "points": [
             [
               0.243386,
@@ -20838,7 +20838,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -3.573298,
@@ -21123,7 +21123,7 @@
             "books",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 9,
           "points": [
             [
               10.716336,
@@ -21943,7 +21943,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 3,
+          "lootmax": 7,
           "points": [
             [
               -4.1491,
@@ -22362,7 +22362,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -4.659361,
@@ -22564,7 +22564,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -1.906815,
@@ -22804,7 +22804,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -1.1,
@@ -23123,7 +23123,7 @@
             "food",
             "books"
           ],
-          "lootmax": 4,
+          "lootmax": 8,
           "points": [
             [
               0.227493,
@@ -23694,7 +23694,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               6.608428,
@@ -24125,7 +24125,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               1.560563,
@@ -24902,7 +24902,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 9,
+          "lootmax": 12,
           "points": [
             [
               5.528612,
@@ -26330,7 +26330,7 @@
             "books",
             "tools"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -2.227767,
@@ -26646,7 +26646,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               4.064163,
@@ -27124,7 +27124,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               4.755342,
@@ -27377,7 +27377,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -3.919497,
@@ -27747,7 +27747,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 9,
           "points": [
             [
               0.561542,
@@ -28442,7 +28442,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               -1.487786,
@@ -28926,7 +28926,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 7,
           "points": [
             [
               -4.249158,
@@ -29605,7 +29605,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               0.176582,
@@ -30043,7 +30043,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -0.994075,
@@ -30297,7 +30297,7 @@
             "food",
             "tools"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               1.720179,
@@ -30614,7 +30614,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 9,
           "points": [
             [
               4.509325,
@@ -31295,7 +31295,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -2.798542,
@@ -31497,7 +31497,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -3.872103,
@@ -31951,7 +31951,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 9,
           "points": [
             [
               -3.337305,
@@ -33224,7 +33224,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 10,
+          "lootmax": 12,
           "points": [
             [
               -4.713731,
@@ -34987,7 +34987,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 6,
+          "lootmax": 12,
           "points": [
             [
               -6.024778,
@@ -36104,7 +36104,7 @@
             "clothes",
             "food"
           ],
-          "lootmax": 3,
+          "lootmax": 10,
           "points": [
             [
               4.019933,
@@ -37275,7 +37275,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 6,
+          "lootmax": 12,
           "points": [
             [
               -4.792968,
@@ -38539,7 +38539,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               0.839634,
@@ -38862,7 +38862,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               3.071925,
@@ -39275,7 +39275,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 7,
           "points": [
             [
               -7.33738,
@@ -39874,7 +39874,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               -3.802452,
@@ -40376,7 +40376,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               -1.646527,
@@ -41142,7 +41142,7 @@
             "books",
             "tools"
           ],
-          "lootmax": 4,
+          "lootmax": 9,
           "points": [
             [
               -4.588832,
@@ -42244,7 +42244,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 2,
+          "lootmax": 7,
           "points": [
             [
               -2.996597,
@@ -42849,7 +42849,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 6,
           "points": [
             [
               -4.35,
@@ -43345,7 +43345,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               -0.084364,
@@ -43816,7 +43816,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               -7.506224,
@@ -44302,7 +44302,7 @@
             "containers",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 5,
           "points": [
             [
               -0.43276,
@@ -44745,7 +44745,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               4.56802,
@@ -45215,7 +45215,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -0.222517,
@@ -45516,7 +45516,7 @@
             "containers",
             "food"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               -0.766767,
@@ -46005,7 +46005,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               -0.278312,
@@ -46580,7 +46580,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 12,
           "points": [
             [
               4.37312,
@@ -47726,7 +47726,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 4,
+          "lootmax": 12,
           "points": [
             [
               2.939633,
@@ -49274,7 +49274,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -14.845,
@@ -51413,7 +51413,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 5,
+          "lootmax": 12,
           "points": [
             [
               -9.680809,
@@ -52754,7 +52754,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 5,
+          "lootmax": 12,
           "points": [
             [
               -4.126041,
@@ -54184,7 +54184,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 3,
+          "lootmax": 7,
           "points": [
             [
               1.05,
@@ -54752,7 +54752,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               -1.714046,
@@ -55437,7 +55437,7 @@
             "books",
             "tools"
           ],
-          "lootmax": 7,
+          "lootmax": 12,
           "points": [
             [
               -7.704799,
@@ -56684,7 +56684,7 @@
             "containers",
             "tools"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               1.812536,
@@ -57908,7 +57908,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -3.174697,
@@ -60483,7 +60483,7 @@
             "containers",
             "books"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -3.174697,
@@ -62557,7 +62557,7 @@
             "containers",
             "tools"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               -2.711926,
@@ -63091,7 +63091,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               7.608815,
@@ -63562,7 +63562,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 2,
+          "lootmax": 6,
           "points": [
             [
               -1.1,
@@ -64050,7 +64050,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -2.449116,
@@ -64628,7 +64628,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               2.527667,
@@ -64957,7 +64957,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 6,
           "points": [
             [
               1.622672,
@@ -65581,7 +65581,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 3,
           "points": [
             [
               2.262652,
@@ -65914,7 +65914,7 @@
             "containers",
             "tools"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               1.022704,
@@ -66432,7 +66432,7 @@
             "books",
             "tools"
           ],
-          "lootmax": 2,
+          "lootmax": 6,
           "points": [
             [
               -0.935472,
@@ -67009,7 +67009,7 @@
             "clothes",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               -5.00201,
@@ -67649,7 +67649,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 10,
+          "lootmax": 12,
           "points": [
             [
               -1.20689,
@@ -68892,7 +68892,7 @@
             "food",
             "books"
           ],
-          "lootmax": 2,
+          "lootmax": 3,
           "points": [
             [
               -1.795459,
@@ -69906,7 +69906,7 @@
             "containers",
             "clothes"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -4.578524,
@@ -71718,7 +71718,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               -4.05,
@@ -72793,7 +72793,7 @@
             "clothes",
             "tools"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               5.144989,
@@ -75363,7 +75363,7 @@
             "books",
             "clothes"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               7.148196,
@@ -77237,7 +77237,7 @@
             "food",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               0.535301,
@@ -77669,7 +77669,7 @@
             "books",
             "food"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -2.334809,
@@ -77855,7 +77855,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -4.784915,
@@ -78040,7 +78040,7 @@
             "clothes",
             "books"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -4.784915,
@@ -78438,7 +78438,7 @@
             "clothes",
             "tools"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               10.042338,
@@ -78755,7 +78755,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 5,
+          "lootmax": 12,
           "points": [
             [
               -4.2,
@@ -79420,7 +79420,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               0.979242,
@@ -79622,7 +79622,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -0.97631,
@@ -79806,7 +79806,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               2.423557,
@@ -80225,7 +80225,7 @@
             "food",
             "tools"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               -1.35606,
@@ -80817,7 +80817,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 3,
+          "lootmax": 6,
           "points": [
             [
               -2.864228,
@@ -81942,7 +81942,7 @@
             "tools",
             "books"
           ],
-          "lootmax": 10,
+          "lootmax": 12,
           "points": [
             [
               -0.003927,
@@ -83825,7 +83825,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 5,
+          "lootmax": 10,
           "points": [
             [
               4.40718,
@@ -84626,7 +84626,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 2,
+          "lootmax": 5,
           "points": [
             [
               10.870401,
@@ -85675,7 +85675,7 @@
             "tools",
             "food"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               -0.100467,
@@ -88036,7 +88036,7 @@
             "clothes",
             "tools"
           ],
-          "lootmax": 9,
+          "lootmax": 12,
           "points": [
             [
               3.974169,
@@ -89829,7 +89829,7 @@
             "books",
             "tools"
           ],
-          "lootmax": 6,
+          "lootmax": 12,
           "points": [
             [
               3.974169,
@@ -91274,7 +91274,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               6.484426,
@@ -93286,7 +93286,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 11,
+          "lootmax": 12,
           "points": [
             [
               6.484426,
@@ -95141,7 +95141,7 @@
             "food",
             "clothes"
           ],
-          "lootmax": 4,
+          "lootmax": 12,
           "points": [
             [
               4.149898,
@@ -96353,7 +96353,7 @@
             "food",
             "tools"
           ],
-          "lootmax": 2,
+          "lootmax": 9,
           "points": [
             [
               0.670305,
@@ -97241,7 +97241,7 @@
             "food",
             "tools"
           ],
-          "lootmax": 2,
+          "lootmax": 9,
           "points": [
             [
               0.670305,
@@ -97920,7 +97920,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 1,
+          "lootmax": 2,
           "points": [
             [
               -0.248272,
@@ -98197,7 +98197,7 @@
             "books",
             "containers"
           ],
-          "lootmax": 2,
+          "lootmax": 4,
           "points": [
             [
               -1.896528,
@@ -98861,7 +98861,7 @@
             "tools",
             "containers"
           ],
-          "lootmax": 5,
+          "lootmax": 11,
           "points": [
             [
               -1.65893,
