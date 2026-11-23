@@ -22,6 +22,8 @@ No publishing, committing or merging occurs. Bundles must remain unchanged
 throughout the run. Use an isolated test server with retained storage for upgrades.
 
 Owner targets live in [`config/acceptance-targets.json`](../../config/acceptance-targets.json).
+The gate reads both owner targets and activity expectations from the candidate
+commit before acquiring the host lock.
 The shared `tools.release.acceptance_targets.load_targets` loader rejects missing or
 unknown keys, invalid types and invalid ranges. Missing/invalid policy refuses the
 gate before native work and refuses release activity checks. Preland settings

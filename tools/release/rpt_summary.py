@@ -162,8 +162,9 @@ class Summary:
     The temporary database contains only filtered HC lines and is removed on
     close. JSON/text are streamed too; as_dict intentionally not provided.
     """
-    def __init__(self, path):
+    def __init__(self, path, *, targets=None, entries=None):
         self.path = Path(path)
+        self.targets = targets
         self.temp = tempfile.TemporaryDirectory(prefix='hc-rpt-')
         self.db = sqlite3.connect(str(Path(self.temp.name) / 'summary.sqlite'))
         self.db.execute('PRAGMA cache_size=-1024')
@@ -190,7 +191,7 @@ class Summary:
         # filter and bounded line reader. Activity findings never alter outcome.
         from tools.release.activity_check import Activity
         try:
-            self.activity_checker = Activity()
+            self.activity_checker = Activity(entries=entries)
         except (OSError, ValueError, TypeError, KeyError, re.error):
             self.activity_checker = None
         self.activity_error = self.activity_checker is None
@@ -293,7 +294,8 @@ class Summary:
 
     def header(self):
         from tools.release.acceptance_targets import load_targets
-        timing = self.readiness_timing.result(load_targets()['readiness_max_after_hive_seconds'])
+        targets = load_targets() if self.targets is None else self.targets
+        timing = self.readiness_timing.result(targets['readiness_max_after_hive_seconds'])
         return dict(outcome=self.outcome, connected=self.connected, activity=self.activity,
                     readiness_timing=timing,
                     compile_result='compile_failed' if 'compile_failed' in self.failures else 'no_compile_error_observed',

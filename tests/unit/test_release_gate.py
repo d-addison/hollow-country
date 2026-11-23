@@ -2,6 +2,7 @@
 import contextlib
 import json
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -22,6 +23,10 @@ class ReleaseGateTests(unittest.TestCase):
         policy_patch = patch.object(gate, 'load_targets', return_value=self.targets)
         policy_patch.start()
         self.addCleanup(policy_patch.stop)
+        self.entries = gate.activity_check.load_expectations()
+        candidate_patch = patch.object(gate, 'candidate_policy', return_value=(self.targets, self.entries))
+        candidate_patch.start()
+        self.addCleanup(candidate_patch.stop)
 
     def args(self, **kwargs):
         return SimpleNamespace(commit='a' * 40, **kwargs)
@@ -113,11 +118,26 @@ class ReleaseGateTests(unittest.TestCase):
 
     def test_release_activity_option_is_required(self):
         args = self.args()
-        steps = gate.NativeSteps(args)
+        steps = gate.NativeSteps(args, self.targets, self.entries)
         steps.rpt, steps.client_rpt = Path('server.RPT'), Path('client.RPT')
         with patch.object(gate, 'capture') as call:
             steps.activity()
         self.assertIn('--release', call.call_args.args[1])
+        self.assertEqual(call.call_args.kwargs, dict(targets=self.targets, entries=self.entries))
+
+    def test_release_activity_requires_candidate_client_signal(self):
+        entries = [dict(module='Core', feature='candidate_signal', release_smoke=True)]
+        targets = dict(self.targets, activity_requires_active_for_default_on=True)
+        steps = gate.NativeSteps(self.args(), targets, entries)
+        with tempfile.TemporaryDirectory() as temp, patch.object(gate, 'emit'):
+            steps.rpt, steps.client_rpt = (Path(temp) / 'server.RPT', Path(temp) / 'client.RPT')
+            signal = '[HC Use] module=Core feature=candidate_signal count=1\n'
+            steps.rpt.write_text('[HC Ready] module=Core enabled=true ready=true\n' + signal)
+            steps.client_rpt.write_text('')
+            with self.assertRaisesRegex(gate.Refused, 'tool failed'):
+                steps.activity()
+            steps.client_rpt.write_text(signal)
+            steps.activity()
 
     def test_audit_uses_common_summary_and_perf(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -260,7 +280,7 @@ class ReleaseGateTests(unittest.TestCase):
 
     def test_missing_policy_refuses_before_native_steps(self):
         steps = Mock()
-        with patch.object(gate, 'load_targets', side_effect=policy.TargetsError('acceptance targets missing keys')), \
+        with patch.object(gate, 'candidate_policy', side_effect=policy.TargetsError('acceptance targets missing keys')), \
                 patch.object(gate, 'host_lock') as lock:
             result = gate.run_gate(self.args(), steps)
         self.assertFalse(result['passed'])
@@ -308,13 +328,14 @@ class ReleaseGateTests(unittest.TestCase):
     def test_client_smoke_waits_for_all_mapped_positive_features(self):
         mappings = [f'{category}=Core/{category}' for category in gate.CATEGORIES]
         args = self.args(smoke_use=mappings, client_timeout=10)
-        steps = gate.NativeSteps(args)
+        steps = gate.NativeSteps(args, self.targets, self.entries)
         steps.rpt, steps.client_rpt = Path('server.RPT'), Path('client.RPT')
         rows = [dict(module='Core', feature=category, scope='client', status='ACTIVE', value=1)
                 for category in gate.CATEGORIES]
         with patch.object(gate, 'audit'), patch.object(gate, 'emit'), \
-                patch.object(gate.activity_check, 'scan', return_value={'features': rows}):
+                patch.object(gate.activity_check, 'scan', return_value={'features': rows}) as scan:
             steps.client()
+        scan.assert_called_once_with(steps.rpt, client_rpt=steps.client_rpt, entries=self.entries)
         rows[0]['value'] = 0
         with patch.object(gate, 'audit'), patch.object(gate, 'emit'), \
                 patch.object(gate.activity_check, 'scan', return_value={'features': rows}), \
@@ -368,6 +389,69 @@ class ReleaseGateTests(unittest.TestCase):
             with self.assertRaises(gate.Refused):
                 steps.install(Path('bundle'))
         native.assert_not_called()
+
+
+class CandidatePolicyTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.git('init', '--quiet')
+        (self.root / 'config').mkdir()
+        self.targets = self.root / 'config/acceptance-targets.json'
+        self.expectations = self.root / 'config/activity-expectations.json'
+        self.targets.write_text(json.dumps(dict(TARGETS, soak_minutes=17)))
+        self.entry = dict(module='Core', feature='candidate_signal', floor=1, window_minutes=0,
+                          comparison='max', needs_player=False, signal=None,
+                          scope='client', release_smoke=True)
+        self.expectations.write_text(json.dumps(dict(schema_version=1, features=[self.entry])))
+
+    def git(self, *args):
+        return subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                               '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', *args],
+                              cwd=self.root, check=True, capture_output=True, text=True).stdout.strip()
+
+    def commit(self):
+        self.git('add', '-A')
+        self.git('commit', '--quiet', '-m', 'test policy')
+        return self.git('rev-parse', 'HEAD')
+
+    def test_gate_uses_policy_from_candidate_instead_of_invoking_checkout(self):
+        candidate = self.commit()
+        self.targets.write_text(json.dumps(dict(TARGETS, soak_minutes=99)))
+        self.expectations.write_text(json.dumps(dict(schema_version=1,
+            features=[dict(self.entry, feature='caller_signal')])))
+        self.commit()
+        load = gate.candidate_policy
+        args = SimpleNamespace(commit=candidate)
+        with patch.object(gate, 'candidate_policy', side_effect=lambda sha: load(sha, self.root)), \
+                patch.object(gate, 'NativeSteps') as steps, \
+                patch.object(gate, 'host_lock', return_value=contextlib.nullcontext()):
+            result = gate.run_gate(args)
+        self.assertTrue(result['passed'])
+        steps.assert_called_once_with(args, dict(TARGETS, soak_minutes=17), [self.entry])
+
+    def test_missing_candidate_config_cannot_fall_back_to_working_file(self):
+        for path, reason in ((self.targets, 'candidate acceptance targets unavailable'),
+                             (self.expectations, 'candidate activity expectations unavailable')):
+            with self.subTest(path=path.name):
+                original = path.read_bytes()
+                path.unlink()
+                candidate = self.commit()
+                path.write_bytes(original)
+                with self.assertRaisesRegex(gate.Refused, reason):
+                    gate.candidate_policy(candidate, self.root)
+
+    def test_malformed_candidate_expectations_refuse_before_host_lock(self):
+        self.expectations.write_text('{')
+        candidate = self.commit()
+        load = gate.candidate_policy
+        with patch.object(gate, 'candidate_policy', side_effect=lambda sha: load(sha, self.root)), \
+                patch.object(gate, 'host_lock') as lock:
+            result = gate.run_gate(SimpleNamespace(commit=candidate), Mock())
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['reason'], 'candidate activity expectations invalid')
+        lock.assert_not_called()
 
 
 class AcceptanceTargetsTests(unittest.TestCase):

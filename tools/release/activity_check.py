@@ -58,9 +58,10 @@ class UseActivity:
     but count remains cumulative: checkpoints must never be summed.
     The caller runs this audit at the end of the release scenario window.
     """
-    def __init__(self):
-        self.targets = load_targets()
-        self.client_smoke = {(entry['module'], entry['feature']) for entry in load_expectations()
+    def __init__(self, *, targets=None, entries=None):
+        self.targets = load_targets() if targets is None else targets
+        entries = load_expectations() if entries is None else entries
+        self.client_smoke = {(entry['module'], entry['feature']) for entry in entries
                              if entry.get('release_smoke')}
         self.modules = {}
         self.counts = {}
@@ -146,8 +147,8 @@ class UseActivity:
                     release=True, readiness_observed=True, registry_count=self.registry_count)
 
 
-def scan_release(path, *, client_rpt=None):
-    audit = UseActivity()
+def scan_release(path, *, client_rpt=None, targets=None, entries=None):
+    audit = UseActivity(targets=targets, entries=entries)
     for raw in lines(path):
         audit.observe(raw)
     if client_rpt is not None:
@@ -163,9 +164,12 @@ def number(value):
 
 
 def load_expectations(path=DEFAULT_EXPECTATIONS):
+    return parse_expectations(Path(path).read_text(encoding='utf-8'))
+
+
+def parse_expectations(text):
     """Validate before scanning; configuration is trusted local regex, never RPT code."""
-    with Path(path).open(encoding='utf-8') as stream:
-        data = json.load(stream)
+    data = json.loads(text)
     if not isinstance(data, dict) or data.get('schema_version') != 1:
         raise ValueError('expectations schema')
     entries = data.get('features')
@@ -212,9 +216,9 @@ def load_expectations(path=DEFAULT_EXPECTATIONS):
 
 class Activity:
     """Bounded counters only: raw player markers and identities are never retained."""
-    def __init__(self, expectations=DEFAULT_EXPECTATIONS, *, client=False):
+    def __init__(self, expectations=DEFAULT_EXPECTATIONS, *, client=False, entries=None):
         self.client = client
-        self.entries = load_expectations(expectations)
+        self.entries = load_expectations(expectations) if entries is None else entries
         self.states = []
         self.by_tag = {}
         for entry in self.entries:
@@ -357,15 +361,15 @@ class Activity:
                     player_minutes=round(self.player_seconds / 60, 3), client_rpt_observed=False)
 
 
-def scan(path, expectations=DEFAULT_EXPECTATIONS, *, client_rpt=None):
-    activity = Activity(expectations)
+def scan(path, expectations=DEFAULT_EXPECTATIONS, *, client_rpt=None, entries=None):
+    activity = Activity(expectations, entries=entries)
     for raw in lines(path):
         activity.observe(raw)
     result = activity.result()
     if not result['readiness_observed']:
         raise ValueError('no readiness markers')
     if client_rpt is not None:
-        client = Activity(expectations, client=True)
+        client = Activity(client=True, entries=activity.entries)
         # Only the server determines enabled modules. Client readiness, server
         # counters and player events cannot alter the authoritative audit.
         client.modules = dict(activity.modules)
@@ -414,7 +418,7 @@ class InputParser(argparse.ArgumentParser):
         self.exit(6, 'activity arguments unavailable or invalid\n')
 
 
-def main(argv=None):
+def main(argv=None, *, targets=None, entries=None):
     parser = InputParser(description=__doc__)
     parser.add_argument('rpt', type=Path)
     parser.add_argument('--client-rpt', type=Path)
@@ -424,9 +428,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.release:
-            result = scan_release(args.rpt, client_rpt=args.client_rpt)
+            result = scan_release(args.rpt, client_rpt=args.client_rpt, targets=targets, entries=entries)
         else:
-            result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt)
+            result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt, entries=entries)
     except TargetsError as error:
         print(json.dumps(dict(error=str(error))) if args.json else str(error))
         return 6

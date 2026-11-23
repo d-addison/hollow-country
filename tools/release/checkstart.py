@@ -42,9 +42,10 @@ def dumps(profiles):
     return result
 
 
-def watch(args, before, old_dumps):
+def watch(args, before, old_dumps, *, targets=None):
     try:
-        r4_limit = load_targets()['readiness_max_after_hive_seconds']
+        targets = load_targets() if targets is None else targets
+        r4_limit = targets['readiness_max_after_hive_seconds']
     except TargetsError as error:
         print('checkstart acceptance targets invalid: ' + str(error), flush=True)
         return 'input_error', args.rpt
@@ -189,7 +190,7 @@ def watch(args, before, old_dumps):
         time.sleep(args.poll_seconds if caught_up or rpt is None else 0)
 
 
-def main(argv=None):
+def main(argv=None, *, targets=None, entries=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle', required=True, help='Windows path to extracted friend bundle')
     parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1', help='Windows path')
@@ -231,6 +232,7 @@ def main(argv=None):
     rpt = None
     lease = ExitStack()
     try:
+        targets = load_targets() if targets is None else targets
         if args.start:
             lease.enter_context(host_lock('checkstart'))
         # Use PowerShell argument quoting; no shell interpolation on Linux.
@@ -266,10 +268,10 @@ def main(argv=None):
             if started.returncode:
                 print('start failed')
                 return 9
-        outcome, rpt = watch(args, before, old_dumps)
+        outcome, rpt = watch(args, before, old_dumps, targets=targets)
         activity_result = None
         if rpt is not None:
-            summary = Summary(rpt)
+            summary = Summary(rpt, targets=targets, entries=entries)
             try:
                 summary.scan().print()
                 activity_result = summary.activity
@@ -279,7 +281,7 @@ def main(argv=None):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
                 if outcome == 'connect_enabled':
-                    r4 = summary.readiness_timing.result(load_targets()['readiness_max_after_hive_seconds'])
+                    r4 = summary.readiness_timing.result(targets['readiness_max_after_hive_seconds'])
                     if r4['status'] != 'passed':
                         outcome = 'not_ready' if r4['status'] == 'failed' else 'input_error'
             finally:

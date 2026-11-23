@@ -12,12 +12,13 @@ import time
 
 from tools.audit import rpt_config_audit
 from tools.release import activity_check, checkstart, friendcycle, rpt_summary
-from tools.release.acceptance_targets import load_targets, TargetsError
+from tools.release.acceptance_targets import load_targets, parse_targets, TargetsError
 from tools.release.host_lock import host_lock, LockRefused
 from tools.setup import winproc
 from tools.validate.tick_cost_report import perf_rules
 
 CATEGORIES = ('map', 'inventory', 'groups', 'admin', 'ai', 'event')
+ROOT = Path(__file__).resolve().parents[2]
 CHECKLIST = ('One tester: join; open the M map with group controls, inventory and admin window; '
              'walk from outside into one reviewed AI site activation radius and one published mission zone. '
              'Keep this client connected through activity validation.')
@@ -40,6 +41,32 @@ def failure_reason(error):
     return 'required evidence unavailable or failed'
 
 
+def candidate_policy(commit, root=ROOT):
+    """Read policy from the same immutable Git commit required by the bundle."""
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise Refused('full commit required')
+
+    def git(*arguments, refusal):
+        try:
+            result = subprocess.run(['git', '--no-replace-objects', *arguments], cwd=root,
+                                    capture_output=True, check=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            raise Refused(refusal) from None
+        return result.stdout
+
+    if git('cat-file', '-t', commit, refusal='candidate commit unavailable').strip() != b'commit':
+        raise Refused('candidate object is not a commit')
+    targets = parse_targets(git('cat-file', 'blob', f'{commit}:config/acceptance-targets.json',
+                                refusal='candidate acceptance targets unavailable'))
+    expectations = git('cat-file', 'blob', f'{commit}:config/activity-expectations.json',
+                       refusal='candidate activity expectations unavailable')
+    try:
+        entries = activity_check.parse_expectations(expectations)
+    except (ValueError, TypeError, OverflowError, RecursionError, re.error):
+        raise Refused('candidate activity expectations invalid') from None
+    return targets, entries
+
+
 def emit(text):
     for line in text.splitlines():
         safe = rpt_summary.filtered(line)
@@ -56,11 +83,11 @@ def command(argv, timeout):
     return result.stdout
 
 
-def capture(function, argv):
+def capture(function, argv, **kwargs):
     output = io.StringIO()
     try:
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
-            code = function(argv)
+            code = function(argv, **kwargs)
     except SystemExit:
         raise Refused('tool arguments unsupported') from None
     finally:
@@ -69,10 +96,10 @@ def capture(function, argv):
         raise Refused('tool failed')
 
 
-def audit(path, *, client=False, startup_only=False, targets=None):
+def audit(path, *, client=False, startup_only=False, targets=None, entries=None):
     """Reuse the common summary and perf parser; add only release-specific rules."""
     targets = load_targets() if targets is None else targets
-    summary = rpt_summary.Summary(path)
+    summary = rpt_summary.Summary(path, targets=targets, entries=entries)
     try:
         summary.scan()
         # Count SCRIPT (E) below; compile markers and other failures stay unconditional.
@@ -150,9 +177,10 @@ def client_profiles():
 
 
 class NativeSteps:
-    def __init__(self, args, targets=None):
+    def __init__(self, args, targets=None, entries=None):
         self.args = args
         self.targets = load_targets() if targets is None else targets
+        self.entries = entries
         self.rpt = None
         self.client_rpt = None
         self.started = False
@@ -161,7 +189,7 @@ class NativeSteps:
 
     def compile(self):
         output = command([sys.executable, '-B', '-m', 'tools.release.compile_gate',
-                          '--commit', self.args.commit], 1200)
+                          '--tree', ROOT, '--commit', self.args.commit], 1200)
         passed = re.search(r'^compile_gate: PASS status=(mission-loaded-runtime-json|initialized|timeout)$',
                            output, re.M)
         mission = re.search(r'^compile_gate: Mission loaded with zero compile errors; runtime acceptance pending$',
@@ -202,12 +230,13 @@ class NativeSteps:
         self.started = True
         capture(checkstart.main, ['--bundle', friendcycle.windows_path(bundle), '--start',
                 '--server-root', self.args.server_root, '--profiles', str(self.args.profiles),
-                '--settle-minutes', str(minutes), '--timeout-seconds', str(minutes * 60 + 900)])
+                '--settle-minutes', str(minutes), '--timeout-seconds', str(minutes * 60 + 900)],
+                targets=self.targets, entries=self.entries)
         fresh = set(self.args.profiles.glob('*.RPT')) - before
         if len(fresh) != 1:
             raise Refused('fresh server RPT ambiguous or missing')
         path = fresh.pop()
-        audit(path, startup_only=startup_only, targets=self.targets)
+        audit(path, startup_only=startup_only, targets=self.targets, entries=self.entries)
         return path
 
     def stop(self):
@@ -264,7 +293,8 @@ class NativeSteps:
     def activity(self):
         if self.client_rpt is None:
             raise Refused('fresh client RPT required during soak')
-        capture(activity_check.main, [str(self.rpt), '--client-rpt', str(self.client_rpt), '--release'])
+        capture(activity_check.main, [str(self.rpt), '--client-rpt', str(self.client_rpt), '--release'],
+                targets=self.targets, entries=self.entries)
 
     def client(self):
         emit(CHECKLIST)
@@ -280,16 +310,16 @@ class NativeSteps:
             raise Refused('six distinct smoke signal mappings required; see RELEASE_GATE.md')
         deadline = time.monotonic() + self.args.client_timeout
         while True:
-            audit(self.client_rpt, client=True, targets=self.targets)
+            audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
             # Delegate shared [HC Use] parsing to the activity checker. Release
             # mode owns the signal format and reports per-feature active counts.
-            result = activity_check.scan(self.rpt, client_rpt=self.client_rpt)
+            result = activity_check.scan(self.rpt, client_rpt=self.client_rpt, entries=self.entries)
             active = {(row['module'], row['feature']) for row in result['features']
                       if row.get('scope') == 'client' and row.get('status') == 'ACTIVE'
                       and row.get('value', 0) is not None and row['value'] > 0}
             if required <= active:
-                audit(self.rpt, targets=self.targets)
-                audit(self.client_rpt, client=True, targets=self.targets)
+                audit(self.rpt, targets=self.targets, entries=self.entries)
+                audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
                 return
             if time.monotonic() >= deadline:
                 raise Refused('client smoke timeout')
@@ -300,8 +330,8 @@ def run_gate(args, steps=None):
     verdict = dict(commit=args.commit, passed=False, steps=[])
     current = 'acceptance_targets'
     try:
-        targets = load_targets()
-        steps = steps or NativeSteps(args, targets)
+        targets, entries = candidate_policy(args.commit)
+        steps = steps or NativeSteps(args, targets, entries)
         current = 'host_lock'
         with host_lock('release_gate'):
             completed = False
