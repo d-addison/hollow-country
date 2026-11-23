@@ -1831,11 +1831,12 @@ def install_dependencies(ctx, a):
 
 
 # Everything that decides the mission bytes the bundle apply writes: the overlay, the patches, the infected variants,
-# the authored CE layer the loot boost scales (ce/), the loot-points data and settings (settings.json, families,
+# the authored CE layer the loot boost scales (ce/), the optional pack CE rows (optional/), the loot-points data and settings (settings.json, families,
 # additions, floor policy, new buildings), the firearms roster and the military rules the boost reads. A release that
 # changes only one of these must not look "already applied": the fingerprint changes, the earlier overlay is rolled
 # back (receipt-verified) and the stack is applied again from stock bytes.
-OVERLAY_INPUT_PREFIXES = ('mission-overlay/', 'mission/hollow-country/loot-points/', 'mission/hollow-country/ce/')
+OVERLAY_INPUT_PREFIXES = ('mission-overlay/', 'mission/hollow-country/loot-points/', 'mission/hollow-country/ce/',
+                          'mission/hollow-country/optional/')
 OVERLAY_INPUT_FILES = ('mission-patches.json', 'mission/hollow-country/infected/variants.json',
                        'tools/package/firearms_roster.json', 'config/military-loot.json')
 
