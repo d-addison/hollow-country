@@ -866,6 +866,8 @@ class Ctx:
         self.retire_reasons = {}  # launcher_retired: why each kept retired folder is kept
         self.optout_new = False  # --keep-stock-globals recorded a new opt-out; a step must save the receipt
         self.force_tree = False  # a typed y at the hard-exit prompt: allows the whole-tree restore and nothing else
+        self.replaced_plan = {}  # dry run: step name -> label of a layer step 5 would roll back for that step to replace
+        self.replaced_done = {}  # apply: step name -> label of a layer step 5 rolled back; that step must install it again
 
     def say(self, text=''):
         print(shown(text), file=self.out)
@@ -2092,6 +2094,56 @@ def globals_recovery(mission):
     return lines
 
 
+def replaced_layers(ctx, a, mission, installed):
+    """The installed layers that step 5 rolls back when it replaces the mission overlay, as (label, folder, step,
+    reason). They sit on top of it and patch the same files, so the mission overlay cannot be rolled back without
+    them. reason is '' when the named later step of this run installs the layer again, else why it cannot: a run
+    never leaves fewer installed layers than it started with."""
+    rows = []
+    fetching = {i['id'] for i in a.fetch} if 'workshop' not in ctx.skip else set()
+    if installed and os.path.lexists(mission / map_overlay.MANAGED):
+        reason = 'step 6 (map overlays) is skipped' if 'overlays-map' in ctx.skip else ''
+        rows.append(('map overlay', map_overlay.MANAGED, 'overlays-map', reason))
+    sources = weapon_pack_sources(ctx)
+    for label, writer in (('SNAFU weapon pack', snafu_optional), ('Tactical Flava weapon pack', tactical_flava_optional)):
+        if os.path.lexists(mission / writer.MANAGED):
+            reason = ''
+            if 'weapons' in ctx.skip:
+                reason = 'step 7 (weapons) is skipped'
+            elif writer.WORKSHOP_ID not in sources and writer.WORKSHOP_ID not in fetching:
+                reason = 'its Workshop pack %s is not on the server or in the downloads' % writer.WORKSHOP_ID
+            rows.append((label, writer.MANAGED, 'weapons', reason))
+    return rows
+
+
+def stack_lines(rows):
+    """Plan lines saying which layers go, which are replaced and which stay."""
+    lines = []
+    for label, folder, step, reason in rows:
+        if reason:
+            lines.append('%s (%s): cannot be kept: %s' % (label, folder, reason))
+        else:
+            lines.append('%s (%s): rolled back here, installed again by the %s step of this run' % (label, folder, step))
+    return lines
+
+
+def stack_problem(rows):
+    bad = [row for row in rows if row[3]]
+    if not bad:
+        return ''
+    return ('refused before anything is changed: replacing the mission overlay rolls back the layers on top of it '
+            '(they patch the same files), and this run would not install %s again: %s. Run again without that skip '
+            'or with the pack available; the installed layers stay as they are until then'
+            % ('it' if len(bad) == 1 else 'them', '; '.join('%s: %s' % (row[0], row[3]) for row in bad)))
+
+
+def layers_stay_lines(mission):
+    """One plan line when layers installed on top of the mission overlay are left exactly as they are."""
+    found = [folder for folder in (map_overlay.MANAGED, snafu_optional.MANAGED, tactical_flava_optional.MANAGED)
+             if os.path.lexists(mission / folder)]
+    return ['layers on top of it stay installed, byte for byte: %s' % ', '.join(found)] if found else []
+
+
 def plan_overlay(ctx, a):
     status, lines, action = plan_overlay_step(ctx, a)
     if ctx.optout_new and status != 'blocked':
@@ -2124,6 +2176,7 @@ def plan_overlay_step(ctx, a):
     ctx.globals_planned = globals_digest(state)
     if not replacing:
         lines.append('the bundle overlay is already applied (same bundle)')
+        lines += layers_stay_lines(mission)
         variety = mission / infected_variety.MANAGED
         if getattr(ctx.args, 'infected_variety_off', False):
             if variety.exists():
@@ -2140,10 +2193,16 @@ def plan_overlay_step(ctx, a):
     missing = [m for m in missing if m not in fetching]
     if missing:
         return 'blocked', lines + ['these default Workshop packs are not downloaded: %s' % ', '.join(missing)], None
+    stack = replaced_layers(ctx, a, mission, installed)
+    ctx.replaced_plan = {row[2]: row[0] for row in stack}
     if installed:
         lines.append('an overlay from an earlier bundle is applied; it is rolled back first (rollback restores the '
                      'files it changed), then the new bundle is planned and applied')
-    else:
+    lines += stack_lines(stack)
+    stuck = stack_problem(stack)
+    if stuck:
+        return 'blocked', lines + [stuck], None
+    if not installed:
         code, text, err = run_overlay(ctx, ['bundle-plan', '--bundle', str(ctx.bundle), '--mission', str(mission)])
         if code != 0:
             return 'blocked', lines + ['bundle-plan refused: %s' % err.strip()], None
@@ -2169,6 +2228,11 @@ def do_overlay(ctx, a, mission, installed, want):
 
 
 def _do_overlay_with_variety(ctx, a, mission, installed, want):
+    for label, folder, step, reason in replaced_layers(ctx, a, mission, installed):
+        if reason:
+            # pre_apply and the plan refuse first; this keeps the rule even if a caller skipped them
+            raise Refused('overlay_layers', stack_problem([(label, folder, step, reason)]))
+        ctx.replaced_done[step] = label
     # Encounters snapshot CE geometry above the map and weapon layers.
     hc_events.rollback(mission)
     # Weapon layers are installed after the base overlay and must be removed first.
@@ -2239,9 +2303,13 @@ def weapon_pack_sources(ctx):
 
 
 def plan_weapons(ctx, a):
-    if 'weapons' in ctx.skip or 'overlay' in ctx.skip:
-        return 'skipped', ['you asked to skip mission/weapon installation'], None
     mission = ctx.server / 'mpmissions' / ctx.manifest['mission']
+    if 'weapons' in ctx.skip or 'overlay' in ctx.skip:
+        lines = ['you asked to skip mission/weapon installation']
+        for label, writer in (('SNAFU', snafu_optional), ('Tactical Flava', tactical_flava_optional)):
+            if os.path.lexists(mission / writer.MANAGED):
+                lines.append('the installed %s weapon pack (%s) stays as it is, byte for byte' % (label, writer.MANAGED))
+        return 'skipped', lines, None
     if not mission.is_dir():
         return 'blocked', ['stock mission is missing'], None
     packs = weapon_pack_sources(ctx)
@@ -2369,7 +2437,10 @@ def map_validate_args(ctx, source, mission, with_mission):
 
 def plan_overlays_map(ctx, a):
     if 'overlays-map' in ctx.skip:
-        return 'skipped', ['you asked to skip this step'], None
+        lines = ['you asked to skip this step']
+        if os.path.lexists(map_mission(ctx) / map_overlay.MANAGED):
+            lines.append('the installed map overlay (%s) stays as it is, byte for byte' % map_overlay.MANAGED)
+        return 'skipped', lines, None
     mission = map_mission(ctx)
     if not mission.is_dir():
         return 'blocked', ['mission folder %s was not found; the map overlays go into it' % shown(mission)], None
@@ -2386,14 +2457,20 @@ def plan_overlays_map(ctx, a):
     except (OSError, ValueError, KeyError, TypeError) as error:
         return 'blocked', lines + ['the bundle layer set is not valid: %s' % shown(error)], None
     lines.append('layers: %s' % ', '.join(ids))
+    # A dry run does not apply step 5, so it must say what step 5 will do to the installed map overlay.
+    popped = ctx.statuses.get('overlay') == 'planned' and 'overlays-map' in ctx.replaced_plan and state != 'none'
+    if popped:
+        state = 'different'
+        lines.append('step 5 rolls the installed map overlay back first (the mission overlay it sits on is replaced); '
+                     'this step installs the bundle layers again')
     if state == 'same':
-        lines.append('the map overlay is installed and intact (same layer set)')
+        lines.append('the map overlay is installed and intact (same layer set); it stays as it is')
         return 'already-done', lines, None
     present = all((mission / name).is_file() for name in map_overlay.INPUTS + ('mapgroupproto.xml',))
     waiting = ctx.statuses.get('overlay') == 'planned' and not present
-    if state == 'different':
-        lines.append('a map overlay from a different layer set is installed; it is rolled back first (byte-exact '
-                     'restore of cfggameplay.json and mapgrouppos.xml), then the new layers are installed')
+    if state == 'different' and not popped:
+        lines.append('a map overlay from a different layer set is installed; it is replaced: rolled back first '
+                     '(byte-exact restore of cfggameplay.json and mapgrouppos.xml), then the new layers are installed')
     lines.append('the server must be stopped; this changes cfggameplay.json and mapgrouppos.xml in the mission '
                  '(receipted; runtime acceptance stays pending)')
     # With an overlay in place the vanilla rows are not what is in the file; it is checked again after the rollback.
@@ -3061,6 +3138,9 @@ def pre_apply(ctx, a):
         if mission.is_dir() and (mission / overlays.BUNDLE_MANAGED).exists() and \
                 ctx.receipt.get('overlay') != overlay_fingerprint(ctx):
             confirm.append('mission overlay from an earlier bundle (rolled back first)')
+            stuck = stack_problem(replaced_layers(ctx, a, mission, True))
+            if stuck:
+                raise Refused('overlay_layers', stuck)
             if os.path.lexists(mission / map_overlay.MANAGED):
                 confirm.append('map overlay (rolled back first, because the mission overlay it sits on is replaced)')
     if 'overlays-map' not in ctx.skip and not any(c.startswith('map overlay') for c in confirm):
@@ -3163,6 +3243,11 @@ def run_steps(ctx, apply):
                     # The later launcher step must know these folders will not be installed this run.
                     ctx.skip.add(name)
                     ctx.retire_cache, ctx.retire_reasons = None, {}
+        if (stopped or status == 'skipped') and apply and name in ctx.replaced_done:
+            # Step 5 already rolled this layer back for this step to install it again: the run is not left half-way.
+            raise Refused('overlay_layers', 'step 5 rolled back the installed %s so the mission overlay could be '
+                          'replaced, and this step would not install it again; the run is undone so the server keeps '
+                          'its layers' % ctx.replaced_done[name])
         if stopped:
             ctx.say('  status: stopped (you quit; later steps were not run)')
             break

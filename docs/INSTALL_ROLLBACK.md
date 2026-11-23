@@ -477,6 +477,13 @@ upgrade so nothing of value is inside a bike that disappears.
   followed by `bundle-apply` when not using the installer.
 - Unsubscribing in Steam is optional; a leftover subscription is never loaded.
 
+### Upgrade note: first boot after adding @dzr_notes (#336)
+
+The first boot after adding `@dzr_notes` logs one `Scripted variables corrupted upon "Paper"`
+Virtual Machine Exception (`EntityAI::OnStoreLoad`) for every `Paper` item already in storage,
+because the pack adds stored variables to `Paper`. It happens once; those papers are dropped and
+the server keeps running. It is not a failed upgrade.
+
 COT owner roles stay private in the server profile; see [COT permissions](COT_PERMISSIONS.md).
 Admin ids are never written to git.
 
