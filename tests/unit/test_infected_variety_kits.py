@@ -1,8 +1,9 @@
-"""Infected role kits, visible worn gear and HC child parity (#339); offline data checks only.
+"""Infected cargo replacements, worn gear and legacy receipt checks (#339).
 
 Synthetic missions exercise the generator and the receipt path. The stock-file tests read the pinned
 stock mission when the host has it and skip otherwise. Nothing here establishes CE or DayZ behaviour.
 """
+import base64
 import contextlib
 import copy
 import io
@@ -74,8 +75,15 @@ def synthetic_policy():
     acc = policy['accessories']
     acc.update(probability_transfers=[], item_transfers={}, explicit_classes=dict(CLASSES),
                stock_presets_sha256=economy.sha(PRESETS))
-    acc['parent_fallbacks'] = {'ZmbM_usSoldier_normal_Woodland': 'ZmbM_usSoldier_normal_Desert'}
     policy['infected_kits']['worn_gear'] = {'slot_transfers': [], 'item_transfers': {}}
+    groups = economy._unique(ET.fromstring(PRESETS).findall('cargo'))
+    row = rows(SPAWNABLE)['ZmbM_PatrolNormal_Autumn']
+    policy['infected_kits']['cargo_replacements'] = {
+        'ZmbM_PatrolNormal_Autumn': {
+            'preset': 'foodArmy', 'from': 'TunaCan', 'to': 'Mag_STANAG_30Rnd',
+            'cargo_sha256': iv._cargo_sha256(iv._resolved_cargo(row, groups)),
+        },
+    }
     return policy
 
 
@@ -87,8 +95,13 @@ def body(node):
     return tuple(iv._signature(c) for c in node)
 
 
-def kit_presets(node):
-    return [c.get('preset') for c in node.findall('cargo') if (c.get('preset') or '').startswith('hc_kit_')]
+def body_cargo(node):
+    return tuple(iv._signature(c) for c in node.findall('cargo'))
+
+
+def cargo_draws(node, presets):
+    return tuple((group.get('chance'), tuple(i.get('chance') for i in group.findall('item')))
+                 for _, group in iv._resolved_cargo(node, presets))
 
 
 class SyntheticKitTests(unittest.TestCase):
@@ -98,38 +111,26 @@ class SyntheticKitTests(unittest.TestCase):
         self.built = iv.build(SPAWNABLE, PRESETS, self.policy['accessories'], self.kits)
         self.rows = rows(self.built['spawn'])
 
-    def test_hc_child_copies_parent_cargo_and_attachments(self):
-        self.assertEqual(body(self.rows['HC_ZmbF_Crawler_ZmbF_NurseFat']), body(self.rows['ZmbF_NurseFat']))
-        self.assertEqual(self.rows['HC_ZmbF_Crawler_ZmbF_NurseFat'].find('cargo').get('preset'), 'toolsMedic')
-        self.assertEqual(body(self.rows['HC_ZmbF_Sitter_ZmbF_Clerk_Normal_Blue']), body(self.rows['ZmbF_Clerk_Normal_Blue']))
+    def test_hc_children_keep_attachment_only_rows_and_bare_parent_is_omitted(self):
+        for name, parent in CLASSES.items():
+            if parent not in self.rows:
+                self.assertNotIn(name, self.rows)
+                continue
+            attachments = tuple(iv._signature(c) for c in self.rows[parent].findall('attachments'))
+            self.assertEqual(body(self.rows[name]), attachments, name)
 
-    def test_parent_without_row_uses_the_family_sibling(self):
-        child = self.rows['HC_ZmbM_Crawler_ZmbM_usSoldier_normal_Woodland']
-        self.assertEqual(body(child), body(self.rows['ZmbM_usSoldier_normal_Desert']))
-        self.assertEqual(kit_presets(child), ['hc_kit_soldier_ammo', 'hc_kit_soldier_aid'])
-
-    def test_no_parent_row_and_no_sibling_is_refused(self):
-        overlay = copy.deepcopy(self.policy['accessories'])
-        overlay['parent_fallbacks'] = {}
-        with self.assertRaisesRegex(ValueError, 'no parent row'):
-            iv.build(SPAWNABLE, PRESETS, overlay, self.kits)
-
-    def test_empty_parent_gives_an_empty_child_and_nothing_else_is_empty(self):
+    def test_empty_parent_gives_an_empty_child(self):
         self.assertEqual(len(self.rows['ZmbF_PatientOld']), 0)
         self.assertEqual(len(self.rows['HC_ZmbF_Crawler_ZmbF_PatientOld']), 0)
-        for name, node in self.rows.items():
-            if name.startswith('HC_') and name != 'HC_ZmbF_Crawler_ZmbF_PatientOld':
-                self.assertTrue(len(node), name)
 
-    def test_report_counts_parity_and_kits(self):
+    def test_report_distinguishes_draw_conservation_from_native_nominal(self):
         report = self.built['report']
-        self.assertEqual((report['hc_total'], report['hc_parity'], report['hc_missing']), (5, 5, 0))
-        # Patrol, Desert soldier, police, nurse and hunter, plus the HC nurse, police and Woodland children
-        self.assertEqual(report['kit_rows'], 8)
-        self.assertEqual(report['kit_presets'], 8)
-        self.assertEqual(iv.plan_lines(report, {}, self.kits)[1], 'hc_children parity=5/5 missing=0')
-        self.assertRegex(iv.plan_lines(report, {}, self.kits)[0],
-                         r'^infected kits rows=8 presets=8 expected_extra_items~0$')
+        self.assertEqual(report['kit_chance'], {'ZmbM_PatrolNormal_Autumn': iv.Decimal('0.01')})
+        self.assertEqual(iv.plan_lines(report, {}, self.kits), [
+            'infected kits rows=1 configured_draw_delta=0 modeled_added_items~0.000000 '
+            'modeled_removed_items~0.000000 native_nominal=unverified',
+            'hc_children attachment_rows=4 omitted=1 cargo_rows=0',
+        ])
 
     def test_roles_follow_the_class_name_family(self):
         expected = {'ZmbM_PatrolNormal_Autumn': 'soldier', 'ZmbF_usSoldier_normal_Desert': 'soldier',
@@ -141,46 +142,37 @@ class SyntheticKitTests(unittest.TestCase):
         for name, role in expected.items():
             self.assertEqual(iv._role(name, self.kits), role, name)
 
-    def test_vanilla_rows_get_kits_after_their_cargo_and_civilians_stay_untouched(self):
-        patrol = self.rows['ZmbM_PatrolNormal_Autumn']
-        self.assertEqual([c.tag for c in patrol], ['cargo', 'cargo', 'cargo', 'attachments'])
-        self.assertEqual(kit_presets(patrol), ['hc_kit_soldier_ammo', 'hc_kit_soldier_aid'])
-        self.assertEqual(kit_presets(self.rows['ZmbM_HunterOld_Autumn']), ['hc_kit_hunter_ammo', 'hc_kit_hunter_knife'])
+    def test_role_row_changes_one_item_and_unrelated_rows_keep_their_bytes(self):
+        name = 'ZmbM_PatrolNormal_Autumn'
         stock = rows(SPAWNABLE)
-        for name in ('ZmbF_Clerk_Normal_Blue', 'Other', 'ZmbF_PatientOld'):
-            self.assertEqual(body(self.rows[name]), body(stock[name]), name)
-        for name, node in self.rows.items():
-            self.assertLessEqual(len(kit_presets(node)), 2, name)
+        presets = economy._unique(ET.fromstring(PRESETS).findall('cargo'))
+        patrol = self.rows[name]
+        self.assertEqual([c.tag for c in patrol], ['cargo', 'attachments'])
+        self.assertEqual(cargo_draws(patrol, presets), cargo_draws(stock[name], presets))
+        self.assertEqual(patrol.find('cargo/item').get('name'), 'Mag_STANAG_30Rnd')
+        stock_spans = iv._type_spans(SPAWNABLE)
+        built_spans = iv._type_spans(self.built['spawn'])
+        for other in stock.keys() - {name}:
+            start, end = stock_spans[other]
+            built_start, built_end = built_spans[other]
+            self.assertEqual(self.built['spawn'][built_start:built_end], SPAWNABLE[start:end], other)
 
-    def test_preset_file_only_gains_the_used_kit_presets(self):
-        presets = self.built['presets']
-        end = PRESETS.rfind(b'</randompresets>')
-        self.assertTrue(presets.startswith(PRESETS[:end]))
-        self.assertTrue(presets.endswith(b'</randompresets>'))
-        self.assertIn(iv.KIT_MARKER, presets)
-        nodes = ET.fromstring(presets).findall('cargo')
-        names = [n.get('name') for n in nodes]
-        self.assertEqual(names[0], 'foodArmy')
-        used = {p for r in self.kits['roles'].values() for p in r['presets']}
-        self.assertEqual(sorted(names[1:]), sorted(used))
-        for node in nodes[1:]:
-            self.assertTrue(Decimal_ok(node.get('chance')), node.get('name'))
+    def test_stale_donor_row_is_refused(self):
+        original = SPAWNABLE.replace(b'<cargo preset="foodArmy" />', b'<cargo preset="foodArmy" />\n'
+                                     b'<cargo chance="0.10"><item name="OtherItem" chance="1.0"/></cargo>', 1)
+        with self.assertRaisesRegex(ValueError, 'donor signature changed'):
+            iv.build(original, PRESETS, self.policy['accessories'], self.kits)
 
-    def test_preset_block_keeps_crlf(self):
-        crlf = PRESETS.replace(b'\n', b'\r\n')
-        data, emitted = iv._kit_preset_bytes(crlf, self.kits, {'hc_kit_soldier_aid'})
-        self.assertEqual(emitted, ['hc_kit_soldier_aid'])
-        self.assertNotIn(b'\n', data.replace(b'\r\n', b''))
+    def test_duplicate_target_in_other_gate_is_refused(self):
+        original = SPAWNABLE.replace(b'<cargo preset="foodArmy" />', b'<cargo preset="foodArmy" />\n'
+                                     b'<cargo chance="0.10"><item name="Mag_STANAG_30Rnd" chance="1.0"/></cargo>', 1)
+        with self.assertRaisesRegex(ValueError, 'duplicate kit cargo target'):
+            iv.build(original, PRESETS, self.policy['accessories'], self.kits)
 
-    def test_existing_kit_preset_name_is_refused(self):
-        clash = PRESETS.replace(b'foodArmy', b'hc_kit_soldier_aid')
-        with self.assertRaisesRegex(ValueError, 'already present'):
-            iv._kit_preset_bytes(clash, self.kits, {'hc_kit_soldier_aid'})
-
-    def test_second_build_over_built_rows_adds_no_second_kit(self):
-        node = ET.fromstring(b'<type name="ZmbM_SoldierNormal"><cargo preset="hc_kit_soldier_ammo"/></type>')
-        self.assertEqual(iv._add_kits(node, 'ZmbM_SoldierNormal', self.kits), [])
-        self.assertEqual(kit_presets(node), ['hc_kit_soldier_ammo'])
+    def test_missing_donor_row_is_refused(self):
+        original = SPAWNABLE.replace(b'ZmbM_PatrolNormal_Autumn', b'ZmbM_PatrolNormal_Summer')
+        with self.assertRaisesRegex(ValueError, 'kit cargo donor row is absent'):
+            iv.build(original, PRESETS, self.policy['accessories'], self.kits)
 
 
 def Decimal_ok(value):
@@ -213,6 +205,9 @@ class KitPolicyTests(unittest.TestCase):
             'empty items': lambda k: k['presets']['hc_kit_soldier_aid'].update(items=[]),
             'item chance zero': lambda k: k['presets']['hc_kit_soldier_aid']['items'][0].update(chance='0'),
             'no roles': lambda k: k.update(roles={}),
+            'no replacements': lambda k: k.update(cargo_replacements={}),
+            'unknown role target': lambda k: next(iter(k['cargo_replacements'].values())).update(to='Roadflare'),
+            'invalid donor digest': lambda k: next(iter(k['cargo_replacements'].values())).update(cargo_sha256='unknown'),
         }
         for label, change in cases.items():
             with self.subTest(label), self.assertRaises(ValueError):
@@ -227,10 +222,12 @@ class KitPolicyTests(unittest.TestCase):
         off['mix_policy']['EnableAccessories'] = False
         self.assertFalse(iv.kits_enabled(off))
 
-    def test_every_hc_class_in_the_addon_config_has_a_parent_mapping(self):
+    def test_hc_parent_mapping_preserves_the_standalone_sitter_omission(self):
         config = (ROOT / 'mods/HollowCountryAnims/config.cpp').read_text(encoding='utf-8')
         classes = dict(re.findall(r'class\s+(HC_Zmb\w+)\s*:\s*(\w+)', config))
         self.assertEqual(len(classes), 146)
+        # The shipped standalone sitter did not have an explicit spawnable row.
+        classes.pop('HC_ZmbM_Sitter')
         self.assertEqual(set(POLICY['accessories']['explicit_classes']), set(classes))
         for name, parent in classes.items():
             # The addon config and the vanilla class table differ in case for a few names.
@@ -249,20 +246,28 @@ class StockMissionTests(unittest.TestCase):
         cls.rows = rows(cls.built['spawn'])
         cls.stock = rows(cls.spawn)
 
-    def test_all_146_hc_classes_end_with_a_row_equal_to_their_source(self):
+    def test_hc_children_keep_the_shipped_attachment_only_projection(self):
         report = self.built['report']
-        self.assertEqual((report['hc_total'], report['hc_parity'], report['hc_missing']), (146, 146, 0))
-        for name, parent in POLICY['accessories']['explicit_classes'].items():
-            source = parent if parent in self.rows else POLICY['accessories']['parent_fallbacks'][parent]
-            self.assertEqual(body(self.rows[name]), body(self.rows[source]), name)
-            self.assertTrue(len(self.rows[name]), name)
-
-    def test_kits_do_not_change_hc_parity_or_slot_sets(self):
+        self.assertEqual((report['hc_attachment_rows'], report['hc_omitted']), (143, 2))
+        self.assertNotIn('HC_ZmbM_Sitter', self.rows)
         plain = rows(self.plain['spawn'])
+        for name, parent in POLICY['accessories']['explicit_classes'].items():
+            if parent not in self.stock:
+                self.assertNotIn(name, self.rows)
+            else:
+                self.assertEqual(body(self.rows[name]), body(plain[name]), name)
+                self.assertFalse(self.rows[name].findall('cargo'), name)
+
+    def test_kits_keep_the_cargo_draws_and_attachment_slot_counts(self):
+        plain = rows(self.plain['spawn'])
+        presets = economy._unique(ET.fromstring(self.presets).findall('cargo'))
         self.assertEqual(plain.keys(), self.rows.keys())
         for name, node in self.rows.items():
             self.assertEqual(len(node.findall('attachments')), len(plain[name].findall('attachments')), name)
-            self.assertEqual(len(plain[name].findall('cargo')) + len(kit_presets(node)), len(node.findall('cargo')), name)
+            if name in self.kits['cargo_replacements']:
+                self.assertEqual(cargo_draws(node, presets), cargo_draws(plain[name], presets), name)
+            else:
+                self.assertEqual(body_cargo(node), body_cargo(plain[name]), name)
 
     def slot_total(self, node, presets):
         total = iv.Decimal(0)
@@ -274,37 +279,28 @@ class StockMissionTests(unittest.TestCase):
     def test_worn_gear_moves_probability_without_changing_a_rows_total(self):
         presets = {n.get('name'): n for n in ET.fromstring(self.presets).findall('attachments')}
         explicit = POLICY['accessories']['explicit_classes']
-        fallbacks = POLICY['accessories']['parent_fallbacks']
         moved = 0
         for name, node in self.rows.items():
             if not name.startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb')):
                 continue
             source = explicit.get(name, name)
-            if source not in self.stock:
-                source = fallbacks[source]
             self.assertEqual(self.slot_total(node, presets), self.slot_total(self.stock[source], presets), name)
             moved += any(a.get('preset') is None for a in node.findall('attachments'))
         self.assertTrue(moved)
 
-    def test_only_role_rows_get_kits_and_no_row_has_more_than_two(self):
-        explicit = POLICY['accessories']['explicit_classes']
-        fallbacks = POLICY['accessories']['parent_fallbacks']
-        for name, node in self.rows.items():
-            if not name.startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb')):
-                self.assertEqual(kit_presets(node), [], name)
-                continue
-            source = explicit.get(name, name)
-            if source not in self.stock:
-                source = fallbacks[source]
-            role = iv._role(source, self.kits)
-            self.assertEqual(bool(kit_presets(node)), role is not None, name)
-            self.assertLessEqual(len(kit_presets(node)), 2, name)
+    def test_only_authored_role_rows_get_new_cargo_items(self):
+        expected = self.kits['cargo_replacements']
+        self.assertEqual(len(expected), 15)
+        self.assertEqual(set(self.built['report']['kit_chance']), set(expected))
+        for name, replacement in expected.items():
+            self.assertIsNotNone(iv._role(name, self.kits), name)
+            targets = [i.get('name') for gate in self.rows[name].findall('cargo') for i in gate.findall('item')]
+            self.assertEqual(targets.count(replacement['to']), 1, name)
 
     def test_civilian_rows_are_unchanged_apart_from_the_authored_accessories(self):
-        plain = rows(self.plain['spawn'])
         for name, node in self.rows.items():
-            if not kit_presets(node):
-                self.assertEqual(body(node), body(plain[name]), name)
+            if name in self.stock and iv._role(name, self.kits) is None:
+                self.assertEqual(body_cargo(node), body_cargo(self.stock[name]), name)
 
     def test_kit_items_are_vanilla_stock_types(self):
         types = set(re.findall(r'<type name="([^"]+)"', (STOCK / 'db/types.xml').read_text(encoding='utf-8')))
@@ -322,8 +318,9 @@ class StockMissionTests(unittest.TestCase):
         events = (STOCK / 'db/events.xml').read_bytes()
         result = iv.substitute(events, events, POLICY)
         lines = iv.plan_lines(self.built['report'], iv._events(result), self.kits)
-        self.assertRegex(lines[0], r'^infected kits rows=\d+ presets=8 expected_extra_items~\d+$')
-        self.assertEqual(lines[1], 'hc_children parity=146/146 missing=0')
+        self.assertEqual(lines, ['infected kits rows=15 configured_draw_delta=0 modeled_added_items~5.649934 '
+                                 'modeled_removed_items~5.649934 native_nominal=unverified',
+                                 'hc_children attachment_rows=143 omitted=2 cargo_rows=0'])
 
 
 class ReceiptLifecycleTests(unittest.TestCase):
@@ -363,13 +360,24 @@ class ReceiptLifecycleTests(unittest.TestCase):
     def receipt(self):
         return json.loads((self.mission / iv.MANAGED / 'receipt.json').read_text())
 
-    def test_install_records_three_files_policy_and_generator(self):
+    def test_duplicate_authored_row_is_refused_before_install_writes(self):
+        authored = self.path.read_text()
+        name, row = next(iter(self.policy['infected_kits']['cargo_replacements'].items()))
+        duplicate = json.dumps(name) + ': ' + json.dumps(row) + ','
+        authored = authored.replace('"cargo_replacements": {', '"cargo_replacements": {' + duplicate, 1)
+        self.path.write_text(authored)
+        with self.assertRaisesRegex(ValueError, 'duplicate infected variety policy key'):
+            iv.install(self.mission)
+        self.assertEqual(self.current(), self.files)
+        self.assertFalse((self.mission / iv.MANAGED).exists())
+
+    def test_install_records_owned_files_policy_and_generator(self):
         iv.install(self.mission)
         receipt = self.receipt()
-        self.assertEqual(set(receipt['files']), {iv.TARGET, iv.SPAWNABLE, iv.PRESETS})
+        self.assertEqual(set(receipt['files']), {iv.TARGET, iv.SPAWNABLE})
         self.assertEqual(receipt['generator'], iv.GENERATOR_VERSION)
         self.assertEqual(receipt['kits_policy_sha256'], economy.sha(economy.encode(iv._kits(self.policy))))
-        self.assertIn(iv.KIT_MARKER, self.current()['cfgrandompresets.xml'])
+        self.assertEqual(self.current()[iv.PRESETS], PRESETS)
 
     def test_second_install_is_a_no_op_and_rollback_restores_stock_bytes(self):
         iv.install(self.mission)
@@ -425,12 +433,29 @@ class ReceiptLifecycleTests(unittest.TestCase):
         iv.rollback(self.mission)
         self.assertEqual(self.current(), self.files)
         iv.install(self.mission)
-        self.assertEqual(set(self.receipt()['files']), {iv.TARGET, iv.SPAWNABLE, iv.PRESETS})
-        self.assertIn(b'hc_kit_', self.current()['cfgspawnabletypes.xml'])
+        self.assertEqual(set(self.receipt()['files']), {iv.TARGET, iv.SPAWNABLE})
+        self.assertIn(b'Mag_STANAG_30Rnd', self.current()[iv.SPAWNABLE])
+
+    def test_three_file_additive_receipt_rolls_back_then_reapplies_as_two_files(self):
+        iv.install(self.mission)
+        data = self.receipt()
+        data['generator'] = 'HC-339-kits-1'
+        legacy_presets = PRESETS.replace(b'</randompresets>', iv.KIT_MARKER + b'\n</randompresets>')
+        data['files'][iv.PRESETS] = {'before': base64.b64encode(PRESETS).decode(),
+                                     'before_sha256': economy.sha(PRESETS), 'after': economy.sha(legacy_presets)}
+        (self.mission / iv.PRESETS).write_bytes(legacy_presets)
+        (self.mission / iv.MANAGED / 'receipt.json').write_bytes(economy.encode(data))
+        with self.assertRaisesRegex(ValueError, 'rollback first'):
+            iv.install(self.mission)
+        iv.rollback(self.mission)
+        self.assertEqual(self.current(), self.files)
+        iv.install(self.mission)
+        self.assertEqual(set(self.receipt()['files']), {iv.TARGET, iv.SPAWNABLE})
+        self.assertEqual(self.current()[iv.PRESETS], PRESETS)
 
     def test_interrupted_install_still_rolls_back(self):
         iv.install(self.mission)
-        (self.mission / 'cfgrandompresets.xml').write_bytes(PRESETS)
+        (self.mission / iv.SPAWNABLE).write_bytes(SPAWNABLE)
         iv.rollback(self.mission)
         self.assertEqual(self.current(), self.files)
 
@@ -447,9 +472,10 @@ class ReceiptLifecycleTests(unittest.TestCase):
         iv.install(self.mission)
         self.assertEqual(self.current()['cfgrandompresets.xml'], PRESETS)
         self.assertNotIn(b'hc_kit_', self.current()['cfgspawnabletypes.xml'])
-        # parity is not a kit feature: the children still copy their parents
         built = rows(self.current()['cfgspawnabletypes.xml'])
-        self.assertEqual(body(built['HC_ZmbF_Crawler_ZmbF_NurseFat']), body(built['ZmbF_NurseFat']))
+        self.assertEqual(body_cargo(built['ZmbM_PatrolNormal_Autumn']),
+                         body_cargo(rows(SPAWNABLE)['ZmbM_PatrolNormal_Autumn']))
+        self.assertFalse(built['HC_ZmbF_Crawler_ZmbF_NurseFat'].findall('cargo'))
 
 
 if __name__ == '__main__':
