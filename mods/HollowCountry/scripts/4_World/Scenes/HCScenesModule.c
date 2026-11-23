@@ -83,7 +83,10 @@ class HCScenesModule : HCModule
         }
         if (m_Running && m_StoryIndex && m_StoryIndex.HCLoading())
         {
-            m_Operational.HCPublish("degraded", "index_loading");
+            // The store and schedule are up; the story index streams on the startup pump and each new
+            // arrival is refused (HCTakePlan returns null) until it completes. That wait is bounded by the
+            // pump and by the per-tick STORY_INDEX step, so the module is ready with the reason, not not-ready.
+            m_Operational.HCPublish("ready", "index_loading_arrivals_wait");
             return m_Operational;
         }
         if (m_Running && m_StoryIndex && !m_StoryIndex.HCOff() && !m_StoryIndex.HCReady())

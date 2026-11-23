@@ -13,6 +13,10 @@
 // after the new copy is verified). Empty files are deleted, not preserved. With the recovery gate
 // closed nothing is touched. With no valid copy and freshAllowed=false NOTHING is moved: the
 // quarantine is then stable across boots. Not a path for stores above 64 KiB in HCDrainRecover.
+// Every torn-copy move (the first copy and each .torn.N rotation copy) is followed by a chunked
+// byte-compare of the copy against its source (HC_OP_COMPARE: byte counts and text, one 4 KiB chunk
+// per call, no image retained); the source is deleted only after the compare passed. A mismatch or an
+// unreadable copy stops the plan with reason=preserve_unverified and leaves the source in place.
 //
 // The two recovery policies of the existing stores are explicit and are never unified silently:
 // roll-forward (a valid .tmp with revision >= the valid primary is promoted) and primary-wins (a valid
@@ -42,6 +46,9 @@ class HCStagedStore
     protected static const int HC_OP_COPY = 2;
     protected static const int HC_OP_VERIFY = 3;
     protected static const int HC_OP_PRESERVE = 4;
+    protected static const int HC_OP_COMPARE = 5;
+    // A copy larger than this is not compared (and is therefore not trusted): the source stays.
+    protected static const int HC_COMPARE_MAX = 1048576;
     protected static const int HC_CHUNK = 4096;
 
     protected string m_Path;
@@ -79,6 +86,11 @@ class HCStagedStore
     protected string m_FailReason = "";
     protected string m_TornNote = "";
     protected string m_Selected = "";
+    // The plan state at a drain_guard stop, restored by HCDrainResume.
+    protected string m_GuardAction = "";
+    protected string m_GuardReason = "";
+    protected string m_GuardSelected = "";
+    protected int m_GuardPhase;
     protected int m_Revision;
     // Chunked read sub-machine shared by classification and copy verification.
     protected bool m_RdActive;
@@ -91,6 +103,14 @@ class HCStagedStore
     protected bool m_RdOver;
     protected bool m_RdBad;
     protected bool m_RdFault;
+    // Byte-compare sub-machine (HC_OP_COMPARE): two read handles, one chunk from each per call.
+    protected int m_CmpStage;
+    protected FileHandle m_CmpSource;
+    protected FileHandle m_CmpCopy;
+    protected int m_CmpOpen;
+    protected int m_CmpBytes;
+    protected int m_CmpSourceCount;
+    protected string m_CmpPiece;
 
     void HCStagedStore(string path, int limit, int policy, HCStagedStoreCodec codec, bool backup, bool freshAllowed = false)
     {
@@ -109,6 +129,7 @@ class HCStagedStore
     void ~HCStagedStore()
     {
         if (m_RdOpen) { CloseFile(m_RdHandle); m_RdOpen = false; }
+        HCCompareClose();
     }
 
     // The self-test instances print their own receipt; production stores print the evidence line.
@@ -225,13 +246,34 @@ class HCStagedStore
     }
 
     // Synchronous drain for OnStart callers: at most 64 steps (4 x 16), every step one native
-    // operation, so a store up to 8 KiB recovers in well under that (3 probes, 3 files x <= 3
-    // reads, plan, <= ~12 exec ops). A larger store, or one that needs more steps, fails with
-    // drain_limit / drain_guard and must be driven by the scheduler through HCStepRecover.
+    // operation. A 2 KiB store with one torn copy needs about 25 (3 probes, 4 per file read, plan, move:
+    // copy, read-back, 8-step byte-compare, delete). Rotating four full torn slots needs more; that and a
+    // larger store stop with drain_guard (HCDrainResume continues) or drain_limit (a scheduler-driven
+    // HCStepRecover is needed).
     int HCDrainRecover()
     {
         if (m_Limit > 8192) { m_FailReason = "drain_limit"; return HCSaveJob.STEP_FAILED; }
         if (!HCBeginRecover()) { return HCSaveJob.STEP_FAILED; }
+        return HCDrainSteps();
+    }
+
+    // After a drain_guard stop, continues the same plan for another 64 steps. The failed stop already
+    // closed every handle and each interrupted read or compare restarts from its first call, so nothing
+    // is repeated that was not idempotent. Only a stop during the execute phase resumes; any other
+    // stop returns STEP_FAILED.
+    int HCDrainResume()
+    {
+        if (m_Phase != HC_PHASE_FAILED || m_FailReason != "drain_guard" || m_GuardPhase != HC_PHASE_EXEC) { return HCSaveJob.STEP_FAILED; }
+        m_Phase = HC_PHASE_EXEC;
+        m_Action = m_GuardAction;
+        m_Reason = m_GuardReason;
+        m_Selected = m_GuardSelected;
+        m_FailReason = "";
+        return HCDrainSteps();
+    }
+
+    protected int HCDrainSteps()
+    {
         int result = HCSaveJob.STEP_MORE;
         for (int round = 0; round < 4 && result == HCSaveJob.STEP_MORE; round++)
         {
@@ -242,6 +284,10 @@ class HCStagedStore
         }
         if (result == HCSaveJob.STEP_MORE)
         {
+            m_GuardPhase = m_Phase;
+            m_GuardAction = m_Action;
+            m_GuardReason = m_Reason;
+            m_GuardSelected = m_Selected;
             m_FailReason = "drain_guard";
             HCFailRecover();
             return HCSaveJob.STEP_FAILED;
@@ -660,6 +706,7 @@ class HCStagedStore
             return HCSaveJob.STEP_MORE;
         }
         if (code == HC_OP_VERIFY) { return HCStepVerify(); }
+        if (code == HC_OP_COMPARE) { return HCStepCompare(); }
         return HCStepPreserve();
     }
 
@@ -677,6 +724,79 @@ class HCStagedStore
             m_FailReason = HCFailName("copy_unverified");
             return HCSaveJob.STEP_FAILED;
         }
+        m_Pc++;
+        return HCSaveJob.STEP_MORE;
+    }
+
+    protected void HCCompareClose()
+    {
+        if (m_CmpOpen & 1) { CloseFile(m_CmpSource); }
+        if (m_CmpOpen & 2) { CloseFile(m_CmpCopy); }
+        m_CmpOpen = 0;
+    }
+
+    protected int HCCompareFail()
+    {
+        m_CmpStage = 0;
+        m_FailReason = "preserve_unverified";
+        return HCSaveJob.STEP_FAILED;
+    }
+
+    // Compares the copy m_B with its source m_A chunk by chunk, ONE native operation per call: open the
+    // source, open the copy, then alternately read one chunk of each (byte counts and text must match)
+    // until both end together, then close both. Nothing is retained, so this also covers a torn or
+    // oversize source whose text the classification pass never kept. A failed step leaves the handles to
+    // HCFailRecover / the destructor, like the classification reader.
+    protected int HCStepCompare()
+    {
+        if (m_CmpStage == 0)
+        {
+            m_CmpBytes = 0;
+            m_CmpSource = OpenFile(m_A[m_Pc], FileMode.READ);
+            if (!m_CmpSource) { return HCCompareFail(); }
+            m_CmpOpen = 1;
+            m_CmpStage = 1;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CmpStage == 1)
+        {
+            m_CmpCopy = OpenFile(m_B[m_Pc], FileMode.READ);
+            if (!m_CmpCopy) { return HCCompareFail(); }
+            m_CmpOpen = 3;
+            m_CmpStage = 2;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CmpStage == 2)
+        {
+            string sourcePiece;
+            m_CmpSourceCount = ReadFile(m_CmpSource, sourcePiece, HC_CHUNK);
+            if (m_CmpSourceCount < 0) { return HCCompareFail(); }
+            m_CmpPiece = sourcePiece;
+            m_CmpStage = 3;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CmpStage == 3)
+        {
+            string copyPiece;
+            int copyCount = ReadFile(m_CmpCopy, copyPiece, HC_CHUNK);
+            if (copyCount < 0 || copyCount != m_CmpSourceCount || copyPiece != m_CmpPiece) { return HCCompareFail(); }
+            m_CmpBytes = m_CmpBytes + copyCount;
+            m_CmpStage = 2;
+            if (m_CmpBytes > HC_COMPARE_MAX) { return HCCompareFail(); }
+            if (copyCount == 0) { m_CmpStage = 4; }
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_CmpStage == 4)
+        {
+            CloseFile(m_CmpSource);
+            m_CmpOpen = 2;
+            m_CmpStage = 5;
+            return HCSaveJob.STEP_MORE;
+        }
+        CloseFile(m_CmpCopy);
+        m_CmpOpen = 0;
+        m_CmpStage = 0;
+        m_CmpPiece = "";
         m_Pc++;
         return HCSaveJob.STEP_MORE;
     }
@@ -717,6 +837,7 @@ class HCStagedStore
             string target = m_Path + ".torn." + slot.ToString();
             HCEmit(HC_OP_COPY, source, target, -1);
             if (verify >= 0) { HCEmit(HC_OP_VERIFY, target, "", verify); }
+            HCEmit(HC_OP_COMPARE, source, target, -1);
             HCEmit(HC_OP_DELETE, source, "", -1);
             m_EmitAt = -1;
             return;
@@ -726,16 +847,19 @@ class HCStagedStore
         if (staged) { HCEmit(HC_OP_DELETE, stage, "", -1); }
         HCEmit(HC_OP_COPY, source, stage, -1);
         if (verify >= 0) { HCEmit(HC_OP_VERIFY, stage, "", verify); }
+        HCEmit(HC_OP_COMPARE, source, stage, -1);
         for (int j = 0; j < 3; j++)
         {
             string older = m_Path + ".torn." + j.ToString();
             string newer = m_Path + ".torn." + (j + 1).ToString();
             HCEmit(HC_OP_DELETE, older, "", -1);
             HCEmit(HC_OP_COPY, newer, older, -1);
+            HCEmit(HC_OP_COMPARE, newer, older, -1);
         }
         string last = m_Path + ".torn.3";
         HCEmit(HC_OP_DELETE, last, "", -1);
         HCEmit(HC_OP_COPY, stage, last, -1);
+        HCEmit(HC_OP_COMPARE, stage, last, -1);
         HCEmit(HC_OP_DELETE, stage, "", -1);
         m_RotEnd = m_EmitAt;
         HCEmit(HC_OP_DELETE, source, "", -1);
@@ -774,7 +898,7 @@ class HCStagedStore
         if (m_FailReason == "") { m_FailReason = "failed"; }
         m_Reason = m_FailReason;
         m_Action = "failed";
-        if (m_FailReason == "torn_rotation_failed") { m_Action = "quarantine"; }
+        if (m_FailReason == "torn_rotation_failed" || m_FailReason == "preserve_unverified") { m_Action = "quarantine"; }
         m_Phase = HC_PHASE_FAILED;
         m_RdActive = false;
         if (m_RdOpen)
@@ -782,6 +906,8 @@ class HCStagedStore
             CloseFile(m_RdHandle);
             m_RdOpen = false;
         }
+        HCCompareClose();
+        m_CmpStage = 0;
         HCTouched();
         m_Selected = "";
         if (!m_Quiet) { Print("[HC Store] recover path=" + HCFileName() + " policy=" + HCPolicyName() + " action=" + m_Action + " reason=" + m_FailReason + " revision=0"); }

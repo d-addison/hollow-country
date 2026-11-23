@@ -627,6 +627,17 @@ class HCEventJournal : HCEventPersistence
     }
     // Names the native operation of the slowest journal step: one line per boot first, then per five
     // minutes. The step is one native call (script cannot split it), so this is the attribution.
+    // TickCount returns performance-counter ticks, not milliseconds. One shared validated rate
+    // (HCWorkBudget.HCTicksPerMs) converts; an unusable rate yields 0 so no false slow step is printed.
+    // A measured step is at least 1 ms so the once-per-boot attribution line still prints.
+    static int HCTicksToMs(int ticks)
+    {
+        float rate = HCWorkBudget.HCTicksPerMs();
+        if (ticks <= 0 || !(rate > 0)) { return 0; }
+        float ms = Math.Round((float)ticks / rate);
+        if (ms < 1) { return 1; }
+        return (int)ms;
+    }
     void HCNoteStep(string stage, int ms, int revision)
     {
         if (ms > m_StepMaxMs)
@@ -1135,7 +1146,7 @@ class HCEventJournalSaveJob : HCSaveJob
         int stepStarted = TickCount(0);
         Result = Journal.HCStepSave();
         HCSaveJob.HCOperation = stage + ":" + Journal.HCNativeOperation();
-        Journal.HCNoteStep(stage, TickCount(stepStarted), revision);
+        Journal.HCNoteStep(stage, HCEventJournal.HCTicksToMs(TickCount(stepStarted)), revision);
         return Result;
     }
 }

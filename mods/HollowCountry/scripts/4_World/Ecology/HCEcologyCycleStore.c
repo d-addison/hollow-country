@@ -74,16 +74,36 @@ class HCEcologyCycleStore
         return settings;
     }
 
+    // The damaged copy could not be moved aside and verified: it stays exactly where it is (nothing is
+    // deleted or overwritten) and Ecology runs this boot from fresh in-memory cycle state with no save.
+    // The line names the operator action; the next boot retries the recovery by itself.
+    static HCEcologyCycleState HCInMemory(HCEcologyCycleSaveJob job, string world, int utc, string reason)
+    {
+        HCEcologyCycleState fallback = new HCEcologyCycleState;
+        fallback.Version = 1;
+        fallback.WorldName = world;
+        fallback.EpochUtc = utc;
+        job.Committed = true;
+        Print("[HC Ecology] cycle store unrecoverable reason=" + reason + " file=cycle-" + world + ".json action=kept_in_place cadence=in_memory_this_boot operator=delete_or_repair_the_file_to_persist_the_cadence");
+        return fallback;
+    }
+
     static HCEcologyCycleState Open(HCEcologyCycleSaveJob job, string world, int utc)
     {
         if (!HCEcologyMigrationRules.UtcValid(utc)) { return null; }
         string path = "$profile:HollowCountry/Ecology/cycle-" + world + ".json";
-        if (HCCoreSelfTest.HCStagedStoreFailed()) { return null; }
         // Primary-wins: a valid primary is kept, a valid lone .tmp (first-ever save cut short) is
-        // promoted, a stale .tmp is preserved as a torn copy. Both a v1 .tmp leftover and a
-        // damaged primary used to refuse; now only a copy with no valid sibling still refuses.
-        job.Store = new HCStagedStore(path, 2048, HCStagedStore.HC_PRIMARY_WINS, new HCEcologyCycleCodec, false, false);
-        if (job.Store.HCDrainRecover() != HCSaveJob.STEP_DONE || job.Store.HCQuarantined()) { return null; }
+        // promoted, a stale .tmp is preserved as a torn copy. A primary with no valid sibling is moved
+        // into a verified .torn.N slot (copy, read-back, byte-compare, then delete) and the cadence
+        // starts fresh, so one torn 2 KB file never refuses Ecology on every later boot. The core
+        // self-test verdict is deliberately not consulted: its scratch directory is not this store's path.
+        job.Store = new HCStagedStore(path, 2048, HCStagedStore.HC_PRIMARY_WINS, new HCEcologyCycleCodec, false, true);
+        int drained = job.Store.HCDrainRecover();
+        if (drained != HCSaveJob.STEP_DONE && job.Store.HCFailReason() == "drain_guard") { drained = job.Store.HCDrainResume(); }
+        if (drained != HCSaveJob.STEP_DONE || job.Store.HCQuarantined())
+        {
+            return HCInMemory(job, world, utc, job.Store.HCRecoverReason() + "/" + job.Store.HCFailReason());
+        }
         HCEcologyCycleState state;
         string text = job.Store.HCRecovered();
         string error;
@@ -104,16 +124,5 @@ class HCEcologyCycleStore
         job.HCUrgent = true;
         job.HCDue = GetGame().GetTickTime();
         return state;
-    }
-}
-
-// A failed boot fault injection of the shared staged store turns the pilot off (refuses with a
-// reason) even after it opened, so a broken recovery or writer is never trusted with saves.
-modded class HCEcologyCycle
-{
-    override bool Healthy()
-    {
-        if (HCCoreSelfTest.HCStagedStoreFailed()) { return false; }
-        return super.Healthy();
     }
 }

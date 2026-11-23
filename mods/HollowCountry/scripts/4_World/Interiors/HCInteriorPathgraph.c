@@ -74,11 +74,22 @@ class HCInteriorPathgraph
         return queued;
     }
 
+    // Drop every queued removal region and the pending drain call. Called at module start and when the
+    // module stops with the core already stopped, so nothing rebuilds the pathgraph after the props are gone.
+    static void HCCancelRemoval()
+    {
+        s_RemovedPending.Clear();
+        s_RemovalDrainQueued = false;
+        if (GetGame()) { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCDrainRemoval); }
+    }
+
     // One region per call, gated by HCWorkBudget; re-arms itself until the queue is empty.
     static void HCDrainRemoval()
     {
         s_RemovalDrainQueued = false;
         if (!GetGame()) { return; }
+        // The drain runs only while the core is up; a stopped core discards what is left.
+        if (!HCServer.Get().IsStarted()) { s_RemovedPending.Clear(); return; }
         if (!s_RemovalBudget) { s_RemovalBudget = new HCWorkBudget; }
         s_RemovalBudget.HCReset(1);
         while (s_RemovedPending.Count() > 0 && s_RemovalBudget.HCContinue())

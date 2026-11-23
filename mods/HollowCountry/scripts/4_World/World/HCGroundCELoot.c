@@ -51,6 +51,7 @@ class HCGroundCELoot
     protected static int s_RetryFailed;
     protected static int s_Restored;
     protected static int s_RestoredSettled;
+    protected static int s_RestoredWaiting;
     protected static ref HCGroundSnapStats s_RetryStats = new HCGroundSnapStats;
     protected static string s_LastOursReceipt;
     protected static float s_LastOursReceiptAt;
@@ -149,7 +150,17 @@ class HCGroundCELoot
         if (kind == KIND_RESTORED)
         {
             s_Restored++;
-            if (ours && HCGroundSnap.Settle(item, 12, 0.08)) { s_RestoredSettled++; }
+            if (!ours) { return; }
+            // A restored item may rest on a raised floor or shelf of a composed site. Its drop-only ray would
+            // pass through geometry that is not spawned yet, so it is settled only once the guard has
+            // admitted the owning site (every piece stands). Items of an undecided, refused or retired box
+            // keep their stored position; the orphan sweep settles bare items of retired boxes.
+            if (HCSiteGuard.HCLootVerdict(item) != HCSiteGuard.LOOT_KEEP)
+            {
+                s_RestoredWaiting++;
+                return;
+            }
+            if (HCGroundSnap.Settle(item, 12, 0.08)) { s_RestoredSettled++; }
             return;
         }
         if (ours && shift != 0)
@@ -321,7 +332,7 @@ class HCGroundCELoot
         }
         string ours = " shifted=" + s_Shifted.ToString() + " retried=" + s_Retried.ToString() + " settled=" + s_Settled.ToString();
         ours += " retry_failed=" + s_RetryFailed.ToString() + " restored=" + s_Restored.ToString();
-        ours += " restored_settled=" + s_RestoredSettled.ToString() + " footprints=" + HCGroundPlaced.Count().ToString();
+        ours += " restored_settled=" + s_RestoredSettled.ToString() + " restored_waiting=" + s_RestoredWaiting.ToString() + " footprints=" + HCGroundPlaced.Count().ToString();
         if (ours != s_LastOursReceipt || receiptNow < s_LastOursReceiptAt || receiptNow - s_LastOursReceiptAt >= 1800)
         {
             s_LastOursReceipt = ours;

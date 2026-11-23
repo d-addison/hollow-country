@@ -50,6 +50,8 @@ class HCInteriorsModule : HCModule
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) return;
         HCInteriorQueryConfig.HCGet();
+        // A stop-start never inherits queued regions or a pending drain call from the previous run.
+        HCInteriorPathgraph.HCCancelRemoval();
         #ifdef DIAG_DEVELOPER
         if (!HCInteriorSelfTests.Run())
         {
@@ -183,7 +185,17 @@ class HCInteriorsModule : HCModule
         HCInteriorMeasuredCatalog.MeasuredClear();
         // Owned nonpersistent decorations only. Never remove generated/player items.
         // Deleted furniture leaves its navmesh cut behind: capture the boxes first, refresh after.
-        HCInteriorPathgraph.QueueRemoval(m_Objects);
+        // Only a live module stop (the core keeps running) repairs the navmesh. HCServer.Stop clears its
+        // started flag before it stops modules, so a shutdown or mission teardown queues nothing and no
+        // self-rearming drain runs after the stop.
+        if (HCServer.Get().IsStarted())
+        {
+            HCInteriorPathgraph.QueueRemoval(m_Objects);
+        }
+        else
+        {
+            HCInteriorPathgraph.HCCancelRemoval();
+        }
         foreach (Object object : m_Objects)
         {
             if (object) GetGame().ObjectDelete(object);

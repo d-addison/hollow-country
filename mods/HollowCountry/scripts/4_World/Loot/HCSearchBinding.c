@@ -26,25 +26,42 @@ class HCSearchBinding : HCModule
         return "SearchBinding";
     }
 
-    // started = the lazy search service is up, not stopped and its journal ready; a faulted journal is a degradation
-    // (m_Fault); a missing admission marker, unloaded templates or a stopped module is a refusal.
+    // started = the lazy search service is up and not stopped. A template pack or house journal that is
+    // still loading only refuses each search (HCSearchHouses.Gate needs the journal), so the module is
+    // ready with the wait as its reason; HCInteriorTemplates.HCLoadFinished() separates "still loading"
+    // from a refused pack. A faulted journal is a degradation (m_Fault); a missing admission marker, a
+    // refused template pack or a stopped module is a refusal.
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        bool running = false;
-        if (m_Started && !m_Stopped && m_Houses && m_Houses.HCJournalReady()) { running = true; }
+        bool running = m_Started && !m_Stopped && m_Houses;
         string refusal = m_Refusal;
         string fault = m_Fault;
-        if (m_Started && !running && refusal == "")
+        string readyReason = "search_service_started_supply_lazy";
+        if (running)
         {
-            if (!HCInteriorTemplates.Loaded()) { refusal = "templates_not_loaded"; }
-            else if (m_Houses && m_Houses.HCJournalWaiting()) { refusal = "house_journal_recovering"; }
+            if (!HCInteriorTemplates.Loaded())
+            {
+                if (HCInteriorTemplates.HCLoadFinished())
+                {
+                    running = false;
+                    refusal = "templates_not_loaded";
+                }
+                else
+                {
+                    readyReason = "search_templates_loading_calls_refused";
+                }
+            }
+            else if (!m_Houses.HCJournalReady())
+            {
+                readyReason = "house_journal_recovering_calls_refused";
+            }
         }
         if (m_Houses && m_Houses.HCJournalFaulted())
         {
             running = m_Started && !m_Stopped;
             fault = "house_journal_fault";
         }
-        HCModuleReadiness.HCDerive(m_Operational, running, refusal, fault, "search_service_started_supply_lazy");
+        HCModuleReadiness.HCDerive(m_Operational, running, refusal, fault, readyReason);
         return m_Operational;
     }
 

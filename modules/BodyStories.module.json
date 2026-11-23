@@ -27,6 +27,7 @@
     "LEAD_STORE_UNAVAILABLE",
     "BODY_SCENE_PRODUCER_UNAVAILABLE",
     "WORLD_FACT_PROVIDER_UNAVAILABLE",
+    "scene_producer_wait_observations_refused",
     "owned_scene_death_producer_bound_runtime_pending",
     "stopped"
   ]

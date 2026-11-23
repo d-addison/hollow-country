@@ -245,6 +245,11 @@ class HCWildlifeProviders
     protected ref HCWorkBudget m_JobBudget = new HCWorkBudget;
     protected ref HCWildlifeProviderSite m_JobSite;
     protected ref HCEventRewardPlan m_JobPlan;
+    // The created body waits one provider tick for its death slice. Creation (native entity and AI init) and
+    // the death (EEKilled hooks) are the two heaviest native calls; each now has its own tick and its own
+    // timed item, so the worst wildlife tick is the larger of the two, not their sum plus the checks.
+    protected AnimalBase m_PendingKill;
+    protected string m_PendingKillSite;
     static const int HC_JOB_MAX_STAGES = 160;
     static const int HC_JOB_MAX_HOLDS = 120;
     protected int m_LastReport = -1;
@@ -289,6 +294,7 @@ class HCWildlifeProviders
     {
         if (!s_Owner) { return; }
         if (s_Owner.m_Running) { s_Owner.HCReport(true); }
+        s_Owner.HCKillPending(true);
         s_Owner.m_Running = false;
         s_Owner.m_Refusal = "";
         s_Owner.m_RuntimeFault = "";
@@ -633,7 +639,9 @@ class HCWildlifeProviders
         HCEventRewardPlan plan = m_JobPlan;
         HCJobEnd();
         int flags = ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD | ECE_INITAI;
+        int createStart = TickCount(0);
         Object created = GetGame().CreateObjectEx(plan.Items.Get(0), site.Position, flags);
+        HCEcologySteps.Item("wildlife_carcass_create", createStart);
         AnimalBase body = AnimalBase.Cast(created);
         if (!body)
         {
@@ -653,16 +661,36 @@ class HCWildlifeProviders
             return;
         }
         m_Carcasses.Insert(body);
-        body.SetHealth("", "Health", 0);
         m_Spawned++;
-        HCReached.Mark("wildlife.carcass.spawn");
-        Print("[HC Plan] HC-149 authored_carcass site=" + site.Id + " allocation=spent creation=issued death=issued runtime=PENDING");
+        // The death is issued on the next provider tick (HCKillPending), or at once on stop.
+        m_PendingKill = body;
+        m_PendingKillSite = site.Id;
         // Retain only a weak handle until native corpse deletion. No forced
         // skinning, inventory writes, lifetime extension or deletion timer.
     }
 
+    // Issue the death of the body created on the previous tick. Runs before every other provider work so a
+    // fault, a refusal or a stop never leaves a living authored animal behind: a refused unit grant retries
+    // next tick, and HCStop kills it immediately.
+    protected void HCKillPending(bool force)
+    {
+        AnimalBase body = m_PendingKill;
+        if (!body) { m_PendingKillSite = ""; return; }
+        if (!force && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { m_RefusedBudget++; return; }
+        string siteId = m_PendingKillSite;
+        m_PendingKill = null;
+        m_PendingKillSite = "";
+        if (body.IsPendingDeletion()) { return; }
+        int killStart = TickCount(0);
+        body.SetHealth("", "Health", 0);
+        HCEcologySteps.Item("wildlife_carcass_death", killStart);
+        HCReached.Mark("wildlife.carcass.spawn");
+        Print("[HC Plan] HC-149 authored_carcass site=" + siteId + " allocation=spent creation=issued death=issued runtime=PENDING");
+    }
+
     void HCStep(int nowMs)
     {
+        if (m_PendingKill && HCEcologyNative.Authority()) { HCKillPending(false); return; }
         if (!m_Running || !HCEcologyNative.Authority()) { return; }
         if (m_Fault) { HCObserve(); return; }
         if (nowMs < 0 || nowMs < m_LastNow) { m_Fault = true; HCRefuse("provider_clock_invalid"); return; }
