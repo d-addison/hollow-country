@@ -5096,7 +5096,7 @@
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
         "tools/package/loot_families.json": "a55d20a3d081f53b95729d9d9acdb32d52cb2f3b4db70b9a8bd06d60148e4697",
-        "tools/package/loot_slack.json": "a49b2049b0e7ce5dc884096bc7b834eda998548c38b576071f7f5ee94d097ad2",
+        "tools/package/loot_slack.json": "71ab43ba98fb907338cb98c5641caa4742fd2a120578d953212c30120b189708",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
         "tools/package/regenerate_all.py": "898d2786509ebc139945940b461e301a83266d2ef65dff1ad00c5ce6a9127d68",
         "tools/package/snafu_allowlist.json": "05df0f5c0b6b9f901c415938fe3b069575b490ef99e74181e3f9b503e719864d",
