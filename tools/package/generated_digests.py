@@ -75,6 +75,7 @@ def contracts():
                  tuple(str(icons.OUTPUT / (n + '.paa')) for n in icons.ICONS) + (str(icons.MANIFEST),)),
         Contract('new_buildings', 'tools.package.new_buildings', (str(new_buildings.PATH),),
                  ('config/map-overlays/**/*.json', 'mission/hollow-country/ce/hc-event-sites.json',
+                  str(new_buildings.FLOOR_POLICY),
                   'config/loot-*.json', 'tools/package/*.json', 'tools/package/interior_themes/*.json')),
         Contract('economy', 'tools.package.economy', (), common, delta),
         # Repo-local: manifests are the inputs; code and docs drift is gen_modules --check (run by regenerate_all).

@@ -45,6 +45,10 @@ from tools.package import economy  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PATH = Path('mission/hollow-country/loot-points/new-buildings.json')
+FLOOR_POLICY = Path('mission/hollow-country/loot-points/floor-policy.json')
+# Copied groups that floor-policy.json lists as receivers carry this note in their basis.
+RECEIVER_NOTE = ('; #326/#327: floor-policy.json relocates exact raised donor points to lootHCReceiver for '
+                 'shelf-tagged Farm equipment; ground points stay separate; native acceptance pending')
 KIND = 'hollow-country-loot-new-buildings'
 PENDING = 'pending'
 MARKER = 'hollow-country-new-buildings'
@@ -754,6 +758,7 @@ def generate(addons, mission, scratch, native_censuses=()):
     instances, dropped = exclusions(instances, stock_pos)
     stock_names = {g.get('name').casefold() for g in stock.findall('group')}
     groups, refused, evidence = {}, {}, {}
+    receivers = json.loads((REPO_ROOT / FLOOR_POLICY).read_bytes())['receivers']
     synthetic, pins = ET.Element('prototype'), {}
     for name, rule in SELECTION.items():
         sample = native.get(name)
@@ -778,9 +783,12 @@ def generate(addons, mission, scratch, native_censuses=()):
             if len(source) != 1 or src_model != model:
                 refused[name] = 'copy source missing or on a different model'
                 continue
+            basis = 'stock group authored for the same installed p3d (copied at install)'
+            if name in receivers:
+                basis += RECEIVER_NOTE
             groups[name] = {'kind': 'copy', 'copy_of': rule['copy_of'], 'stock_sha256': loot.group_pin(source[0]),
                             'model': model, 'model_sha256': model_sha,
-                            'basis': 'stock group authored for the same installed p3d (copied at install)',
+                            'basis': basis,
                             'positions': sorted(instances[name])}
             continue
         g = ET.SubElement(synthetic, 'group', {'name': name, 'lootmax': '1'})
