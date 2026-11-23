@@ -29,7 +29,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.', 'InfectedClimb.', 'InfectedSiege.'))]
 
 
 def find_apply(source, key, target, decoded, text):
@@ -57,6 +57,37 @@ def apply_errors(label, source, key, row, target, decoded, text, gate):
     if row['type'] != 'bool' and gate and not re.search(gate(key, row), line):
         return [f'{label} apply range gate differs for {key}']
     return []
+
+
+def check_infected_profiles(rows):
+    """Optional gc-infected-climb/siege profiles: own 3_Game registries and DTO defaults."""
+    errors = []
+    for prefix, registry, dto_file, dto_class in (
+            ('InfectedClimb.', 'mods/HollowCountry/scripts/3_Game/HCInfectedClimbSettingsRegistry.c',
+             'mods/HollowCountry/scripts/4_World/Infected/Climb/HCInfectedClimbConfig.c', 'HCInfectedClimbConfig'),
+            ('InfectedSiege.', 'mods/HollowCountry/scripts/3_Game/HCInfectedSiegeSettingsRegistry.c',
+             'mods/HollowCountry/scripts/4_World/Infected/Siege/HCInfectedSiegePolicy.c', 'HCInfectedSiegeConfig')):
+        scoped = [r for r in rows if r['key'].startswith(prefix)]
+        # Numeric comparison: the source may write 1 where the JSON row says 1.0.
+        compiled = [(k, t, float(d), float(lo), float(hi), o) for k, t, d, lo, hi, o in re.findall(
+            r'^        HCAdd\("([^"]+)", "(\w+)", ([\d.]+), ([\d.]+), ([\d.]+), "(\w+)"\);', (ROOT / registry).read_text(), re.M)]
+        expected = [(r['key'], r['type'], float(int(r['default']) if r['type'] == 'bool' else r['default']),
+                     float(r['min']), float(r['max']), r['owner']) for r in scoped]
+        if compiled != expected:
+            errors.append(f'{prefix[:-1]} compiled registry differs (key/type/default/range/owner)')
+        source = (ROOT / dto_file).read_text()
+        dto = source.split(f'class {dto_class}\n', 1)[1].split('\n}', 1)[0]
+        fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+            r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+        for row in scoped:
+            key = row['key'].removeprefix(prefix)
+            if row['owner'] != dto_class or fields.get(key) != (row['type'], row['default']):
+                errors.append(f'{prefix[:-1]} DTO default/type/owner differs for {key}')
+            if row['type'] != 'bool':
+                bound = re.search(r'HCValid\("' + key + r'", decoded\.' + key + r', ([\d.]+), ([\d.]+)\)', source)
+                if not bound or (float(bound[1]), float(bound[2])) != (float(row['min']), float(row['max'])):
+                    errors.append(f'{prefix[:-1]} validation range differs for {key}')
+    return errors
 
 
 def check_zone_guards(rows):
@@ -440,7 +471,8 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_local_policy(rows))
     errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
     errors.extend(check_zone_guards([r for r in rows if r['key'].startswith('HCZoneGuards.')]))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+    errors.extend(check_infected_profiles(rows))
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'Events.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.', 'InfectedClimb.', 'InfectedSiege.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
