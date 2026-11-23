@@ -412,22 +412,25 @@ retain defaults; explicit `Enabled=false` opts out. Native vault outcomes remain
 ### Infected siege of elevated havens
 
 Infected cannot climb ladders or roofs, so a player on an elevated spot is sieged instead. When infected
-that were chasing the player give up on the spot, up to six of them hold the siege: they make real in-game
-noise at their own position, and a bounded number of out-of-sight reinforcements spawn far away. Nothing is
-steered: no pack is sent to the player's position, so infected come back only through real noise and
-perception. The siege ends when the player comes down, walks 25 m away, or after 180 s. Doors, positions
-and inventories are never touched. Optional
-`gc-infected-siege.json` uses the `InfectedSiege.*` registry; missing fields retain defaults and explicit
-`Enabled=false` opts out. In-game results (pack waypoints, ladder coordinates, reinforcement density) are
-unverified.
+that were chasing the player give up on the spot, up to six of them hold the siege and make real in-game
+noise at their own position. The noise is louder than a normal action noise, so infected already in the
+area hear it from further away (about 170 m by default, never more than 250 m). A siege never spawns
+infected. Nothing is steered: no pack is sent to the player's position, so infected come back only through
+real noise and perception. The siege ends when the player comes down, walks 25 m away, or after 180 s.
+Doors, positions and inventories are never touched.
+
+Optional `gc-infected-siege.json` uses the `InfectedSiege.*` registry. Missing fields keep their defaults,
+and an explicit `Enabled=false` turns the siege off. `ReinforcePerPlayerWindow` is retired: it still loads,
+but its value is ignored and a non-zero value is reported once at start. How far the noise really carries
+in game is unverified.
 
 | Key | Type | Default | Range |
 | :--- | :--- | :--- | :--- |
 | `Enabled` | bool | `true` | false / true |
 | `GatherSeconds` | float | `8` | 3–60 |
 | `NoiseSeconds` | float | `20` | 10–120 |
+| `NoiseStrengthMultiplier` | float | `17` | 1–25 (capped so the noise never carries past 250 m) |
 | `MaxSieges` | int | `8` | 1–8 |
-| `ReinforcePerPlayerWindow` | int | `4` | 0–8 (bodies per player per 10 minutes) |
 
 ### Wildlife provider and habitat controls
 
