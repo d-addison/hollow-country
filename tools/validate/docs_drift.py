@@ -16,7 +16,8 @@ Three classes of drift fail automatically, each reported as (code, path, line):
   doc_script_path        a document cites `tools/.../x.py|sh` that is not in the checkout.
   doc_test_reference     a document cites a test module (`tests.unit.test_x`, `tests/slow/test_x.py`, a bare
                          `test_x` on a `-m unittest` line whose PYTHONPATH lacks its directory), a test class or a test method that is not in
-                         the checkout, or any other `tests/...` file path that does not exist.
+                         the checkout, or any other `tests/...` file path that does not exist. The same scan runs
+                         over every JSON string value under mission/ and in tests/catalog.json.
   doc_calibration        docs/tools/WORKBENCH_COMPILE.md lacks the `Calibration status: N/M` line that
                          tools/release/test_queue.py parses, or M differs from the number of rows in the
                          wb_calibrate CORPUS.
@@ -26,6 +27,7 @@ checked root is that checkout; for any other root (unit tests) the registry chec
 unless the caller passes the registries explicitly.
 """
 import ast
+import json
 from pathlib import Path
 import re
 
@@ -186,6 +188,27 @@ def _dotted_missing(root, dotted):
     return True
 
 
+def _line_drifts(root, line):
+    """True when one line cites a test module, class, method or tests/ file that is not in the checkout."""
+    if any(_dotted_missing(root, m[1]) for m in TEST_DOTTED.finditer(line)):
+        return True
+    for match in TEST_PATH.finditer(line):
+        path = Path(root) / match[1]
+        names = [name for name in match.groups()[1:] if name]
+        if not path.is_file() or (path.suffix == ".py" and _member_missing(_test_members(path), names)):
+            return True
+    if UNITTEST_LINE.search(line):
+        # A bare module name runs only from a directory the same line puts on PYTHONPATH.
+        search = [part for found in PYTHONPATH.findall(line) for part in found.split(":") if part not in ("", ".")]
+        for match in BARE_TEST.finditer(line):
+            paths = [Path(root) / folder / (match[1] + ".py") for folder in search]
+            found = [path for path in paths if path.is_file()]
+            tail = [name for name in match[2].split(".") if name]
+            if not found or _member_missing(_test_members(found[0]), tail):
+                return True
+    return False
+
+
 def tests_drift(root, documents):
     """(code, path, line) for every documented test module, class, method or tests/ file that is gone."""
     findings = []
@@ -193,22 +216,44 @@ def tests_drift(root, documents):
         if relative.startswith("tests/fixtures/"):
             continue  # synthetic inputs for the document linters, not claims about this tree
         for number, line in enumerate(text.splitlines(), 1):
-            if any(_dotted_missing(root, m[1]) for m in TEST_DOTTED.finditer(line)):
+            if _line_drifts(root, line):
                 findings.append(("doc_test_reference", relative, number))
-            for match in TEST_PATH.finditer(line):
-                path = Path(root) / match[1]
-                names = [name for name in match.groups()[1:] if name]
-                if not path.is_file() or (path.suffix == ".py" and _member_missing(_test_members(path), names)):
-                    findings.append(("doc_test_reference", relative, number))
-            if UNITTEST_LINE.search(line):
-                # A bare module name runs only from a directory the same line puts on PYTHONPATH.
-                search = [part for found in PYTHONPATH.findall(line) for part in found.split(":") if part not in ("", ".")]
-                for match in BARE_TEST.finditer(line):
-                    paths = [Path(root) / folder / (match[1] + ".py") for folder in search]
-                    found = [path for path in paths if path.is_file()]
-                    tail = [name for name in match[2].split(".") if name]
-                    if not found or _member_missing(_test_members(found[0]), tail):
-                        findings.append(("doc_test_reference", relative, number))
+    return sorted(set(findings))
+
+
+def _json_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _json_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _json_strings(item)
+
+
+def json_tests_drift(root):
+    """doc_test_reference findings for JSON string values under mission/ and tests/catalog.json."""
+    root = Path(root)
+    files = sorted(root.glob("mission/**/*.json")) + [root / "tests" / "catalog.json"]
+    findings = []
+    for path in files:
+        if not path.is_file():
+            continue
+        raw = path.read_text(encoding="utf-8")
+        if "test" not in raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            continue
+        lines = raw.splitlines()
+        for text in _json_strings(data):
+            if "test" not in text or not any(_line_drifts(root, part) for part in text.splitlines() or [text]):
+                continue
+            needle = json.dumps(text, ensure_ascii=False)[1:-1][:60]
+            number = next((n for n, line in enumerate(lines, 1) if needle in line), 0)
+            findings.append(("doc_test_reference", path.relative_to(root).as_posix(), number))
     return sorted(set(findings))
 
 
@@ -273,6 +318,7 @@ def check(root, documents):
     root = Path(root).absolute()
     findings = list(command_drift(root, documents))
     findings += tests_drift(root, documents)
+    findings += json_tests_drift(root)
     findings += calibration_drift(documents, corpus_total(root))
     if root == ROOT.absolute():
         lint, perf, other = known_rules(root)

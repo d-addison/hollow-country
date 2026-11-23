@@ -3,12 +3,6 @@
   "catalog_id": "hollow-country-portable-acceptance-v1",
   "sources": [
     {
-      "id": "src-001",
-      "path": "docs/TESTING_PERFORMANCE.md",
-      "sha256": "df8a63051d12b334ea75313e1477eba01619be835d3cbe95e93ee9aabb3d0ff6",
-      "required_at_runtime": false
-    },
-    {
       "id": "src-002",
       "path": "docs/specs/001-survival-overhaul/traceability.json",
       "sha256": "98e15d4793ca56282d1a9227191874ba08417d467c60bbe69ac204382fd2145b",
@@ -5233,612 +5227,340 @@
     "row_sources": {
       "CE-001": [
         {
-          "source": "src-001",
-          "line": 41
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-002": [
-        {
-          "source": "src-001",
-          "line": 42
-        },
         {
           "source": "src-002"
         }
       ],
       "CE-003": [
         {
-          "source": "src-001",
-          "line": 43
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-004": [
-        {
-          "source": "src-001",
-          "line": 44
-        },
         {
           "source": "src-002"
         }
       ],
       "CE-005": [
         {
-          "source": "src-001",
-          "line": 45
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-006": [
-        {
-          "source": "src-001",
-          "line": 46
-        },
         {
           "source": "src-002"
         }
       ],
       "CE-007": [
         {
-          "source": "src-001",
-          "line": 47
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-008": [
-        {
-          "source": "src-001",
-          "line": 48
-        },
         {
           "source": "src-002"
         }
       ],
       "CE-009": [
         {
-          "source": "src-001",
-          "line": 49
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-010": [
-        {
-          "source": "src-001",
-          "line": 50
-        },
         {
           "source": "src-002"
         }
       ],
       "CE-011": [
         {
-          "source": "src-001",
-          "line": 51
-        },
-        {
           "source": "src-002"
         }
       ],
       "CE-012": [
-        {
-          "source": "src-001",
-          "line": 52
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-001": [
         {
-          "source": "src-001",
-          "line": 58
-        },
-        {
           "source": "src-002"
         }
       ],
       "INT-002": [
-        {
-          "source": "src-001",
-          "line": 59
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-003": [
         {
-          "source": "src-001",
-          "line": 60
-        },
-        {
           "source": "src-002"
         }
       ],
       "INT-004": [
-        {
-          "source": "src-001",
-          "line": 61
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-005": [
         {
-          "source": "src-001",
-          "line": 62
-        },
-        {
           "source": "src-002"
         }
       ],
       "INT-006": [
-        {
-          "source": "src-001",
-          "line": 63
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-007": [
         {
-          "source": "src-001",
-          "line": 64
-        },
-        {
           "source": "src-002"
         }
       ],
       "INT-008": [
-        {
-          "source": "src-001",
-          "line": 65
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-009": [
         {
-          "source": "src-001",
-          "line": 66
-        },
-        {
           "source": "src-002"
         }
       ],
       "INT-010": [
-        {
-          "source": "src-001",
-          "line": 67
-        },
         {
           "source": "src-002"
         }
       ],
       "INT-011": [
         {
-          "source": "src-001",
-          "line": 68
-        },
-        {
           "source": "src-002"
         }
       ],
       "CRF-001": [
-        {
-          "source": "src-001",
-          "line": 74
-        },
         {
           "source": "src-002"
         }
       ],
       "CRF-002": [
         {
-          "source": "src-001",
-          "line": 75
-        },
-        {
           "source": "src-002"
         }
       ],
       "CRF-003": [
-        {
-          "source": "src-001",
-          "line": 76
-        },
         {
           "source": "src-002"
         }
       ],
       "CRF-004": [
         {
-          "source": "src-001",
-          "line": 77
-        },
-        {
           "source": "src-002"
         }
       ],
       "CRF-005": [
-        {
-          "source": "src-001",
-          "line": 78
-        },
         {
           "source": "src-002"
         }
       ],
       "CRF-006": [
         {
-          "source": "src-001",
-          "line": 79
-        },
-        {
           "source": "src-002"
         }
       ],
       "CRF-007": [
-        {
-          "source": "src-001",
-          "line": 80
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-001": [
         {
-          "source": "src-001",
-          "line": 86
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-002": [
-        {
-          "source": "src-001",
-          "line": 87
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-003": [
         {
-          "source": "src-001",
-          "line": 88
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-004": [
-        {
-          "source": "src-001",
-          "line": 89
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-005": [
         {
-          "source": "src-001",
-          "line": 90
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-006": [
-        {
-          "source": "src-001",
-          "line": 91
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-007": [
         {
-          "source": "src-001",
-          "line": 92
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-008": [
-        {
-          "source": "src-001",
-          "line": 93
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-009": [
         {
-          "source": "src-001",
-          "line": 94
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-010": [
-        {
-          "source": "src-001",
-          "line": 95
-        },
         {
           "source": "src-002"
         }
       ],
       "AI-011": [
         {
-          "source": "src-001",
-          "line": 96
-        },
-        {
           "source": "src-002"
         }
       ],
       "AI-012": [
-        {
-          "source": "src-001",
-          "line": 97
-        },
         {
           "source": "src-002"
         }
       ],
       "AUD-001": [
         {
-          "source": "src-001",
-          "line": 103
-        },
-        {
           "source": "src-002"
         }
       ],
       "AUD-002": [
-        {
-          "source": "src-001",
-          "line": 104
-        },
         {
           "source": "src-002"
         }
       ],
       "AUD-003": [
         {
-          "source": "src-001",
-          "line": 105
-        },
-        {
           "source": "src-002"
         }
       ],
       "AUD-004": [
-        {
-          "source": "src-001",
-          "line": 106
-        },
         {
           "source": "src-002"
         }
       ],
       "AUD-005": [
         {
-          "source": "src-001",
-          "line": 107
-        },
-        {
           "source": "src-002"
         }
       ],
       "AUD-006": [
-        {
-          "source": "src-001",
-          "line": 108
-        },
         {
           "source": "src-002"
         }
       ],
       "AUD-007": [
         {
-          "source": "src-001",
-          "line": 109
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-001": [
-        {
-          "source": "src-001",
-          "line": 115
-        },
         {
           "source": "src-002"
         }
       ],
       "HOR-002": [
         {
-          "source": "src-001",
-          "line": 116
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-003": [
-        {
-          "source": "src-001",
-          "line": 117
-        },
         {
           "source": "src-002"
         }
       ],
       "HOR-004": [
         {
-          "source": "src-001",
-          "line": 118
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-005": [
-        {
-          "source": "src-001",
-          "line": 119
-        },
         {
           "source": "src-002"
         }
       ],
       "HOR-006": [
         {
-          "source": "src-001",
-          "line": 120
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-007": [
-        {
-          "source": "src-001",
-          "line": 121
-        },
         {
           "source": "src-002"
         }
       ],
       "HOR-008": [
         {
-          "source": "src-001",
-          "line": 122
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-009": [
-        {
-          "source": "src-001",
-          "line": 123
-        },
         {
           "source": "src-002"
         }
       ],
       "HOR-010": [
         {
-          "source": "src-001",
-          "line": 124
-        },
-        {
           "source": "src-002"
         }
       ],
       "HOR-011": [
-        {
-          "source": "src-001",
-          "line": 125
-        },
         {
           "source": "src-002"
         }
       ],
       "NET-001": [
         {
-          "source": "src-001",
-          "line": 131
-        },
-        {
           "source": "src-002"
         }
       ],
       "NET-002": [
-        {
-          "source": "src-001",
-          "line": 132
-        },
         {
           "source": "src-002"
         }
       ],
       "NET-003": [
         {
-          "source": "src-001",
-          "line": 133
-        },
-        {
           "source": "src-002"
         }
       ],
       "NET-004": [
-        {
-          "source": "src-001",
-          "line": 134
-        },
         {
           "source": "src-002"
         }
       ],
       "NET-005": [
         {
-          "source": "src-001",
-          "line": 135
-        },
-        {
           "source": "src-002"
         }
       ],
       "NET-006": [
-        {
-          "source": "src-001",
-          "line": 136
-        },
         {
           "source": "src-002"
         }
       ],
       "NET-007": [
         {
-          "source": "src-001",
-          "line": 137
-        },
-        {
           "source": "src-002"
         }
       ],
       "NET-008": [
-        {
-          "source": "src-001",
-          "line": 138
-        },
         {
           "source": "src-002"
         }
