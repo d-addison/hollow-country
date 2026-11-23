@@ -1,0 +1,24 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "overwatch-post",
+  "version": 1,
+  "title": "Overwatch post",
+  "story": "A lookout nest sits on the crest above a road or a base approach: sandbags in an arc facing the view, a camo net behind the nest and a tent pitched out of sight on the reverse slope.",
+  "frame": {"kind": "view", "forward": "view_sector"},
+  "location": {"crest": {"drop_m_min": 20, "over_m": 300, "covers": ["road", "base_approach"]}, "slope_pct_max": 10, "road_distance_m": [60, 1500], "not_in": ["town_core"]},
+  "lane": "none",
+  "allowed_roles": ["tent", "nest", "wall", "net", "scene dressing"],
+  "loot_theme": "military",
+  "zone_role": "perimeter",
+  "zones": [{"id": "post_yard", "of": "nest", "shape": "cone", "r_m": 10, "arc_deg": 90, "dir": "-forward"}],
+  "story_items": {"ai": {"role": "military", "guard_posts": ["nest"]}},
+  "density": {"max_per_map": 6, "min_same_m": 1000, "min_any_m": 300},
+  "parts": [
+    {"id": "nest", "class": "Land_Mil_Fortified_Nest_Small", "op": "on_slope", "anchor": true, "loot": "proto", "mode": "crest", "faces": "view", "guard_post": true},
+    {"id": "bags", "class": "StaticObj_Misc_BagFence_3m", "op": "ring", "of": "nest", "r_m": 5, "count": 5, "arc_deg": 120, "centre_on": "forward", "faces": "outward"},
+    {"id": "net", "class": "StaticObj_Mil_CamoNet_Side_east", "op": "behind", "of": "nest", "dist_m": 7},
+    {"id": "tent", "class": ["Land_Mil_Tent_Big4", "Land_Mil_Tent_Big3"], "op": "behind", "loot": "proto", "of": "nest", "dist_m": 15, "reverse_slope": true},
+    {"id": "crate", "class": "StaticObj_Furniture_metalcrate", "op": "beside", "of": "nest", "dist_m": 4, "side": "left"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c"], "op": "scatter", "zone": "post_yard", "count": [1, 2], "min_gap_m": 2}
+  ]
+}

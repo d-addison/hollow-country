@@ -1,0 +1,25 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "supply-dump",
+  "version": 1,
+  "title": "Supply dump",
+  "story": "Containers in two rows along the access track, each with pallets and a crate at its door, razor wire round the open sides and a guard tower at the corner covering the lane.",
+  "frame": {"kind": "approach", "forward": "along_access_track"},
+  "location": {"base_m": [100, 500], "road_access_m_max": 120, "slope_pct_max": 4, "not_in": ["town_core"]},
+  "lane": "none",
+  "allowed_roles": ["tower", "container", "fence", "furnishing", "scene dressing"],
+  "loot_theme": "military",
+  "zone_role": "depot",
+  "zones": [{"id": "yard", "of": "origin", "shape": "disc", "r_m": 10}],
+  "story_items": {"ai": {"role": "military", "guard_posts": ["tower"]}},
+  "density": {"max_per_map": 4, "min_same_m": 2000, "min_any_m": 300},
+  "parts": [
+    {"id": "contl", "class": ["Land_Container_1Mo", "Land_Container_1Moh"], "op": "row", "anchor": true, "loot": "proto", "side": "left", "s": -8, "offset_m": 7, "count": 2, "spacing_m": 9, "run": "forward", "faces": "forward"},
+    {"id": "contr", "class": ["Land_Container_1Moh", "Land_Container_1Mo"], "op": "row", "loot": "proto", "side": "right", "s": -8, "offset_m": 7, "count": 2, "spacing_m": 9, "run": "forward", "faces": "forward"},
+    {"id": "palletl", "class": "StaticObj_Misc_Pallets1", "op": "beside", "of": "contl", "dist_m": 6, "side": "forward", "align": "anchor"},
+    {"id": "crate", "class": "StaticObj_Furniture_metalcrate", "op": "beside", "of": "palletl", "dist_m": 0, "side": "forward", "stack_on": "palletl"},
+    {"id": "tower", "class": "Land_Mil_GuardTower", "op": "offroad", "side": "right", "s": 14, "offset_m": 13, "faces": "axis", "guard_post": true},
+    {"id": "wire", "class": "StaticObj_Misc_Razorwire", "op": "ring", "of": "origin", "r_m": 18, "count": 10, "arc_deg": 240, "centre_on": "back", "faces": "outward"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Misc_Pallets2"], "op": "scatter", "zone": "yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

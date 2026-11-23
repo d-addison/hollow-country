@@ -1,0 +1,23 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "crashed-convoy",
+  "version": 1,
+  "title": "Crashed convoy",
+  "story": "A supply convoy was ambushed on an open stretch: the cargo truck stands in its lane, the lead vehicle is nose-down in the ditch, an escort is stuck behind it and the last one jackknifed on the far shoulder. Spilled crates lie on the downhill side.",
+  "frame": {"kind": "road", "forward": "travel_direction"},
+  "location": {"road": {"surface": ["asphalt", "gravel"], "straight_m": 120, "max_turn_deg": 10, "max_grade_pct": 8, "bend_or_grade": true}, "settlement_edge_m": [300, 3000], "junction_m": [80, 1500], "slope_pct_max": 8, "not_in": ["town_core"]},
+  "lane": "passable",
+  "allowed_roles": ["scene dressing"],
+  "loot_theme": "military",
+  "zones": [{"id": "spill", "of": "cargo", "shape": "strip", "r_m": 30, "width_m": 8, "dir": "downhill"}],
+  "density": {"max_per_map": 5, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "cargo", "class": "StaticObj_Wreck_MTVR_Cargo", "op": "in_lane", "anchor": true, "loot": "proto", "s": 0, "lane": "right", "align": "road", "jitter_deg": 8},
+    {"id": "lead", "class": "StaticObj_Wreck_Stryker", "op": "shoulder", "loot": "proto", "side": "right", "s": 18, "offset_m": 3, "angle_deg": 32},
+    {"id": "escort", "class": "StaticObj_Wreck_Ural", "op": "in_lane", "s": -15, "lane": "left", "align": "road", "jitter_deg": 10},
+    {"id": "tail", "class": "StaticObj_Wreck_BMP2", "op": "shoulder", "side": "left", "s": -31, "offset_m": 3, "angle_deg": -62},
+    {"id": "crates", "class": "StaticObj_Furniture_metalcrate", "op": "scatter", "zone": "spill", "count": [3, 4], "min_gap_m": 2},
+    {"id": "cans", "class": "StaticObj_Furniture_canister_DZ", "op": "scatter", "zone": "spill", "count": [2, 3], "min_gap_m": 2},
+    {"id": "junk", "class": "StaticObj_Garbage_GroundSq_3m", "op": "scatter", "zone": "spill", "count": [1, 2], "min_gap_m": 3}
+  ]
+}

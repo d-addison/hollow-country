@@ -1,0 +1,24 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "mass-grave",
+  "version": 1,
+  "title": "Mass grave clean-up site",
+  "story": "Out of sight of the main road, a clean-up crew buried the dead in a pit off a dirt track: a digger beside it, hazmat bags in a row on the far side, and a tent with a table at the track end where the crew logged the work.",
+  "frame": {"kind": "approach", "forward": "toward_dirt_road"},
+  "location": {"road": {"surface": ["dirt"]}, "road_distance_m": [50, 200], "hidden_from_road": true, "settlement_edge_m": [300, 3000], "slope_pct_max": 8, "not_in": ["military", "town_core"]},
+  "lane": "none",
+  "allowed_roles": ["tent", "furnishing", "scene dressing"],
+  "loot_theme": "military",
+  "zones": [{"id": "pit", "of": "grave", "shape": "disc", "r_m": 16}],
+  "story_items": {"note": {"key": "cleanup-manifest", "on": "table"}},
+  "density": {"max_per_map": 3, "min_same_m": 3000, "min_any_m": 300},
+  "parts": [
+    {"id": "grave", "class": "StaticObj_Dead_MassGrave_8m", "op": "offroad", "anchor": true, "side": "center", "s": 0, "offset_m": 0, "align": "contour"},
+    {"id": "digger", "class": "StaticObj_Wreck_Digger", "op": "beside", "of": "grave", "dist_m": 14, "side": "right", "faces": "of"},
+    {"id": "hazmat", "class": "StaticObj_Decon_HazmatBag_01_F", "op": "row", "of": "grave", "dist_m": 11, "from": "back", "count": 4, "spacing_m": 1.8, "faces": "of"},
+    {"id": "tent", "class": ["Land_Mil_Tent_Big4", "Land_Mil_Tent_Big3"], "op": "offroad", "loot": "proto", "side": "right", "s": 40, "offset_m": 7, "faces": "forward"},
+    {"id": "table", "class": "StaticObj_Misc_Table_Camp_Small", "op": "facing", "of": "tent", "dist_m": 11, "from": "front"},
+    {"id": "chair", "class": "StaticObj_Misc_Chair_Camp1", "op": "facing", "of": "table", "dist_m": 0.9, "from": "back"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_MedicalGarbage_Bandage"], "op": "scatter", "zone": "pit", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

@@ -1440,6 +1440,24 @@
       "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c",
       "scope": "runtime",
       "note": "Counts barricade parts destroyed (ruined through the native damage path) by infected door pressure or a raider breach step, not individual damage steps."
+    },
+    {
+      "module": "Sites",
+      "feature": "composed-sites",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Sites feature=composed_sites count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
+      "scope": "runtime",
+      "note": "A composed site stands after the guard pass (admitted this boot or restored from the profile decisions). Enabled only while a site manifest is installed; refusals (site_refusals) and the orphan sweep (orphan_sweep) depend on the world state and are not default expectations."
     }
   ]
 }

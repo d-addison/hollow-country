@@ -1,0 +1,21 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "helicopter-crash",
+  "version": 1,
+  "title": "Helicopter crash",
+  "story": "A transport helicopter came down on a slope in open ground: the wreck rests nose downhill, debris is strewn up the slope along its approach path and one crate was thrown ahead. Nobody camped here.",
+  "frame": {"kind": "fall_line", "forward": "downhill"},
+  "location": {"road_distance_m": [300, 1500], "slope_pct": [3, 12], "tree_free_radius_m": 25, "not_in": ["military", "town_core"]},
+  "lane": "none",
+  "allowed_roles": ["scene dressing"],
+  "loot_theme": "military",
+  "loot_none_reason": "The crash wreck has no installed loot prototype; the stock crash event keeps owning crash loot.",
+  "zones": [{"id": "trail", "of": "heli", "shape": "cone", "r_m": 40, "arc_deg": 50, "dir": "uphill"}],
+  "density": {"max_per_map": 4, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "heli", "class": "StaticObj_Wreck_Mi8_Crashed", "op": "on_slope", "anchor": true, "mode": "fall_line", "align": "fall_line", "faces": "forward"},
+    {"id": "debris", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Garbage_GroundSq_3m", "StaticObj_Furniture_canister_DZ"], "op": "scatter", "zone": "trail", "count": [5, 8], "min_gap_m": 3},
+    {"id": "crate", "class": "StaticObj_Furniture_metalcrate", "op": "beside", "of": "heli", "dist_m": 24, "side": "forward"},
+    {"id": "box", "class": "StaticObj_Furniture_box_c", "op": "scatter", "zone": "trail", "count": [1, 2], "min_gap_m": 3}
+  ]
+}

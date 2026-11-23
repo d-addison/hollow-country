@@ -30,6 +30,7 @@
   "EnableGroupScaling": true,
   "EnableTapedPackMounts": true,
   "EnableFortify": true,
+  "EnableSites": true,
   "TickIntervalMs": 1000,
   "MaxTickWorkItems": 32,
   "MaxActiveHordes": 4,

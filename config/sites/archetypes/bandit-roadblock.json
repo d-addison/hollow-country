@@ -1,0 +1,27 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "bandit-roadblock",
+  "version": 1,
+  "title": "Bandit roadblock",
+  "story": "Bandits stopped a cargo truck on a country road and turned it into a toll point: barriers at both ends, a nest on the shoulder, a desk for the toll, and a sleeping camp tucked behind cover.",
+  "frame": {"kind": "road", "forward": "toward_settlement"},
+  "location": {"road": {"surface": ["gravel", "dirt"], "straight_m": 70, "max_turn_deg": 12, "max_grade_pct": 6, "min_chain_m": 300}, "settlement_edge_m": [500, 2500], "junction_m": [120, 900], "cover_within_m": 30, "slope_pct_max": 5, "not_in": ["military", "town_core"]},
+  "lane": "passable",
+  "allowed_roles": ["nest", "barrier", "furnishing", "scene dressing"],
+  "loot_theme": "scavenged",
+  "zones": [{"id": "camp", "of": "fire", "shape": "disc", "r_m": 7}],
+  "story_items": {"note": {"key": "bandit-toll-ledger", "on": "desk"}, "ai": {"role": "raider", "guard_posts": ["nest", "desk"]}},
+  "density": {"max_per_map": 6, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "truck", "class": "StaticObj_Wreck_MTVR_Cargo", "op": "in_lane", "anchor": true, "loot": "proto", "s": 0, "lane": "right", "align": "road", "jitter_deg": 8},
+    {"id": "bar", "class": "StaticObj_Misc_RoadBarrier", "op": "across_lane", "s": 18, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "hedge", "class": "StaticObj_Misc_Hedgehog_Iron", "op": "across_lane", "s": -16, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "nest", "class": "Land_Mil_Fortified_Nest_Small", "op": "shoulder", "loot": "proto", "side": "left", "s": 10, "offset_m": 5, "faces": "-forward", "guard_post": true},
+    {"id": "desk", "class": "Land_Roadblock_Table", "op": "shoulder", "side": "right", "s": 14, "offset_m": 2.5, "align": "road", "guard_post": true},
+    {"id": "chair", "class": "StaticObj_Misc_Chair_Camp1", "op": "facing", "of": "desk", "dist_m": 0.9, "from": "road_side"},
+    {"id": "fire", "class": "StaticObj_Furniture_fireplace_grill", "op": "offroad", "side": "left", "s": -6, "offset_m": 14},
+    {"id": "beds", "class": "StaticObj_Furniture_foldingbed_open", "op": "ring", "of": "fire", "r_m": 3.2, "count": 3, "arc_deg": 140, "centre_on": "left", "faces": "of"},
+    {"id": "wood", "class": "StaticObj_Misc_WoodPile1", "op": "behind", "of": "beds", "dist_m": 2},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c"], "op": "scatter", "zone": "camp", "count": [2, 3], "min_gap_m": 2}
+  ]
+}
