@@ -16,6 +16,7 @@ Windows user folder, an id, a name or a config value.
 """
 import argparse
 import contextlib
+import errno
 import hashlib
 import io
 import json
@@ -60,7 +61,15 @@ STEP_REL = 'HollowCountry/acceptance/client_driver.json'
 CELLAR_MARKER_REL = 'HollowCountry/measure-cellars'
 # Receipt rows are only ever removed or restored for these names; a tampered receipt is refused.
 CREATED_ALLOWED = {('server', PROFILE_COPY), ('server', TEST_MOD), ('server', CFG_COPY), ('server', BAT_COPY),
-                   ('client', CLIENT_PROFILE), ('mission', GEAR_REL), ('mission', 'storage_' + INSTANCE_ID)}
+                   ('client', CLIENT_PROFILE), ('mission', GEAR_REL), ('mission', 'storage_' + INSTANCE_ID),
+                   ('mission', 'storage_0')}
+# The 2026-11-23 test boot (instance 99) also left an empty storage_0/communityframework folder; it is
+# recorded (and removed by restore) only when it did not exist before staging.
+STRAY_STORAGE = 'storage_0'
+# A graceful stop saves the world first: the build 178 test server needed about 80 s after CloseMainWindow.
+STOP_WAIT_SECONDS = 240
+# Consecutive unreadable polls of a live log (Windows may hold it briefly) before the run gives up.
+UNREADABLE_POLLS = 20
 EDITED_ALLOWED = {('mission', GAMEPLAY)}
 CONNECT_ENABLED = 'Player connect enabled'
 POLL_SECONDS = 30
@@ -434,9 +443,9 @@ class WindowsHost:
                   "if ($p.Count -eq 0) { Write-Output 'HC stopped'; exit 0 }; "
                   "if ($p.Count -ne 1) { Write-Output 'HC stop ambiguous'; exit 2 }; "
                   "if (-not $p[0].CloseMainWindow()) { Write-Output 'HC close refused'; exit 2 }; "
-                  "if (-not $p[0].WaitForExit(60000)) { Write-Output 'HC close timeout'; exit 2 }; "
-                  "Write-Output 'HC stopped'" % name)
-        result = self.winproc.run('powershell', [script], attempts=1, timeout=75)
+                  "if (-not $p[0].WaitForExit(%d)) { Write-Output 'HC close timeout'; exit 2 }; "
+                  "Write-Output 'HC stopped'" % (name, STOP_WAIT_SECONDS * 1000))
+        result = self.winproc.run('powershell', [script], attempts=1, timeout=STOP_WAIT_SECONDS + 30)
         if result.returncode or self.state(image) != 'gone':
             raise Refused('graceful stop of %s failed; stop it by hand, then run restore' % image)
 
@@ -528,7 +537,9 @@ class Stager:
             raise Refused('internal: unexpected staged path')
         target = self.roots()[root] / rel
         existed = target.exists()
-        if existed and (root, rel) != ('mission', 'storage_' + INSTANCE_ID):
+        if existed and (root, rel) in {('mission', 'storage_' + INSTANCE_ID), ('mission', STRAY_STORAGE)}:
+            return target
+        if existed:
             raise Refused('%s/%s already exists; run restore (or remove it) first' % (root, rel))
         if not existed:
             self.receipt['created'].append({'root': root, 'rel': rel, 'dir': is_dir})
@@ -592,6 +603,7 @@ class Stager:
         if (self.mission / ('storage_' + INSTANCE_ID)).exists():
             raise Refused('the test storage folder already exists; remove it or run restore')
         self._created('mission', 'storage_' + INSTANCE_ID, True)  # recorded now; the server creates it
+        self._created('mission', STRAY_STORAGE, True)  # recorded only when absent; see STRAY_STORAGE
         # client side
         client = self._created('client', CLIENT_PROFILE, True)
         step = client / STEP_REL
@@ -667,6 +679,33 @@ class Stager:
 
 # ------------------------------------------------------------------ run
 
+def os_reason(error):
+    """errno name of an OSError, never its path."""
+    return errno.errorcode.get(getattr(error, 'errno', None) or 0, type(error).__name__)
+
+
+def describe_failure(error):
+    """A failure without private paths: the Refused text, or type, errno and the innermost repo frame."""
+    if isinstance(error, Refused):
+        return str(error)
+    text = type(error).__name__
+    if isinstance(error, OSError):
+        text += ' ' + os_reason(error)
+    frames = []
+    trace = error.__traceback__
+    while trace is not None:
+        code = trace.tb_frame.f_code
+        try:
+            rel = Path(code.co_filename).resolve().relative_to(Path(__file__).resolve().parents[2])
+            frames.append('%s:%d %s' % (rel.as_posix(), trace.tb_lineno, code.co_name))
+        except ValueError:
+            pass
+        trace = trace.tb_next
+    if frames:
+        text += ' at ' + frames[-1]
+    return text
+
+
 def tail_lines(path, offset):
     """New complete lines of a growing log since offset; returns (lines, new_offset)."""
     with Path(path).open('rb') as stream:
@@ -699,8 +738,16 @@ class Campaign:
 
     def wait_for(self, what, minutes, check, image):
         end = self.now() + minutes * 60
+        unreadable = 0
         while True:
-            result = check()
+            try:
+                result = check()
+                unreadable = 0
+            except OSError as error:  # a live log Windows holds for a moment; never a reason to abandon the run
+                unreadable += 1
+                if unreadable >= UNREADABLE_POLLS:
+                    raise Refused('%s: log unreadable %d polls in a row (%s)' % (what, unreadable, os_reason(error)))
+                result = None
             if result:
                 return result
             if self.host.state(image) != 'running':
@@ -794,21 +841,31 @@ class Campaign:
         return True
 
     def shutdown(self, started, failure):
-        """Graceful stops (client first), then restore. Returns the first failure, if any."""
+        """Graceful stops (client first), then restore. Returns the first failure, if any.
+
+        Restore runs only when every started process is confirmed stopped: restoring under a running server
+        fails on its open files and would hide the original failure (2026-11-23 soak 178).
+        """
+        if failure is not None and not isinstance(failure, Refused):
+            self.log('run: failed: ' + describe_failure(failure))
+        stopped = True
         for key, image in (('client', CLIENT_IMAGE), ('server', SERVER_IMAGE)):
             if not started[key]:
                 continue
             try:
                 self.host.stop(image)
-            except Refused as error:
+            except (Refused, OSError) as error:
+                stopped = False
+                self.log('run: stop %s failed: %s' % (image, describe_failure(error)))
                 failure = failure or error
-        if failure is None or not isinstance(failure, Refused) or 'by hand' not in str(failure):
-            try:
-                self.stager.restore(log=self.log)
-            except Refused as error:
-                failure = failure or error
-        else:
+        if not stopped:
             self.log('run: left staged; stop the process by hand, then run restore')
+            return failure
+        try:
+            self.stager.restore(log=self.log)
+        except (Refused, OSError) as error:
+            self.log('run: restore failed: %s; run restore by hand' % describe_failure(error))
+            failure = failure or error
         return failure
 
 
@@ -1054,7 +1111,7 @@ def main(argv=None, *, host=None, out=None):
         return command_report(phases, args.state_dir, out)
     except (Refused, OSError, ValueError, KeyError) as error:
         if not isinstance(error, Refused):
-            error = Refused('%s (details withheld: may hold a private path)' % type(error).__name__)
+            error = Refused('%s (path withheld)' % describe_failure(error))
         print('soak_campaign: ' + str(error), file=out)
         return 2
 

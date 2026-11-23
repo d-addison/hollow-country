@@ -469,6 +469,57 @@ class CampaignTests(Tmp):
         self.assertTrue(camp.Stager(self.server, self.client, self.state).restore(log=lambda text: None))
         self.assertEqual(self.snapshot(), self.original)
 
+    def test_an_os_error_with_a_failed_stop_never_restores_under_the_running_server(self):
+        run, host = self.campaign(stop_ok=False)
+        real = run.newest
+        run.newest = mock.Mock(side_effect=PermissionError(13, 'denied', '/private/x'))
+        with self.assertRaisesRegex(camp.Refused, 'unreadable'):
+            run.run()
+        run.newest = real
+        self.assertTrue(self.stager.receipt_path.exists())
+        self.assertTrue(host.running[camp.SERVER_IMAGE])
+
+    def test_a_briefly_unreadable_live_log_is_retried(self):
+        run, host = self.campaign()
+        real, calls = run.newest, []
+
+        def flaky(folder, pattern):
+            calls.append(pattern)
+            if len(calls) <= 3:
+                raise PermissionError(13, 'denied', '/private/x')
+            return real(folder, pattern)
+        run.newest = flaky
+        self.assertTrue(run.run())
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_a_log_that_stays_unreadable_refuses_and_restores(self):
+        run, host = self.campaign()
+        run.newest = mock.Mock(side_effect=PermissionError(13, 'denied', '/private/x'))
+        with self.assertRaisesRegex(camp.Refused, 'unreadable .*EACCES'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_failure_text_names_errno_and_repo_frame_but_no_path(self):
+        try:
+            camp.tail_lines(self.root / 'missing' / 'x.RPT', 0)
+        except OSError as error:
+            text = camp.describe_failure(error)
+        self.assertIn('ENOENT', text)
+        self.assertIn('tools/testing/soak_campaign.py', text)
+        self.assertNotIn(str(self.root), text)
+
+    def test_the_stray_storage_folder_is_removed_only_when_staging_made_it(self):
+        self.stager.stage(make_addon(self.root), {'steps': []})
+        (self.mission / camp.STRAY_STORAGE / 'communityframework').mkdir(parents=True)
+        self.assertTrue(self.stager.restore(log=lambda text: None))
+        self.assertFalse((self.mission / camp.STRAY_STORAGE).exists())
+        kept = self.mission / camp.STRAY_STORAGE / 'keep.bin'
+        kept.parent.mkdir()
+        kept.write_bytes(b'x')
+        self.stager.stage(make_addon(self.root), {'steps': []})
+        self.assertTrue(self.stager.restore(log=lambda text: None))
+        self.assertEqual(b'x', kept.read_bytes())
+
     def test_the_stop_script_is_close_main_window_only(self):
         class Win:
             scripts = []
