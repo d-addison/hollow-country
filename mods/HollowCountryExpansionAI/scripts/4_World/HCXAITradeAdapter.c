@@ -693,7 +693,7 @@ class HCXAITradeProducer
         if (m_Port.Walker && (m_Travelling || m_JourneyKey != ""))
         {
             if (!m_Port.Walker.HCRestoreRoute()) { return; }
-            if (m_Port.Walker.m_PartnerGroup) { return; }
+            if (m_Port.Walker.HCPartnerHeld()) { return; }
         }
         if (!HCSettleJourney()) { return; }
         Fixture = false;

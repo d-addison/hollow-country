@@ -797,6 +797,8 @@ class HCXAICaravanAdapter : HCCaravanInventory
         HCXExpansionBridge.HCHoldAddWaypoint(m_HCPartnerHold, m_To);
         return true;
     }
+    // True while the partner release is deferred (partner in combat); the trade trip must not settle yet.
+    bool HCPartnerHeld() { return m_HCPartnerHold != null; }
     void HCReleasePartner()
     {
         if (!m_HCPartnerHold || HCXExpansionBridge.HCHoldIsInCombat(m_HCPartnerHold)) { return; }
