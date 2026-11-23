@@ -2,6 +2,14 @@
   "schema_version": 3,
   "request": "Owner global ancestry-based inventory sizing, 2026-11-20",
   "backpack_row_multiplier": 1.5,
+  "clothing_cargo_multiplier": 1.4,
+  "clothing_cargo_cap": 1.5,
+  "clothing_cargo_slots": [
+    "Body",
+    "Legs",
+    "Vest",
+    "Hips"
+  ],
   "medical_max_area": 2,
   "general_areas": [
     3,
@@ -77,6 +85,7 @@
   ],
   "policy_notes": [
     "Back slot with positive cargo: preserve shell itemSize; round rows up after scaling.",
+    "Vanilla clothing in the clothing_cargo_slots (Body, Legs, Vest, Hips) with positive cargo: itemsCargoSize grows about clothing_cargo_multiplier-fold with rows rounded up, never above clothing_cargo_cap times the stock cells, width at most 10 and grown only when no extra row fits; classes already at or above cap times the slot median stay unchanged; zero cargo stays zero; itemSize, weight and insulation never change and no grid ever shrinks, so stored contents always fit. Hats, masks, gloves, boots, stack and variety-pack clothing are untouched (stack classes that inherit a changed vanilla grid are pinned to their stock cargo).",
     "All other positive cargo, including inherited cargo: never shrink itemSize or change cargo.",
     "General area 3/4: shorten longer dimension by one; square 2x2 becomes 1x2 by shrinking width. Area decreases by two for this square, following the owner's explicit 2x2 example.",
     "Area 2: medical; consumables (food/drink/material/seed addons or explicit matches/lighter/candle/filter includes); or tools strictly below 500g (tools/navigation/handheld optics/traps addons). Weapon attachment slots exclude an item from general small-item sizing; attachment_scale separately uses vanilla references.",
@@ -1079,6 +1088,23 @@
       "category": "general"
     },
     {
+      "name": "BDUJacket",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "BearSteakMeat",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -1198,6 +1224,91 @@
       "category": "medical"
     },
     {
+      "name": "Blouse_Blue",
+      "parent": "Blouse_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Blouse_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Blouse_Green",
+      "parent": "Blouse_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Blouse_Violet",
+      "parent": "Blouse_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Blouse_White",
+      "parent": "Blouse_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "BoarSteakMeat",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -1230,6 +1341,142 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "BomberJacket_Black",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_Blue",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_Brown",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_Grey",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_Maroon",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_Olive",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BomberJacket_SkyBlue",
+      "parent": "BomberJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Bone",
@@ -3731,6 +3978,193 @@
       "category": "general"
     },
     {
+      "name": "Breeches_Beetcheck",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Beige",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Black",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Blackcheck",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Blue",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Browncheck",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Green",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Pink",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_Red",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Breeches_White",
+      "parent": "Breeches_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "BurlapSack",
       "parent": "Inventory_Base",
       "addon": "DZ_Gear_Crafting",
@@ -3780,6 +4214,40 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "BushlatPoliceJacket_Blue",
+      "parent": "BushlatPoliceJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "BushlatPoliceJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Candle",
@@ -3952,6 +4420,210 @@
       "category": "backpacks"
     },
     {
+      "name": "CanvasPants_Beige",
+      "parent": "CanvasPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPants_Blue",
+      "parent": "CanvasPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPants_Grey",
+      "parent": "CanvasPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPants_Red",
+      "parent": "CanvasPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPants_Violet",
+      "parent": "CanvasPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_Beige",
+      "parent": "CanvasPantsMidi_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_Blue",
+      "parent": "CanvasPantsMidi_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_Grey",
+      "parent": "CanvasPantsMidi_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_Red",
+      "parent": "CanvasPantsMidi_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "CanvasPantsMidi_Violet",
+      "parent": "CanvasPantsMidi_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "CarpFilletMeat",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -4035,6 +4707,40 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "Chainmail",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Chainmail_Leggings",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "CharcoalTablets",
@@ -4239,6 +4945,23 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "ChernarusSportShirt",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "ChickenBreastMeat",
@@ -4734,6 +5457,23 @@
       "category": "general"
     },
     {
+      "name": "DenimJacket",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "DirtBikeHelmet_Mouthguard",
       "parent": "Clothing",
       "addon": "DZ_Characters_Headgear",
@@ -4851,6 +5591,91 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "DownJacket_Blue",
+      "parent": "DownJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "DownJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "DownJacket_Green",
+      "parent": "DownJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "DownJacket_Orange",
+      "parent": "DownJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "DownJacket_Red",
+      "parent": "DownJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "DryBag_Black",
@@ -5242,6 +6067,57 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "FirefighterJacket_Beige",
+      "parent": "FirefighterJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "FirefighterJacket_Black",
+      "parent": "FirefighterJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "FirefighterJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Flag_Altis",
@@ -5975,6 +6851,108 @@
       "category": "general"
     },
     {
+      "name": "GorkaEJacket_Autumn",
+      "parent": "GorkaEJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GorkaEJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GorkaEJacket_Flat",
+      "parent": "GorkaEJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GorkaEJacket_PautRev",
+      "parent": "GorkaEJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GorkaEJacket_Summer",
+      "parent": "GorkaEJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GorkaEJacket_Winter",
+      "parent": "GorkaEJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "GPSReceiver",
       "parent": "ItemGPS",
       "addon": "DZ_Gear_Navigation",
@@ -6007,6 +6985,40 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "GulagJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "GulagJacket_Grey",
+      "parent": "GulagJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Handcuffs",
@@ -6179,6 +7191,227 @@
       "category": "general"
     },
     {
+      "name": "HighCapacityVest_Black",
+      "parent": "HighCapacityVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HighCapacityVest_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HighCapacityVest_Olive",
+      "parent": "HighCapacityVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HikingJacket_Black",
+      "parent": "HikingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HikingJacket_Blue",
+      "parent": "HikingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HikingJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HikingJacket_Green",
+      "parent": "HikingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HikingJacket_Red",
+      "parent": "HikingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HipPack_Black",
+      "parent": "HipPack_ColorBase",
+      "addon": "DZ_Characters_Belts",
+      "pbo": "characters_belts.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HipPack_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Belts",
+      "pbo": "characters_belts.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HipPack_Green",
+      "parent": "HipPack_ColorBase",
+      "addon": "DZ_Characters_Belts",
+      "pbo": "characters_belts.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HipPack_Medical",
+      "parent": "HipPack_ColorBase",
+      "addon": "DZ_Characters_Belts",
+      "pbo": "characters_belts.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HipPack_Party",
+      "parent": "HipPack_ColorBase",
+      "addon": "DZ_Characters_Belts",
+      "pbo": "characters_belts.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Honey",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -6194,6 +7427,125 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "Hoodie_Black",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_Blue",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_Brown",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_Green",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_Grey",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Hoodie_Red",
+      "parent": "Hoodie_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "HumanSteakMeat",
@@ -6247,6 +7599,108 @@
       "category": "backpacks"
     },
     {
+      "name": "HuntingJacket_Autumn",
+      "parent": "HuntingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingJacket_Brown",
+      "parent": "HuntingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingJacket_Spring",
+      "parent": "HuntingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingJacket_Summer",
+      "parent": "HuntingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingJacket_Winter",
+      "parent": "HuntingJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "HuntingKnife",
       "parent": "Inventory_Base",
       "addon": "DZ_Weapons_Melee_Blade",
@@ -6262,6 +7716,40 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "HuntingVest",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "HuntingVest_Winter",
+      "parent": "HuntingVest",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "ImprovisedBag",
@@ -6298,6 +7786,210 @@
       "category": "medical"
     },
     {
+      "name": "Jeans_Black",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_Blue",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_BlueDark",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_Brown",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_Green",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Jeans_Grey",
+      "parent": "Jeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "JumpsuitJacket_Blue",
+      "parent": "JumpsuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "JumpsuitJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "JumpsuitJacket_Gray",
+      "parent": "JumpsuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "JumpsuitJacket_Green",
+      "parent": "JumpsuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "JumpsuitJacket_Red",
+      "parent": "JumpsuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "KitchenKnife",
       "parent": "Inventory_Base",
       "addon": "DZ_Gear_Tools",
@@ -6330,6 +8022,23 @@
         3
       ],
       "category": "general"
+    },
+    {
+      "name": "LabCoat",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "LactariusMushroom",
@@ -6587,6 +8296,91 @@
       "category": "general"
     },
     {
+      "name": "LeatherJacket_Beige",
+      "parent": "LeatherJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherJacket_Black",
+      "parent": "LeatherJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherJacket_Brown",
+      "parent": "LeatherJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherJacket_Natural",
+      "parent": "LeatherJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "LeatherKnifeSheath",
       "parent": "Clothing",
       "addon": "DZ_Characters_Belts",
@@ -6602,6 +8396,91 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "LeatherPants_Beige",
+      "parent": "LeatherPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherPants_Black",
+      "parent": "LeatherPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherPants_Brown",
+      "parent": "LeatherPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherPants_Natural",
+      "parent": "LeatherPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "LeatherSack_Beige",
@@ -6689,6 +8568,142 @@
       "category": "backpacks"
     },
     {
+      "name": "LeatherShirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherShirt_Natural",
+      "parent": "LeatherShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherStorageVest_Beige",
+      "parent": "LeatherStorageVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        5
+      ],
+      "new": [
+        5,
+        7
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherStorageVest_Black",
+      "parent": "LeatherStorageVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        5
+      ],
+      "new": [
+        5,
+        7
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherStorageVest_Brown",
+      "parent": "LeatherStorageVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        5
+      ],
+      "new": [
+        5,
+        7
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherStorageVest_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        5
+      ],
+      "new": [
+        5,
+        7
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LeatherStorageVest_Natural",
+      "parent": "LeatherStorageVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        5
+      ],
+      "new": [
+        5,
+        7
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "LegsCover_Improvised",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Lockpick",
       "parent": "Inventory_Base",
       "addon": "DZ_Gear_Tools",
@@ -6740,6 +8755,91 @@
       "category": "general"
     },
     {
+      "name": "M65Jacket_Black",
+      "parent": "M65Jacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "M65Jacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "M65Jacket_Khaki",
+      "parent": "M65Jacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "M65Jacket_Olive",
+      "parent": "M65Jacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "M65Jacket_Tan",
+      "parent": "M65Jacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Machete",
       "parent": "Inventory_Base",
       "addon": "DZ_Weapons_Melee_Blade",
@@ -6789,6 +8889,159 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "ManSuit_Beige",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_Black",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_Blue",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_Brown",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_DarkGrey",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_Khaki",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_LightGrey",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ManSuit_White",
+      "parent": "ManSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Marmalade",
@@ -6857,6 +9110,142 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "MedicalScrubsPants_Blue",
+      "parent": "MedicalScrubsPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsPants_Green",
+      "parent": "MedicalScrubsPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsPants_White",
+      "parent": "MedicalScrubsPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsShirt_Blue",
+      "parent": "MedicalScrubsShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsShirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsShirt_Green",
+      "parent": "MedicalScrubsShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MedicalScrubsShirt_White",
+      "parent": "MedicalScrubsShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "MilitaryBelt",
@@ -6959,6 +9348,227 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "MilitarySweater_Chernarus",
+      "parent": "MilitarySweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MilitarySweater_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MilitarySweater_Livonia",
+      "parent": "MilitarySweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MilitarySweater_NoPatch",
+      "parent": "MilitarySweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_BlueChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_BlueWithDots",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_BrownChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_GreenChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_Pink",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_PinkChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_RedChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "MiniDress_WhiteChecker",
+      "parent": "MiniDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Morphine",
@@ -7148,6 +9758,40 @@
       "category": "general"
     },
     {
+      "name": "NavyUniformJacket",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NavyUniformPants",
+      "parent": "PolicePants",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "NBCBootsGray",
       "parent": "NBCBootsBase",
       "addon": "DZ_Characters_Shoes",
@@ -7284,6 +9928,142 @@
       "category": "general"
     },
     {
+      "name": "NBCJacketBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCJacketGray",
+      "parent": "NBCJacketBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCJacketWhite",
+      "parent": "NBCJacketBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCJacketYellow",
+      "parent": "NBCJacketBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCPantsBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCPantsGray",
+      "parent": "NBCPantsBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCPantsWhite",
+      "parent": "NBCPantsBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NBCPantsYellow",
+      "parent": "NBCPantsBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "NioshFaceMask",
       "parent": "Clothing",
       "addon": "DZ_Characters_Masks",
@@ -7299,6 +10079,57 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "NurseDress_Blue",
+      "parent": "NurseDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NurseDress_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "NurseDress_White",
+      "parent": "NurseDress_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "NVGoggles",
@@ -7505,6 +10336,142 @@
       "category": "medical"
     },
     {
+      "name": "ParamedicJacket_Blue",
+      "parent": "ParamedicJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicJacket_Crimson",
+      "parent": "ParamedicJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicJacket_Green",
+      "parent": "ParamedicJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicPants_Blue",
+      "parent": "ParamedicPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicPants_Crimson",
+      "parent": "ParamedicPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ParamedicPants_Green",
+      "parent": "ParamedicPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "PeachesCan",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -7641,6 +10608,74 @@
       "category": "general"
     },
     {
+      "name": "PilotJacket_Black",
+      "parent": "PilotJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PilotJacket_Brown",
+      "parent": "PilotJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PilotJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PilotJacket_Yellow",
+      "parent": "PilotJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "PilotkaCap",
       "parent": "Clothing",
       "addon": "DZ_Characters_Headgear",
@@ -7707,6 +10742,74 @@
         3
       ],
       "category": "general"
+    },
+    {
+      "name": "PoliceJacket",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PoliceJacketOrel",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PolicePants",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PolicePantsOrel",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "PorkCan",
@@ -7794,6 +10897,91 @@
       "category": "general"
     },
     {
+      "name": "PressVest_Blue",
+      "parent": "PressVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PressVest_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PressVest_LightBlue",
+      "parent": "PressVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PrisonUniformJacket",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "PrisonUniformPants",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Pumpkin",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -7862,6 +11050,159 @@
       "category": "medical"
     },
     {
+      "name": "QuiltedJacket_Black",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Blue",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Green",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Grey",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Orange",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Red",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Violet",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "QuiltedJacket_Yellow",
+      "parent": "QuiltedJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "RabbitLegMeat",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -7911,6 +11252,142 @@
         1
       ],
       "category": "medical"
+    },
+    {
+      "name": "Raincoat_Black",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Blue",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Green",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Orange",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Pink",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Red",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Raincoat_Yellow",
+      "parent": "Raincoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Rangefinder",
@@ -8013,6 +11490,40 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "RidersJacket_Black",
+      "parent": "RidersJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "RidersJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "Roadflare",
@@ -8355,6 +11866,244 @@
       "category": "general"
     },
     {
+      "name": "Shirt_BlueCheck",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_BlueCheckBright",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_GreenCheck",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_PlaneBlack",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_RedCheck",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Shirt_WhiteCheck",
+      "parent": "Shirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Black",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Blue",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Brown",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Darkblue",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Green",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "ShortJeans_Red",
+      "parent": "ShortJeans_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Shrimp",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -8421,6 +12170,244 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "Skirt_Blue",
+      "parent": "Skirt_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Skirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Skirt_Red",
+      "parent": "Skirt_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Skirt_White",
+      "parent": "Skirt_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Skirt_Yellow",
+      "parent": "Skirt_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_Beige",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_Black",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_Blue",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_Brown",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_DarkGrey",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_Khaki",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_LightGrey",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "SlacksPants_White",
+      "parent": "SlacksPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        3
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "SlicedPumpkin",
@@ -8557,6 +12544,23 @@
         6
       ],
       "category": "backpacks"
+    },
+    {
+      "name": "SmershVest",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "SodaCan_Cola",
@@ -8848,6 +12852,159 @@
       "category": "general"
     },
     {
+      "name": "Sweater_Blue",
+      "parent": "Sweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_ChristmasBlue",
+      "parent": "Sweater_ChristmasColorbase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_ChristmasColorbase",
+      "parent": "Sweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_ChristmasGreen",
+      "parent": "Sweater_ChristmasColorbase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_ChristmasRed",
+      "parent": "Sweater_ChristmasColorbase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_Gray",
+      "parent": "Sweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_Green",
+      "parent": "Sweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "Sweater_Red",
+      "parent": "Sweater_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "Syringe",
       "parent": "Epinephrine",
       "addon": "DZ_Gear_Medical",
@@ -8950,6 +13107,91 @@
       "category": "general"
     },
     {
+      "name": "TacticalShirt_Black",
+      "parent": "TacticalShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TacticalShirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TacticalShirt_Grey",
+      "parent": "TacticalShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TacticalShirt_Olive",
+      "parent": "TacticalShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TacticalShirt_Tan",
+      "parent": "TacticalShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "TaloonBag_Blue",
       "parent": "TaloonBag_ColorBase",
       "addon": "DZ_Characters_Backpacks",
@@ -9035,6 +13277,23 @@
       "category": "backpacks"
     },
     {
+      "name": "TelnyashkaShirt",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "TetracyclineAntibiotics",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Medical",
@@ -9067,6 +13326,23 @@
         1
       ],
       "category": "medical"
+    },
+    {
+      "name": "TorsoCover_Improvised",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "TortillaBag",
@@ -9120,6 +13396,210 @@
       "category": "backpacks"
     },
     {
+      "name": "TrackSuitJacket_Black",
+      "parent": "TrackSuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitJacket_Blue",
+      "parent": "TrackSuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitJacket_Green",
+      "parent": "TrackSuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitJacket_LightBlue",
+      "parent": "TrackSuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitJacket_Red",
+      "parent": "TrackSuitJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_Black",
+      "parent": "TrackSuitPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_Blue",
+      "parent": "TrackSuitPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_Green",
+      "parent": "TrackSuitPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_LightBlue",
+      "parent": "TrackSuitPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TrackSuitPants_Red",
+      "parent": "TrackSuitPants_ColorBase",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        3
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "TripwireTrap",
       "parent": "Trap_Base",
       "addon": "DZ_Gear_Traps",
@@ -9135,6 +13615,261 @@
         3
       ],
       "category": "general"
+    },
+    {
+      "name": "TShirt_10thAnniversary",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Beige",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Black",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Blue",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Dyed",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Green",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Grey",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_OrangeWhiteStripes",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_Red",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_RedBlackStripes",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TShirt_White",
+      "parent": "TShirt_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        3,
+        4
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TTsKOJacket_Camo",
+      "parent": "TTsKOJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TTsKOJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "TTSKOPants",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Pants",
+      "pbo": "characters_pants.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        5,
+        4
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "TunaCan",
@@ -9171,6 +13906,108 @@
       "category": "general"
     },
     {
+      "name": "UKAssVest_Black",
+      "parent": "UKAssVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "UKAssVest_Camo",
+      "parent": "UKAssVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "UKAssVest_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "UKAssVest_Khaki",
+      "parent": "UKAssVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "UKAssVest_Olive",
+      "parent": "UKAssVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "UKAssVest_Winter",
+      "parent": "UKAssVest_ColorBase",
+      "addon": "DZ_Characters_Vests",
+      "pbo": "characters_vests.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "UnknownFoodCan",
       "parent": "Edible_Base",
       "addon": "DZ_Gear_Food",
@@ -9203,6 +14040,57 @@
         2
       ],
       "category": "general"
+    },
+    {
+      "name": "USMCJacket_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "USMCJacket_Desert",
+      "parent": "USMCJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "USMCJacket_Woodland",
+      "parent": "USMCJacket_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "VitaminBottle",
@@ -9341,6 +14229,74 @@
       "category": "general"
     },
     {
+      "name": "WinterMilitaryCoat_Brown",
+      "parent": "WinterMilitaryCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WinterMilitaryCoat_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WinterMilitaryCoat_DarkGrey",
+      "parent": "WinterMilitaryCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WinterMilitaryCoat_Grey",
+      "parent": "WinterMilitaryCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        6,
+        4
+      ],
+      "new": [
+        6,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
       "name": "WitchHood_Black",
       "parent": "WitchHood_ColorBase",
       "addon": "DZ_Characters_Headgear",
@@ -9407,6 +14363,346 @@
         1
       ],
       "category": "general"
+    },
+    {
+      "name": "WomanSuit_Beige",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_Black",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_Blue",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_Brown",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_DarkGrey",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_Khaki",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_LightGrey",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WomanSuit_White",
+      "parent": "WomanSuit_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_Beige",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_Black",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_BlackCheck",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_Blue",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_BlueCheck",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_BrownCheck",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_ColorBase",
+      "parent": "Clothing",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_Green",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_GreyCheck",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_Red",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
+    },
+    {
+      "name": "WoolCoat_RedCheck",
+      "parent": "WoolCoat_ColorBase",
+      "addon": "DZ_Characters_Tops",
+      "pbo": "characters_tops.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        5,
+        4
+      ],
+      "new": [
+        5,
+        6
+      ],
+      "category": "clothing_cargo"
     },
     {
       "name": "WoolGloves_Black",
@@ -10211,6 +15507,23 @@
         1
       ],
       "category": "medical"
+    },
+    {
+      "name": "Expansion_PressVest_Blue_Yeet",
+      "parent": "PressVest_ColorBase",
+      "addon": "DayZExpansion_AI_Gear",
+      "pbo": "ai_gear.pbo",
+      "member": "config.bin",
+      "property": "itemsCargoSize",
+      "vanilla": [
+        4,
+        4
+      ],
+      "new": [
+        4,
+        4
+      ],
+      "category": "preserve-original"
     },
     {
       "name": "ExpansionCircuitBoard_MK1",

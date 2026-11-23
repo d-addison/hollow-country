@@ -33,6 +33,63 @@ class InventorySizes(unittest.TestCase):
         self.assertEqual(changes['TestPack']['new'], [7, 8])
         self.assertEqual(changes['TestPack']['property'], 'itemsCargoSize')
 
+    def cargo_changes(self, *rows):
+        # Padding rows pin the slot median at 20 cells (4x5); they are not part of the result.
+        padding = [synthetic('Pad' + str(i), (3, 4), parent='Clothing', inventorySlot=['Body'],
+                             itemsCargoSize=[4, 5]) for i in range(12)]
+        return {n: r for n, r in self.changes(*rows, *padding).items()
+                if r['category'] == 'clothing_cargo' and not n.startswith('Pad')}
+
+    def test_worn_clothing_cargo_grows_rows_first_within_the_cap_and_keeps_the_shell(self):
+        rows = [synthetic('Jacket' + str(i), (3, 4), parent='Clothing', inventorySlot=['Body'],
+                          itemsCargoSize=list(size))
+                for i, size in enumerate([(6, 4), (5, 4), (3, 3), (4, 3), (4, 2)])]
+        got = {n: r['new'] for n, r in self.cargo_changes(*rows).items()}
+        # (6,4) and (5,4) round up to whole rows; (3,3) and (4,3) would pass 1.5x, so the
+        # tallest grid that fits is used; (4,2) -> 3 rows is exactly 1.5x.
+        self.assertEqual(got, {'Jacket0': [6, 6], 'Jacket1': [5, 6], 'Jacket2': [3, 4],
+                               'Jacket3': [4, 4], 'Jacket4': [4, 3]})
+        for change in self.cargo_changes(*rows).values():
+            self.assertEqual(change['property'], 'itemsCargoSize')
+            self.assertTrue(all(n >= o for n, o in zip(change['new'], change['vanilla'])))
+            self.assertLessEqual(change['new'][0] * change['new'][1],
+                                 1.5 * change['vanilla'][0] * change['vanilla'][1])
+
+    def test_worn_clothing_cargo_leaves_other_slots_zero_cargo_and_roomy_items_alone(self):
+        rows = [synthetic('Hat', (2, 2), parent='Clothing', inventorySlot=['Headgear'], itemsCargoSize=[3, 3]),
+                synthetic('Boots', (3, 3), parent='Clothing', inventorySlot=['Feet'], itemsCargoSize=[3, 3]),
+                synthetic('Shirt', (3, 3), parent='Clothing', inventorySlot=['Body']),
+                synthetic('Plain', (3, 3), parent='Clothing', inventorySlot=['Body'], itemsCargoSize=[5, 4]),
+                synthetic('Roomy', (3, 3), parent='Clothing', inventorySlot=['Body'], itemsCargoSize=[6, 5])]
+        self.assertEqual(set(self.cargo_changes(*rows)), {'Plain'})
+
+    def test_worn_clothing_cargo_widens_only_when_no_extra_row_fits_and_never_past_ten(self):
+        policy = inv.clothing_policy(self.rules)
+        self.assertEqual(inv.clothing_cargo([4, 1], policy), [6, 1])
+        self.assertEqual(inv.clothing_cargo([9, 1], policy), [10, 1])
+        self.assertIsNone(inv.clothing_cargo([10, 1], policy))
+        self.assertEqual(inv.clothing_cargo([5, 5], policy), [5, 7])
+
+    def test_worn_clothing_cargo_is_vanilla_only_and_needs_valid_rules(self):
+        stack = synthetic('StackVest', (3, 3), parent='Clothing', inventorySlot=['Vest'], itemsCargoSize=[4, 4])
+        stack['source'] = '@Pack'
+        self.assertEqual(self.cargo_changes(stack), {})
+        for bad in ({'clothing_cargo_multiplier': 0.9}, {'clothing_cargo_multiplier': 1.6},
+                    {'clothing_cargo_slots': []}):
+            with self.assertRaises(ValueError):
+                inv.clothing_policy({**self.rules, **bad})
+        self.assertIsNone(inv.clothing_policy({k: v for k, v in self.rules.items()
+                                               if not k.startswith('clothing_cargo')}))
+
+    def test_committed_clothing_cargo_never_shrinks_and_stays_within_the_cap(self):
+        rows = [r for r in self.rules['reviewed_overrides'] if r['category'] == 'clothing_cargo']
+        self.assertGreater(len(rows), 0)
+        for row in rows:
+            (ow, oh), (nw, nh) = row['vanilla'], row['new']
+            self.assertTrue(nw >= ow and nh >= oh and nw <= 10 and nw * nh > ow * oh, row['name'])
+            self.assertLessEqual(nw * nh, 1.5 * ow * oh, row['name'])
+            self.assertEqual(row['property'], 'itemsCargoSize')
+
     def test_medical_explicit_rag_and_sewing_kit_and_small_bottles(self):
         changes = self.changes(synthetic('Rag', (1, 3), addon='DZ_Gear_Consumables'),
                                synthetic('SewingKit'),
@@ -84,7 +141,7 @@ class InventorySizes(unittest.TestCase):
 
     def test_non_back_descendant_cannot_inherit_enlarged_cargo(self):
         base = synthetic('Backpack', inventorySlot=['Back'], itemsCargoSize=[3, 3])
-        child = synthetic('BeltBag', parent='Backpack', inventorySlot=['Hips'])
+        child = synthetic('Satchel', parent='Backpack', inventorySlot=['Headgear'])
         self.assertEqual(self.changes(base, child), {})
 
     def test_backpack_cargo_override_does_not_protect_its_inherited_shell(self):

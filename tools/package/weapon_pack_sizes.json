@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "rules_sha256": "a40c26d248ed103e822400473ac96d84c11a3ef52e47e7a3a2710fb5be6f814d",
+  "rules_sha256": "d2758d03ca2ca01f7ccf97fe861b7cc5016811284558afd7af7f5edb85830185",
   "generator_sha256": {
-    "inventory_sizes.py": "d77716acf886dbec71e74294ad10e53619333ee99e64dc71b0064a5b6d5d5b01",
+    "inventory_sizes.py": "bd517d7dd8b57225cb2ea2ada9e888591388163a576cbb5c276b38ba21fb5d45",
     "inventory_sources.py": "64991d8cb1e40f94dc5413ede2e421e59c3060f4e0168f04819646d3c0c0ae68"
   },
   "overrides": [
