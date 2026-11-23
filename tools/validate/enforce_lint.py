@@ -82,6 +82,7 @@ RULES = {
     'HC-E035': 'StartCommand_ScriptInst on a DayZInfected (engine builds the command with null constructor arguments); use StartCommand_Script(new Command(this))',
     'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
+    'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
@@ -2570,6 +2571,39 @@ def rule_flat_pathgraph(project, source):
             yield _finding('HC-E037', source, method.body_start + match.start(), _symbol(method), RULES['HC-E037'])
 
 
+def _foreach_iterable(body, start):
+    """Return (iterable_text, offset) for the foreach whose '(' is at body[start], or None."""
+    depth, colon = 0, -1
+    for index in range(start, len(body)):
+        char = body[index]
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                return (body[colon + 1:index], colon + 1) if colon >= 0 else None
+        elif char == ':' and depth == 1 and colon < 0:
+            colon = index
+    return None
+
+
+def rule_foreach_call_iterable(project, source):
+    """foreach (x : Call()) faults natively even when the callee returns an owned array (#337).
+
+    v1-test-15 threw `NULL pointer to instance` once a second at
+    `foreach (Man observer : HCPerfPlayers.HCGet())` although HCGet returns a static ref
+    array. Every call in the iterable (including `a.B().Field`) must be held in a typed local
+    first; plain fields and locals are fine. HC-E026 covers call results passed as arguments.
+    """
+    for method in _all_methods(source):
+        body = source.body(method)
+        for match in re.finditer(r'\bforeach\s*\(', body):
+            found = _foreach_iterable(body, match.end() - 1)
+            if found and '(' in found[0]:
+                yield _finding('HC-E048', source, method.body_start + match.start(), _symbol(method),
+                               f'{found[0].strip()}: {RULES["HC-E048"]}')
+
+
 # Vanilla array typedefs (1_Core/proto/EnScript.c); resolved through the native scripts when present.
 _ARRAY_TYPEDEFS = frozenset({'TStringArray', 'TIntArray', 'TFloatArray', 'TBoolArray', 'TVectorArray',
                              'TClassNameArray', 'TManagedArray'})
@@ -2631,7 +2665,7 @@ ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_argum
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
-             rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, enforce_json.rule_json_defaults,
+             rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, rule_foreach_call_iterable, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
 
 

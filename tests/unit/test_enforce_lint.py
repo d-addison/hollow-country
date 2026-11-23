@@ -781,7 +781,7 @@ class WorkflowDefectRules(unittest.TestCase):
         return extra + 'class HCProbe { void Run() {\n' + text + '\n} }'
 
     def test_every_new_rule_id_is_documented_once(self):
-        for rule in ('HC-E031', 'HC-E032', 'HC-E033', 'HC-E034', 'HC-E035', 'HC-E036', 'HC-E037', 'HC-E038'):
+        for rule in ('HC-E031', 'HC-E032', 'HC-E033', 'HC-E034', 'HC-E035', 'HC-E036', 'HC-E037', 'HC-E038', 'HC-E048'):
             self.assertIn(rule, lint.RULES)
         self.assertEqual(len(set(lint.RULES)), len(lint.RULES))
 
@@ -847,6 +847,15 @@ class WorkflowDefectRules(unittest.TestCase):
     def test_flat_pathgraph_refresh_is_flagged(self):
         self.assertEqual(['HC-E037'], self.rules(self.body('g.UpdatePathgraphRegionByObject(obj);'), lint.rule_flat_pathgraph))
         self.assertEqual([], self.rules(self.body('HCPathgraphRefresh.Run(obj);'), lint.rule_flat_pathgraph))
+
+    def test_foreach_over_a_call_result_is_flagged(self):
+        rule = lint.rule_foreach_call_iterable
+        self.assertEqual(['HC-E048'], self.rules(self.body('foreach (Man m : HCPerfPlayers.HCGet()) { m.Foo(); }'), rule))
+        self.assertEqual(['HC-E048'], self.rules(self.body('foreach (H h : m_Store.State().Herds) {}'), rule))
+        self.assertEqual(['HC-E048'], self.rules(self.body('foreach (int i, S s : d.States()) {}'), rule))
+        self.assertEqual([], self.rules(self.body('array<Man> ps = HCPerfPlayers.HCGet(); foreach (Man m : ps) {}'), rule))
+        self.assertEqual([], self.rules(self.body('foreach (H h : m_State.Herds) {}'), rule))
+        self.assertEqual([], self.rules(self.body('// foreach (Man m : Get()) {}\nint x;'), rule))
 
     def test_unordered_head_remove_on_arrays_only(self):
         fields = 'class HCProbe { ref array<string> m_Queue; ref TStringArray m_Names; ref map<int, string> m_Map; void Run() {\n%s\n} }'
