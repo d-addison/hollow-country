@@ -59,7 +59,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         foreach (HCXAISiteState state : states)
         {
             if (!state || !state.Transient || state.ProposalId != lease) { continue; }
-            if (!state.Qualified || state.Failed || !state.Patrol || !state.Patrol.m_HCLive || !state.Patrol.m_Group) { continue; }
+            if (!state.Qualified || state.Failed || !state.Patrol || !state.Patrol.m_HCLive || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { continue; }
             return state;
         }
         return null;
@@ -98,7 +98,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         HCXAISiteState owner = HCLeaseState(lease);
         if (!owner) { return false; }
         eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(body);
-        if (!group || group != owner.Patrol.m_Group) { return false; }
+        if (!group || !HCXExpansionBridge.HCHoldSame(owner.Patrol.HCGroupHold(), group)) { return false; }
         if (HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group))) != faction || faction == "") { return false; }
         int groupId = HCXExpansionBridge.HCGroupGetID(group);
         if (m_Groups.Find(groupId) >= 0) { return true; }
@@ -132,9 +132,9 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
     protected bool HCOfferState(HCXAISiteState state, string place, string faction)
     {
         if (!state || !state.Transient || !state.Qualified || state.Failed || state.Completed) { return false; }
-        if (!state.Patrol || !state.Patrol.m_HCLive || !state.Patrol.m_Group) { return false; }
+        if (!state.Patrol || !state.Patrol.m_HCLive || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { return false; }
         if (!HCLeaseAtPlace(state.ProposalId, place)) { return false; }
-        return HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(state.Patrol.m_Group))) == faction;
+        return HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCHoldGetFaction(state.Patrol.HCGroupHold()))) == faction;
     }
 
     override bool HCActiveAt(string placeId)
@@ -144,7 +144,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         array<ref HCXAISiteState> states = director.States();
         foreach (HCXAISiteState state : states)
         {
-            if (!state || !state.Patrol || !state.Patrol.m_HCLive || !state.Patrol.m_Group) { continue; }
+            if (!state || !state.Patrol || !state.Patrol.m_HCLive || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { continue; }
             if (state.Transient && HCLeaseAtPlace(state.ProposalId, placeId)) { return true; }
         }
         return false;
@@ -194,8 +194,8 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         m_OfferedRight = right.ProposalId;
         array<Object> leftBodies = new array<Object>;
         array<Object> rightBodies = new array<Object>;
-        HCOfferBodies(left.Patrol.m_Group, leftBodies);
-        HCOfferBodies(right.Patrol.m_Group, rightBodies);
+        HCOfferBodies(HCXExpansionBridge.HCHoldResolve(left.Patrol.HCGroupHold()), leftBodies);
+        HCOfferBodies(HCXExpansionBridge.HCHoldResolve(right.Patrol.HCGroupHold()), rightBodies);
         string encounter = HCFactionConflict.HCBegin(placeId, survey, left.ProposalId, leftFaction, leftBodies, right.ProposalId, rightFaction, rightBodies);
         return encounter != "";
     }

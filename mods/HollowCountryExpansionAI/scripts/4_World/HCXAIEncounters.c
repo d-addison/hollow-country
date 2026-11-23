@@ -12,7 +12,7 @@
 // Expansion APIs (read-only reference, ai_scripts/core_scripts of the pinned
 // build): UTC epoch via HCXExpansionBridge.HCGetTimestamp;
 // a refused clock leaves admission pending for a later step.
-// eAIDynamicPatrol.m_Group (public field)
+// HCXAISitePatrol.HCGroupHold() (the patrol group handle)
 // ai_scripts/4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:45.
 // Native: Game.GetWorldName 3_Game/Global/Game.c:934.
 // W5 review (b): one request scans at most 66 states x 128 qualified points;
@@ -249,7 +249,7 @@ class HCXAIEncounters : Managed
             array<ref HCXAISiteState> killStates = director.States();
             foreach (HCXAISiteState state : killStates)
             {
-                if (state.Site.Id != binding.SiteId || !state.Patrol || state.Patrol.m_Group != group) { continue; }
+                if (state.Site.Id != binding.SiteId || !state.Patrol || !HCXExpansionBridge.HCHoldSame(state.Patrol.HCGroupHold(), group)) { continue; }
                 int killCount = binding.Kills.Count();
                 if (killCount >= HCXAIEncounters.MAX_KILLS) { return; }
                 HCXAIKill kill = new HCXAIKill();

@@ -95,7 +95,7 @@ class HCXAICampRoutine
         HCXAISiteState state = states[m_Cursor];
         m_Cursor++;
         if (!state || !state.Transient || state.Completed || !state.Qualified || !state.Patrol) { return; }
-        eAIGroup group = state.Patrol.m_Group;
+        eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
         if (!group || HCXExpansionBridge.HCGroupCount(group) < 1 || HCXExpansionBridge.HCGroupIsInCombat(group)) { return; }
         // Cooldown and relief have no content to read. In particular, do not
         // clone HCRoutineView's JSON ledger on these otherwise idle dispatches.
@@ -180,7 +180,7 @@ class HCXAICampRoutine
         array<ref HCXAISiteState> killedStates = director.States();
         foreach (HCXAISiteState state : killedStates)
         {
-            if (!state.Transient || state.Completed || !state.Patrol || state.Patrol.m_Group != group) { continue; }
+            if (!state.Transient || state.Completed || !state.Patrol || !HCXExpansionBridge.HCHoldSame(state.Patrol.HCGroupHold(), group)) { continue; }
             HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
             if (identity) { camps.HCPartyKilled(identity, body); }
             return;

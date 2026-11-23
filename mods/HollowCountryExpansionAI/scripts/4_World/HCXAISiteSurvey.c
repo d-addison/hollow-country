@@ -749,7 +749,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
     override string HCPrepareRingSpawn(HCXAISitePatrol patrol)
     {
         if (!m_Policy || m_Phase != "run") { return "sites not running"; }
-        if (patrol.m_Group || patrol.m_HCTransient || patrol.m_HCKind == "holdout") { return ""; }
+        if (patrol.HCHasGroup() || patrol.m_HCTransient || patrol.m_HCKind == "holdout") { return ""; }
         vector original = patrol.m_Position;
         float minimum = HCPerceptionRing.HCSpawnMin();
         if (this.NearestPlayer(original) >= minimum && !GetGame().SurfaceIsSea(original[0], original[2]) && !GetGame().SurfaceIsPond(original[0], original[2])) { return ""; }

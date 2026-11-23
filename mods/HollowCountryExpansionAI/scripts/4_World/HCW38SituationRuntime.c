@@ -31,7 +31,7 @@ class HCW38SituationBinding
     ref HCXAIGroupHold Hold;
     eAIWaypointBehavior Behaviour;
     ItemBase SmokeStock;
-    eAIBase SmokeOwner;
+    ref HCXAIAgentHold SmokeOwner;
     ref HCW38SituationSmokeStock SmokeScan;
     int SmokeMember;
     int SmokeAttempts;
@@ -39,7 +39,7 @@ class HCW38SituationBinding
     bool SmokeDone;
     bool FactPublished;
     ref array<vector> Original = new array<vector>;
-    ref array<eAIBase> Members = new array<eAIBase>;
+    ref array<ref HCXAIAgentHold> Members = new array<ref HCXAIAgentHold>;
     ref array<ZombieBase> Threats = new array<ZombieBase>;
     void ~HCW38SituationBinding() { HCXAIGroupHolds.Retire(Hold); }
 }
@@ -123,8 +123,8 @@ class HCW38SituationRuntime
     static bool HCCandidate(HCXAISiteState candidate)
     {
         if (!candidate || !candidate.Transient || !candidate.Materialized || !candidate.Qualified || candidate.Completed) { return false; }
-        if (!HCWorldMaterializer.HCIdentity(candidate.ProposalId) || !candidate.Patrol || !candidate.Patrol.m_Group) { return false; }
-        return HCXExpansionBridge.HCGroupCount(candidate.Patrol.m_Group) > 0 && candidate.Patrol.m_HCPendingMembers == 0;
+        if (!HCWorldMaterializer.HCIdentity(candidate.ProposalId) || !candidate.Patrol || !HCXExpansionBridge.HCHoldAlive(candidate.Patrol.HCGroupHold())) { return false; }
+        return HCXExpansionBridge.HCHoldCount(candidate.Patrol.HCGroupHold()) > 0 && candidate.Patrol.m_HCPendingMembers == 0;
     }
 
     static bool HCUsed(string lease)
@@ -145,7 +145,7 @@ class HCW38SituationRuntime
 
     static bool HCProfileFits(HCXAISiteState candidate, string profile)
     {
-        eAIGroup group = candidate.Patrol.m_Group;
+        eAIGroup group = HCXExpansionBridge.HCHoldResolve(candidate.Patrol.HCGroupHold());
         if (HCXExpansionBridge.HCGroupCount(group) > s_Policy.MaxMembers || HCXExpansionBridge.HCGroupIsInCombat(group)) { return false; }
         if (candidate.PatrolPoints.Count() < 2 || candidate.PatrolPoints.Count() > s_Policy.MaxRouteNodes) { return false; }
         if (profile == "raid" || profile == "column") { return candidate.ProviderFaction == "HCRaiders"; }
@@ -318,7 +318,7 @@ class HCW38SituationRuntime
         // One retained member cursor per attempt. PhysicalScanObjects bounds
         // the entire inventory traversal, and the shared budget bounds each tick.
         if (binding.SmokeMember >= binding.Members.Count()) { return null; }
-        eAIBase holder = binding.Members[binding.SmokeMember];
+        eAIBase holder = HCXExpansionBridge.HCAgent(binding.Members[binding.SmokeMember]);
         if (!holder || !HCXExpansionBridge.HCBaseIsAlive(holder) || HCXExpansionBridge.HCBaseGetIdentity(holder) || !HCXExpansionBridge.HCHoldSame(binding.Hold, HCXExpansionBridge.HCDayZPlayerImplementGetGroup(holder)))
         {
             binding.SmokeMember++;
@@ -333,7 +333,7 @@ class HCW38SituationRuntime
         ItemBase stock = binding.SmokeScan.HCStep(s_Policy.PhysicalScanObjects);
         if (stock)
         {
-            binding.SmokeOwner = holder;
+            binding.SmokeOwner = HCXExpansionBridge.HCAgentHold(holder);
             binding.SmokeStock = stock;
             binding.SmokeScan = null;
         }
@@ -395,9 +395,10 @@ class HCW38SituationRuntime
         {
             // Ownership is captured while it is still in the leased actor's
             // inventory. Never adopt an item from the world or another owner.
-            if (!binding.SmokeOwner || signalStock.GetHierarchyRootPlayer() != binding.SmokeOwner) { HCSmokeFailed(binding, "OWNERSHIP"); return; }
-            if (signalDirector.MemberProblemFor(HCXExpansionBridge.HCBaseGetPosition(binding.SmokeOwner)) != "") { HCSmokeFailed(binding, "VISIBILITY"); return; }
-            if (!HCXExpansionBridge.HCBaseServerDropEntity(binding.SmokeOwner, signalStock)) { HCSmokeFailed(binding, "DROP"); return; }
+            eAIBase smokeOwner = HCXExpansionBridge.HCAgent(binding.SmokeOwner);
+            if (!smokeOwner || signalStock.GetHierarchyRootPlayer() != smokeOwner) { HCSmokeFailed(binding, "OWNERSHIP"); return; }
+            if (signalDirector.MemberProblemFor(HCXExpansionBridge.HCBaseGetPosition(smokeOwner)) != "") { HCSmokeFailed(binding, "VISIBILITY"); return; }
+            if (!HCXExpansionBridge.HCBaseServerDropEntity(smokeOwner, signalStock)) { HCSmokeFailed(binding, "DROP"); return; }
             binding.SmokeDropped = true;
         }
         if (signalStock.GetHierarchyRootPlayer() || signalStock.GetHierarchyParent()) { HCSmokeFailed(binding, "OWNERSHIP"); return; }
@@ -454,14 +455,14 @@ class HCW38SituationRuntime
         binding.Id = opportunity.Id;
         binding.Lease = opportunity.Lease;
         binding.Profile = opportunity.Profile;
-        binding.Hold = HCXAIGroupHolds.Follow(null, party.Patrol.m_Group);
+        binding.Hold = HCXExpansionBridge.HCHoldFollowHold(null, party.Patrol.HCGroupHold());
         if (!binding.Hold) { return false; }
         int memberCount = HCXExpansionBridge.HCHoldCount(binding.Hold);
         for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
         {
             eAIBase member = eAIBase.Cast(HCXExpansionBridge.HCHoldGetMember(binding.Hold, memberIndex));
             if (!member || !HCXExpansionBridge.HCBaseIsAlive(member)) { return false; }
-            binding.Members.Insert(member);
+            binding.Members.Insert(HCXExpansionBridge.HCAgentHold(member));
         }
         binding.Behaviour = HCXExpansionBridge.HCHoldGetWaypointBehaviour(binding.Hold);
         array<vector> route = HCXExpansionBridge.HCHoldGetWaypoints(binding.Hold);
@@ -483,10 +484,11 @@ class HCW38SituationRuntime
     {
         if (!opportunity || !s_Active || opportunity.Id != s_Active.Id) { return ""; }
         HCSignals(s_Active);
-        array<eAIBase> members = s_Active.Members;
+        array<ref HCXAIAgentHold> members = s_Active.Members;
         if (!members || members.Count() == 0) { return ""; }
-        foreach (eAIBase member : members)
+        foreach (HCXAIAgentHold memberHold : members)
         {
+            eAIBase member = HCXExpansionBridge.HCAgent(memberHold);
             if (!member || HCXExpansionBridge.HCBaseIsPendingDeletion(member) || HCXExpansionBridge.HCBaseIsAlive(member)) { return ""; }
         }
         // Only still-present native dead bodies establish death. Group cleanup,

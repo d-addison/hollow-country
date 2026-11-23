@@ -93,21 +93,21 @@ class HCXAffiliationCues
             if (m_CleanupCursor >= m_Marked.Count()) { m_CleanupCursor = 0; }
             HCXAISiteState retired = m_Marked[m_CleanupCursor];
             m_CleanupCursor++;
-            if (states.Find(retired) < 0 || !retired.Patrol || !retired.Patrol.m_Group || HCXExpansionBridge.HCGroupCount(retired.Patrol.m_Group) == 0) { this.Remove(retired); }
+            if (states.Find(retired) < 0 || !retired.Patrol || HCXExpansionBridge.HCHoldCount(retired.Patrol.HCGroupHold()) == 0) { this.Remove(retired); }
         }
         if (m_Cursor >= states.Count()) { m_Cursor = 0; }
         HCXAISiteState state = states[m_Cursor];
         m_Cursor++;
         if (!state || state.Transient) { return; }
         HCXAISitePatrol patrol = state.Patrol;
-        bool occupied = patrol && patrol.m_Group && HCXExpansionBridge.HCGroupCount(patrol.m_Group) > 0;
+        bool occupied = patrol && HCXExpansionBridge.HCHoldCount(patrol.HCGroupHold()) > 0;
         if (!occupied)
         {
             this.Remove(state);
             return;
         }
         if (state.HCAffiliationAttempted || m_Marked.Count() >= MAX_POLES) { return; }
-        string flagClass = Flag(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(patrol.m_Group)));
+        string flagClass = Flag(HCXFactions.Id(HCXExpansionBridge.HCHoldGetFaction(patrol.HCGroupHold())));
         if (flagClass == "") { return; }
         vector anchor = patrol.m_Position;
         if (state.HouseObject) { anchor = state.HouseObject.GetPosition(); }

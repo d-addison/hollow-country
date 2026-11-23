@@ -656,6 +656,11 @@ class HCXExpansionBridge
         return value.ToWorld(fs);
     }
 
+    // Legacy raw-group layer (callers that hold a callback-supplied eAIGroup local). H8 follow-up:
+    // every read is gated by lifecycle READY and counted by call. Kept ungated on purpose:
+    // HCGroupGetID (an immutable id for pairing and persistence keys), HCGroupDelete and
+    // HCGroupRemoveDeceased (cleanup). Despawn and stop persistence reads use the
+    // HCHold*Final calls, which resolve in any state.
     static void HCGroupAddWaypoint(eAIGroup value, vector pos)
     {
         if (!HCGate("GroupAddWaypoint")) { return; }
@@ -672,6 +677,7 @@ class HCXExpansionBridge
 
     static int HCGroupCount(eAIGroup value)
     {
+        if (!HCGate("GroupCount")) { return 0; }
         if (!value) { HCRefuse("HCGroupCount", "GROUP_NULL"); return 0; }
         return value.Count();
     }
@@ -685,6 +691,7 @@ class HCXExpansionBridge
 
     static int HCGroupDeceasedCount(eAIGroup value)
     {
+        if (!HCGate("GroupDeceasedCount")) { return 0; }
         if (!value) { HCRefuse("HCGroupDeceasedCount", "GROUP_NULL"); return 0; }
         return value.DeceasedCount();
     }
@@ -697,24 +704,28 @@ class HCXExpansionBridge
 
     static eAIFaction HCGroupGetFaction(eAIGroup value)
     {
+        if (!HCGate("GroupGetFaction")) { return null; }
         if (!value) { HCRefuse("HCGroupGetFaction", "GROUP_NULL"); return null; }
         return value.GetFaction();
     }
 
     static eAIFormation HCGroupGetFormation(eAIGroup value)
     {
+        if (!HCGate("GroupGetFormation")) { return null; }
         if (!value) { HCRefuse("HCGroupGetFormation", "GROUP_NULL"); return null; }
         return value.GetFormation();
     }
 
     static DayZPlayerImplement HCGroupGetFormationLeader(eAIGroup value)
     {
+        if (!HCGate("GroupGetFormationLeader")) { return null; }
         if (!value) { HCRefuse("HCGroupGetFormationLeader", "GROUP_NULL"); return null; }
         return value.GetFormationLeader();
     }
 
     static eAIGroupFormationState HCGroupGetFormationState(eAIGroup value)
     {
+        if (!HCGate("GroupGetFormationState")) { return 0; }
         if (!value) { HCRefuse("HCGroupGetFormationState", "GROUP_NULL"); return 0; }
         return value.GetFormationState();
     }
@@ -727,6 +738,7 @@ class HCXExpansionBridge
 
     static int HCGroupGetIndex(eAIGroup value, DayZPlayerImplement player)
     {
+        if (!HCGate("GroupGetIndex")) { return -1; }
         if (!value) { HCRefuse("HCGroupGetIndex", "GROUP_NULL"); return -1; }
         if (!HCEntity(player, "HCGroupGetIndex", false)) { return -1; }
         return value.GetIndex(player);
@@ -734,6 +746,7 @@ class HCXExpansionBridge
 
     static DayZPlayerImplement HCGroupGetMember(eAIGroup value, int i)
     {
+        if (!HCGate("GroupGetMember")) { return null; }
         if (!value) { HCRefuse("HCGroupGetMember", "GROUP_NULL"); return null; }
         if (i < 0 || i >= value.Count()) { HCRefuse("HCGroupGetMember", "MEMBER_INDEX"); return null; }
         return value.GetMember(i);
@@ -741,24 +754,28 @@ class HCXExpansionBridge
 
     static string HCGroupGetName(eAIGroup value)
     {
+        if (!HCGate("GroupGetName")) { return ""; }
         if (!value) { HCRefuse("HCGroupGetName", "GROUP_NULL"); return ""; }
         return value.GetName();
     }
 
     static eAIWaypointBehavior HCGroupGetWaypointBehaviour(eAIGroup value)
     {
+        if (!HCGate("GroupGetWaypointBehaviour")) { return 0; }
         if (!value) { HCRefuse("HCGroupGetWaypointBehaviour", "GROUP_NULL"); return 0; }
         return value.GetWaypointBehaviour();
     }
 
     static array<vector> HCGroupGetWaypoints(eAIGroup value)
     {
+        if (!HCGate("GroupGetWaypoints")) { return null; }
         if (!value) { HCRefuse("HCGroupGetWaypoints", "GROUP_NULL"); return null; }
         return value.GetWaypoints();
     }
 
     static bool HCGroupIsInCombat(eAIGroup value)
     {
+        if (!HCGate("GroupIsInCombat")) { return false; }
         if (!value) { HCRefuse("HCGroupIsInCombat", "GROUP_NULL"); return false; }
         return value.IsInCombat();
     }
@@ -869,6 +886,45 @@ class HCXExpansionBridge
         eAIGroup resolved = hold.HCResolve();
         if (!resolved) { HCCountGone(call); }
         return resolved;
+    }
+
+    // The held group as a short-lived local for one tick's work (callers that still take an
+    // eAIGroup parameter); null when the handle is dead or the bridge is not READY. Never store it.
+    static eAIGroup HCHoldResolve(HCXAIGroupHold hold)
+    {
+        return HCHoldGroup(hold, "HoldResolve");
+    }
+
+    // H8 agent handle layer. HCAgent resolves a handle to the live entity or null (never
+    // creates one); a dead, early or older-epoch handle is the caller's "agent gone" path.
+    static HCXAIAgentHold HCAgentHold(eAIBase agent)
+    {
+        if (!agent) { return null; }
+        return new HCXAIAgentHold(agent);
+    }
+
+    static eAIBase HCAgent(HCXAIAgentHold hold)
+    {
+        if (!hold) { return null; }
+        if (!HCGate("AgentResolve")) { return null; }
+        eAIBase resolved = hold.HCResolve();
+        if (!resolved) { HCCountCall("AgentResolve:AGENT_GONE"); }
+        return resolved;
+    }
+
+    // Cleanup only (undo a halt, release a lease): resolves in any lifecycle state and epoch,
+    // because the effect being undone outlives the epoch that made it. Null once deleted.
+    static eAIBase HCAgentCleanup(HCXAIAgentHold hold)
+    {
+        if (!hold) { return null; }
+        return hold.HCResolveCleanup();
+    }
+
+    // Pointer identity against an agent the caller holds as a local; never dereferences.
+    static bool HCAgentSame(HCXAIAgentHold hold, eAIBase agent)
+    {
+        if (!hold || !agent) { return false; }
+        return hold.HCIsAgent(agent);
     }
 
     static int HCHoldId(HCXAIGroupHold hold)
@@ -990,6 +1046,133 @@ class HCXExpansionBridge
         if (!f) { HCRefuse("HCHoldSetFormation", "FORMATION_NULL"); return; }
         group.SetFormation(f);
     }
+
+    // Handle-to-handle identity (pointer compare of the two held groups); never dereferences.
+    static bool HCHoldSameHold(HCXAIGroupHold hold, HCXAIGroupHold other)
+    {
+        if (!hold || !other) { return false; }
+        return hold.HCSameGroup(other);
+    }
+
+    // A new or kept hold for the group another handle resolves to; a dead source retires the
+    // current hold and yields null (the caller's "group gone" path).
+    static HCXAIGroupHold HCHoldFollowHold(HCXAIGroupHold current, HCXAIGroupHold source)
+    {
+        eAIGroup resolved = HCHoldGroup(source, "HoldFollow");
+        return HCXAIGroupHolds.Follow(current, resolved);
+    }
+
+    static int HCHoldDeceasedCount(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldDeceasedCount");
+        if (!group) { return 0; }
+        return group.DeceasedCount();
+    }
+
+    static eAIFormation HCHoldGetFormation(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetFormation");
+        if (!group) { return null; }
+        return group.GetFormation();
+    }
+
+    static int HCHoldGetIndex(HCXAIGroupHold hold, DayZPlayerImplement player)
+    {
+        eAIGroup group = HCHoldGroup(hold, "HoldGetIndex");
+        if (!group) { return -1; }
+        if (!HCEntity(player, "HCHoldGetIndex", false)) { return -1; }
+        return group.GetIndex(player);
+    }
+
+    // Final reads: the Despawn and stop persistence path. They resolve in any lifecycle state
+    // (READY, NOT_READY, SHUTTING_DOWN) so a stopping patrol still reads its real group and
+    // never persists a defaulted "cleared" site. They are never gated and never counted; a
+    // retired hold, an older epoch or a group the provider no longer lists still reads as gone.
+    protected static eAIGroup HCHoldGroupFinal(HCXAIGroupHold hold)
+    {
+        if (!hold) { return null; }
+        return hold.HCResolveAny();
+    }
+
+    static bool HCHoldAliveFinal(HCXAIGroupHold hold)
+    {
+        return HCHoldGroupFinal(hold) != null;
+    }
+
+    static int HCHoldCountFinal(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return 0; }
+        return group.Count();
+    }
+
+    static int HCHoldDeceasedCountFinal(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return 0; }
+        return group.DeceasedCount();
+    }
+
+    static bool HCHoldIsInCombatFinal(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return false; }
+        return group.IsInCombat();
+    }
+
+    static bool HCHoldForcePatrolDespawnFinal(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return false; }
+        return group.m_ForcePatrolDespawn;
+    }
+
+    // Cleanup, never gated: drop the corpse records of a group so its later deletion cannot
+    // touch them. Returns the number removed.
+    static int HCHoldRemoveDeceasedAll(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group) { return 0; }
+        int removed = 0;
+        int bodyCount = group.DeceasedCount();
+        while (bodyCount > 0)
+        {
+            bodyCount--;
+            if (group.RemoveDeceased(bodyCount)) { removed++; }
+        }
+        return removed;
+    }
+}
+
+// H8 follow-up: an eAIBase is an engine entity that the provider deletes on its own schedule
+// (corpse cleanup, despawn, wipe). Holders outside this file keep an HCXAIAgentHold, never an
+// eAIBase member; HCXExpansionBridge.HCAgent resolves it. The handle is weak, so a deleted
+// agent reads as null; the epoch and READY gate make every older or early handle read as gone.
+// A resolved agent may be a corpse: callers still check HCBaseIsAlive themselves.
+class HCXAIAgentHold
+{
+    // Never read outside this file.
+    protected eAIBase Agent;
+    int Epoch;
+    void HCXAIAgentHold(eAIBase agent)
+    {
+        Agent = agent;
+        Epoch = HCXExpansionBridge.HCEpoch();
+    }
+    bool HCIsAgent(eAIBase agent)
+    {
+        return Agent != null && Agent == agent;
+    }
+    eAIBase HCResolveCleanup()
+    {
+        return Agent;
+    }
+    eAIBase HCResolve()
+    {
+        if (!Agent || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
+        if (!HCXExpansionBridge.HCLive()) { return null; }
+        return Agent;
+    }
 }
 
 // #334: eAIGroup is not Managed, so eAIDynamicPatrol.m_Group and each member's
@@ -1048,6 +1231,13 @@ class HCXAIGroupHold
         if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
         return Group;
     }
+    // Same checks without the lifecycle gate: only the HCHold*Final persistence reads use it.
+    eAIGroup HCResolveAny()
+    {
+        if (Retired || !Group || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
+        if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
+        return Group;
+    }
     void Track(DayZPlayerImplement member)
     {
         if (member && Members.Find(member) < 0) { Members.Insert(member); }
@@ -1055,10 +1245,13 @@ class HCXAIGroupHold
     // Bounded: at most 16 current members of the held group.
     void TrackGroup()
     {
-        int count = HCXExpansionBridge.HCGroupCount(Group);
+        // Bookkeeping on the hold's own strong reference: never lifecycle-gated, or a hold made
+        // outside READY would track no member and release its group early.
+        if (!Group) { return; }
+        int count = Group.Count();
         for (int memberIndex = 0; memberIndex < count && memberIndex < 16; memberIndex++)
         {
-            this.Track(HCXExpansionBridge.HCGroupGetMember(Group, memberIndex));
+            this.Track(Group.GetMember(memberIndex));
         }
     }
     // Adds another hold's live members (bounded); used when a group is retired twice.
@@ -1188,6 +1381,17 @@ class HCXExpansionPatrol : eAIDynamicPatrol
         if (!HCXExpansionBridge.HCConfig(m_Config, "SpawnAI_Deferred")) { return; }
         if (!m_Group || !m_Formation) { HCXExpansionBridge.HCRefuse("SpawnAI_Deferred", "GROUP_OR_FORMATION_NULL"); return; }
         super.SpawnAI_Deferred(i);
+    }
+    // The provider's m_Group is raw (eAIGroup is not Managed). These two are the only reads of it
+    // outside the provider: the null compare never dereferences, and the pointer goes straight
+    // into an HCXAIGroupHold (HCXAIGroupHolds.Follow); every other reader uses the hold.
+    bool HCBridgeHasGroupSlot()
+    {
+        return m_Group != null;
+    }
+    eAIGroup HCBridgeGroupSlot()
+    {
+        return m_Group;
     }
     protected void HCBridgeDespawn(bool deferDespawnUntilLoosingAggro = false) { super.Despawn(deferDespawnUntilLoosingAggro); }
     protected void HCBridgeOnUpdate()

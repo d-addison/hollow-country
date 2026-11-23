@@ -69,7 +69,8 @@ class HCXGrudge
     int Until;
     int Kind;
     vector Origin;
-    ref array<eAIBase> Actors = new array<eAIBase>;
+    // Weak handles, compared by identity only; a deleted actor's slot ages out at the 12-slot bound.
+    ref array<ref HCXAIAgentHold> Actors = new array<ref HCXAIAgentHold>;
     ref array<int> LosAt = new array<int>;
     ref array<int> SeedAt = new array<int>;
 
@@ -78,16 +79,16 @@ class HCXGrudge
     {
         for (int index = 0; index < Actors.Count(); index++)
         {
-            if (Actors.Get(index) == ai) { return index; }
+            if (HCXExpansionBridge.HCAgentSame(Actors.Get(index), ai)) { return index; }
         }
-        if (!create) { return -1; }
+        if (!create || !ai) { return -1; }
         if (Actors.Count() >= 12)
         {
             Actors.RemoveOrdered(0);
             LosAt.RemoveOrdered(0);
             SeedAt.RemoveOrdered(0);
         }
-        Actors.Insert(ai);
+        Actors.Insert(HCXExpansionBridge.HCAgentHold(ai));
         LosAt.Insert(0);
         SeedAt.Insert(0);
         return Actors.Count() - 1;

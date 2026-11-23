@@ -395,7 +395,7 @@ class HCXAIGroupStyle
 {
     ref HCXAIGroupHold Hold;
     HCXAIStyleFormation FormRef;
-    ref array<eAIBase> Halted = new array<eAIBase>();
+    ref array<ref HCXAIAgentHold> Halted = new array<ref HCXAIAgentHold>();
     int Seed;
     int Evals;
     int NextEvalAt;
@@ -544,10 +544,10 @@ class HCXAIFormationController
         for (int i = 0; i < states.Count(); i++)
         {
             HCXAISiteState state = states[i];
-            if (!state || state.Completed || !state.Patrol || !state.Patrol.m_Group) { continue; }
+            if (!state || state.Completed || !state.Patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { continue; }
             HCXAIGroupStyle style = state.HCStyle;
             if (!style || !style.Styled || style.Foreign) { continue; }
-            if (!HCXExpansionBridge.HCHoldSame(style.Hold, state.Patrol.m_Group)) { continue; }
+            if (!HCXExpansionBridge.HCHoldSameHold(style.Hold, state.Patrol.HCGroupHold())) { continue; }
             live++;
         }
         return live;
@@ -608,7 +608,7 @@ class HCXAIFormationController
     protected bool Due(HCXAISiteState state, int now)
     {
         if (!state || state.Completed || !state.Patrol) { return false; }
-        if (!state.Patrol.m_Group || state.Patrol.m_HCPendingMembers > 0) { return false; }
+        if (!HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold()) || state.Patrol.m_HCPendingMembers > 0) { return false; }
         if (!state.HCStyle) { return true; }
         return now >= state.HCStyle.NextEvalAt;
     }
@@ -634,7 +634,7 @@ class HCXAIFormationController
         if (!HCXExpansionBridge.HCHoldAlive(style.Hold) || HCXExpansionBridge.HCHoldIsInCombat(style.Hold)) { return true; }
         for (int i = 0; i < style.Halted.Count(); i++)
         {
-            eAIBase ai = style.Halted[i];
+            eAIBase ai = HCXExpansionBridge.HCAgent(style.Halted[i]);
             if (ai && HCXExpansionBridge.HCBaseGetThreatToSelf(ai) >= m_Config.ThreatPercent * 0.01) { return true; }
         }
         return false;
@@ -644,7 +644,7 @@ class HCXAIFormationController
     {
         for (int i = 0; i < style.Halted.Count(); i++)
         {
-            eAIBase ai = style.Halted[i];
+            eAIBase ai = HCXExpansionBridge.HCAgentCleanup(style.Halted[i]);
             if (ai) { HCXExpansionBridge.HCBaseSetHalt(ai, false); }
         }
         style.Halted.Clear();
@@ -685,7 +685,7 @@ class HCXAIFormationController
 
     protected void StepGroup(HCXAISiteState state, int now)
     {
-        eAIGroup group = state.Patrol.m_Group;
+        eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
         if (HCXExpansionBridge.HCGroupCount(group) < 1)
         {
             ForgetStyle(state);
@@ -809,7 +809,7 @@ class HCXAIFormationController
             eAIBase ai = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(group, i));
             if (!ai || !HCXExpansionBridge.HCBaseIsAlive(ai) || ai.m_eAI_Halt) { continue; }
             HCXExpansionBridge.HCBaseSetHalt(ai, true);
-            style.Halted.Insert(ai);
+            style.Halted.Insert(HCXExpansionBridge.HCAgentHold(ai));
         }
         if (style.Halted.Count() < 1)
         {

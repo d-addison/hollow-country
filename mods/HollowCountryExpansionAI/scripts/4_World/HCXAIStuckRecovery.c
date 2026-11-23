@@ -66,11 +66,11 @@ class HCXAIStuckRecovery
             foreach (HCXAISiteState state : states)
             {
                 if (!work.HCContinue()) { reason = "fixture-budget"; return false; }
-                if (!state || !state.HCJourneyWalking || state.Completed || !state.Materialized || !state.Patrol || !state.Patrol.m_Group) { continue; }
+                if (!state || !state.HCJourneyWalking || state.Completed || !state.Materialized || !state.Patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { continue; }
                 HCXAIStuckRecovery recovery = state.HCJourneyRecovery;
                 if (!recovery || recovery.Fixture || recovery.GivenUp || !recovery.Anchored || recovery.Replan || recovery.AwaitingReplan || recovery.Route.Count() < 1 || now - recovery.CheckedAt < recovery.IntervalMs) { continue; }
-                if (HCXExpansionBridge.HCGroupIsInCombat(state.Patrol.m_Group)) { continue; }
-                DayZPlayerImplement leader = HCXExpansionBridge.HCGroupGetFormationLeader(state.Patrol.m_Group);
+                if (HCXExpansionBridge.HCHoldIsInCombat(state.Patrol.HCGroupHold())) { continue; }
+                DayZPlayerImplement leader = HCXExpansionBridge.HCHoldGetFormationLeader(state.Patrol.HCGroupHold());
                 if (!leader || !leader.IsAlive()) { continue; }
                 float gap = vector.DistanceSq(pos, leader.GetPosition());
                 if (gap < nearest) { nearest = gap; chosen = recovery; }

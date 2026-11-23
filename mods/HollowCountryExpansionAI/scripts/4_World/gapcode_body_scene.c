@@ -43,7 +43,7 @@ class HCGapBodySceneProducer : HCBodyStoryProducer
         array<ref HCXAISiteState> sites = director.States();
         foreach (HCXAISiteState site : sites)
         {
-            if (!site || !site.Transient || !site.Materialized || site.Completed || !site.Patrol || site.Patrol.m_Group != group) { continue; }
+            if (!site || !site.Transient || !site.Materialized || site.Completed || !site.Patrol || !HCXExpansionBridge.HCHoldSame(site.Patrol.HCGroupHold(), group)) { continue; }
             HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(site.ProposalId);
             HCWorldProposal proposal = HCWorldMaterializer.HCBodyProposal(site.ProposalId);
             HCSituationState story = HCGapBodySceneProducer.HCStory(site.ProposalId);

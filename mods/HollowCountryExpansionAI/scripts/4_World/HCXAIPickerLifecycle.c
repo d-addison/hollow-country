@@ -59,10 +59,10 @@ modded class HCXAISiteDirector
         string routeId = identity.HCRouteId();
         HCPickerRoute route = trip.m_IO.Survey.HCFind(routeId);
         if (!route) { state.HCRefusePicker("PICKER_ROUTE_UNSURVEYED", partyId, routeId); return; }
-        if (!state.Patrol || !state.Patrol.m_Group) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
-        if (HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) < 1) { return; }
-        if (state.Patrol.m_HCPendingMembers > 0 || HCXExpansionBridge.HCGroupIsInCombat(state.Patrol.m_Group)) { state.HCRefusePicker("PICKER_PARTY_BUSY", partyId, routeId); return; }
-        PlayerBase actor = PlayerBase.Cast(HCXExpansionBridge.HCGroupGetMember(state.Patrol.m_Group, 0));
+        if (!state.Patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
+        if (HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()) < 1) { return; }
+        if (state.Patrol.m_HCPendingMembers > 0 || HCXExpansionBridge.HCHoldIsInCombat(state.Patrol.HCGroupHold())) { state.HCRefusePicker("PICKER_PARTY_BUSY", partyId, routeId); return; }
+        PlayerBase actor = PlayerBase.Cast(HCXExpansionBridge.HCHoldGetMember(state.Patrol.HCGroupHold(), 0));
         if (!actor || !HCXExpansionBridge.HCDayZPlayerImplementGetGroup(actor)) { state.HCRefusePicker("PICKER_ACTOR_GROUP_MISSING", partyId, routeId); return; }
         // Resolve the actual surveyed home site's existing raid cooldown. One
         // policy candidate per visit; no unbounded catalog scan or new timer.
@@ -84,7 +84,7 @@ modded class HCXAISiteDirector
             state.HCPickerEligibleAt = trip.m_State.NextTripAt;
         }
         // #144: a run needs a 2..4 member party (survey bounds); re-check later, not every visit.
-        string sized = pickers.HCPartyRefusal(HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group));
+        string sized = pickers.HCPartyRefusal(HCXExpansionBridge.HCHoldCount(state.Patrol.HCGroupHold()));
         if (sized != "")
         {
             if (now >= state.HCPickerEligibleAt) { state.HCPickerEligibleAt = now + pickers.HCRecheckSeconds(); }
@@ -100,7 +100,7 @@ modded class HCXAISiteDirector
     {
         // Base StepTransients may retire an absent group before the admission
         // cursor reaches it. Name that refusal while its claimed lease exists.
-        if (materialized && (!state.Patrol || !state.Patrol.m_Group))
+        if (materialized && (!state.Patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())))
         {
             int now = HCXExpansionBridge.HCGetTimestamp();
             if (now >= 0) { this.HCParty(state, now); }

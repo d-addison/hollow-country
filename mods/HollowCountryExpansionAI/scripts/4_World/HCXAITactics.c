@@ -292,7 +292,7 @@ class HCXTacticsGroup
 // without smoke or a noisy item never blocks a mate who carries one.
 class HCXTacticsBackoff
 {
-    eAIBase Actor;
+    ref HCXAIAgentHold ActorHold;
     int SmokeUntil;
     int LureUntil;
 }
@@ -301,7 +301,7 @@ class HCXTacticsPending
 {
     bool Fixture;
     ItemBase Item;
-    eAIBase Actor;
+    ref HCXAIAgentHold ActorHold;
     bool Smoke;
     int Since;
     int Tries;
@@ -342,7 +342,7 @@ class HCXAITactics
     protected static ref HCXTacticsView s_View = new HCXTacticsView;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
     protected static HCXTacticsGroup s_ScanGroup;
-    protected static eAIBase s_ScanActor;
+    protected static ref HCXAIAgentHold s_ScanActorHold;
     protected static bool s_ScanSmoke;
     protected static vector s_ScanAim;
     protected static int s_ScanStartedMs;
@@ -437,12 +437,12 @@ class HCXAITactics
         for (int index = s_Backoff.Count() - 1; index >= 0; index--)
         {
             HCXTacticsBackoff known = s_Backoff.Get(index);
-            if (!known || !known.Actor) { s_Backoff.RemoveOrdered(index); continue; }
-            if (known.Actor == actor) { return known; }
+            if (!known || !HCXExpansionBridge.HCAgentCleanup(known.ActorHold)) { s_Backoff.RemoveOrdered(index); continue; }
+            if (HCXExpansionBridge.HCAgentSame(known.ActorHold, actor)) { return known; }
         }
         if (HCXAITacticsPolicy.TrackedFull(s_Backoff.Count(), HCXAITacticsPolicy.BACKOFF_MAX)) { s_Backoff.RemoveOrdered(0); }
         HCXTacticsBackoff created = new HCXTacticsBackoff();
-        created.Actor = actor;
+        created.ActorHold = HCXExpansionBridge.HCAgentHold(actor);
         s_Backoff.Insert(created);
         return created;
     }
@@ -455,7 +455,7 @@ class HCXAITactics
         s_Backoff.Clear();
         s_Scan = null;
         s_ScanGroup = null;
-        s_ScanActor = null;
+        s_ScanActorHold = null;
         s_Cursor = 0;
         s_Sweep = 0;
         s_NextCheckMs = 0;
@@ -467,7 +467,7 @@ class HCXAITactics
     // H8 bridge lifecycle (Start and the SHUTTING_DOWN flip): drop the scan's actor handle.
     static void HCBridgeReset()
     {
-        s_ScanActor = null;
+        s_ScanActorHold = null;
     }
 
     static void Stop()
@@ -478,7 +478,7 @@ class HCXAITactics
         s_Backoff.Clear();
         s_Scan = null;
         s_ScanGroup = null;
-        s_ScanActor = null;
+        s_ScanActorHold = null;
     }
 
     // Print once per change (the per-class HCRefuse pattern).
@@ -604,7 +604,7 @@ class HCXAITactics
         s_Scan.Types = "|" + s_Config.LureTypes + "|";
         s_Scan.AllowFull = s_Config.LureAllowFull;
         s_Scan.HCStart(actor, "");
-        s_ScanActor = actor;
+        s_ScanActorHold = HCXExpansionBridge.HCAgentHold(actor);
         s_ScanGroup = rec;
         s_ScanSmoke = smoke;
         s_ScanAim = aim;
@@ -621,7 +621,7 @@ class HCXAITactics
     {
         if (s_ScanGroup) { s_ScanGroup.Fixture = false; }
         s_Scan = null;
-        s_ScanActor = null;
+        s_ScanActorHold = null;
         s_ScanGroup = null;
     }
 
@@ -665,8 +665,9 @@ class HCXAITactics
 
     protected static void ExecuteSmoke(ItemBase item, int nowMs)
     {
-        eAIBase actor = s_ScanActor;
+        eAIBase actor = HCXExpansionBridge.HCAgent(s_ScanActorHold);
         HCXTacticsGroup rec = s_ScanGroup;
+        if (!actor || !rec) { HCXAITactics.HCRefuse("scan_actor_gone"); return; }
         vector here = HCXExpansionBridge.HCBaseGetPosition(actor);
         float meters = vector.Distance(here, s_ScanAim);
         float reach = HCXAITacticsPolicy.ThrowMeters(meters, s_Config.SmokeThrowMeters, s_Config.SmokeThreatFractionPct);
@@ -697,8 +698,9 @@ class HCXAITactics
 
     protected static void ExecuteLure(ItemBase item, int nowMs)
     {
-        eAIBase actor = s_ScanActor;
+        eAIBase actor = HCXExpansionBridge.HCAgent(s_ScanActorHold);
         HCXTacticsGroup rec = s_ScanGroup;
+        if (!actor || !rec) { HCXAITactics.HCRefuse("scan_actor_gone"); return; }
         vector here = HCXExpansionBridge.HCBaseGetPosition(actor);
         vector toward = s_ScanAim - here;
         toward[1] = 0;
@@ -726,7 +728,7 @@ class HCXAITactics
         HCXTacticsPending pending = new HCXTacticsPending();
         pending.Fixture = s_ScanGroup && s_ScanGroup.Fixture;
         pending.Item = item;
-        pending.Actor = actor;
+        pending.ActorHold = HCXExpansionBridge.HCAgentHold(actor);
         pending.Smoke = smoke;
         pending.Since = nowMs;
         pending.LandAt = nowMs + s_Config.LureLandDelayMs;
@@ -737,7 +739,8 @@ class HCXAITactics
     protected static void StepScan(int nowMs)
     {
         if (!s_Scan) { return; }
-        if (!s_ScanActor || !HCXExpansionBridge.HCBaseIsAlive(s_ScanActor) || nowMs - s_ScanStartedMs > HCXAITacticsPolicy.SCAN_TIMEOUT_MS)
+        eAIBase scanActor = HCXExpansionBridge.HCAgent(s_ScanActorHold);
+        if (!scanActor || !HCXExpansionBridge.HCBaseIsAlive(scanActor) || nowMs - s_ScanStartedMs > HCXAITacticsPolicy.SCAN_TIMEOUT_MS)
         {
             HCXAITactics.EndScan();
             return;
@@ -751,7 +754,7 @@ class HCXAITactics
             return;
         }
         if (!s_Scan.Complete) { return; }
-        HCXTacticsBackoff own = HCXAITactics.Backoff(s_ScanActor);
+        HCXTacticsBackoff own = HCXAITactics.Backoff(scanActor);
         if (s_ScanSmoke)
         {
             own.SmokeUntil = HCXAITacticsPolicy.BackoffUntil(nowMs, s_Config.SmokeCooldownSec * 1000);
@@ -809,9 +812,10 @@ class HCXAITactics
                 if (incidents && incidents.HCActive())
                 {
                     string faction = "";
-                    if (pending.Actor)
+                    eAIBase smokeActor = HCXExpansionBridge.HCAgent(pending.ActorHold);
+                    if (smokeActor)
                     {
-                        eAIGroup smokeGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(pending.Actor);
+                        eAIGroup smokeGroup = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(smokeActor);
                         if (smokeGroup) { faction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(smokeGroup))); }
                     }
                     incidents.HCPublishAs("signal_smoke", pending.Item.GetPosition(), 0, 0, pending.Item, faction);

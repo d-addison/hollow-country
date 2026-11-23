@@ -31,16 +31,42 @@ class StoredHandleRule(unittest.TestCase):
             with self.subTest(decl=decl):
                 self.assertEqual(['HC-E041'], [f.rule for f in self.findings(decl)])
 
-    def test_strong_agent_member(self):
-        for decl in ('ref eAIBase Leader;', 'autoptr eAIBase Leader;', 'ref array<ref eAIBase> Crew;'):
+    def test_agent_member_in_any_form(self):
+        for decl in ('eAIBase Leader;', 'ref eAIBase Leader;', 'autoptr eAIBase Leader;',
+                     'protected eAIBase Leader;', 'static eAIBase s_Actor;',
+                     'array<eAIBase> Crew;', 'ref array<eAIBase> Crew = new array<eAIBase>;',
+                     'ref array<ref eAIBase> Crew;', 'ref map<string, eAIBase> ByName;',
+                     'ref map<int, ref eAIBase> ById;'):
             with self.subTest(decl=decl):
-                self.assertEqual(['HC-E041'], [f.rule for f in self.findings(decl)])
+                found = self.findings(decl)
+                self.assertEqual(['HC-E041'], [f.rule for f in found])
+                self.assertIn('HCXAIAgentHold', found[0].message)
 
-    def test_plain_agent_members_and_handles_are_allowed(self):
-        for decl in ('eAIBase Leader;', 'ref array<eAIBase> Crew;', 'ref HCXAIGroupHold Hold;',
-                     'eAIGroupSettings Other;', 'ref array<HCeAIGroup> Wrapped;'):
+    def test_group_message_names_the_group_handle(self):
+        found = self.findings('eAIGroup Group;')
+        self.assertIn('HCXAIGroupHold', found[0].message)
+        self.assertNotIn('HCXAIAgentHold', found[0].message)
+
+    def test_handles_and_lookalike_types_are_allowed(self):
+        for decl in ('ref HCXAIGroupHold Hold;', 'ref HCXAIAgentHold Leader;',
+                     'ref array<ref HCXAIAgentHold> Crew;', 'ref map<string, ref HCXAIAgentHold> ByName;',
+                     'eAIGroupSettings Other;', 'eAIBaseFoo Other;', 'ref array<HCeAIGroup> Wrapped;',
+                     'ref array<HCeAIBase> Wrapped;'):
             with self.subTest(decl=decl):
                 self.assertEqual([], self.findings(decl))
+
+    def test_raw_provider_slot_is_refused_in_expansion_ai_only(self):
+        body = 'void Run() {\n eAIGroup party = m_Group;\n bool any = Patrol.m_Group != null;\n }'
+        found = self.findings(body)
+        self.assertEqual(['HC-E041', 'HC-E041'], [f.rule for f in found])
+        self.assertEqual({'m_Group'}, {f.symbol for f in found})
+        self.assertEqual([], self.findings(body, path=handles.BRIDGE_FILE))
+        self.assertEqual([], self.findings(body, path='mods/HollowCountry/scripts/4_World/Other.c'))
+
+    def test_raw_provider_slot_ignores_comments_strings_and_lookalikes(self):
+        body = ('// Patrol.m_Group is provider-owned\n string note = "m_Group";\n'
+                'int m_GroupCount; int Group_m_Groups;')
+        self.assertEqual([], self.findings(body))
 
     def test_locals_and_parameters_are_allowed(self):
         body = ('void Run(eAIGroup party) { eAIGroup group = party; ref array<eAIGroup> tmp; } '
@@ -49,6 +75,8 @@ class StoredHandleRule(unittest.TestCase):
 
     def test_bridge_file_is_allowed(self):
         self.assertEqual([], self.findings('protected ref eAIGroup Group;', path=handles.BRIDGE_FILE))
+        self.assertEqual([], self.findings('protected eAIBase Agent; ref array<eAIBase> Pool;',
+                                           path=handles.BRIDGE_FILE))
 
     def test_comment_and_string_do_not_count(self):
         self.assertEqual([], self.findings('// eAIGroup Group;\n string note = "eAIGroup Group;";'))
