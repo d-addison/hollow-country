@@ -1843,8 +1843,10 @@ OVERLAY_INPUT_FILES = ('mission-patches.json', 'mission/hollow-country/infected/
 def overlay_fingerprint(ctx):
     rows = [(r['path'], r['sha256']) for r in ctx.manifest['files']
             if r['path'].startswith(OVERLAY_INPUT_PREFIXES) or r['path'] in OVERLAY_INPUT_FILES]
-    # LOOT_BOOST_VERSION covers logic changes that alter the boosted bytes for unchanged inputs
-    return sha256_bytes(json.dumps({'files': sorted(rows), 'loot_boost': loot_boost.LOOT_BOOST_VERSION},
+    # LOOT_BOOST_VERSION and the infected variety GENERATOR_VERSION cover logic changes that alter the applied bytes
+    # for unchanged inputs
+    return sha256_bytes(json.dumps({'files': sorted(rows), 'loot_boost': loot_boost.LOOT_BOOST_VERSION,
+                                    'infected_variety': infected_variety.GENERATOR_VERSION},
                                    sort_keys=True).encode())
 
 
