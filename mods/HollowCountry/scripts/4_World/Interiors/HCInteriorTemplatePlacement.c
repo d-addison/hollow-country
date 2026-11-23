@@ -156,8 +156,8 @@ class HCInteriorTemplatePlacement
     }
 
     // Stairs shipped as keep-out boxes cover only the rising cells. The landing at either end is where
-    // a prop would cut the only route upstairs, so it keeps the same 0.6 m floor margin doors get.
-    static const float STAIR_LANDING_MARGIN = 0.6;
+    // a prop would cut the only route upstairs, so it keeps a 0.3 m floor margin (doors get 0.6 m).
+    static const float STAIR_LANDING_MARGIN = 0.3;
 
     static bool StairLandingClear(HCInteriorTemplate templateRow, HCInteriorTemplatePropSlot propRow)
     {

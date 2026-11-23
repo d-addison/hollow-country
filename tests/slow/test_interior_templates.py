@@ -337,7 +337,7 @@ class FrameAndShapeTests(unittest.TestCase):
                 if keep["Kind"] == "door":
                     self.assertFalse(overlap(slot["Bounds"], keep, 0.6, (0, 2)), "door floor margin below 0.6 m")
                 elif keep["Kind"] == "stair":
-                    self.assertFalse(overlap(slot["Bounds"], keep, 0.6, (0, 2)), "stair landing margin below 0.6 m")
+                    self.assertFalse(overlap(slot["Bounds"], keep, 0.3, (0, 2)), "stair landing margin below 0.3 m")
                 else:
                     self.assertFalse(overlap(slot["Bounds"], keep), keep["Kind"])
             self.assertEqual(slot["Orientation"][1:], [0, 0])

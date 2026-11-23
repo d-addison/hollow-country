@@ -57,7 +57,7 @@ DOOR_SWING = 1.2
 DOOR_FLOOR_MARGIN = 0.6
 # Runtime HCInteriorTemplatePlacement.STAIR_LANDING_MARGIN: floor clearance around the rising cells,
 # so a prop never sits on the landing at either end of a stair.
-STAIR_LANDING_MARGIN = 0.6
+STAIR_LANDING_MARGIN = 0.3
 STAIR_MIN_RISE, STAIR_MAX_RISE = 0.35, 1.0
 INSTANCE_RADIUS = 0.75
 SLOT_GAP = 0.3
