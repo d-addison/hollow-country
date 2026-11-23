@@ -52,7 +52,8 @@
     "Police": 8.0,
     "Prison": 6.0,
     "School": 2.5,
-    "Town": 1.2
+    "Town": 1.2,
+    "Village": 3.0
   },
   "GroupLootmaxCap": {
     "Default": 80,
@@ -61,7 +62,8 @@
     "Police": 400,
     "Prison": 400,
     "School": 160,
-    "Town": 160
+    "Town": 160,
+    "Village": 4
   },
   "CategoryMultiplier": {
     "containers": 2.0,

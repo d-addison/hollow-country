@@ -40,6 +40,10 @@ GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
+    # One staged plan (stock mission copy, travel layer, loot boost, pack rows, feasibility graph). Measured cost is
+    # set after the first host run; until then the global timeout applies.
+    Generator('loot_slack', ('--check', '--source', '{source}'), ('source',),
+              'committed table is a fixpoint of the staged plan'),
     # Measured 2026-11-22 on this WSL host with other workers loading /mnt/d and /mnt/g (118 vanilla
     # PBOs, 13 Workshop dirs; every PBO open costs about 12 ms there). Direct --check child: 6-7 s.
     # Digest compare child (regenerate + installed snapshot, both reading the PBOs once now): quiet
