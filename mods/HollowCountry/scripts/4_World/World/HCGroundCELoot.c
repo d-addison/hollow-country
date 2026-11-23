@@ -4,11 +4,12 @@ class HCGroundCELootChunk
 {
     static const int CAPACITY = 256;
     ref array<ItemBase> Items = new array<ItemBase>;
+    ref array<int> Kinds = new array<int>;
     ref HCGroundCELootChunk Next;
     int Read;
     int Written;
 
-    void HCGroundCELootChunk() { Items.Resize(CAPACITY); }
+    void HCGroundCELootChunk() { Items.Resize(CAPACITY); Kinds.Resize(CAPACITY); }
 }
 
 // CE owns creation and inventory. This queue only corrects root world items.
@@ -17,6 +18,8 @@ class HCGroundCELootChunk
 // consumed chunks are released without shifting/copying the remaining entries.
 class HCGroundCELoot
 {
+    static const int KIND_CE = 0;
+    static const int KIND_RESTORED = 1;
     protected static ref HCGroundCELootChunk s_Head;
     protected static ref HCGroundCELootChunk s_Tail;
     protected static ref HCGroundSnapStats s_Stats = new HCGroundSnapStats;
@@ -33,6 +36,15 @@ class HCGroundCELoot
     protected static int s_Processed;
     protected static int s_Ineligible;
     protected static int s_Peak;
+    protected static int s_Shifted;
+    protected static int s_Settled;
+    protected static int s_Retried;
+    protected static int s_RetryFailed;
+    protected static int s_Restored;
+    protected static int s_RestoredSettled;
+    protected static ref HCGroundSnapStats s_RetryStats = new HCGroundSnapStats;
+    protected static string s_LastOursReceipt;
+    protected static float s_LastOursReceiptAt;
     protected static string s_LastReceipt;
     protected static float s_LastReceiptAt;
     protected static string s_LastCEStats;
@@ -72,7 +84,18 @@ class HCGroundCELoot
         if (item.IsPendingDeletion()) { s_Deleting++; }
     }
 
-    static void Enqueue(ItemBase item)
+    // Items restored from storage are only re-examined inside a placed HC footprint, and never
+    // player-built structures or buried stashes.
+    static void EnqueueRestored(ItemBase item)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (!Eligible(item) || item.IsInherited(BaseBuildingBase) || item.IsInherited(TentBase) || item.IsInherited(UndergroundStash)) { return; }
+        float shift;
+        if (!HCGroundPlaced.Find(item.GetPosition(), shift)) { return; }
+        Enqueue(item, KIND_RESTORED);
+    }
+
+    static void Enqueue(ItemBase item, int kind = 0)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (!Eligible(item)) { RecordRejection(item); return; }
@@ -87,6 +110,7 @@ class HCGroundCELoot
             s_Tail = s_Tail.Next;
         }
         s_Tail.Items[s_Tail.Written] = item;
+        s_Tail.Kinds[s_Tail.Written] = kind;
         s_Tail.Written++;
         s_Count++;
         s_Enqueued++;
@@ -104,6 +128,34 @@ class HCGroundCELoot
         }
     }
 
+    // CE creates loot at the authored group height; inside one of our placed footprints it moves with
+    // its building (the placer's shift), then rests on the surface below. An item still hanging after
+    // the 2.5 m snap gets one long drop onto the first surface below (floor or terrain). Restored items
+    // are only dropped onto a surface, never lifted or shifted: storage already holds their last position.
+    static void Correct(ItemBase item, int kind)
+    {
+        vector pos = item.GetPosition();
+        float shift;
+        bool ours = HCGroundPlaced.Find(pos, shift);
+        if (kind == KIND_RESTORED)
+        {
+            s_Restored++;
+            if (ours && HCGroundSnap.Settle(item, 12, 0.08)) { s_RestoredSettled++; }
+            return;
+        }
+        if (ours && shift != 0)
+        {
+            pos[1] = pos[1] + shift;
+            item.SetPosition(pos);
+            s_Shifted++;
+        }
+        if (HCGroundSnap.Snap(item, 2.5, 0.08, s_Stats)) { return; }
+        if (!ours) { return; }
+        s_Retried++;
+        if (HCGroundSnap.Snap(item, 12, 0.08, s_RetryStats)) { s_Settled++; }
+        else { s_RetryFailed++; }
+    }
+
     static void Drain()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
@@ -112,6 +164,7 @@ class HCGroundCELoot
         {
             ref HCGroundCELootChunk chunk = s_Head;
             ItemBase item = chunk.Items[chunk.Read];
+            int kind = chunk.Kinds[chunk.Read];
             chunk.Items[chunk.Read] = null;
             chunk.Read++;
             s_Count--;
@@ -122,7 +175,7 @@ class HCGroundCELoot
                 chunk.Next = null;
                 if (!s_Head) { s_Tail = null; }
             }
-            if (Eligible(item)) { HCGroundSnap.Snap(item, 2.5, 0.08, s_Stats); }
+            if (Eligible(item)) { Correct(item, kind); }
             else { s_Ineligible++; }
         }
         bool pending = s_Count > 0;
@@ -169,6 +222,15 @@ class HCGroundCELoot
             s_LastPlacedStatsAt = receiptNow;
             HCGroundSnap.Placed.Summary("hc_placements");
         }
+        string ours = " shifted=" + s_Shifted.ToString() + " retried=" + s_Retried.ToString() + " settled=" + s_Settled.ToString();
+        ours += " retry_failed=" + s_RetryFailed.ToString() + " restored=" + s_Restored.ToString();
+        ours += " restored_settled=" + s_RestoredSettled.ToString() + " footprints=" + HCGroundPlaced.Count().ToString();
+        if (ours != s_LastOursReceipt || receiptNow < s_LastOursReceiptAt || receiptNow - s_LastOursReceiptAt >= 1800)
+        {
+            s_LastOursReceipt = ours;
+            s_LastOursReceiptAt = receiptNow;
+            Print("[HC Ground] source=ce_ours" + ours);
+        }
         // Constant work once per minute, including when CE only restores storage;
         // unchanged receipts print at most once per 30 minutes.
         // A zero ce_calls receipt distinguishes no observed callback from rejection.
@@ -193,5 +255,13 @@ modded class ItemBase
         HCGroundCELoot.ObserveCECreate();
         super.EEOnCECreate();
         HCGroundCELoot.Enqueue(this);
+    }
+
+    // Storage restore (not CE creation): a persisted item inside one of our placed footprints is dropped onto
+    // the surface below once, so loot stored in the air by an earlier placement self-repairs on upgrade.
+    override void AfterStoreLoad()
+    {
+        super.AfterStoreLoad();
+        HCGroundCELoot.EnqueueRestored(this);
     }
 }

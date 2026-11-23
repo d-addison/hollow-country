@@ -255,6 +255,17 @@ class WorldMeshAuditTests(unittest.TestCase):
                              Installed({'P': prop(geometry, [visual])}))
         self.assertFalse([f for f in result['findings'] if 'PLACEMENT' in f['reason']])
 
+    def test_contact_report_lists_visible_and_geometry_bottoms_and_unmeasured_classes(self):
+        result = {'classes': [
+            {'classname': 'B', 'contact_lowest_y_m': -0.0004, 'lowest_y_m': -0.8, 'placements': 2},
+            {'classname': 'A', 'contact_lowest_y_m': 0.1234, 'lowest_y_m': 0.1234, 'placements': 1},
+            {'classname': 'C', 'placements': 1}]}
+        report = audit.contact_report(result)
+        self.assertEqual(report['classes'], {'A': {'contact_low_m': 0.123, 'geometry_low_m': 0.123},
+                                             'B': {'contact_low_m': 0.0, 'geometry_low_m': -0.8}})
+        self.assertEqual(report['unmeasured'], ['C'])
+        self.assertEqual(report['kind'], 'hollow-country-overlay-ground-contact')
+
     def test_interaction_needs_view_geometry_but_decoration_does_not(self):
         installed = Installed({'P': prop(view=False)})
         decorative = audit.audit([audit.Placement('g', 'a', 'P', ground_y=0.)], installed)

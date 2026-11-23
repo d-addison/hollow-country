@@ -1,0 +1,308 @@
+{
+  "classes": {
+    "Land_Container_1Mo": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -0.034
+    },
+    "Land_Container_1Moh": {
+      "contact_low_m": -0.034,
+      "geometry_low_m": -0.034
+    },
+    "Land_Medical_Tent_Big": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -0.832
+    },
+    "Land_Medical_Tent_Shower": {
+      "contact_low_m": -0.064,
+      "geometry_low_m": -0.04
+    },
+    "Land_Mil_Fortified_Nest_Small": {
+      "contact_low_m": -0.293,
+      "geometry_low_m": -0.293
+    },
+    "Land_Mil_GuardTower": {
+      "contact_low_m": -0.465,
+      "geometry_low_m": -0.465
+    },
+    "Land_Mil_Tent_Big1_1": {
+      "contact_low_m": -0.002,
+      "geometry_low_m": -0.049
+    },
+    "Land_Mil_Tent_Big1_2": {
+      "contact_low_m": -0.002,
+      "geometry_low_m": -0.049
+    },
+    "Land_Mil_Tent_Big1_3": {
+      "contact_low_m": -0.002,
+      "geometry_low_m": -0.049
+    },
+    "Land_Mil_Tent_Big1_4": {
+      "contact_low_m": -0.002,
+      "geometry_low_m": -0.049
+    },
+    "Land_Mil_Tent_Big1_5": {
+      "contact_low_m": -0.002,
+      "geometry_low_m": -0.049
+    },
+    "Land_Mil_Tent_Big2_2": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -0.25
+    },
+    "Land_Mil_Tent_Big2_3": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -0.25
+    },
+    "Land_Mil_Tent_Big4": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -1.262
+    },
+    "Land_Roadblock_Table": {
+      "contact_low_m": -0.013,
+      "geometry_low_m": 0.0
+    },
+    "Land_Roadblock_WoodenCrate": {
+      "contact_low_m": -0.003,
+      "geometry_low_m": -0.05
+    },
+    "Land_Wreck_Caravan_MGreen": {
+      "contact_low_m": -0.067,
+      "geometry_low_m": -0.156
+    },
+    "Land_Wreck_Ikarus": {
+      "contact_low_m": -0.01,
+      "geometry_low_m": -0.039
+    },
+    "Land_Wreck_Lada_Green": {
+      "contact_low_m": -0.119,
+      "geometry_low_m": 0.004
+    },
+    "Land_Wreck_Uaz": {
+      "contact_low_m": -0.025,
+      "geometry_low_m": -0.025
+    },
+    "Land_Wreck_offroad02_aban2": {
+      "contact_low_m": -0.03,
+      "geometry_low_m": -0.045
+    },
+    "Land_Wreck_sed01_aban1_police": {
+      "contact_low_m": -0.058,
+      "geometry_low_m": -0.058
+    },
+    "Land_Wreck_sed01_aban2_police": {
+      "contact_low_m": -0.049,
+      "geometry_low_m": 0.014
+    },
+    "StaticObj_Airfield_Light_Edge": {
+      "contact_low_m": 0.09,
+      "geometry_low_m": -0.147
+    },
+    "StaticObj_Airfield_Light_Reflector": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": 0.001
+    },
+    "StaticObj_Container_1C": {
+      "contact_low_m": 0.009,
+      "geometry_low_m": -0.066
+    },
+    "StaticObj_Container_1D": {
+      "contact_low_m": 0.007,
+      "geometry_low_m": -0.066
+    },
+    "StaticObj_Dead_MassGrave_8m": {
+      "contact_low_m": -0.199,
+      "geometry_low_m": -0.316
+    },
+    "StaticObj_Decon_HazmatBag_01_F": {
+      "contact_low_m": 0.003,
+      "geometry_low_m": -0.002
+    },
+    "StaticObj_Furniture_PaperBox_01_small_closed": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -0.002
+    },
+    "StaticObj_Furniture_PaperBox_01_small_ransacked": {
+      "contact_low_m": 0.002,
+      "geometry_low_m": -0.001
+    },
+    "StaticObj_Furniture_box_c": {
+      "contact_low_m": -0.303,
+      "geometry_low_m": -0.303
+    },
+    "StaticObj_Furniture_canister_DZ": {
+      "contact_low_m": 0.001,
+      "geometry_low_m": -0.004
+    },
+    "StaticObj_Furniture_case_a_open": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Furniture_case_bedroom_b": {
+      "contact_low_m": 0.003,
+      "geometry_low_m": 0.002
+    },
+    "StaticObj_Furniture_fireplace_grill": {
+      "contact_low_m": 0.003,
+      "geometry_low_m": -0.009
+    },
+    "StaticObj_Furniture_foldingbed_open": {
+      "contact_low_m": 0.008,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Furniture_hospital_transport_bed": {
+      "contact_low_m": 0.01,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Furniture_medical_table": {
+      "contact_low_m": 0.08,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Furniture_metalcrate": {
+      "contact_low_m": 0.124,
+      "geometry_low_m": 0.124
+    },
+    "StaticObj_Furniture_radio_b": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Garbage_Pile1": {
+      "contact_low_m": -0.228,
+      "geometry_low_m": -0.239
+    },
+    "StaticObj_Mil_Artilery_Nest": {
+      "contact_low_m": -1.097,
+      "geometry_low_m": -1.272
+    },
+    "StaticObj_Mil_Artilery_Rampart": {
+      "contact_low_m": -1.272,
+      "geometry_low_m": -0.962
+    },
+    "StaticObj_Mil_CamoNet_Side_east": {
+      "contact_low_m": 0.0,
+      "geometry_low_m": -1.485
+    },
+    "StaticObj_Mil_HBarrier_4m": {
+      "contact_low_m": -0.26,
+      "geometry_low_m": -0.261
+    },
+    "StaticObj_Mil_HBarrier_6m": {
+      "contact_low_m": -0.26,
+      "geometry_low_m": -0.276
+    },
+    "StaticObj_Misc_Antenna": {
+      "contact_low_m": -1.0,
+      "geometry_low_m": -1.0
+    },
+    "StaticObj_Misc_BagFence_3m": {
+      "contact_low_m": -0.167,
+      "geometry_low_m": -0.185
+    },
+    "StaticObj_Misc_BagFence_Round": {
+      "contact_low_m": -0.292,
+      "geometry_low_m": -0.292
+    },
+    "StaticObj_Misc_Chair_Camp1": {
+      "contact_low_m": -0.003,
+      "geometry_low_m": -0.004
+    },
+    "StaticObj_Misc_Chair_Camp2": {
+      "contact_low_m": -0.003,
+      "geometry_low_m": -0.004
+    },
+    "StaticObj_Misc_Flagpole": {
+      "contact_low_m": -0.157,
+      "geometry_low_m": -0.024
+    },
+    "StaticObj_Misc_Hedgehog_Concrete": {
+      "contact_low_m": -0.101,
+      "geometry_low_m": -0.159
+    },
+    "StaticObj_Misc_Hedgehog_Iron": {
+      "contact_low_m": -0.037,
+      "geometry_low_m": -0.05
+    },
+    "StaticObj_Misc_Pallets1": {
+      "contact_low_m": -0.003,
+      "geometry_low_m": -0.003
+    },
+    "StaticObj_Misc_Pallets2": {
+      "contact_low_m": -0.014,
+      "geometry_low_m": -0.025
+    },
+    "StaticObj_Misc_Razorwire": {
+      "contact_low_m": -0.304,
+      "geometry_low_m": -0.043
+    },
+    "StaticObj_Misc_RoadBarrier": {
+      "contact_low_m": -0.574,
+      "geometry_low_m": -0.587
+    },
+    "StaticObj_Misc_Table_Camp": {
+      "contact_low_m": -0.013,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Misc_Table_Camp_Small": {
+      "contact_low_m": -0.005,
+      "geometry_low_m": -0.001
+    },
+    "StaticObj_Misc_WoodPile1": {
+      "contact_low_m": -0.005,
+      "geometry_low_m": 0.0
+    },
+    "StaticObj_Roadblock_Bags_Long": {
+      "contact_low_m": -0.5,
+      "geometry_low_m": -0.5
+    },
+    "StaticObj_Roadblock_CncBlocks_Long": {
+      "contact_low_m": 0.006,
+      "geometry_low_m": -0.002
+    },
+    "StaticObj_Tank_Small_Rusty": {
+      "contact_low_m": -0.074,
+      "geometry_low_m": -0.076
+    },
+    "StaticObj_Tank_Small_White": {
+      "contact_low_m": -0.074,
+      "geometry_low_m": -0.076
+    },
+    "StaticObj_Wreck_BMP2": {
+      "contact_low_m": 0.005,
+      "geometry_low_m": -0.503
+    },
+    "StaticObj_Wreck_Digger": {
+      "contact_low_m": -0.005,
+      "geometry_low_m": -0.065
+    },
+    "StaticObj_Wreck_MTVR_Cargo": {
+      "contact_low_m": -0.187,
+      "geometry_low_m": -0.034
+    },
+    "StaticObj_Wreck_Mi8_Crashed": {
+      "contact_low_m": -1.0,
+      "geometry_low_m": -1.094
+    },
+    "StaticObj_Wreck_PowGen": {
+      "contact_low_m": -1.319,
+      "geometry_low_m": -0.89
+    },
+    "StaticObj_Wreck_Stryker": {
+      "contact_low_m": -0.005,
+      "geometry_low_m": -0.071
+    },
+    "StaticObj_Wreck_Trailer_Cistern": {
+      "contact_low_m": -0.001,
+      "geometry_low_m": -0.009
+    },
+    "StaticObj_Wreck_Ural": {
+      "contact_low_m": -0.226,
+      "geometry_low_m": -0.293
+    }
+  },
+  "kind": "hollow-country-overlay-ground-contact",
+  "note": "Lowest visible vertex and lowest Geometry LOD vertex relative to the model origin; regenerate with tools.audit.world_mesh_audit --contact-out.",
+  "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
+  "schema": 1,
+  "unmeasured": [
+    "StaticObj_Furniture_MedicalGarbage_Bandage",
+    "StaticObj_Garbage_GroundSq_3m"
+  ]
+}

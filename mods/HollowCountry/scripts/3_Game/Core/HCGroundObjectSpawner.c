@@ -6,6 +6,9 @@ modded class ObjectSpawnerHandler
     static int HCPathgraphMarked;
     static int HCPathgraphSkipped;
     static ref HCGroundSnapStats HCGroundStats;
+    static ref HCGroundPlaceStats HCPlaceStats;
+    static ref HCGroundLayerJson HCGroundSidecar;
+    static int HCGroundRowIndex;
 
     // #335: vanilla OnGameplayDataHandlerLoad (3_Game/ObjectSpawner.c:71) calls
     // SpawnObjects() unqualified inside the vanilla class, which binds to the vanilla
@@ -24,10 +27,11 @@ modded class ObjectSpawnerHandler
     override static void SpawnObjects()
     {
         HCGroundStats = new HCGroundSnapStats;
+        HCPlaceStats = new HCGroundPlaceStats;
         HCPathgraphMarked = 0;
         HCPathgraphSkipped = 0;
         TStringArray paths = CfgGameplayHandler.GetObjectSpawnersArr();
-        if (!paths) { HCGroundStats.Summary("object_spawner"); HCPathgraphSummary(); return; }
+        if (!paths) { HCGroundStats.Summary("object_spawner"); HCPlaceStats.Summary("object_spawner"); HCPathgraphSummary(); return; }
         foreach (string relativePath : paths)
         {
             HCGroundLayer = relativePath.IndexOf("hollow-country-") == 0;
@@ -35,18 +39,48 @@ modded class ObjectSpawnerHandler
             ObjectSpawnerJson layer;
             if (JsonFileLoader<ObjectSpawnerJson>.LoadFile("$mission:" + relativePath, layer, error))
             {
-                if (layer && layer.Objects)
-                {
-                    foreach (ITEM_SpawnerObject row : layer.Objects) { SpawnObject(row); }
-                }
+                if (layer && layer.Objects) { HCSpawnLayer(relativePath, layer.Objects); }
             }
             else { ErrorEx(error); }
             HCGroundLayer = false;
+            HCGroundSidecar = null;
         }
         HCGroundStats.Summary("object_spawner");
+        HCPlaceStats.Summary("object_spawner");
         HCPathgraphSummary();
         // Native OnGameplayDataHandlerLoad calls ProcessMarkedObjectsForPathgraphUpdate
         // exactly once immediately after this synchronous override returns.
+    }
+
+    // Rows go through SpawnObject by index so each can read its ground sidecar row. A layer without a
+    // sidecar of the same length (an install from before the sidecar) falls back to the plain snap.
+    static void HCSpawnLayer(string relativePath, array<ref ITEM_SpawnerObject> rows)
+    {
+        HCGroundSidecar = null;
+        HCGroundRowIndex = -1;
+        if (HCGroundLayer)
+        {
+            HCPlaceStats.Layers++;
+            string sidecarPath = relativePath;
+            int length = relativePath.Length();
+            if (length > 5 && relativePath.Substring(length - 5, 5) == ".json")
+            {
+                sidecarPath = relativePath.Substring(0, length - 5) + ".ground.json";
+                string sidecarError;
+                HCGroundLayerJson sidecar;
+                if (FileExist("$mission:" + sidecarPath) && JsonFileLoader<HCGroundLayerJson>.LoadFile("$mission:" + sidecarPath, sidecar, sidecarError))
+                {
+                    if (sidecar && sidecar.Ground && sidecar.Ground.Count() == rows.Count()) { HCGroundSidecar = sidecar; }
+                }
+            }
+        }
+        int count = rows.Count();
+        for (int index = 0; index < count; index++)
+        {
+            if (HCGroundSidecar) { HCGroundRowIndex = index; }
+            SpawnObject(rows[index]);
+        }
+        HCGroundRowIndex = -1;
     }
 
     static void HCPathgraphSummary()
@@ -74,12 +108,25 @@ modded class ObjectSpawnerHandler
         if (scale == 0) { scale = 1; }
         if (item.scale != 1) { placedObject.SetScale(scale); }
         placedObject.OnSpawnByObjectSpawner(item);
-        // #335: HC layers store one flat height per site (offline estimate), so small
-        // props on a slope can sit up to ~25 m above the ground; a 3 m window left them
-        // floating (no_hit). Every HC layer prop gets the 25 m window; the ray still
-        // stops at the first surface below and the rise stays bounded.
-        float drop = 25;
-        HCGroundSnap.Snap(placedObject, drop, 0.01, HCGroundStats);
+        // Ground placement (wh-ground): the sidecar row gives the pivot height over the lowest ground under
+        // the footprint; the old 25 m ray snap (#335) stays only for a layer without a sidecar.
+        if (HCGroundSidecar && HCGroundRowIndex >= 0)
+        {
+            HCGroundRowJson groundRow = HCGroundSidecar.Ground[HCGroundRowIndex];
+            int placed = HCGroundSnap.Place(placedObject, groundRow.pivot, groundRow.embed, groundRow.loot == 1, HCPlaceStats);
+            if (placed == HCGroundSnap.PLACE_REFUSED)
+            {
+                // Refused props are removed: the footprint slope or the height correction broke the rule.
+                if (HCPlaceStats.Refused <= 8) { Print("[HC Ground] refused_sample type=" + item.name + " layer_row=" + HCGroundRowIndex.ToString() + " removed=1"); }
+                return;
+            }
+        }
+        else
+        {
+            HCPlaceStats.Placed++;
+            HCPlaceStats.Legacy++;
+            HCGroundSnap.Snap(placedObject, 25, 0.01, HCGroundStats);
+        }
         if (HCPathgraphRefresh.Mark(placedObject)) { HCPathgraphMarked++; }
         else { HCPathgraphSkipped++; }
     }

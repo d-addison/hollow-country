@@ -41,9 +41,252 @@ class HCGroundSnapStats
     }
 }
 
+// Sidecar objects/<layer>.ground.json, index-aligned with the spawner rows (tools.package.map_overlay):
+// pivot = pivot height above the lowest footprint ground, embed = depth the model carries below its
+// pivot, loot = 1 when the piece carries CE loot.
+class HCGroundRowJson
+{
+    float pivot;
+    float embed;
+    int loot;
+}
+
+class HCGroundLayerJson
+{
+    ref array<ref HCGroundRowJson> Ground;
+}
+
+class HCGroundPlaceStats
+{
+    int Layers;
+    int Placed;
+    int Ok;
+    int Resnapped;
+    int Refused;
+    int RefusedKept;
+    int Legacy;
+    float MaxCorrection;
+    float MaxSpread;
+
+    // ok + resnapped + refused = placed. refused_kept is the part of refused that carries CE loot and
+    // stays (a missing building would leave its loot in the air); legacy counts props placed by the
+    // plain snap because their layer has no ground sidecar.
+    void Summary(string source)
+    {
+        string line = "[HC Ground] placement source=" + source + " layers=" + Layers.ToString();
+        line += " placed=" + Placed.ToString() + " ok=" + Ok.ToString() + " resnapped=" + Resnapped.ToString();
+        line += " refused=" + Refused.ToString() + " refused_kept=" + RefusedKept.ToString();
+        line += " legacy=" + Legacy.ToString() + " max_correction_m=" + MaxCorrection.ToString();
+        line += " max_spread_m=" + MaxSpread.ToString();
+        Print("" + line);
+    }
+}
+
+// Footprints of placed props that carry CE loot, with the height shift the placer applied. CE creates the
+// loot at the authored group height, so an item inside a footprint moves by the same shift as its building.
+class HCGroundPlaced
+{
+    static const float CELL = 64;
+    protected static ref array<float> s_X = new array<float>;
+    protected static ref array<float> s_Z = new array<float>;
+    protected static ref array<float> s_Radius = new array<float>;
+    protected static ref array<float> s_Y = new array<float>;
+    protected static ref array<float> s_Shift = new array<float>;
+    protected static ref map<int, ref array<int>> s_Cells = new map<int, ref array<int>>;
+
+    static int CellKey(float x, float z)
+    {
+        int cellX = Math.Floor(x / CELL);
+        int cellZ = Math.Floor(z / CELL);
+        return cellX * 4096 + cellZ;
+    }
+
+    static int Count()
+    {
+        return s_X.Count();
+    }
+
+    static void Add(vector pos, float radius, float shift)
+    {
+        if (radius > CELL * 0.5) { radius = CELL * 0.5; }
+        int index = s_X.Count();
+        s_X.Insert(pos[0]);
+        s_Z.Insert(pos[2]);
+        s_Radius.Insert(radius);
+        s_Y.Insert(pos[1]);
+        s_Shift.Insert(shift);
+        int key = CellKey(pos[0], pos[2]);
+        array<int> cell = s_Cells.Get(key);
+        if (!cell)
+        {
+            cell = new array<int>;
+            s_Cells.Set(key, cell);
+        }
+        cell.Insert(index);
+    }
+
+    // True inside a registered footprint; shift is the registered height shift when the position is
+    // within the building's own height band (authored group height -1 m .. +15 m), otherwise 0.
+    static bool Find(vector pos, out float shift)
+    {
+        shift = 0;
+        bool found = false;
+        float best = 1000000;
+        int baseX = Math.Floor(pos[0] / CELL);
+        int baseZ = Math.Floor(pos[2] / CELL);
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                array<int> cell = s_Cells.Get((baseX + dx) * 4096 + baseZ + dz);
+                if (!cell) { continue; }
+                for (int slot = 0; slot < cell.Count(); slot++)
+                {
+                    int index = cell[slot];
+                    float offX = pos[0] - s_X[index];
+                    float offZ = pos[2] - s_Z[index];
+                    float ratio = (offX * offX + offZ * offZ) / (s_Radius[index] * s_Radius[index]);
+                    if (ratio > 1 || ratio >= best) { continue; }
+                    found = true;
+                    best = ratio;
+                    shift = 0;
+                    float above = pos[1] - s_Y[index];
+                    if (above >= -1.0 && above <= 15.0) { shift = s_Shift[index]; }
+                }
+            }
+        }
+        return found;
+    }
+}
+
 class HCGroundSnap
 {
     static ref HCGroundSnapStats Placed = new HCGroundSnapStats;
+
+    static const int PLACE_OK = 0;
+    static const int PLACE_RESNAPPED = 1;
+    static const int PLACE_REFUSED = 2;
+    static const int PLACE_KEPT = 3;
+    static const float PLACE_MAX_CORRECTION = 25;
+    static const float PLACE_TOLERANCE = 0.02;
+
+    // Slope the footprint may span before the prop is refused: the authored embed hides it on the
+    // uphill side, plus a size-scaled allowance. The lowest footprint ground is always the contact.
+    static float SlopeAllowance(float extent)
+    {
+        if (extent <= 6) { return 0.5; }
+        if (extent <= 14) { return 0.8; }
+        return 1.2;
+    }
+
+    // Terrain under the footprint: 3x3 points over the collision box plus the pivot, no world objects.
+    static void Footprint(Object placedObject, out float lowGround, out float highGround, out float extent, out float radius)
+    {
+        vector lower;
+        vector upper;
+        float bottomY;
+        vector origin = placedObject.GetPosition();
+        lowGround = GetGame().SurfaceRoadY(origin[0], origin[2]);
+        highGround = lowGround;
+        extent = 0;
+        radius = 3;
+        if (!Bounds(placedObject, lower, upper, bottomY)) { return; }
+        float sizeX = upper[0] - lower[0];
+        float sizeZ = upper[2] - lower[2];
+        extent = Math.Max(sizeX, sizeZ);
+        radius = Math.Sqrt(sizeX * sizeX + sizeZ * sizeZ) * 0.5 + 1.0;
+        vector modelPoint;
+        vector worldPoint;
+        float groundY;
+        for (int gridX = 0; gridX < 3; gridX++)
+        {
+            for (int gridZ = 0; gridZ < 3; gridZ++)
+            {
+                modelPoint = Vector(lower[0] + sizeX * gridX * 0.5, 0, lower[2] + sizeZ * gridZ * 0.5);
+                worldPoint = placedObject.ModelToWorld(modelPoint);
+                groundY = GetGame().SurfaceRoadY(worldPoint[0], worldPoint[2]);
+                if (groundY < lowGround) { lowGround = groundY; }
+                if (groundY > highGround) { highGround = groundY; }
+            }
+        }
+    }
+
+    // Spawner prop: the pivot rests pivotRel above the lowest ground under the footprint, so nothing
+    // hovers and the uphill side sinks by at most the slope (never beyond SlopeAllowance + embed).
+    // Beyond that, or when the correction is out of range, a prop without CE loot is refused (deleted);
+    // one with loot stays (PLACE_KEPT) at the lowest contact, because its loot is created at the authored group.
+    static int Place(Object placedObject, float pivotRel, float embed, bool carriesLoot, HCGroundPlaceStats stats)
+    {
+        float lowGround;
+        float highGround;
+        float extent;
+        float radius;
+        vector origin = placedObject.GetPosition();
+        Footprint(placedObject, lowGround, highGround, extent, radius);
+        float spread = highGround - lowGround;
+        if (spread > stats.MaxSpread) { stats.MaxSpread = spread; }
+        float targetY = lowGround + pivotRel;
+        float correction = targetY - origin[1];
+        stats.Placed++;
+        bool inRange = Math.AbsFloat(correction) <= PLACE_MAX_CORRECTION;
+        bool kept = false;
+        if (spread > SlopeAllowance(extent) + embed || !inRange)
+        {
+            stats.Refused++;
+            if (!carriesLoot)
+            {
+                GetGame().ObjectDelete(placedObject);
+                return PLACE_REFUSED;
+            }
+            stats.RefusedKept++;
+            if (!inRange)
+            {
+                HCGroundPlaced.Add(origin, radius, 0);
+                return PLACE_KEPT;
+            }
+            kept = true;
+        }
+        else if (Math.AbsFloat(correction) <= PLACE_TOLERANCE)
+        {
+            stats.Ok++;
+            correction = 0;
+        }
+        else
+        {
+            stats.Resnapped++;
+        }
+        if (correction != 0)
+        {
+            placedObject.SetPosition(Vector(origin[0], targetY, origin[2]));
+            float distance = Math.AbsFloat(correction);
+            if (distance > stats.MaxCorrection) { stats.MaxCorrection = distance; }
+        }
+        if (carriesLoot) { HCGroundPlaced.Add(origin, radius, correction); }
+        if (kept) { return PLACE_KEPT; }
+        if (correction == 0) { return PLACE_OK; }
+        return PLACE_RESNAPPED;
+    }
+
+    // Drop-only settle for an item that may hang in the air: finds the first surface below within
+    // `drop` and rests the bottom on it. Never lifts, never moves an item that has no surface below.
+    static bool Settle(Object item, float drop, float tolerance)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !item || item.IsPendingDeletion()) { return false; }
+        vector lower;
+        vector upper;
+        float bottomY;
+        if (!Bounds(item, lower, upper, bottomY)) { return false; }
+        vector origin = item.GetPosition();
+        vector contact;
+        bool terrain;
+        string reason;
+        if (!Probe(Vector(origin[0], bottomY, origin[2]), item, drop, 0.25, contact, terrain, reason)) { return false; }
+        float correction = contact[1] - bottomY;
+        if (correction >= -tolerance) { return false; }
+        origin[1] = origin[1] + correction;
+        item.SetPosition(origin);
+        return true;
+    }
 
     static bool Support(vector bottom, Object ignored, float drop, out vector contact, out bool terrain)
     {
