@@ -966,6 +966,7 @@ Bounded infected reach evaluation; Enabled=false opts out. Native capability pol
 | `SummarySeconds` | `60` | 1–600 |
 | `WorkSliceMilliseconds` | `4` | 0.1–4 |
 | `DoorNavmeshCost` | `1000` | 1–1000 |
+| `AdmitHorizontalMetres` | `6` | 2–6 |
 
 #### ActorDefence: `gc-actors-defence.json`
 
