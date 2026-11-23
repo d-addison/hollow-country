@@ -45,6 +45,7 @@ class HCGunPile
     static const float SURFACE_DOWN = 0.25;
     static const int ATTEMPTS = 3;
     static const float ATTEMPT_STEP = 2.1;
+    static const int NO_MUZZLE_LINES = 8;
 
     protected static ref array<ItemBase> s_Queue = new array<ItemBase>;
     protected static ref array<float> s_QueuedAt = new array<float>;
@@ -63,6 +64,7 @@ class HCGunPile
     protected static int s_Mags;
     protected static int s_Ammo;
     protected static int s_Dropped;
+    protected static int s_NoMuzzle;
     protected static string s_LastSummary;
 
     // Module start: read the validated settings. Guns queued before this wait in the queue.
@@ -171,6 +173,16 @@ class HCGunPile
         if (HCSiteGuard.HCLootVerdict(gun) != HCSiteGuard.LOOT_KEEP)
         {
             s_Skipped++;
+            return;
+        }
+        // The muzzle natives index the weapon's muzzle array without a bounds check: on a weapon with no
+        // muzzle, muzzle 0 is a native crash (soak 2026-11-23, GetMagazineTypeCount(0)). Vanilla Weapon.c
+        // always loops i < GetMuzzleCount() before it reads a muzzle; so does this.
+        if (weapon.GetMuzzleCount() < 1)
+        {
+            s_Skipped++;
+            s_NoMuzzle++;
+            if (s_NoMuzzle <= NO_MUZZLE_LINES) { Print("[HC Loot] gun pile skip reason=no_muzzle class=" + gun.GetType()); }
             return;
         }
         string magType = "";
@@ -298,7 +310,7 @@ class HCGunPile
     // At most one line per 300 s and only when a number changed.
     static void Summary()
     {
-        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString();
+        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString() + " no_muzzle=" + s_NoMuzzle.ToString();
         if (line == s_LastSummary) { return; }
         s_LastSummary = line;
         Print("" + line);
