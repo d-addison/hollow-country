@@ -27,6 +27,25 @@ It turns the pelvis to face +Z, then authors rotations, offsets and analytic two
 reads vanilla `.anm` keys. `stand_pose` is our own A-pose-derived stand; untouched bones retain
 skeleton rest transforms. Helpers stay at the origin; no entity root motion is authored.
 
+Joint frames (2026-11-22, owner report "sleep zombies head/arms are backwards"): bone positions
+alone do not fix a limb's twist, and the old two-bone IK left elbows and knees flexing about
+arbitrary axes (sleeper elbows 102/116 degrees off the mesh hinge, supine elbows 166, face-down knees
+112/114: bent backwards). Poses derived from `stand_pose` now carry the mesh hinge axes (the rest
+pose's own small elbow/knee bend, `hinge_axes`), and `two_bone` twists the upper bone so every bend
+is on that hinge, plus a small inward shin turn with knee bend (`SHIN_SCREW`). Lying poses are
+authored in body axes after the pelvis roll (`body_turn`, body-frame IK targets), never about
+world axes, which twist a lying spine or roll a lying head. The SET6 codec was ruled out: vanilla
+lying clips read anatomically right in our FK, and write/read changes local rotations by at most
+0.003 degrees. The builder refuses to write clips (exit 1) unless `check_anatomy` passes on every
+frame as written: head yaw/pitch/roll to Spine3 within 80/60/45, elbow and knee bend axis within
+60/30 degrees of the hinge once bent 20, upper arm not behind the torso plane (forward >= -0.5 in the
+chest frame), and bone twists within Arm 80, ForeArm 35, UpLeg 45, Leg 35
+(`tests/unit/test_anim_anatomy.py`, skipped without the installed game). Pose 2 is a left-side
+sleeper: knees drawn up, lower arm forward with the hand under the cheek, upper arm draped
+forward, head facing the chest's way. Preview JSON carries `Skull` and `Face` head points so both
+preview renderers show where the head faces. All of this is offline FK; the in-game look of poses
+1-4 is **PENDING** the lead's client check.
+
 Every idle has a closed sinusoidal cycle including matching first/last frames. Every get-up starts
 on its idle's neutral frame and ends exactly on our `stand_pose` before the graph blends to vanilla.
 These are construction properties, not measured native seams or a guarantee against foot sliding.
@@ -54,8 +73,8 @@ outfits still render on `z_hermit_m.xob`; whether that skinning looks right is n
 | Command int | Mode | Clips | Seconds idle / get-up | Authored route |
 |---|---|---|---|---|
 | 1 | sit_wall | hc_sit_wall_idle / hc_sit_wall_getup | 4 / 1.6 | seated, crouch, stand |
-| 2 | prone_sleep | hc_prone_sleep_idle / hc_prone_sleep_getup | 4 / 2.6 | side sleeping, all fours, crouch, stand |
-| 3 | riser | hc_lie_rise_idle / hc_lie_rise_getup | 4 / 2.8 | supine loose limbs, sitting, crouch, stand |
+| 2 | prone_sleep | hc_prone_sleep_idle / hc_prone_sleep_getup | 4 / 2.6 | left-side sleeper (head on lower arm), all fours, crouch, stand |
+| 3 | riser | hc_lie_rise_idle / hc_lie_rise_getup | 4 / 2.8 | supine, arms beside the body, knees a little up, head turned; sitting, crouch, stand |
 | 4 | feed_kneel | hc_feed_kneel_idle / hc_feed_kneel_getup | 1.2 / 2.0 | both knees down, dipping torso/working hands, crouch, stand |
 
 `hc_lie_face_down_idle` / `hc_lie_face_down_getup` (4 / 2.8 s) are also authored and packaged
@@ -182,5 +201,6 @@ Exception`, `Cannot load`, `Unknown command`, `CMD_HC_POSE`, `HCPoseFrom`, `hc_i
 Known limits: upright collision capsule on lying bodies; no root motion; hand-authored transitions
 can slide feet or intersect terrain; native inheritance, dead slots and variable replication are
 unverified. Ground/contact targets (sleep pelvis <=0.25 m, quiet lying sway <=2 cm, closed loops,
-standing seam <=SEAM_METRES) still require generated-asset inspection. No assets were generated
-or inspected in this confined run, and no animation fidelity or performance acceptance is claimed.
+standing seam <=SEAM_METRES) are checked offline on our FK (2026-11-22 build: sleep pelvis 0.20 m,
+lying sway <= 8 mm); the in-game look still requires the lead's client inspection, and no
+animation fidelity or performance acceptance is claimed.

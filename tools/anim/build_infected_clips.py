@@ -26,6 +26,7 @@ from tools.anim import anm, rig  # noqa: E402
 FPS = 30
 X = (1.0, 0.0, 0.0)
 Y = (0.0, 1.0, 0.0)
+Z = (0.0, 0.0, 1.0)
 # Joints written to the preview JSON (segments for the stick/mannequin renderers).
 PREVIEW_SEGMENTS = (
     ('Pelvis', 'Spine'), ('Spine', 'Spine2'), ('Spine2', 'Spine3'), ('Spine3', 'Neck'), ('Neck', 'Head'),
@@ -41,8 +42,40 @@ def _smooth(t):
     return t * t * (3 - 2 * t)
 
 
+# Elbows and knees: (upper, lower, end). Their mesh hinge axes come from the skeleton rest pose.
+LIMBS = tuple((s + a, s + b, s + c) for s in ('Left', 'Right')
+              for a, b, c in (('Arm', 'ForeArm', 'Hand'), ('UpLeg', 'Leg', 'Foot')))
+
+
+def _dot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def hinge_axes(rest):
+    """Mesh hinge axis of each elbow and knee in its upper bone's frame: the bend normal of the rest pose.
+
+    The rest pose bends each elbow and knee a little (about 15 and 10 degrees) the anatomical way,
+    so its bend normal is the joint's hinge. Two-bone IK keeps every bend on this axis.
+    """
+    out = {}
+    for upper, lower, end in LIMBS:
+        a, m, e = rest.pos(upper), rest.pos(lower), rest.pos(end)
+        n = rig.vnorm(rig.vcross(rig.vsub(m, a), rig.vsub(e, m)))
+        out[upper] = rig.qrot(rig.qinv(rest.world()[upper][1]), n)
+    return out
+
+
+SHIN_SCREW = 0.08   # inward shin rotation per degree of knee bend (about 8 degrees at a 100 degree bend)
+
+
 def two_bone(pose, upper, lower, end, target, pole):
-    """Place ``end`` at ``target`` by swinging ``upper`` and ``lower``; the elbow/knee bends toward ``pole``."""
+    """Place ``end`` at ``target`` by swinging ``upper`` and ``lower``; the elbow/knee points toward ``pole``.
+
+    When the pose carries the mesh hinge axes (``stand_pose`` sets them), the upper bone is also
+    twisted about its own segment so the joint flexes about its mesh hinge: never against the
+    flexion direction (hyperextension) or sideways, and the shin turns inward a little with the
+    knee bend. Joint positions are the same either way.
+    """
     a = pose.pos(upper)
     l1 = rig.vlen(rig.vsub(pose.pos(lower), a))
     l2 = rig.vlen(rig.vsub(pose.pos(end), pose.pos(lower)))
@@ -51,10 +84,37 @@ def two_bone(pose, upper, lower, end, target, pole):
     axis = rig.vnorm(to)
     along = (l1 * l1 - l2 * l2 + d * d) / (2 * d)
     h = math.sqrt(max(l1 * l1 - along * along, 0.0))
-    side = rig.vsub(pole, rig.vscale(axis, sum(p * q for p, q in zip(pole, axis))))
-    mid = rig.vadd(rig.vadd(a, rig.vscale(axis, along)), rig.vscale(rig.vnorm(side), h))
+    side = rig.vnorm(rig.vsub(pole, rig.vscale(axis, _dot(pole, axis))))
+    mid = rig.vadd(rig.vadd(a, rig.vscale(axis, along)), rig.vscale(side, h))
     pose.aim(upper, lower, rig.vsub(mid, a))
+    hinge = pose.hinges.get(upper)
+    if hinge is not None:
+        u = rig.vnorm(rig.vsub(mid, a))
+        want = rig.vnorm(rig.vcross(side, axis))          # the bend normal, defined even for a straight limb
+        have = rig.qrot(pose.world()[upper][1], hinge)
+        have = rig.vnorm(rig.vsub(have, rig.vscale(u, _dot(have, u))))
+        want = rig.vnorm(rig.vsub(want, rig.vscale(u, _dot(want, u))))
+        turn = math.degrees(math.atan2(_dot(u, rig.vcross(have, want)), _dot(have, want)))
+        pose.rotate_world(upper, rig.qaxis(u, turn))
     pose.aim(lower, end, rig.vsub(target, pose.pos(lower)))
+    if hinge is not None and lower.endswith('Leg'):
+        # Knee screw-home: the shin turns inward as the knee bends (SHIN_SCREW degrees per degree).
+        a, b, c = pose.pos(upper), pose.pos(lower), pose.pos(end)
+        u, v = rig.vnorm(rig.vsub(b, a)), rig.vnorm(rig.vsub(c, b))
+        bend = math.degrees(math.acos(max(-1.0, min(1.0, _dot(u, v)))))
+        inward = 1.0 if lower.startswith('Right') else -1.0   # +angle about the shin turns the toes to -X
+        pose.rotate_world(lower, rig.qaxis(v, inward * SHIN_SCREW * bend))
+
+
+def body_turn(pose, stand, bone, axis, degrees):
+    """Rotate ``bone`` about a body axis of its parent (stand axes: X right, Y up, Z forward).
+
+    A lying body carries these axes with it, so ``body_turn(.., X, 10)`` nods forward whatever
+    the pelvis roll; ``rotate_world`` about a world axis would twist the spine instead.
+    """
+    parent = pose.parents[bone]
+    frame = rig.qmul(pose.world()[parent][1], rig.qinv(stand.world()[parent][1]))
+    pose.rotate_world(bone, rig.qaxis(rig.qrot(frame, axis), degrees))
 
 
 HIP_SEAT_Y = 0.11   # hip joints above the ground when sitting on it
@@ -80,6 +140,9 @@ def stand_pose(rest):
         p.aim(side + 'Foot', side + 'ToeBase', rig.vsub((ankle[0] + sx * 0.01, 0.02, ankle[2] + 0.135), ankle))
         two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', (sx * 0.30, 0.94, 0.06),
                  (sx * 0.5, 0.0, -1.0))
+    # Every pose authored from the stand keeps its elbows and knees on the mesh hinges; the stand
+    # itself is unchanged (its seam with the vanilla idle is tested).
+    p.hinges = hinge_axes(rest)
     return p
 
 
@@ -191,36 +254,68 @@ def build_sit_wall_getup(stand, seconds=1.6):
 
 
 
+SLEEP_HIP_Y = 0.20   # hip-joint midpoint above the ground, lying on the side
+LIE_HIP_Y = 0.17     # the same lying on the back or front
+
+
+def _body_axes(roll, hips):
+    """(point, direction) maps from body axes (stand X right, Y up, Z forward; offsets from the hip
+    midpoint) to world axes, for a body turned by ``roll`` with its hip midpoint on ``hips``."""
+    return (lambda x, y, z: rig.vadd(hips, rig.qrot(roll, (x, y, z))),
+            lambda x, y, z: rig.qrot(roll, (x, y, z)))
+
+
 def prone_sleep_pose(stand, breath=0.0):
-    """Side sleeper: hips low, bent legs, one cheek above the supporting forearm."""
+    """Side sleeper on the left side: knees drawn up, head on the lower forearm, upper arm draped forward.
+
+    Authored in body axes and rolled onto the left side by the pelvis; the spine, neck and head
+    turn about their parent's body axes (``body_turn``), so the face looks the way the chest does.
+    """
     p = stand.copy()
-    p.rotate_world('Pelvis', rig.qaxis((0, 0, 1), 87))
-    seat_on_hips(p, (0.0, 0.19, 0.0))
-    p.rotate_world('Spine3', rig.qaxis(X, 9 + 0.6 * breath))
-    p.rotate_world('Neck', rig.qaxis(X, 14))
-    for side, sx in (('Left', -1.0), ('Right', 1.0)):
-        hip = p.pos(side + 'UpLeg')
-        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
-                 (hip[0] + 0.62, 0.09 + (sx + 1) * 0.07, 0.25), (0, 0.3, 1))
-        shoulder = p.pos(side + 'Arm')
-        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
-                 (shoulder[0] - 0.14, 0.09 + (sx + 1) * 0.08, 0.21), (0, 0, -1))
+    roll = rig.qaxis(Z, 87)                  # body up -> world -X, body right -> up: the left side is down
+    p.rotate_world('Pelvis', roll)
+    seat_on_hips(p, (0.0, SLEEP_HIP_Y, 0.0))
+    at, way = _body_axes(roll, (0.0, SLEEP_HIP_Y, 0.0))
+    # Back curled a little forward, chest lifted off the ground side; the breath is in the chest.
+    body_turn(p, stand, 'Spine2', X, 6 + 0.5 * breath)
+    body_turn(p, stand, 'Spine3', X, 5 + 0.5 * breath)
+    body_turn(p, stand, 'Spine3', Z, -4)
+    # Head facing the same way as the chest, chin a little down, tilted onto the lower forearm.
+    body_turn(p, stand, 'Neck', X, 6)
+    body_turn(p, stand, 'Neck', Z, 8)
+    body_turn(p, stand, 'Head', Z, 6)
+    # Legs bent: hips flexed, knees forward; the upper knee rests just ahead of the lower one.
+    two_bone(p, 'LeftUpLeg', 'LeftLeg', 'LeftFoot', at(-0.12, -0.49, 0.27), way(-0.1, 0.0, 1.0))
+    two_bone(p, 'RightUpLeg', 'RightLeg', 'RightFoot', at(-0.04, -0.46, 0.22), way(-0.3, 0.0, 1.0))
+    # Lower arm forward on the ground, elbow flexed, hand under the cheek; upper arm draped forward,
+    # its hand on the ground in front of the chest.
+    two_bone(p, 'LeftArm', 'LeftForeArm', 'LeftHand', at(-0.14, 0.72, 0.20), way(0.1, 0.0, 1.0))
+    two_bone(p, 'RightArm', 'RightForeArm', 'RightHand', at(-0.12, 0.60, 0.38), way(0.5, -0.3, 0.6))
     return p
 
 
 def lie_rise_pose(stand, breath=0.0, face_down=False):
-    """Loose supine or prone body. Variant is authored here, never sampled from a clip."""
+    """Loose body on its back (or front): arms beside the body, knees a little bent, head turned.
+
+    Authored in body axes like ``prone_sleep_pose``. Variant is authored here, never sampled from a clip.
+    """
     p = stand.copy()
-    p.rotate_world('Pelvis', rig.qaxis(X, 89 if face_down else -89))
-    seat_on_hips(p, (0.0, 0.17, 0.0))
-    p.rotate_world('Head', rig.qaxis(Y, 18))
-    p.rotate_world('Spine3', rig.qaxis(X, 0.4 * breath))
-    direction = 1.0 if face_down else -1.0
+    roll = rig.qaxis(X, 89 if face_down else -89)    # body up -> world -Z (back) or +Z (front)
+    p.rotate_world('Pelvis', roll)
+    seat_on_hips(p, (0.0, LIE_HIP_Y, 0.0))
+    at, way = _body_axes(roll, (0.0, LIE_HIP_Y, 0.0))
+    body_turn(p, stand, 'Spine3', X, 0.4 * breath)
+    body_turn(p, stand, 'Head', Y, 18)               # face turned to one side
+    ground = -1.0 if not face_down else 1.0          # body Z toward the ground
     for side, sx in (('Left', -1.0), ('Right', 1.0)):
-        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
-                 (sx * 0.22, 0.10, -direction * 0.70), (sx, 0.4, 0))
-        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
-                 (sx * 0.43, 0.08, direction * 0.17), (sx, 0.2, -direction))
+        if face_down:   # legs nearly straight along the ground, knees a little bent
+            two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', at(sx * 0.17, -0.81, 0.06),
+                     way(sx * 0.2, 0.0, 1.0))
+        else:           # knees a little up and out
+            two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', at(sx * 0.20, -0.74, ground * 0.06),
+                     way(sx * 0.4, 0.0, 1.0))
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', at(sx * 0.33, 0.02, ground * 0.06),
+                 way(sx * 0.6, 0.0, -1.0))
     return p
 
 
@@ -258,6 +353,101 @@ def authored_getup(keyposes, seconds, knots):
         poses.append(blend(keyposes[segment], keyposes[segment + 1], _smooth(amount)))
     return poses
 
+
+# Anatomy limits, checked on every frame of every clip (``anatomy_failures``). Angles in degrees.
+# Our stand is the zero for the head; the mesh rest pose is the zero for hinges and twists.
+# Ranges are anatomical; the installed vanilla infected clips (read only in diagnosis) sit
+# inside them except for crawl attacks and a few door attacks.
+HEAD_LIMITS = (('yaw', 80.0), ('pitch', 60.0), ('roll', 45.0))   # head relative to Spine3
+HINGE_LIMITS = (('elbow', 60.0), ('knee', 30.0))   # bend axis off the mesh hinge (> 90 = bent backwards)
+BENT = 20.0                                        # hinge axes are judged once the joint bends this far
+UPPER_ARM_BEHIND = -0.5    # upper arm direction in the chest frame: forward component (sin) at least this
+TWIST_LIMITS = (('Arm', 80.0), ('ForeArm', 35.0), ('UpLeg', 45.0), ('Leg', 35.0))   # about the bone axis
+
+
+def _anat(pose, stand, bone):
+    """The bone's body frame: identity in our stand (X right, Y up, Z forward)."""
+    return rig.qmul(pose.world()[bone][1], rig.qinv(stand.world()[bone][1]))
+
+
+def _yaw_pitch_roll(q):
+    """Yaw about Y, then pitch about X (+ = nod down), then roll about Z (+ = top toward the left)."""
+    f, r = rig.qrot(q, Z), rig.qrot(q, X)
+    yaw = math.degrees(math.atan2(f[0], f[2]))
+    pitch = math.degrees(math.asin(max(-1.0, min(1.0, -f[1]))))
+    r = rig.qrot(rig.qinv(rig.qmul(rig.qaxis(Y, yaw), rig.qaxis(X, pitch))), r)
+    return yaw, pitch, math.degrees(math.atan2(r[1], r[0]))
+
+
+def anatomy(pose, stand, rest):
+    """Joint-frame measures of one pose (see the limits above). Positions alone do not show these."""
+    m = {}
+    chest = _anat(pose, stand, 'Spine3')
+    m['head_yaw'], m['head_pitch'], m['head_roll'] = _yaw_pitch_roll(
+        rig.qmul(rig.qinv(chest), _anat(pose, stand, 'Head')))
+    for upper, lower, end in LIMBS:
+        side = 'Left' if upper.startswith('Left') else 'Right'
+        joint = 'elbow' if upper.endswith('Arm') else 'knee'
+
+        def bend_normal(p):
+            a, b, c = p.pos(upper), p.pos(lower), p.pos(end)
+            u, v = rig.vnorm(rig.vsub(b, a)), rig.vnorm(rig.vsub(c, b))
+            bend = math.degrees(math.acos(max(-1.0, min(1.0, _dot(u, v)))))
+            return bend, rig.qrot(rig.qinv(p.world()[upper][1]), rig.vnorm(rig.vcross(u, v)))
+        bend, n = bend_normal(pose)
+        _, n_rest = bend_normal(rest)
+        m['%s_%s_bend' % (side, joint)] = bend
+        m['%s_%s_axis' % (side, joint)] = math.degrees(math.acos(max(-1.0, min(1.0, _dot(n, n_rest)))))
+    for side in ('Left', 'Right'):
+        arm = rig.vnorm(rig.vsub(pose.pos(side + 'ForeArm'), pose.pos(side + 'Arm')))
+        m[side + '_upper_arm_forward'] = rig.qrot(rig.qinv(chest), arm)[2]
+        for bone, _ in TWIST_LIMITS:
+            d = rig.qmul(rig.qinv(rest.local[side + bone][1]), pose.local[side + bone][1])
+            if d[3] < 0:
+                d = tuple(-c for c in d)
+            m['%s_%s_twist' % (side, bone)] = math.degrees(2 * math.atan2(d[0], d[3]))
+    return m
+
+
+def anatomy_failures(m):
+    """Readable failures of ``anatomy`` measures; empty when the pose is anatomically valid."""
+    out = []
+    for key, limit in HEAD_LIMITS:
+        if abs(m['head_' + key]) > limit:
+            out.append('head %s %.0f > %.0f' % (key, m['head_' + key], limit))
+    for side in ('Left', 'Right'):
+        for joint, limit in HINGE_LIMITS:
+            axis = m['%s_%s_axis' % (side, joint)]
+            if m['%s_%s_bend' % (side, joint)] >= BENT and axis > limit:
+                what = 'bent backwards' if axis > 90 else 'bent sideways'
+                out.append('%s %s %s (axis %.0f > %.0f)' % (side, joint, what, axis, limit))
+        if m[side + '_upper_arm_forward'] < UPPER_ARM_BEHIND:
+            out.append('%s upper arm behind the torso (%.2f < %.2f)' % (
+                side, m[side + '_upper_arm_forward'], UPPER_ARM_BEHIND))
+        for bone, limit in TWIST_LIMITS:
+            tw = m['%s_%s_twist' % (side, bone)]
+            if abs(tw) > limit:
+                out.append('%s%s twist %.0f > %.0f' % (side, bone, tw, limit))
+    return out
+
+
+def check_anatomy(parents, clips, stand, rest):
+    """{clip: (worst measures, [(frame, failure)])} over every frame of the clips as written."""
+    report = {}
+    for name, clip in clips.items():
+        worst, failures = {}, []
+        for f in range(clip.frames):
+            m = anatomy(rig.pose_from_clip(parents, clip, f), stand, rest)
+            for k, v in m.items():
+                if k.endswith('_axis') and m[k.replace('_axis', '_bend')] < BENT:
+                    continue
+                if k not in worst or (v < worst[k] if k.endswith('_forward') else abs(v) > abs(worst[k])):
+                    worst[k] = v
+            failures.extend((f, text) for text in anatomy_failures(m))
+        report[name] = (worst, failures)
+    return report
+
+
 def build_all(parents, rest, bones):
     """Our clips from the mesh skeleton (``rig.load_skeleton``); no vanilla clip is read."""
     stand = stand_pose(rig.rest_pose(parents, rest, bones))
@@ -286,11 +476,21 @@ def build_all(parents, rest, bones):
     }
 
 
-def preview_json(parents, clip):
+# Head pseudo-points for the previews, in the stand's head frame: the Head bone has no child, so
+# without these a preview cannot show which way the head faces.
+PREVIEW_HEAD_POINTS = (('Skull', (0.0, 0.09, 0.02)), ('Face', (0.0, 0.05, 0.11)))
+
+
+def preview_json(parents, clip, stand=None):
     frames = []
     for f in range(clip.frames):
         pose = rig.pose_from_clip(parents, clip, f)
-        frames.append({n: [round(c, 4) for c in pose.pos(n)] for s in PREVIEW_SEGMENTS for n in s})
+        frame = {n: [round(c, 4) for c in pose.pos(n)] for s in PREVIEW_SEGMENTS for n in s}
+        if stand is not None:
+            head = _anat(pose, stand, 'Head')
+            for name, offset in PREVIEW_HEAD_POINTS:
+                frame[name] = [round(c, 4) for c in rig.vadd(pose.pos('Head'), rig.qrot(head, offset))]
+        frames.append(frame)
     return {'fps': clip.fps, 'segments': PREVIEW_SEGMENTS, 'frames': frames}
 
 
@@ -300,19 +500,29 @@ def main(argv=None):
     ap.add_argument('--out', default='build/anims', help='output folder (outside git)')
     args = ap.parse_args(argv)
     parents, rest, bones = rig.load_skeleton(args.addons)
+    built = build_all(parents, rest, bones)
+    # Anatomy gate on the clips as written (quantized): no backwards or twisted joint ships.
+    restp = rig.rest_pose(parents, rest, bones)
+    report = check_anatomy(parents, {n: anm.read(anm.write(c)) for n, c in built.items()},
+                           stand_pose(restp), restp)
+    bad = {n: fails for n, (_, fails) in report.items() if fails}
+    if bad:
+        for name, fails in bad.items():
+            print('ANATOMY FAIL %s: %d frames, e.g. frame %d: %s' % (name, len(fails), fails[0][0], fails[0][1]))
+        return 1
     os.makedirs(os.path.join(args.out, 'clips'), exist_ok=True)
     os.makedirs(os.path.join(args.out, 'preview'), exist_ok=True)
-    for name, clip in build_all(parents, rest, bones).items():
+    for name, clip in built.items():
         data = anm.write(clip)
         with open(os.path.join(args.out, 'clips', name + '.anm'), 'wb') as h:
             h.write(data)
         with open(os.path.join(args.out, 'preview', name + '.json'), 'w') as h:
-            json.dump(preview_json(parents, clip), h)
+            json.dump(preview_json(parents, clip, stand_pose(restp)), h)
         print('wrote %s.anm frames=%d bytes=%d' % (name, clip.frames, len(data)))
     # Our standing pose, preview only (no .anm): start/end of the preview sequences.
-    stand = to_anim(bones, [stand_pose(rig.rest_pose(parents, rest, bones))])
+    stand = to_anim(bones, [stand_pose(restp)])
     with open(os.path.join(args.out, 'preview', 'reference_stand.json'), 'w') as h:
-        json.dump(preview_json(parents, stand), h)
+        json.dump(preview_json(parents, stand, stand_pose(restp)), h)
     return 0
 
 

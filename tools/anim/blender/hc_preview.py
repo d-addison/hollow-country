@@ -187,7 +187,10 @@ def main():
             ob.keyframe_insert('location', frame=i + 1)
             ob.keyframe_insert('rotation_quaternion', frame=i + 1)
             ob.keyframe_insert('scale', frame=i + 1)
-        head.location = to_blender(fr['Head']) + Vector((0, 0.02, 0.07))
+        if 'Skull' in fr:   # follows the head's rotation (builder JSON with head points)
+            head.location = to_blender(fr['Head']).lerp(to_blender(fr['Skull']), 0.78)
+        else:
+            head.location = to_blender(fr['Head']) + Vector((0, 0.02, 0.07))
         head.keyframe_insert('location', frame=i + 1)
 
     cam_data = bpy.data.cameras.new('cam')
