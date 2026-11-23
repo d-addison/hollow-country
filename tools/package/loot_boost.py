@@ -61,7 +61,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 1
+LOOT_BOOST_VERSION = 4  # 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -107,6 +107,7 @@ REFILL_KEY = 'Refill'
 # A group takes the largest cap over its usages (a usage without an entry counts as Default); the group limit is
 # still clamped to the sum of its containers' capacity, so a cap above that sum changes nothing.
 GROUP_CAP_KEY = 'GroupLootmaxCap'
+BALANCE_KEY = 'Balance'
 MIN_GROUP_CAP, MAX_GROUP_CAP = 1, 400
 MIN_USAGE, MAX_USAGE = 1.0, 8.0
 MIN_TIER, MAX_TIER = 0.5, 4.0
@@ -117,7 +118,7 @@ MIN_RESPAWN_FACTOR, MAX_RESPAWN_FACTOR = 0.25, 4.0
 TIERS = ('Tier1', 'Tier2', 'Tier3', 'Tier4')
 ROSTER_KINDS = ('weapon', 'magazine', 'ammo', 'attachment')
 MIN_MILITARY, MAX_MILITARY = 1.0, 3.0
-MIN_CAPACITY, MAX_CAPACITY = 1.0, 4.0
+MIN_CAPACITY, MAX_CAPACITY = 1.0, 8.0  # owner 2026-11-22: Prison and Medic containers need more than 4x their stock lootmax
 LEGACY_MILITARY_USAGES = ('Military', 'Police', 'Prison')
 GROUP_CAPACITY_CAP = 80  # a scaled group limit never grows past this (a larger stock limit is kept)
 # usageflags of the vanilla cfglimitsdefinition.xml
@@ -187,7 +188,7 @@ def _multiplier(value):
 def _settings(repo):
     doc = json.loads((Path(repo) / SETTINGS).read_bytes())
     optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY, USAGE_KEY, TIER_KEY, FIREARMS_KEY, DAMAGE_KEY, REFILL_KEY,
-                GROUP_CAP_KEY}
+                GROUP_CAP_KEY, BALANCE_KEY}
     if (not isinstance(doc, dict) or not {'schema', 'kind', 'Multiplier'} <= set(doc)
             or set(doc) - {'schema', 'kind', 'Multiplier'} - optional or doc['schema'] != 1
             or doc['kind'] != SETTINGS_KIND):
@@ -234,7 +235,7 @@ def _factor_map(value, what, usages, low, high):
 
 
 def _capacity_map(value):
-    """Validated {usage: factor}: usages from the vanilla CE list, factors within MIN_CAPACITY..MAX_CAPACITY (1.0..4.0)."""
+    """Validated {usage: factor}: usages from the vanilla CE list, factors within MIN_CAPACITY..MAX_CAPACITY (1.0..8.0)."""
     return _factor_map(value, CAPACITY_KEY, CE_USAGES, MIN_CAPACITY, MAX_CAPACITY)
 
 
@@ -304,12 +305,36 @@ def group_cap_of(group_cap, usages):
     return max([group_cap.get(u, default) for u in usages] or [default])
 
 
+BALANCE_FIELDS = {'FamilyFactor': (1.0, 4.0), 'FamilyFloor': (1, 10), 'ShareCap': (0.01, 1.0), 'StockFactor': (1.0, 10.0),
+                  'Pass2Share': (0.0, 1.0), 'SlackShare': (0.0, 1.0), 'AmmoPerGun': (0.0, 10.0), 'MagazinePerGun': (0.0, 10.0)}
+
+
+def _balance(value):
+    """Validated Balance (owner 2026-11-22): the R1/R2b/R3/R4 numbers of loot_balance, or None when absent (off).
+
+    FamilyFactor k of R3 (a colour family totals at most k x its largest variant), FamilyFloor of R2b, ShareCap and
+    StockFactor of R1 (a class or family holds at most max(ShareCap of its category, StockFactor x stock share)),
+    Pass2Share of the freed nominal still unspent after the first pass that the second pass hands back, SlackShare of
+    the spare capacity of a (usage, tier, category, tag) bucket in tools/package/loot_slack.json that the re-investment
+    may fill (it only feeds families whose bucket has room), AmmoPerGun and MagazinePerGun of R4."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or set(value) != set(BALANCE_FIELDS):
+        raise ValueError('%s must be a map of %s' % (BALANCE_KEY, ', '.join(sorted(BALANCE_FIELDS))))
+    out = {}
+    for key, (low, high) in sorted(BALANCE_FIELDS.items()):
+        number = _number(value[key], '%s: %s' % (BALANCE_KEY, key), low, high)
+        out[key] = int(number) if key == 'FamilyFloor' else number
+    return out
+
+
 def knobs_of(doc):
     """The supply-side knobs of a settings document (validated; an absent key means off)."""
     return {'usage': _usage_map(doc.get(USAGE_KEY, {})), 'tier': _tier_map(doc.get(TIER_KEY, {})),
             'firearms': _firearms_map(doc.get(FIREARMS_KEY, {})),
             'loot_damage_max': (None if DAMAGE_KEY not in doc else _number(doc[DAMAGE_KEY], DAMAGE_KEY, 0.0, 1.0)),
-            'refill': _refill(doc.get(REFILL_KEY, {})), 'group_cap': _group_cap(doc.get(GROUP_CAP_KEY, {}))}
+            'refill': _refill(doc.get(REFILL_KEY, {})), 'group_cap': _group_cap(doc.get(GROUP_CAP_KEY, {})),
+            'balance': _balance(doc.get(BALANCE_KEY))}
 
 
 def default_knobs(repo=REPO_ROOT):
@@ -515,7 +540,7 @@ def tier_factor(row_usages, row_tiers, tier_map):
 
 
 def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=None, stats=None, held=None,
-                targets=None, knobs=None):
+                targets=None, knobs=None, locked=frozenset()):
     """Scale eligible building loot; floor_only preserves shelf quantities under pressure.
 
     military=(usages, factor) multiplies the scale again for rows whose every usage is in usages (so shared civilian
@@ -528,7 +553,8 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
     its usages) times the Military tier factor; with a roster dict ({class: kind}) the roster rows are scaled by
     FirearmsMultiplier[kind] over the quantity they carry (and a plain roster set keeps them untouched); Refill
     RestockMin raises the restock of every row touched. stats counts usage_rows, tier_rows, restock_rows and
-    roster {kind: [nominal before, after]}."""
+    roster {kind: [nominal before, after]}. locked (lowercase class names) keeps its rows at their authored
+    nominal: the equal-share Military/Police guns, which no multiplier may skew again."""
     economy.xml(data, 'types')
     knobs = knobs or {}
     usage_map, tier_map = knobs.get('usage') or {}, knobs.get('tier') or {}
@@ -548,6 +574,8 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
         body = masked[opening.end():close]
         categories = re.findall(r'<category\s+name="([^"]*)"', body)
         kind = kinds.get(name.lower())
+        if name.lower() in locked and not restock_min:
+            continue
         if kind is not None and (firearms.get(kind, 1.0) > 1.0 or restock_min):
             pass  # a roster row: scaled by its kind's FirearmsMultiplier below, never by the building-loot factor
         elif not _scales(categories, name, roster):
@@ -572,7 +600,7 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
         nominal, minimum = values['nominal'][1], values['min'][1]
         tier = tier_factor(row_usages, row_tiers, tier_map)
         if kind is not None:
-            factor = firearms.get(kind, 1.0) * tier
+            factor = 1.0 if name.lower() in locked else firearms.get(kind, 1.0) * tier
         else:
             factor = usage_factor(row_usages, multiplier, usage_map)
             if military is not None and military[1] > 1.0 and not row_usages & set(usage_map):
@@ -1391,14 +1419,166 @@ def _effective_knobs(knobs, root=None):
     """The knobs a plan uses: a dict like default_knobs (validated; a missing key is off) or the settings file's."""
     if knobs is None:
         return default_knobs(root or REPO_ROOT)
-    unknown = set(knobs) - {'usage', 'tier', 'firearms', 'loot_damage_max', 'refill', 'group_cap'}
+    unknown = set(knobs) - {'usage', 'tier', 'firearms', 'loot_damage_max', 'refill', 'group_cap', 'balance'}
     if unknown:
         raise ValueError('unknown loot boost knobs: %s' % ', '.join(sorted(unknown)))
     doc = {USAGE_KEY: knobs.get('usage', {}), TIER_KEY: knobs.get('tier', {}), FIREARMS_KEY: knobs.get('firearms', {}),
            REFILL_KEY: knobs.get('refill', {}), GROUP_CAP_KEY: knobs.get('group_cap', {})}
+    if knobs.get('balance') is not None:
+        doc[BALANCE_KEY] = knobs['balance']
     if knobs.get('loot_damage_max') is not None:
         doc[DAMAGE_KEY] = knobs['loot_damage_max']
     return knobs_of(doc)
+
+
+def set_nominals(data, new):
+    """Set the nominal of named rows ({lowercase class: nominal}); min follows proportionally (at least 1, never above
+    the nominal). Returns (bytes, rows changed); the same masked in-place edit and verification as scale_types."""
+    economy.xml(data, 'types')
+    text = data.decode('utf-8-sig')
+    masked = _mask(text)
+    edits, expected = [], {}
+    for opening in re.finditer(r'<type\b[^>]*>', masked):
+        if opening.group(0).endswith('/>'):
+            continue
+        close = masked.find('</type>', opening.end())
+        if close < 0:
+            raise ValueError('unclosed type row')
+        name = _attr(opening.group(0), 'name') or ''
+        if name.lower() not in new:
+            continue
+        body = masked[opening.end():close]
+        found = {}
+        for field in ('nominal', 'min'):
+            hit = list(re.finditer(r'(<%s>\s*)(\d+)(\s*</%s>)' % (field, field), body))
+            if len(hit) != 1:
+                break
+            found[field] = hit[0]
+        if len(found) != 2:
+            continue
+        old_nominal, old_min = int(found['nominal'].group(2)), int(found['min'].group(2))
+        nominal = new[name.lower()]
+        if nominal == old_nominal or old_nominal <= 0:
+            continue
+        minimum = old_min if not old_min else max(1, min(nominal, ceil_scaled(old_min, nominal / old_nominal)))
+        for field, value in (('nominal', nominal), ('min', minimum)):
+            start = opening.end() + found[field].start(2)
+            edits.append((start, start + len(found[field].group(2)), str(value)))
+        expected[name] = (nominal, minimum, None)
+    output = _encode(_apply(text, edits), data)
+    _verify_types(data, output, expected)
+    return output, len(expected)
+
+
+_BALANCE_KIND_CATEGORY = {'weapon': 'weapons', 'magazine': 'magazines', 'ammo': 'ammo', 'attachment': 'attachments'}
+
+
+def _balance_rows(layers, roster, locked):
+    """The rows the balance sees: {lowercase class: {category, nominal, stock, locked, layer, name}} over the
+    effective (last layer wins) row of every non-optional layer. layers: [(file, before, after)]."""
+    kits = {n.casefold() for n in economy.CONSTRUCTION_KITS}
+    rows, first = {}, {}
+    for index, (file, before, after) in enumerate(layers):
+        if file.startswith(OPTIONAL_FOLDER + '/'):
+            for node in economy.xml(after, 'types').findall('type'):
+                rows.pop((node.get('name') or '').lower(), None)  # an optional row owns its class: left alone
+                first[(node.get('name') or '').lower()] = None
+            continue
+        stock = {n.get('name'): int(n.findtext('nominal') or 0) for n in economy.xml(before, 'types').findall('type')}
+        for node in economy.xml(after, 'types').findall('type'):
+            name = node.get('name') or ''
+            low = name.lower()
+            if first.get(low, 0) is None:
+                continue
+            first.setdefault(low, stock.get(name, 0))
+            cats = [c.get('name', '').lower() for c in node.findall('category')]
+            kind = roster.get(low)
+            nominal = int(node.findtext('nominal') or 0)
+            row_locked = low in locked or name.casefold() in kits
+            if kind:
+                category = _BALANCE_KIND_CATEGORY[kind]
+            elif not cats or set(cats) & {'explosives', 'lootdispatch'}:
+                continue
+            elif set(cats) & KEPT_CATEGORIES:
+                row_locked = True
+                category = ('ammo' if name.startswith(('Ammo_', 'AmmoBox_')) else
+                            'magazines' if name.startswith('Mag_') else cats[0])
+            elif cats[0] == 'tools' and is_medical(name):
+                category = 'medical'
+            else:
+                category = cats[0]
+            rows[low] = {'category': category, 'nominal': nominal, 'stock': first[low], 'locked': row_locked,
+                         'layer': index, 'name': name}
+    return rows
+
+
+def _balance_layers(layers, roster, balance, locked):
+    """Loot balance (owner 2026-11-22) over the scaled layers: R3/R1/re-investment/R2b by family and category, then
+    R4 (ammo and magazines per gun). Returns (layers, report); see loot_balance for the rules.
+
+    Only the building-loot rows move. Route guns and every kept row (vanilla ammo, magazines, explosives, construction
+    kits) are locked: they count in the totals and in the R4 supply, never change. R4 raises roster ammo and magazine
+    rows only; the optional packs' guns and rows are counted from their install-time estimate."""
+    from tools.package import loot_balance, loot_slack, military_loot
+    rows = _balance_rows(layers, roster, locked)
+    changed, report = loot_balance.balance(
+        {low: row for low, row in rows.items()}, k=balance['FamilyFactor'], floor=balance['FamilyFloor'],
+        share=balance['ShareCap'], stock_factor=balance['StockFactor'], slack=loot_slack.load(), slack_share=balance['SlackShare'],
+        pass2_share=balance['Pass2Share'])
+    nominal = {low: changed.get(low, row['nominal']) for low, row in rows.items()}
+    catalog = military_loot.catalog()
+    packs = military_loot.pack_estimates()
+    ammo = {row['name']: nominal[low] for low, row in rows.items() if row['category'] == 'ammo' and nominal[low] > 0}
+    mags = {row['name']: nominal[low] for low, row in rows.items() if row['category'] == 'magazines' and nominal[low] > 0}
+    guns = {}
+    for low, row in rows.items():
+        if row['category'] == 'weapons' and roster.get(low) == 'weapon' and nominal[low] > 0:
+            guns[row['name']] = nominal[low]
+    for name, entry in packs.items():
+        count = entry['set'].get('nominal', 0)
+        if count <= 0:
+            continue
+        if entry['kind'] == 'ammo':
+            ammo[name] = ammo.get(name, 0) + count
+        elif entry['kind'] == 'magazine':
+            mags[name] = mags.get(name, 0) + count
+        elif entry['kind'] == 'weapon' and name not in guns:
+            guns[name] = count
+    classes = {loot_balance.base_ammo(n) for n in ammo}
+    needs = {}
+    for name, count in guns.items():
+        entry = catalog.get(name)
+        if entry is None:
+            continue
+        listed = entry.get('ammo', []) + entry.get('vanilla_ammo', []) + entry.get('snafu_ammo', [])
+        needs[name] = {'nominal': count, 'ammo': [a for a in listed if loot_balance.base_ammo(a) in classes],
+                       'magazines': [m for m in entry.get('magazines', []) if m in mags]}
+    raisable = {row['name'] for low, row in rows.items()
+                if roster.get(low) in ('ammo', 'magazine') and not row['locked']}
+    added, support = loot_balance.support_floors(needs, ammo, mags, balance['AmmoPerGun'], balance['MagazinePerGun'],
+                                                 raisable)
+    for name, add in added.items():
+        nominal[name.lower()] += add
+    by_layer = {}
+    for low, row in rows.items():
+        if nominal[low] != row['nominal']:
+            by_layer.setdefault(row['layer'], {})[low] = nominal[low]
+    out = list(layers)
+    moved = 0
+    for index, new in by_layer.items():
+        file, before, after = out[index]
+        after, count = set_nominals(after, new)
+        moved += count
+        out[index] = (file, before, after)
+    totals = {}
+    for low, row in rows.items():
+        entry = totals.setdefault(row['category'], [0, 0])
+        entry[0] += row['nominal']
+        entry[1] += nominal[low]
+    summary = {'rows_changed': moved, 'locked': sum(1 for row in rows.values() if row['locked']),
+               'categories': {c: dict(report[c], before=totals[c][0], after=totals[c][1]) for c in sorted(report)},
+               'r4': dict(support, no_row=sorted(support['no_row'])[:20])}
+    return out, summary
 
 
 def _attachment_report(mission, layers, fits):
@@ -1442,14 +1622,18 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     policy, policy_sha = _floor_policy(floor_policy, root)
     outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
     scaled_layers = []
+    from tools.package import military_loot
+    route_locked = frozenset(n.lower() for n in military_loot.route_shares()) if knobs['balance'] else frozenset()
     for name in types_files(mission, include_optional=policy is not None):
         before = economy.read_plain(mission, name)
         after, count = before, 0
         if not name.startswith(OPTIONAL_FOLDER + '/'):
             after, count = scale_types(before, multiplier, roster, policy if _limit_shelves else None, military,
-                                       counts.setdefault('type_stats', {}), held, categories, knobs)
+                                       counts.setdefault('type_stats', {}), held, categories, knobs, route_locked)
         counts['types'][name] = count
         scaled_layers.append((name, before, after))
+    if knobs['balance']:
+        scaled_layers, counts['balance'] = _balance_layers(scaled_layers, roster, knobs['balance'], route_locked)
     counts['attachments'], gaps = _attachment_report(mission, scaled_layers, fits)
     for name, before, after in scaled_layers:
         if gaps and not name.startswith(OPTIONAL_FOLDER + '/'):
@@ -1485,7 +1669,6 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     # Owner's CE spread policy supersedes shelf-only placement for matching
     # military weapons and the four reviewed acquisition kits. Run after the
     # strict floor allocator so it cannot remove these explicit exceptions.
-    from tools.package import military_loot
     proto_after, counts['weapon_receivers'] = military_loot.spread_proto(proto_after)
     placed = None
     if pos_after is not None:
@@ -1820,6 +2003,21 @@ def describe(result):
                      'LootDamageMax ceiling %s (none = stock)'
                      % (refill['RestockMin'], stats.get('restock_rows', 0), refill['RespawnTypesFactor'],
                         supply['loot_damage_max']))
+    balance = counts.get('balance')
+    if balance and supply and supply.get('balance'):
+        knob = supply['balance']
+        lines.append('  balance R3 k=%s R2b floor=%d R1 max(%s, %sx stock share) R4 ammo %s/gun mags %s/gun: rows changed %d '
+                     '(locked %d: route guns, kept rows)'
+                     % (knob['FamilyFactor'], knob['FamilyFloor'], knob['ShareCap'], knob['StockFactor'],
+                        knob['AmmoPerGun'], knob['MagazinePerGun'], balance['rows_changed'], balance['locked']))
+        for category, row in balance['categories'].items():
+            lines.append('    %s %d->%d (R3 freed %d, R1 freed %d, reinvested %d, pass 2 %d, unspent %d, R2b +%d)'
+                         % (category, row['before'], row['after'], row['r3_freed'], row['r1_freed'], row['reinvested'],
+                            row['reinvested2'], row['unspent'], row['floored']))
+        r4 = balance['r4']
+        lines.append('    R4 ammo pools %d (+%d), magazine pools %d (+%d), pools without a row %d'
+                     % (r4['ammo_pools'], r4['raised_ammo'], r4['magazine_pools'], r4['raised_magazines'],
+                        len(r4['no_row'])))
     cover = counts.get('attachments')
     if cover:
         lines.append('  attachment coverage: %d spawnable guns, %d attachments, %d ok, gaps %s, repaired %d, '

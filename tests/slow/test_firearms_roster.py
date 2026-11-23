@@ -888,11 +888,15 @@ class MilitaryLootBudget(unittest.TestCase):
         entries = list(military.catalog().values())
         first = military.apply(entries)
         self.assertEqual(first, military.apply(entries))
+        shares = military.route_shares()
         for before, after in zip(entries, first):
-            if not military.budgeted(before):
-                # Route expansion follows allocation and must preserve the
-                # entire civilian/non-budgeted scarcity policy.
-                self.assertEqual(before['set'], after['set'])
+            if not military.budgeted(before) and before['class'] not in shares:
+                # Route expansion follows allocation and must preserve the entire civilian/non-budgeted
+                # scarcity policy. Firearms on the Military/Police routes take the owner's 2026-11-22 equal share
+                # instead (military_loot.route_shares); the pack-private rows (guns, ammo, magazines) are balanced
+                # against each other by R2b/R3/R4 (military_loot._balance_packs), which moves only nominal and min.
+                self.assertEqual({k: v for k, v in before['set'].items() if k not in ('nominal', 'min')},
+                                 {k: v for k, v in after['set'].items() if k not in ('nominal', 'min')})
                 self.assertTrue(set(before['usage']) <= set(after['usage']))
             elif after['set']['nominal']:
                 self.assertGreater(after['set']['min'], 0)

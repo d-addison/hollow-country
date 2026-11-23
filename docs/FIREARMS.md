@@ -130,12 +130,12 @@ from the offline pressure gate passing.
 
 Generated from `tools/package/firearms_roster.json`: 77 weapon classes, 53 weapon families, 49 magazine classes and 47 ammo sources (loose, boxed, tracer and specialist).
 
-Weapon nominal ceiling: **3684**; with datamined rows omitted: **2479**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
+Weapon nominal ceiling: **3688**; with datamined rows omitted: **2329**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
 
 | Family | Nominal / min cap | Explicit member shares (nominal / min) |
 | --- | --- | --- |
 | Mosin9130 | 465 / 366 | `Mosin9130` 135/105; `Mosin9130_Woodland` 60/51; `Mosin9130_Black` 135/105; `Mosin9130_Winter` 135/105 |
-| SKS | 228 / 162 | `SKS` 4/2; `SKS_Woodland` 5/3; `SKS_Black` 1/1; `SKS_Desert` 5/3; `SKS_Green` 1/1; `SKS_Winter` 1/1 |
+| SKS | 228 / 162 | `SKS` 10/5; `SKS_Woodland` 1/1; `SKS_Black` 1/1; `SKS_Desert` 1/1; `SKS_Green` 1/1; `SKS_Winter` 1/1 |
 | Izh18 | 150 / 141 | `Izh18` 150/141 |
 | Izh18Shotgun | 165 / 150 | `Izh18Shotgun` 165/150 |
 | Izh43Shotgun | 90 / 78 | `Izh43Shotgun` 90/78 |
@@ -144,12 +144,12 @@ Weapon nominal ceiling: **3684**; with datamined rows omitted: **2479**. These a
 | CZ527 | 450 / 411 | `CZ527` 75/69; `CZ527_Woodland` 75/66; `CZ527_Camo` 75/69; `CZ527_Green` 75/69; `CZ527_desert` 75/69; `CZ527_winter` 75/69 |
 | B95 | 162 / 126 | `B95` 54/42; `B95_Black` 54/42; `B95_Green` 54/42 |
 | LeeEnfield | 36 / 24 | `LeeEnfield` 36/24 |
-| MP18 | 12 / 6 | `MP18` 12/6 |
+| MP18 | 12 / 6 | `MP18` 3/2 |
 | Luger | 18 / 12 | `Luger` 18/12 |
-| SVD | 24 / 12 | `SVD_Wooden` 1/1; `SVD` 1/1 |
+| SVD | 24 / 12 | `SVD_Wooden` 1/1; `SVD` 2/1 |
 | Mp133Shotgun | 30 / 24 | `Mp133Shotgun` 30/24 |
 | Magnum | 78 / 63 | `Magnum` 75/60; `Magnum_Gold` 3/3 |
-| AKM | 9 / 6 | `AKM` 1/1 |
+| AKM | 9 / 6 | `AKM` 3/2 |
 | Colt1911 | 93 / 72 | `Colt1911` 78/66; `Engraved1911` 15/6 |
 | Makarov | 210 / 180 | `MakarovIJ70` 210/180 |
 | P1 | 150 / 138 | `P1` 150/138 |
@@ -157,36 +157,36 @@ Weapon nominal ceiling: **3684**; with datamined rows omitted: **2479**. These a
 | FNX45 | 42 / 36 | `FNX45` 42/36 |
 | CZ75 | 60 / 54 | `CZ75` 60/54 |
 | Ruger1022 | 105 / 75 | `Ruger1022` 105/75 |
-| M16A2 | 12 / 6 | `M16A2` 1/1 |
-| AK74 | 18 / 12 | `AK74` 1/1 |
-| MP5K | 48 / 39 | `MP5K` 48/39 |
-| Saiga | 36 / 30 | `Saiga` 5/3 |
-| AK101 | 12 / 6 | `AK101` 1/1 |
-| AKS74U | 24 / 15 | `AKS74U` 1/1 |
-| ASVAL | 9 / 6 | `ASVAL` 1/1 |
-| Aug | 3 / 3 | `Aug` 3/3 |
-| AugShort | 12 / 9 | `AugShort` 1/1 |
+| M16A2 | 12 / 6 | `M16A2` 3/2 |
+| AK74 | 18 / 12 | `AK74` 3/2 |
+| MP5K | 48 / 39 | `MP5K` 3/2 |
+| Saiga | 36 / 30 | `Saiga` 3/2 |
+| AK101 | 12 / 6 | `AK101` 3/2 |
+| AKS74U | 24 / 15 | `AKS74U` 3/2 |
+| ASVAL | 9 / 6 | `ASVAL` 3/2 |
+| Aug | 5 / 3 | `Aug` 3/3 |
+| AugShort | 12 / 9 | `AugShort` 3/2 |
 | CZ550 | 42 / 36 | `CZ550` 42/36 |
-| CZ61 | 15 / 12 | `CZ61` 15/12 |
+| CZ61 | 15 / 12 | `CZ61` 3/2 |
 | Crossbow | 39 / 21 | `Crossbow_Autumn` 15/9; `Crossbow_Black` 15/9; `Crossbow_Wood` 9/3 |
 | Deagle | 90 / 75 | `Deagle` 75/69; `Deagle_Gold` 15/6 |
 | Derringer_Grey | 60 / 45 | `Derringer_Grey` 60/45 |
 | FAL | 6 / 3 | `FAL` 6/3 |
-| FAMAS | 24 / 18 | `FAMAS` 5/3 |
+| FAMAS | 24 / 18 | `FAMAS` 3/2 |
 | LongHorn | 75 / 60 | `LongHorn` 75/60 |
-| M14 | 6 / 3 | `M14` 1/1 |
-| M4A1 | 3 / 3 | `M4A1` 3/3 |
+| M14 | 6 / 3 | `M14` 3/2 |
+| M4A1 | 5 / 3 | `M4A1` 3/3 |
 | M79 | 9 / 3 | `M79` 9/3 |
 | MKII | 90 / 81 | `MKII` 90/81 |
-| PM73Rak | 15 / 12 | `PM73Rak` 15/12 |
-| PP19 | 42 / 33 | `PP19` 42/33 |
-| R12 | 18 / 15 | `R12` 18/15 |
+| PM73Rak | 15 / 12 | `PM73Rak` 3/2 |
+| PP19 | 42 / 33 | `PP19` 3/2 |
+| R12 | 18 / 15 | `R12` 3/2 |
 | SSG82 | 36 / 30 | `SSG82` 36/30 |
-| SV98 | 6 / 3 | `SV98` 1/1 |
-| Scout | 18 / 12 | `Scout` 3/3; `Scout_Chernarus` 15/9 |
-| UMP45 | 36 / 30 | `UMP45` 36/30 |
-| VSS | 18 / 12 | `VSS` 1/1 |
-| Vikhr | 12 / 6 | `Vikhr` 1/1 |
+| SV98 | 6 / 3 | `SV98` 3/2 |
+| Scout | 18 / 12 | `Scout` 2/1; `Scout_Chernarus` 1/1 |
+| UMP45 | 36 / 30 | `UMP45` 3/2 |
+| VSS | 18 / 12 | `VSS` 3/2 |
+| Vikhr | 12 / 6 | `Vikhr` 3/2 |
 
 ### Cartridge ceilings
 
@@ -265,6 +265,23 @@ Named pending refusals:
 - `HC21_NATIVE_CLASS_COVERAGE_UNQUALIFIED`
 
 <!-- HC21-GENERATED-END -->
+
+## Equal share on the Military and Police routes (wh-econ rounds 5-6, 2026-11-23)
+
+Owner 2026-11-22/23: there is no vanilla priority on the Military and Police gun routes. Every route-only gun family
+(the name stem of `tools/package/loot_balance.py`, colours folded; firearm kind weapon whose usage stays inside
+Military, Police and Prison, with Military or Police in it) gets the same share of the route's weapon budget:
+`config/military-loot.json` `route_weapons` `per_family` 3 and `floor` 3 (R2b: no family below 3). `shared` is false
+(round 6): guns that also spawn in Town, Village or Hunting (the vanilla sidearms and civilian rifles) keep their
+authored pools, because CE has one pool per class; the share only shapes the Military/Police route rows. Set `shared`
+true to let those guns take the share too (measured in docs/LOOT_POINTS.md "Balance rules"). A single-variant family
+holds the share; a multi-variant family holds `max(share, 3 x (variants - 1))` with the base variant taking
+`ceil(total / 1.5)`. The two vanilla roster families Aug and M4A1 keep their nominal cap of 5 in `family_budgets` (min
+3). The pack weapons use the same function and stay inside the pack family budgets (snafu-weapon 788, tf-weapon 1252,
+aggregate 2040 / min 1416). R4 then sets the ammo (1.5 per gun) and magazine (1.0 per gun) supply per calibre and
+magazine pool; see docs/LOOT_POINTS.md "Balance rules". Ammo and magazine rows carry the usages of the guns that use
+them (`military_loot.regenerate`, round 7; event-only usages excluded), so a pistol magazine spawns in Town where the
+pistol does.
 
 ## Generator and supply semantics
 

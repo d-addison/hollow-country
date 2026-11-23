@@ -53,5 +53,10 @@
       "clothes",
       "containers"
     ]
+  },
+  "route_weapons": {
+    "per_family": 3,
+    "floor": 3,
+    "shared": false
   }
 }

@@ -171,7 +171,7 @@ class CapacityMap(unittest.TestCase):
         self.assertEqual(boost.knobs_of({})['group_cap'], {})
         self.assertEqual(boost.knobs_of({'GroupLootmaxCap': {'Town': 160, 'Default': 90}})['group_cap'],
                          {'Default': 90, 'Town': 160})
-        for bad in ({'Nowhere': 90}, {'Town': 0}, {'Town': 401}, {'Town': 90.5}, {'Town': True}, {'Default': 'x'}, []):
+        for bad in ({'Nowhere': 90}, {'Town': 0}, {'Town': 8.1}, {'Town': 90.5}, {'Town': True}, {'Default': 'x'}, []):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost.knobs_of({'GroupLootmaxCap': bad})
 
@@ -319,7 +319,7 @@ class Settings(unittest.TestCase):
                 boost.default_capacity_map(tmp)
 
     def test_bad_values_are_refused(self):
-        for bad in ({'Nowhere': 1.5}, {'Town': 0.9}, {'Town': 4.1}, {'Town': True}, {'Town': 'x'},
+        for bad in ({'Nowhere': 1.5}, {'Town': 0.9}, {'Town': 8.1}, {'Town': True}, {'Town': 'x'},
                     {'Town': float('nan')}, [], {1: 2}):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 boost._capacity_map(bad)

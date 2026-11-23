@@ -28,6 +28,16 @@
     "ammo": 1.6,
     "attachment": 1.6
   },
+  "Balance": {
+    "FamilyFactor": 1.5,
+    "FamilyFloor": 3,
+    "ShareCap": 0.03,
+    "StockFactor": 2.0,
+    "Pass2Share": 0.55,
+    "SlackShare": 0.5,
+    "AmmoPerGun": 1.5,
+    "MagazinePerGun": 1.0
+  },
   "LootDamageMax": 0.6,
   "Refill": {
     "RestockMin": 0,
@@ -36,18 +46,18 @@
   "CapacityMultiplier": {
     "Farm": 3.0,
     "Firefighter": 1.6,
-    "Hunting": 3.0,
-    "Medic": 4.0,
-    "Military": 4.0,
-    "Police": 4.0,
-    "Prison": 4.0,
+    "Hunting": 4.0,
+    "Medic": 5.0,
+    "Military": 8.0,
+    "Police": 8.0,
+    "Prison": 6.0,
     "School": 2.5,
     "Town": 1.2
   },
   "GroupLootmaxCap": {
     "Default": 80,
     "Medic": 200,
-    "Military": 200,
+    "Military": 400,
     "Police": 400,
     "Prison": 400,
     "School": 160,
