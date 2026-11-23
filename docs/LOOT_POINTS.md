@@ -1250,3 +1250,94 @@ the two are not like for like); nominal by category
 demand 30,479 to 36,545, deficit 863 to 823, weapons unassigned 50 to 29 (Town shelves). Farm remains pressured
 after its 1.25 factor, so Farm-only shelf rows stay at 1x. These are offline estimates and prove nothing about
 CE spawning; the evidence after a boot is the census totals and the install line `capacity map {...}`.
+
+## Round 8 point density and supported floors for the owner's usage targets (wh-points 2026-11-22)
+
+Owner targets from the 11-22 interview (CE slots per usage): Town 21k or more, Farm about 12k, Military 10k or more,
+Police 4.4k, Prison 450, Hunting 6.5k, Medic 3.2k, Firefighter 500, School about 1.1k. Slots here means
+`min(group lootmax, sum over containers of min(container lootmax, points))`, measured offline on the staged final
+`mapgroupproto.xml` and `mapgrouppos.xml` (full plan: scaled stock, per-usage CapacityMultiplier, HC overlays, new
+buildings and the map layer), weighted by placed buildings. These are projections only; census totals and the
+`[HC Use]` counters after a native boot are the evidence, and native acceptance stays pending.
+
+What bound the slots: in every target usage the group `lootmax` was already below the sum of container capacity
+(`grpLost` below), and the HC containers were sized by the older "one item per 15 m2, at most one per three points"
+rule. Round 8 changes two things inside the existing generators, and nothing else:
+
+1. **Point-density lootmax.** `interior_points_gen.density_lootmax(count, area, density)` sets the HC container
+   `lootmax` to `max(old size-realistic value, ceil(points * density))`, at most `MAX_ADDED_LOOTMAX` (12) and never more
+   than the number of points, so no point is asked to hold more than one item. Density is 0.75 for shelf containers
+   and 0.5 for floor containers (floors stay the sparser option, per the floor policy). `--resize OVERLAY...` applies the
+   rule to the shipped files; it is deterministic and idempotent and leaves points, evidence and categories alone, so
+   the audits see the same coordinates. The three `added_lootmax` call sites of the generator use it, so a regeneration
+   keeps the numbers. 71 floor groups and 120 shelf groups changed capacity; no point moved.
+2. **Floor containers for groups that only had shelves.** `--floors --only LIST --surface-overlay ...` runs the floor
+   pass for the named groups even though they already carry surface points. The surface overlay's family label is reused
+   so both files agree on family and stock pin, groups with a floor container are skipped, and with
+   `--merge-partitions --base additions.json` the audited new groups are added without touching existing ones. 43
+   lootable groups (819 placed buildings) in the target usages had shelf points and no floor point; 39 took 260 floor
+   points (clothes and paper per the floor policy, same lattice, spacing and collision support gate as before).
+   Four were refused with reasons: `Land_Chapel` no spare floor cell, `Land_City_Stand_News1`, `Land_Mil_Tent_Big1_1` and
+   `Land_Mil_Tent_Big1_4` no supported floor point.
+
+Counts: `additions.json` 136 to 175 groups, 679 to 939 floor points; `additions-interiors.json` 142 groups and 1,301
+surface points, unchanged. Total 2,240 points, under the 16,000 merged cap, and every floor container is within the
+12-point limit.
+
+### Slots per usage, before to after (offline projection)
+
+| Usage | HC points | HC container capacity | slots before | slots after | container capacity after | target |
+|---|---|---|---|---|---|---|
+| Town | 8,643 to 10,896 | 3,359 to 6,200 | 15,062 | 18,056 | 21,294 | 21,000 |
+| Farm | 4,623 to 4,637 | 2,900 to 3,115 | 8,217 | 8,658 | 8,898 | 12,000 |
+| Military | 8,709 to 9,398 | 6,981 to 7,693 | 7,258 | 8,095 | 10,828 | 10,000 |
+| Police | 1,801 to 2,101 | 1,346 to 1,562 | 2,128 | 2,272 | 3,665 | 4,400 |
+| Prison | 134 to 146 | 115 to 125 | 160 | 160 | 324 | 450 |
+| Hunting | 2,542 to 2,691 | 2,401 to 2,561 | 3,577 | 3,764 | 3,947 | 6,500 |
+| Medic | 902 to 908 | 429 to 530 | 2,388 | 2,390 | 3,238 | 3,200 |
+| Firefighter | 109 to 109 | 38 to 65 | 271 | 298 | 437 | 500 |
+| School | 301 to 315 | 170 to 236 | 726 | 788 | 1,132 | 1,100 |
+
+### What points cannot do, for wh-econ2
+
+The group limit now binds, not the points: container capacity after Round 8 meets or passes the target in Town
+(21.3k), Military (10.8k), Medic (3.2k) and School (1.1k), but the group `lootmax` holds slots at 18.1k, 8.1k, 2.4k and
+0.8k. Raising the group limits (`MAX_GROUP_LOOTMAX` 40, `GROUP_CAPACITY_CAP` 80, the Multiplier and the per-usage
+CapacityMultiplier, all in `loot_boost.py` and `settings.json`) is what closes that gap; the numbers above are the
+ceiling they can reach. Group limit capacity left unused today, in slots: Town 3.2k, Military 2.7k, Police 1.4k, Medic
+0.8k, School 0.3k, Prison 0.2k, Hunting 0.2k, Farm 0.2k, Firefighter 0.1k.
+Farm (8.9k), Hunting (3.9k), Police (3.7k), Prison (0.3k) and Firefighter (0.4k) also lack container capacity: Hunting is
+mostly tiny structures (deer stands, shacks) with a handful of points each, Police stations and Prison are already at the
+80 group cap, and Farm needs the stock container limits (the Farm CapacityMultiplier) rather than more HC points. No
+further unsupported or unreachable point was added to chase those numbers.
+
+### Audits and validation
+
+Commands (scratch directory outside the repo; client addons and the pristine stock proto):
+
+```sh
+agent-run --memory 2G -- python3 -B -m tools.package.interior_points_gen --addons "$A" --stock-proto "$S/mapgroupproto.xml" \
+  --resize mission/hollow-country/loot-points/additions.json mission/hollow-country/loot-points/additions-interiors.json
+for index in 0 1 2; do
+  agent-run --memory 2G -- python3 -B -m tools.package.interior_points_gen --floors --addons "$A" --stock-proto "$S/mapgroupproto.xml" \
+    --base mission/hollow-country/loot-points/additions.json --surface-overlay mission/hollow-country/loot-points/additions-interiors.json \
+    --only "$HC_WORK/floor-groups.txt" --partition "$index" 3 --out "$HC_WORK/floor-$index.json"
+done
+agent-run --memory 2G -- python3 -B -m tools.package.interior_points_gen --floors --addons "$A" --stock-proto "$S/mapgroupproto.xml" \
+  --base mission/hollow-country/loot-points/additions.json --only "$HC_WORK/floor-groups.txt" \
+  --merge-partitions "$HC_WORK"/floor-?.json --out "$HC_WORK/merged.json"   # then replace additions.json
+agent-run --memory 2G -- python3 -B -m tools.package.loot_reach_audit --addons "$A" --stock-proto "$S/mapgroupproto.xml"
+agent-run --memory 2G -- python3 -B -m tools.package.loot_support_audit --addons "$A" --stock-proto "$S/mapgroupproto.xml"
+```
+
+The group list is the lootable groups of the target usages that have placed buildings, shelf points and no floor
+container. Each new floor point was admitted only after the per-point collision support gate inside the partition
+pass (refusal counts are kept under `sources.hc_floor_round8`), then both shipped audits were re-run on the final data.
+
+Results on the final data: `loot_reach_audit` checked 1,301 shelf points and refused 0 (floor points are outside its
+scope); `loot_support_audit` checked all 2,240 points (1,301 surface and 939 floor) and refused 0, with no failure
+counts; `loot_point_preserve --check` reports `unreported_losses: 0`; the merged overlay parses (224 groups, 2,240
+points) with every container inside the point and lootmax limits. Per-usage HC point counts, placed-building weighted,
+before to after: Town 8,643 to 10,896, Farm 4,623 to 4,637, Military 8,709 to 9,398, Police 1,801 to 2,101, Prison 134 to
+146, Hunting 2,542 to 2,691, Medic 902 to 908, Firefighter 109 to 109, School 301 to 315. The generated digests and
+receipts that pin the overlay hashes are refreshed by the lead after merge.
