@@ -66,12 +66,20 @@ GENERATORS = (
               'shipped layer dry-run passed; CLI does not regenerate geometry'),
     Generator('pitfall_cards', ('--check',), (), 'committed docs/pitfalls cards match fresh generation',
               package='tools.validate', digest=False),
+    # Composed-sites groundwork (wh-sites): repo-local derived tables compared by their own check, no digest contract.
+    Generator('site_geometry', ('--check', '--addons', '{addons}'), ('addons',),
+              'committed class geometry matches fresh measurement', digest=False),
+    Generator('site_survey', ('check',), (), 'committed survey candidates and format match fresh generation',
+              digest=False),
 )
 # The aggregate has --check but is an orchestrator, not a generator. Never recurse.
 EXCLUDED_CHECK_MODULES = {
     'regenerate_all': 'aggregate orchestrator; would recursively invoke itself',
     'generated_digests': 'digest orchestrator; checked separately before release packaging',
     'hc_events': 'install-time CE scene installer with no committed outputs; friend_bundle runs hc_events.validate on every bundle build',
+    'site_composer': 'no committed composed layers exist yet: they are built only after the native survey import '
+                     '(config/sites/survey/roads.json and cells.json); until then its check refuses by design and '
+                     'site_rules validates the inputs',
 }
 
 
