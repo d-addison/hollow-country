@@ -1324,7 +1324,7 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
   stock share)`.
 - Nominal that R3 and R1 free is re-invested in the same category, only where it can be placed (round 7: nominal no
   container can hold is loot nobody finds). `tools/package/loot_slack.json` (derived by
-  `python3 -B -m tools.package.loot_slack MISSION --write` from a staged final mission and the static feasibility
+  `python3 -B -m tools.package.loot_slack --source STOCK_MISSION --write` from the staged final mission and the static feasibility
   graph of `ce_slot_pressure.feasibility`, limit 1.0, all categories) lists per (usage, tier, category, tag) bucket
   the spare capacity left after the max flow, and which bucket every class sits in; `SlackShare` (0.5) of it may be
   filled, because buckets share containers. Pass 1 goes to the families below the category median, bounded by the
@@ -1334,7 +1334,12 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
   category is skipped (`loot_balance.PASS2_SKIP`) and a bucket with unassigned demand takes nothing. Without a table
   the pass is proportional to the family total. Returning everything (`Pass2Share` 1.0) lands at 92.8k, above the
   owner's 80-90k band. The table is an optimistic offline bound and must be rebuilt when the plan changes the bucket
-  shapes (two runs converge). The describe lines report per category `R3 freed, R1 freed, reinvested, pass 2, unspent`.
+  shapes: `--write` stages the stock mission (travel layer, loot boost with the committed table, the two gun packs as
+  scratch rows scaled by their allowlists) and repeats until the bytes stop moving. `--source STOCK_MISSION --check`
+  is the staleness gate: one staged pass from the committed table must reproduce it byte for byte (about 40 s). It is
+  a `regenerate_all` generator and a `generated_digests` contract (`loot_slack`), so a change to the capacity
+  settings, the point overlays, the types rows or the balance code that moves a bucket fails it until the table is
+  regenerated. The describe lines report per category `R3 freed, R1 freed, reinvested, pass 2, unspent`.
 - R2b `FamilyFloor` 3: every family totals at least 3 (the first unlocked variant is raised).
 - R4 `AmmoPerGun` 1.5 and `MagazinePerGun` 1.0: per ammo pool (guns sharing a cartridge, boxes and tracers folded
   into the plain cartridge) and per magazine pool, supply is at least the ratio times the pool's gun nominal; deficits
@@ -1355,6 +1360,20 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
 - Capacity: `MAX_CAPACITY` is 8.0 (was 4.0) and `CapacityMultiplier` now reads Hunting 4.0, Medic 5.0, Military 8.0,
   Police 8.0, Prison 6.0 with the Military group cap 400, so the lootmax of stock containers (mixed ones only;
   weapons-only and explosives-only containers stay at stock) rises toward their points.
+- Round 8 (wh-econ, 2026-11-23) weapons capacity. After the capacity layer every Military/Police/Prison container is
+  at its points, so only new points or capacity in shared groups could move the Military/Police/Prison weapons bound
+  (min cut of the static graph: 590 containers, all limited by their own `min(points, lootmax)`, no group limit).
+  Weapon-capable points cannot be added in those groups: floor points may not carry firearms (`loot_boost._added_categories`,
+  floor-policy `floor_categories` = clothes, owner 2026-11-20 "avoid floors while keeping guns findable"), and the surface
+  generator reproduces its shipped counts, so no further raised surface is evidenced. The 31 zeroed `lootweapons`
+  containers in those usages (69 across all usages) are not free capacity either: `loot_floor_policy` relocates their
+  points to `lootHCReceiver` shelf containers (relocated, never duplicated), so restoring them would put one coordinate in
+  two containers (ceiling 3,347 of 4,445 if it were allowed). The shared route rows also match Village/Industrial/Farm
+  containers (car wrecks, outhouses, sheds carry a weapons category), whose mixed containers were capped at stock lootmax
+  because Village was not in `CapacityMultiplier`. `Village` 3.0 (Industrial adds nothing) lets the max flow move that
+  shared demand out of the Military/Police containers: weapons-only 0.8 headroom deficit 4,445 -> 2,260, full-graph
+  deficit 5,433 -> 3,248, total nominal unchanged at 84.9k (factors 2.0 and 3.0 give 3,336 and 2,260). Offline bounds
+  only; whether CE fills wreck and outhouse slots is unobserved.
 - `LOOT_BOOST_VERSION` is 4 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
   overlay from stock bytes.
 - 13 classes that had a positive nominal but no usage never reached a building (BalaclavaMask_Chain, BalaclavaMask_Pig,

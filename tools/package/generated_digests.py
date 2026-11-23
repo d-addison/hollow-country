@@ -55,6 +55,7 @@ def contracts():
         Contract('admin_world_catalog', 'tools.package.admin_world_catalog', admin.OUTPUTS,
                  (*admin.JSON_INPUTS, *admin.CE_INPUTS, 'config/map-overlays/layers/*.json')),
         Contract('military_loot', 'tools.package.military_loot', ('mission/hollow-country/ce/types.xml',), package_data),
+        Contract('loot_slack', 'tools.package.loot_slack', ('tools/package/loot_slack.json',), common),
         Contract('inventory_sizes', 'tools.package.inventory_sizes',
                  ('mods/HollowCountry/config.cpp', 'mods/HollowCountryExpansionAI/config.cpp',
                   str(inventory_sizes.PACK_TABLE.relative_to(ROOT))),
@@ -132,6 +133,12 @@ def local_snapshot(contract, root=ROOT):
     return {name: file_sha(root / name) for name in sorted(names)}
 
 
+def require_dir(path, label):
+    if path is None or not Path(path).is_dir():
+        raise MissingInput(label + ' unavailable')
+    return Path(path)
+
+
 def require_file(path, label):
     if path is None or not Path(path).is_file():
         raise MissingInput(label + ' unavailable')
@@ -149,7 +156,7 @@ def installed_snapshot(contract, values):
         except FileNotFoundError as exc:
             raise MissingInput('installed Expansion AI road source unavailable') from exc
     source = values.get('source')
-    if name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional'}:
+    if name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional', 'loot_slack'}:
         from tools.package.economy import INPUTS
         for rel in INPUTS:
             path = require_file(source / rel if source else None, 'stock mission ' + rel)
@@ -158,6 +165,9 @@ def installed_snapshot(contract, values):
         # Bind the whole XML file list so newly registered extension files count.
         for path in sorted(source.rglob('*.xml')):
             identities['stock/' + path.relative_to(source).as_posix()] = file_sha(path)
+        if name == 'loot_slack':
+            # The feasibility graph also reads the tier map of the stock mission.
+            identities['stock/areaflags.map'] = file_sha(require_file(source / 'areaflags.map', 'stock mission areaflags.map'))
     if name in {'ai_patrols', 'new_buildings', 'loot_point_preserve'}:
         for rel in ('mapgrouppos.xml', 'mapgroupproto.xml'):
             path = require_file(source / rel if source else None, 'stock mission ' + rel)
@@ -276,6 +286,10 @@ def regenerate(contract, values, scratch):
         out = scratch / 'types.xml'
         module.regenerate(out)
         return {contract.outputs[0]: out.read_bytes()}
+    if name == 'loot_slack':
+        # The table is read back by the plan that rebuilds it: one staged pass from the committed table must
+        # reproduce it (a fixpoint), else the capacity or the types moved and the table is stale.
+        return {contract.outputs[0]: module.generate(require_dir(source, 'stock mission'))}
     if name == 'variety_packs':
         return module.generate(values['addons'], values['workshop'], source)
     if name == 'inventory_sizes':
