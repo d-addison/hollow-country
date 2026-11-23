@@ -10,6 +10,7 @@ import tempfile
 from typing import NamedTuple
 import sys
 
+from tools.package.regenerate_all import GEOMETRY_COMPARE_TIMEOUTS
 from tools.validate.cfgconvert_check import SKIPPED
 from tools.release.rpt_summary import filtered
 from tools.release.test_queue import submit_line
@@ -174,8 +175,15 @@ SOURCE_CACHE_DIR = ROOT / 'build' / 'source-cache'
 def run_check(module, arguments):
     environment = {**os.environ}
     environment.setdefault(source_cache.ENV, str(SOURCE_CACHE_DIR))
+    timeout = 600
+    if ('--require-installed' in arguments and '--geometry-addons' not in arguments
+            and environment.get('HC_GENERATED_GEOMETRY_ADDONS')):
+        if module == 'tools.package.regenerate_all':
+            timeout += sum(GEOMETRY_COMPARE_TIMEOUTS.values())
+        elif module == 'tools.package.generated_digests':
+            timeout = 1800  # Same budget as the release checker.
     result = subprocess.run([sys.executable, '-B', '-m', module, *arguments], cwd=ROOT, env=environment,
-                            capture_output=True, text=True, errors='replace', timeout=600)
+                            capture_output=True, text=True, errors='replace', timeout=timeout)
     for line in (result.stdout + '\n' + result.stderr).splitlines():
         safe = filtered(line)
         if safe:
@@ -348,11 +356,17 @@ def execute(args, paths, scratch):
         elif name in {'regenerate_all', 'generated_digests'}:
             arguments = ['--check']
             if ci:
-                arguments += ['--addons', str(scratch / 'addons'), '--workshop', str(scratch / 'workshop'),
-                              '--source', str(scratch / 'stock'),
+                arguments += ['--addons', str(scratch / 'addons'), '--geometry-addons', str(scratch / 'addons'),
+                              '--workshop', str(scratch / 'workshop'), '--source', str(scratch / 'stock'),
+                              '--snafu-report', str(scratch / 'snafu.json'),
+                              '--tactical-flava-report', str(scratch / 'tf.json'),
                               '--image-to-paa', str(scratch / 'ImageToPAA.exe')]
             if args.strict:
                 arguments += ['--require-installed']
+                if not ci and args.addons != ADDONS:
+                    arguments += ['--addons', str(args.addons.expanduser().resolve())]
+                if not ci and name == 'regenerate_all' and args.native_scripts != NATIVE:
+                    arguments += ['--native-scripts', str(args.native_scripts.expanduser().resolve())]
             elif ci and name == 'generated_digests':
                 arguments += ['--waive-unavailable']
         elif name == 'wiring_audit' and ci:

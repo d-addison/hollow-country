@@ -2,6 +2,7 @@
 import argparse
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -18,6 +19,8 @@ NAMES_INDEX_CHECK = 'vanilla_names_index'
 LOOT_OUTPUT = 'mission/hollow-country/loot-points/additions-interiors.json'
 # Historical inputs documented in docs/LOOT_POINTS.md, Reproduction and validation.
 LOOT_REVISIONS = (('prior', '335915c6'), ('candidate', 'fa0c2ac8'))
+# Full-client checks took 671 s and 393 s on the release host. Allow about 3x headroom when opted in.
+GEOMETRY_COMPARE_TIMEOUTS = {'loot_point_preserve': 2100, 'new_buildings': 1200}
 
 
 @dataclass(frozen=True)
@@ -161,9 +164,11 @@ def check_generator(generator, values, timeout):
                 return 'FAIL', f'exit {result.returncode}: ' + diagnostic(result)
         if not generator.digest:
             return 'PASS', generator.success
+        if values.get('geometry_addons'):
+            timeout = max(timeout, GEOMETRY_COMPARE_TIMEOUTS.get(generator.name, 0))
         command = [sys.executable, '-B', '-m', 'tools.package.generated_digests', '--compare', generator.name,
                    '--timeout', str(timeout)]
-        for key in ('addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'):
+        for key in ('addons', 'geometry_addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa'):
             if values.get(key) is not None:
                 command += ['--' + key.replace('_', '-'), str(values[key])]
         for census in values.get('native_census', []):
@@ -192,19 +197,26 @@ def main(argv=None):
     parser.add_argument('--require-installed', action='store_true', help='fail if any required input is skipped')
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--workshop', type=Path, default=WORKSHOP, help='inventory provider Workshop root')
-    parser.add_argument('--source', type=Path, help='pristine stock mission; default: sibling of Addons under mpmissions/dayzOffline.chernarusplus')
-    parser.add_argument('--snafu-report', type=Path, help='existing external verification report')
-    parser.add_argument('--tactical-flava-report', type=Path, help='existing external verification report')
+    parser.add_argument('--source', type=Path, default=os.environ.get('HC_GENERATED_SOURCE') or None,
+                        help='pristine stock mission; default: sibling of Addons under mpmissions/dayzOffline.chernarusplus')
+    parser.add_argument('--geometry-addons', type=Path, default=os.environ.get('HC_GENERATED_GEOMETRY_ADDONS') or None,
+                        help='full DayZ client Addons for visual geometry (default: --addons)')
+    parser.add_argument('--snafu-report', type=Path, default=os.environ.get('HC_GENERATED_SNAFU_REPORT') or None,
+                        help='existing external verification report')
+    parser.add_argument('--tactical-flava-report', type=Path,
+                        default=os.environ.get('HC_GENERATED_TACTICAL_FLAVA_REPORT') or None,
+                        help='existing external verification report')
     parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--native-scripts', type=Path, default=NATIVE_SCRIPTS,
                         help='extracted engine scripts the committed names index is compared with')
     parser.add_argument('--native-census', type=Path, action='append', default=[])
-    parser.add_argument('--image-to-paa', type=Path, help='installed ImageToPAA converter')
+    parser.add_argument('--image-to-paa', type=Path, default=os.environ.get('HC_GENERATED_IMAGE_TO_PAA') or None,
+                        help='installed ImageToPAA converter')
     parser.add_argument('--timeout', type=positive_timeout, default=60, help='seconds per child (default: 60)')
     args = parser.parse_args(argv)
     values = {name: path.expanduser().resolve() if path is not None else None
               for name, path in vars(args).items() if name in
-              {'addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa',
+              {'addons', 'geometry_addons', 'workshop', 'source', 'snafu_report', 'tactical_flava_report', 'image_to_paa',
                'native_scripts'}}
     values['native_census'] = [p.expanduser().resolve() for p in args.native_census]
     if values['source'] is None:
