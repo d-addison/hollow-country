@@ -476,7 +476,7 @@ def read_source(path, root=None):
     return _read_file(path, root, None)
 
 
-def mod_sources(root, mods=('HollowCountry', 'HollowCountryAnims', 'HollowCountryExpansionAI')):
+def mod_sources(root, mods=('HollowCountry', 'HollowCountryAnims', 'HollowCountryExpansionAI', 'HollowCountryTest')):
     """Authored script sources in deterministic mod load order, then path order."""
     root = Path(root)
     result = []
