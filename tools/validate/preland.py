@@ -110,6 +110,10 @@ class CheckResult(NamedTuple):
 
 def incomplete_lines(name, output, ci=False):
     lines = output.splitlines()
+    if name == 'layout_lint':
+        # The successful texture inventory reports zero counts in JSON.
+        complete = 'layout_lint: texture counts {"skipped": 0, "unresolved": 0}'
+        lines = [line for line in lines if line != complete]
     notices = CI_NOTICES.get(name, ())
     if ci and name == 'layout_lint':
         # R7 emits exit 2 for its explicit offline subset and lists native-review
