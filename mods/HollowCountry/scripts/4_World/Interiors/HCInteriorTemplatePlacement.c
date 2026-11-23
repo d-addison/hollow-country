@@ -448,7 +448,7 @@ class HCInteriorTemplatePlacement
             steps.HCAdd(STEP_LOG, TickCount(mark));
             placed.Insert(object);
             mark = TickCount(0);
-            s_TemplateRegion.Include(object);
+            s_TemplateRegion.IncludeRespectConfig(object);
             steps.HCAdd(STEP_SCHEDULE, TickCount(mark));
             houseCount = houseCount + 1;
             s_Placed = s_Placed + 1;
